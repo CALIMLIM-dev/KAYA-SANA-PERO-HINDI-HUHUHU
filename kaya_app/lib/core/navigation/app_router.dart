@@ -27,6 +27,7 @@ import '../../features/applications/screens/applications_screen.dart';
 // Messaging Screens
 import '../../features/messaging/screens/messages_list_screen.dart';
 import '../../features/messaging/screens/conversations_screen.dart';
+import '../../features/messaging/screens/chat_screen.dart';
 
 // Notification Screens
 import '../../features/notifications/screens/notifications_screen.dart';
@@ -148,9 +149,9 @@ class AppRouter {
         return MaterialPageRoute(builder: (_) => const MessagesListScreen());
       
       case chat:
-        // Navigate to conversations screen for chat functionality
         return MaterialPageRoute(
-          builder: (_) => const ConversationsScreen(),
+          builder: (_) => const ChatScreen(),
+          settings: settings,
         );
       
       case notifications:
