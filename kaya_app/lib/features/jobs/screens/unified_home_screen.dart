@@ -937,25 +937,25 @@ class _UnifiedHomeScreenState extends State<UnifiedHomeScreen> {
           _CategoryButton(
             icon: Icons.plumbing,
             label: 'Plumbing',
-            color: AppColors.plumbing,
+            color: AppColors.categoryIcon,
             onTap: () => _onCategoryTap('Plumbing'),
           ),
           _CategoryButton(
             icon: Icons.electrical_services,
             label: 'Electrical',
-            color: AppColors.electrical,
+            color: AppColors.categoryIcon,
             onTap: () => _onCategoryTap('Electrical'),
           ),
           _CategoryButton(
             icon: Icons.format_paint,
             label: 'Painting',
-            color: AppColors.painting,
+            color: AppColors.categoryIcon,
             onTap: () => _onCategoryTap('Painting'),
           ),
           _CategoryButton(
             icon: Icons.construction,
             label: 'Carpentry',
-            color: AppColors.carpentry,
+            color: AppColors.categoryIcon,
             onTap: () => _onCategoryTap('Carpentry'),
           ),
         ],
@@ -999,25 +999,25 @@ class _UnifiedHomeScreenState extends State<UnifiedHomeScreen> {
           _CategoryButton(
             icon: Icons.plumbing,
             label: 'Plumbing',
-            color: AppColors.plumbing,
+            color: AppColors.categoryIcon,
             onTap: () => _onCategoryTap('Plumbing'),
           ),
           _CategoryButton(
             icon: Icons.electrical_services,
             label: 'Electrical',
-            color: AppColors.electrical,
+            color: AppColors.categoryIcon,
             onTap: () => _onCategoryTap('Electrical'),
           ),
           _CategoryButton(
             icon: Icons.format_paint,
             label: 'Painting',
-            color: AppColors.painting,
+            color: AppColors.categoryIcon,
             onTap: () => _onCategoryTap('Painting'),
           ),
           _CategoryButton(
             icon: Icons.construction,
             label: 'Carpentry',
-            color: AppColors.carpentry,
+            color: AppColors.categoryIcon,
             onTap: () => _onCategoryTap('Carpentry'),
           ),
         ],
@@ -1186,17 +1186,11 @@ class _UnifiedHomeScreenState extends State<UnifiedHomeScreen> {
   }
 
   void _navigateToActiveJobs() {
-    // TODO: Navigate to My Jobs / Posted Jobs screen
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Navigating to Active Jobs...')),
-    );
+    Navigator.pushNamed(context, '/manage-jobs');
   }
 
   void _navigateToPendingApplications() {
-    // TODO: Navigate to My Applications screen
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Navigating to Pending Applications...')),
-    );
+    Navigator.pushNamed(context, '/applications');
   }
 
   /// Get time-based greeting

@@ -7,15 +7,16 @@ class ProfileScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Mock data - should come from provider/state management
-    const String userName = 'Eddison';
-    const String userRole = 'Worker'; // or 'Employer'
-    const String primarySkill = 'Professional Plumber';
-    const String location = 'Urdaneta City, Pangasinan';
-    const String email = 'eddison@email.com';
-    const String phone = '+63 912 345 6789';
-    const bool isVerified = true;
-    const int yearsExperience = 5;
+    // Mock data - TODO: replace with actual Provider values
+    final String userName = 'Eddison';
+    final String userRole = 'Worker';
+    final String primarySkill = 'Professional Plumber';
+    final String location = 'Urdaneta City, Pangasinan';
+    final String email = 'eddison@email.com';
+    final String phone = '+63 912 345 6789';
+    // TODO: load from AuthProvider — defaults to false until verified
+    final bool isVerified = DateTime.now().millisecondsSinceEpoch < 0; // always false at runtime but not a const
+    final int yearsExperience = 5;
     
     return Scaffold(
       backgroundColor: AppColors.neutral50,
@@ -95,9 +96,9 @@ class ProfileScreen extends StatelessWidget {
                         const SizedBox(height: 16),
                         
                         // Name
-                        const Text(
+                        Text(
                           userName,
-                          style: TextStyle(
+                          style: const TextStyle(
                             fontSize: 24,
                             fontWeight: FontWeight.bold,
                             color: Colors.white,
@@ -292,7 +293,7 @@ class ProfileScreen extends StatelessWidget {
                       icon: Icons.business_center_outlined,
                       title: 'My Job Posts',
                       subtitle: 'Manage jobs you posted',
-                      onTap: () {},
+                      onTap: () => Navigator.pushNamed(context, '/manage-jobs'),
                     ),
                   _MenuItem(
                     icon: Icons.mail_outline,

@@ -51,6 +51,9 @@ import '../../features/employer/screens/add_employer_details_screen.dart';
 import '../../features/employer/screens/add_employer_contact_screen.dart';
 import '../../features/employer/screens/add_employer_location_screen.dart';
 import '../../features/employer/screens/add_employer_about_screen.dart';
+import '../../features/employer/screens/manage_jobs_screen.dart';
+import '../../features/employer/screens/employer_profile_screen.dart';
+import '../../features/applications/screens/view_applicants_screen.dart';
 
 // Help Screens
 import '../../features/help/screens/faq_screen.dart';
@@ -90,6 +93,9 @@ class AppRouter {
   static const String addEmployerContact = '/add-employer-contact';
   static const String addEmployerLocation = '/add-employer-location';
   static const String addEmployerAbout = '/add-employer-about';
+  static const String manageJobs = '/manage-jobs';
+  static const String viewApplicants = '/view-applicants';
+  static const String employerProfile = '/employer-profile';
 
   /// Generate routes for the app
   static Route<dynamic> generateRoute(RouteSettings settings) {
@@ -209,6 +215,15 @@ class AppRouter {
       
       case addEmployerAbout:
         return MaterialPageRoute(builder: (_) => const AddEmployerAboutScreen());
+      
+      case manageJobs:
+        return MaterialPageRoute(builder: (_) => const ManageJobsScreen());
+      
+      case viewApplicants:
+        return MaterialPageRoute(builder: (_) => const ViewApplicantsScreen());
+      
+      case employerProfile:
+        return MaterialPageRoute(builder: (_) => const EmployerProfileScreen());
       
       default:
         return _errorRoute('Page not found: ${settings.name}');

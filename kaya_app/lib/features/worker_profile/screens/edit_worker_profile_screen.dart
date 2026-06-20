@@ -1,19 +1,16 @@
 import 'package:flutter/material.dart';
-import '../../../core/constants/app_colors.dart';
 
+/// Edit Worker Profile — redirects to the profile management screen
+/// where workers fill in their details (my_worker_profile_screen)
 class EditWorkerProfileScreen extends StatelessWidget {
   const EditWorkerProfileScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: AppColors.background,
-      appBar: AppBar(
-        title: const Text('Edit Profile'),
-      ),
-      body: const Center(
-        child: Text('Edit Worker Profile Screen - Coming Soon'),
-      ),
-    );
+    // Immediately navigate to the real profile screen
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      Navigator.pushReplacementNamed(context, '/my-worker-profile');
+    });
+    return const SizedBox.shrink();
   }
 }

@@ -91,66 +91,75 @@ class JobDetailsScreen extends StatelessWidget {
             _buildSection(
               title: 'Posted by',
               children: [
-                Row(
-                  children: [
-                    CircleAvatar(
-                      radius: 28,
-                      backgroundColor: AppColors.primary.withValues(alpha: 0.1),
-                      child: const Icon(
-                        Icons.business,
-                        color: AppColors.primary,
-                        size: 28,
-                      ),
-                    ),
-                    const SizedBox(width: 14),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
+                InkWell(
+                  onTap: () => Navigator.pushNamed(context, '/employer-profile'),
+                  borderRadius: BorderRadius.circular(12),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 4),
+                    child: Row(
+                      children: [
+                        CircleAvatar(
+                          radius: 28,
+                          backgroundColor: AppColors.primary.withValues(alpha: 0.1),
+                          child: const Icon(
+                            Icons.business,
+                            color: AppColors.primary,
+                            size: 28,
+                          ),
+                        ),
+                        const SizedBox(width: 14),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Text(
-                                'Plumbing Services Inc.',
-                                style: TextStyle(
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.w600,
-                                  color: AppColors.neutral900,
-                                ),
+                              Row(
+                                children: [
+                                  Text(
+                                    'Plumbing Services Inc.',
+                                    style: TextStyle(
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.w600,
+                                      color: AppColors.neutral900,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 6),
+                                  const Icon(
+                                    Icons.verified,
+                                    color: AppColors.verified,
+                                    size: 16,
+                                  ),
+                                ],
                               ),
-                              const SizedBox(width: 6),
-                              const Icon(
-                                Icons.verified,
-                                color: AppColors.verified,
-                                size: 16,
+                              const SizedBox(height: 4),
+                              Row(
+                                children: [
+                                  const Icon(Icons.star, color: Colors.amber, size: 14),
+                                  const SizedBox(width: 4),
+                                  Text(
+                                    '4.8',
+                                    style: TextStyle(
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w600,
+                                      color: AppColors.neutral700,
+                                    ),
+                                  ),
+                                  Text(
+                                    ' (89 reviews)',
+                                    style: TextStyle(
+                                      fontSize: 13,
+                                      color: AppColors.neutral600,
+                                    ),
+                                  ),
+                                ],
                               ),
                             ],
                           ),
-                          const SizedBox(height: 4),
-                          Row(
-                            children: [
-                              const Icon(Icons.star, color: Colors.amber, size: 14),
-                              const SizedBox(width: 4),
-                              Text(
-                                '4.8',
-                                style: TextStyle(
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.w600,
-                                  color: AppColors.neutral700,
-                                ),
-                              ),
-                              Text(
-                                ' (89 reviews)',
-                                style: TextStyle(
-                                  fontSize: 13,
-                                  color: AppColors.neutral600,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ],
-                      ),
+                        ),
+                        const Icon(Icons.arrow_forward_ios,
+                            size: 14, color: AppColors.neutral400),
+                      ],
                     ),
-                  ],
+                  ),
                 ),
               ],
             ),

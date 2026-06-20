@@ -218,8 +218,8 @@ class ApplicationCard extends StatelessWidget {
         return AppColors.success;
       case 'rejected':
         return AppColors.error;
-      case 'completed':
-        return AppColors.info;
+      case 'withdrawn':
+        return AppColors.neutral400;
       default:
         return AppColors.neutral400;
     }
@@ -263,8 +263,8 @@ class _StatusBadge extends StatelessWidget {
         return AppColors.success;
       case 'rejected':
         return AppColors.error;
-      case 'completed':
-        return AppColors.info;
+      case 'withdrawn':
+        return AppColors.neutral400;
       default:
         return AppColors.neutral400;
     }

@@ -1,19 +1,3 @@
-import 'package:flutter/material.dart';
-import '../../../core/constants/app_colors.dart';
-
-class PostJobScreen extends StatelessWidget {
-  const PostJobScreen({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: AppColors.background,
-      appBar: AppBar(
-        title: const Text('Post a Job'),
-      ),
-      body: const Center(
-        child: Text('Post Job Screen - Coming Soon'),
-      ),
-    );
-  }
-}
+// The real Post Job screen lives in features/jobs/screens/post_job_screen.dart
+// This file re-exports it so any import of this path still compiles.
+export '../../jobs/screens/post_job_screen.dart';
