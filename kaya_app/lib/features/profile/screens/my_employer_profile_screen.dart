@@ -23,6 +23,7 @@ class _MyEmployerProfileScreenState extends State<MyEmployerProfileScreen>
   String? _name;
   String? _description;
   String? _location;
+  bool _hasPhoto = false;
   String _verificationStatus = 'unverified'; // verified | pending | unverified
   @override
   void initState() {
@@ -56,7 +57,7 @@ class _MyEmployerProfileScreenState extends State<MyEmployerProfileScreen>
             ),
             actions: [
               IconButton(
-                icon: const Icon(Icons.settings, color: Colors.white),
+                icon: const Icon(Icons.more_vert, color: Colors.white),
                 onPressed: () {},
               ),
             ],
@@ -111,68 +112,131 @@ class _MyEmployerProfileScreenState extends State<MyEmployerProfileScreen>
             children: [
               const SizedBox(height: 44),
 
-              // Role chip — shows what type they are
-              if (_role != null)
-                Container(
-                  margin: const EdgeInsets.only(bottom: 8),
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.15),
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(
-                        _role == 'Company' ? Icons.business_center : Icons.person,
-                        size: 12,
-                        color: Colors.white70,
-                      ),
-                      const SizedBox(width: 4),
-                      Text(
-                        _role!,
-                        style: const TextStyle(
-                          fontSize: 11,
-                          fontWeight: FontWeight.w600,
-                          color: Colors.white70,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-
-              // Name — always visible
-              Text(
-                _name ?? 'Your Name',
-                style: TextStyle(
-                  fontSize: 22,
-                  fontWeight: FontWeight.bold,
-                  color: _name != null ? Colors.white : Colors.white30,
-                ),
-              ),
-
-              const SizedBox(height: 6),
-
-              // Location — always visible
+              // ── Avatar + info row ──
               Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
-                  Icon(Icons.location_on,
-                      size: 13,
-                      color: _location != null ? Colors.white70 : Colors.white30),
-                  const SizedBox(width: 4),
-                  Text(
-                    _location ?? 'Location not set',
-                    style: TextStyle(
-                      fontSize: 13,
-                      color: _location != null ? Colors.white70 : Colors.white30,
+                  // Profile photo — tappable to upload
+                  GestureDetector(
+                    onTap: () {
+                      // TODO: wire to image picker
+                      setState(() => _hasPhoto = !_hasPhoto);
+                    },
+                    child: Stack(
+                      children: [
+                        Container(
+                          width: 68,
+                          height: 68,
+                          decoration: BoxDecoration(
+                            color: Colors.white.withValues(alpha: 0.15),
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(
+                              color: Colors.white.withValues(alpha: 0.3),
+                              width: 2,
+                            ),
+                          ),
+                          child: _hasPhoto
+                              ? const Icon(Icons.business,
+                                  color: Colors.white, size: 32)
+                              : const Icon(Icons.camera_alt,
+                                  color: Colors.white54, size: 24),
+                        ),
+                        if (!_hasPhoto)
+                          Positioned(
+                            bottom: 0,
+                            right: 0,
+                            child: Container(
+                              width: 22,
+                              height: 22,
+                              decoration: BoxDecoration(
+                                color: AppColors.accent,
+                                shape: BoxShape.circle,
+                                border: Border.all(
+                                    color: Colors.white, width: 1.5),
+                              ),
+                              child: const Icon(Icons.add,
+                                  size: 12, color: Colors.white),
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 14),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // Role chip
+                        if (_role != null)
+                          Container(
+                            margin: const EdgeInsets.only(bottom: 6),
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 10, vertical: 3),
+                            decoration: BoxDecoration(
+                              color: Colors.white.withValues(alpha: 0.15),
+                              borderRadius: BorderRadius.circular(20),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(
+                                  _role == 'Company'
+                                      ? Icons.business_center
+                                      : Icons.person,
+                                  size: 11,
+                                  color: Colors.white70,
+                                ),
+                                const SizedBox(width: 4),
+                                Text(_role!,
+                                    style: const TextStyle(
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.w600,
+                                        color: Colors.white70)),
+                              ],
+                            ),
+                          ),
+
+                        // Name
+                        Text(
+                          _name ?? 'Your Name',
+                          style: TextStyle(
+                            fontSize: 20,
+                            fontWeight: FontWeight.bold,
+                            color: _name != null
+                                ? Colors.white
+                                : Colors.white30,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+
+                        // Location
+                        Row(
+                          children: [
+                            Icon(Icons.location_on,
+                                size: 13,
+                                color: _location != null
+                                    ? Colors.white70
+                                    : Colors.white30),
+                            const SizedBox(width: 3),
+                            Text(
+                              _location ?? 'Location not set',
+                              style: TextStyle(
+                                  fontSize: 12,
+                                  color: _location != null
+                                      ? Colors.white70
+                                      : Colors.white30),
+                            ),
+                          ],
+                        ),
+                      ],
                     ),
                   ),
                 ],
               ),
 
-              const SizedBox(height: 6),
+              const SizedBox(height: 10),
 
-              // Description — always visible
+              // Description
               Text(
                 _description != null
                     ? (_description!.length > 90
@@ -181,7 +245,9 @@ class _MyEmployerProfileScreenState extends State<MyEmployerProfileScreen>
                     : 'No description yet',
                 style: TextStyle(
                   fontSize: 13,
-                  color: _description != null ? Colors.white60 : Colors.white24,
+                  color: _description != null
+                      ? Colors.white60
+                      : Colors.white24,
                   height: 1.4,
                 ),
               ),
@@ -400,18 +466,21 @@ class _MyEmployerProfileScreenState extends State<MyEmployerProfileScreen>
             title: 'Business Registration',
             subtitle: 'Upload DTI, SEC, or Mayor\'s permit',
             icon: Icons.business_center,
+            type: 'business_reg',
             isVerified: false,
           ),
           _buildVerificationCard(
             title: 'Phone Number',
             subtitle: 'Verify via SMS code',
             icon: Icons.phone,
+            type: 'phone',
             isVerified: false,
           ),
           _buildVerificationCard(
             title: 'Email Address',
             subtitle: 'Verify via email link',
             icon: Icons.email,
+            type: 'email',
             isVerified: false,
           ),
         ]
@@ -422,18 +491,21 @@ class _MyEmployerProfileScreenState extends State<MyEmployerProfileScreen>
             title: 'Government ID',
             subtitle: 'Upload a valid government-issued ID',
             icon: Icons.badge,
+            type: 'government_id',
             isVerified: false,
           ),
           _buildVerificationCard(
             title: 'Phone Number',
             subtitle: 'Verify via SMS code',
             icon: Icons.phone,
+            type: 'phone',
             isVerified: false,
           ),
           _buildVerificationCard(
             title: 'Email Address',
             subtitle: 'Verify via email link',
             icon: Icons.email,
+            type: 'email',
             isVerified: false,
           ),
         ]
@@ -556,6 +628,7 @@ class _MyEmployerProfileScreenState extends State<MyEmployerProfileScreen>
     required String title,
     required String subtitle,
     required IconData icon,
+    required String type,
     required bool isVerified,
   }) {
     return Container(
@@ -565,7 +638,17 @@ class _MyEmployerProfileScreenState extends State<MyEmployerProfileScreen>
         borderRadius: BorderRadius.circular(12),
         elevation: 1,
         child: InkWell(
-          onTap: () {},
+          onTap: isVerified ? null : () {
+            Navigator.pushNamed(
+              context,
+              '/verification',
+              arguments: {
+                'type': type,
+                'title': title,
+                'subtitle': subtitle,
+              },
+            );
+          },
           borderRadius: BorderRadius.circular(12),
           child: Padding(
             padding: const EdgeInsets.all(16),

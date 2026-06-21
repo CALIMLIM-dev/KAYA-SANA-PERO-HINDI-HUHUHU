@@ -49,7 +49,6 @@ class JobDetailsScreen extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(height: 10),
-                // Salary right below title
                 Text(
                   '₱1,200/day',
                   style: TextStyle(
@@ -188,11 +187,10 @@ class JobDetailsScreen extends StatelessWidget {
             
             const SizedBox(height: 12),
             
-            // Location with Map (Facebook Marketplace style)
+            // Location
             _buildSection(
               title: 'Location',
               children: [
-                // Map preview
                 Container(
                   height: 160,
                   width: double.infinity,
@@ -205,7 +203,6 @@ class JobDetailsScreen extends StatelessWidget {
                     borderRadius: BorderRadius.circular(12),
                     child: Stack(
                       children: [
-                        // Map placeholder - in real app, use google_maps_flutter
                         Container(
                           color: AppColors.neutral100,
                           child: Center(
@@ -216,7 +213,6 @@ class JobDetailsScreen extends StatelessWidget {
                             ),
                           ),
                         ),
-                        // Pin marker
                         Center(
                           child: Icon(
                             Icons.location_pin,
@@ -229,7 +225,6 @@ class JobDetailsScreen extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(height: 14),
-                // Location details
                 Row(
                   children: [
                     Icon(Icons.location_on, color: AppColors.primary, size: 20),
@@ -314,7 +309,6 @@ class JobDetailsScreen extends StatelessWidget {
                 ),
               ],
             ),
-            
             
             const SizedBox(height: 100),
           ],
@@ -459,9 +453,20 @@ class JobDetailsScreen extends StatelessWidget {
       child: SafeArea(
         child: Row(
           children: [
-            // Contact button (secondary)
             OutlinedButton(
-              onPressed: () => _showContactDialog(context),
+              onPressed: () => Navigator.pushNamed(
+                context,
+                '/chat',
+                arguments: {
+                  'name': 'Plumbing Services Inc.',
+                  'jobTitle': 'Emergency Pipe Repair',
+                  'jobLocation': 'Urdaneta City',
+                  'jobSalary': '₱1,200/day',
+                  'isVerified': true,
+                  'isOnline': true,
+                  'otherRole': 'employer',
+                },
+              ),
               style: OutlinedButton.styleFrom(
                 side: BorderSide(color: AppColors.primary),
                 foregroundColor: AppColors.primary,
@@ -473,7 +478,6 @@ class JobDetailsScreen extends StatelessWidget {
               child: const Icon(Icons.message, size: 22),
             ),
             const SizedBox(width: 12),
-            // Apply button (primary)
             Expanded(
               child: ElevatedButton(
                 onPressed: () => _showApplyDialog(context),
@@ -541,42 +545,6 @@ class JobDetailsScreen extends StatelessWidget {
               backgroundColor: AppColors.primary,
             ),
             child: const Text('Submit Application'),
-          ),
-        ],
-      ),
-    );
-  }
-
-  void _showContactDialog(BuildContext context) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Row(
-          children: [
-            Icon(Icons.message, color: AppColors.primary),
-            const SizedBox(width: 10),
-            const Text('Quick Question?'),
-          ],
-        ),
-        content: const Text(
-          'Send a message to ask questions like "Is this still available?" or "Can I bring my own team?" before applying.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              Navigator.pop(context);
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Message sent to employer!')),
-              );
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.primary,
-            ),
-            child: const Text('Send Message'),
           ),
         ],
       ),

@@ -287,8 +287,9 @@ class _ViewApplicantsScreenState extends State<ViewApplicantsScreen>
                 children: [
                   Expanded(
                     child: OutlinedButton(
-                      onPressed: () =>
-                          Navigator.pushNamed(context, '/worker-profile'),
+                      onPressed: () => Navigator.pushNamed(
+                          context, '/applicant-review',
+                          arguments: applicant),
                       style: OutlinedButton.styleFrom(
                         foregroundColor: AppColors.primary,
                         side: const BorderSide(color: AppColors.primary),

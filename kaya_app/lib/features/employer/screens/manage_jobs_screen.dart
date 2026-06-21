@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import '../../../core/constants/app_colors.dart';
 
-/// Manage Jobs Screen — employer sees all their posted jobs
+/// Manage Jobs Screen — employer's posted jobs
+/// Two tabs: Active (open + in_progress) | History (completed + closed)
 class ManageJobsScreen extends StatefulWidget {
   const ManageJobsScreen({super.key});
 
@@ -13,7 +14,7 @@ class _ManageJobsScreenState extends State<ManageJobsScreen>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
 
-  // TODO: Replace with real data from JobProvider
+  // TODO: Replace with JobProvider
   final List<Map<String, dynamic>> _jobs = [
     {
       'id': 1,
@@ -24,6 +25,7 @@ class _ManageJobsScreenState extends State<ManageJobsScreen>
       'status': 'open',
       'applicants': 5,
       'postedDate': '2 days ago',
+      'hasReview': false,
     },
     {
       'id': 2,
@@ -33,7 +35,9 @@ class _ManageJobsScreenState extends State<ManageJobsScreen>
       'budget': '₱800/day',
       'status': 'in_progress',
       'applicants': 3,
+      'workerName': 'Juan Dela Cruz',
       'postedDate': '1 week ago',
+      'hasReview': false,
     },
     {
       'id': 3,
@@ -43,7 +47,10 @@ class _ManageJobsScreenState extends State<ManageJobsScreen>
       'budget': '₱2,500/day',
       'status': 'completed',
       'applicants': 8,
+      'workerName': 'Maria Santos',
+      'completedDate': '2 weeks ago',
       'postedDate': '1 month ago',
+      'hasReview': false,
     },
     {
       'id': 4,
@@ -51,16 +58,36 @@ class _ManageJobsScreenState extends State<ManageJobsScreen>
       'category': 'Electrical',
       'location': 'Pangasinan',
       'budget': '₱1,500/day',
-      'status': 'closed',
+      'status': 'completed',
       'applicants': 2,
+      'workerName': 'Pedro Cruz',
+      'completedDate': '1 month ago',
       'postedDate': '2 months ago',
+      'hasReview': true,
+    },
+    {
+      'id': 5,
+      'title': 'Garden Landscaping',
+      'category': 'Landscaping',
+      'location': 'Pangasinan',
+      'budget': '₱1,000/day',
+      'status': 'closed',
+      'applicants': 0,
+      'postedDate': '3 months ago',
+      'hasReview': false,
     },
   ];
+
+  List<Map<String, dynamic>> get _activeJobs =>
+      _jobs.where((j) => j['status'] == 'open' || j['status'] == 'in_progress').toList();
+
+  List<Map<String, dynamic>> get _historyJobs =>
+      _jobs.where((j) => j['status'] == 'completed' || j['status'] == 'closed').toList();
 
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 4, vsync: this);
+    _tabController = TabController(length: 2, vsync: this);
   }
 
   @override
@@ -68,9 +95,6 @@ class _ManageJobsScreenState extends State<ManageJobsScreen>
     _tabController.dispose();
     super.dispose();
   }
-
-  List<Map<String, dynamic>> _filterByStatus(String status) =>
-      _jobs.where((j) => j['status'] == status).toList();
 
   @override
   Widget build(BuildContext context) {
@@ -80,40 +104,27 @@ class _ManageJobsScreenState extends State<ManageJobsScreen>
         backgroundColor: AppColors.primary,
         foregroundColor: Colors.white,
         elevation: 0,
-        title: const Text(
-          'My Jobs',
-          style: TextStyle(fontWeight: FontWeight.w600),
-        ),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.add),
-            onPressed: () => Navigator.pushNamed(context, '/post-job'),
-            tooltip: 'Post a Job',
-          ),
-        ],
+        title: const Text('My Jobs',
+            style: TextStyle(fontWeight: FontWeight.w600)),
         bottom: TabBar(
           controller: _tabController,
-          isScrollable: true,
           indicatorColor: AppColors.accent,
           indicatorWeight: 3,
           labelColor: Colors.white,
           unselectedLabelColor: Colors.white60,
-          labelStyle: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
+          labelStyle:
+              const TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
           tabs: [
-            Tab(text: 'Open (${_filterByStatus('open').length})'),
-            Tab(text: 'In Progress (${_filterByStatus('in_progress').length})'),
-            Tab(text: 'Completed (${_filterByStatus('completed').length})'),
-            Tab(text: 'Closed (${_filterByStatus('closed').length})'),
+            Tab(text: 'Active (${_activeJobs.length})'),
+            Tab(text: 'History (${_historyJobs.length})'),
           ],
         ),
       ),
       body: TabBarView(
         controller: _tabController,
         children: [
-          _buildJobList(_filterByStatus('open')),
-          _buildJobList(_filterByStatus('in_progress')),
-          _buildJobList(_filterByStatus('completed')),
-          _buildJobList(_filterByStatus('closed')),
+          _buildList(_activeJobs, isHistory: false),
+          _buildList(_historyJobs, isHistory: true),
         ],
       ),
       floatingActionButton: FloatingActionButton.extended(
@@ -127,7 +138,8 @@ class _ManageJobsScreenState extends State<ManageJobsScreen>
     );
   }
 
-  Widget _buildJobList(List<Map<String, dynamic>> jobs) {
+  Widget _buildList(List<Map<String, dynamic>> jobs,
+      {required bool isHistory}) {
     if (jobs.isEmpty) {
       return Center(
         child: Column(
@@ -135,32 +147,40 @@ class _ManageJobsScreenState extends State<ManageJobsScreen>
           children: [
             Icon(Icons.work_outline, size: 56, color: AppColors.neutral300),
             const SizedBox(height: 16),
-            const Text('No jobs here yet',
-                style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                    color: AppColors.neutral600)),
+            Text(
+              isHistory ? 'No past jobs yet' : 'No active jobs',
+              style: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.neutral600),
+            ),
             const SizedBox(height: 8),
-            const Text('Post a job to start hiring workers',
-                style:
-                    TextStyle(fontSize: 14, color: AppColors.neutral400)),
+            if (!isHistory)
+              const Text('Post a job to start hiring workers',
+                  style: TextStyle(
+                      fontSize: 14, color: AppColors.neutral400)),
           ],
         ),
       );
     }
 
     return RefreshIndicator(
-      onRefresh: () async => await Future.delayed(const Duration(seconds: 1)),
+      onRefresh: () async =>
+          await Future.delayed(const Duration(seconds: 1)),
       child: ListView.builder(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.fromLTRB(16, 16, 16, 100),
         itemCount: jobs.length,
-        itemBuilder: (context, index) => _buildJobCard(jobs[index]),
+        itemBuilder: (context, i) =>
+            _buildCard(jobs[i], isHistory: isHistory),
       ),
     );
   }
 
-  Widget _buildJobCard(Map<String, dynamic> job) {
+  Widget _buildCard(Map<String, dynamic> job,
+      {required bool isHistory}) {
     final status = job['status'] as String;
+    final hasReview = job['hasReview'] as bool? ?? false;
+
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       decoration: BoxDecoration(
@@ -182,18 +202,15 @@ class _ManageJobsScreenState extends State<ManageJobsScreen>
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Title + status badge
+              // ── Title + status badge ──
               Row(
                 children: [
                   Expanded(
-                    child: Text(
-                      job['title'],
-                      style: const TextStyle(
-                        fontSize: 15,
-                        fontWeight: FontWeight.w700,
-                        color: AppColors.neutral900,
-                      ),
-                    ),
+                    child: Text(job['title'],
+                        style: const TextStyle(
+                            fontSize: 15,
+                            fontWeight: FontWeight.w700,
+                            color: AppColors.neutral900)),
                   ),
                   const SizedBox(width: 8),
                   _statusBadge(status),
@@ -201,17 +218,17 @@ class _ManageJobsScreenState extends State<ManageJobsScreen>
               ),
               const SizedBox(height: 8),
 
-              // Category + location
+              // ── Category + location ──
               Row(
                 children: [
-                  Icon(Icons.category_outlined,
+                  const Icon(Icons.category_outlined,
                       size: 13, color: AppColors.neutral400),
                   const SizedBox(width: 4),
                   Text(job['category'],
                       style: const TextStyle(
                           fontSize: 12, color: AppColors.neutral500)),
                   const SizedBox(width: 12),
-                  Icon(Icons.location_on_outlined,
+                  const Icon(Icons.location_on_outlined,
                       size: 13, color: AppColors.neutral400),
                   const SizedBox(width: 4),
                   Text(job['location'],
@@ -219,42 +236,52 @@ class _ManageJobsScreenState extends State<ManageJobsScreen>
                           fontSize: 12, color: AppColors.neutral500)),
                 ],
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: 10),
 
-              // Budget + applicants + posted date
+              // ── Budget + applicants ──
               Row(
                 children: [
-                  Text(
-                    job['budget'],
-                    style: const TextStyle(
-                      fontSize: 15,
-                      fontWeight: FontWeight.w700,
-                      color: AppColors.primary,
-                    ),
-                  ),
+                  Text(job['budget'],
+                      style: const TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w700,
+                          color: AppColors.primary)),
                   const Spacer(),
-                  Icon(Icons.people_outline,
-                      size: 14, color: AppColors.neutral400),
-                  const SizedBox(width: 4),
-                  Text(
-                    '${job['applicants']} applicants',
-                    style: const TextStyle(
-                        fontSize: 12, color: AppColors.neutral500),
-                  ),
-                  const SizedBox(width: 12),
-                  Text(
-                    job['postedDate'],
-                    style: const TextStyle(
-                        fontSize: 12, color: AppColors.neutral400),
-                  ),
+                  if (status != 'closed') ...[
+                    const Icon(Icons.people_outline,
+                        size: 14, color: AppColors.neutral400),
+                    const SizedBox(width: 4),
+                    Text('${job['applicants']} applicants',
+                        style: const TextStyle(
+                            fontSize: 12, color: AppColors.neutral500)),
+                  ],
+                  const SizedBox(width: 8),
+                  Text(job['postedDate'],
+                      style: const TextStyle(
+                          fontSize: 11, color: AppColors.neutral400)),
                 ],
               ),
 
-              // Actions for open jobs
+              // ── Worker assigned (in_progress / completed) ──
+              if (job['workerName'] != null) ...[
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    const Icon(Icons.person_outline,
+                        size: 13, color: AppColors.neutral400),
+                    const SizedBox(width: 4),
+                    Text(job['workerName'],
+                        style: const TextStyle(
+                            fontSize: 12, color: AppColors.neutral600)),
+                  ],
+                ),
+              ],
+
+              // ── Actions ──
               if (status == 'open') ...[
                 const SizedBox(height: 12),
                 const Divider(height: 1),
-                const SizedBox(height: 12),
+                const SizedBox(height: 10),
                 Row(
                   children: [
                     Expanded(
@@ -263,11 +290,12 @@ class _ManageJobsScreenState extends State<ManageJobsScreen>
                             context, '/view-applicants',
                             arguments: job['id']),
                         icon: const Icon(Icons.people, size: 16),
-                        label: Text('View Applicants (${job['applicants']})'),
+                        label: Text('Applicants (${job['applicants']})'),
                         style: OutlinedButton.styleFrom(
                           foregroundColor: AppColors.primary,
                           side: const BorderSide(color: AppColors.primary),
-                          padding: const EdgeInsets.symmetric(vertical: 10),
+                          padding:
+                              const EdgeInsets.symmetric(vertical: 10),
                           shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(8)),
                           textStyle: const TextStyle(
@@ -277,11 +305,11 @@ class _ManageJobsScreenState extends State<ManageJobsScreen>
                     ),
                     const SizedBox(width: 10),
                     OutlinedButton(
-                      onPressed: () =>
-                          _showStatusDialog(context, job),
+                      onPressed: () => _showManageSheet(job),
                       style: OutlinedButton.styleFrom(
                         foregroundColor: AppColors.neutral600,
-                        side: const BorderSide(color: AppColors.neutral300),
+                        side:
+                            const BorderSide(color: AppColors.neutral300),
                         padding: const EdgeInsets.symmetric(
                             vertical: 10, horizontal: 14),
                         shape: RoundedRectangleBorder(
@@ -292,6 +320,93 @@ class _ManageJobsScreenState extends State<ManageJobsScreen>
                     ),
                   ],
                 ),
+              ] else if (status == 'in_progress') ...[
+                const SizedBox(height: 12),
+                const Divider(height: 1),
+                const SizedBox(height: 10),
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        onPressed: () =>
+                            Navigator.pushNamed(context, '/messages'),
+                        icon: const Icon(Icons.message_outlined, size: 16),
+                        label: const Text('Message Worker'),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: AppColors.primary,
+                          side: const BorderSide(color: AppColors.primary),
+                          padding:
+                              const EdgeInsets.symmetric(vertical: 10),
+                          shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8)),
+                          textStyle: const TextStyle(
+                              fontSize: 13, fontWeight: FontWeight.w600),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    ElevatedButton(
+                      onPressed: () => _confirmMarkComplete(job),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppColors.success,
+                        foregroundColor: Colors.white,
+                        elevation: 0,
+                        padding: const EdgeInsets.symmetric(
+                            vertical: 10, horizontal: 14),
+                        shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8)),
+                      ),
+                      child: const Text('Mark Complete',
+                          style: TextStyle(
+                              fontSize: 13, fontWeight: FontWeight.w600)),
+                    ),
+                  ],
+                ),
+              ] else if (status == 'completed') ...[
+                const SizedBox(height: 12),
+                const Divider(height: 1),
+                const SizedBox(height: 10),
+                hasReview
+                    ? Row(
+                        children: const [
+                          Icon(Icons.star_rounded,
+                              size: 16, color: Colors.amber),
+                          SizedBox(width: 6),
+                          Text('Review submitted',
+                              style: TextStyle(
+                                  fontSize: 13,
+                                  color: AppColors.neutral500,
+                                  fontWeight: FontWeight.w500)),
+                        ],
+                      )
+                    : SizedBox(
+                        width: double.infinity,
+                        child: ElevatedButton.icon(
+                          onPressed: () => Navigator.pushNamed(
+                            context,
+                            '/leave-review',
+                            arguments: {
+                              'revieweeName': job['workerName'] ?? 'Worker',
+                              'revieweeRole': 'worker',
+                              'jobTitle': job['title'],
+                            },
+                          ),
+                          icon: const Icon(Icons.star_outline, size: 18),
+                          label: const Text('Leave a Review'),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: AppColors.accent,
+                            foregroundColor: Colors.white,
+                            elevation: 0,
+                            padding:
+                                const EdgeInsets.symmetric(vertical: 11),
+                            shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(10)),
+                            textStyle: const TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w600),
+                          ),
+                        ),
+                      ),
               ],
             ],
           ),
@@ -326,15 +441,13 @@ class _ManageJobsScreenState extends State<ManageJobsScreen>
         color: color.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(20),
       ),
-      child: Text(
-        label,
-        style: TextStyle(
-            fontSize: 11, fontWeight: FontWeight.w600, color: color),
-      ),
+      child: Text(label,
+          style: TextStyle(
+              fontSize: 11, fontWeight: FontWeight.w600, color: color)),
     );
   }
 
-  void _showStatusDialog(BuildContext context, Map<String, dynamic> job) {
+  void _showManageSheet(Map<String, dynamic> job) {
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.white,
@@ -352,18 +465,28 @@ class _ManageJobsScreenState extends State<ManageJobsScreen>
                     fontWeight: FontWeight.w700,
                     color: AppColors.neutral900)),
             const SizedBox(height: 4),
-            const Text('What do you want to do with this job?',
-                style:
-                    TextStyle(fontSize: 13, color: AppColors.neutral600)),
+            const Text('Choose an action',
+                style: TextStyle(fontSize: 13, color: AppColors.neutral600)),
             const SizedBox(height: 20),
-            _actionTile(
-                Icons.edit_outlined, 'Edit Job', AppColors.primary, () {
+            _actionTile(Icons.edit_outlined, 'Edit Job', AppColors.primary,
+                () {
               Navigator.pop(context);
-              Navigator.pushNamed(context, '/job-details');
+              Navigator.pushNamed(context, '/edit-job', arguments: {
+                'title': job['title'],
+                'category': job['category'],
+                'description': 'Existing job description...',
+                'budget': job['budget'].replaceAll(RegExp(r'[₱/a-zA-Z]'), '').trim(),
+                'salaryType': 'Daily',
+                'location': job['location'],
+                'workersNeeded': job['applicants'] > 0 ? 1 : 1,
+                'isUrgent': false,
+                'isNegotiable': false,
+                'selectedSkills': <String>[],
+              });
             }),
             _actionTile(Icons.close, 'Close Job', AppColors.error, () {
               Navigator.pop(context);
-              _confirmClose(context, job);
+              _confirmClose(job);
             }),
           ],
         ),
@@ -391,13 +514,43 @@ class _ManageJobsScreenState extends State<ManageJobsScreen>
     );
   }
 
-  void _confirmClose(BuildContext context, Map<String, dynamic> job) {
+  void _confirmMarkComplete(Map<String, dynamic> job) {
+    showDialog(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text('Mark as Completed?'),
+        content: Text('Mark "${job['title']}" as completed?'),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Cancel')),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.pop(context);
+              setState(() => job['status'] = 'completed');
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                    content: Text('Job marked as completed'),
+                    backgroundColor: AppColors.success),
+              );
+            },
+            style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.success),
+            child: const Text('Mark Complete',
+                style: TextStyle(color: Colors.white)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _confirmClose(Map<String, dynamic> job) {
     showDialog(
       context: context,
       builder: (_) => AlertDialog(
         title: const Text('Close Job?'),
         content: Text(
-            'Close "${job['title']}"? Workers will no longer be able to apply.'),
+            'Close "${job['title']}"? Workers can no longer apply.'),
         actions: [
           TextButton(
               onPressed: () => Navigator.pop(context),
@@ -406,8 +559,8 @@ class _ManageJobsScreenState extends State<ManageJobsScreen>
             onPressed: () {
               Navigator.pop(context);
               setState(() => job['status'] = 'closed');
-              ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Job closed')));
+              ScaffoldMessenger.of(context)
+                  .showSnackBar(const SnackBar(content: Text('Job closed')));
             },
             style:
                 ElevatedButton.styleFrom(backgroundColor: AppColors.error),

@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import '../../../core/constants/app_colors.dart';
 
-/// My Applications Screen — Worker sees all their job applications
-/// Tabs: Pending, Accepted, Rejected, Withdrawn
+/// My Applications Screen — Worker's job applications
+/// Three tabs: Active (pending + accepted) | Past (rejected + withdrawn) | Completed
 class ApplicationsScreen extends StatefulWidget {
   const ApplicationsScreen({super.key});
 
@@ -89,15 +89,50 @@ class _ApplicationsScreenState extends State<ApplicationsScreen>
       'salary': '₱900/day',
       'isVerified': false,
     },
+    {
+      'id': 8,
+      'jobTitle': 'Bathroom Tile Installation',
+      'company': 'Home Depot Services',
+      'location': 'Pangasinan',
+      'appliedDate': '1 month ago',
+      'completedDate': '2 weeks ago',
+      'status': 'completed',
+      'salary': '₱2,000/day',
+      'isVerified': true,
+      'hasReview': false,
+    },
+    {
+      'id': 9,
+      'jobTitle': 'Roof Leak Repair',
+      'company': 'Quick Fix Solutions',
+      'location': 'Dagupan City',
+      'appliedDate': '2 months ago',
+      'completedDate': '1 month ago',
+      'status': 'completed',
+      'salary': '₱1,500/day',
+      'isVerified': true,
+      'hasReview': true,
+    },
   ];
 
-  List<Map<String, dynamic>> _byStatus(String status) =>
-      _applications.where((a) => a['status'] == status).toList();
+  // Active = pending + accepted
+  List<Map<String, dynamic>> get _active => _applications
+      .where((a) => a['status'] == 'pending' || a['status'] == 'accepted')
+      .toList();
+
+  // Completed = completed
+  List<Map<String, dynamic>> get _completed =>
+      _applications.where((a) => a['status'] == 'completed').toList();
+
+  // History = rejected + withdrawn
+  List<Map<String, dynamic>> get _history => _applications
+      .where((a) => a['status'] == 'rejected' || a['status'] == 'withdrawn')
+      .toList();
 
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 4, vsync: this);
+    _tabController = TabController(length: 3, vsync: this);
   }
 
   @override
@@ -114,40 +149,37 @@ class _ApplicationsScreenState extends State<ApplicationsScreen>
         backgroundColor: AppColors.primary,
         foregroundColor: Colors.white,
         elevation: 0,
-        title: const Text(
-          'My Applications',
-          style: TextStyle(fontWeight: FontWeight.w600),
-        ),
+        title: const Text('My Applications',
+            style: TextStyle(fontWeight: FontWeight.w600)),
         bottom: TabBar(
           controller: _tabController,
-          isScrollable: true,
           indicatorColor: AppColors.accent,
           indicatorWeight: 3,
           labelColor: Colors.white,
           unselectedLabelColor: Colors.white60,
-          labelStyle: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
-          tabAlignment: TabAlignment.start,
+          labelStyle:
+              const TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
           tabs: [
-            Tab(text: 'Pending (${_byStatus('pending').length})'),
-            Tab(text: 'Accepted (${_byStatus('accepted').length})'),
-            Tab(text: 'Rejected (${_byStatus('rejected').length})'),
-            Tab(text: 'Withdrawn (${_byStatus('withdrawn').length})'),
+            Tab(text: 'Active (${_active.length})'),
+            Tab(text: 'Completed (${_completed.length})'),
+            Tab(text: 'History (${_history.length})'),
           ],
         ),
       ),
       body: TabBarView(
         controller: _tabController,
         children: [
-          _buildTab(_byStatus('pending')),
-          _buildTab(_byStatus('accepted')),
-          _buildTab(_byStatus('rejected')),
-          _buildTab(_byStatus('withdrawn')),
+          _buildList(_active),
+          _buildList(_completed),
+          _buildList(_history),
         ],
       ),
     );
   }
 
-  Widget _buildTab(List<Map<String, dynamic>> apps) {
+  // ─── tab list ────────────────────────────────────────────────────────────────
+
+  Widget _buildList(List<Map<String, dynamic>> apps) {
     if (apps.isEmpty) {
       return Center(
         child: Column(
@@ -155,26 +187,23 @@ class _ApplicationsScreenState extends State<ApplicationsScreen>
           children: [
             Icon(Icons.inbox_outlined, size: 56, color: AppColors.neutral300),
             const SizedBox(height: 16),
-            const Text(
-              'No applications here',
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w600,
-                color: AppColors.neutral600,
-              ),
-            ),
+            const Text('Nothing here yet',
+                style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.neutral600)),
             const SizedBox(height: 8),
-            const Text(
-              'Browse jobs and start applying',
-              style: TextStyle(fontSize: 14, color: AppColors.neutral400),
-            ),
+            const Text('Browse jobs and start applying',
+                style: TextStyle(
+                    fontSize: 14, color: AppColors.neutral400)),
             const SizedBox(height: 24),
             OutlinedButton(
               onPressed: () => Navigator.pushNamed(context, '/search'),
               style: OutlinedButton.styleFrom(
                 foregroundColor: AppColors.primary,
                 side: const BorderSide(color: AppColors.primary),
-                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                padding: const EdgeInsets.symmetric(
+                    horizontal: 24, vertical: 12),
                 shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(10)),
               ),
@@ -187,17 +216,22 @@ class _ApplicationsScreenState extends State<ApplicationsScreen>
     }
 
     return RefreshIndicator(
-      onRefresh: () async => await Future.delayed(const Duration(seconds: 1)),
+      onRefresh: () async =>
+          await Future.delayed(const Duration(seconds: 1)),
       child: ListView.builder(
         padding: const EdgeInsets.all(16),
         itemCount: apps.length,
-        itemBuilder: (context, index) => _buildCard(apps[index]),
+        itemBuilder: (_, i) => _buildCard(apps[i]),
       ),
     );
   }
 
+  // ─── card ────────────────────────────────────────────────────────────────────
+
   Widget _buildCard(Map<String, dynamic> app) {
     final status = app['status'] as String;
+    final hasReview = app['hasReview'] as bool? ?? false;
+
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       decoration: BoxDecoration(
@@ -219,36 +253,34 @@ class _ApplicationsScreenState extends State<ApplicationsScreen>
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // ── Title + status badge ──
+              // ── Title + badge ──
               Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Expanded(
-                    child: Text(
-                      app['jobTitle'],
-                      style: const TextStyle(
-                        fontSize: 15,
-                        fontWeight: FontWeight.w700,
-                        color: AppColors.neutral900,
-                      ),
-                    ),
+                    child: Text(app['jobTitle'],
+                        style: const TextStyle(
+                            fontSize: 15,
+                            fontWeight: FontWeight.w700,
+                            color: AppColors.neutral900)),
                   ),
                   const SizedBox(width: 8),
-                  _statusBadge(status),
+                  _badge(status),
                 ],
               ),
-              const SizedBox(height: 6),
+              const SizedBox(height: 5),
 
               // ── Company + verified ──
               Row(
                 children: [
-                  Text(
-                    app['company'],
-                    style: const TextStyle(
-                        fontSize: 13, color: AppColors.neutral600),
+                  Flexible(
+                    child: Text(app['company'],
+                        style: const TextStyle(
+                            fontSize: 13, color: AppColors.neutral600),
+                        overflow: TextOverflow.ellipsis),
                   ),
                   if (app['isVerified'] == true) ...[
-                    const SizedBox(width: 5),
+                    const SizedBox(width: 4),
                     const Icon(Icons.verified,
                         size: 13, color: AppColors.success),
                   ],
@@ -260,49 +292,41 @@ class _ApplicationsScreenState extends State<ApplicationsScreen>
               Row(
                 children: [
                   const Icon(Icons.location_on_outlined,
-                      size: 13, color: AppColors.neutral400),
+                      size: 12, color: AppColors.neutral400),
                   const SizedBox(width: 3),
                   Text(app['location'],
                       style: const TextStyle(
                           fontSize: 12, color: AppColors.neutral500)),
                   const SizedBox(width: 12),
-                  const Icon(Icons.payments_outlined,
-                      size: 13, color: AppColors.success),
-                  const SizedBox(width: 3),
-                  Text(
-                    app['salary'],
-                    style: const TextStyle(
-                      fontSize: 12,
-                      color: AppColors.success,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
+                  Text(app['salary'],
+                      style: const TextStyle(
+                          fontSize: 12,
+                          color: AppColors.success,
+                          fontWeight: FontWeight.w600)),
                 ],
               ),
-              const SizedBox(height: 6),
+              const SizedBox(height: 5),
 
-              // ── Dates ──
-              Text(
-                'Applied ${app['appliedDate']}',
-                style: const TextStyle(
-                    fontSize: 12, color: AppColors.neutral400),
-              ),
+              // ── Date info ──
+              Text('Applied ${app['appliedDate']}',
+                  style: const TextStyle(
+                      fontSize: 11, color: AppColors.neutral400)),
               if (app['acceptedDate'] != null)
-                Text(
-                  'Accepted ${app['acceptedDate']}',
-                  style: const TextStyle(
-                      fontSize: 12, color: AppColors.success),
-                ),
+                Text('Accepted ${app['acceptedDate']}',
+                    style: const TextStyle(
+                        fontSize: 11, color: AppColors.success)),
               if (app['rejectedDate'] != null)
-                Text(
-                  'Rejected ${app['rejectedDate']}',
-                  style: const TextStyle(
-                      fontSize: 12, color: AppColors.error),
-                ),
+                Text('Rejected ${app['rejectedDate']}',
+                    style: const TextStyle(
+                        fontSize: 11, color: AppColors.error)),
+              if (app['completedDate'] != null)
+                Text('Completed ${app['completedDate']}',
+                    style: const TextStyle(
+                        fontSize: 11, color: AppColors.neutral400)),
 
-              // ── Action buttons ──
+              // ── Actions ──
               if (status == 'pending') ...[
-                const SizedBox(height: 12),
+                const SizedBox(height: 10),
                 const Divider(height: 1),
                 const SizedBox(height: 8),
                 Align(
@@ -319,10 +343,8 @@ class _ApplicationsScreenState extends State<ApplicationsScreen>
                     child: const Text('Withdraw'),
                   ),
                 ),
-              ],
-
-              if (status == 'accepted') ...[
-                const SizedBox(height: 12),
+              ] else if (status == 'accepted') ...[
+                const SizedBox(height: 10),
                 const Divider(height: 1),
                 const SizedBox(height: 8),
                 SizedBox(
@@ -343,6 +365,51 @@ class _ApplicationsScreenState extends State<ApplicationsScreen>
                     ),
                   ),
                 ),
+              ] else if (status == 'completed') ...[
+                const SizedBox(height: 10),
+                const Divider(height: 1),
+                const SizedBox(height: 8),
+                hasReview
+                    ? Row(
+                        children: const [
+                          Icon(Icons.star_rounded,
+                              size: 15, color: Colors.amber),
+                          SizedBox(width: 6),
+                          Text('Review submitted',
+                              style: TextStyle(
+                                  fontSize: 13,
+                                  color: AppColors.neutral500,
+                                  fontWeight: FontWeight.w500)),
+                        ],
+                      )
+                    : SizedBox(
+                        width: double.infinity,
+                        child: ElevatedButton.icon(
+                          onPressed: () => Navigator.pushNamed(
+                            context,
+                            '/leave-review',
+                            arguments: {
+                              'revieweeName': app['company'],
+                              'revieweeRole': 'employer',
+                              'jobTitle': app['jobTitle'],
+                            },
+                          ),
+                          icon: const Icon(Icons.star_outline, size: 18),
+                          label: const Text('Leave a Review'),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: AppColors.accent,
+                            foregroundColor: Colors.white,
+                            elevation: 0,
+                            padding:
+                                const EdgeInsets.symmetric(vertical: 11),
+                            shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(10)),
+                            textStyle: const TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w600),
+                          ),
+                        ),
+                      ),
               ],
             ],
           ),
@@ -351,7 +418,7 @@ class _ApplicationsScreenState extends State<ApplicationsScreen>
     );
   }
 
-  Widget _statusBadge(String status) {
+  Widget _badge(String status) {
     Color color;
     String label;
     switch (status) {
@@ -371,6 +438,10 @@ class _ApplicationsScreenState extends State<ApplicationsScreen>
         color = AppColors.neutral400;
         label = 'Withdrawn';
         break;
+      case 'completed':
+        color = AppColors.primary;
+        label = 'Completed';
+        break;
       default:
         color = AppColors.neutral400;
         label = status;
@@ -381,11 +452,9 @@ class _ApplicationsScreenState extends State<ApplicationsScreen>
         color: color.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(20),
       ),
-      child: Text(
-        label,
-        style: TextStyle(
-            fontSize: 11, fontWeight: FontWeight.w600, color: color),
-      ),
+      child: Text(label,
+          style: TextStyle(
+              fontSize: 11, fontWeight: FontWeight.w600, color: color)),
     );
   }
 
@@ -395,12 +464,11 @@ class _ApplicationsScreenState extends State<ApplicationsScreen>
       builder: (_) => AlertDialog(
         title: const Text('Withdraw Application?'),
         content: Text(
-            'Withdraw your application for "${app['jobTitle']}"? This cannot be undone.'),
+            'Withdraw from "${app['jobTitle']}"? This cannot be undone.'),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
-          ),
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Cancel')),
           ElevatedButton(
             onPressed: () {
               Navigator.pop(context);
@@ -413,9 +481,8 @@ class _ApplicationsScreenState extends State<ApplicationsScreen>
               );
             },
             style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.error,
-              foregroundColor: Colors.white,
-            ),
+                backgroundColor: AppColors.error,
+                foregroundColor: Colors.white),
             child: const Text('Withdraw'),
           ),
         ],

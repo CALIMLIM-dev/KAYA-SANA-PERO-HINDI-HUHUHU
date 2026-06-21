@@ -8,13 +8,35 @@ class CompactJobCard extends StatelessWidget {
   final Job job;
   final VoidCallback? onTap;
   final VoidCallback? onContact;
+  final List<String> workerSkills;
 
   const CompactJobCard({
     super.key,
     required this.job,
     this.onTap,
     this.onContact,
+    this.workerSkills = const [],
   });
+
+  // ─── match calculation ────────────────────────────────────────────────────
+  bool get _showMatch =>
+      workerSkills.isNotEmpty && job.requiredSkills.isNotEmpty;
+
+  int get _matchPercent {
+    if (!_showMatch) return 0;
+    final wLower = workerSkills.map((s) => s.toLowerCase()).toSet();
+    final matched = job.requiredSkills
+        .where((s) => wLower.contains(s.toLowerCase()))
+        .length;
+    return ((matched / job.requiredSkills.length) * 100).round();
+  }
+
+  Color get _matchColor {
+    final p = _matchPercent;
+    if (p >= 80) return AppColors.success;
+    if (p >= 50) return AppColors.warning;
+    return AppColors.neutral600;
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -126,7 +148,7 @@ class CompactJobCard extends StatelessWidget {
             
             const SizedBox(height: 8),
             
-            // Salary Row - Compact
+            // Salary Row + Match % - Compact
             SizedBox(
               height: 16,
               child: Row(
@@ -141,6 +163,24 @@ class CompactJobCard extends StatelessWidget {
                       color: AppColors.success,
                     ),
                   ),
+                  const Spacer(),
+                  if (_showMatch)
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 6, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: _matchColor.withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Text(
+                        '$_matchPercent%',
+                        style: TextStyle(
+                          fontSize: 10,
+                          fontWeight: FontWeight.w700,
+                          color: _matchColor,
+                        ),
+                      ),
+                    ),
                 ],
               ),
             ),

@@ -8,9 +8,9 @@ class AppColors {
   static const Color primaryDark = Color(0xFF2541E8);
   
   // Accent Colors
-  static const Color accent = Color(0xFFFF8A3D);
-  static const Color accentLight = Color(0xFFFFAA6D);
-  static const Color accentDark = Color(0xFFE06A1D);
+  static const Color accent = Color(0xFFFFD600);
+  static const Color accentLight = Color(0xFFFFE54C);
+  static const Color accentDark = Color(0xFFFFC400);
   
   // Status Colors
   static const Color success = Color(0xFF4CAF50);

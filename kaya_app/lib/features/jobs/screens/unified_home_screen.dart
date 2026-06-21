@@ -567,6 +567,8 @@ class _UnifiedHomeScreenState extends State<UnifiedHomeScreen> {
                     onSeeAll: () => AppRouter.toSearchJobs(context),
                     onJobTap: _onJobTap,
                     onJobContact: _contactEmployer,
+                    // TODO: replace with actual worker skills from WorkerProfileProvider
+                    workerSkills: const ['Plumbing', 'Pipe Repair', 'Wiring', 'Carpentry', 'Painting'],
                   ),
                 ),
                 const SliverToBoxAdapter(child: SizedBox(height: 32)),
@@ -929,100 +931,61 @@ class _UnifiedHomeScreenState extends State<UnifiedHomeScreen> {
 
   /// Build appropriate categories based on current filter
   Widget _buildCategories() {
-    if (_searchFilter == SearchFilter.jobs) {
-      // Job categories - what employers need
+    // Worker filters — keep original full-width Row layout with Expanded
+    if (_searchFilter == SearchFilter.workers) {
       return Row(
-        mainAxisAlignment: MainAxisAlignment.spaceAround,
         children: [
-          _CategoryButton(
-            icon: Icons.plumbing,
-            label: 'Plumbing',
-            color: AppColors.categoryIcon,
-            onTap: () => _onCategoryTap('Plumbing'),
-          ),
-          _CategoryButton(
-            icon: Icons.electrical_services,
-            label: 'Electrical',
-            color: AppColors.categoryIcon,
-            onTap: () => _onCategoryTap('Electrical'),
-          ),
-          _CategoryButton(
-            icon: Icons.format_paint,
-            label: 'Painting',
-            color: AppColors.categoryIcon,
-            onTap: () => _onCategoryTap('Painting'),
-          ),
-          _CategoryButton(
-            icon: Icons.construction,
-            label: 'Carpentry',
-            color: AppColors.categoryIcon,
-            onTap: () => _onCategoryTap('Carpentry'),
-          ),
-        ],
-      );
-    } else if (_searchFilter == SearchFilter.workers) {
-      // Worker skills - what workers offer
-      return Row(
-        mainAxisAlignment: MainAxisAlignment.spaceAround,
-        children: [
-          _CategoryButton(
-            icon: Icons.build,
-            label: 'Skilled',
-            color: AppColors.primary,
-            onTap: () => _onCategoryTap('Skilled'),
-          ),
-          _CategoryButton(
-            icon: Icons.verified,
-            label: 'Verified',
-            color: AppColors.verified,
-            onTap: () => _onCategoryTap('Verified'),
-          ),
-          _CategoryButton(
-            icon: Icons.star,
-            label: 'Top Rated',
-            color: AppColors.accent,
-            onTap: () => _onCategoryTap('Top Rated'),
-          ),
-          _CategoryButton(
-            icon: Icons.schedule,
-            label: 'Available',
-            color: AppColors.success,
-            onTap: () => _onCategoryTap('Available'),
-          ),
-        ],
-      );
-    } else {
-      // All - general categories
-      return Row(
-        mainAxisAlignment: MainAxisAlignment.spaceAround,
-        children: [
-          _CategoryButton(
-            icon: Icons.plumbing,
-            label: 'Plumbing',
-            color: AppColors.categoryIcon,
-            onTap: () => _onCategoryTap('Plumbing'),
-          ),
-          _CategoryButton(
-            icon: Icons.electrical_services,
-            label: 'Electrical',
-            color: AppColors.categoryIcon,
-            onTap: () => _onCategoryTap('Electrical'),
-          ),
-          _CategoryButton(
-            icon: Icons.format_paint,
-            label: 'Painting',
-            color: AppColors.categoryIcon,
-            onTap: () => _onCategoryTap('Painting'),
-          ),
-          _CategoryButton(
-            icon: Icons.construction,
-            label: 'Carpentry',
-            color: AppColors.categoryIcon,
-            onTap: () => _onCategoryTap('Carpentry'),
-          ),
+          Expanded(child: _CategoryButton(icon: Icons.build,    label: 'Skilled',   color: AppColors.primary,  onTap: () => _onCategoryTap('Skilled'))),
+          const SizedBox(width: 8),
+          Expanded(child: _CategoryButton(icon: Icons.verified, label: 'Verified',  color: AppColors.success,  onTap: () => _onCategoryTap('Verified'))),
+          const SizedBox(width: 8),
+          Expanded(child: _CategoryButton(icon: Icons.star,     label: 'Top Rated', color: AppColors.accent,   onTap: () => _onCategoryTap('Top Rated'))),
+          const SizedBox(width: 8),
+          Expanded(child: _CategoryButton(icon: Icons.schedule, label: 'Available', color: AppColors.success,  onTap: () => _onCategoryTap('Available'))),
         ],
       );
     }
+
+    // Job categories + All — horizontal scroll with all 18
+    const allCategories = [
+      {'name': 'Plumbing',         'icon': Icons.plumbing},
+      {'name': 'Electrical',       'icon': Icons.electrical_services},
+      {'name': 'Painting',         'icon': Icons.format_paint},
+      {'name': 'Carpentry',        'icon': Icons.carpenter},
+      {'name': 'Construction',     'icon': Icons.construction},
+      {'name': 'HVAC',             'icon': Icons.ac_unit},
+      {'name': 'Landscaping',      'icon': Icons.grass},
+      {'name': 'Cleaning',         'icon': Icons.cleaning_services},
+      {'name': 'Roofing',          'icon': Icons.roofing},
+      {'name': 'Flooring',         'icon': Icons.layers},
+      {'name': 'Automotive',       'icon': Icons.car_repair},
+      {'name': 'Appliance Repair', 'icon': Icons.kitchen},
+      {'name': 'Security',         'icon': Icons.security},
+      {'name': 'Moving',           'icon': Icons.local_shipping},
+      {'name': 'Pest Control',     'icon': Icons.bug_report},
+      {'name': 'Pool Services',    'icon': Icons.pool},
+      {'name': 'Delivery',         'icon': Icons.delivery_dining},
+      {'name': 'Other',            'icon': Icons.build},
+    ];
+
+    return SizedBox(
+      height: 120,
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.symmetric(horizontal: 4),
+        itemCount: allCategories.length,
+        separatorBuilder: (_, __) => const SizedBox(width: 8),
+        itemBuilder: (context, i) {
+          final item = allCategories[i];
+          return _CategoryButton(
+            icon: item['icon'] as IconData,
+            label: item['name'] as String,
+            color: AppColors.categoryIcon,
+            onTap: () => _onCategoryTap(item['name'] as String),
+          );
+        },
+      ),
+    );
   }
 
   /// Build smart action prompts based on current filter context
@@ -1253,6 +1216,7 @@ class _CategoryButton extends StatelessWidget {
           ],
         ),
         child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Container(
               width: 50,
@@ -1266,11 +1230,14 @@ class _CategoryButton extends StatelessWidget {
             const SizedBox(height: 8),
             Text(
               label,
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+              style: const TextStyle(
                 fontWeight: FontWeight.w600,
+                fontSize: 12,
                 color: AppColors.neutral800,
               ),
               textAlign: TextAlign.center,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
             ),
           ],
         ),

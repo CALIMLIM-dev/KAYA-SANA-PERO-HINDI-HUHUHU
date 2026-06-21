@@ -79,13 +79,14 @@ class _MyWorkerProfileScreenState extends State<MyWorkerProfileScreen> with Sing
                         children: [
                           const SizedBox(height: 56),
                           Row(
+                            crossAxisAlignment: CrossAxisAlignment.center,
                             children: [
                               // Profile Photo
                               Container(
-                                width: 75,
-                                height: 75,
+                                width: 68,
+                                height: 68,
                                 decoration: BoxDecoration(
-                                  color: AppColors.primary.withValues(alpha: 0.3),
+                                  color: Colors.white.withValues(alpha: 0.15),
                                   borderRadius: BorderRadius.circular(12),
                                   border: Border.all(
                                     color: Colors.white.withValues(alpha: 0.3),
@@ -93,56 +94,119 @@ class _MyWorkerProfileScreenState extends State<MyWorkerProfileScreen> with Sing
                                   ),
                                 ),
                                 child: _hasPhoto
-                                    ? const Icon(Icons.check_circle, color: Colors.white, size: 28)
-                                    : const Icon(Icons.camera_alt, color: Colors.white70, size: 24),
+                                    ? const Icon(Icons.person, color: Colors.white, size: 32)
+                                    : const Icon(Icons.camera_alt, color: Colors.white54, size: 24),
                               ),
-                              const Spacer(),
+                              const SizedBox(width: 14),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    // Name — always visible
+                                    Text(
+                                      _userName ?? 'Add your name',
+                                      style: TextStyle(
+                                        fontSize: 20,
+                                        fontWeight: FontWeight.bold,
+                                        color: _userName != null
+                                            ? Colors.white
+                                            : Colors.white38,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 4),
+                                    // Location — always visible
+                                    Row(
+                                      children: [
+                                        Icon(
+                                          Icons.location_on,
+                                          size: 13,
+                                          color: _userLocation != null
+                                              ? Colors.white70
+                                              : Colors.white30,
+                                        ),
+                                        const SizedBox(width: 3),
+                                        Text(
+                                          _userLocation ?? 'Add location',
+                                          style: TextStyle(
+                                            fontSize: 13,
+                                            color: _userLocation != null
+                                                ? Colors.white70
+                                                : Colors.white30,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                    const SizedBox(height: 4),
+                                    // Contact info — shows phone or email if set
+                                    if (_userPhone != null || _userEmail != null)
+                                      Text(
+                                        _userPhone ?? _userEmail ?? '',
+                                        style: const TextStyle(
+                                          fontSize: 12,
+                                          color: Colors.white60,
+                                        ),
+                                      )
+                                    else
+                                      const Text(
+                                        'Add contact details',
+                                        style: TextStyle(
+                                          fontSize: 12,
+                                          color: Colors.white24,
+                                        ),
+                                      ),
+                                  ],
+                                ),
+                              ),
                               IconButton(
                                 icon: const Icon(Icons.more_vert, color: Colors.white),
                                 onPressed: () {},
                               ),
                             ],
                           ),
-                          const SizedBox(height: 10),
-                          Text(
-                            _userName ?? 'Add your name',
-                            style: TextStyle(
-                              fontSize: 20,
-                              fontWeight: FontWeight.bold,
-                              color: _userName != null ? Colors.white : Colors.white60,
-                            ),
-                          ),
-                          const SizedBox(height: 3),
-                          Text(
-                            _userLocation ?? 'Add your location',
-                            style: const TextStyle(
-                              fontSize: 13,
-                              color: Colors.white70,
-                            ),
-                          ),
-                          const SizedBox(height: 10),
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                            decoration: BoxDecoration(
-                              color: AppColors.accent,
-                              borderRadius: BorderRadius.circular(20),
-                            ),
-                            child: const Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Icon(Icons.visibility, size: 13, color: Colors.white),
-                                SizedBox(width: 5),
-                                Text(
-                                  'Set your profile visibility',
-                                  style: TextStyle(
+                          const SizedBox(height: 12),
+                          // Skills preview — show first 3 if available
+                          if (_skills.isNotEmpty)
+                            Wrap(
+                              spacing: 6,
+                              children: _skills.take(3).map((skill) => Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                decoration: BoxDecoration(
+                                  color: Colors.white.withValues(alpha: 0.15),
+                                  borderRadius: BorderRadius.circular(20),
+                                ),
+                                child: Text(
+                                  skill,
+                                  style: const TextStyle(
                                     fontSize: 11,
                                     fontWeight: FontWeight.w600,
                                     color: Colors.white,
                                   ),
                                 ),
-                              ],
+                              )).toList(),
+                            )
+                          else
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                              decoration: BoxDecoration(
+                                color: AppColors.accent,
+                                borderRadius: BorderRadius.circular(20),
+                              ),
+                              child: const Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(Icons.visibility, size: 13, color: Colors.white),
+                                  SizedBox(width: 5),
+                                  Text(
+                                    'Set your profile visibility',
+                                    style: TextStyle(
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w600,
+                                      color: Colors.white,
+                                    ),
+                                  ),
+                                ],
+                              ),
                             ),
-                          ),
                         ],
                       ),
                     ),
@@ -194,6 +258,38 @@ class _MyWorkerProfileScreenState extends State<MyWorkerProfileScreen> with Sing
         ),
         const SizedBox(height: 16),
         
+        // Name Card
+        _buildInfoCard(
+          title: 'Full Name',
+          icon: Icons.person,
+          iconColor: AppColors.primary,
+          content: _userName != null
+              ? Text(_userName!, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: AppColors.neutral900))
+              : const Text('Add your full name', style: TextStyle(color: AppColors.neutral600)),
+          onTap: () async {
+            final result = await Navigator.pushNamed(context, '/add-name');
+            if (result != null && result is String) {
+              setState(() => _userName = result);
+            }
+          },
+        ),
+
+        // Location Card
+        _buildInfoCard(
+          title: 'Location',
+          icon: Icons.location_on,
+          iconColor: AppColors.success,
+          content: _userLocation != null
+              ? Text(_userLocation!, style: const TextStyle(fontSize: 14, color: AppColors.neutral900))
+              : const Text('Add your location', style: TextStyle(color: AppColors.neutral600)),
+          onTap: () async {
+            final result = await Navigator.pushNamed(context, '/add-location');
+            if (result != null && result is String) {
+              setState(() => _userLocation = result);
+            }
+          },
+        ),
+
         // Personal Details Card - SHOWS DATA
         _buildInfoCard(
           title: 'Personal Details',
@@ -210,8 +306,14 @@ class _MyWorkerProfileScreenState extends State<MyWorkerProfileScreen> with Sing
                   ],
                 )
               : const Text('Add your contact details', style: TextStyle(color: AppColors.neutral600)),
-          onTap: () {
-            Navigator.pushNamed(context, '/add-personal-details');
+          onTap: () async {
+            final result = await Navigator.pushNamed(context, '/add-personal-details');
+            if (result != null && result is Map) {
+              setState(() {
+                _userPhone = result['phone'] as String?;
+                _userEmail = result['email'] as String?;
+              });
+            }
           },
         ),
         
@@ -232,8 +334,11 @@ class _MyWorkerProfileScreenState extends State<MyWorkerProfileScreen> with Sing
                   )).toList(),
                 )
               : const Text('Add your skills', style: TextStyle(color: AppColors.neutral600)),
-          onTap: () {
-            Navigator.pushNamed(context, '/add-skills');
+          onTap: () async {
+            final result = await Navigator.pushNamed(context, '/add-skills');
+            if (result != null && result is List) {
+              setState(() => _skills = List<String>.from(result));
+            }
           },
         ),
         
@@ -260,8 +365,11 @@ class _MyWorkerProfileScreenState extends State<MyWorkerProfileScreen> with Sing
                   )).toList(),
                 )
               : const Text('Add your experience', style: TextStyle(color: AppColors.neutral600)),
-          onTap: () {
-            Navigator.pushNamed(context, '/add-experience');
+          onTap: () async {
+            final result = await Navigator.pushNamed(context, '/add-experience');
+            if (result != null && result is List) {
+              setState(() => _experiences = List<Map<String, String>>.from(result));
+            }
           },
         ),
         
@@ -290,8 +398,11 @@ class _MyWorkerProfileScreenState extends State<MyWorkerProfileScreen> with Sing
                   )).toList(),
                 )
               : const Text('Add certifications', style: TextStyle(color: AppColors.neutral600)),
-          onTap: () {
-            Navigator.pushNamed(context, '/add-certifications');
+          onTap: () async {
+            final result = await Navigator.pushNamed(context, '/add-certifications');
+            if (result != null && result is List) {
+              setState(() => _certifications = List<Map<String, dynamic>>.from(result));
+            }
           },
         ),
         
@@ -320,8 +431,11 @@ class _MyWorkerProfileScreenState extends State<MyWorkerProfileScreen> with Sing
                   )).toList(),
                 )
               : const Text('Add licenses', style: TextStyle(color: AppColors.neutral600)),
-          onTap: () {
-            Navigator.pushNamed(context, '/add-licenses');
+          onTap: () async {
+            final result = await Navigator.pushNamed(context, '/add-licenses');
+            if (result != null && result is List) {
+              setState(() => _licenses = List<Map<String, dynamic>>.from(result));
+            }
           },
         ),
       ],
@@ -410,18 +524,21 @@ class _MyWorkerProfileScreenState extends State<MyWorkerProfileScreen> with Sing
           title: 'Government ID',
           subtitle: 'Upload valid government-issued ID',
           icon: Icons.badge,
+          type: 'government_id',
           isVerified: false,
         ),
         _buildVerificationCard(
           title: 'Phone number',
           subtitle: 'Verify via SMS code',
           icon: Icons.phone,
+          type: 'phone',
           isVerified: false,
         ),
         _buildVerificationCard(
           title: 'Email',
           subtitle: 'Verify via email link',
           icon: Icons.email,
+          type: 'email',
           isVerified: false,
         ),
       ],
@@ -432,6 +549,7 @@ class _MyWorkerProfileScreenState extends State<MyWorkerProfileScreen> with Sing
     required String title,
     required String subtitle,
     required IconData icon,
+    required String type,
     required bool isVerified,
   }) {
     return Container(
@@ -441,8 +559,16 @@ class _MyWorkerProfileScreenState extends State<MyWorkerProfileScreen> with Sing
         borderRadius: BorderRadius.circular(12),
         elevation: 1,
         child: InkWell(
-          onTap: () {
-            // TODO: Trigger verification
+          onTap: isVerified ? null : () {
+            Navigator.pushNamed(
+              context,
+              '/verification',
+              arguments: {
+                'type': type,
+                'title': title,
+                'subtitle': subtitle,
+              },
+            );
           },
           borderRadius: BorderRadius.circular(12),
           child: Padding(

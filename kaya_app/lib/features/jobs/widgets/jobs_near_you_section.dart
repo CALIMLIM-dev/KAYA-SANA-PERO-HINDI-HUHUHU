@@ -11,6 +11,7 @@ class JobsNearYouSection extends StatelessWidget {
   final VoidCallback? onSeeAll;
   final Function(Job)? onJobTap;
   final Function(Job)? onJobContact;
+  final List<String> workerSkills;
 
   const JobsNearYouSection({
     super.key,
@@ -20,6 +21,7 @@ class JobsNearYouSection extends StatelessWidget {
     this.onSeeAll,
     this.onJobTap,
     this.onJobContact,
+    this.workerSkills = const [],
   });
 
   @override
@@ -45,8 +47,8 @@ class JobsNearYouSection extends StatelessWidget {
                   ),
                   Text(
                     userLocation != null
-                        ? 'Open positions in $userLocation'
-                        : 'Open positions in your area',
+                        ? 'Open jobs in $userLocation'
+                        : 'Open jobs in your area',
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
                       color: AppColors.neutral600,
                     ),
@@ -108,6 +110,7 @@ class JobsNearYouSection extends StatelessWidget {
             job: job,
             onTap: () => onJobTap?.call(job),
             onContact: () => onJobContact?.call(job),
+            workerSkills: workerSkills,
           ),
         );
       },

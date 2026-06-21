@@ -55,6 +55,13 @@ import '../../features/employer/screens/add_employer_about_screen.dart';
 import '../../features/employer/screens/manage_jobs_screen.dart';
 import '../../features/employer/screens/employer_profile_screen.dart';
 import '../../features/applications/screens/view_applicants_screen.dart';
+import '../../features/applications/screens/applicant_review_screen.dart';
+import '../../features/reviews/screens/leave_review_screen.dart';
+import '../../features/profile/screens/verification_screen.dart';
+import '../../features/profile/screens/settings_screen.dart';
+import '../../features/invitations/screens/my_invitations_screen.dart';
+import '../../features/jobs/screens/edit_job_screen.dart';
+import '../../features/employer/screens/edit_employer_profile_screen.dart';
 
 // Help Screens
 import '../../features/help/screens/faq_screen.dart';
@@ -222,6 +229,39 @@ class AppRouter {
       
       case viewApplicants:
         return MaterialPageRoute(builder: (_) => const ViewApplicantsScreen());
+      
+      case '/applicant-review':
+        return MaterialPageRoute(
+          builder: (_) => const ApplicantReviewScreen(),
+          settings: settings,
+        );
+
+      case '/leave-review':
+        return MaterialPageRoute(
+          builder: (_) => const LeaveReviewScreen(),
+          settings: settings,
+        );
+
+      case '/verification':
+        return MaterialPageRoute(
+          builder: (_) => const VerificationScreen(),
+          settings: settings,
+        );
+
+      case '/my-invitations':
+        return MaterialPageRoute(builder: (_) => const MyInvitationsScreen());
+
+      case '/edit-job':
+        return MaterialPageRoute(
+          builder: (_) => const EditJobScreen(),
+          settings: settings,
+        );
+
+      case '/edit-employer-profile':
+        return MaterialPageRoute(
+          builder: (_) => const EditEmployerProfileScreen(),
+          settings: settings,
+        );
       
       case employerProfile:
         return MaterialPageRoute(builder: (_) => const EmployerProfileScreen());

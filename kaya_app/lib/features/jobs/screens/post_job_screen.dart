@@ -20,8 +20,10 @@ class _PostJobScreenState extends State<PostJobScreen> {
   final _workersNeededController = TextEditingController(text: '1');
   
   String? _selectedCategory;
+  String? _customCategoryName; // used when 'Other' is selected
   String _salaryType = 'Daily';
   final List<String> _selectedSkills = [];
+  final _customSkillController = TextEditingController();
   final List<File> _selectedImages = [];
   bool _isLoading = false;
   bool _isUrgent = false;
@@ -78,6 +80,7 @@ class _PostJobScreenState extends State<PostJobScreen> {
     _budgetController.dispose();
     _locationController.dispose();
     _workersNeededController.dispose();
+    _customSkillController.dispose();
     super.dispose();
   }
 
@@ -90,6 +93,7 @@ class _PostJobScreenState extends State<PostJobScreen> {
     setState(() {
       _selectedSkills.clear();
       _selectedCategory = category;
+      if (category != 'Other') _customCategoryName = null;
     });
   }
 
@@ -196,6 +200,27 @@ class _PostJobScreenState extends State<PostJobScreen> {
                   _buildLabel('Category'),
                   const SizedBox(height: 8),
                   _buildCategorySelector(),
+
+                  // Custom category name — only when "Other" selected
+                  if (_selectedCategory == 'Other') ...[
+                    const SizedBox(height: 12),
+                    _buildLabel('Specify Category'),
+                    const SizedBox(height: 8),
+                    TextFormField(
+                      initialValue: _customCategoryName,
+                      textCapitalization: TextCapitalization.words,
+                      onChanged: (v) => setState(() => _customCategoryName = v.trim()),
+                      decoration: _inputDecoration(
+                        hint: 'e.g., Welding, Tailoring, Massage Therapy',
+                        icon: Icons.edit_outlined,
+                      ),
+                      validator: (v) =>
+                          _selectedCategory == 'Other' && (v?.isEmpty ?? true)
+                              ? 'Please specify the category'
+                              : null,
+                    ),
+                  ],
+
                   const SizedBox(height: 16),
                   
                   _buildLabel('Description'),
@@ -215,6 +240,16 @@ class _PostJobScreenState extends State<PostJobScreen> {
                     _buildLabel('Required Skills'),
                     const SizedBox(height: 8),
                     _buildSkillChips(),
+                    const SizedBox(height: 10),
+                    _buildCustomSkillInput(),
+                  ],
+
+                  // For "Other" category with no predefined skills, show custom skill input
+                  if (_selectedCategory == 'Other' && _availableSkills.isEmpty) ...[
+                    const SizedBox(height: 16),
+                    _buildLabel('Required Skills'),
+                    const SizedBox(height: 8),
+                    _buildCustomSkillInput(),
                   ],
                 ],
               ),
@@ -615,6 +650,65 @@ class _PostJobScreenState extends State<PostJobScreen> {
           ),
         );
       }).toList(),
+    );
+  }
+
+  Widget _buildCustomSkillInput() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Already added custom skills
+        if (_selectedSkills.where((s) => !_availableSkills.contains(s)).isNotEmpty)
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: _selectedSkills
+                .where((s) => !_availableSkills.contains(s))
+                .map((skill) => Chip(
+                      label: Text(skill, style: const TextStyle(fontSize: 13)),
+                      backgroundColor: AppColors.primary.withValues(alpha: 0.1),
+                      deleteIconColor: AppColors.primary,
+                      onDeleted: () => setState(() => _selectedSkills.remove(skill)),
+                    ))
+                .toList(),
+          ),
+        const SizedBox(height: 8),
+        Row(
+          children: [
+            Expanded(
+              child: TextField(
+                controller: _customSkillController,
+                textCapitalization: TextCapitalization.words,
+                decoration: _inputDecoration(
+                  hint: 'Add a custom skill...',
+                  icon: Icons.add_circle_outline,
+                ),
+              ),
+            ),
+            const SizedBox(width: 10),
+            ElevatedButton(
+              onPressed: () {
+                final skill = _customSkillController.text.trim();
+                if (skill.isNotEmpty && !_selectedSkills.contains(skill)) {
+                  setState(() {
+                    _selectedSkills.add(skill);
+                    _customSkillController.clear();
+                  });
+                }
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.primary,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10)),
+                elevation: 0,
+              ),
+              child: const Text('Add'),
+            ),
+          ],
+        ),
+      ],
     );
   }
 
