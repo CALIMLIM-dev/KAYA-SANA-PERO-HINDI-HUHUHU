@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import '../../../core/constants/app_colors.dart';
+import '../../../providers/worker_profile_provider.dart';
 
-/// Full screen experience management - user can add multiple experiences
-/// NO AUTO-FILL, NO HARDCODED DATA, ALL FIELDS START EMPTY
 class AddExperienceScreen extends StatefulWidget {
   const AddExperienceScreen({super.key});
 
@@ -11,48 +11,101 @@ class AddExperienceScreen extends StatefulWidget {
 }
 
 class _AddExperienceScreenState extends State<AddExperienceScreen> {
-  final List<Map<String, String>> _experiences = [];
-  bool _isSaveEnabled = false;
-
-  void _updateSaveButton() {
-    setState(() {
-      _isSaveEnabled = _experiences.isNotEmpty;
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      context.read<WorkerProfileProvider>().fetchProfile();
     });
   }
 
-  Future<void> _addOrEditExperience([Map<String, String>? existingExperience, int? index]) async {
-    final result = await Navigator.push(
+  String _fmtDate(String? d) {
+    if (d == null || d.isEmpty) return '';
+    try {
+      if (d.contains('-')) {
+        final parts = d.split('-');
+        const months = ['', 'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+                        'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+        final m = int.tryParse(parts[1]) ?? 1;
+        return '${months[m]} ${parts[0]}';
+      }
+    } catch (_) {}
+    return d;
+  }
+
+  Future<void> _addExperience() async {
+    final result = await Navigator.push<Map<String, String>>(
       context,
-      MaterialPageRoute(
-        builder: (_) => _AddExperienceFormScreen(existingExperience: existingExperience),
+      MaterialPageRoute(builder: (_) => const _ExperienceFormScreen()),
+    );
+    if (result == null || !mounted) return;
+
+    final provider = context.read<WorkerProfileProvider>();
+    final success = await provider.createExperience(result);
+    if (!mounted) return;
+
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+      content: Text(success ? 'Experience saved' : (provider.errorMessage ?? 'Failed to save')),
+      backgroundColor: success ? AppColors.success : AppColors.error,
+    ));
+  }
+
+  Future<void> _editExperience(Map<String, dynamic> exp) async {
+    // Convert DB format back to form format
+    final formData = {
+      'jobTitle': exp['title'] as String? ?? '',
+      'company': exp['company'] as String? ?? '',
+      'startDate': _fmtDateToForm(exp['start_date'] as String?),
+      'endDate': exp['end_date'] != null ? _fmtDateToForm(exp['end_date'] as String?) : 'Present',
+      'description': exp['description'] as String? ?? '',
+    };
+
+    final result = await Navigator.push<Map<String, String>>(
+      context,
+      MaterialPageRoute(builder: (_) => _ExperienceFormScreen(existingExp: formData)),
+    );
+    if (result == null || !mounted) return;
+
+    final provider = context.read<WorkerProfileProvider>();
+    final id = exp['id'] as int;
+    final success = await provider.updateExperience(id, result);
+    if (!mounted) return;
+
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+      content: Text(success ? 'Experience updated' : (provider.errorMessage ?? 'Failed to update')),
+      backgroundColor: success ? AppColors.success : AppColors.error,
+    ));
+  }
+
+  // Convert "YYYY-MM-01" back to "M/YYYY" for the form
+  String _fmtDateToForm(String? d) {
+    if (d == null || d.isEmpty) return '';
+    try {
+      if (d.contains('-')) {
+        final parts = d.split('-');
+        return '${int.tryParse(parts[1]) ?? 1}/${parts[0]}';
+      }
+    } catch (_) {}
+    return d;
+  }
+
+  Future<void> _deleteExperience(int id) async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text('Delete Experience'),
+        content: const Text('Are you sure?'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Delete', style: TextStyle(color: AppColors.error)),
+          ),
+        ],
       ),
     );
-    
-    if (result != null && result is Map<String, String>) {
-      setState(() {
-        if (index != null) {
-          // Edit existing
-          _experiences[index] = result;
-        } else {
-          // Add new
-          _experiences.add(result);
-        }
-        _updateSaveButton();
-      });
-    }
-  }
-
-  void _deleteExperience(int index) {
-    setState(() {
-      _experiences.removeAt(index);
-      _updateSaveButton();
-    });
-  }
-
-  void _saveExperiences() {
-    if (_experiences.isNotEmpty) {
-      Navigator.pop(context, _experiences);
-    }
+    if (confirm != true || !mounted) return;
+    await context.read<WorkerProfileProvider>().deleteExperience(id);
   }
 
   @override
@@ -66,167 +119,78 @@ class _AddExperienceScreenState extends State<AddExperienceScreen> {
           icon: const Icon(Icons.arrow_back, color: AppColors.neutral900),
           onPressed: () => Navigator.pop(context),
         ),
-        title: const Text(
-          'Work Experience',
-          style: TextStyle(
-            fontSize: 18,
-            fontWeight: FontWeight.w600,
-            color: AppColors.neutral900,
-          ),
-        ),
+        title: const Text('Work Experience',
+            style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600, color: AppColors.neutral900)),
         centerTitle: true,
       ),
-      body: Column(
-        children: [
-          Expanded(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.all(20),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const SizedBox(height: 20),
-                  
-                  // Instructions
-                  const Text(
-                    'Add your work experience',
-                    style: TextStyle(
-                      fontSize: 22,
-                      fontWeight: FontWeight.bold,
-                      color: AppColors.neutral900,
-                    ),
-                  ),
-                  
-                  const SizedBox(height: 8),
-                  
-                  const Text(
-                    'Show employers your relevant work history.',
-                    style: TextStyle(
-                      fontSize: 15,
-                      color: AppColors.neutral600,
-                      height: 1.5,
-                    ),
-                  ),
-                  
-                  const SizedBox(height: 24),
-                  
-                  // Add Experience Button
-                  SizedBox(
-                    width: double.infinity,
-                    child: OutlinedButton.icon(
-                      onPressed: () => _addOrEditExperience(),
-                      icon: const Icon(Icons.add, size: 20),
-                      label: const Text('Add Experience'),
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: AppColors.primary,
-                        side: const BorderSide(color: AppColors.primary, width: 2),
-                        padding: const EdgeInsets.symmetric(vertical: 14),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
+      body: Consumer<WorkerProfileProvider>(
+        builder: (context, provider, _) {
+          final exps = provider.experiences;
+          return Column(
+            children: [
+              Expanded(
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.all(20),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      SizedBox(
+                        width: double.infinity,
+                        child: OutlinedButton.icon(
+                          onPressed: _addExperience,
+                          icon: const Icon(Icons.add),
+                          label: const Text('Add Experience'),
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: AppColors.primary,
+                            side: const BorderSide(color: AppColors.primary, width: 2),
+                            padding: const EdgeInsets.symmetric(vertical: 14),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                          ),
                         ),
                       ),
-                    ),
-                  ),
-                  
-                  const SizedBox(height: 24),
-                  
-                  // List of Added Experiences
-                  if (_experiences.isEmpty)
-                    Container(
-                      padding: const EdgeInsets.all(32),
-                      decoration: BoxDecoration(
-                        color: AppColors.neutral100,
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: Center(
-                        child: Column(
-                          children: [
-                            Icon(
-                              Icons.work_outline,
-                              size: 48,
-                              color: AppColors.neutral400,
+                      const SizedBox(height: 20),
+                      if (provider.isLoading)
+                        const Center(child: CircularProgressIndicator())
+                      else if (exps.isEmpty)
+                        Container(
+                          padding: const EdgeInsets.all(32),
+                          decoration: BoxDecoration(
+                              color: AppColors.neutral100, borderRadius: BorderRadius.circular(12)),
+                          child: const Center(
+                            child: Column(
+                              children: [
+                                Icon(Icons.work_outline, size: 48, color: AppColors.neutral400),
+                                SizedBox(height: 12),
+                                Text('No experience added yet',
+                                    style: TextStyle(fontSize: 15, color: AppColors.neutral600)),
+                              ],
                             ),
-                            const SizedBox(height: 12),
-                            Text(
-                              'No experience added yet',
-                              style: TextStyle(
-                                fontSize: 15,
-                                color: AppColors.neutral600,
-                              ),
-                            ),
-                            const SizedBox(height: 4),
-                            Text(
-                              'Tap "Add Experience" to get started',
-                              style: TextStyle(
-                                fontSize: 13,
-                                color: AppColors.neutral500,
-                              ),
-                            ),
-                          ],
+                          ),
+                        )
+                      else
+                        ListView.separated(
+                          shrinkWrap: true,
+                          physics: const NeverScrollableScrollPhysics(),
+                          itemCount: exps.length,
+                          separatorBuilder: (_, __) => const SizedBox(height: 12),
+                          itemBuilder: (_, i) => _expCard(exps[i]),
                         ),
-                      ),
-                    )
-                  else
-                    ListView.separated(
-                      shrinkWrap: true,
-                      physics: const NeverScrollableScrollPhysics(),
-                      itemCount: _experiences.length,
-                      separatorBuilder: (_, __) => const SizedBox(height: 12),
-                      itemBuilder: (context, index) {
-                        final exp = _experiences[index];
-                        return _buildExperienceCard(exp, index);
-                      },
-                    ),
-                ],
-              ),
-            ),
-          ),
-          
-          // Save Button (Bottom)
-          Container(
-            padding: const EdgeInsets.all(20),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.05),
-                  blurRadius: 10,
-                  offset: const Offset(0, -5),
-                ),
-              ],
-            ),
-            child: SafeArea(
-              child: SizedBox(
-                width: double.infinity,
-                child: ElevatedButton(
-                  onPressed: _isSaveEnabled ? _saveExperiences : null,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.primary,
-                    foregroundColor: Colors.white,
-                    disabledBackgroundColor: AppColors.neutral300,
-                    disabledForegroundColor: AppColors.neutral600,
-                    padding: const EdgeInsets.symmetric(vertical: 16),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    elevation: 0,
-                  ),
-                  child: const Text(
-                    'Save',
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
-                    ),
+                    ],
                   ),
                 ),
               ),
-            ),
-          ),
-        ],
+            ],
+          );
+        },
       ),
     );
   }
 
-  Widget _buildExperienceCard(Map<String, String> exp, int index) {
+  Widget _expCard(Map<String, dynamic> exp) {
+    final startStr = _fmtDate(exp['start_date'] as String?);
+    final endRaw = exp['end_date'] as String?;
+    final endStr = endRaw != null ? _fmtDate(endRaw) : 'Present';
+
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -240,57 +204,32 @@ class _AddExperienceScreenState extends State<AddExperienceScreen> {
           Row(
             children: [
               Expanded(
-                child: Text(
-                  exp['jobTitle'] ?? '',
-                  style: const TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                    color: AppColors.neutral900,
-                  ),
-                ),
+                child: Text(exp['title'] ?? '',
+                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: AppColors.neutral900)),
               ),
               IconButton(
-                icon: const Icon(Icons.edit, size: 20, color: AppColors.primary),
-                onPressed: () => _addOrEditExperience(exp, index),
-                padding: EdgeInsets.zero,
-                constraints: const BoxConstraints(),
+                icon: const Icon(Icons.edit, size: 18, color: AppColors.primary),
+                onPressed: () => _editExperience(exp),
+                padding: EdgeInsets.zero, constraints: const BoxConstraints(),
               ),
               const SizedBox(width: 8),
               IconButton(
-                icon: const Icon(Icons.delete, size: 20, color: AppColors.error),
-                onPressed: () => _deleteExperience(index),
-                padding: EdgeInsets.zero,
-                constraints: const BoxConstraints(),
+                icon: const Icon(Icons.delete, size: 18, color: AppColors.error),
+                onPressed: () => _deleteExperience(exp['id'] as int),
+                padding: EdgeInsets.zero, constraints: const BoxConstraints(),
               ),
             ],
           ),
           const SizedBox(height: 4),
-          Text(
-            exp['company'] ?? '',
-            style: const TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.w500,
-              color: AppColors.neutral700,
-            ),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            '${exp['startDate']} - ${exp['endDate']}',
-            style: TextStyle(
-              fontSize: 13,
-              color: AppColors.neutral600,
-            ),
-          ),
-          if (exp['description']?.isNotEmpty ?? false) ...[
-            const SizedBox(height: 8),
-            Text(
-              exp['description'] ?? '',
-              style: TextStyle(
-                fontSize: 13,
-                color: AppColors.neutral600,
-                height: 1.4,
-              ),
-            ),
+          Text(exp['company'] ?? '',
+              style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500, color: AppColors.neutral700)),
+          const SizedBox(height: 2),
+          Text('$startStr – $endStr',
+              style: const TextStyle(fontSize: 12, color: AppColors.neutral500)),
+          if ((exp['description'] as String?)?.isNotEmpty == true) ...[
+            const SizedBox(height: 6),
+            Text(exp['description'] ?? '',
+                style: const TextStyle(fontSize: 13, color: AppColors.neutral600, height: 1.4)),
           ],
         ],
       ),
@@ -298,107 +237,82 @@ class _AddExperienceScreenState extends State<AddExperienceScreen> {
   }
 }
 
-/// Form screen for adding/editing a single experience
-class _AddExperienceFormScreen extends StatefulWidget {
-  final Map<String, String>? existingExperience;
-  
-  const _AddExperienceFormScreen({this.existingExperience});
+// ── Experience Form ───────────────────────────────────────────────────────────
+
+class _ExperienceFormScreen extends StatefulWidget {
+  final Map<String, String>? existingExp;
+  const _ExperienceFormScreen({this.existingExp});
 
   @override
-  State<_AddExperienceFormScreen> createState() => _AddExperienceFormScreenState();
+  State<_ExperienceFormScreen> createState() => _ExperienceFormScreenState();
 }
 
-class _AddExperienceFormScreenState extends State<_AddExperienceFormScreen> {
-  final _jobTitleController = TextEditingController();
-  final _companyController = TextEditingController();
-  final _startDateController = TextEditingController();
-  final _endDateController = TextEditingController();
-  final _descriptionController = TextEditingController();
-  bool _isSaveEnabled = false;
+class _ExperienceFormScreenState extends State<_ExperienceFormScreen> {
+  late final TextEditingController _titleCtrl;
+  late final TextEditingController _companyCtrl;
+  late final TextEditingController _startCtrl;
+  late final TextEditingController _endCtrl;
+  late final TextEditingController _descCtrl;
+  bool _isPresent = false;
+
+  bool get _canSave =>
+      _titleCtrl.text.trim().isNotEmpty &&
+      _companyCtrl.text.trim().isNotEmpty &&
+      _startCtrl.text.trim().isNotEmpty &&
+      (_isPresent || _endCtrl.text.trim().isNotEmpty);
 
   @override
   void initState() {
     super.initState();
-    
-    // Pre-fill if editing
-    if (widget.existingExperience != null) {
-      _jobTitleController.text = widget.existingExperience!['jobTitle'] ?? '';
-      _companyController.text = widget.existingExperience!['company'] ?? '';
-      _startDateController.text = widget.existingExperience!['startDate'] ?? '';
-      _endDateController.text = widget.existingExperience!['endDate'] ?? '';
-      _descriptionController.text = widget.existingExperience!['description'] ?? '';
+    final e = widget.existingExp;
+    _titleCtrl   = TextEditingController(text: e?['jobTitle'] ?? '');
+    _companyCtrl = TextEditingController(text: e?['company'] ?? '');
+    _startCtrl   = TextEditingController(text: e?['startDate'] ?? '');
+    _endCtrl     = TextEditingController(text: e?['endDate'] == 'Present' ? '' : (e?['endDate'] ?? ''));
+    _descCtrl    = TextEditingController(text: e?['description'] ?? '');
+    _isPresent   = e?['endDate'] == 'Present';
+
+    for (final c in [_titleCtrl, _companyCtrl, _startCtrl, _endCtrl]) {
+      c.addListener(() => setState(() {}));
     }
-    
-    _jobTitleController.addListener(_updateSaveButton);
-    _companyController.addListener(_updateSaveButton);
-    _startDateController.addListener(_updateSaveButton);
-    _endDateController.addListener(_updateSaveButton);
   }
 
   @override
   void dispose() {
-    _jobTitleController.dispose();
-    _companyController.dispose();
-    _startDateController.dispose();
-    _endDateController.dispose();
-    _descriptionController.dispose();
+    _titleCtrl.dispose(); _companyCtrl.dispose();
+    _startCtrl.dispose(); _endCtrl.dispose(); _descCtrl.dispose();
     super.dispose();
   }
 
-  void _updateSaveButton() {
-    setState(() {
-      _isSaveEnabled = _jobTitleController.text.trim().isNotEmpty &&
-                       _companyController.text.trim().isNotEmpty &&
-                       _startDateController.text.trim().isNotEmpty &&
-                       _endDateController.text.trim().isNotEmpty;
-    });
-  }
-
-  Future<void> _selectDate(TextEditingController controller, String title) async {
-    final DateTime? picked = await showDatePicker(
+  Future<void> _pickDate(TextEditingController ctrl, String label) async {
+    final picked = await showDatePicker(
       context: context,
       initialDate: DateTime.now(),
       firstDate: DateTime(1970),
       lastDate: DateTime.now(),
-      helpText: title,
-      builder: (context, child) {
-        return Theme(
-          data: Theme.of(context).copyWith(
-            colorScheme: const ColorScheme.light(
-              primary: AppColors.primary,
-              onPrimary: Colors.white,
-              onSurface: AppColors.neutral900,
-            ),
-          ),
-          child: child!,
-        );
-      },
+      helpText: label,
+      builder: (ctx, child) => Theme(
+        data: Theme.of(ctx).copyWith(
+          colorScheme: const ColorScheme.light(
+            primary: AppColors.primary, onPrimary: Colors.white, onSurface: AppColors.neutral900),
+        ),
+        child: child!,
+      ),
     );
-    
     if (picked != null) {
-      setState(() {
-        controller.text = '${picked.month}/${picked.year}';
-        _updateSaveButton();
-      });
+      setState(() => ctrl.text = '${picked.month}/${picked.year}');
     }
   }
 
-  void _saveExperience() {
-    final jobTitle = _jobTitleController.text.trim();
-    final company = _companyController.text.trim();
-    final startDate = _startDateController.text.trim();
-    final endDate = _endDateController.text.trim();
-    final description = _descriptionController.text.trim();
-    
-    if (jobTitle.isNotEmpty && company.isNotEmpty && startDate.isNotEmpty && endDate.isNotEmpty) {
-      Navigator.pop(context, {
-        'jobTitle': jobTitle,
-        'company': company,
-        'startDate': startDate,
-        'endDate': endDate,
-        'description': description,
-      });
-    }
+  void _save() {
+    if (!_canSave) return;
+    Navigator.pop(context, {
+      'jobTitle':    _titleCtrl.text.trim(),
+      'company':     _companyCtrl.text.trim(),
+      'startDate':   _startCtrl.text.trim(),
+      'endDate':     _isPresent ? 'Present' : _endCtrl.text.trim(),
+      'description': _descCtrl.text.trim(),
+    });
   }
 
   @override
@@ -412,14 +326,8 @@ class _AddExperienceFormScreenState extends State<_AddExperienceFormScreen> {
           icon: const Icon(Icons.arrow_back, color: AppColors.neutral900),
           onPressed: () => Navigator.pop(context),
         ),
-        title: Text(
-          widget.existingExperience != null ? 'Edit Experience' : 'Add Experience',
-          style: const TextStyle(
-            fontSize: 18,
-            fontWeight: FontWeight.w600,
-            color: AppColors.neutral900,
-          ),
-        ),
+        title: Text(widget.existingExp != null ? 'Edit Experience' : 'Add Experience',
+            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600, color: AppColors.neutral900)),
         centerTitle: true,
       ),
       body: Column(
@@ -428,223 +336,93 @@ class _AddExperienceFormScreenState extends State<_AddExperienceFormScreen> {
             child: SingleChildScrollView(
               padding: const EdgeInsets.all(20),
               child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Job Title Field
-                  TextField(
-                    controller: _jobTitleController,
-                    autofocus: widget.existingExperience == null,
-                    textCapitalization: TextCapitalization.words,
-                    decoration: InputDecoration(
-                      labelText: 'Job Title',
-                      hintText: 'e.g. Plumber',
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      enabledBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        borderSide: const BorderSide(color: AppColors.neutral300),
-                      ),
-                      focusedBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        borderSide: const BorderSide(color: AppColors.primary, width: 2),
-                      ),
-                      filled: true,
-                      fillColor: Colors.white,
-                      contentPadding: const EdgeInsets.symmetric(
-                        horizontal: 16,
-                        vertical: 16,
-                      ),
-                    ),
-                    style: const TextStyle(
-                      fontSize: 16,
-                      color: AppColors.neutral900,
-                    ),
-                  ),
-                  
+                  _field(_titleCtrl, 'Job Title', 'e.g. Plumber'),
                   const SizedBox(height: 16),
-                  
-                  // Company Field
-                  TextField(
-                    controller: _companyController,
-                    textCapitalization: TextCapitalization.words,
-                    decoration: InputDecoration(
-                      labelText: 'Company',
-                      hintText: 'e.g. ABC Construction',
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      enabledBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        borderSide: const BorderSide(color: AppColors.neutral300),
-                      ),
-                      focusedBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        borderSide: const BorderSide(color: AppColors.primary, width: 2),
-                      ),
-                      filled: true,
-                      fillColor: Colors.white,
-                      contentPadding: const EdgeInsets.symmetric(
-                        horizontal: 16,
-                        vertical: 16,
-                      ),
-                    ),
-                    style: const TextStyle(
-                      fontSize: 16,
-                      color: AppColors.neutral900,
-                    ),
-                  ),
-                  
+                  _field(_companyCtrl, 'Company / Employer', 'e.g. ABC Construction'),
                   const SizedBox(height: 16),
-                  
-                  // Start Date Field
-                  TextField(
-                    controller: _startDateController,
-                    readOnly: true,
-                    onTap: () => _selectDate(_startDateController, 'Select Start Date'),
-                    decoration: InputDecoration(
-                      labelText: 'Start Date',
-                      hintText: 'MM/YYYY',
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      enabledBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        borderSide: const BorderSide(color: AppColors.neutral300),
-                      ),
-                      focusedBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        borderSide: const BorderSide(color: AppColors.primary, width: 2),
-                      ),
-                      filled: true,
-                      fillColor: Colors.white,
-                      contentPadding: const EdgeInsets.symmetric(
-                        horizontal: 16,
-                        vertical: 16,
-                      ),
-                      suffixIcon: const Icon(Icons.calendar_today, size: 20),
-                    ),
-                    style: const TextStyle(
-                      fontSize: 16,
-                      color: AppColors.neutral900,
-                    ),
-                  ),
-                  
+                  _datePicker(_startCtrl, 'Start Date', 'Select Start Date'),
                   const SizedBox(height: 16),
-                  
-                  // End Date Field
-                  TextField(
-                    controller: _endDateController,
-                    readOnly: true,
-                    onTap: () => _selectDate(_endDateController, 'Select End Date'),
-                    decoration: InputDecoration(
-                      labelText: 'End Date',
-                      hintText: 'MM/YYYY or "Present"',
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
+                  if (!_isPresent)
+                    _datePicker(_endCtrl, 'End Date', 'Select End Date'),
+                  Row(
+                    children: [
+                      Checkbox(
+                        value: _isPresent,
+                        onChanged: (v) => setState(() {
+                          _isPresent = v ?? false;
+                          if (_isPresent) _endCtrl.clear();
+                        }),
+                        activeColor: AppColors.primary,
                       ),
-                      enabledBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        borderSide: const BorderSide(color: AppColors.neutral300),
-                      ),
-                      focusedBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        borderSide: const BorderSide(color: AppColors.primary, width: 2),
-                      ),
-                      filled: true,
-                      fillColor: Colors.white,
-                      contentPadding: const EdgeInsets.symmetric(
-                        horizontal: 16,
-                        vertical: 16,
-                      ),
-                      suffixIcon: const Icon(Icons.calendar_today, size: 20),
-                    ),
-                    style: const TextStyle(
-                      fontSize: 16,
-                      color: AppColors.neutral900,
-                    ),
+                      const Text('Currently working here',
+                          style: TextStyle(fontSize: 14, color: AppColors.neutral700)),
+                    ],
                   ),
-                  
-                  const SizedBox(height: 16),
-                  
-                  // Description Field (Optional)
+                  const SizedBox(height: 8),
                   TextField(
-                    controller: _descriptionController,
+                    controller: _descCtrl,
                     maxLines: 4,
                     textCapitalization: TextCapitalization.sentences,
-                    decoration: InputDecoration(
-                      labelText: 'Description (Optional)',
-                      hintText: 'Describe your responsibilities...',
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      enabledBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        borderSide: const BorderSide(color: AppColors.neutral300),
-                      ),
-                      focusedBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        borderSide: const BorderSide(color: AppColors.primary, width: 2),
-                      ),
-                      filled: true,
-                      fillColor: Colors.white,
-                      contentPadding: const EdgeInsets.symmetric(
-                        horizontal: 16,
-                        vertical: 16,
-                      ),
-                    ),
-                    style: const TextStyle(
-                      fontSize: 16,
-                      color: AppColors.neutral900,
-                    ),
+                    decoration: _deco('Description (Optional)', 'Describe your responsibilities...'),
                   ),
                 ],
               ),
             ),
           ),
-          
-          // Save Button (Bottom)
-          Container(
-            padding: const EdgeInsets.all(20),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.05),
-                  blurRadius: 10,
-                  offset: const Offset(0, -5),
-                ),
-              ],
-            ),
-            child: SafeArea(
-              child: SizedBox(
-                width: double.infinity,
-                child: ElevatedButton(
-                  onPressed: _isSaveEnabled ? _saveExperience : null,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.primary,
-                    foregroundColor: Colors.white,
-                    disabledBackgroundColor: AppColors.neutral300,
-                    disabledForegroundColor: AppColors.neutral600,
-                    padding: const EdgeInsets.symmetric(vertical: 16),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    elevation: 0,
-                  ),
-                  child: const Text(
-                    'Save',
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          ),
+          _saveBar(),
         ],
       ),
     );
   }
+
+  Widget _field(TextEditingController ctrl, String label, String hint) => TextField(
+    controller: ctrl,
+    textCapitalization: TextCapitalization.words,
+    decoration: _deco(label, hint),
+  );
+
+  Widget _datePicker(TextEditingController ctrl, String label, String dlgTitle) => TextField(
+    controller: ctrl,
+    readOnly: true,
+    onTap: () => _pickDate(ctrl, dlgTitle),
+    decoration: _deco(label, 'MM/YYYY').copyWith(
+      suffixIcon: const Icon(Icons.calendar_today, size: 18, color: AppColors.neutral500),
+    ),
+  );
+
+  InputDecoration _deco(String label, String hint) => InputDecoration(
+    labelText: label, hintText: hint,
+    filled: true, fillColor: Colors.white,
+    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+    enabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: const BorderSide(color: AppColors.neutral300)),
+    focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: const BorderSide(color: AppColors.primary, width: 2)),
+    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+  );
+
+  Widget _saveBar() => Container(
+    padding: const EdgeInsets.all(20),
+    color: Colors.white,
+    child: SafeArea(
+      child: SizedBox(
+        width: double.infinity,
+        child: ElevatedButton(
+          onPressed: _canSave ? _save : null,
+          style: ElevatedButton.styleFrom(
+            backgroundColor: AppColors.primary,
+            foregroundColor: Colors.white,
+            disabledBackgroundColor: AppColors.neutral300,
+            padding: const EdgeInsets.symmetric(vertical: 16),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            elevation: 0,
+          ),
+          child: const Text('Save', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
+        ),
+      ),
+    ),
+  );
 }

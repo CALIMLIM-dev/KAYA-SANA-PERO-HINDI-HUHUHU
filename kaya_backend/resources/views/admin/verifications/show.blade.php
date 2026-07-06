@@ -19,6 +19,9 @@
 
         <dl class="mt-5 text-left text-sm space-y-2 border-t border-slate-100 pt-4">
             <div class="flex justify-between"><dt class="text-slate-400">Document</dt><dd>{{ str_replace('_',' ',ucfirst($verification->document_type)) }}</dd></div>
+            @if ($verification->document_type === 'government_id' && $verification->id_type)
+                <div class="flex justify-between"><dt class="text-slate-400">ID Type</dt><dd>{{ $verification->id_type }}</dd></div>
+            @endif
             <div class="flex justify-between"><dt class="text-slate-400">Submitted</dt><dd>{{ $verification->created_at->format('M j, Y') }}</dd></div>
             @if ($verification->reviewed_at)
                 <div class="flex justify-between"><dt class="text-slate-400">Reviewed</dt><dd>{{ $verification->reviewed_at->format('M j, Y') }}</dd></div>
@@ -31,18 +34,18 @@
         <div class="bg-white rounded-xl border border-slate-200 p-5">
             <h3 class="text-sm font-semibold text-slate-700 mb-3">Submitted Documents</h3>
             <div class="grid grid-cols-2 gap-3">
-                <div class="border border-slate-200 rounded-lg h-36 flex items-center justify-center bg-slate-50 text-xs text-slate-400">
+                <div class="border border-slate-200 rounded-lg h-36 flex items-center justify-center bg-slate-50 text-xs text-slate-400 overflow-hidden">
                     @if ($verification->document_front_url)
-                        <img src="{{ $verification->document_front_url }}" class="h-full object-cover rounded-lg">
+                        <img src="{{ asset('storage/' . $verification->document_front_url) }}" class="h-full w-full object-contain rounded-lg">
                     @else
-                        Front of ID — not uploaded
+                        <span>Front of ID — not uploaded</span>
                     @endif
                 </div>
-                <div class="border border-slate-200 rounded-lg h-36 flex items-center justify-center bg-slate-50 text-xs text-slate-400">
+                <div class="border border-slate-200 rounded-lg h-36 flex items-center justify-center bg-slate-50 text-xs text-slate-400 overflow-hidden">
                     @if ($verification->selfie_url)
-                        <img src="{{ $verification->selfie_url }}" class="h-full object-cover rounded-lg">
+                        <img src="{{ asset('storage/' . $verification->selfie_url) }}" class="h-full w-full object-contain rounded-lg">
                     @else
-                        Selfie — not uploaded
+                        <span>Selfie — not uploaded</span>
                     @endif
                 </div>
             </div>

@@ -1,6 +1,10 @@
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    package="com.alphatech.kaya_app">
+    <!-- Internet permission for API calls and Google Sign-In -->
+    <uses-permission android:name="android.permission.INTERNET"/>
+    
     <application
-        android:label="kaya_app"
+        android:label="KAYA"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
         <activity
@@ -41,5 +45,7 @@
             <action android:name="android.intent.action.PROCESS_TEXT"/>
             <data android:mimeType="text/plain"/>
         </intent>
+        <!-- Required for Google Sign-In -->
+        <package android:name="com.google.android.gms" />
     </queries>
 </manifest>

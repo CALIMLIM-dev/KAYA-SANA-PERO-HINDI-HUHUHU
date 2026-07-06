@@ -1,5 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import '../../../core/constants/app_colors.dart';
+import '../../../data/services/api_client.dart';
+import '../../../providers/worker_profile_provider.dart';
+import '../../../providers/verification_provider.dart';
 
 /// My Worker Profile - JobStreet-inspired card layout
 /// Shows filled data in cards, NOT empty clickable placeholders
@@ -13,21 +17,27 @@ class MyWorkerProfileScreen extends StatefulWidget {
 class _MyWorkerProfileScreenState extends State<MyWorkerProfileScreen> with SingleTickerProviderStateMixin {
   late TabController _tabController;
   
-  // TODO: Load from Provider/storage
-  String? _userName;
-  String? _userLocation;
-  String? _userPhone;
-  String? _userEmail;
-  List<String> _skills = [];
-  List<Map<String, String>> _experiences = [];
-  List<Map<String, dynamic>> _certifications = [];
-  List<Map<String, dynamic>> _licenses = [];
-  bool _hasPhoto = false;
+  // Profile data read from WorkerProfileProvider — no local state needed
+  // These getters proxy to the provider for display
 
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        try {
+          context.read<WorkerProfileProvider>().fetchProfile().catchError((e) {
+            print('Error fetching worker profile: $e');
+          });
+          context.read<VerificationProvider>().fetchVerifications().catchError((e) {
+            print('Error fetching verifications: $e');
+          });
+        } catch (e) {
+          print('Error in initState: $e');
+        }
+      }
+    });
   }
 
   @override
@@ -36,10 +46,25 @@ class _MyWorkerProfileScreenState extends State<MyWorkerProfileScreen> with Sing
     super.dispose();
   }
 
+  // Helper method to compare two lists for equality
+  bool _listsEqual(List<String> a, List<String> b) {
+    if (a.length != b.length) return false;
+    for (int i = 0; i < a.length; i++) {
+      if (a[i] != b[i]) return false;
+    }
+    return true;
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.background,
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: () => Navigator.pushNamedAndRemoveUntil(context, '/home', (r) => false),
+        backgroundColor: AppColors.accent,
+        icon: const Icon(Icons.check, color: Colors.white),
+        label: const Text('Done', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
+      ),
       body: NestedScrollView(
         headerSliverBuilder: (context, innerBoxIsScrolled) {
           return [
@@ -52,16 +77,6 @@ class _MyWorkerProfileScreenState extends State<MyWorkerProfileScreen> with Sing
                 icon: const Icon(Icons.arrow_back, color: Colors.white),
                 onPressed: () => Navigator.pop(context),
               ),
-              actions: [
-                IconButton(
-                  icon: const Icon(Icons.search, color: Colors.white),
-                  onPressed: () {},
-                ),
-                IconButton(
-                  icon: const Icon(Icons.settings, color: Colors.white),
-                  onPressed: () {},
-                ),
-              ],
               flexibleSpace: FlexibleSpaceBar(
                 background: Container(
                   decoration: BoxDecoration(
@@ -82,20 +97,69 @@ class _MyWorkerProfileScreenState extends State<MyWorkerProfileScreen> with Sing
                             crossAxisAlignment: CrossAxisAlignment.center,
                             children: [
                               // Profile Photo
-                              Container(
-                                width: 68,
-                                height: 68,
-                                decoration: BoxDecoration(
-                                  color: Colors.white.withValues(alpha: 0.15),
-                                  borderRadius: BorderRadius.circular(12),
-                                  border: Border.all(
-                                    color: Colors.white.withValues(alpha: 0.3),
-                                    width: 2,
-                                  ),
+                              GestureDetector(
+                                onTap: () async {
+                                  final provider = context.read<WorkerProfileProvider>();
+                                  final choice = await showDialog<bool>(
+                                    context: context,
+                                    builder: (_) => AlertDialog(
+                                      title: const Text('Profile Photo'),
+                                      actions: [
+                                        TextButton(
+                                          onPressed: () => Navigator.pop(context, false),
+                                          child: const Text('Gallery'),
+                                        ),
+                                        TextButton(
+                                          onPressed: () => Navigator.pop(context, true),
+                                          child: const Text('Camera'),
+                                        ),
+                                      ],
+                                    ),
+                                  );
+                                  if (choice == null) return;
+                                  await provider.uploadPhoto(fromCamera: choice);
+                                },
+                                child: Stack(
+                                  children: [
+                                    Container(
+                                      width: 68,
+                                      height: 68,
+                                      decoration: BoxDecoration(
+                                        color: Colors.white.withValues(alpha: 0.15),
+                                        borderRadius: BorderRadius.circular(12),
+                                        border: Border.all(
+                                          color: Colors.white.withValues(alpha: 0.3),
+                                          width: 2,
+                                        ),
+                                      ),
+                                      child: ClipRRect(
+                                        borderRadius: BorderRadius.circular(10),
+                                        child: context.watch<WorkerProfileProvider>().profilePhotoPath != null
+                                            ? Image.network(
+                                                ApiClient.fileUrl(context.watch<WorkerProfileProvider>().profilePhotoPath),
+                                                fit: BoxFit.cover,
+                                                errorBuilder: (_, __, ___) =>
+                                                    const Icon(Icons.person, color: Colors.white54, size: 32),
+                                              )
+                                            : const Icon(Icons.camera_alt, color: Colors.white54, size: 24),
+                                      ),
+                                    ),
+                                    Positioned(
+                                      bottom: 0,
+                                      right: 0,
+                                      child: Container(
+                                        width: 22,
+                                        height: 22,
+                                        decoration: BoxDecoration(
+                                          color: AppColors.accent,
+                                          shape: BoxShape.circle,
+                                          border: Border.all(color: Colors.white, width: 1.5),
+                                        ),
+                                        child: const Icon(Icons.add, size: 13, color: Colors.white),
+                                      ),
+                                    ),
+                                  ],
                                 ),
-                                child: _hasPhoto
-                                    ? const Icon(Icons.person, color: Colors.white, size: 32)
-                                    : const Icon(Icons.camera_alt, color: Colors.white54, size: 24),
                               ),
                               const SizedBox(width: 14),
                               Expanded(
@@ -104,11 +168,11 @@ class _MyWorkerProfileScreenState extends State<MyWorkerProfileScreen> with Sing
                                   children: [
                                     // Name — always visible
                                     Text(
-                                      _userName ?? 'Add your name',
+                                      context.watch<WorkerProfileProvider>().name ?? 'Add your name',
                                       style: TextStyle(
                                         fontSize: 20,
                                         fontWeight: FontWeight.bold,
-                                        color: _userName != null
+                                        color: context.watch<WorkerProfileProvider>().name != null
                                             ? Colors.white
                                             : Colors.white38,
                                       ),
@@ -120,16 +184,16 @@ class _MyWorkerProfileScreenState extends State<MyWorkerProfileScreen> with Sing
                                         Icon(
                                           Icons.location_on,
                                           size: 13,
-                                          color: _userLocation != null
+                                          color: context.watch<WorkerProfileProvider>().location != null
                                               ? Colors.white70
                                               : Colors.white30,
                                         ),
                                         const SizedBox(width: 3),
                                         Text(
-                                          _userLocation ?? 'Add location',
+                                          context.watch<WorkerProfileProvider>().location ?? 'Add location',
                                           style: TextStyle(
                                             fontSize: 13,
-                                            color: _userLocation != null
+                                            color: context.watch<WorkerProfileProvider>().location != null
                                                 ? Colors.white70
                                                 : Colors.white30,
                                           ),
@@ -137,76 +201,104 @@ class _MyWorkerProfileScreenState extends State<MyWorkerProfileScreen> with Sing
                                       ],
                                     ),
                                     const SizedBox(height: 4),
-                                    // Contact info — shows phone or email if set
-                                    if (_userPhone != null || _userEmail != null)
-                                      Text(
-                                        _userPhone ?? _userEmail ?? '',
-                                        style: const TextStyle(
-                                          fontSize: 12,
-                                          color: Colors.white60,
-                                        ),
-                                      )
-                                    else
-                                      const Text(
-                                        'Add contact details',
-                                        style: TextStyle(
-                                          fontSize: 12,
-                                          color: Colors.white24,
-                                        ),
-                                      ),
+                                    // Contact info
+                                    Builder(builder: (context) {
+                                      final p = context.watch<WorkerProfileProvider>();
+                                      final hasPhone = p.phone != null && p.phone!.isNotEmpty;
+                                      final hasEmail = p.email != null && p.email!.isNotEmpty;
+                                      
+                                      if (!hasPhone && !hasEmail) {
+                                        return const Text('Add contact details',
+                                            style: TextStyle(fontSize: 12, color: Colors.white24));
+                                      }
+                                      
+                                      return Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          if (hasPhone)
+                                            Row(
+                                              children: [
+                                                const Icon(Icons.phone, size: 12, color: Colors.white60),
+                                                const SizedBox(width: 4),
+                                                Text(p.phone!,
+                                                    style: const TextStyle(fontSize: 12, color: Colors.white60)),
+                                              ],
+                                            ),
+                                          if (hasEmail)
+                                            Row(
+                                              children: [
+                                                const Icon(Icons.email, size: 12, color: Colors.white60),
+                                                const SizedBox(width: 4),
+                                                Text(p.email!,
+                                                    style: const TextStyle(fontSize: 12, color: Colors.white60)),
+                                              ],
+                                            ),
+                                        ],
+                                      );
+                                    }),
                                   ],
                                 ),
-                              ),
-                              IconButton(
-                                icon: const Icon(Icons.more_vert, color: Colors.white),
-                                onPressed: () {},
                               ),
                             ],
                           ),
                           const SizedBox(height: 12),
-                          // Skills preview — show first 3 if available
-                          if (_skills.isNotEmpty)
-                            Wrap(
-                              spacing: 6,
-                              children: _skills.take(3).map((skill) => Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                                decoration: BoxDecoration(
-                                  color: Colors.white.withValues(alpha: 0.15),
-                                  borderRadius: BorderRadius.circular(20),
-                                ),
-                                child: Text(
-                                  skill,
-                                  style: const TextStyle(
-                                    fontSize: 11,
-                                    fontWeight: FontWeight.w600,
-                                    color: Colors.white,
-                                  ),
-                                ),
-                              )).toList(),
-                            )
-                          else
-                            Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                              decoration: BoxDecoration(
-                                color: AppColors.accent,
-                                borderRadius: BorderRadius.circular(20),
-                              ),
-                              child: const Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Icon(Icons.visibility, size: 13, color: Colors.white),
-                                  SizedBox(width: 5),
-                                  Text(
-                                    'Set your profile visibility',
-                                    style: TextStyle(
-                                      fontSize: 11,
-                                      fontWeight: FontWeight.w600,
-                                      color: Colors.white,
+                          // Skills preview - Using Selector to prevent animation flicker
+                          Selector<WorkerProfileProvider, List<String>>(
+                            selector: (_, provider) => provider.skills.map((s) => s.skillName).toList(),
+                            shouldRebuild: (prev, next) => prev.length != next.length || !_listsEqual(prev, next),
+                            builder: (context, skillNames, _) {
+                              if (skillNames.isNotEmpty) {
+                                return Container(
+                                  constraints: const BoxConstraints(maxHeight: 60),
+                                  child: SingleChildScrollView(
+                                    child: Wrap(
+                                      spacing: 6,
+                                      runSpacing: 6,
+                                      children: skillNames.map((skillName) => Container(
+                                        key: ValueKey(skillName),
+                                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                        decoration: BoxDecoration(
+                                          color: Colors.white.withValues(alpha: 0.15),
+                                          borderRadius: BorderRadius.circular(20),
+                                        ),
+                                        child: Text(
+                                          skillName,
+                                          style: const TextStyle(
+                                            fontSize: 11,
+                                            fontWeight: FontWeight.w600,
+                                            color: Colors.white,
+                                          ),
+                                        ),
+                                      )).toList(),
                                     ),
                                   ),
-                                ],
-                              ),
-                            ),
+                                );
+                              } else {
+                                return Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                                  decoration: BoxDecoration(
+                                    color: AppColors.accent,
+                                    borderRadius: BorderRadius.circular(20),
+                                  ),
+                                  child: const Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Icon(Icons.visibility, size: 13, color: Colors.white),
+                                      SizedBox(width: 5),
+                                      Text(
+                                        'Set your profile visibility',
+                                        style: TextStyle(
+                                          fontSize: 11,
+                                          fontWeight: FontWeight.w600,
+                                          color: Colors.white,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                );
+                              }
+                            },
+                          ),
                         ],
                       ),
                     ),
@@ -225,7 +317,7 @@ class _MyWorkerProfileScreenState extends State<MyWorkerProfileScreen> with Sing
                   indicatorColor: AppColors.primary,
                   indicatorWeight: 3,
                   tabs: const [
-                    Tab(text: 'Suggested for you'),
+                    Tab(text: 'Profile'),
                     Tab(text: 'Verifications'),
                   ],
                 ),
@@ -244,12 +336,27 @@ class _MyWorkerProfileScreenState extends State<MyWorkerProfileScreen> with Sing
     );
   }
 
+  String _fmtDate(String? d) {
+    if (d == null || d.isEmpty) return '';
+    try {
+      if (d.contains('-')) {
+        final parts = d.split('-');
+        const months = ['', 'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+                        'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+        final m = int.tryParse(parts[1]) ?? 1;
+        return '${months[m]} ${parts[0]}';
+      }
+    } catch (_) {}
+    return d;
+  }
+
   Widget _buildSuggestedTab() {
+    final p = context.watch<WorkerProfileProvider>();
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
         const Text(
-          'Suggested for you',
+          'Complete Your Profile',
           style: TextStyle(
             fontSize: 18,
             fontWeight: FontWeight.bold,
@@ -257,19 +364,26 @@ class _MyWorkerProfileScreenState extends State<MyWorkerProfileScreen> with Sing
           ),
         ),
         const SizedBox(height: 16),
-        
+
         // Name Card
         _buildInfoCard(
           title: 'Full Name',
           icon: Icons.person,
           iconColor: AppColors.primary,
-          content: _userName != null
-              ? Text(_userName!, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: AppColors.neutral900))
+          content: p.name != null
+              ? Text(p.name!, style: const TextStyle(fontSize: 14, color: AppColors.neutral900))
               : const Text('Add your full name', style: TextStyle(color: AppColors.neutral600)),
           onTap: () async {
-            final result = await Navigator.pushNamed(context, '/add-name');
-            if (result != null && result is String) {
-              setState(() => _userName = result);
+            final result = await Navigator.pushNamed(context, '/add-name',
+                arguments: context.read<WorkerProfileProvider>().name);
+            if (result != null && result is String && mounted) {
+              final success = await context.read<WorkerProfileProvider>().updateName(result);
+              if (!success && mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                  content: Text(context.read<WorkerProfileProvider>().errorMessage ?? 'Failed to save'),
+                  backgroundColor: AppColors.error,
+                ));
+              }
             }
           },
         ),
@@ -279,117 +393,140 @@ class _MyWorkerProfileScreenState extends State<MyWorkerProfileScreen> with Sing
           title: 'Location',
           icon: Icons.location_on,
           iconColor: AppColors.success,
-          content: _userLocation != null
-              ? Text(_userLocation!, style: const TextStyle(fontSize: 14, color: AppColors.neutral900))
+          content: p.location != null
+              ? Text(p.location!, style: const TextStyle(fontSize: 14, color: AppColors.neutral900))
               : const Text('Add your location', style: TextStyle(color: AppColors.neutral600)),
           onTap: () async {
-            final result = await Navigator.pushNamed(context, '/add-location');
-            if (result != null && result is String) {
-              setState(() => _userLocation = result);
+            final result = await Navigator.pushNamed(context, '/add-location',
+                arguments: context.read<WorkerProfileProvider>().location);
+            if (result != null && result is String && mounted) {
+              final success = await context.read<WorkerProfileProvider>().updateLocation(result);
+              if (!success && mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                  content: Text(context.read<WorkerProfileProvider>().errorMessage ?? 'Failed to save'),
+                  backgroundColor: AppColors.error,
+                ));
+              }
             }
           },
         ),
 
-        // Personal Details Card - SHOWS DATA
+        // Personal Details Card
         _buildInfoCard(
           title: 'Personal Details',
           icon: Icons.contact_page,
           iconColor: AppColors.primary,
-          content: _userPhone != null || _userEmail != null
+          content: p.phone != null || p.email != null
               ? Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    if (_userPhone != null)
-                      Text('Phone: $_userPhone', style: const TextStyle(fontSize: 14)),
-                    if (_userEmail != null)
-                      Text('Email: $_userEmail', style: const TextStyle(fontSize: 14)),
+                    if (p.phone != null)
+                      Text('Phone: ${p.phone}', style: const TextStyle(fontSize: 14)),
+                    if (p.email != null)
+                      Text('Email: ${p.email}', style: const TextStyle(fontSize: 14)),
                   ],
                 )
               : const Text('Add your contact details', style: TextStyle(color: AppColors.neutral600)),
           onTap: () async {
-            final result = await Navigator.pushNamed(context, '/add-personal-details');
-            if (result != null && result is Map) {
-              setState(() {
-                _userPhone = result['phone'] as String?;
-                _userEmail = result['email'] as String?;
-              });
+            final result = await Navigator.pushNamed(context, '/add-personal-details',
+                arguments: {
+                  'phone': context.read<WorkerProfileProvider>().phone,
+                  'email': context.read<WorkerProfileProvider>().email,
+                });
+            if (result != null && result is Map && mounted) {
+              final phone = result['phone'] as String?;
+              final email = result['email'] as String?;
+              final provider = context.read<WorkerProfileProvider>();
+              if (phone != null) await provider.updatePhone(phone);
+              if (email != null) {
+                provider.email = email;
+                provider.clearError(); // triggers rebuild
+              }
             }
           },
         ),
-        
-        // Skills Card - SHOWS DATA
-        _buildInfoCard(
-          title: 'Skills',
-          icon: Icons.build_circle,
-          iconColor: AppColors.accent,
-          content: _skills.isNotEmpty
-              ? Wrap(
-                  spacing: 6,
-                  runSpacing: 6,
-                  children: _skills.map((skill) => Chip(
-                    label: Text(skill, style: const TextStyle(fontSize: 12)),
-                    backgroundColor: AppColors.primary.withValues(alpha: 0.1),
-                    padding: EdgeInsets.zero,
-                    materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                  )).toList(),
-                )
-              : const Text('Add your skills', style: TextStyle(color: AppColors.neutral600)),
-          onTap: () async {
-            final result = await Navigator.pushNamed(context, '/add-skills');
-            if (result != null && result is List) {
-              setState(() => _skills = List<String>.from(result));
-            }
+
+        // Skills Card - Using Selector to prevent unnecessary rebuilds
+        Selector<WorkerProfileProvider, List<String>>(
+          selector: (_, provider) => provider.skills.map((s) => s.skillName).toList(),
+          shouldRebuild: (prev, next) => prev.length != next.length || !_listsEqual(prev, next),
+          builder: (context, skillNames, _) {
+            final hasSkills = skillNames.isNotEmpty;
+            return _buildInfoCard(
+              title: 'Skills',
+              icon: Icons.build_circle,
+              iconColor: AppColors.accent,
+              content: hasSkills
+                  ? Wrap(
+                      spacing: 6,
+                      runSpacing: 6,
+                      children: skillNames.map((skillName) => Container(
+                        key: ValueKey(skillName),
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                        decoration: BoxDecoration(
+                          color: AppColors.primary.withValues(alpha: 0.1),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Text(skillName, style: const TextStyle(fontSize: 12)),
+                      )).toList(),
+                    )
+                  : const Text('Add your skills', style: TextStyle(color: AppColors.neutral600)),
+              onTap: () async {
+                final result = await Navigator.pushNamed(context, '/add-skills', 
+                    arguments: skillNames);
+                if (result != null && result is List<String> && mounted) {
+                  // Save skills to backend
+                  await context.read<WorkerProfileProvider>().saveSkillsLocal(result);
+                }
+              },
+            );
           },
         ),
-        
-        // Experience Card - SHOWS DATA
+
+        // Experience Card
         _buildInfoCard(
           title: 'Experience',
           icon: Icons.work,
           iconColor: AppColors.success,
-          content: _experiences.isNotEmpty
+          content: p.experiences.isNotEmpty
               ? Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
-                  children: _experiences.map((exp) => Padding(
+                  children: p.experiences.map((exp) => Padding(
                     padding: const EdgeInsets.only(bottom: 8),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          exp['position'] ?? '',
+                          exp['title'] ?? exp['position'] ?? '',
                           style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
                         ),
-                        Text('${exp['company']} • ${exp['duration']}', style: const TextStyle(fontSize: 12)),
+                        Text('${exp['company']} • ${_fmtDate(exp['start_date'] as String?)} – ${exp['end_date'] != null ? _fmtDate(exp['end_date'] as String?) : 'Present'}',
+                            style: const TextStyle(fontSize: 12)),
                       ],
                     ),
                   )).toList(),
                 )
               : const Text('Add your experience', style: TextStyle(color: AppColors.neutral600)),
-          onTap: () async {
-            final result = await Navigator.pushNamed(context, '/add-experience');
-            if (result != null && result is List) {
-              setState(() => _experiences = List<Map<String, String>>.from(result));
-            }
-          },
+          onTap: () => Navigator.pushNamed(context, '/add-experience'),
         ),
-        
-        // Certifications Card - SHOWS DATA
+
+        // Certifications Card
         _buildInfoCard(
           title: 'Certifications',
           icon: Icons.workspace_premium,
           iconColor: Colors.orange,
-          content: _certifications.isNotEmpty
+          content: p.certifications.isNotEmpty
               ? Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
-                  children: _certifications.map((cert) => Padding(
+                  children: p.certifications.map((cert) => Padding(
                     padding: const EdgeInsets.only(bottom: 6),
                     child: Row(
                       children: [
-                        Icon(Icons.verified, size: 16, color: Colors.orange),
+                        const Icon(Icons.verified, size: 16, color: Colors.orange),
                         const SizedBox(width: 6),
                         Expanded(
                           child: Text(
-                            '${cert['title']} - ${cert['issuer']}',
+                            '${cert.certificationName} - ${cert.issuingOrganization}',
                             style: const TextStyle(fontSize: 13),
                           ),
                         ),
@@ -398,31 +535,26 @@ class _MyWorkerProfileScreenState extends State<MyWorkerProfileScreen> with Sing
                   )).toList(),
                 )
               : const Text('Add certifications', style: TextStyle(color: AppColors.neutral600)),
-          onTap: () async {
-            final result = await Navigator.pushNamed(context, '/add-certifications');
-            if (result != null && result is List) {
-              setState(() => _certifications = List<Map<String, dynamic>>.from(result));
-            }
-          },
+          onTap: () => Navigator.pushNamed(context, '/add-certifications'),
         ),
-        
-        // Licenses Card - SHOWS DATA
+
+        // Licenses Card
         _buildInfoCard(
           title: 'Licenses',
           icon: Icons.badge,
           iconColor: Colors.purple,
-          content: _licenses.isNotEmpty
+          content: p.licenses.isNotEmpty
               ? Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
-                  children: _licenses.map((license) => Padding(
+                  children: p.licenses.map((lic) => Padding(
                     padding: const EdgeInsets.only(bottom: 6),
                     child: Row(
                       children: [
-                        Icon(Icons.badge, size: 16, color: Colors.purple),
+                        const Icon(Icons.badge, size: 16, color: Colors.purple),
                         const SizedBox(width: 6),
                         Expanded(
                           child: Text(
-                            '${license['title']} - ${license['issuer']}',
+                            '${lic.licenseName} - ${lic.issuingAuthority}',
                             style: const TextStyle(fontSize: 13),
                           ),
                         ),
@@ -431,12 +563,7 @@ class _MyWorkerProfileScreenState extends State<MyWorkerProfileScreen> with Sing
                   )).toList(),
                 )
               : const Text('Add licenses', style: TextStyle(color: AppColors.neutral600)),
-          onTap: () async {
-            final result = await Navigator.pushNamed(context, '/add-licenses');
-            if (result != null && result is List) {
-              setState(() => _licenses = List<Map<String, dynamic>>.from(result));
-            }
-          },
+          onTap: () => Navigator.pushNamed(context, '/add-licenses'),
         ),
       ],
     );
@@ -499,49 +626,40 @@ class _MyWorkerProfileScreenState extends State<MyWorkerProfileScreen> with Sing
   }
 
   Widget _buildVerificationsTab() {
-    return ListView(
-      padding: const EdgeInsets.all(16),
-      children: [
-        const Text(
-          'Verifications',
-          style: TextStyle(
-            fontSize: 18,
-            fontWeight: FontWeight.bold,
-            color: AppColors.neutral900,
+    return Consumer<VerificationProvider>(
+      builder: (context, vp, _) => ListView(
+        padding: const EdgeInsets.all(16),
+        children: [
+          const Text('Verifications',
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppColors.neutral900)),
+          const SizedBox(height: 8),
+          const Text('Profiles with verifications are more likely to be selected',
+              style: TextStyle(fontSize: 14, color: AppColors.neutral600)),
+          const SizedBox(height: 20),
+
+          _buildVerificationCard(
+            title: 'Valid Philippine ID',
+            subtitle: 'Government-issued ID with selfie',
+            icon: Icons.badge,
+            type: 'government_id',
+            status: vp.statusFor('government_id'),
           ),
-        ),
-        const SizedBox(height: 8),
-        const Text(
-          'Profiles with verifications are more likely to be selected',
-          style: TextStyle(
-            fontSize: 14,
-            color: AppColors.neutral600,
+          _buildVerificationCard(
+            title: 'Phone Number',
+            subtitle: 'Verify via SMS code',
+            icon: Icons.phone,
+            type: 'phone',
+            status: vp.statusFor('phone'),
           ),
-        ),
-        const SizedBox(height: 20),
-        
-        _buildVerificationCard(
-          title: 'Government ID',
-          subtitle: 'Upload valid government-issued ID',
-          icon: Icons.badge,
-          type: 'government_id',
-          isVerified: false,
-        ),
-        _buildVerificationCard(
-          title: 'Phone number',
-          subtitle: 'Verify via SMS code',
-          icon: Icons.phone,
-          type: 'phone',
-          isVerified: false,
-        ),
-        _buildVerificationCard(
-          title: 'Email',
-          subtitle: 'Verify via email link',
-          icon: Icons.email,
-          type: 'email',
-          isVerified: false,
-        ),
-      ],
+          _buildVerificationCard(
+            title: 'Email',
+            subtitle: 'Verify via email link',
+            icon: Icons.email,
+            type: 'email',
+            status: vp.statusFor('email'),
+          ),
+        ],
+      ),
     );
   }
 
@@ -550,8 +668,13 @@ class _MyWorkerProfileScreenState extends State<MyWorkerProfileScreen> with Sing
     required String subtitle,
     required IconData icon,
     required String type,
-    required bool isVerified,
+    required String status,
   }) {
+    final isVerified = status == 'verified';
+    final isPending  = status == 'pending';
+    final isRejected = status == 'rejected';
+    final hasSubmitted = isPending || isVerified || isRejected;
+
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       child: Material(
@@ -559,16 +682,44 @@ class _MyWorkerProfileScreenState extends State<MyWorkerProfileScreen> with Sing
         borderRadius: BorderRadius.circular(12),
         elevation: 1,
         child: InkWell(
-          onTap: isVerified ? null : () {
-            Navigator.pushNamed(
-              context,
-              '/verification',
-              arguments: {
-                'type': type,
-                'title': title,
-                'subtitle': subtitle,
-              },
-            );
+          onTap: () async {
+            // If already verified, don't allow navigation
+            if (isVerified) return;
+            
+            // If pending or rejected, show retake confirmation dialog
+            if (hasSubmitted) {
+              final shouldRetake = await showDialog<bool>(
+                context: context,
+                builder: (_) => AlertDialog(
+                  title: const Text('Retake Verification?'),
+                  content: Text(
+                    isRejected 
+                      ? 'Your previous submission was rejected. Would you like to submit new documents?'
+                      : 'You have already submitted verification documents. Would you like to retake and resubmit?'
+                  ),
+                  actions: [
+                    TextButton(
+                      onPressed: () => Navigator.pop(context, false),
+                      child: const Text('Cancel'),
+                    ),
+                    TextButton(
+                      onPressed: () => Navigator.pop(context, true),
+                      style: TextButton.styleFrom(
+                        foregroundColor: AppColors.primary,
+                      ),
+                      child: const Text('Retake'),
+                    ),
+                  ],
+                ),
+              );
+              
+              if (shouldRetake != true) return;
+            }
+            
+            // Navigate to verification screen
+            await Navigator.pushNamed(context, '/verification',
+                arguments: {'type': type, 'title': title, 'subtitle': subtitle});
+            if (mounted) context.read<VerificationProvider>().fetchVerifications();
           },
           borderRadius: BorderRadius.circular(12),
           child: Padding(
@@ -576,17 +727,20 @@ class _MyWorkerProfileScreenState extends State<MyWorkerProfileScreen> with Sing
             child: Row(
               children: [
                 Container(
-                  width: 40,
-                  height: 40,
+                  width: 40, height: 40,
                   decoration: BoxDecoration(
                     color: isVerified
                         ? AppColors.success.withValues(alpha: 0.1)
-                        : AppColors.neutral100,
+                        : isPending
+                            ? AppColors.warning.withValues(alpha: 0.1)
+                            : isRejected
+                                ? AppColors.error.withValues(alpha: 0.1)
+                                : AppColors.neutral100,
                     borderRadius: BorderRadius.circular(10),
                   ),
                   child: Icon(
-                    isVerified ? Icons.check_circle : icon,
-                    color: isVerified ? AppColors.success : AppColors.neutral600,
+                    isVerified ? Icons.check_circle : isPending ? Icons.hourglass_top : isRejected ? Icons.error_outline : icon,
+                    color: isVerified ? AppColors.success : isPending ? AppColors.warning : isRejected ? AppColors.error : AppColors.neutral600,
                     size: 20,
                   ),
                 ),
@@ -595,22 +749,14 @@ class _MyWorkerProfileScreenState extends State<MyWorkerProfileScreen> with Sing
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
+                      Text(title, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: AppColors.neutral900)),
                       Text(
-                        title,
-                        style: const TextStyle(
-                          fontSize: 15,
-                          fontWeight: FontWeight.w600,
-                          color: AppColors.neutral900,
+                        isVerified ? 'Verified' : isPending ? 'Under review' : isRejected ? 'Rejected - Tap to retake' : subtitle,
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: isVerified ? AppColors.success : isPending ? AppColors.warning : isRejected ? AppColors.error : AppColors.neutral600,
                         ),
                       ),
-                      if (!isVerified)
-                        Text(
-                          subtitle,
-                          style: const TextStyle(
-                            fontSize: 12,
-                            color: AppColors.neutral600,
-                          ),
-                        ),
                     ],
                   ),
                 ),
@@ -621,14 +767,25 @@ class _MyWorkerProfileScreenState extends State<MyWorkerProfileScreen> with Sing
                       color: AppColors.success.withValues(alpha: 0.1),
                       borderRadius: BorderRadius.circular(4),
                     ),
-                    child: const Text(
-                      'Verified',
-                      style: TextStyle(
-                        fontSize: 11,
-                        fontWeight: FontWeight.bold,
-                        color: AppColors.success,
-                      ),
+                    child: const Text('Verified', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppColors.success)),
+                  )
+                else if (isPending)
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: AppColors.warning.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(4),
                     ),
+                    child: const Text('Pending', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppColors.warning)),
+                  )
+                else if (isRejected)
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: AppColors.error.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    child: const Text('Retake', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppColors.error)),
                   )
                 else
                   const Icon(Icons.arrow_forward_ios, size: 16, color: AppColors.neutral400),

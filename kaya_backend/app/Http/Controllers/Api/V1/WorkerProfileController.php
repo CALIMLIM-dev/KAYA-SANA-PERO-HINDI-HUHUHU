@@ -3,199 +3,660 @@
 namespace App\Http\Controllers\Api\V1;
 
 use App\Http\Controllers\Controller;
-use App\Models\Experience;
-use App\Models\Certification;
-use App\Models\Skill;
-use App\Models\WorkerProfile;
+use App\Models\WorkerSkill;
+use App\Models\WorkerCertification;
+use App\Models\WorkerLicense;
+use App\Models\WorkerLicenseExamination;
+use App\Models\WorkerExperience;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\Validator;
 
 class WorkerProfileController extends Controller
 {
-    private function ok($data, string $msg = 'Success', int $status = 200)
+    // ==================== BASIC PROFILE ====================
+    
+    public function updateBasicInfo(Request $request)
     {
-        return response()->json(['success' => true, 'data' => $data, 'message' => $msg], $status);
-    }
-
-    private function fail(string $msg, int $status = 422)
-    {
-        return response()->json(['success' => false, 'data' => null, 'message' => $msg], $status);
-    }
-
-    public function show(Request $request)
-    {
-        $user    = $request->user();
-        if (!$user->isWorker()) return $this->fail('Forbidden', 403);
-
-        $profile = $user->workerProfile()->with(['skills', 'experiences', 'certifications'])->first();
-        if (!$profile) return $this->fail('Worker profile not found', 404);
-
-        return $this->ok(array_merge($profile->toArray(), [
-            'name'                => $user->name,
-            'email'               => $user->email,
-            'phone'               => $user->phone,
-            'profile_photo_path'  => $profile->profile_photo_path,
-            'verification_status' => $profile->verification_status,
-        ]));
-    }
-
-    public function update(Request $request)
-    {
-        $user = $request->user();
-        if (!$user->isWorker()) return $this->fail('Forbidden', 403);
-
-        $data = $request->validate([
-            'bio'                 => ['nullable', 'string', 'max:1000'],
-            'availability_status' => ['required', 'in:available,busy,unavailable'],
+        $validator = Validator::make($request->all(), [
+            'name' => 'nullable|string|max:255',
+            'city' => 'nullable|string|max:255',
+            'phone' => 'nullable|string|max:20',
         ]);
-
-        $profile = WorkerProfile::firstOrCreate(['user_id' => $user->id]);
-        $profile->update($data);
-
-        return $this->ok($profile, 'Profile updated');
+        
+        if ($validator->fails()) {
+            return response()->json([
+                'success' => false,
+                'message' => $validator->errors()->first(),
+                'data' => null
+            ], 422);
+        }
+        
+        $user = $request->user();
+        
+        if ($request->filled('name')) {
+            $user->name = $request->name;
+        }
+        
+        if ($request->filled('city')) {
+            $user->city = $request->city;
+        }
+        
+        if ($request->filled('phone')) {
+            $user->phone = $request->phone;
+        }
+        
+        $user->save();
+        
+        return response()->json([
+            'success' => true,
+            'data' => [
+                'name' => $user->name,
+                'city' => $user->city,
+                'phone' => $user->phone,
+                'email' => $user->email,
+            ],
+            'message' => 'Profile updated successfully'
+        ]);
     }
-
+    
     public function uploadPhoto(Request $request)
     {
-        $user = $request->user();
-        if (!$user->isWorker()) return $this->fail('Forbidden', 403);
-
-        $request->validate(['photo' => ['required', 'image', 'mimes:jpg,jpeg,png', 'max:5120']]);
-
-        $profile = WorkerProfile::firstOrCreate(['user_id' => $user->id]);
-
-        if ($profile->profile_photo_path) {
-            Storage::disk('public')->delete($profile->profile_photo_path);
-        }
-
-        $path = $request->file('photo')->store('worker_photos', 'public');
-        $profile->update(['profile_photo_path' => $path]);
-
-        return $this->ok(['profile_photo_path' => $path], 'Photo uploaded');
-    }
-
-    public function attachSkill(Request $request)
-    {
-        $user = $request->user();
-        if (!$user->isWorker()) return $this->fail('Forbidden', 403);
-
-        $request->validate(['skill_id' => ['required', 'exists:skills,id']]);
-
-        $profile = $user->workerProfile;
-        if (!$profile) return $this->fail('Worker profile not found', 404);
-
-        if ($profile->skills()->where('skill_id', $request->skill_id)->exists()) {
-            return $this->fail('Skill already attached', 409);
-        }
-
-        $profile->skills()->attach($request->skill_id);
-        $skill = Skill::find($request->skill_id);
-
-        return $this->ok($skill, 'Skill attached successfully', 201);
-    }
-
-    public function detachSkill(Request $request, Skill $skill)
-    {
-        $user    = $request->user();
-        $profile = $user->workerProfile;
-        if (!$profile) return $this->fail('Worker profile not found', 404);
-
-        if (!$profile->skills()->where('skill_id', $skill->id)->exists()) {
-            return $this->fail('Skill not attached to profile', 404);
-        }
-
-        $profile->skills()->detach($skill->id);
-        return $this->ok(null, 'Skill detached successfully');
-    }
-
-    public function createExperience(Request $request)
-    {
-        $user = $request->user();
-        if (!$user->isWorker()) return $this->fail('Forbidden', 403);
-
-        $data = $request->validate([
-            'title'       => ['required', 'string', 'max:255'],
-            'company'     => ['required', 'string', 'max:255'],
-            'description' => ['nullable', 'string'],
-            'start_date'  => ['required', 'date'],
-            'end_date'    => ['nullable', 'date', 'after:start_date'],
+        $validator = Validator::make($request->all(), [
+            'photo' => 'required|image|mimes:jpeg,jpg,png|max:5120', // 5MB max
         ]);
-
-        $profile = $user->workerProfile;
-        if (!$profile) return $this->fail('Worker profile not found', 404);
-
-        $exp = $profile->experiences()->create($data);
-        return $this->ok($exp, 'Experience created', 201);
-    }
-
-    public function updateExperience(Request $request, Experience $experience)
-    {
-        $user    = $request->user();
-        $profile = $user->workerProfile;
-
-        if (!$profile || $experience->worker_profile_id !== $profile->id) {
-            return $this->fail('Unauthorized to update this experience', 403);
+        
+        if ($validator->fails()) {
+            return response()->json([
+                'success' => false,
+                'message' => $validator->errors()->first(),
+                'data' => null
+            ], 422);
         }
-
-        $data = $request->validate([
-            'title'       => ['required', 'string', 'max:255'],
-            'company'     => ['required', 'string', 'max:255'],
-            'description' => ['nullable', 'string'],
-            'start_date'  => ['required', 'date'],
-            'end_date'    => ['nullable', 'date', 'after:start_date'],
+        
+        $user = $request->user();
+        
+        // Delete old photo if exists
+        if ($user->avatar && \Storage::disk('public')->exists($user->avatar)) {
+            \Storage::disk('public')->delete($user->avatar);
+        }
+        
+        // Store new photo
+        $path = $request->file('photo')->store('profile_photos', 'public');
+        $user->avatar = $path;
+        $user->save();
+        
+        return response()->json([
+            'success' => true,
+            'data' => [
+                'photo_path' => $path,
+                'photo_url' => asset('storage/' . $path),
+            ],
+            'message' => 'Photo uploaded successfully'
         ]);
-
-        $experience->update($data);
-        return $this->ok($experience, 'Experience updated');
     }
-
-    public function deleteExperience(Request $request, Experience $experience)
+    
+    // ==================== SKILLS ====================
+    
+    public function getSkills(Request $request)
     {
-        $profile = $request->user()->workerProfile;
-
-        if (!$profile || $experience->worker_profile_id !== $profile->id) {
-            return $this->fail('Unauthorized to delete this experience', 403);
+        $skills = WorkerSkill::where('user_id', $request->user()->id)->get();
+        
+        return response()->json([
+            'success' => true,
+            'data' => $skills,
+            'message' => 'Skills retrieved successfully'
+        ]);
+    }
+    
+    public function addSkill(Request $request)
+    {
+        $validator = Validator::make($request->all(), [
+            'skill_name' => 'required|string|max:255',
+            'proficiency_level' => 'required|in:beginner,intermediate,advanced,expert',
+            'years_of_experience' => 'required|integer|min:0',
+        ]);
+        
+        if ($validator->fails()) {
+            return response()->json([
+                'success' => false,
+                'message' => $validator->errors()->first(),
+                'data' => null
+            ], 422);
         }
-
+        
+        $skill = WorkerSkill::create([
+            'user_id' => $request->user()->id,
+            'skill_name' => $request->skill_name,
+            'proficiency_level' => $request->proficiency_level,
+            'years_of_experience' => $request->years_of_experience,
+        ]);
+        
+        return response()->json([
+            'success' => true,
+            'data' => $skill,
+            'message' => 'Skill added successfully'
+        ], 201);
+    }
+    
+    public function updateSkill(Request $request, $id)
+    {
+        $skill = WorkerSkill::where('id', $id)
+            ->where('user_id', $request->user()->id)
+            ->first();
+            
+        if (!$skill) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Skill not found',
+                'data' => null
+            ], 404);
+        }
+        
+        $validator = Validator::make($request->all(), [
+            'skill_name' => 'required|string|max:255',
+            'proficiency_level' => 'required|in:beginner,intermediate,advanced,expert',
+            'years_of_experience' => 'required|integer|min:0',
+        ]);
+        
+        if ($validator->fails()) {
+            return response()->json([
+                'success' => false,
+                'message' => $validator->errors()->first(),
+                'data' => null
+            ], 422);
+        }
+        
+        $skill->update($request->only(['skill_name', 'proficiency_level', 'years_of_experience']));
+        
+        return response()->json([
+            'success' => true,
+            'data' => $skill,
+            'message' => 'Skill updated successfully'
+        ]);
+    }
+    
+    public function deleteSkill(Request $request, $id)
+    {
+        $skill = WorkerSkill::where('id', $id)
+            ->where('user_id', $request->user()->id)
+            ->first();
+            
+        if (!$skill) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Skill not found',
+                'data' => null
+            ], 404);
+        }
+        
+        $skill->delete();
+        
+        return response()->json([
+            'success' => true,
+            'data' => null,
+            'message' => 'Skill deleted successfully'
+        ]);
+    }
+    
+    // ==================== CERTIFICATIONS ====================
+    
+    public function getCertifications(Request $request)
+    {
+        $certifications = WorkerCertification::where('user_id', $request->user()->id)->get();
+        
+        return response()->json([
+            'success' => true,
+            'data' => $certifications,
+            'message' => 'Certifications retrieved successfully'
+        ]);
+    }
+    
+    public function addCertification(Request $request)
+    {
+        $validator = Validator::make($request->all(), [
+            'certification_name' => 'required|string|max:255',
+            'issuing_organization' => 'required|string|max:255',
+            'issue_date' => 'nullable|date',
+            'expiry_date' => 'nullable|date',
+            'credential_id' => 'nullable|string|max:255',
+            'document' => 'nullable|file|mimes:jpg,jpeg,png,pdf|max:5120',
+        ]);
+        
+        if ($validator->fails()) {
+            return response()->json([
+                'success' => false,
+                'message' => $validator->errors()->first(),
+                'data' => null
+            ], 422);
+        }
+        
+        $data = [
+            'user_id' => $request->user()->id,
+            'certification_name' => $request->certification_name,
+            'issuing_organization' => $request->issuing_organization,
+            'issue_date' => $request->issue_date,
+            'expiry_date' => $request->expiry_date,
+            'credential_id' => $request->credential_id,
+        ];
+        
+        // Handle file upload
+        if ($request->hasFile('document')) {
+            $path = $request->file('document')->store('certifications', 'public');
+            $data['document_path'] = $path;
+        }
+        
+        $certification = WorkerCertification::create($data);
+        
+        return response()->json([
+            'success' => true,
+            'data' => $certification,
+            'message' => 'Certification added successfully'
+        ], 201);
+    }
+    
+    public function updateCertification(Request $request, $id)
+    {
+        $certification = WorkerCertification::where('id', $id)
+            ->where('user_id', $request->user()->id)
+            ->first();
+            
+        if (!$certification) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Certification not found',
+                'data' => null
+            ], 404);
+        }
+        
+        $validator = Validator::make($request->all(), [
+            'certification_name' => 'required|string|max:255',
+            'issuing_organization' => 'required|string|max:255',
+            'issue_date' => 'nullable|date',
+            'expiry_date' => 'nullable|date',
+            'credential_id' => 'nullable|string|max:255',
+        ]);
+        
+        if ($validator->fails()) {
+            return response()->json([
+                'success' => false,
+                'message' => $validator->errors()->first(),
+                'data' => null
+            ], 422);
+        }
+        
+        $certification->update($request->only(['certification_name', 'issuing_organization', 'issue_date', 'expiry_date', 'credential_id']));
+        
+        return response()->json([
+            'success' => true,
+            'data' => $certification,
+            'message' => 'Certification updated successfully'
+        ]);
+    }
+    
+    public function deleteCertification(Request $request, $id)
+    {
+        $certification = WorkerCertification::where('id', $id)
+            ->where('user_id', $request->user()->id)
+            ->first();
+            
+        if (!$certification) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Certification not found',
+                'data' => null
+            ], 404);
+        }
+        
+        $certification->delete();
+        
+        return response()->json([
+            'success' => true,
+            'data' => null,
+            'message' => 'Certification deleted successfully'
+        ]);
+    }
+    
+    // ==================== LICENSES ====================
+    
+    public function getLicenses(Request $request)
+    {
+        $licenses = WorkerLicense::where('user_id', $request->user()->id)->get();
+        
+        return response()->json([
+            'success' => true,
+            'data' => $licenses,
+            'message' => 'Licenses retrieved successfully'
+        ]);
+    }
+    
+    public function addLicense(Request $request)
+    {
+        $validator = Validator::make($request->all(), [
+            'license_name' => 'required|string|max:255',
+            'license_number' => 'required|string|max:255',
+            'issuing_authority' => 'required|string|max:255',
+            'issue_date' => 'nullable|date',
+            'expiry_date' => 'nullable|date',
+            'document' => 'nullable|file|mimes:jpg,jpeg,png,pdf|max:5120',
+        ]);
+        
+        if ($validator->fails()) {
+            return response()->json([
+                'success' => false,
+                'message' => $validator->errors()->first(),
+                'data' => null
+            ], 422);
+        }
+        
+        $data = [
+            'user_id' => $request->user()->id,
+            'license_name' => $request->license_name,
+            'license_number' => $request->license_number,
+            'issuing_authority' => $request->issuing_authority,
+            'issue_date' => $request->issue_date,
+            'expiry_date' => $request->expiry_date,
+        ];
+        
+        // Handle file upload
+        if ($request->hasFile('document')) {
+            $path = $request->file('document')->store('licenses', 'public');
+            $data['document_path'] = $path;
+        }
+        
+        $license = WorkerLicense::create($data);
+        
+        return response()->json([
+            'success' => true,
+            'data' => $license,
+            'message' => 'License added successfully'
+        ], 201);
+    }
+    
+    public function updateLicense(Request $request, $id)
+    {
+        $license = WorkerLicense::where('id', $id)
+            ->where('user_id', $request->user()->id)
+            ->first();
+            
+        if (!$license) {
+            return response()->json([
+                'success' => false,
+                'message' => 'License not found',
+                'data' => null
+            ], 404);
+        }
+        
+        $validator = Validator::make($request->all(), [
+            'license_name' => 'required|string|max:255',
+            'license_number' => 'required|string|max:255',
+            'issuing_authority' => 'required|string|max:255',
+            'issue_date' => 'nullable|date',
+            'expiry_date' => 'nullable|date',
+        ]);
+        
+        if ($validator->fails()) {
+            return response()->json([
+                'success' => false,
+                'message' => $validator->errors()->first(),
+                'data' => null
+            ], 422);
+        }
+        
+        $license->update($request->only(['license_name', 'license_number', 'issuing_authority', 'issue_date', 'expiry_date']));
+        
+        return response()->json([
+            'success' => true,
+            'data' => $license,
+            'message' => 'License updated successfully'
+        ]);
+    }
+    
+    public function deleteLicense(Request $request, $id)
+    {
+        $license = WorkerLicense::where('id', $id)
+            ->where('user_id', $request->user()->id)
+            ->first();
+            
+        if (!$license) {
+            return response()->json([
+                'success' => false,
+                'message' => 'License not found',
+                'data' => null
+            ], 404);
+        }
+        
+        $license->delete();
+        
+        return response()->json([
+            'success' => true,
+            'data' => null,
+            'message' => 'License deleted successfully'
+        ]);
+    }
+    
+    // ==================== EXPERIENCES ====================
+    
+    public function getExperiences(Request $request)
+    {
+        $experiences = WorkerExperience::where('user_id', $request->user()->id)
+            ->orderBy('start_date', 'desc')
+            ->get();
+        
+        return response()->json([
+            'success' => true,
+            'data' => $experiences,
+            'message' => 'Experiences retrieved successfully'
+        ]);
+    }
+    
+    public function addExperience(Request $request)
+    {
+        $validator = Validator::make($request->all(), [
+            'job_title' => 'required|string|max:255',
+            'company_name' => 'required|string|max:255',
+            'description' => 'nullable|string',
+            'start_date' => 'required|date',
+            'end_date' => 'nullable|date',
+            'is_current' => 'nullable|boolean',
+        ]);
+        
+        if ($validator->fails()) {
+            return response()->json([
+                'success' => false,
+                'message' => $validator->errors()->first(),
+                'data' => null
+            ], 422);
+        }
+        
+        $experience = WorkerExperience::create([
+            'user_id' => $request->user()->id,
+            'job_title' => $request->job_title,
+            'company_name' => $request->company_name,
+            'description' => $request->description,
+            'start_date' => $request->start_date,
+            'end_date' => $request->end_date,
+            'is_current' => $request->is_current ?? false,
+        ]);
+        
+        return response()->json([
+            'success' => true,
+            'data' => $experience,
+            'message' => 'Experience added successfully'
+        ], 201);
+    }
+    
+    public function updateExperience(Request $request, $id)
+    {
+        $experience = WorkerExperience::where('id', $id)
+            ->where('user_id', $request->user()->id)
+            ->first();
+            
+        if (!$experience) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Experience not found',
+                'data' => null
+            ], 404);
+        }
+        
+        $validator = Validator::make($request->all(), [
+            'job_title' => 'required|string|max:255',
+            'company_name' => 'required|string|max:255',
+            'description' => 'nullable|string',
+            'start_date' => 'required|date',
+            'end_date' => 'nullable|date',
+            'is_current' => 'nullable|boolean',
+        ]);
+        
+        if ($validator->fails()) {
+            return response()->json([
+                'success' => false,
+                'message' => $validator->errors()->first(),
+                'data' => null
+            ], 422);
+        }
+        
+        $experience->update($request->only(['job_title', 'company_name', 'description', 'start_date', 'end_date', 'is_current']));
+        
+        return response()->json([
+            'success' => true,
+            'data' => $experience,
+            'message' => 'Experience updated successfully'
+        ]);
+    }
+    
+    public function deleteExperience(Request $request, $id)
+    {
+        $experience = WorkerExperience::where('id', $id)
+            ->where('user_id', $request->user()->id)
+            ->first();
+            
+        if (!$experience) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Experience not found',
+                'data' => null
+            ], 404);
+        }
+        
         $experience->delete();
-        return $this->ok(null, 'Experience deleted successfully');
-    }
-
-    public function createCertification(Request $request)
-    {
-        $user = $request->user();
-        if (!$user->isWorker()) return $this->fail('Forbidden', 403);
-
-        $data = $request->validate([
-            'title'       => ['required', 'string', 'max:255'],
-            'issuing_org' => ['required', 'string', 'max:255'],
-            'issue_date'  => ['required', 'date'],
-            'file'        => ['nullable', 'file', 'mimes:pdf,jpg,jpeg,png', 'max:5120'],
+        
+        return response()->json([
+            'success' => true,
+            'data' => null,
+            'message' => 'Experience deleted successfully'
         ]);
-
-        $profile = $user->workerProfile;
-        if (!$profile) return $this->fail('Worker profile not found', 404);
-
-        if ($request->hasFile('file')) {
-            $data['file_path'] = $request->file('file')->store('certifications', 'public');
-        }
-        unset($data['file']);
-
-        $cert = $profile->certifications()->create($data);
-        return $this->ok($cert, 'Certification created', 201);
     }
-
-    public function deleteCertification(Request $request, Certification $cert)
+    
+    // ==================== LICENSE EXAMINATIONS ====================
+    
+    public function getLicenseExaminations(Request $request)
     {
-        $profile = $request->user()->workerProfile;
-
-        if (!$profile || $cert->worker_profile_id !== $profile->id) {
-            return $this->fail('Unauthorized to delete this certification', 403);
+        $examinations = WorkerLicenseExamination::where('user_id', $request->user()->id)->get();
+        
+        return response()->json([
+            'success' => true,
+            'data' => $examinations,
+            'message' => 'License examinations retrieved successfully'
+        ]);
+    }
+    
+    public function addLicenseExamination(Request $request)
+    {
+        $validator = Validator::make($request->all(), [
+            'exam_name' => 'required|string|max:255',
+            'exam_date' => 'nullable|date',
+            'passing_score' => 'nullable|numeric|min:0|max:100',
+            'actual_score' => 'nullable|numeric|min:0|max:100',
+            'status' => 'required|in:passed,failed,pending',
+            'certificate_number' => 'nullable|string|max:255',
+        ]);
+        
+        if ($validator->fails()) {
+            return response()->json([
+                'success' => false,
+                'message' => $validator->errors()->first(),
+                'data' => null
+            ], 422);
         }
-
-        if ($cert->file_path) Storage::disk('public')->delete($cert->file_path);
-        $cert->delete();
-
-        return $this->ok(null, 'Certification deleted successfully');
+        
+        $examination = WorkerLicenseExamination::create([
+            'user_id' => $request->user()->id,
+            'exam_name' => $request->exam_name,
+            'exam_date' => $request->exam_date,
+            'passing_score' => $request->passing_score,
+            'actual_score' => $request->actual_score,
+            'status' => $request->status,
+            'certificate_number' => $request->certificate_number,
+        ]);
+        
+        return response()->json([
+            'success' => true,
+            'data' => $examination,
+            'message' => 'License examination added successfully'
+        ], 201);
+    }
+    
+    public function updateLicenseExamination(Request $request, $id)
+    {
+        $examination = WorkerLicenseExamination::where('id', $id)
+            ->where('user_id', $request->user()->id)
+            ->first();
+            
+        if (!$examination) {
+            return response()->json([
+                'success' => false,
+                'message' => 'License examination not found',
+                'data' => null
+            ], 404);
+        }
+        
+        $validator = Validator::make($request->all(), [
+            'exam_name' => 'required|string|max:255',
+            'exam_date' => 'nullable|date',
+            'passing_score' => 'nullable|numeric|min:0|max:100',
+            'actual_score' => 'nullable|numeric|min:0|max:100',
+            'status' => 'required|in:passed,failed,pending',
+            'certificate_number' => 'nullable|string|max:255',
+        ]);
+        
+        if ($validator->fails()) {
+            return response()->json([
+                'success' => false,
+                'message' => $validator->errors()->first(),
+                'data' => null
+            ], 422);
+        }
+        
+        $examination->update($request->only(['exam_name', 'exam_date', 'passing_score', 'actual_score', 'status', 'certificate_number']));
+        
+        return response()->json([
+            'success' => true,
+            'data' => $examination,
+            'message' => 'License examination updated successfully'
+        ]);
+    }
+    
+    public function deleteLicenseExamination(Request $request, $id)
+    {
+        $examination = WorkerLicenseExamination::where('id', $id)
+            ->where('user_id', $request->user()->id)
+            ->first();
+            
+        if (!$examination) {
+            return response()->json([
+                'success' => false,
+                'message' => 'License examination not found',
+                'data' => null
+            ], 404);
+        }
+        
+        $examination->delete();
+        
+        return response()->json([
+            'success' => true,
+            'data' => null,
+            'message' => 'License examination deleted successfully'
+        ]);
     }
 }

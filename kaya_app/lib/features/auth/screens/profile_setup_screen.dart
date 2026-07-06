@@ -357,14 +357,13 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
           // Use My Location button
           OutlinedButton.icon(
             onPressed: () {
-              // TODO: Get GPS location
-              _cityController.text = 'Urdaneta City';
+              // TODO: Implement location picker
               ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Location detected!')),
+                const SnackBar(content: Text('Location picker coming soon')),
               );
             },
             icon: const Icon(Icons.my_location),
-            label: const Text('Use My Location'),
+            label: const Text('Use Current Location'),
             style: OutlinedButton.styleFrom(
               foregroundColor: AppColors.primary,
               side: BorderSide(color: AppColors.primary),
@@ -390,7 +389,7 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
           TextField(
             controller: _cityController,
             decoration: InputDecoration(
-              hintText: 'Urdaneta City',
+              hintText: 'Enter your city',
               filled: true,
               fillColor: Colors.white,
               prefixIcon: Icon(Icons.location_city, color: AppColors.primary),

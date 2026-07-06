@@ -14,7 +14,9 @@ class User extends Authenticatable
     protected $fillable = [
         'name', 'email', 'password', 'user_type',
         'profile_picture', 'phone', 'city',
+        'google_id', 'avatar',
         'is_verified', 'is_suspended', 'suspended_reason',
+        'password_reset_token', 'password_reset_expires_at',
     ];
 
     protected $hidden = ['password', 'remember_token'];
@@ -24,6 +26,7 @@ class User extends Authenticatable
         'password'          => 'hashed',
         'is_verified'       => 'boolean',
         'is_suspended'      => 'boolean',
+        'password_reset_expires_at' => 'datetime',
     ];
 
     // ── Relationships ─────────────────────────────────────────────────────────
@@ -38,6 +41,10 @@ class User extends Authenticatable
     public function reviewsGiven()    { return $this->hasMany(Review::class, 'reviewer_id'); }
     public function reviewsReceived() { return $this->hasMany(Review::class, 'reviewee_id'); }
     public function verifications()   { return $this->hasMany(Verification::class); }
+    public function certifications()  { return $this->hasMany(WorkerCertification::class); }
+    public function licenses()        { return $this->hasMany(WorkerLicense::class); }
+    public function skills()          { return $this->hasMany(WorkerSkill::class); }
+    public function experiences()     { return $this->hasMany(WorkerExperience::class); }
     public function reportsReceived() { return $this->hasMany(Report::class, 'reported_id'); }
     public function reportsMade()     { return $this->hasMany(Report::class, 'reporter_id'); }
 

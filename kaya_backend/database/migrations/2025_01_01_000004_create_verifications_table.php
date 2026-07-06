@@ -11,15 +11,12 @@ return new class extends Migration
         Schema::create('verifications', function (Blueprint $table) {
             $table->id();
             $table->foreignId('user_id')->constrained()->onDelete('cascade');
-            $table->enum('document_type', [
-                'national_id', 'passport', 'drivers_license',
-                'barangay_clearance', 'philsys_id',
-            ])->default('national_id');
+            $table->string('document_type'); // government_id, business_reg, phone, email, etc.
             $table->string('document_front_url')->nullable();
             $table->string('document_back_url')->nullable();
             $table->string('selfie_url')->nullable();
-            $table->enum('status', ['pending', 'approved', 'rejected'])->default('pending');
-            $table->foreignId('reviewed_by')->nullable()->constrained('users');
+            $table->enum('status', ['pending', 'verified', 'rejected'])->default('pending');
+            $table->foreignId('reviewed_by')->nullable()->constrained('users')->nullOnDelete();
             $table->text('rejection_reason')->nullable();
             $table->timestamp('reviewed_at')->nullable();
             $table->timestamps();

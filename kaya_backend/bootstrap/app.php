@@ -15,6 +15,9 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->alias([
             'admin.web' => \App\Http\Middleware\EnsureUserIsAdminWeb::class,
         ]);
+
+        // Allow all origins for development (Flutter web + Android + iOS)
+        $middleware->append(\Illuminate\Http\Middleware\HandleCors::class);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         //

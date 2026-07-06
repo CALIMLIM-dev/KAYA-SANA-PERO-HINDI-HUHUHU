@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import '../../../core/constants/app_colors.dart';
+import '../../../providers/auth_provider.dart';
 
 /// Profile / Account Screen
 class ProfileScreen extends StatelessWidget {
@@ -308,9 +310,21 @@ class ProfileScreen extends StatelessWidget {
               onPressed: () => Navigator.pop(context),
               child: const Text('Cancel')),
           ElevatedButton(
-            onPressed: () {
-              Navigator.pop(context);
-              Navigator.pushReplacementNamed(context, '/');
+            onPressed: () async {
+              Navigator.pop(context); // Close dialog
+              
+              // Perform logout
+              final auth = Provider.of<AuthProvider>(context, listen: false);
+              await auth.logout();
+              
+              // Navigate to login screen and clear navigation stack
+              if (context.mounted) {
+                Navigator.pushNamedAndRemoveUntil(
+                  context,
+                  '/login',
+                  (route) => false,
+                );
+              }
             },
             style:
                 ElevatedButton.styleFrom(backgroundColor: AppColors.error),

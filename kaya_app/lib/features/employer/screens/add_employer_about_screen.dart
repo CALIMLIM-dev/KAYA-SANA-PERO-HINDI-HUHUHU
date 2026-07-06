@@ -4,19 +4,22 @@ import '../../../core/constants/app_colors.dart';
 /// Add Employer About - Company/Individual description
 /// NO AUTO-FILL, field starts EMPTY
 class AddEmployerAboutScreen extends StatefulWidget {
-  const AddEmployerAboutScreen({super.key});
+  final String? initialValue;
+  const AddEmployerAboutScreen({super.key, this.initialValue});
 
   @override
   State<AddEmployerAboutScreen> createState() => _AddEmployerAboutScreenState();
 }
 
 class _AddEmployerAboutScreenState extends State<AddEmployerAboutScreen> {
-  final _aboutController = TextEditingController();
+  late final TextEditingController _aboutController;
   bool _isSaveEnabled = false;
 
   @override
   void initState() {
     super.initState();
+    _aboutController = TextEditingController(text: widget.initialValue ?? '');
+    _isSaveEnabled = (_aboutController.text.trim().length >= 20);
     _aboutController.addListener(_updateSaveButton);
   }
 

@@ -7,7 +7,7 @@ use Illuminate\Database\Eloquent\Model;
 class Verification extends Model
 {
     protected $fillable = [
-        'user_id', 'document_type', 'document_front_url', 'document_back_url',
+        'user_id', 'document_type', 'id_type', 'document_front_url', 'document_back_url',
         'selfie_url', 'status', 'reviewed_by', 'rejection_reason', 'reviewed_at',
     ];
 

@@ -7,7 +7,7 @@ use Illuminate\Database\Eloquent\Model;
 class WorkerProfile extends Model
 {
     protected $fillable = [
-        'user_id', 'bio', 'availability_status',
+        'user_id', 'bio', 'availability_status', 'location',
         'profile_photo_path', 'rating_avg', 'rating_count', 'verification_status',
     ];
 

@@ -39,18 +39,33 @@ class UserManagementController extends Controller
 
     public function show(User $user)
     {
-        $user->load(['postedJobs' => fn ($q) => $q->latest()->take(5)]);
+        $user->load([
+            'postedJobs' => fn ($q) => $q->latest()->take(5),
+            'workerProfile',
+            'certifications',
+            'licenses',
+            'skills',
+            'experiences',
+            'verifications',
+        ]);
 
         return view('admin.users.show', compact('user'));
     }
 
     public function suspend(Request $request, User $user)
     {
-        $request->validate(['reason' => ['nullable', 'string', 'max:255']]);
+        $request->validate([
+            'reason_type' => ['required', 'string'],
+            'custom_reason' => ['required_if:reason_type,custom', 'nullable', 'string', 'max:500'],
+        ]);
+
+        $reason = $request->input('reason_type') === 'custom' 
+            ? $request->input('custom_reason')
+            : $request->input('reason_type');
 
         $user->update([
             'is_suspended' => true,
-            'suspended_reason' => $request->get('reason'),
+            'suspended_reason' => $reason,
         ]);
 
         return back()->with('success', "{$user->name} has been suspended.");

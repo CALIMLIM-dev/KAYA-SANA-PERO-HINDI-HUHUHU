@@ -61,19 +61,7 @@
                         @endif
                     </td>
                     <td class="py-3 px-5 text-right">
-                        <a href="{{ route('admin.users.show', $user) }}" class="text-blue-600 text-xs font-medium mr-3">View</a>
-                        @if ($user->is_suspended)
-                            <form method="POST" action="{{ route('admin.users.activate', $user) }}" class="inline">
-                                @csrf
-                                <button class="text-green-600 text-xs font-medium">Reactivate</button>
-                            </form>
-                        @else
-                            <form method="POST" action="{{ route('admin.users.suspend', $user) }}" class="inline"
-                                  onsubmit="return confirm('Suspend {{ $user->name }}?');">
-                                @csrf
-                                <button class="text-red-600 text-xs font-medium">Suspend</button>
-                            </form>
-                        @endif
+                        <a href="{{ route('admin.users.show', $user) }}" class="text-blue-600 text-xs font-medium">View Details</a>
                     </td>
                 </tr>
             @endforeach

@@ -712,3 +712,19 @@ class _MyEmployerProfileScreenState extends State<MyEmployerProfileScreen>
     );
   }
 }
+
+// ─── sticky tab delegate ──────────────────────────────────────────────────────
+
+class _StickyTabBarDelegate extends SliverPersistentHeaderDelegate {
+  final TabBar tabBar;
+  _StickyTabBarDelegate(this.tabBar);
+
+  @override
+  double get minExtent => tabBar.preferredSize.height;
+  @override
+  double get maxExtent => tabBar.preferredSize.height;
+
+  @override
+  Widget build(BuildContext context, double shrinkOffset, bool overlapsContent) {
+    return Container(color: Colors.white, child: tabBar);
+  }

@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:provider/provider.dart';
 import 'dart:io';
 import '../../../core/constants/app_colors.dart';
+import '../../../providers/job_provider.dart';
 
 /// Post Job Screen - Clean, professional design following industry best practices
 class PostJobScreen extends StatefulWidget {
@@ -913,16 +915,40 @@ class _PostJobScreenState extends State<PostJobScreen> {
       }
 
       setState(() => _isLoading = true);
-      
-      await Future.delayed(const Duration(seconds: 2));
-      
+
+      // Resolve category to an ID (use index+1 as placeholder until real categories API is connected)
+      final categoryIndex = _categories.indexWhere((c) => c['name'] == _selectedCategory);
+      final categoryId = categoryIndex + 1;
+
+      final jobProvider = context.read<JobProvider>();
+      final success = await jobProvider.createJob(
+        title:       _titleController.text.trim(),
+        description: _descriptionController.text.trim(),
+        categoryId:  categoryId,
+        budgetMin:   double.tryParse(_budgetController.text.replaceAll(',', '')),
+        location:    _locationController.text.trim(),
+        isUrgent:    _isUrgent,
+        isNegotiable: _isNegotiable,
+      );
+
       setState(() => _isLoading = false);
-      
-      if (mounted) {
+
+      if (!mounted) return;
+      if (success) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Job posted successfully!')),
+          const SnackBar(
+            content: Text('Job posted successfully!'),
+            backgroundColor: AppColors.success,
+          ),
         );
         Navigator.pop(context);
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(jobProvider.errorMessage ?? 'Failed to post job'),
+            backgroundColor: AppColors.error,
+          ),
+        );
       }
     }
   }

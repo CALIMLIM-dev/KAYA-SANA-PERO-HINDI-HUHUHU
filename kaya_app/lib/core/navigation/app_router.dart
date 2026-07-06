@@ -7,6 +7,10 @@ import '../../features/auth/screens/welcome_screen.dart';
 import '../../features/auth/screens/login_screen.dart';
 import '../../features/auth/screens/signup_screen.dart';
 import '../../features/auth/screens/profile_setup_screen.dart';
+import '../../features/auth/screens/forgot_password_screen.dart';
+import '../../features/auth/screens/verify_reset_code_screen.dart';
+import '../../features/auth/screens/reset_password_screen.dart';
+import '../../features/auth/screens/google_password_screen.dart';
 
 // Main Navigation
 import 'main_navigation.dart';
@@ -26,7 +30,6 @@ import '../../features/applications/screens/applications_screen.dart';
 
 // Messaging Screens
 import '../../features/messaging/screens/messages_list_screen.dart';
-import '../../features/messaging/screens/conversations_screen.dart';
 import '../../features/messaging/screens/chat_screen.dart';
 
 // Notification Screens
@@ -72,6 +75,10 @@ class AppRouter {
   static const String login = '/login';
   static const String signup = '/signup';
   static const String profileSetup = '/profile-setup';
+  static const String forgotPassword = '/forgot-password';
+  static const String verifyResetCode = '/verify-reset-code';
+  static const String resetPassword = '/reset-password';
+  static const String googlePassword = '/google-password';
   static const String home = '/home';
   static const String jobDetails = '/job-details';
   static const String workerProfile = '/worker-profile';
@@ -119,6 +126,27 @@ class AppRouter {
       
       case profileSetup:
         return MaterialPageRoute(builder: (_) => const ProfileSetupScreen());
+      
+      case forgotPassword:
+        return MaterialPageRoute(builder: (_) => const ForgotPasswordScreen());
+      
+      case verifyResetCode:
+        return MaterialPageRoute(
+          builder: (_) => const VerifyResetCodeScreen(),
+          settings: settings,
+        );
+      
+      case resetPassword:
+        return MaterialPageRoute(
+          builder: (_) => const ResetPasswordScreen(),
+          settings: settings,
+        );
+      
+      case googlePassword:
+        return MaterialPageRoute(
+          builder: (_) => const GooglePasswordScreen(),
+          settings: settings,
+        );
       
       case home:
         return MaterialPageRoute(builder: (_) => const MainNavigation());
@@ -177,16 +205,23 @@ class AppRouter {
         return MaterialPageRoute(builder: (_) => const MyEmployerProfileScreen());
       
       case addName:
-        return MaterialPageRoute(builder: (_) => const AddNameScreen());
-      
+        final initName = settings.arguments as String?;
+        return MaterialPageRoute(builder: (_) => AddNameScreen(initialValue: initName));
+
       case addLocation:
-        return MaterialPageRoute(builder: (_) => const AddLocationScreen());
-      
+        final initLoc = settings.arguments as String?;
+        return MaterialPageRoute(builder: (_) => AddLocationScreen(initialValue: initLoc));
+
       case addPersonalDetails:
-        return MaterialPageRoute(builder: (_) => const AddPersonalDetailsScreen());
-      
+        final args = settings.arguments as Map<String, String?>?;
+        return MaterialPageRoute(builder: (_) => AddPersonalDetailsScreen(
+          initialPhone: args?['phone'],
+          initialEmail: args?['email'],
+        ));
+
       case addSkills:
-        return MaterialPageRoute(builder: (_) => const AddSkillsScreen());
+        final initSkills = (settings.arguments as List<dynamic>?)?.cast<String>() ?? [];
+        return MaterialPageRoute(builder: (_) => AddSkillsScreen(initialSkills: initSkills));
       
       case addExperience:
         return MaterialPageRoute(builder: (_) => const AddExperienceScreen());
@@ -219,10 +254,12 @@ class AppRouter {
         return MaterialPageRoute(builder: (_) => const AddEmployerContactScreen());
       
       case addEmployerLocation:
-        return MaterialPageRoute(builder: (_) => const AddEmployerLocationScreen());
-      
+        final initEmpLoc = settings.arguments as String?;
+        return MaterialPageRoute(builder: (_) => AddEmployerLocationScreen(initialValue: initEmpLoc));
+
       case addEmployerAbout:
-        return MaterialPageRoute(builder: (_) => const AddEmployerAboutScreen());
+        final initAbout = settings.arguments as String?;
+        return MaterialPageRoute(builder: (_) => AddEmployerAboutScreen(initialValue: initAbout));
       
       case manageJobs:
         return MaterialPageRoute(builder: (_) => const ManageJobsScreen());
@@ -247,6 +284,9 @@ class AppRouter {
           builder: (_) => const VerificationScreen(),
           settings: settings,
         );
+
+      case '/settings':
+        return MaterialPageRoute(builder: (_) => const SettingsScreen());
 
       case '/my-invitations':
         return MaterialPageRoute(builder: (_) => const MyInvitationsScreen());

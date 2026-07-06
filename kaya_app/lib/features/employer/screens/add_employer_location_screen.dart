@@ -4,19 +4,22 @@ import '../../../core/constants/app_colors.dart';
 /// Add Employer Location - City/Municipality only
 /// NO AUTO-FILL, field starts EMPTY
 class AddEmployerLocationScreen extends StatefulWidget {
-  const AddEmployerLocationScreen({super.key});
+  final String? initialValue;
+  const AddEmployerLocationScreen({super.key, this.initialValue});
 
   @override
   State<AddEmployerLocationScreen> createState() => _AddEmployerLocationScreenState();
 }
 
 class _AddEmployerLocationScreenState extends State<AddEmployerLocationScreen> {
-  final _locationController = TextEditingController();
+  late final TextEditingController _locationController;
   bool _isSaveEnabled = false;
 
   @override
   void initState() {
     super.initState();
+    _locationController = TextEditingController(text: widget.initialValue ?? '');
+    _isSaveEnabled = _locationController.text.trim().isNotEmpty;
     _locationController.addListener(_updateSaveButton);
   }
 

@@ -22,23 +22,25 @@ class EmployerProfileController extends Controller
     public function show(Request $request)
     {
         $user    = $request->user();
-        if (!$user->isEmployer()) return $this->fail('Forbidden', 403);
-
-        $profile = $user->employerProfile;
-        if (!$profile) return $this->fail('Employer profile not found', 404);
-
-        return $this->ok($profile);
+        $profile = $user->employerProfile()->firstOrCreate(['user_id' => $user->id]);
+        return $this->ok(array_merge($profile->toArray(), [
+            'name'  => $user->name,
+            'email' => $user->email,
+            'phone' => $user->phone,
+        ]));
     }
 
     public function update(Request $request)
     {
         $user = $request->user();
-        if (!$user->isEmployer()) return $this->fail('Forbidden', 403);
 
         $data = $request->validate([
             'company_name' => ['nullable', 'string', 'max:255'],
             'description'  => ['nullable', 'string', 'max:2000'],
             'location'     => ['nullable', 'string', 'max:255'],
+            'industry'     => ['nullable', 'string', 'max:255'],
+            'website'      => ['nullable', 'url', 'max:255'],
+            'employer_type'=> ['nullable', 'in:company,individual'],
         ]);
 
         $profile = EmployerProfile::updateOrCreate(['user_id' => $user->id], $data);
@@ -48,7 +50,6 @@ class EmployerProfileController extends Controller
     public function uploadLogo(Request $request)
     {
         $user = $request->user();
-        if (!$user->isEmployer()) return $this->fail('Forbidden', 403);
 
         $request->validate(['logo' => ['required', 'image', 'mimes:jpg,jpeg,png', 'max:5120']]);
 

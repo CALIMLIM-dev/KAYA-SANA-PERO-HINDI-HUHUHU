@@ -37,13 +37,28 @@ dependencies:
   # State Management
   provider: ^6.1.2
   
+  # HTTP Client
+  dio: ^5.4.0
+  
+  # Secure Storage
+  flutter_secure_storage: ^9.0.0
+  
+  # Shared Preferences
+  shared_preferences: ^2.2.2
+  
+  # Google Sign-In
+  google_sign_in: ^6.2.1
+  
+  # File picker (for cert/license/verification docs)
+  file_picker: ^8.1.2
+  
   # Fonts
   google_fonts: ^6.1.0
   
   # Images & SVG
   flutter_svg: ^2.0.10
   cached_network_image: ^3.3.1
-  image_picker: ^1.0.4
+  image_picker: ^1.0.7
   
   # UI Components
   shimmer: ^3.0.0

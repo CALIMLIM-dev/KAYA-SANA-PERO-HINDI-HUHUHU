@@ -5,6 +5,10 @@ class AppRoutes {
   static const String registerChoice = '/register-choice';
   static const String registerWorker = '/register-worker';
   static const String registerEmployer = '/register-employer';
+  static const String forgotPassword = '/forgot-password';
+  static const String verifyResetCode = '/verify-reset-code';
+  static const String resetPassword = '/reset-password';
+  static const String googlePassword = '/google-password';
   
   // Main Navigation
   static const String home = '/home';

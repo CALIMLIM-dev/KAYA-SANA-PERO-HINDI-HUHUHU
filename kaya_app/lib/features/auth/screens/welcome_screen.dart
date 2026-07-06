@@ -1,5 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:provider/provider.dart';
 import '../../../core/constants/app_colors.dart';
+import '../../../data/services/api_client.dart';
+import '../../../providers/auth_provider.dart';
 
 /// Modern Onboarding/Welcome Screen with Professional Design
 class WelcomeScreen extends StatefulWidget {
@@ -12,6 +16,7 @@ class WelcomeScreen extends StatefulWidget {
 class _WelcomeScreenState extends State<WelcomeScreen> {
   final PageController _pageController = PageController();
   int _currentPage = 0;
+  bool _isChecking = true; // Add loading state
 
   final List<OnboardingPage> _pages = [
     OnboardingPage(
@@ -32,6 +37,43 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
   ];
 
   @override
+  void initState() {
+    super.initState();
+    _checkOnboardingStatus();
+  }
+
+  Future<void> _checkOnboardingStatus() async {
+    // First check if user is already logged in
+    final token = await ApiClient.getToken();
+    if (token != null && mounted) {
+      // User is logged in, go to home
+      final auth = Provider.of<AuthProvider>(context, listen: false);
+      try {
+        await auth.fetchMe();
+        if (mounted && auth.user != null) {
+          Navigator.pushReplacementNamed(context, '/home');
+          return;
+        }
+      } catch (e) {
+        // Token invalid, clear it and continue
+        await ApiClient.deleteToken();
+      }
+    }
+    
+    // Check if user has seen onboarding
+    final prefs = await SharedPreferences.getInstance();
+    final hasSeenOnboarding = prefs.getBool('has_seen_onboarding') ?? false;
+    
+    if (hasSeenOnboarding && mounted) {
+      // User has seen onboarding, skip to login
+      Navigator.pushReplacementNamed(context, '/login');
+    } else {
+      // Show onboarding
+      setState(() => _isChecking = false);
+    }
+  }
+
+  @override
   void dispose() {
     _pageController.dispose();
     super.dispose();
@@ -39,6 +81,16 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // Show loading while checking status
+    if (_isChecking) {
+      return const Scaffold(
+        backgroundColor: Colors.white,
+        body: Center(
+          child: CircularProgressIndicator(),
+        ),
+      );
+    }
+
     return Scaffold(
       backgroundColor: Colors.white,
       body: SafeArea(
@@ -194,7 +246,12 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
     );
   }
 
-  void _navigateToRoleSelection() {
+  void _navigateToRoleSelection() async {
+    // Mark onboarding as seen
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('has_seen_onboarding', true);
+    
+    if (!mounted) return;
     Navigator.pushReplacementNamed(context, '/login');
   }
 }

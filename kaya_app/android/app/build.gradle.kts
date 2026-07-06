@@ -5,8 +5,8 @@ plugins {
 }
 
 android {
-    namespace = "com.example.kaya_app"
-    compileSdk = flutter.compileSdkVersion
+    namespace = "com.alphatech.kaya_app"
+    compileSdk = 36
     ndkVersion = flutter.ndkVersion
 
     compileOptions {
@@ -16,13 +16,16 @@ android {
 
     defaultConfig {
         // TODO: Specify your own unique Application ID (https://developer.android.com/studio/build/application-id.html).
-        applicationId = "com.example.kaya_app"
+        applicationId = "com.alphatech.kaya_app"
         // You can update the following values to match your application needs.
         // For more information, see: https://flutter.dev/to/review-gradle-config.
         minSdk = flutter.minSdkVersion
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
         versionName = flutter.versionName
+        
+        // Google Sign-In OAuth Client ID
+        manifestPlaceholders["googleClientId"] = "217067120890-b5p9b0lkath30n40ph3ii14gamnk1oom.apps.googleusercontent.com"
     }
 
     buildTypes {

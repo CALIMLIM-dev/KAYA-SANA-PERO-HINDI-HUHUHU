@@ -32,7 +32,7 @@ class VerificationController extends Controller
     public function approve(Verification $verification)
     {
         $verification->update([
-            'status' => 'approved',
+            'status' => 'verified',
             'reviewed_by' => Auth::id(),
             'reviewed_at' => now(),
         ]);

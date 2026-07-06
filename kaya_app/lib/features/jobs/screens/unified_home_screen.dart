@@ -4,6 +4,7 @@ import '../../../core/theme/app_theme.dart';
 import '../../../core/navigation/app_router.dart';
 import '../../../data/models/job_model.dart';
 import '../../../data/models/worker_profile_model.dart';
+import '../../../data/services/suspension_check_service.dart';
 import '../../help/screens/faq_screen.dart';
 import '../widgets/unified_search_bar.dart';
 import '../widgets/jobs_near_you_section.dart';
@@ -46,6 +47,20 @@ class _UnifiedHomeScreenState extends State<UnifiedHomeScreen> {
   void initState() {
     super.initState();
     _initializeData();
+    
+    // Start periodic suspension checks
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        SuspensionCheckService.startPeriodicCheck(context);
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    // Stop suspension checks when leaving home screen
+    SuspensionCheckService.stopPeriodicCheck();
+    super.dispose();
   }
 
   void _initializeData() {
