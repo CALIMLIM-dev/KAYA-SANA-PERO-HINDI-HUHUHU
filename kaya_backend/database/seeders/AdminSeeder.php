@@ -10,16 +10,18 @@ class AdminSeeder extends Seeder
 {
     public function run(): void
     {
-        // Create admin user
-        User::create([
-            'name' => 'Admin',
-            'email' => 'admin@kaya.com',
-            'password' => Hash::make('admin123'),
-            'phone' => null,
-            'city' => null,
-            'user_type' => 'admin',
-            'is_verified' => true,
-            'email_verified_at' => now(),
-        ]);
+        // Create admin user if doesn't exist
+        User::firstOrCreate(
+            ['email' => 'admin@kaya.com'],
+            [
+                'name' => 'Admin',
+                'password' => Hash::make('admin123'),
+                'phone' => null,
+                'city' => null,
+                'user_type' => 'admin',
+                'is_verified' => true,
+                'email_verified_at' => now(),
+            ]
+        );
     }
 }

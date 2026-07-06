@@ -10,6 +10,7 @@ class UnifiedSearchBar extends StatefulWidget {
   final Function(SearchFilter) onFilterChanged;
   final SearchFilter currentFilter;
   final String? hintText;
+  final List<SearchFilter>? visibleFilters; // Optional: limit which filters to show
 
   const UnifiedSearchBar({
     super.key,
@@ -17,6 +18,7 @@ class UnifiedSearchBar extends StatefulWidget {
     required this.onFilterChanged,
     this.currentFilter = SearchFilter.all,
     this.hintText,
+    this.visibleFilters, // If null, shows all filters
   });
 
   @override
@@ -87,40 +89,58 @@ class _UnifiedSearchBarState extends State<UnifiedSearchBar> {
         
         const SizedBox(height: 12),
         
-        // Filter Toggle Buttons
-        Container(
-          decoration: BoxDecoration(
-            color: AppColors.neutral100,
-            borderRadius: BorderRadius.circular(10),
+        // Filter Toggle Buttons - conditionally show based on visibleFilters
+        if (_shouldShowFilterButtons()) ...[
+          Container(
+            decoration: BoxDecoration(
+              color: AppColors.neutral100,
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Row(
+              children: [
+                if (_isFilterVisible(SearchFilter.all))
+                  Expanded(
+                    child: _FilterButton(
+                      label: 'All',
+                      isSelected: widget.currentFilter == SearchFilter.all,
+                      onTap: () => widget.onFilterChanged(SearchFilter.all),
+                    ),
+                  ),
+                if (_isFilterVisible(SearchFilter.jobs))
+                  Expanded(
+                    child: _FilterButton(
+                      label: 'Jobs',
+                      isSelected: widget.currentFilter == SearchFilter.jobs,
+                      onTap: () => widget.onFilterChanged(SearchFilter.jobs),
+                    ),
+                  ),
+                if (_isFilterVisible(SearchFilter.workers))
+                  Expanded(
+                    child: _FilterButton(
+                      label: 'Workers',
+                      isSelected: widget.currentFilter == SearchFilter.workers,
+                      onTap: () => widget.onFilterChanged(SearchFilter.workers),
+                    ),
+                  ),
+              ],
+            ),
           ),
-          child: Row(
-            children: [
-              Expanded(
-                child: _FilterButton(
-                  label: 'All',
-                  isSelected: widget.currentFilter == SearchFilter.all,
-                  onTap: () => widget.onFilterChanged(SearchFilter.all),
-                ),
-              ),
-              Expanded(
-                child: _FilterButton(
-                  label: 'Jobs',
-                  isSelected: widget.currentFilter == SearchFilter.jobs,
-                  onTap: () => widget.onFilterChanged(SearchFilter.jobs),
-                ),
-              ),
-              Expanded(
-                child: _FilterButton(
-                  label: 'Workers',
-                  isSelected: widget.currentFilter == SearchFilter.workers,
-                  onTap: () => widget.onFilterChanged(SearchFilter.workers),
-                ),
-              ),
-            ],
-          ),
-        ),
+        ],
       ],
     );
+  }
+
+  bool _isFilterVisible(SearchFilter filter) {
+    if (widget.visibleFilters == null) return true;
+    return widget.visibleFilters!.contains(filter);
+  }
+
+  bool _shouldShowFilterButtons() {
+    // If visibleFilters is null, show all buttons
+    if (widget.visibleFilters == null) return true;
+    // If only one filter is visible, don't show buttons (no choice to make)
+    if (widget.visibleFilters!.length <= 1) return false;
+    return true;
   }
 
   String _getHintText() {

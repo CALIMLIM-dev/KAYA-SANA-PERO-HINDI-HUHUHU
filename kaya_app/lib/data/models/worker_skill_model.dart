@@ -4,6 +4,9 @@ class WorkerSkillModel {
   final String skillName;
   final String proficiencyLevel;
   final int yearsOfExperience;
+  final int? categoryId;
+  final int? skillId;
+  final String? categoryName;
   final DateTime? createdAt;
   final DateTime? updatedAt;
 
@@ -13,6 +16,9 @@ class WorkerSkillModel {
     required this.skillName,
     required this.proficiencyLevel,
     required this.yearsOfExperience,
+    this.categoryId,
+    this.skillId,
+    this.categoryName,
     this.createdAt,
     this.updatedAt,
   });
@@ -24,6 +30,9 @@ class WorkerSkillModel {
       skillName: json['skill_name'],
       proficiencyLevel: json['proficiency_level'],
       yearsOfExperience: json['years_of_experience'],
+      categoryId: json['category_id'],
+      skillId: json['skill_id'],
+      categoryName: json['category_name'],
       createdAt: json['created_at'] != null ? DateTime.parse(json['created_at']) : null,
       updatedAt: json['updated_at'] != null ? DateTime.parse(json['updated_at']) : null,
     );
@@ -36,6 +45,10 @@ class WorkerSkillModel {
       'skill_name': skillName,
       'proficiency_level': proficiencyLevel,
       'years_of_experience': yearsOfExperience,
+      if (categoryId != null) 'category_id': categoryId,
+      if (skillId != null) 'skill_id': skillId,
     };
   }
+  
+  String get displayName => categoryName != null ? '$categoryName: $skillName' : skillName;
 }

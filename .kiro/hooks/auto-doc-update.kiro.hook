@@ -1,0 +1,24 @@
+{
+  "enabled": true,
+  "name": "Auto Documentation Update",
+  "description": "Monitors Dart, PHP, and configuration files for changes and prompts agent to update README.md with relevant documentation changes",
+  "version": "1",
+  "when": {
+    "type": "fileEdited",
+    "patterns": [
+      "*.dart",
+      "*.php",
+      "pubspec.yaml",
+      "composer.json",
+      "*.blade.php",
+      "kaya_app/lib/**/*.dart",
+      "kaya_backend/app/**/*.php",
+      "kaya_backend/routes/*.php",
+      "kaya_backend/database/migrations/*.php"
+    ]
+  },
+  "then": {
+    "type": "askAgent",
+    "prompt": "A source file has been modified. Review the changes and determine if the README.md needs to be updated to reflect new features, API changes, setup instructions, or architectural changes. Update the README.md if necessary to keep documentation synchronized with the codebase."
+  }
+}

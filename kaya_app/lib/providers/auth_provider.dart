@@ -18,6 +18,14 @@ class AuthProvider with ChangeNotifier {
   bool get isLoggedIn => _user != null;
   // user_type is set later when user sets up a profile on home screen
   String? get userType => _user?['user_type'] as String?;
+  
+  // Employer profile flags from /me endpoint
+  bool get employerProfileExists => _user?['employer_profile_exists'] as bool? ?? false;
+  String? get employerType => _user?['employer_type'] as String?;
+  
+  // Worker profile flags from /me endpoint
+  bool get workerProfileExists => _user?['worker_profile_exists'] as bool? ?? false;
+  bool get workerSetupCompleted => _user?['worker_setup_completed'] as bool? ?? false;
 
   // ── Register ─────────────────────────────────────────────────────────────────
 
@@ -253,6 +261,32 @@ class AuthProvider with ChangeNotifier {
       await ApiClient.deleteToken();
       _user = null;
       notifyListeners();
+    }
+  }
+
+  // ── Update current user (name, phone) ────────────────────────────────────────
+
+  Future<bool> updateMe({String? name, String? phone}) async {
+    try {
+      final Map<String, dynamic> data = {};
+      if (name != null) data['name'] = name;
+      if (phone != null) data['phone'] = phone;
+      
+      final response = await _api.patch('/me', data: data);
+      if (response.data['success']) {
+        // Update local user data
+        if (_user != null) {
+          _user!['name'] = name ?? _user!['name'];
+          _user!['phone'] = phone ?? _user!['phone'];
+        }
+        notifyListeners();
+        return true;
+      }
+      return false;
+    } catch (e) {
+      _errorMessage = e.toString().replaceFirst('Exception: ', '');
+      notifyListeners();
+      return false;
     }
   }
 

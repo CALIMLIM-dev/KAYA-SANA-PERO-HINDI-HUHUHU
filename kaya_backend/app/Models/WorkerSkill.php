@@ -16,10 +16,39 @@ class WorkerSkill extends Model
         'skill_name',
         'proficiency_level',
         'years_of_experience',
+        'category_id',
+        'skill_id',
     ];
 
     public function user()
     {
         return $this->belongsTo(User::class);
+    }
+
+    public function category()
+    {
+        return $this->belongsTo(Category::class);
+    }
+
+    public function skill()
+    {
+        return $this->belongsTo(Skill::class);
+    }
+
+    /**
+     * Get the category name for this skill.
+     */
+    public function getCategoryNameAttribute()
+    {
+        if ($this->category) {
+            return $this->category->name;
+        }
+        
+        // Fallback: try to get category from skill relationship
+        if ($this->skill && $this->skill->category) {
+            return $this->skill->category->name;
+        }
+        
+        return null;
     }
 }

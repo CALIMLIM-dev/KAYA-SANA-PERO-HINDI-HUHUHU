@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/navigation/app_router.dart';
 import '../../../data/models/job_model.dart';
 import '../../../data/models/worker_profile_model.dart';
 import '../../../data/services/suspension_check_service.dart';
+import '../../../providers/auth_provider.dart';
 import '../../help/screens/faq_screen.dart';
 import '../widgets/unified_search_bar.dart';
 import '../widgets/jobs_near_you_section.dart';
@@ -33,8 +35,7 @@ class _UnifiedHomeScreenState extends State<UnifiedHomeScreen> {
   final int _activeJobs = 3;
   final int _pendingApplications = 1;
   
-  // Profile completion status
-  bool _isProfileIncomplete = true; // Set to false once profile is complete
+  // Empty state dismissal flag
   bool _isEmptyStateVisible = true; // Can be dismissed
 
   // Mock data (TODO: Replace with provider when available)
@@ -124,8 +125,8 @@ class _UnifiedHomeScreenState extends State<UnifiedHomeScreen> {
     }).toList();
   }
 
-  bool get _showJobsSection => _searchFilter == SearchFilter.all || _searchFilter == SearchFilter.workers;
-  bool get _showWorkersSection => _searchFilter == SearchFilter.all || _searchFilter == SearchFilter.jobs;
+  bool _showJobsSection(SearchFilter filter) => filter == SearchFilter.all || filter == SearchFilter.workers;
+  bool _showWorkersSection(SearchFilter filter) => filter == SearchFilter.all || filter == SearchFilter.jobs;
 
   /// Build empty state card for incomplete profiles
   Widget _buildEmptyStateCard() {
@@ -207,14 +208,7 @@ class _UnifiedHomeScreenState extends State<UnifiedHomeScreen> {
             children: [
               Expanded(
                 child: OutlinedButton(
-                  onPressed: () async {
-                    final result = await Navigator.pushNamed(context, AppRouter.myWorkerProfile);
-                    if (result == true) {
-                      setState(() {
-                        _isProfileIncomplete = false;
-                      });
-                    }
-                  },
+                  onPressed: () => Navigator.pushNamed(context, AppRouter.setupWorkerProfile),
                   style: OutlinedButton.styleFrom(
                     foregroundColor: AppColors.primary,
                     side: BorderSide(color: AppColors.primary),
@@ -235,14 +229,7 @@ class _UnifiedHomeScreenState extends State<UnifiedHomeScreen> {
               const SizedBox(width: 12),
               Expanded(
                 child: OutlinedButton(
-                  onPressed: () async {
-                    final result = await Navigator.pushNamed(context, AppRouter.myEmployerProfile);
-                    if (result == true) {
-                      setState(() {
-                        _isProfileIncomplete = false;
-                      });
-                    }
-                  },
+                  onPressed: () => Navigator.pushNamed(context, AppRouter.setupEmployerProfile),
                   style: OutlinedButton.styleFrom(
                     foregroundColor: AppColors.primary,
                     side: BorderSide(color: AppColors.primary),
@@ -269,12 +256,24 @@ class _UnifiedHomeScreenState extends State<UnifiedHomeScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: AppColors.background,
-      body: RefreshIndicator(
-        onRefresh: _refreshData,
-        child: CustomScrollView(
-          slivers: [
+    return Consumer<AuthProvider>(
+      builder: (context, authProvider, _) {
+        // Check profile completion status
+        final isWorkerCompleted = authProvider.workerSetupCompleted;
+        final isEmployerCompleted = authProvider.employerProfileExists;
+        
+        // Determine if profile is incomplete
+        final shouldShowOverlay = !isWorkerCompleted && !isEmployerCompleted && _isEmptyStateVisible;
+        
+        // Determine which filter to use
+        final currentFilter = isWorkerCompleted ? SearchFilter.workers : _searchFilter;
+        
+        return Scaffold(
+          backgroundColor: AppColors.background,
+          body: RefreshIndicator(
+            onRefresh: _refreshData,
+            child: CustomScrollView(
+              slivers: [
             // Enhanced Header with Gradient Background
             SliverAppBar(
               floating: true,
@@ -450,9 +449,13 @@ class _UnifiedHomeScreenState extends State<UnifiedHomeScreen> {
               child: Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 16),
                 child: UnifiedSearchBar(
-                  currentFilter: _searchFilter,
+                  currentFilter: currentFilter,
                   onSearch: _updateSearchQuery,
                   onFilterChanged: _updateSearchFilter,
+                  // For completed workers: only show Workers filter
+                  visibleFilters: isWorkerCompleted 
+                      ? [SearchFilter.workers] 
+                      : null, // null = show all filters
                 ),
               ),
             ),
@@ -460,7 +463,7 @@ class _UnifiedHomeScreenState extends State<UnifiedHomeScreen> {
             const SliverToBoxAdapter(child: SizedBox(height: 20)),
 
             // Empty State Card - When shown, this is the ONLY content
-            if (_isProfileIncomplete && _isEmptyStateVisible) ...[
+            if (shouldShowOverlay) ...[
               SliverToBoxAdapter(
                 child: Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -471,7 +474,7 @@ class _UnifiedHomeScreenState extends State<UnifiedHomeScreen> {
             ],
 
             // ALL OTHER CONTENT - Only show when profile is complete or empty state is dismissed
-            if (!_isProfileIncomplete || !_isEmptyStateVisible) ...[
+            if (!shouldShowOverlay) ...[
               // Smart Categories based on filter
               SliverToBoxAdapter(
                 child: Padding(
@@ -482,13 +485,13 @@ class _UnifiedHomeScreenState extends State<UnifiedHomeScreen> {
                       Row(
                         children: [
                           Icon(
-                            _getCategoryIcon(),
+                            _getCategoryIcon(currentFilter),
                             color: AppColors.primary,
                             size: 20,
                           ),
                           const SizedBox(width: 8),
                           Text(
-                            _getCategoriesTitle(),
+                            _getCategoriesTitle(currentFilter),
                             style: Theme.of(context).textTheme.titleMedium?.copyWith(
                               fontWeight: FontWeight.bold,
                               color: AppColors.neutral900,
@@ -497,7 +500,7 @@ class _UnifiedHomeScreenState extends State<UnifiedHomeScreen> {
                         ],
                       ),
                       const SizedBox(height: 12),
-                      _buildCategories(),
+                      _buildCategories(currentFilter),
                     ],
                   ),
                 ),
@@ -509,7 +512,7 @@ class _UnifiedHomeScreenState extends State<UnifiedHomeScreen> {
               SliverToBoxAdapter(
                 child: Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 16),
-                  child: _buildSmartActionPrompts(),
+                  child: _buildSmartActionPrompts(currentFilter),
                 ),
               ),
 
@@ -573,7 +576,7 @@ class _UnifiedHomeScreenState extends State<UnifiedHomeScreen> {
               const SliverToBoxAdapter(child: SizedBox(height: 32)),
 
               // Jobs Near You Section (conditional based on filter)
-              if (_showJobsSection) ...[
+              if (_showJobsSection(currentFilter)) ...[
                 SliverToBoxAdapter(
                   child: JobsNearYouSection(
                     jobs: _filteredJobs,
@@ -590,7 +593,7 @@ class _UnifiedHomeScreenState extends State<UnifiedHomeScreen> {
               ],
 
               // People Who Can Help Section (conditional based on filter)
-              if (_showWorkersSection) ...[
+              if (_showWorkersSection(currentFilter)) ...[
                 SliverToBoxAdapter(
                   child: PeopleWhoCanHelpSection(
                     workers: _filteredWorkers,
@@ -640,6 +643,8 @@ class _UnifiedHomeScreenState extends State<UnifiedHomeScreen> {
           ],
         ),
       ),
+    );
+        },
     );
   }
 
@@ -933,8 +938,8 @@ class _UnifiedHomeScreenState extends State<UnifiedHomeScreen> {
   }
 
   /// Get categories title based on current filter
-  String _getCategoriesTitle() {
-    switch (_searchFilter) {
+  String _getCategoriesTitle(SearchFilter filter) {
+    switch (filter) {
       case SearchFilter.jobs:
         return 'Job Categories';
       case SearchFilter.workers:
@@ -945,9 +950,9 @@ class _UnifiedHomeScreenState extends State<UnifiedHomeScreen> {
   }
 
   /// Build appropriate categories based on current filter
-  Widget _buildCategories() {
+  Widget _buildCategories(SearchFilter filter) {
     // Worker filters — keep original full-width Row layout with Expanded
-    if (_searchFilter == SearchFilter.workers) {
+    if (filter == SearchFilter.workers) {
       return Row(
         children: [
           Expanded(child: _CategoryButton(icon: Icons.build,    label: 'Skilled',   color: AppColors.primary,  onTap: () => _onCategoryTap('Skilled'))),
@@ -1004,8 +1009,8 @@ class _UnifiedHomeScreenState extends State<UnifiedHomeScreen> {
   }
 
   /// Build smart action prompts based on current filter context
-  Widget _buildSmartActionPrompts() {
-    if (_searchFilter == SearchFilter.jobs) {
+  Widget _buildSmartActionPrompts(SearchFilter filter) {
+    if (filter == SearchFilter.jobs) {
       // When viewing jobs - show employer actions
       return Container(
         padding: const EdgeInsets.all(16),
@@ -1055,7 +1060,7 @@ class _UnifiedHomeScreenState extends State<UnifiedHomeScreen> {
           ],
         ),
       );
-    } else if (_searchFilter == SearchFilter.workers) {
+    } else if (filter == SearchFilter.workers) {
       // When viewing workers - show worker actions  
       return Container(
         padding: const EdgeInsets.all(16),
@@ -1184,8 +1189,8 @@ class _UnifiedHomeScreenState extends State<UnifiedHomeScreen> {
   }
 
   /// Get category icon based on filter
-  IconData _getCategoryIcon() {
-    switch (_searchFilter) {
+  IconData _getCategoryIcon(SearchFilter filter) {
+    switch (filter) {
       case SearchFilter.jobs:
         return Icons.work_outline;
       case SearchFilter.workers:

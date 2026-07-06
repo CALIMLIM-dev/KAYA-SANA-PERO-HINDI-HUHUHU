@@ -58,8 +58,8 @@ class VerificationProvider with ChangeNotifier {
       });
       
       await _api.postMultipart('/verifications', formData);
+      await fetchVerifications();
       _errorMessage = null;
-      _setLoading(false);
       return true;
     } catch (e) {
       _errorMessage = e.toString().replaceFirst('Exception: ', '');
@@ -93,8 +93,8 @@ class VerificationProvider with ChangeNotifier {
         'document': multipart,
       });
       await _api.postMultipart('/verifications', formData);
+      await fetchVerifications();
       _errorMessage = null;
-      _setLoading(false);
       return true;
     } catch (e) {
       _errorMessage = e.toString().replaceFirst('Exception: ', '');

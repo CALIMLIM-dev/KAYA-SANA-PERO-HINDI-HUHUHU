@@ -119,17 +119,35 @@
                 </div>
             @endif
 
-            {{-- Skills Section --}}
+            {{-- Skills Section - Grouped by Category --}}
             @if ($user->skills->count() > 0)
                 <div class="bg-white rounded-xl border border-slate-200 p-6">
                     <h3 class="text-sm font-semibold text-slate-700 mb-4">Skills ({{ $user->skills->count() }})</h3>
-                    <div class="flex flex-wrap gap-2">
-                            @foreach ($user->skills as $skill)
-                                <span class="px-3 py-1.5 bg-blue-50 text-blue-700 text-sm rounded-lg border border-blue-100">
-                                    {{ $skill->skill_name }}
-                                </span>
-                            @endforeach
-                    </div>
+                    
+                    @php
+                        // Group skills by category
+                        $grouped = $user->skills->groupBy(function($skill) {
+                            return $skill->categoryName ?? 'Uncategorized';
+                        });
+                    @endphp
+                    
+                    @foreach ($grouped as $categoryName => $categorySkills)
+                        <div class="mb-4 last:mb-0">
+                            {{-- Category Header --}}
+                            <h4 class="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2 letterspacing-0.5">
+                                {{ $categoryName }}
+                            </h4>
+                            
+                            {{-- Skills in this category --}}
+                            <div class="flex flex-wrap gap-2">
+                                @foreach ($categorySkills as $skill)
+                                    <span class="px-3 py-1.5 bg-blue-50 text-blue-700 text-sm rounded-lg border border-blue-100">
+                                        {{ $skill->skill_name }}
+                                    </span>
+                                @endforeach
+                            </div>
+                        </div>
+                    @endforeach
                 </div>
             @endif
         @endif

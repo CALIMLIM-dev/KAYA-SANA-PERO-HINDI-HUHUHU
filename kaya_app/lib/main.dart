@@ -23,8 +23,46 @@ class KayaApp extends StatelessWidget {
     return MultiProvider(
       providers: [
         ChangeNotifierProvider(create: (_) => AuthProvider()),
-        ChangeNotifierProvider(create: (_) => WorkerProfileProvider(ApiClient())),
-        ChangeNotifierProvider(create: (_) => EmployerProfileProvider()),
+        
+        // WorkerProfileProvider depends on AuthProvider
+        // Auto-loads profile when auth state changes
+        ChangeNotifierProxyProvider<AuthProvider, WorkerProfileProvider>(
+          create: (_) => WorkerProfileProvider(ApiClient()),
+          update: (context, auth, previous) {
+            final provider = previous ?? WorkerProfileProvider(ApiClient());
+            
+            // Auto-fetch profile when user logs in and has worker profile
+            if (auth.isLoggedIn && 
+                auth.workerProfileExists && 
+                !provider.isLoading) {
+              // Schedule fetch for next frame to avoid calling during build
+              Future.microtask(() => provider.fetchProfile());
+            }
+            
+            return provider;
+          },
+        ),
+        
+        // EmployerProfileProvider depends on AuthProvider
+        // Auto-loads profile when auth state changes
+        ChangeNotifierProxyProvider<AuthProvider, EmployerProfileProvider>(
+          create: (_) => EmployerProfileProvider(),
+          update: (context, auth, previous) {
+            final provider = previous ?? EmployerProfileProvider();
+            
+            // Auto-fetch profile when user logs in and has employer profile
+            if (auth.isLoggedIn && 
+                auth.employerProfileExists && 
+                !provider.hasFetchedOnce && 
+                !provider.isLoading) {
+              // Schedule fetch for next frame to avoid calling during build
+              Future.microtask(() => provider.fetchProfile());
+            }
+            
+            return provider;
+          },
+        ),
+        
         ChangeNotifierProvider(create: (_) => JobProvider()),
         ChangeNotifierProvider(create: (_) => UnifiedHomeProvider()),
         ChangeNotifierProvider(create: (_) => ApplicationProvider()),

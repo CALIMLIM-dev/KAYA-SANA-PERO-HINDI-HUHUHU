@@ -9,6 +9,7 @@ class ProfileScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final auth = context.watch<AuthProvider>();
     final String userName = 'Eddison';
     final String userRole = 'Worker';
     final String primarySkill = 'Professional Plumber';
@@ -205,9 +206,15 @@ class ProfileScreen extends StatelessWidget {
                   _MenuItem(
                     icon: Icons.business_outlined,
                     title: 'Employer Profile',
-                    subtitle: 'Set up your employer profile',
-                    onTap: () =>
-                        Navigator.pushNamed(context, '/my-employer-profile'),
+                    subtitle: auth.employerProfileExists
+                        ? 'Edit your employer profile'
+                        : 'Set up your employer profile',
+                    onTap: () => Navigator.pushNamed(
+                      context,
+                      auth.employerProfileExists
+                          ? '/my-employer-profile'
+                          : '/setup-employer-profile',
+                    ),
                   ),
 
                   const SizedBox(height: 24),

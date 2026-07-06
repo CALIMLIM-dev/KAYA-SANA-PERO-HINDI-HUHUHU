@@ -34,9 +34,11 @@ Route::prefix('v1')->group(function () {
         Route::patch('/me',    [AuthController::class, 'updateMe']);
         Route::get('/user',    [AuthController::class, 'user']);
 
-        // Skills & Categories (public read)
+        // Skills & Categories
         Route::get('/skills',     [SkillController::class, 'index']);
+        Route::post('/skills',    [SkillController::class, 'store']);
         Route::get('/categories', [CategoryController::class, 'index']);
+        Route::post('/categories', [CategoryController::class, 'store']);
 
         // Worker Profile
         Route::put('/worker/profile',                              [WorkerProfileController::class, 'updateBasicInfo']);
@@ -83,9 +85,10 @@ Route::prefix('v1')->group(function () {
         Route::delete('/worker/experiences/{id}',   [WorkerProfileController::class, 'deleteExperience']);
 
         // Employer Profile
-        Route::get('/employer-profile',         [EmployerProfileController::class, 'show']);
+        Route::get('/employer-profile',         [EmployerProfileController::class, 'index']);
+        Route::post('/employer-profile',        [EmployerProfileController::class, 'store']);
         Route::put('/employer-profile',         [EmployerProfileController::class, 'update']);
-        Route::post('/employer-profile/logo',   [EmployerProfileController::class, 'uploadLogo']);
+        Route::post('/employer-profile/image',  [EmployerProfileController::class, 'uploadImage']);
 
         // Jobs
         Route::get('/jobs',                     [JobController::class, 'index']);

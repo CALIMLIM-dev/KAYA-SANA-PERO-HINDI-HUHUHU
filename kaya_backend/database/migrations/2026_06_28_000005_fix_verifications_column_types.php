@@ -7,6 +7,10 @@ return new class extends Migration
 {
     public function up(): void
     {
+        if (DB::getDriverName() === 'sqlite') {
+            return;
+        }
+
         // Change document_type from enum to varchar to accept any type string
         // Change status enum to include 'verified' (was 'approved' before)
         DB::statement("ALTER TABLE verifications 
@@ -17,6 +21,10 @@ return new class extends Migration
 
     public function down(): void
     {
+        if (DB::getDriverName() === 'sqlite') {
+            return;
+        }
+
         DB::statement("ALTER TABLE verifications 
             MODIFY COLUMN document_type ENUM('national_id','passport','drivers_license','barangay_clearance','philsys_id') DEFAULT 'national_id',
             MODIFY COLUMN status ENUM('pending','approved','rejected') DEFAULT 'pending'

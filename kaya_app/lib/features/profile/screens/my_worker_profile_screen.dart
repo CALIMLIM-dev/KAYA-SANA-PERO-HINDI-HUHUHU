@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../data/services/api_client.dart';
+import '../../../data/models/worker_skill_model.dart';
+import '../../../data/models/skill_model.dart';
 import '../../../providers/worker_profile_provider.dart';
 import '../../../providers/verification_provider.dart';
 
@@ -44,15 +46,6 @@ class _MyWorkerProfileScreenState extends State<MyWorkerProfileScreen> with Sing
   void dispose() {
     _tabController.dispose();
     super.dispose();
-  }
-
-  // Helper method to compare two lists for equality
-  bool _listsEqual(List<String> a, List<String> b) {
-    if (a.length != b.length) return false;
-    for (int i = 0; i < a.length; i++) {
-      if (a[i] != b[i]) return false;
-    }
-    return true;
   }
 
   @override
@@ -242,34 +235,66 @@ class _MyWorkerProfileScreenState extends State<MyWorkerProfileScreen> with Sing
                             ],
                           ),
                           const SizedBox(height: 12),
-                          // Skills preview - Using Selector to prevent animation flicker
-                          Selector<WorkerProfileProvider, List<String>>(
-                            selector: (_, provider) => provider.skills.map((s) => s.skillName).toList(),
-                            shouldRebuild: (prev, next) => prev.length != next.length || !_listsEqual(prev, next),
-                            builder: (context, skillNames, _) {
-                              if (skillNames.isNotEmpty) {
+                          // Skills preview - Grouped by category
+                          Selector<WorkerProfileProvider, List<WorkerSkillModel>>(
+                            selector: (_, provider) => provider.skills,
+                            shouldRebuild: (prev, next) => prev.length != next.length,
+                            builder: (context, skills, _) {
+                              if (skills.isNotEmpty) {
+                                // Group skills by category
+                                final Map<String, List<WorkerSkillModel>> grouped = {};
+                                for (var skill in skills) {
+                                  final category = skill.categoryName ?? 'Other';
+                                  grouped.putIfAbsent(category, () => []).add(skill);
+                                }
+
                                 return Container(
-                                  constraints: const BoxConstraints(maxHeight: 60),
+                                  constraints: const BoxConstraints(maxHeight: 80),
                                   child: SingleChildScrollView(
-                                    child: Wrap(
-                                      spacing: 6,
-                                      runSpacing: 6,
-                                      children: skillNames.map((skillName) => Container(
-                                        key: ValueKey(skillName),
-                                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                                        decoration: BoxDecoration(
-                                          color: Colors.white.withValues(alpha: 0.15),
-                                          borderRadius: BorderRadius.circular(20),
-                                        ),
-                                        child: Text(
-                                          skillName,
-                                          style: const TextStyle(
-                                            fontSize: 11,
-                                            fontWeight: FontWeight.w600,
-                                            color: Colors.white,
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: grouped.entries.map((entry) {
+                                        return Padding(
+                                          padding: const EdgeInsets.only(bottom: 6),
+                                          child: Column(
+                                            crossAxisAlignment: CrossAxisAlignment.start,
+                                            children: [
+                                              // Category header
+                                              Text(
+                                                entry.key.toUpperCase(),
+                                                style: const TextStyle(
+                                                  fontSize: 9,
+                                                  fontWeight: FontWeight.w700,
+                                                  color: Colors.white70,
+                                                  letterSpacing: 0.5,
+                                                ),
+                                              ),
+                                              const SizedBox(height: 4),
+                                              // Skills
+                                              Wrap(
+                                                spacing: 6,
+                                                runSpacing: 4,
+                                                children: entry.value.map((skill) => Container(
+                                                  key: ValueKey(skill.id ?? skill.skillName),
+                                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                                  decoration: BoxDecoration(
+                                                    color: Colors.white.withValues(alpha: 0.2),
+                                                    borderRadius: BorderRadius.circular(12),
+                                                  ),
+                                                  child: Text(
+                                                    skill.skillName,
+                                                    style: const TextStyle(
+                                                      fontSize: 10,
+                                                      fontWeight: FontWeight.w600,
+                                                      color: Colors.white,
+                                                    ),
+                                                  ),
+                                                )).toList(),
+                                              ),
+                                            ],
                                           ),
-                                        ),
-                                      )).toList(),
+                                        );
+                                      }).toList(),
                                     ),
                                   ),
                                 );
@@ -447,36 +472,109 @@ class _MyWorkerProfileScreenState extends State<MyWorkerProfileScreen> with Sing
         ),
 
         // Skills Card - Using Selector to prevent unnecessary rebuilds
-        Selector<WorkerProfileProvider, List<String>>(
-          selector: (_, provider) => provider.skills.map((s) => s.skillName).toList(),
-          shouldRebuild: (prev, next) => prev.length != next.length || !_listsEqual(prev, next),
-          builder: (context, skillNames, _) {
-            final hasSkills = skillNames.isNotEmpty;
+        Selector<WorkerProfileProvider, List<WorkerSkillModel>>(
+          selector: (_, provider) => provider.skills,
+          shouldRebuild: (prev, next) => prev.length != next.length,
+          builder: (context, skills, _) {
+            final hasSkills = skills.isNotEmpty;
+            
+            // Group skills by category
+            final Map<String, List<WorkerSkillModel>> grouped = {};
+            for (var skill in skills) {
+              final category = skill.categoryName ?? 'Other';
+              grouped.putIfAbsent(category, () => []).add(skill);
+            }
+            
             return _buildInfoCard(
               title: 'Skills',
               icon: Icons.build_circle,
               iconColor: AppColors.accent,
               content: hasSkills
-                  ? Wrap(
-                      spacing: 6,
-                      runSpacing: 6,
-                      children: skillNames.map((skillName) => Container(
-                        key: ValueKey(skillName),
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                        decoration: BoxDecoration(
-                          color: AppColors.primary.withValues(alpha: 0.1),
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: Text(skillName, style: const TextStyle(fontSize: 12)),
-                      )).toList(),
+                  ? Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: grouped.entries.map((entry) {
+                        return Padding(
+                          padding: const EdgeInsets.only(bottom: 12),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              // Category header
+                              Text(
+                                entry.key.toUpperCase(),
+                                style: const TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w700,
+                                  color: AppColors.neutral600,
+                                  letterSpacing: 0.5,
+                                ),
+                              ),
+                              const SizedBox(height: 6),
+                              // Skills in this category
+                              Wrap(
+                                spacing: 6,
+                                runSpacing: 6,
+                                children: entry.value.map((skill) => Container(
+                                  key: ValueKey(skill.id ?? skill.skillName),
+                                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                                  decoration: BoxDecoration(
+                                    color: AppColors.primary.withValues(alpha: 0.1),
+                                    borderRadius: BorderRadius.circular(12),
+                                    border: Border.all(color: AppColors.primary.withValues(alpha: 0.2)),
+                                  ),
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Text(skill.skillName, style: const TextStyle(fontSize: 12)),
+                                      const SizedBox(width: 4),
+                                      GestureDetector(
+                                        onTap: () async {
+                                          // Show confirmation dialog
+                                          final confirmed = await showDialog<bool>(
+                                            context: context,
+                                            builder: (context) => AlertDialog(
+                                              title: const Text('Remove Skill'),
+                                              content: Text('Remove "${skill.skillName}" from your skills?'),
+                                              actions: [
+                                                TextButton(
+                                                  onPressed: () => Navigator.pop(context, false),
+                                                  child: const Text('Cancel'),
+                                                ),
+                                                ElevatedButton(
+                                                  onPressed: () => Navigator.pop(context, true),
+                                                  style: ElevatedButton.styleFrom(
+                                                    backgroundColor: Colors.red,
+                                                  ),
+                                                  child: const Text('Remove'),
+                                                ),
+                                              ],
+                                            ),
+                                          );
+                                          
+                                          if (confirmed == true && mounted && skill.id != null) {
+                                            // Delete the specific skill by ID
+                                            final provider = context.read<WorkerProfileProvider>();
+                                            await provider.deleteSkill(skill.id!);
+                                          }
+                                        },
+                                        child: Icon(Icons.close, size: 14, color: AppColors.primary.withValues(alpha: 0.7)),
+                                      ),
+                                    ],
+                                  ),
+                                )).toList(),
+                              ),
+                            ],
+                          ),
+                        );
+                      }).toList(),
                     )
                   : const Text('Add your skills', style: TextStyle(color: AppColors.neutral600)),
               onTap: () async {
+                final skillNames = skills.map((s) => s.skillName).toList();
                 final result = await Navigator.pushNamed(context, '/add-skills', 
                     arguments: skillNames);
-                if (result != null && result is List<String> && mounted) {
-                  // Save skills to backend
-                  await context.read<WorkerProfileProvider>().saveSkillsLocal(result);
+                if (result != null && result is List<SkillModel> && mounted) {
+                  // Save skills with category info
+                  await context.read<WorkerProfileProvider>().saveSkillsWithCategories(result);
                 }
               },
             );
@@ -500,7 +598,7 @@ class _MyWorkerProfileScreenState extends State<MyWorkerProfileScreen> with Sing
                           exp['title'] ?? exp['position'] ?? '',
                           style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
                         ),
-                        Text('${exp['company']} • ${_fmtDate(exp['start_date'] as String?)} – ${exp['end_date'] != null ? _fmtDate(exp['end_date'] as String?) : 'Present'}',
+                        Text('${exp['company']} • ${_fmtDate(exp['start_date'])} – ${exp['end_date'] != null ? _fmtDate(exp['end_date']) : 'Present'}',
                             style: const TextStyle(fontSize: 12)),
                       ],
                     ),

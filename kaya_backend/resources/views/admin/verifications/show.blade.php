@@ -13,7 +13,7 @@
         <p class="text-xs text-slate-400">{{ ucfirst($verification->user->user_type) }} · {{ $verification->user->city ?? 'No city set' }}</p>
 
         <div class="mt-4 text-xs px-3 py-1.5 rounded-full inline-block
-            {{ $verification->status === 'approved' ? 'badge-verified' : ($verification->status === 'rejected' ? 'badge-suspended' : 'badge-pending') }}">
+            {{ $verification->status === 'verified' ? 'badge-verified' : ($verification->status === 'rejected' ? 'badge-suspended' : 'badge-pending') }}">
             {{ ucfirst($verification->status) }}
         </div>
 
@@ -38,14 +38,14 @@
                     @if ($verification->document_front_url)
                         <img src="{{ asset('storage/' . $verification->document_front_url) }}" class="h-full w-full object-contain rounded-lg">
                     @else
-                        <span>Front of ID — not uploaded</span>
+                        <span>{{ $verification->document_type === 'business_reg' ? 'Business document' : 'Front of ID' }} - not uploaded</span>
                     @endif
                 </div>
                 <div class="border border-slate-200 rounded-lg h-36 flex items-center justify-center bg-slate-50 text-xs text-slate-400 overflow-hidden">
                     @if ($verification->selfie_url)
                         <img src="{{ asset('storage/' . $verification->selfie_url) }}" class="h-full w-full object-contain rounded-lg">
                     @else
-                        <span>Selfie — not uploaded</span>
+                        <span>{{ $verification->document_type === 'business_reg' ? 'No selfie required' : 'Selfie - not uploaded' }}</span>
                     @endif
                 </div>
             </div>

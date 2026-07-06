@@ -5,6 +5,8 @@ import '../data/models/worker_skill_model.dart';
 import '../data/models/worker_certification_model.dart';
 import '../data/models/worker_license_model.dart';
 import '../data/models/worker_experience_model.dart';
+import '../data/models/category_model.dart';
+import '../data/models/skill_model.dart';
 import '../data/services/api_client.dart';
 
 class WorkerProfileProvider with ChangeNotifier {
@@ -17,6 +19,8 @@ class WorkerProfileProvider with ChangeNotifier {
   List<WorkerLicenseModel> _licenses = [];
   List<WorkerExperienceModel> _experiences = [];
   List<Map<String, dynamic>> _licenseExaminations = [];
+  List<CategoryModel> _categories = [];
+  List<SkillModel> _availableSkills = [];
 
   bool _isLoading = false;
   String? _errorMessage;
@@ -34,6 +38,8 @@ class WorkerProfileProvider with ChangeNotifier {
   List<WorkerLicenseModel> get licenses => _licenses;
   List<WorkerExperienceModel> get experiencesNew => _experiences;
   List<Map<String, dynamic>> get licenseExaminations => _licenseExaminations;
+  List<CategoryModel> get categories => _categories;
+  List<SkillModel> get availableSkills => _availableSkills;
   bool get isLoading => _isLoading;
   String? get errorMessage => _errorMessage;
 
@@ -167,15 +173,45 @@ class WorkerProfileProvider with ChangeNotifier {
     }
   }
 
-  Future<void> saveSkillsLocal(List<String> skillNames) async {
+  Future<void> saveSkillsWithCategories(List<SkillModel> selectedSkills) async {
     try {
       // Delete all existing skills
       for (var skill in _skills) {
         await deleteSkill(skill.id!);
       }
       
-      // Add new skills with default values
-      for (var skillName in skillNames) {
+      // Add new skills with category and skill IDs
+      for (var skillModel in selectedSkills) {
+        final skill = WorkerSkillModel(
+          userId: 0, // Set by backend
+          skillName: skillModel.name,
+          proficiencyLevel: 'intermediate',
+          yearsOfExperience: 1,
+          categoryId: skillModel.categoryId,
+          skillId: skillModel.id,
+        );
+        await addSkill(skill);
+      }
+      
+      // Refresh the list
+      await fetchSkills();
+    } catch (e) {
+      _errorMessage = _extractErrorMessage(e.toString());
+    }
+  }
+
+  Future<void> saveSkillsLocal(List<String> skillNames) async {
+    try {
+      // Remove duplicates
+      final uniqueSkillNames = skillNames.toSet().toList();
+      
+      // Delete all existing skills
+      for (var skill in _skills) {
+        await deleteSkill(skill.id!);
+      }
+      
+      // Add new skills with default values (backwards compatibility)
+      for (var skillName in uniqueSkillNames) {
         final skill = WorkerSkillModel(
           userId: 0, // Set by backend
           skillName: skillName,
@@ -188,9 +224,132 @@ class WorkerProfileProvider with ChangeNotifier {
       // Refresh the list
       await fetchSkills();
     } catch (e) {
-      _errorMessage = e.toString();
+      _errorMessage = _extractErrorMessage(e.toString());
     }
   }
+
+  // ==================== CATEGORIES ====================
+  
+  Future<void> fetchCategories() async {
+    _isLoading = true;
+    _errorMessage = null;
+    notifyListeners();
+
+    try {
+      final response = await _apiClient.get('/categories');
+      final data = response.data as Map<String, dynamic>;
+      if (data['success']) {
+        _categories = (data['data'] as List)
+            .map((json) => CategoryModel.fromJson(json))
+            .toList();
+      } else {
+        _errorMessage = data['message'];
+      }
+    } catch (e) {
+      _errorMessage = e.toString();
+    } finally {
+      _isLoading = false;
+      notifyListeners();
+    }
+  }
+
+  Future<CategoryModel?> createCustomCategory(String categoryName) async {
+    try {
+      final response = await _apiClient.post('/categories', data: {'name': categoryName});
+      final data = response.data as Map<String, dynamic>;
+      if (data['success']) {
+        final newCategory = CategoryModel.fromJson(data['data']);
+        _categories.add(newCategory);
+        notifyListeners();
+        return newCategory;
+      } else {
+        _errorMessage = _extractErrorMessage(data['message']);
+        return null;
+      }
+    } catch (e) {
+      _errorMessage = _extractErrorMessage(e.toString());
+      return null;
+    }
+  }
+
+  Future<void> fetchSkillsByCategory(int categoryId) async {
+    _isLoading = true;
+    _errorMessage = null;
+    notifyListeners();
+
+    try {
+      final response = await _apiClient.get('/skills?category_id=$categoryId');
+      final data = response.data as Map<String, dynamic>;
+      if (data['success']) {
+        _availableSkills = (data['data'] as List)
+            .map((json) => SkillModel.fromJson(json))
+            .toList();
+      } else {
+        _errorMessage = data['message'];
+      }
+    } catch (e) {
+      _errorMessage = e.toString();
+    } finally {
+      _isLoading = false;
+      notifyListeners();
+    }
+  }
+
+  Future<SkillModel?> createCustomSkill(String skillName, int categoryId) async {
+    try {
+      final response = await _apiClient.post('/skills', data: {
+        'name': skillName,
+        'category_id': categoryId,
+      });
+      final data = response.data as Map<String, dynamic>;
+      if (data['success']) {
+        final newSkill = SkillModel.fromJson(data['data']);
+        // Don't replace the list, just add to it
+        if (!_availableSkills.any((s) => s.id == newSkill.id)) {
+          _availableSkills.add(newSkill);
+        }
+        notifyListeners();
+        return newSkill;
+      } else {
+        _errorMessage = _extractErrorMessage(data['message']);
+        return null;
+      }
+    } catch (e) {
+      _errorMessage = _extractErrorMessage(e.toString());
+      return null;
+    }
+  }
+
+  // Helper to extract clean error messages
+  String _extractErrorMessage(String rawMessage) {
+    // Remove exception type prefixes
+    final patterns = [
+      'Exception: ',
+      'DioException: ',
+      'DioError: ',
+      'Error: ',
+      'type \'',
+      '\' is not a subtype of',
+    ];
+    
+    String cleaned = rawMessage;
+    for (var pattern in patterns) {
+      if (cleaned.contains(pattern)) {
+        cleaned = cleaned.split(pattern).first;
+      }
+    }
+    
+    // If message is still technical, return generic message
+    if (cleaned.contains('DioException') || 
+        cleaned.contains('SocketException') || 
+        cleaned.contains('FormatException') ||
+        cleaned.length > 100) {
+      return 'Something went wrong. Please try again.';
+    }
+    
+    return cleaned.trim();
+  }
+
 
   Future<bool> createCertification(Map<String, dynamic> certData) async {
     // Stub - for backward compatibility with old screens
@@ -235,11 +394,11 @@ class WorkerProfileProvider with ChangeNotifier {
         await fetchSkills();
         return true;
       } else {
-        _errorMessage = data['message'];
+        _errorMessage = _extractErrorMessage(data['message']);
         return false;
       }
     } catch (e) {
-      _errorMessage = e.toString();
+      _errorMessage = _extractErrorMessage(e.toString());
       return false;
     }
   }

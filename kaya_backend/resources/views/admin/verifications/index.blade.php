@@ -4,7 +4,7 @@
 @section('content')
 <div class="bg-white rounded-xl border border-slate-200">
     <div class="p-5 border-b border-slate-100 flex gap-2">
-        @foreach (['pending' => 'Pending', 'approved' => 'Approved', 'rejected' => 'Rejected', 'all' => 'All'] as $key => $label)
+        @foreach (['pending' => 'Pending', 'verified' => 'Verified', 'rejected' => 'Rejected', 'all' => 'All'] as $key => $label)
             <a href="{{ route('admin.verifications.index', ['status' => $key]) }}"
                class="px-3 py-1.5 rounded-full text-xs font-medium {{ $status === $key ? 'bg-blue-600 text-white' : 'bg-slate-100 text-slate-600' }}">
                 {{ $label }}
@@ -30,7 +30,7 @@
                     <td class="py-3 px-5 text-slate-500">{{ $v->created_at->format('M j, Y') }}</td>
                     <td class="py-3 px-5">
                         <span class="text-xs px-2 py-1 rounded-full
-                            {{ $v->status === 'approved' ? 'badge-verified' : ($v->status === 'rejected' ? 'badge-suspended' : 'badge-pending') }}">
+                            {{ $v->status === 'verified' ? 'badge-verified' : ($v->status === 'rejected' ? 'badge-suspended' : 'badge-pending') }}">
                             {{ ucfirst($v->status) }}
                         </span>
                     </td>

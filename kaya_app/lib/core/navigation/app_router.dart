@@ -39,6 +39,7 @@ import '../../features/notifications/screens/notifications_screen.dart';
 import '../../features/profile/screens/profile_screen.dart';
 import '../../features/profile/screens/my_worker_profile_screen.dart';
 import '../../features/profile/screens/my_employer_profile_screen.dart';
+import '../../features/profile/screens/worker_profile_router.dart';
 import '../../features/profile/screens/add_name_screen.dart';
 import '../../features/profile/screens/add_location_screen.dart';
 import '../../features/profile/screens/add_personal_details_screen.dart';
@@ -92,6 +93,7 @@ class AppRouter {
   static const String profile = '/profile';
   static const String editWorkerProfile = '/edit-worker-profile';
   static const String myWorkerProfile = '/my-worker-profile';
+  static const String setupWorkerProfile = '/setup-worker-profile';
   static const String myEmployerProfile = '/my-employer-profile';
   static const String addName = '/add-name';
   static const String addLocation = '/add-location';
@@ -200,6 +202,9 @@ class AppRouter {
       
       case myWorkerProfile:
         return MaterialPageRoute(builder: (_) => const MyWorkerProfileScreen());
+      
+      case setupWorkerProfile:
+        return MaterialPageRoute(builder: (_) => const WorkerProfileRouter());
       
       case myEmployerProfile:
         return MaterialPageRoute(builder: (_) => const MyEmployerProfileScreen());
@@ -418,7 +423,12 @@ class AppRouter {
     Navigator.pushNamed(context, myWorkerProfile);
   }
 
-  /// Navigate to my employer profile screen
+  /// Navigate to public employer profile (read-only view for workers)
+  static void toEmployerProfile(BuildContext context) {
+    Navigator.pushNamed(context, employerProfile);
+  }
+
+  /// Navigate to my employer profile (NEW system - own profile management)
   static void toMyEmployerProfile(BuildContext context) {
     Navigator.pushNamed(context, myEmployerProfile);
   }

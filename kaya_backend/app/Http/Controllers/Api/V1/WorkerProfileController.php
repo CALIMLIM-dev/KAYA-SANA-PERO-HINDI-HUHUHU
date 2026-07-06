@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api\V1;
 
 use App\Http\Controllers\Controller;
+use App\Models\WorkerProfile;
 use App\Models\WorkerSkill;
 use App\Models\WorkerCertification;
 use App\Models\WorkerLicense;
@@ -46,6 +47,19 @@ class WorkerProfileController extends Controller
         }
         
         $user->save();
+
+        $profile = WorkerProfile::firstOrCreate(
+            ['user_id' => $user->id],
+            [
+                'availability_status' => 'available',
+                'verification_status' => 'unverified',
+            ]
+        );
+
+        if ($request->filled('city')) {
+            $profile->location = $request->city;
+            $profile->save();
+        }
         
         return response()->json([
             'success' => true,
@@ -84,6 +98,15 @@ class WorkerProfileController extends Controller
         $path = $request->file('photo')->store('profile_photos', 'public');
         $user->avatar = $path;
         $user->save();
+
+        WorkerProfile::updateOrCreate(
+            ['user_id' => $user->id],
+            [
+                'profile_photo_path' => $path,
+                'availability_status' => 'available',
+                'verification_status' => 'unverified',
+            ]
+        );
         
         return response()->json([
             'success' => true,
@@ -99,7 +122,39 @@ class WorkerProfileController extends Controller
     
     public function getSkills(Request $request)
     {
-        $skills = WorkerSkill::where('user_id', $request->user()->id)->get();
+        $skills = WorkerSkill::with('category:id,name')
+            ->where('user_id', $request->user()->id)
+            ->get()
+            ->map(function ($skill) {
+                $categoryName = null;
+                
+                // If category_id exists, use it
+                if ($skill->category_id && $skill->category) {
+                    $categoryName = $skill->category->name;
+                }
+                // Otherwise, try to find the skill in master skills table by name
+                elseif ($skill->skill_name) {
+                    $masterSkill = \App\Models\Skill::with('category')
+                        ->whereRaw('LOWER(name) = ?', [strtolower($skill->skill_name)])
+                        ->first();
+                    if ($masterSkill && $masterSkill->category) {
+                        $categoryName = $masterSkill->category->name;
+                    }
+                }
+                
+                return [
+                    'id' => $skill->id,
+                    'user_id' => $skill->user_id,
+                    'skill_name' => $skill->skill_name,
+                    'proficiency_level' => $skill->proficiency_level,
+                    'years_of_experience' => $skill->years_of_experience,
+                    'category_id' => $skill->category_id,
+                    'skill_id' => $skill->skill_id,
+                    'category_name' => $categoryName,
+                    'created_at' => $skill->created_at,
+                    'updated_at' => $skill->updated_at,
+                ];
+            });
         
         return response()->json([
             'success' => true,
@@ -114,6 +169,8 @@ class WorkerProfileController extends Controller
             'skill_name' => 'required|string|max:255',
             'proficiency_level' => 'required|in:beginner,intermediate,advanced,expert',
             'years_of_experience' => 'required|integer|min:0',
+            'category_id' => 'nullable|exists:categories,id',
+            'skill_id' => 'nullable|exists:skills,id',
         ]);
         
         if ($validator->fails()) {
@@ -124,12 +181,40 @@ class WorkerProfileController extends Controller
             ], 422);
         }
         
+        // Check for duplicate skill (case-insensitive)
+        $existing = WorkerSkill::where('user_id', $request->user()->id)
+            ->whereRaw('LOWER(skill_name) = ?', [strtolower($request->skill_name)])
+            ->first();
+            
+        if ($existing) {
+            return response()->json([
+                'success' => false,
+                'message' => 'You already have this skill in your profile',
+                'data' => null
+            ], 422);
+        }
+        
         $skill = WorkerSkill::create([
             'user_id' => $request->user()->id,
             'skill_name' => $request->skill_name,
             'proficiency_level' => $request->proficiency_level,
             'years_of_experience' => $request->years_of_experience,
+            'category_id' => $request->category_id,
+            'skill_id' => $request->skill_id,
         ]);
+
+        $profile = WorkerProfile::firstOrCreate(
+            ['user_id' => $request->user()->id],
+            [
+                'availability_status' => 'available',
+                'verification_status' => 'unverified',
+            ]
+        );
+
+        if ($request->filled('category_id') && $profile->category_id === null) {
+            $profile->category_id = $request->category_id;
+            $profile->save();
+        }
         
         return response()->json([
             'success' => true,

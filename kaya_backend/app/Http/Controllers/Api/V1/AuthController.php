@@ -125,8 +125,34 @@ class AuthController extends Controller
                 'message' => 'Account suspended',
             ], 403);
         }
+
+        // Eager load profiles
+        $employerProfile = $user->employerProfile;
+        $workerProfile = $user->workerProfile;
         
-        return $this->ok($user);
+        // For worker profile, need to load skills relationship to check completion
+        if ($workerProfile) {
+            $workerProfile->load('skills');
+        }
+        
+        return $this->ok([
+            'id' => $user->id,
+            'name' => $user->name,
+            'email' => $user->email,
+            'phone' => $user->phone,
+            'city' => $user->city,
+            'avatar' => $user->avatar,
+            'is_verified' => $user->is_verified,
+            'user_type' => $user->user_type,
+            
+            // Employer profile flags
+            'employer_profile_exists' => $employerProfile !== null,
+            'employer_type' => $employerProfile?->employer_type?->value,
+            
+            // Worker profile flags
+            'worker_profile_exists' => $workerProfile !== null,
+            'worker_setup_completed' => $workerProfile?->isSetupCompleted() ?? false,
+        ]);
     }
     
     /**

@@ -44,7 +44,8 @@ class UserManagementController extends Controller
             'workerProfile',
             'certifications',
             'licenses',
-            'skills',
+            'skills.category',
+            'skills.skill.category',
             'experiences',
             'verifications',
         ]);

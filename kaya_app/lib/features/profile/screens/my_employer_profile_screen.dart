@@ -728,3 +728,7 @@ class _StickyTabBarDelegate extends SliverPersistentHeaderDelegate {
   Widget build(BuildContext context, double shrinkOffset, bool overlapsContent) {
     return Container(color: Colors.white, child: tabBar);
   }
+
+  @override
+  bool shouldRebuild(_StickyTabBarDelegate oldDelegate) => false;
+}
