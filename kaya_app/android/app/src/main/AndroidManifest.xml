@@ -3,6 +3,15 @@
     <!-- Internet permission for API calls and Google Sign-In -->
     <uses-permission android:name="android.permission.INTERNET"/>
 
+    <!-- Push notifications.
+
+         Only Android 13 (API 33) and above require this at runtime: from 13
+         onward a notification cannot be shown until the user grants it, and
+         the app must ask. On Android 12 and below notifications are allowed by
+         default and nothing is prompted, so declaring it here is harmless on
+         older phones and mandatory on newer ones. -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
+
     <!-- "Use my current location" on the pin-drop map (geolocator).
          COARSE alone is enough to resolve a barangay; FINE lets a worker pin
          an exact site. Both are runtime permissions the user can decline —
@@ -29,6 +38,13 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE"/>
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_LOCATION"/>
     <uses-permission android:name="android.permission.ACCESS_BACKGROUND_LOCATION"/>
+
+    <!-- Keeps the CPU and WiFi awake long enough for a position fix and a ping
+         while the screen is off. Without them Doze can suspend the service
+         between wakeups and the trail develops gaps that look like the worker
+         stopped moving. -->
+    <uses-permission android:name="android.permission.WAKE_LOCK"/>
+    <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS"/>
 
     <application
         android:label="KAYA"
@@ -69,6 +85,29 @@
         <meta-data
             android:name="flutterEmbedding"
             android:value="2" />
+
+        <!-- The channel a push lands in when the app is not running.
+
+             Must match the channel_id FcmSender sends. Android silently drops a
+             notification addressed to a channel that does not exist, which is a
+             failure with no error anywhere to explain it. -->
+        <meta-data
+            android:name="com.google.firebase.messaging.default_notification_channel_id"
+            android:value="kaya_default" />
+
+        <!-- The foreground service that keeps reporting position after the app
+             is swiped out of recents.
+
+             foregroundServiceType is mandatory from Android 14: a service that
+             does not declare one is refused at start with a
+             SecurityException. "location" is the honest declaration, and it is
+             the reason this service is permitted to exist at all — a service
+             justified as "polls for chat" would not be. -->
+        <service
+            android:name="com.pravera.flutter_foreground_task.service.ForegroundService"
+            android:foregroundServiceType="location"
+            android:exported="false"
+            android:stopWithTask="false" />
     </application>
     <!-- Required to query activities that can process text, see:
          https://developer.android.com/training/package-visibility and

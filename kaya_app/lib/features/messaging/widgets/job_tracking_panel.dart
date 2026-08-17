@@ -340,13 +340,24 @@ class _JobTrackingPanelState extends State<JobTrackingPanel> {
                   initialZoom: 15,
                   // With both ends known, frame them instead of guessing a
                   // zoom — the whole point is seeing the gap close.
-                  initialCameraFit: destination == null
-                      ? null
-                      : CameraFit.bounds(
-                          bounds: LatLngBounds(point, destination),
+                  //
+                  // A road route is framed on the route itself rather than on
+                  // its two ends: roads bend, so the line can run well outside
+                  // the box its endpoints draw, and a route disappearing off
+                  // the edge of the map reads as a broken map.
+                  initialCameraFit: provider.hasRoute
+                      ? CameraFit.bounds(
+                          bounds: LatLngBounds.fromPoints(provider.routePoints),
                           padding: const EdgeInsets.all(36),
                           maxZoom: 16,
-                        ),
+                        )
+                      : destination == null
+                          ? null
+                          : CameraFit.bounds(
+                              bounds: LatLngBounds(point, destination),
+                              padding: const EdgeInsets.all(36),
+                              maxZoom: 16,
+                            ),
                   interactionOptions:
                       const InteractionOptions(flags: InteractiveFlag.none),
                 ),
@@ -374,20 +385,35 @@ class _JobTrackingPanelState extends State<JobTrackingPanel> {
                       ],
                     ),
                   /*
-                      The line the panel asked for.
+                      The way there.
 
-                      Straight, and dashed to say so. It shows direction and
-                      distance, not a route: following actual roads needs a
-                      routing service, and the free option (the public OSRM
-                      demo server) is rate-limited and explicitly not for
-                      production, while everything better is paid — which
-                      conflicts with this project's no-paid-mapping-APIs rule.
+                      When the server returns a road route it is drawn the way a
+                      navigation app draws one: a solid line with a light casing
+                      around it, so it reads as a route laid over the map rather
+                      than as one more feature printed on it.
 
-                      A solid line would imply a road that may not exist. A
-                      dashed one reads as "this way, this far", which is what
-                      is actually known.
+                      The dashed straight line stays as the fallback, for a job
+                      posted without coordinates or a routing provider that is
+                      down or rate-limited. Keeping the two visually different
+                      matters — dashed still means "direction and distance
+                      only", so the map never implies a road it has not been
+                      told about.
                   */
-                  if (destination != null)
+                  if (provider.hasRoute)
+                    PolylineLayer(
+                      polylines: [
+                        Polyline(
+                          points: provider.routePoints,
+                          strokeWidth: 5,
+                          color: AppColors.primary,
+                          borderStrokeWidth: 2.5,
+                          borderColor: Colors.white,
+                          strokeCap: StrokeCap.round,
+                          strokeJoin: StrokeJoin.round,
+                        ),
+                      ],
+                    )
+                  else if (destination != null)
                     PolylineLayer(
                       polylines: [
                         Polyline(
@@ -434,10 +460,39 @@ class _JobTrackingPanelState extends State<JobTrackingPanel> {
             ),
           ),
 
-          // How far, said plainly — and said as a straight line, because that
-          // is what the dashed line above measures. Calling it a travel
-          // distance would be a number the app cannot actually know.
-          if (provider.distanceKm != null) ...[
+          /*
+              How far, and how long.
+
+              Each figure describes the line drawn above it, and they are never
+              mixed. With a road route there is a real travel distance and an
+              arrival time, which is what someone waiting actually wants to
+              know. Without one, the number reverts to the straight-line
+              distance and says so — an honest "3.2 km away as the crow flies"
+              is better than a travel time the app cannot know.
+          */
+          if (provider.hasRoute && provider.routeDistanceKm != null) ...[
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                const Icon(Icons.directions_car,
+                    size: 14, color: AppColors.primary),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: Text(
+                    provider.routeDurationMin == null
+                        ? '${provider.routeDistanceKm!.toStringAsFixed(1)} km by road'
+                        : '${provider.routeDurationMin} min away '
+                            '· ${provider.routeDistanceKm!.toStringAsFixed(1)} km by road',
+                    style: const TextStyle(
+                      fontSize: 12,
+                      color: AppColors.neutral700,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ] else if (provider.distanceKm != null) ...[
             const SizedBox(height: 8),
             Row(
               children: [

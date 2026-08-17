@@ -2,9 +2,11 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 import 'package:geolocator/geolocator.dart';
+import 'package:latlong2/latlong.dart';
 
 import '../core/utils/json_parse.dart';
 import '../data/services/api_client.dart';
+import '../data/services/background_controller.dart';
 import '../data/services/realtime_service.dart';
 
 /// Worker location sharing for one active hire.
@@ -66,11 +68,35 @@ class JobTrackingProvider with ChangeNotifier {
   double? get destLongitude => _destLongitude;
   String? get destLabel => _destLabel;
 
-  /// Straight-line distance from the last fix to the job, in km. Straight line
-  /// because the drawn line is straight — see JobTrackingController.
+  /// Straight-line distance from the last fix to the job, in km.
+  ///
+  /// The fallback figure, shown only when no road route came back. When one
+  /// did, [routeDistanceKm] is the honest number — it is the distance actually
+  /// travelled rather than the distance as the crow flies.
   double? get distanceKm => _distanceKm;
 
   bool get hasDestination => _destLatitude != null && _destLongitude != null;
+
+  /*
+      The road route, when the server could get one.
+
+      Null is a normal state, not an error: jobs without coordinates have
+      nowhere to route to, and the routing provider is allowed to be slow or
+      rate-limited. Both cases fall back to the straight dashed line, so the
+      map never goes blank waiting on a third party.
+  */
+  List<LatLng> _routePoints = const [];
+  double? _routeDistanceKm;
+  int? _routeDurationMin;
+
+  List<LatLng> get routePoints => _routePoints;
+  bool get hasRoute => _routePoints.length >= 2;
+
+  /// Distance along the roads, in km.
+  double? get routeDistanceKm => _routeDistanceKm;
+
+  /// Driving time along that route, in whole minutes.
+  int? get routeDurationMin => _routeDurationMin;
 
   /// Reads the current state for an application. Safe for either party — the
   /// server decides what each is allowed to see.
@@ -111,6 +137,17 @@ class JobTrackingProvider with ChangeNotifier {
       return false;
     }
 
+    /*
+        Notification permission and the battery exemption, asked for here.
+
+        Both belong to the foreground service rather than to location, and this
+        is the moment they make sense to a person: they have just chosen to
+        share their position with an employer, so a prompt about a persistent
+        notification explains itself. Asked earlier it is noise, and a declined
+        prompt is not offered again.
+    */
+    await BackgroundController.instance.requestPermissions();
+
     try {
       final res = await _api.post('/applications/$applicationId/tracking');
       _apply(res.data['data'] as Map<String, dynamic>);
@@ -118,6 +155,21 @@ class JobTrackingProvider with ChangeNotifier {
 
       await _sendPing();
       _startPingTimer();
+
+      /*
+          The part that survives the app being closed.
+
+          The in-app timer above keeps reporting while the app is alive and is
+          the faster path when it is. This starts a foreground service in its
+          own isolate under START_STICKY, which is what keeps position
+          reporting alive after the app is swiped out of recents — the case
+          that previously stopped it dead, leaving the employer watching a pin
+          frozen wherever the worker last had the app open.
+
+          It also polls for notifications while it runs, so a message during an
+          active job reaches the phone with the app closed.
+      */
+      await BackgroundController.instance.start(applicationId: applicationId);
 
       notifyListeners();
       return true;
@@ -131,6 +183,11 @@ class JobTrackingProvider with ChangeNotifier {
   Future<bool> stopSharing(int applicationId) async {
     _errorMessage = null;
     _stopPingTimer();
+
+    // Stopped first, so "stop sharing" is immediate even if the request to the
+    // server is slow or fails. A service still running after the user asked it
+    // to stop is the worst possible outcome for a location feature.
+    await BackgroundController.instance.stop();
 
     try {
       final res = await _api.delete('/applications/$applicationId/tracking');
@@ -320,6 +377,41 @@ class JobTrackingProvider with ChangeNotifier {
       _destLatitude = asDoubleOrNull(destination['latitude']);
       _destLongitude = asDoubleOrNull(destination['longitude']);
       _destLabel = destination['label'] as String?;
+    }
+
+    /*
+        The road route, kept under the same rule as the destination.
+
+        Only the tracking fetch carries one; realtime position frames do not,
+        because they are broadcast from a ping and the router is not consulted
+        on that path. Overwriting on every frame would therefore erase the
+        drawn route a second after it appeared, and the map would flicker
+        between the road line and the dashed fallback as the worker moved.
+
+        So an absent key leaves the existing route alone, and the pin travels
+        along a line that stays put — which is also what the roads do.
+    */
+    if (data.containsKey('route')) {
+      final route = data['route'] as Map<String, dynamic>?;
+
+      if (route == null) {
+        _routePoints = const [];
+        _routeDistanceKm = null;
+        _routeDurationMin = null;
+      } else {
+        final geometry = route['geometry'];
+        _routePoints = geometry is List
+            ? geometry
+                .whereType<List>()
+                .map((pair) => LatLng(
+                      asDoubleOrNull(pair.elementAtOrNull(0)) ?? 0,
+                      asDoubleOrNull(pair.elementAtOrNull(1)) ?? 0,
+                    ))
+                .toList(growable: false)
+            : const <LatLng>[];
+        _routeDistanceKm = asDoubleOrNull(route['distance_km']);
+        _routeDurationMin = asIntOrNull(route['duration_min']);
+      }
     }
   }
 
