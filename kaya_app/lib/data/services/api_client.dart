@@ -36,6 +36,13 @@ class ApiClient {
   static String get _baseUrl => '$_root/api/v1';
   static String get storageUrl => '$_root/storage';
 
+  /// The server root, for code that cannot use this client.
+  ///
+  /// The background service runs in its own isolate with a plain HttpClient —
+  /// it has no Dio instance and no access to the compile-time define, so the
+  /// address has to be handed to it.
+  static String get root => _root;
+
   /// ngrok serves an interstitial warning page to unknown browsers, and that
   /// HTML arrives where JSON is expected. Only needed while a tunnel is the
   /// host — harmless elsewhere, so it is sent when the host looks like ngrok

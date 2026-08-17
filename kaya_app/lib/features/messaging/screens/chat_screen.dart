@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../../core/constants/app_colors.dart';
+import '../../../data/services/realtime_service.dart';
 import '../../../providers/auth_provider.dart';
 import '../../../providers/messaging_provider.dart';
 import '../../../core/widgets/app_toast.dart';
@@ -53,7 +54,7 @@ class _Activity {
   }
 }
 
-class _ChatScreenState extends State<ChatScreen> {
+class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   final TextEditingController _controller = TextEditingController();
   final ScrollController _scrollController = ScrollController();
   MessagingProvider? _messaging;
@@ -89,17 +90,104 @@ class _ChatScreenState extends State<ChatScreen> {
     // context lookups throw.
     _messaging = context.read<MessagingProvider>();
 
+    // So an optimistic message knows which side of the thread it belongs on
+    // before the server has confirmed it exists.
+    _messaging?.selfId = context.read<AuthProvider>().user?['id'] as int?;
+
     if (_conversationId != null) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) {
           context.read<MessagingProvider>().fetchMessages(_conversationId!);
         }
       });
+      WidgetsBinding.instance.addObserver(this);
+      _startPolling();
+      RealtimeService.instance.connected.addListener(_onSocketChanged);
     }
+  }
+
+  /// Polling stops while the app is off-screen and catches up on return.
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    _foreground = state == AppLifecycleState.resumed;
+
+    if (_foreground && mounted && _conversationId != null) {
+      // Straight away rather than waiting for the next tick: coming back to a
+      // chat is exactly when someone wants to see what they missed.
+      _markActive();
+      _messaging?.fetchMessages(_conversationId!, silent: true);
+    }
+  }
+
+  /*
+      Polling is how messages arrive.
+
+      Not a fallback any more — the contract. A socket, when one happens to be
+      connected, just makes the same thread update sooner; nothing depends on
+      it being there, which is what makes this work identically on WiFi, on
+      mobile data and on a connection that keeps dropping.
+
+      The interval adapts, for two reasons that pull the same way. A live
+      conversation deserves a fast poll; a thread nobody has typed in for ten
+      minutes does not, and neither does the battery. And the API is limited to
+      60 requests a minute per token — a flat three-second poll is 20 of them
+      before the badge, the feed or anything else has asked for anything, so a
+      chat left open would start collecting 429s and look broken.
+
+      Each poll asks only for messages after the newest one already held, which
+      is a ~50 byte answer when nothing has changed.
+  */
+  static const Duration _activePoll = Duration(seconds: 3);
+  static const Duration _idlePoll = Duration(seconds: 12);
+
+  /// How long a thread stays "active" after the last message either way.
+  static const Duration _activeWindow = Duration(minutes: 2);
+
+  Timer? _pollTimer;
+  DateTime _lastActivity = DateTime.now();
+  bool _foreground = true;
+
+  void _startPolling() {
+    _pollTimer?.cancel();
+    _pollTimer = Timer.periodic(const Duration(seconds: 1), (_) {
+      if (!mounted || _conversationId == null) return;
+
+      // Nothing polls while the app is off-screen. The thread refreshes on
+      // resume, and the alternative is spending someone's data in their pocket.
+      if (!_foreground) return;
+
+      final since = DateTime.now().difference(_lastPoll);
+      final interval =
+          DateTime.now().difference(_lastActivity) < _activeWindow
+              ? _activePoll
+              : _idlePoll;
+
+      if (since < interval) return;
+
+      _lastPoll = DateTime.now();
+      _messaging?.fetchMessages(_conversationId!, silent: true);
+    });
+  }
+
+  DateTime _lastPoll = DateTime.fromMillisecondsSinceEpoch(0);
+
+  /// Called whenever a message is sent or arrives, to keep the fast interval.
+  void _markActive() => _lastActivity = DateTime.now();
+
+  /// One catch-up read the moment the socket comes back, for anything that was
+  /// sent while it was away.
+  void _onSocketChanged() {
+    if (!mounted || _conversationId == null) return;
+    if (!RealtimeService.instance.connected.value) return;
+
+    _messaging?.fetchMessages(_conversationId!, silent: true);
   }
 
   @override
   void dispose() {
+    _pollTimer?.cancel();
+    WidgetsBinding.instance.removeObserver(this);
+    RealtimeService.instance.connected.removeListener(_onSocketChanged);
     // Releases the socket subscription for this thread. Read before super, and
     // via the stored provider rather than `context.read`, because the element
     // is already detached by the time dispose runs.
@@ -143,21 +231,25 @@ class _ChatScreenState extends State<ChatScreen> {
 
     _controller.clear();
 
+    /*
+        The message is already on screen by the time this returns.
+
+        sendMessage adds it optimistically and marks it pending, so there is
+        nothing to wait for before scrolling to it. A failure is shown on the
+        message itself — greyed, with a retry — rather than as a toast plus the
+        text shoved back into the input box, which lost the reading order and
+        made it unclear whether anything had been sent at all.
+    */
+    // Someone is typing, so keep the thread on the fast poll.
+    _markActive();
+
     unawaited(() async {
       final messaging = context.read<MessagingProvider>();
-      final success = await messaging.sendMessage(_conversationId!, text);
+      _scrollToBottom();
 
-      if (!mounted) return;
+      await messaging.sendMessage(_conversationId!, text);
 
-      if (success) {
-        _scrollToBottom();
-        return;
-      }
-
-      // Give the words back rather than swallowing them.
-      if (_controller.text.isEmpty) _controller.text = text;
-      AppToast.error(
-          context, messaging.messagesErrorMessage ?? 'Failed to send message');
+      if (mounted) _scrollToBottom();
     }());
   }
 
@@ -649,6 +741,12 @@ class _ChatScreenState extends State<ChatScreen> {
   }) {
     final isRead = (msg['is_read'] as bool?) ?? false;
     final readAt = (msg['read_at'] ?? '').toString();
+
+    // Optimistic state. 'pending' is still in flight, 'failed' did not land.
+    final status = (msg['status'] ?? 'sent').toString();
+    final isPending = status == 'pending';
+    final isFailed = status == 'failed';
+
     return Padding(
       padding: const EdgeInsets.only(bottom: 8, left: 56),
       child: Column(
@@ -659,7 +757,13 @@ class _ChatScreenState extends State<ChatScreen> {
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
               decoration: BoxDecoration(
-                color: AppColors.primary,
+                // Faded while in flight, so "sending" is legible at a glance
+                // without a spinner sitting in the middle of the conversation.
+                color: isFailed
+                    ? AppColors.neutral400
+                    : isPending
+                        ? AppColors.primary.withValues(alpha: 0.55)
+                        : AppColors.primary,
                 borderRadius: const BorderRadius.only(
                   topLeft: Radius.circular(16),
                   topRight: Radius.circular(16),
@@ -691,17 +795,49 @@ class _ChatScreenState extends State<ChatScreen> {
           Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              if (showTime) ...[
+              if (showTime && !isPending && !isFailed) ...[
                 Text(_formatTime((msg['created_at'] ?? '').toString()),
                     style: const TextStyle(
                         fontSize: 11, color: AppColors.neutral400)),
                 const SizedBox(width: 3),
               ],
-              Icon(
-                isRead ? Icons.done_all : Icons.done,
-                size: 13,
-                color: isRead ? AppColors.primary : AppColors.neutral400,
-              ),
+              /*
+                  Three states, not two.
+
+                  A clock icon while sending, a tick once the server has it,
+                  and a tap-to-retry when it did not land. The failed case
+                  matters most: without it an optimistic message is a lie —
+                  it looks delivered and never was.
+              */
+              if (isPending)
+                const Icon(Icons.schedule, size: 13, color: AppColors.neutral400)
+              else if (isFailed)
+                GestureDetector(
+                  onTap: () {
+                    final id = msg['id'] as int?;
+                    if (id == null || _conversationId == null) return;
+                    _messaging?.retryMessage(_conversationId!, id);
+                  },
+                  child: const Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.error_outline,
+                          size: 13, color: AppColors.error),
+                      SizedBox(width: 3),
+                      Text('Not sent. Tap to retry',
+                          style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w600,
+                              color: AppColors.error)),
+                    ],
+                  ),
+                )
+              else
+                Icon(
+                  isRead ? Icons.done_all : Icons.done,
+                  size: 13,
+                  color: isRead ? AppColors.primary : AppColors.neutral400,
+                ),
             ],
           ),
 
