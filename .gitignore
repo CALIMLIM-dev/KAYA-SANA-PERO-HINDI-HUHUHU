@@ -23,3 +23,6 @@ Thumbs.db
 
 # Editor backups
 *.bak
+
+# Conflicted with nixpacks.toml as a second start command
+kaya_backend/Procfile

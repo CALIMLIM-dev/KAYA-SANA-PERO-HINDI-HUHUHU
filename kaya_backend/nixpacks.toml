@@ -1,11 +1,65 @@
-[phases.setup]
-nixPkgs = ["php83", "php83Extensions.pdo", "php83Extensions.pdo_mysql", "php83Extensions.mbstring", "php83Extensions.tokenizer", "php83Extensions.xml", "php83Extensions.ctype", "php83Extensions.fileinfo", "php83Extensions.gd"]
+# Nixpacks build configuration (Railway, Coolify)
+#
+# This file deliberately overrides almost nothing. Read on before adding to it,
+# because the previous version broke the deployment in two ways that both looked
+# like configuration and were not.
+#
+# ── 1. The web server ─────────────────────────────────────────────────────────
+#
+# It used to start the app with:
+#
+#     php artisan serve --host=0.0.0.0 --port=$PORT
+#
+# That is PHP's built-in development server. It is single-threaded: it handles
+# exactly one request at a time, and every other request waits in line behind it.
+# One slow query — GET /workers scores the whole worker table — stalls every
+# other user of the app until it finishes. Laravel's own documentation says not
+# to use it in production.
+#
+# There is no `[start]` block now. Nixpacks' PHP provider detects composer.json
+# and public/index.php, and supplies nginx in front of php-fpm with a generated
+# config. That is a real web server handling real concurrency, and it is the
+# path the provider is tested against.
+#
+# ── 2. The setup phase ────────────────────────────────────────────────────────
+#
+# There used to be a `[phases.setup]` listing php83 and its extensions. That does
+# not add to the provider's package list, it *replaces* it — which removed nginx
+# and php-fpm, and is why the start command had to be `artisan serve` in the
+# first place. The two mistakes were holding each other up.
+#
+# The extension list is not missed. Everything on it except gd is already in the
+# provider's PHP build, and gd is only used by UploadedFile::fake()->image() in
+# the test suite. Nothing in app/ manipulates an image — uploads are stored, not
+# processed — so gd is not needed at runtime.
+#
+# ── 3. Migrations do not belong in the build ──────────────────────────────────
+#
+# The build phase used to run `php artisan migrate --force`, plus config:cache,
+# route:cache and storage:link.
+#
+# A build is not a deploy. It runs in its own environment, generally without
+# access to the private network your database sits on, and it runs for builds
+# that are never promoted — so migrations either fail there or apply themselves
+# to production from a build that is then discarded.
+#
+# Caching had the same shape of problem: `config:cache` bakes the environment
+# into a file at the moment it runs, so a build-time cache freezes build-time
+# values and the app reads those forever, ignoring anything set at runtime.
+#
+# Both belong in a pre-deploy command. See DEPLOYMENT.md.
+#
+# `storage:link` is simply gone. It links public/storage to a directory on the
+# container filesystem, which is destroyed on every redeploy. Uploads belong in
+# object storage — MEDIA_DISK and DOCUMENT_DISK in .env.example.
 
 [phases.install]
-cmds = ["composer install --no-dev --optimize-autoloader"]
+# --no-dev leaves out phpunit and friends. --optimize-autoloader builds a
+# classmap, which is the single cheapest production win available here.
+cmds = ["composer install --no-dev --optimize-autoloader --no-interaction --prefer-dist"]
 
-[phases.build]
-cmds = ["php artisan config:cache", "php artisan route:cache", "php artisan view:cache", "php artisan migrate --force", "php artisan storage:link"]
-
-[start]
-cmd = "php artisan serve --host=0.0.0.0 --port=$PORT"
+[variables]
+# The admin panel's Blade views load Tailwind and Chart.js from a CDN, and
+# nothing renders a @vite directive, so the vite pipeline produces assets no page
+# asks for. Skipping it removes npm from the build entirely.
+NIXPACKS_NO_NPM = "1"
