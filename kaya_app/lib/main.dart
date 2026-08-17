@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'core/theme/app_theme.dart';
 import 'core/navigation/app_router.dart';
+import 'core/widgets/notification_banner.dart';
 import 'providers/auth_provider.dart';
 import 'providers/app_mode_provider.dart';
 import 'providers/worker_profile_provider.dart';
@@ -19,8 +20,27 @@ import 'providers/notification_provider.dart';
 import 'providers/profile_view_provider.dart';
 import 'providers/verification_provider.dart';
 import 'data/services/api_client.dart';
+import 'data/services/background_controller.dart';
+import 'data/services/push_service.dart';
 
-void main() {
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+
+  /*
+      Bring Firebase up before the app, but never block on it.
+
+      PushService reports unavailable and swallows its own failure when
+      google-services.json is absent, so a build without Firebase starts
+      exactly as it always did. Awaiting it costs a few milliseconds and means
+      the token is ready by the time anyone signs in.
+  */
+  await PushService.instance.init();
+
+  // Declares the notification channel the foreground service posts into.
+  // Android drops a notification aimed at a channel that does not exist yet,
+  // so this has to happen before anything tries to start the service.
+  BackgroundController.instance.configure();
+
   runApp(const KayaApp());
 }
 
@@ -140,9 +160,15 @@ class KayaApp extends StatelessWidget {
                 the fixed heights is the real fix and is tracked in the design
                 pass (D1); this stops the bleeding for the current build.
             */
-            builder: (context, child) => MediaQuery.withClampedTextScaling(
-              maxScaleFactor: 1.3,
-              child: child ?? const SizedBox.shrink(),
+            // Wrapped outside the clamp so the banner sits over every route:
+            // it is inserted into the navigator's overlay, and it needs to
+            // outlive whichever screen happens to be on top.
+            builder: (context, child) => NotificationBannerHost(
+              navigatorKey: _navigatorKey,
+              child: MediaQuery.withClampedTextScaling(
+                maxScaleFactor: 1.3,
+                child: child ?? const SizedBox.shrink(),
+              ),
             ),
             // On Android this becomes the task description in the app switcher,
             // so it has to match the launcher label in AndroidManifest.xml. It

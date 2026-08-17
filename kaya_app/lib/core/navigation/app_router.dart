@@ -402,9 +402,13 @@ class AppRouter {
     Navigator.pushNamed(context, applications);
   }
 
-  /// Navigate to messages screen
+  /// Open the inbox.
+  ///
+  /// Selects the shell's Messages tab rather than pushing the inbox over the
+  /// top of it — pushing leaves the user on a screen with no bottom navigation
+  /// and no obvious way back into the app.
   static void toMessages(BuildContext context) {
-    Navigator.pushNamed(context, messages);
+    MainNavigation.openMessages(context);
   }
 
   /// Navigate to chat screen

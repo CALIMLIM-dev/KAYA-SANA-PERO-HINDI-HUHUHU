@@ -3,6 +3,8 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import '../data/services/api_client.dart';
+import '../data/services/message_cache.dart';
+import '../data/services/push_service.dart';
 import '../data/services/realtime_service.dart';
 
 class AuthProvider with ChangeNotifier {
@@ -256,6 +258,28 @@ class AuthProvider with ChangeNotifier {
   /// courtesy that can finish on its own, and if it never does the token is
   /// already unusable because it has been deleted locally.
   Future<void> logout() async {
+    /*
+        Detach this handset from the account, before the bearer token goes.
+
+        This is the one call that cannot move below deleteToken(): it is an
+        authenticated request, and once the token is gone locally there is
+        nothing left to authenticate it with.
+
+        Worth the short wait, because the alternative is a privacy leak rather
+        than an untidy row — a device left registered keeps showing the previous
+        account's messages on the lock screen to whoever signs in next.
+        Time-boxed so a dead network cannot hold someone in a session they have
+        asked to leave.
+    */
+    await PushService.instance
+        .unregister()
+        .timeout(const Duration(seconds: 3), onTimeout: () {});
+
+    // Cached messages are readable without the network, so they must not
+    // outlive the session — on a shared handset the next person to sign in
+    // would otherwise open the app to someone else's conversations.
+    unawaited(MessageCache.instance.clear());
+
     // Local, instant, and the only part that must not fail.
     await ApiClient.deleteToken();
 

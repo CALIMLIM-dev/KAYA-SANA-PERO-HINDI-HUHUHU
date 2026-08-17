@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../../core/constants/app_colors.dart';
+import '../../../core/navigation/main_navigation.dart';
 import '../../../core/widgets/app_toast.dart';
 
 /// Applicant Review Screen — employer reviews a single applicant
@@ -602,7 +603,7 @@ class _ApplicantReviewScreenState extends State<ApplicantReviewScreen> {
                       width: double.infinity,
                       child: ElevatedButton.icon(
                         onPressed: () =>
-                            Navigator.pushNamed(context, '/messages'),
+                            MainNavigation.openMessages(context),
                         icon: const Icon(Icons.message_outlined, size: 18),
                         label: const Text('Send Message',
                             style: TextStyle(

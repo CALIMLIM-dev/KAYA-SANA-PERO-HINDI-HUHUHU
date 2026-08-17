@@ -133,7 +133,23 @@ class _ApplicationsScreenState extends State<ApplicationsScreen>
           isJobTab: false,
           emptyTitle: 'No applications yet',
           emptyBody: 'Browse jobs and start applying',
-          items: myApplications.where((a) => statusOf(a) == 'pending').toList(),
+          /*
+              Pending AND accepted.
+
+              This listed pending only, and 'accepted' appears in no other tab
+              either — Completed wants 'completed' and History wants rejected,
+              withdrawn or cancelled. So the moment a worker was hired, the job
+              disappeared from My Activity entirely, taking the Message button
+              and Mark as complete with it. The one state where a worker has
+              actual work to do was the one state with nowhere to show it.
+
+              Found by mounting this screen against a real hire rather than by
+              reading the filters.
+          */
+          items: myApplications
+              .where((a) =>
+                  statusOf(a) == 'pending' || statusOf(a) == 'accepted')
+              .toList(),
         ),
 
       // Employer side: jobs you posted that are still running.

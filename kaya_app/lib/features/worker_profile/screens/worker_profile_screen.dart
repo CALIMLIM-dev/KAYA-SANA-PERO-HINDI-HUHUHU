@@ -7,6 +7,7 @@ import '../../../core/utils/json_parse.dart';
 import '../../../providers/invitation_provider.dart';
 import '../../../providers/job_provider.dart';
 import '../../../providers/worker_browse_provider.dart';
+import '../../../core/navigation/main_navigation.dart';
 import '../../../core/widgets/app_toast.dart';
 
 /// Public Worker Profile Screen — shown to employers when browsing workers.
@@ -335,7 +336,7 @@ class _WorkerProfileScreenState extends State<WorkerProfileScreen> {
                       // No conversation exists until an application/invitation
                       // is accepted (see ConversationController) — send them to
                       // the real inbox rather than a chat with nothing behind it.
-                      onPressed: () => Navigator.pushNamed(context, '/messages'),
+                      onPressed: () => MainNavigation.openMessages(context),
                       icon: const Icon(Icons.message_outlined, size: 20),
                       label: const Text('Message'),
                       style: OutlinedButton.styleFrom(

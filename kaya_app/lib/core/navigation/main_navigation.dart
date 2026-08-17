@@ -5,6 +5,7 @@ import '../../features/jobs/screens/unified_home_screen.dart';
 import '../../features/jobs/screens/search_screen.dart';
 import '../../features/messaging/screens/messages_list_screen.dart';
 import '../../features/profile/screens/profile_screen.dart';
+import '../../data/services/push_service.dart';
 import '../../providers/messaging_provider.dart';
 import '../../providers/notification_provider.dart';
 import '../widgets/bottom_nav_bar.dart';
@@ -29,15 +30,49 @@ import '../widgets/bottom_nav_bar.dart';
 class MainNavigation extends StatefulWidget {
   const MainNavigation({super.key});
 
+  static const int homeTab = 0;
+  static const int searchTab = 1;
+  static const int messagesTab = 2;
+  static const int profileTab = 3;
+
+  /// Which tab the shell is showing.
+  ///
+  /// Held outside the State so a screen pushed on top can ask for a tab
+  /// without needing a reference to the shell underneath it.
+  static final ValueNotifier<int> selectedTab = ValueNotifier<int>(homeTab);
+
+  /*
+      Go to a tab, from anywhere.
+
+      Screens pushed over the shell used to reach the inbox with
+      `pushNamed('/messages')`, which mounts MessagesListScreen on its own —
+      correct content, but stacked *above* the shell, so the bottom navigation
+      disappeared and the only way out was the back gesture. Tapping "Message"
+      on a worker's profile therefore looked like it had dropped the user out
+      of the app.
+
+      A tab is not a screen you push. This selects the tab on the shell that is
+      already mounted and unwinds whatever was pushed over it, which is what
+      every other app does when you tap into a section.
+  */
+  static void openTab(BuildContext context, int index) {
+    selectedTab.value = index;
+    Navigator.of(context).popUntil((route) => route.isFirst);
+  }
+
+  /// The inbox, with the navigation bar still under it.
+  static void openMessages(BuildContext context) =>
+      openTab(context, messagesTab);
+
   @override
   State<MainNavigation> createState() => _MainNavigationState();
 }
 
 class _MainNavigationState extends State<MainNavigation>
     with WidgetsBindingObserver {
-  int _currentIndex = 0;
+  late int _currentIndex = MainNavigation.selectedTab.value;
 
-  static const int _messagesTab = 2;
+  static const int _messagesTab = MainNavigation.messagesTab;
 
   final List<Widget> _screens = const [
     UnifiedHomeScreen(),
@@ -50,12 +85,40 @@ class _MainNavigationState extends State<MainNavigation>
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    MainNavigation.selectedTab.addListener(_onTabRequested);
+
+    /*
+        Ask for notification permission here rather than at start-up.
+
+        Android 13 and above will not show a notification until the user allows
+        it. Asking on the splash screen — before they have seen what the app
+        does — is how you get it declined permanently, and there is no second
+        prompt afterwards. By this point they are signed in and looking at
+        their jobs, so the request has a visible reason behind it.
+
+        Silent on Android 12 and below, where the permission is implicit, and
+        on any build without Firebase, where PushService reports unavailable.
+    */
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      PushService.instance.requestPermissionAndRegister();
+    });
   }
 
   @override
   void dispose() {
+    MainNavigation.selectedTab.removeListener(_onTabRequested);
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
+  }
+
+  /// Something asked for a tab — either the bar below, or a screen that was
+  /// pushed on top and has now unwound itself.
+  void _onTabRequested() {
+    final index = MainNavigation.selectedTab.value;
+    if (!mounted || index == _currentIndex) return;
+
+    setState(() => _currentIndex = index);
+    _refreshForTab(index);
   }
 
   /// Anything could have happened while the app was in the background — and if
@@ -85,12 +148,12 @@ class _MainNavigationState extends State<MainNavigation>
       ),
       bottomNavigationBar: AppBottomNavBar(
         currentIndex: _currentIndex,
-        onTap: (index) {
-          setState(() => _currentIndex = index);
-          // Silent: the list is already on screen, so a spinner over existing
-          // content would read as a bug rather than as freshness.
-          _refreshForTab(index);
-        },
+        // Routed through the same notifier as an external request, so there is
+        // one path that changes the tab rather than two that can disagree.
+        // _onTabRequested does the setState and the silent refresh — silent
+        // because the list is already on screen, and a spinner over existing
+        // content reads as a bug rather than as freshness.
+        onTap: (index) => MainNavigation.selectedTab.value = index,
       ),
     );
   }

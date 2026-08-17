@@ -4,6 +4,7 @@ import '../../../core/utils/realtime_refresh.dart';
 
 import '../../../core/constants/app_colors.dart';
 import '../../../providers/invitation_provider.dart';
+import '../../../core/navigation/main_navigation.dart';
 import '../../../core/widgets/app_toast.dart';
 
 /// My Invitations Screen — Worker sees job invitations from employers.
@@ -318,7 +319,7 @@ class _MyInvitationsScreenState extends State<MyInvitationsScreen>
                 child: OutlinedButton.icon(
                   // The invitation row itself carries no conversation_id — the
                   // conversation lives on Messages, created when accepted.
-                  onPressed: () => Navigator.pushNamed(context, '/messages'),
+                  onPressed: () => MainNavigation.openMessages(context),
                   icon: const Icon(Icons.message_outlined, size: 16),
                   label: const Text('Message Employer'),
                   style: OutlinedButton.styleFrom(
