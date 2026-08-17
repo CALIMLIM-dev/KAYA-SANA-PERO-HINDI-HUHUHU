@@ -88,9 +88,9 @@
                                         <p class="text-xs text-slate-500 mb-3">ID Type: {{ $verification->id_type }}</p>
                                         <div class="grid grid-cols-2 gap-2">
                                             @if ($verification->document_front_url)
-                                                <div class="relative group cursor-pointer" onclick="showImageModal('{{ asset('storage/' . $verification->document_front_url) }}')">
+                                                <div class="relative group cursor-pointer" onclick="showImageModal('{{ route('admin.verifications.document', [$verification, 'front']) }}')">
                                                     <div class="border border-slate-200 rounded h-20 overflow-hidden hover:border-blue-400 transition-colors">
-                                                        <img src="{{ asset('storage/' . $verification->document_front_url) }}" class="w-full h-full object-contain bg-slate-50">
+                                                        <img src="{{ route('admin.verifications.document', [$verification, 'front']) }}" class="w-full h-full object-contain bg-slate-50">
                                                     </div>
                                                     <div class="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-10 transition-opacity rounded flex items-center justify-center">
                                                         <svg class="w-6 h-6 text-white opacity-0 group-hover:opacity-100 transition-opacity" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -100,9 +100,9 @@
                                                 </div>
                                             @endif
                                             @if ($verification->selfie_url)
-                                                <div class="relative group cursor-pointer" onclick="showImageModal('{{ asset('storage/' . $verification->selfie_url) }}')">
+                                                <div class="relative group cursor-pointer" onclick="showImageModal('{{ route('admin.verifications.document', [$verification, 'selfie']) }}')">
                                                     <div class="border border-slate-200 rounded h-20 overflow-hidden hover:border-blue-400 transition-colors">
-                                                        <img src="{{ asset('storage/' . $verification->selfie_url) }}" class="w-full h-full object-contain bg-slate-50">
+                                                        <img src="{{ route('admin.verifications.document', [$verification, 'selfie']) }}" class="w-full h-full object-contain bg-slate-50">
                                                     </div>
                                                     <div class="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-10 transition-opacity rounded flex items-center justify-center">
                                                         <svg class="w-6 h-6 text-white opacity-0 group-hover:opacity-100 transition-opacity" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -262,51 +262,100 @@
         </div>
     @endif
 </div>
-@endsection
 
 {{-- Suspend Modal --}}
 @if (!$user->is_suspended)
-<div id="suspendModal" class="hidden fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+<style>
+    .mod-select {
+        width: 100%; padding: 9px 32px 9px 12px; border: 1px solid #cbd5e1;
+        border-radius: 9px; font-size: 13px; color: #0f172a; background-color: #fff;
+        appearance: none; -webkit-appearance: none; cursor: pointer;
+    }
+    /* Native arrow removed above, so one is drawn back on. */
+    .mod-arrow { position: relative; }
+    .mod-arrow::after {
+        content: ""; position: absolute; right: 12px; top: 50%; width: 9px; height: 9px;
+        border-right: 2px solid #64748b; border-bottom: 2px solid #64748b;
+        transform: translateY(-70%) rotate(45deg); pointer-events: none;
+    }
+    .mod-select:focus { outline: none; border-color: #dc2626; box-shadow: 0 0 0 3px rgba(220,38,38,.15); }
+    .sev { font-size: 9.5px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase;
+           padding: 2px 6px; border-radius: 4px; white-space: nowrap; }
+    .sev-critical { background: #fee2e2; color: #b91c1c; }
+    .sev-serious  { background: #ffedd5; color: #c2410c; }
+    .sev-moderate { background: #fef3c7; color: #b45309; }
+</style>
+
+<div id="suspendModal" class="hidden fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
     <div class="bg-white rounded-xl max-w-md w-full shadow-2xl">
         <form method="POST" action="{{ route('admin.users.suspend', $user) }}">
             @csrf
-            <div class="p-6 border-b border-slate-200">
-                <h3 class="text-lg font-semibold text-slate-900">Suspend Account</h3>
-                <p class="text-sm text-slate-500 mt-1">Suspending {{ $user->name }}'s account</p>
+            <div class="px-5 py-4 border-b border-slate-200">
+                <h3 class="text-base font-semibold text-slate-900">Suspend {{ $user->name }}</h3>
             </div>
-            
-            <div class="p-6 space-y-4">
+
+            <div class="px-5 py-4 space-y-4">
+                {{-- Grouped by severity so the list is scanned rather than read.
+                     Options come from the shared catalogue, so the app, the
+                     report queue and this dialog cannot disagree on wording. --}}
                 <div>
-                    <label class="block text-sm font-medium text-slate-700 mb-2">Reason for Suspension</label>
-                    <select name="reason_type" id="reasonType" onchange="toggleCustomReason()" 
-                            class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" required>
-                        <option value="">Select a reason...</option>
-                        <option value="Fake documents submitted">Fake documents submitted</option>
-                        <option value="Inappropriate behavior">Inappropriate behavior</option>
-                        <option value="Spam or scam activity">Spam or scam activity</option>
-                        <option value="Multiple policy violations">Multiple policy violations</option>
-                        <option value="Fraudulent job postings">Fraudulent job postings (Employers)</option>
-                        <option value="No-show without notice">No-show without notice (Workers)</option>
-                        <option value="custom">Other (Custom reason)</option>
-                    </select>
+                    <label for="reasonSelect" class="block text-xs font-semibold text-slate-600 mb-1.5">Reason</label>
+                    <div class="mod-arrow">
+                        <select name="reason_code" id="reasonSelect" class="mod-select" required>
+                            <option value="" disabled selected>Choose a reason...</option>
+                            @foreach (['critical' => 'Serious, usually permanent', 'serious' => 'Serious', 'moderate' => 'Moderate'] as $sev => $groupLabel)
+                                @php $group = collect($suspensionReasons)->filter(fn ($r) => $r['severity'] === $sev); @endphp
+                                @if ($group->isNotEmpty())
+                                    <optgroup label="{{ $groupLabel }}">
+                                        @foreach ($group as $code => $reason)
+                                            <option value="{{ $code }}"
+                                                    data-days="{{ $reason['default_days'] ?? 'permanent' }}"
+                                                    data-severity="{{ $reason['severity'] }}"
+                                                    data-description="{{ $reason['description'] }}">{{ $reason['label'] }}</option>
+                                        @endforeach
+                                    </optgroup>
+                                @endif
+                            @endforeach
+                        </select>
+                    </div>
+
+                    {{-- One severity chip, no sentence. The label already says
+                         what the reason is. --}}
+                    <div id="reasonHint" class="hidden mt-2">
+                        <span id="reasonSeverity" class="sev"></span>
+                    </div>
                 </div>
 
-                <div id="customReasonDiv" class="hidden">
-                    <label class="block text-sm font-medium text-slate-700 mb-2">Custom Reason</label>
-                    <textarea name="custom_reason" id="customReason" rows="3"
-                              class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                              placeholder="Enter detailed reason for suspension..."></textarea>
+                <div>
+                    <label for="durationSelect" class="block text-xs font-semibold text-slate-600 mb-1.5">Length</label>
+                    <div class="mod-arrow">
+                        <select name="duration" id="durationSelect" class="mod-select" required>
+                            <option value="7">7 days</option>
+                            <option value="14">14 days</option>
+                            <option value="30">30 days</option>
+                            <option value="90">90 days</option>
+                            <option value="permanent">Permanent</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div>
+                    <label for="suspendNote" class="block text-xs font-semibold text-slate-600 mb-1.5">Note</label>
+                    <textarea name="note" id="suspendNote" rows="2" maxlength="1000"
+                              class="w-full px-3 py-2 border border-slate-300 rounded-lg text-[13px]
+                                     focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-red-500"
+                              placeholder="Optional, internal"></textarea>
                 </div>
             </div>
 
-            <div class="p-6 bg-slate-50 rounded-b-xl flex gap-3">
+            <div class="px-5 py-4 bg-slate-50 rounded-b-xl flex gap-3 border-t border-slate-200">
                 <button type="button" onclick="closeSuspendModal()"
-                        class="flex-1 px-4 py-2 bg-white border border-slate-300 text-slate-700 text-sm rounded-lg hover:bg-slate-50">
+                        class="flex-1 px-4 py-2 bg-white border border-slate-300 text-slate-700 text-sm font-semibold rounded-lg hover:bg-slate-50">
                     Cancel
                 </button>
                 <button type="submit"
-                        class="flex-1 px-4 py-2 bg-red-600 text-white text-sm rounded-lg hover:bg-red-700">
-                    Confirm Suspension
+                        class="flex-1 px-4 py-2 bg-red-600 text-white text-sm font-semibold rounded-lg hover:bg-red-700">
+                    Suspend account
                 </button>
             </div>
         </form>
@@ -320,33 +369,34 @@ function openSuspendModal() {
 
 function closeSuspendModal() {
     document.getElementById('suspendModal').classList.add('hidden');
-    document.getElementById('reasonType').value = '';
-    document.getElementById('customReasonDiv').classList.add('hidden');
-    document.getElementById('customReason').value = '';
+    document.getElementById('reasonSelect').selectedIndex = 0;
+    document.getElementById('suspendNote').value = '';
+    document.getElementById('reasonHint').classList.add('hidden');
 }
 
-function toggleCustomReason() {
-    const select = document.getElementById('reasonType');
-    const customDiv = document.getElementById('customReasonDiv');
-    const customInput = document.getElementById('customReason');
-    
-    if (select.value === 'custom') {
-        customDiv.classList.remove('hidden');
-        customInput.required = true;
-    } else {
-        customDiv.classList.add('hidden');
-        customInput.required = false;
-    }
-}
+// Selecting a reason explains it and pre-fills the length that usually goes
+// with it. A starting point, not a rule; the length stays editable.
+document.getElementById('reasonSelect')?.addEventListener('change', function () {
+    const option = this.options[this.selectedIndex];
+    const severity = document.getElementById('reasonSeverity');
 
-// Close modal when clicking outside
-document.getElementById('suspendModal')?.addEventListener('click', function(e) {
-    if (e.target === this) {
-        closeSuspendModal();
-    }
+    severity.textContent = option.dataset.severity || '';
+    severity.className = 'sev sev-' + (option.dataset.severity || 'moderate');
+    document.getElementById('reasonHint').classList.remove('hidden');
+
+    document.getElementById('durationSelect').value = option.dataset.days || 'permanent';
 });
 
-// Image zoom modal
+document.getElementById('suspendModal')?.addEventListener('click', function (e) {
+    if (e.target === this) closeSuspendModal();
+});
+</script>
+@endif
+
+{{-- Image zoom lives outside the suspension block on purpose. It used to sit
+     inside it, so on a suspended user's page showImageModal was never defined
+     and clicking a submitted ID did nothing. --}}
+<script>
 function showImageModal(imageUrl) {
     const modal = document.getElementById('imageModal');
     const modalImage = document.getElementById('modalImage');
@@ -370,4 +420,5 @@ function closeImageModal() {
         <img id="modalImage" src="" class="max-w-full max-h-[90vh] object-contain rounded-lg shadow-2xl">
     </div>
 </div>
-@endif
+
+@endsection

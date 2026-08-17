@@ -36,14 +36,14 @@
             <div class="grid grid-cols-2 gap-3">
                 <div class="border border-slate-200 rounded-lg h-36 flex items-center justify-center bg-slate-50 text-xs text-slate-400 overflow-hidden">
                     @if ($verification->document_front_url)
-                        <img src="{{ asset('storage/' . $verification->document_front_url) }}" class="h-full w-full object-contain rounded-lg">
+                        <img src="{{ route('admin.verifications.document', [$verification, 'front']) }}" class="h-full w-full object-contain rounded-lg">
                     @else
                         <span>{{ $verification->document_type === 'business_reg' ? 'Business document' : 'Front of ID' }} - not uploaded</span>
                     @endif
                 </div>
                 <div class="border border-slate-200 rounded-lg h-36 flex items-center justify-center bg-slate-50 text-xs text-slate-400 overflow-hidden">
                     @if ($verification->selfie_url)
-                        <img src="{{ asset('storage/' . $verification->selfie_url) }}" class="h-full w-full object-contain rounded-lg">
+                        <img src="{{ route('admin.verifications.document', [$verification, 'selfie']) }}" class="h-full w-full object-contain rounded-lg">
                     @else
                         <span>{{ $verification->document_type === 'business_reg' ? 'No selfie required' : 'Selfie - not uploaded' }}</span>
                     @endif
