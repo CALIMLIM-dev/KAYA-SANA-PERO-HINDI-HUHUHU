@@ -1,5 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import '../../../core/constants/app_colors.dart';
+import '../../../core/constants/employer_type.dart';
+import '../../../providers/employer_profile_provider.dart';
+import '../../../shared/widgets/location_picker_field.dart';
 
 /// Edit Employer Profile Screen
 /// Pre-filled with existing data, each field is editable
@@ -120,14 +124,10 @@ class _EditEmployerProfileScreenState
                   // ── Location ──
                   _fieldLabel('Location'),
                   const SizedBox(height: 8),
-                  TextField(
+                  LocationPickerField(
                     controller: _locationController,
-                    textCapitalization: TextCapitalization.words,
-                    onChanged: (_) => setState(() {}),
-                    decoration: _inputDeco(
-                      hint: 'e.g. Quezon City, Metro Manila',
-                      icon: Icons.location_on_outlined,
-                    ),
+                    labelText: '',
+                    onSelected: (_) => setState(() {}),
                   ),
 
                   const SizedBox(height: 28),
@@ -310,17 +310,33 @@ class _EditEmployerProfileScreenState
 
   Future<void> _save() async {
     setState(() => _isLoading = true);
-    // TODO: Call EmployerProfileProvider.updateProfile(...)
-    await Future.delayed(const Duration(milliseconds: 800));
+
+    final provider = context.read<EmployerProfileProvider>();
+    final isCompany =
+        provider.profile?.employerType == EmployerType.company;
+
+    // Previously this faked an 800ms delay and reported "Profile updated"
+    // without sending anything — the edit was silently discarded.
+    final success = await provider.updateProfile(
+      // For a company the name field is the company name; for an individual the
+      // employer profile has no name of its own (it comes from the user record).
+      companyName: isCompany ? _nameController.text.trim() : null,
+      description: _descriptionController.text.trim(),
+      location: _locationController.text.trim(),
+    );
+
+    if (!mounted) return;
     setState(() => _isLoading = false);
 
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Profile updated'),
-          backgroundColor: AppColors.success,
-        ),
-      );
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+            success ? 'Profile updated' : provider.errorMessage ?? 'Update failed'),
+        backgroundColor: success ? AppColors.success : AppColors.error,
+      ),
+    );
+
+    if (success) {
       Navigator.pop(context, {
         'name': _nameController.text.trim(),
         'description': _descriptionController.text.trim(),

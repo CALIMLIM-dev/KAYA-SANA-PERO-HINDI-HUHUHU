@@ -1,53 +1,128 @@
 import 'package:flutter/material.dart';
-import '../../../core/constants/app_colors.dart';
+import 'package:provider/provider.dart';
 
-/// Public Worker Profile Screen — shown to employers when browsing workers
-/// Accepts route arguments: { name, primarySkill, location, rating,
-///   reviewCount, isVerified, isAvailable, yearsOfExperience, bio,
-///   skills, experiences, certifications, reviews }
-class WorkerProfileScreen extends StatelessWidget {
+import '../../../core/constants/app_colors.dart';
+import '../../../providers/worker_browse_provider.dart';
+
+/// Public Worker Profile Screen — shown to employers when browsing workers.
+/// Reads {'workerId': int} from route arguments and fetches the real profile
+/// via GET /workers/{id}.
+class WorkerProfileScreen extends StatefulWidget {
   const WorkerProfileScreen({super.key});
 
   @override
-  Widget build(BuildContext context) {
-    final args = ModalRoute.of(context)?.settings.arguments as Map<String, dynamic>?;
+  State<WorkerProfileScreen> createState() => _WorkerProfileScreenState();
+}
 
-    // Use passed data or fall back to rich mock data for display
-    final name              = args?['name']              as String? ?? 'Juan Dela Cruz';
-    final primarySkill      = args?['primarySkill']      as String? ?? 'Professional Plumber';
-    final location          = args?['location']          as String? ?? 'Pangasinan, Philippines';
-    final rating            = (args?['rating']           as num?)?.toDouble() ?? 4.9;
-    final reviewCount       = args?['reviewCount']       as int?    ?? 127;
-    final isVerified        = args?['isVerified']        as bool?   ?? true;
-    final isAvailable       = args?['isAvailable']       as bool?   ?? true;
-    final yearsOfExperience = args?['yearsOfExperience'] as int?    ?? 5;
-    final bio               = args?['bio']               as String? ??
-        'Experienced plumber with 5+ years in residential and commercial plumbing. Specializing in pipe repairs, installations, and emergency services.';
-    final skills            = (args?['skills'] as List?)?.cast<String>() ??
-        ['Plumbing', 'Pipe Repair', 'Installation', 'Emergency Service', 'Leak Detection'];
-    final experiences = (args?['experiences'] as List?)?.cast<Map<String, dynamic>>() ??
-        [
-          {'title': 'Senior Plumber',   'company': 'ABC Plumbing Services', 'duration': '2020 – Present', 'description': 'Lead plumber for residential and commercial projects.'},
-          {'title': 'Plumber',          'company': 'XYZ Construction',      'duration': '2018 – 2020',   'description': 'Performed plumbing installations and repairs.'},
-        ];
-    final certifications = (args?['certifications'] as List?)?.cast<Map<String, dynamic>>() ??
-        [
-          {'title': 'Licensed Plumber',    'issuer': 'PPA',  'year': '2019'},
-          {'title': 'Safety Certification','issuer': 'DOLE', 'year': '2021'},
-          {'title': 'First Aid & CPR',     'issuer': 'Red Cross', 'year': '2022'},
-        ];
-    final reviews = (args?['reviews'] as List?)?.cast<Map<String, dynamic>>() ??
-        [
-          {'reviewer': 'Maria Santos',  'rating': 5, 'date': '2 days ago',  'comment': 'Excellent work! Very professional and quick response. Fixed my pipe leak in no time.'},
-          {'reviewer': 'Pedro Gonzales','rating': 5, 'date': '1 week ago',  'comment': 'Very knowledgeable and fair pricing. Will definitely hire again.'},
-          {'reviewer': 'Ana Reyes',     'rating': 5, 'date': '2 weeks ago', 'comment': 'Great service! On time, efficient, and cleaned up after the work.'},
-        ];
+class _WorkerProfileScreenState extends State<WorkerProfileScreen> {
+  int? _workerId;
+  bool _requested = false;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_requested) return;
+
+    final args = ModalRoute.of(context)?.settings.arguments;
+    if (args is Map) {
+      final raw = args['workerId'];
+      _workerId = raw is int ? raw : int.tryParse('$raw');
+    } else if (args is int) {
+      _workerId = args;
+    }
+
+    _requested = true;
+    final id = _workerId;
+    if (id != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) context.read<WorkerBrowseProvider>().fetchWorkerDetail(id);
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_workerId == null) {
+      return const Scaffold(body: Center(child: Text('No worker specified.')));
+    }
+
+    return Consumer<WorkerBrowseProvider>(
+      builder: (context, provider, _) {
+        if (provider.isDetailLoading) {
+          return const Scaffold(body: Center(child: CircularProgressIndicator()));
+        }
+        if (provider.detailErrorMessage != null || provider.selectedWorker == null) {
+          return _errorState(context, provider.detailErrorMessage ?? 'Worker not found.');
+        }
+        return _content(context, provider.selectedWorker!);
+      },
+    );
+  }
+
+  Widget _errorState(BuildContext context, String message) {
+    return Scaffold(
+      appBar: AppBar(
+        backgroundColor: AppColors.primary,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back, color: Colors.white),
+          onPressed: () => Navigator.pop(context),
+        ),
+      ),
+      body: Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(Icons.error_outline, size: 48, color: AppColors.neutral400),
+              const SizedBox(height: 12),
+              Text(message, textAlign: TextAlign.center),
+              const SizedBox(height: 16),
+              ElevatedButton(
+                onPressed: () => context
+                    .read<WorkerBrowseProvider>()
+                    .fetchWorkerDetail(_workerId!),
+                child: const Text('Retry'),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  // rating_avg is a Laravel `decimal` cast, which serializes as a STRING
+  // ("4.50"), not a JSON number — `as num?` throws on it. Parse defensively,
+  // same as Job.fromApi already does for budget_min/max.
+  double _asDouble(Object? v) =>
+      v == null ? 0 : (v is num ? v.toDouble() : double.tryParse('$v') ?? 0);
+
+  int _asInt(Object? v) =>
+      v == null ? 0 : (v is num ? v.toInt() : int.tryParse('$v') ?? 0);
+
+  Widget _content(BuildContext context, Map<String, dynamic> w) {
+    final name = (w['name'] as String?) ?? 'Worker';
+    final category = (w['category'] as String?) ?? '';
+    final location = (w['location'] as String?) ?? '';
+    final rating = _asDouble(w['rating_avg']);
+    final reviewCount = _asInt(w['rating_count']);
+    final isVerified = (w['is_verified'] as bool?) ?? false;
+    final availability = (w['availability_status'] as String?) ?? 'unavailable';
+    final isAvailable = availability == 'available';
+    final bio = (w['bio'] as String?) ?? '';
+    final skills = ((w['skills'] as List?) ?? [])
+        .map((s) => s is Map ? (s['name']?.toString() ?? '') : s.toString())
+        .where((s) => s.isNotEmpty)
+        .toList();
+    final experiences = ((w['experiences'] as List?) ?? []).cast<Map<String, dynamic>>();
+    final certifications = ((w['certifications'] as List?) ?? []).cast<Map<String, dynamic>>();
+    final reviews = ((w['reviews'] as List?) ?? []).cast<Map<String, dynamic>>();
+    final yearsOfExperience = experiences.length;
 
     return Scaffold(
       backgroundColor: AppColors.neutral50,
       body: CustomScrollView(
         slivers: [
-          // ── App Bar ──
           SliverAppBar(
             expandedHeight: 0,
             pinned: true,
@@ -57,16 +132,6 @@ class WorkerProfileScreen extends StatelessWidget {
               icon: const Icon(Icons.arrow_back, color: Colors.white),
               onPressed: () => Navigator.pop(context),
             ),
-            actions: [
-              IconButton(
-                icon: const Icon(Icons.share_outlined, color: Colors.white),
-                onPressed: () {},
-              ),
-              IconButton(
-                icon: const Icon(Icons.bookmark_border, color: Colors.white),
-                onPressed: () {},
-              ),
-            ],
           ),
 
           // ── Profile Header ──
@@ -79,7 +144,6 @@ class WorkerProfileScreen extends StatelessWidget {
                     padding: const EdgeInsets.fromLTRB(20, 20, 20, 32),
                     child: Column(
                       children: [
-                        // Avatar
                         Stack(
                           children: [
                             Container(
@@ -93,7 +157,7 @@ class WorkerProfileScreen extends StatelessWidget {
                               child: CircleAvatar(
                                 backgroundColor: AppColors.primaryLight,
                                 child: Text(
-                                  name[0].toUpperCase(),
+                                  name.isNotEmpty ? name[0].toUpperCase() : '?',
                                   style: const TextStyle(
                                       fontSize: 36,
                                       fontWeight: FontWeight.bold,
@@ -122,27 +186,29 @@ class WorkerProfileScreen extends StatelessWidget {
                                 fontSize: 24,
                                 fontWeight: FontWeight.bold,
                                 color: Colors.white)),
-                        const SizedBox(height: 4),
-                        Text(primarySkill,
-                            style: TextStyle(
-                                fontSize: 16,
-                                color: Colors.white.withValues(alpha: 0.9))),
-                        const SizedBox(height: 8),
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            const Icon(Icons.location_on,
-                                color: Colors.white, size: 16),
-                            const SizedBox(width: 4),
-                            Text(location,
-                                style: TextStyle(
-                                    color:
-                                        Colors.white.withValues(alpha: 0.9),
-                                    fontSize: 14)),
-                          ],
-                        ),
+                        if (category.isNotEmpty) ...[
+                          const SizedBox(height: 4),
+                          Text(category,
+                              style: TextStyle(
+                                  fontSize: 16,
+                                  color: Colors.white.withValues(alpha: 0.9))),
+                        ],
+                        if (location.isNotEmpty) ...[
+                          const SizedBox(height: 8),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              const Icon(Icons.location_on,
+                                  color: Colors.white, size: 16),
+                              const SizedBox(width: 4),
+                              Text(location,
+                                  style: TextStyle(
+                                      color: Colors.white.withValues(alpha: 0.9),
+                                      fontSize: 14)),
+                            ],
+                          ),
+                        ],
                         const SizedBox(height: 16),
-                        // Rating
                         if (reviewCount > 0)
                           Container(
                             padding: const EdgeInsets.symmetric(
@@ -165,16 +231,14 @@ class WorkerProfileScreen extends StatelessWidget {
                                 const SizedBox(width: 4),
                                 Text('($reviewCount reviews)',
                                     style: TextStyle(
-                                        color: Colors.white
-                                            .withValues(alpha: 0.9),
+                                        color: Colors.white.withValues(alpha: 0.9),
                                         fontSize: 14)),
                               ],
                             ),
                           )
                         else
                           const Text('No reviews yet',
-                              style: TextStyle(
-                                  color: Colors.white60, fontSize: 13)),
+                              style: TextStyle(color: Colors.white60, fontSize: 13)),
                       ],
                     ),
                   ),
@@ -204,16 +268,14 @@ class WorkerProfileScreen extends StatelessWidget {
                       icon: Icons.work_outline,
                       value: isAvailable ? 'Available' : 'Unavailable',
                       label: 'Status',
-                      color: isAvailable
-                          ? AppColors.success
-                          : AppColors.neutral400,
+                      color: isAvailable ? AppColors.success : AppColors.neutral400,
                     ),
                   ),
                   const SizedBox(width: 12),
                   Expanded(
                     child: _statCard(
                       icon: Icons.schedule,
-                      value: '$yearsOfExperience yrs',
+                      value: '$yearsOfExperience job${yearsOfExperience == 1 ? '' : 's'}',
                       label: 'Experience',
                       color: AppColors.primary,
                     ),
@@ -224,9 +286,7 @@ class WorkerProfileScreen extends StatelessWidget {
                       icon: Icons.verified_user,
                       value: isVerified ? 'Verified' : 'Unverified',
                       label: 'Account',
-                      color: isVerified
-                          ? AppColors.success
-                          : AppColors.neutral400,
+                      color: isVerified ? AppColors.success : AppColors.neutral400,
                     ),
                   ),
                 ],
@@ -259,18 +319,10 @@ class WorkerProfileScreen extends StatelessWidget {
                   const SizedBox(width: 12),
                   Expanded(
                     child: OutlinedButton.icon(
-                      onPressed: () => Navigator.pushNamed(
-                        context,
-                        '/chat',
-                        arguments: {
-                          'name': name,
-                          'jobTitle': primarySkill,
-                          'isVerified': isVerified,
-                          'isOnline': isAvailable,
-                          'otherRole': 'worker',
-                          'jobStatus': 'accepted',
-                        },
-                      ),
+                      // No conversation exists until an application/invitation
+                      // is accepted (see ConversationController) — send them to
+                      // the real inbox rather than a chat with nothing behind it.
+                      onPressed: () => Navigator.pushNamed(context, '/messages'),
                       icon: const Icon(Icons.message_outlined, size: 20),
                       label: const Text('Message'),
                       style: OutlinedButton.styleFrom(
@@ -289,22 +341,18 @@ class WorkerProfileScreen extends StatelessWidget {
 
           const SliverToBoxAdapter(child: SizedBox(height: 20)),
 
-          // ── About ──
           if (bio.isNotEmpty)
             SliverToBoxAdapter(
               child: _section(
                 title: 'About',
                 child: Text(bio,
                     style: const TextStyle(
-                        fontSize: 15,
-                        height: 1.6,
-                        color: AppColors.neutral700)),
+                        fontSize: 15, height: 1.6, color: AppColors.neutral700)),
               ),
             ),
 
           if (bio.isNotEmpty) const SliverToBoxAdapter(child: SizedBox(height: 12)),
 
-          // ── Skills ──
           if (skills.isNotEmpty)
             SliverToBoxAdapter(
               child: _section(
@@ -312,16 +360,13 @@ class WorkerProfileScreen extends StatelessWidget {
                 child: Wrap(
                   spacing: 8,
                   runSpacing: 8,
-                  children: skills
-                      .map((s) => _skillChip(s, Icons.build))
-                      .toList(),
+                  children: skills.map((s) => _skillChip(s, Icons.build)).toList(),
                 ),
               ),
             ),
 
           if (skills.isNotEmpty) const SliverToBoxAdapter(child: SizedBox(height: 12)),
 
-          // ── Experience ──
           if (experiences.isNotEmpty)
             SliverToBoxAdapter(
               child: _section(
@@ -329,20 +374,18 @@ class WorkerProfileScreen extends StatelessWidget {
                 child: Column(
                   children: experiences
                       .map((exp) => _experienceItem(
-                            title: exp['title'] ?? '',
-                            company: exp['company'] ?? '',
-                            duration: exp['duration'] ?? '',
-                            description: exp['description'] ?? '',
+                            title: (exp['title'] ?? '').toString(),
+                            company: (exp['company'] ?? '').toString(),
+                            duration: _formatDuration(exp),
+                            description: (exp['description'] ?? '').toString(),
                           ))
                       .toList(),
                 ),
               ),
             ),
 
-          if (experiences.isNotEmpty)
-            const SliverToBoxAdapter(child: SizedBox(height: 12)),
+          if (experiences.isNotEmpty) const SliverToBoxAdapter(child: SizedBox(height: 12)),
 
-          // ── Certifications ──
           if (certifications.isNotEmpty)
             SliverToBoxAdapter(
               child: _section(
@@ -350,42 +393,43 @@ class WorkerProfileScreen extends StatelessWidget {
                 child: Column(
                   children: certifications
                       .map((cert) => _certItem(
-                            title: cert['title'] ?? '',
-                            issuer: cert['issuer'] ?? '',
-                            year: cert['year'] ?? '',
+                            title: (cert['title'] ?? '').toString(),
+                            issuer: (cert['issuer'] ?? '').toString(),
+                            year: (cert['year'] ?? '').toString(),
                           ))
                       .toList(),
                 ),
               ),
             ),
 
-          if (certifications.isNotEmpty)
-            const SliverToBoxAdapter(child: SizedBox(height: 12)),
+          if (certifications.isNotEmpty) const SliverToBoxAdapter(child: SizedBox(height: 12)),
 
-          // ── Reviews ──
           if (reviews.isNotEmpty)
             SliverToBoxAdapter(
               child: _section(
                 title: 'Reviews & Ratings',
                 showSeeAll: reviews.length > 3,
                 child: Column(
-                  children: reviews
-                      .take(3)
-                      .map((r) => Column(
-                            children: [
-                              _reviewItem(
-                                name: r['reviewer'] ?? '',
-                                rating: (r['rating'] as num?)?.toInt() ?? 5,
-                                date: r['date'] ?? '',
-                                comment: r['comment'] ?? '',
-                              ),
-                              if (reviews.indexOf(r) < 2 &&
-                                  reviews.length > 1)
-                                const Divider(height: 24),
-                            ],
-                          ))
-                      .toList(),
+                  children: [
+                    for (var i = 0; i < reviews.length && i < 3; i++) ...[
+                      _reviewItem(
+                        name: (reviews[i]['reviewer'] ?? '').toString(),
+                        rating: (reviews[i]['rating'] as num?)?.toInt() ?? 5,
+                        date: (reviews[i]['date'] ?? '').toString(),
+                        comment: (reviews[i]['comment'] ?? '').toString(),
+                      ),
+                      if (i < 2 && i < reviews.length - 1) const Divider(height: 24),
+                    ],
+                  ],
                 ),
+              ),
+            )
+          else
+            SliverToBoxAdapter(
+              child: _section(
+                title: 'Reviews & Ratings',
+                child: const Text('No reviews yet.',
+                    style: TextStyle(color: AppColors.neutral600, fontSize: 14)),
               ),
             ),
 
@@ -393,6 +437,16 @@ class WorkerProfileScreen extends StatelessWidget {
         ],
       ),
     );
+  }
+
+  String _formatDuration(Map<String, dynamic> exp) {
+    final start = (exp['start_date'] as String?)?.split('-').take(2).join('/') ?? '';
+    final isCurrent = exp['is_current'] == true;
+    final end = isCurrent
+        ? 'Present'
+        : ((exp['end_date'] as String?)?.split('-').take(2).join('/') ?? '');
+    if (start.isEmpty && end.isEmpty) return '';
+    return '$start – $end';
   }
 
   // ─── helpers ─────────────────────────────────────────────────────────────────
@@ -477,8 +531,7 @@ class WorkerProfileScreen extends StatelessWidget {
               overflow: TextOverflow.ellipsis),
           const SizedBox(height: 2),
           Text(label,
-              style: const TextStyle(
-                  fontSize: 11, color: AppColors.neutral600),
+              style: const TextStyle(fontSize: 11, color: AppColors.neutral600),
               textAlign: TextAlign.center),
         ],
       ),
@@ -526,8 +579,7 @@ class WorkerProfileScreen extends StatelessWidget {
               color: AppColors.primary.withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(8),
             ),
-            child: const Icon(Icons.work_outline,
-                color: AppColors.primary, size: 20),
+            child: const Icon(Icons.work_outline, color: AppColors.primary, size: 20),
           ),
           const SizedBox(width: 12),
           Expanded(
@@ -541,19 +593,17 @@ class WorkerProfileScreen extends StatelessWidget {
                         color: AppColors.neutral900)),
                 const SizedBox(height: 2),
                 Text(company,
-                    style: const TextStyle(
-                        fontSize: 14, color: AppColors.neutral700)),
-                const SizedBox(height: 2),
-                Text(duration,
-                    style: const TextStyle(
-                        fontSize: 13, color: AppColors.neutral600)),
+                    style: const TextStyle(fontSize: 14, color: AppColors.neutral700)),
+                if (duration.isNotEmpty) ...[
+                  const SizedBox(height: 2),
+                  Text(duration,
+                      style: const TextStyle(fontSize: 13, color: AppColors.neutral600)),
+                ],
                 if (description.isNotEmpty) ...[
                   const SizedBox(height: 6),
                   Text(description,
                       style: const TextStyle(
-                          fontSize: 13,
-                          color: AppColors.neutral600,
-                          height: 1.4)),
+                          fontSize: 13, color: AppColors.neutral600, height: 1.4)),
                 ],
               ],
             ),
@@ -579,8 +629,7 @@ class WorkerProfileScreen extends StatelessWidget {
               color: AppColors.success.withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(8),
             ),
-            child: const Icon(Icons.verified,
-                color: AppColors.success, size: 20),
+            child: const Icon(Icons.verified, color: AppColors.success, size: 20),
           ),
           const SizedBox(width: 12),
           Expanded(
@@ -593,21 +642,9 @@ class WorkerProfileScreen extends StatelessWidget {
                         fontWeight: FontWeight.w600,
                         color: AppColors.neutral900)),
                 Text('$issuer • $year',
-                    style: const TextStyle(
-                        fontSize: 13, color: AppColors.neutral600)),
+                    style: const TextStyle(fontSize: 13, color: AppColors.neutral600)),
               ],
             ),
-          ),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-            decoration: BoxDecoration(
-                color: AppColors.success,
-                borderRadius: BorderRadius.circular(4)),
-            child: const Text('Verified',
-                style: TextStyle(
-                    fontSize: 10,
-                    color: Colors.white,
-                    fontWeight: FontWeight.bold)),
           ),
         ],
       ),
@@ -631,9 +668,7 @@ class WorkerProfileScreen extends StatelessWidget {
               child: Text(
                 name.isNotEmpty ? name[0].toUpperCase() : '?',
                 style: const TextStyle(
-                    color: AppColors.primary,
-                    fontWeight: FontWeight.bold,
-                    fontSize: 16),
+                    color: AppColors.primary, fontWeight: FontWeight.bold, fontSize: 16),
               ),
             ),
             const SizedBox(width: 12),
@@ -660,8 +695,7 @@ class WorkerProfileScreen extends StatelessWidget {
                       ),
                       const SizedBox(width: 8),
                       Text(date,
-                          style: const TextStyle(
-                              fontSize: 12, color: AppColors.neutral600)),
+                          style: const TextStyle(fontSize: 12, color: AppColors.neutral600)),
                     ],
                   ),
                 ],
@@ -671,10 +705,7 @@ class WorkerProfileScreen extends StatelessWidget {
         ),
         const SizedBox(height: 8),
         Text(comment,
-            style: const TextStyle(
-                fontSize: 14,
-                color: AppColors.neutral700,
-                height: 1.5)),
+            style: const TextStyle(fontSize: 14, color: AppColors.neutral700, height: 1.5)),
       ],
     );
   }
@@ -684,24 +715,19 @@ class WorkerProfileScreen extends StatelessWidget {
       context: context,
       builder: (_) => AlertDialog(
         title: const Text('Invite to Apply'),
-        content: Text(
-            'Select a job post to invite $workerName to apply for:'),
+        content: Text('Select a job post to invite $workerName to apply for:'),
         actions: [
           TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('Cancel')),
+              onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
           ElevatedButton(
             onPressed: () {
               Navigator.pop(context);
               ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                    content: Text('Invitation sent to $workerName!')),
+                SnackBar(content: Text('Invitation sent to $workerName!')),
               );
             },
-            style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.primary),
-            child: const Text('Select Job',
-                style: TextStyle(color: Colors.white)),
+            style: ElevatedButton.styleFrom(backgroundColor: AppColors.primary),
+            child: const Text('Select Job', style: TextStyle(color: Colors.white)),
           ),
         ],
       ),

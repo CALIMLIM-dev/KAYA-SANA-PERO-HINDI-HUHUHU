@@ -1,15 +1,107 @@
 import 'package:flutter/material.dart';
-import '../../../core/constants/app_colors.dart';
+import 'package:provider/provider.dart';
 
-/// Public Employer Profile View
-/// Shown to WORKERS when they tap "Posted by" on a job listing.
-/// Read-only — shows company info, posted jobs, reviews.
-class EmployerProfileScreen extends StatelessWidget {
+import '../../../core/constants/app_colors.dart';
+import '../../../providers/employer_profile_provider.dart';
+
+/// Public Employer Profile View — shown to workers when they tap "Posted by"
+/// on a job listing. Reads {'employerId': int} from route arguments and
+/// fetches via GET /employers/{id}.
+class EmployerProfileScreen extends StatefulWidget {
   const EmployerProfileScreen({super.key});
 
   @override
+  State<EmployerProfileScreen> createState() => _EmployerProfileScreenState();
+}
+
+class _EmployerProfileScreenState extends State<EmployerProfileScreen> {
+  int? _employerId;
+  bool _requested = false;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_requested) return;
+
+    final args = ModalRoute.of(context)?.settings.arguments;
+    if (args is Map) {
+      final raw = args['employerId'];
+      _employerId = raw is int ? raw : int.tryParse('$raw');
+    } else if (args is int) {
+      _employerId = args;
+    }
+
+    _requested = true;
+    final id = _employerId;
+    if (id != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) context.read<EmployerProfileProvider>().fetchEmployerDetail(id);
+      });
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
-    // TODO: Receive employer data via route arguments from job details
+    if (_employerId == null) {
+      return const Scaffold(body: Center(child: Text('No employer specified.')));
+    }
+
+    return Consumer<EmployerProfileProvider>(
+      builder: (context, provider, _) {
+        if (provider.isPublicDetailLoading) {
+          return const Scaffold(body: Center(child: CircularProgressIndicator()));
+        }
+        if (provider.publicDetailErrorMessage != null || provider.publicEmployer == null) {
+          return _errorState(context, provider.publicDetailErrorMessage ?? 'Employer not found.');
+        }
+        return _content(context, provider.publicEmployer!);
+      },
+    );
+  }
+
+  Widget _errorState(BuildContext context, String message) {
+    return Scaffold(
+      appBar: AppBar(
+        backgroundColor: AppColors.primary,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back, color: Colors.white),
+          onPressed: () => Navigator.pop(context),
+        ),
+      ),
+      body: Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(Icons.error_outline, size: 48, color: AppColors.neutral400),
+              const SizedBox(height: 12),
+              Text(message, textAlign: TextAlign.center),
+              const SizedBox(height: 16),
+              ElevatedButton(
+                onPressed: () => context
+                    .read<EmployerProfileProvider>()
+                    .fetchEmployerDetail(_employerId!),
+                child: const Text('Retry'),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _content(BuildContext context, Map<String, dynamic> e) {
+    final name = (e['company_name'] as String?) ?? (e['name'] as String?) ?? 'Employer';
+    final isVerified = (e['is_verified'] as bool?) ?? false;
+    final location = (e['location'] as String?) ?? '';
+    final description = (e['description'] as String?) ?? '';
+    final website = (e['website'] as String?) ?? '';
+    final ratingAvg = (e['rating_avg'] as num?)?.toDouble();
+    final reviewCount = (e['rating_count'] as num?)?.toInt() ?? 0;
+    final jobs = ((e['jobs'] as List?) ?? []).cast<Map<String, dynamic>>();
+    final reviews = ((e['reviews'] as List?) ?? []).cast<Map<String, dynamic>>();
+
     return Scaffold(
       backgroundColor: AppColors.background,
       body: CustomScrollView(
@@ -39,7 +131,6 @@ class EmployerProfileScreen extends StatelessWidget {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        // Logo + name row
                         Row(
                           children: [
                             Container(
@@ -62,70 +153,79 @@ class EmployerProfileScreen extends StatelessWidget {
                                 children: [
                                   Row(
                                     children: [
-                                      const Text(
-                                        'Plumbing Services Inc.',
-                                        style: TextStyle(
-                                          fontSize: 18,
-                                          fontWeight: FontWeight.bold,
-                                          color: Colors.white,
+                                      Flexible(
+                                        child: Text(
+                                          name,
+                                          style: const TextStyle(
+                                            fontSize: 18,
+                                            fontWeight: FontWeight.bold,
+                                            color: Colors.white,
+                                          ),
+                                          overflow: TextOverflow.ellipsis,
                                         ),
                                       ),
-                                      const SizedBox(width: 6),
-                                      Container(
-                                        padding: const EdgeInsets.symmetric(
-                                            horizontal: 8, vertical: 3),
-                                        decoration: BoxDecoration(
-                                          color: AppColors.success,
-                                          borderRadius:
-                                              BorderRadius.circular(20),
+                                      if (isVerified) ...[
+                                        const SizedBox(width: 6),
+                                        Container(
+                                          padding: const EdgeInsets.symmetric(
+                                              horizontal: 8, vertical: 3),
+                                          decoration: BoxDecoration(
+                                            color: AppColors.success,
+                                            borderRadius:
+                                                BorderRadius.circular(20),
+                                          ),
+                                          child: const Row(
+                                            mainAxisSize: MainAxisSize.min,
+                                            children: [
+                                              Icon(Icons.verified,
+                                                  size: 11, color: Colors.white),
+                                              SizedBox(width: 3),
+                                              Text(
+                                                'Verified',
+                                                style: TextStyle(
+                                                    fontSize: 10,
+                                                    fontWeight: FontWeight.w700,
+                                                    color: Colors.white),
+                                              ),
+                                            ],
+                                          ),
                                         ),
-                                        child: const Row(
-                                          mainAxisSize: MainAxisSize.min,
-                                          children: [
-                                            Icon(Icons.verified,
-                                                size: 11, color: Colors.white),
-                                            SizedBox(width: 3),
-                                            Text(
-                                              'Verified',
-                                              style: TextStyle(
-                                                  fontSize: 10,
-                                                  fontWeight: FontWeight.w700,
-                                                  color: Colors.white),
-                                            ),
-                                          ],
-                                        ),
-                                      ),
+                                      ],
                                     ],
                                   ),
-                                  const SizedBox(height: 4),
-                                  const Row(
-                                    children: [
-                                      Icon(Icons.location_on,
-                                          size: 13, color: Colors.white70),
-                                      SizedBox(width: 3),
-                                      Text(
-                                        'Pangasinan, Philippines',
-                                        style: TextStyle(
-                                            fontSize: 13, color: Colors.white70),
-                                      ),
-                                    ],
-                                  ),
+                                  if (location.isNotEmpty) ...[
+                                    const SizedBox(height: 4),
+                                    Row(
+                                      children: [
+                                        const Icon(Icons.location_on,
+                                            size: 13, color: Colors.white70),
+                                        const SizedBox(width: 3),
+                                        Flexible(
+                                          child: Text(
+                                            location,
+                                            style: const TextStyle(
+                                                fontSize: 13, color: Colors.white70),
+                                            overflow: TextOverflow.ellipsis,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ],
                                 ],
                               ),
                             ),
                           ],
                         ),
-
                         const SizedBox(height: 14),
-
-                        // Stats row
                         Row(
                           children: [
-                            _headerStat('4.8', 'Rating'),
+                            _headerStat(
+                                ratingAvg != null ? ratingAvg.toStringAsFixed(1) : '—',
+                                'Rating'),
                             _divider(),
-                            _headerStat('89', 'Reviews'),
+                            _headerStat('$reviewCount', 'Reviews'),
                             _divider(),
-                            _headerStat('24', 'Jobs Posted'),
+                            _headerStat('${jobs.length}', 'Open Jobs'),
                           ],
                         ),
                       ],
@@ -137,93 +237,85 @@ class EmployerProfileScreen extends StatelessWidget {
           ),
 
           // ── About ────────────────────────────────────────────────────────────
-          SliverToBoxAdapter(
-            child: _section(
-              title: 'About',
-              child: const Text(
-                'We are a professional plumbing services company operating in Pangasinan for over 10 years. We specialize in residential and commercial plumbing repairs, installations, and emergency services.',
-                style: TextStyle(
-                  fontSize: 14,
-                  color: AppColors.neutral700,
-                  height: 1.6,
+          if (description.isNotEmpty)
+            SliverToBoxAdapter(
+              child: _section(
+                title: 'About',
+                child: Text(
+                  description,
+                  style: const TextStyle(
+                    fontSize: 14,
+                    color: AppColors.neutral700,
+                    height: 1.6,
+                  ),
                 ),
               ),
             ),
-          ),
 
           // ── Contact Info ─────────────────────────────────────────────────────
-          SliverToBoxAdapter(
-            child: _section(
-              title: 'Contact',
-              child: Column(
-                children: [
-                  _contactRow(Icons.phone_outlined, '+63 912 345 6789'),
-                  const SizedBox(height: 10),
-                  _contactRow(Icons.email_outlined, 'contact@plumbingservices.com'),
-                  const SizedBox(height: 10),
-                  _contactRow(Icons.location_on_outlined, 'Pangasinan, Philippines'),
-                ],
+          if (location.isNotEmpty || website.isNotEmpty)
+            SliverToBoxAdapter(
+              child: _section(
+                title: 'Contact',
+                child: Column(
+                  children: [
+                    if (website.isNotEmpty) ...[
+                      _contactRow(Icons.language, website),
+                      const SizedBox(height: 10),
+                    ],
+                    if (location.isNotEmpty)
+                      _contactRow(Icons.location_on_outlined, location),
+                  ],
+                ),
               ),
             ),
-          ),
 
           // ── Active Jobs ──────────────────────────────────────────────────────
           SliverToBoxAdapter(
             child: _section(
               title: 'Active Job Postings',
-              child: Column(
-                children: [
-                  _jobRow(
-                    context,
-                    title: 'Emergency Pipe Repair',
-                    salary: '₱1,200/day',
-                    location: 'Pangasinan',
-                    postedDate: '2 hours ago',
-                  ),
-                  const Divider(height: 20),
-                  _jobRow(
-                    context,
-                    title: 'Bathroom Plumbing Install',
-                    salary: '₱1,500/day',
-                    location: 'Dagupan City',
-                    postedDate: '1 day ago',
-                  ),
-                ],
-              ),
+              child: jobs.isEmpty
+                  ? const Text('No open job postings right now.',
+                      style: TextStyle(color: AppColors.neutral600, fontSize: 14))
+                  : Column(
+                      children: [
+                        for (var i = 0; i < jobs.length; i++) ...[
+                          _jobRow(
+                            context,
+                            jobId: jobs[i]['id'] as int,
+                            title: (jobs[i]['title'] ?? '').toString(),
+                            salary: _formatSalary(
+                                jobs[i]['budget_min'], jobs[i]['budget_max']),
+                            location: (jobs[i]['location'] ?? '').toString(),
+                            postedDate: (jobs[i]['posted_at'] ?? '').toString(),
+                          ),
+                          if (i < jobs.length - 1) const Divider(height: 20),
+                        ],
+                      ],
+                    ),
             ),
           ),
 
           // ── Reviews ──────────────────────────────────────────────────────────
           SliverToBoxAdapter(
             child: _section(
-              title: 'Reviews (89)',
-              child: Column(
-                children: [
-                  _reviewRow(
-                    name: 'Juan Dela Cruz',
-                    rating: 5,
-                    date: '3 days ago',
-                    comment: 'Very professional and responsive employer. Paid on time and clearly described the work needed.',
-                    initial: 'J',
-                  ),
-                  const Divider(height: 20),
-                  _reviewRow(
-                    name: 'Maria Santos',
-                    rating: 5,
-                    date: '1 week ago',
-                    comment: 'Great experience. Would definitely work with them again.',
-                    initial: 'M',
-                  ),
-                  const Divider(height: 20),
-                  _reviewRow(
-                    name: 'Pedro Reyes',
-                    rating: 4,
-                    date: '2 weeks ago',
-                    comment: 'Good employer, fair pay, work was clearly explained.',
-                    initial: 'P',
-                  ),
-                ],
-              ),
+              title: 'Reviews ($reviewCount)',
+              child: reviews.isEmpty
+                  ? const Text('No reviews yet.',
+                      style: TextStyle(color: AppColors.neutral600, fontSize: 14))
+                  : Column(
+                      children: [
+                        for (var i = 0; i < reviews.length; i++) ...[
+                          _reviewRow(
+                            name: (reviews[i]['reviewer'] ?? '').toString(),
+                            rating: (reviews[i]['rating'] as num?)?.toInt() ?? 5,
+                            date: (reviews[i]['date'] ?? '').toString(),
+                            comment: (reviews[i]['comment'] ?? '').toString(),
+                          ),
+                          if (i < reviews.length - 1) const Divider(height: 20),
+                        ],
+                      ],
+                    ),
             ),
           ),
 
@@ -231,6 +323,18 @@ class EmployerProfileScreen extends StatelessWidget {
         ],
       ),
     );
+  }
+
+  String _formatSalary(Object? min, Object? max) {
+    double? asDouble(Object? v) =>
+        v == null ? null : (v is num ? v.toDouble() : double.tryParse('$v'));
+    final minV = asDouble(min);
+    final maxV = asDouble(max);
+    if (minV == null && maxV == null) return 'Negotiable';
+    if (minV != null && maxV != null && maxV != minV) {
+      return '₱${minV.toStringAsFixed(0)}-${maxV.toStringAsFixed(0)}';
+    }
+    return '₱${(minV ?? maxV)!.toStringAsFixed(0)}';
   }
 
   // ─── helpers ─────────────────────────────────────────────────────────────────
@@ -295,22 +399,27 @@ class EmployerProfileScreen extends StatelessWidget {
       children: [
         Icon(icon, size: 16, color: AppColors.primary),
         const SizedBox(width: 10),
-        Text(value,
-            style: const TextStyle(
-                fontSize: 14, color: AppColors.neutral700)),
+        Expanded(
+          child: Text(value,
+              style: const TextStyle(
+                  fontSize: 14, color: AppColors.neutral700),
+              overflow: TextOverflow.ellipsis),
+        ),
       ],
     );
   }
 
   Widget _jobRow(
     BuildContext context, {
+    required int jobId,
     required String title,
     required String salary,
     required String location,
     required String postedDate,
   }) {
     return InkWell(
-      onTap: () => Navigator.pushNamed(context, '/job-details'),
+      onTap: () =>
+          Navigator.pushNamed(context, '/job-details', arguments: {'jobId': jobId}),
       borderRadius: BorderRadius.circular(8),
       child: Row(
         children: [
@@ -329,9 +438,12 @@ class EmployerProfileScreen extends StatelessWidget {
                     const Icon(Icons.location_on_outlined,
                         size: 12, color: AppColors.neutral400),
                     const SizedBox(width: 3),
-                    Text(location,
-                        style: const TextStyle(
-                            fontSize: 12, color: AppColors.neutral500)),
+                    Flexible(
+                      child: Text(location,
+                          style: const TextStyle(
+                              fontSize: 12, color: AppColors.neutral500),
+                          overflow: TextOverflow.ellipsis),
+                    ),
                     const SizedBox(width: 8),
                     const Icon(Icons.access_time,
                         size: 12, color: AppColors.neutral400),
@@ -359,7 +471,6 @@ class EmployerProfileScreen extends StatelessWidget {
     required int rating,
     required String date,
     required String comment,
-    required String initial,
   }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -369,7 +480,7 @@ class EmployerProfileScreen extends StatelessWidget {
             CircleAvatar(
               radius: 18,
               backgroundColor: AppColors.primary.withValues(alpha: 0.1),
-              child: Text(initial,
+              child: Text(name.isNotEmpty ? name[0].toUpperCase() : '?',
                   style: const TextStyle(
                       fontSize: 14,
                       fontWeight: FontWeight.bold,

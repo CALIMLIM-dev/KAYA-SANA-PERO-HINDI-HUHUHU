@@ -1,8 +1,21 @@
 import 'package:flutter/material.dart';
-import '../../../core/constants/app_colors.dart';
+import 'package:provider/provider.dart';
 
-/// My Applications Screen — Worker's job applications
-/// Three tabs: Active (pending + accepted) | Past (rejected + withdrawn) | Completed
+import '../../../core/constants/app_colors.dart';
+import '../../../providers/app_mode_provider.dart';
+import '../../../providers/application_provider.dart';
+import '../../../providers/job_provider.dart';
+
+/// My Activity.
+///
+/// The tab set follows which profiles the account holds:
+///   worker only   → Applications | Completed | History
+///   employer only → Active Jobs  | Completed | History
+///   both          → Applications | Active Jobs | Completed | History
+///
+/// "Applications" are jobs you applied to (worker side). "Active Jobs" are jobs
+/// you posted (employer side). They are different records from different
+/// endpoints and were previously conflated into one "Active" tab.
 class ApplicationsScreen extends StatefulWidget {
   const ApplicationsScreen({super.key});
 
@@ -10,483 +23,475 @@ class ApplicationsScreen extends StatefulWidget {
   State<ApplicationsScreen> createState() => _ApplicationsScreenState();
 }
 
-class _ApplicationsScreenState extends State<ApplicationsScreen>
-    with SingleTickerProviderStateMixin {
-  late TabController _tabController;
-
-  // TODO: Replace with ApplicationProvider data
-  final List<Map<String, dynamic>> _applications = [
-    {
-      'id': 1,
-      'jobTitle': 'Emergency Pipe Repair',
-      'company': 'Plumbing Services Inc.',
-      'location': 'Pangasinan',
-      'appliedDate': '2 days ago',
-      'status': 'pending',
-      'salary': '₱1,200/day',
-      'isVerified': true,
-    },
-    {
-      'id': 2,
-      'jobTitle': 'Electrician Needed',
-      'company': 'Tech Solutions Inc.',
-      'location': 'Dagupan City',
-      'appliedDate': '5 days ago',
-      'status': 'pending',
-      'salary': '₱1,800/day',
-      'isVerified': true,
-    },
-    {
-      'id': 3,
-      'jobTitle': 'House Painting',
-      'company': 'Private Homeowner',
-      'location': 'Urdaneta City',
-      'appliedDate': '1 week ago',
-      'status': 'pending',
-      'salary': '₱800/day',
-      'isVerified': false,
-    },
-    {
-      'id': 4,
-      'jobTitle': 'Carpenter for Kitchen Cabinets',
-      'company': 'Baliwag Construction',
-      'location': 'Pangasinan',
-      'appliedDate': '3 days ago',
-      'acceptedDate': '1 day ago',
-      'status': 'accepted',
-      'salary': '₱2,500/day',
-      'isVerified': true,
-    },
-    {
-      'id': 5,
-      'jobTitle': 'AC Repair Technician',
-      'company': 'Cool Air Services',
-      'location': 'Dagupan City',
-      'appliedDate': '1 week ago',
-      'acceptedDate': '5 days ago',
-      'status': 'accepted',
-      'salary': '₱1,500/day',
-      'isVerified': true,
-    },
-    {
-      'id': 6,
-      'jobTitle': 'Welder for Metal Gates',
-      'company': 'Steel Works Co.',
-      'location': 'Urdaneta City',
-      'appliedDate': '2 weeks ago',
-      'rejectedDate': '1 week ago',
-      'status': 'rejected',
-      'salary': '₱1,000/day',
-      'isVerified': true,
-    },
-    {
-      'id': 7,
-      'jobTitle': 'Roof Repair',
-      'company': 'QuickFix Solutions',
-      'location': 'Pangasinan',
-      'appliedDate': '3 weeks ago',
-      'status': 'withdrawn',
-      'salary': '₱900/day',
-      'isVerified': false,
-    },
-    {
-      'id': 8,
-      'jobTitle': 'Bathroom Tile Installation',
-      'company': 'Home Depot Services',
-      'location': 'Pangasinan',
-      'appliedDate': '1 month ago',
-      'completedDate': '2 weeks ago',
-      'status': 'completed',
-      'salary': '₱2,000/day',
-      'isVerified': true,
-      'hasReview': false,
-    },
-    {
-      'id': 9,
-      'jobTitle': 'Roof Leak Repair',
-      'company': 'Quick Fix Solutions',
-      'location': 'Dagupan City',
-      'appliedDate': '2 months ago',
-      'completedDate': '1 month ago',
-      'status': 'completed',
-      'salary': '₱1,500/day',
-      'isVerified': true,
-      'hasReview': true,
-    },
-  ];
-
-  // Active = pending + accepted
-  List<Map<String, dynamic>> get _active => _applications
-      .where((a) => a['status'] == 'pending' || a['status'] == 'accepted')
-      .toList();
-
-  // Completed = completed
-  List<Map<String, dynamic>> get _completed =>
-      _applications.where((a) => a['status'] == 'completed').toList();
-
-  // History = rejected + withdrawn
-  List<Map<String, dynamic>> get _history => _applications
-      .where((a) => a['status'] == 'rejected' || a['status'] == 'withdrawn')
-      .toList();
-
+class _ApplicationsScreenState extends State<ApplicationsScreen> {
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 3, vsync: this);
+    WidgetsBinding.instance.addPostFrameCallback((_) => _load());
   }
 
-  @override
-  void dispose() {
-    _tabController.dispose();
-    super.dispose();
+  Future<void> _load() async {
+    if (!mounted) return;
+    final appMode = context.read<AppModeProvider>();
+
+    // Only fetch the side(s) the account actually has.
+    final futures = <Future<void>>[
+      if (appMode.hasWorkerProfile)
+        context.read<ApplicationProvider>().fetchMyApplications(),
+      if (appMode.hasEmployerProfile) context.read<JobProvider>().fetchMyJobs(),
+    ];
+
+    await Future.wait(futures);
   }
 
   @override
   Widget build(BuildContext context) {
+    return Consumer3<AppModeProvider, ApplicationProvider, JobProvider>(
+      builder: (context, appMode, applications, jobs, _) {
+        final tabs = _buildTabs(appMode, applications, jobs);
+
+        if (tabs.isEmpty) return _noProfileState();
+
+        return DefaultTabController(
+          // Keyed on the tab set so the controller is rebuilt if the user
+          // creates their second profile while this screen is alive.
+          key: ValueKey(tabs.map((t) => t.label).join('|')),
+          length: tabs.length,
+          child: Scaffold(
+            backgroundColor: AppColors.background,
+            appBar: AppBar(
+              backgroundColor: AppColors.primary,
+              foregroundColor: Colors.white,
+              elevation: 0,
+              title: const Text('My Activity',
+                  style: TextStyle(fontWeight: FontWeight.w600)),
+              bottom: TabBar(
+                isScrollable: tabs.length > 3,
+                tabAlignment:
+                    tabs.length > 3 ? TabAlignment.start : TabAlignment.fill,
+                indicatorColor: AppColors.accent,
+                indicatorWeight: 3,
+                labelColor: Colors.white,
+                unselectedLabelColor: Colors.white60,
+                labelStyle: const TextStyle(
+                    fontWeight: FontWeight.w600, fontSize: 14),
+                tabs: [
+                  for (final t in tabs) Tab(text: '${t.label} (${t.items.length})'),
+                ],
+              ),
+            ),
+            body: TabBarView(
+              children: [
+                for (final t in tabs)
+                  _TabBody(
+                    tab: t,
+                    isLoading: t.isJobTab ? jobs.isLoading : applications.isLoading,
+                    error: t.isJobTab ? jobs.errorMessage : applications.errorMessage,
+                    onRefresh: _load,
+                  ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  List<_ActivityTab> _buildTabs(
+    AppModeProvider appMode,
+    ApplicationProvider applications,
+    JobProvider jobs,
+  ) {
+    final hasWorker = appMode.hasWorkerProfile;
+    final hasEmployer = appMode.hasEmployerProfile;
+
+    final myApplications = applications.applications;
+    final myJobs = jobs.jobs;
+
+    String statusOf(Map<String, dynamic> m) => (m['status'] ?? '').toString();
+
+    return [
+      // Worker side: applications you sent that have no answer yet.
+      if (hasWorker)
+        _ActivityTab(
+          label: 'Applications',
+          isJobTab: false,
+          emptyTitle: 'No applications yet',
+          emptyBody: 'Browse jobs and start applying',
+          items: myApplications.where((a) => statusOf(a) == 'pending').toList(),
+        ),
+
+      // Employer side: jobs you posted that are still running.
+      if (hasEmployer)
+        _ActivityTab(
+          label: 'Active Jobs',
+          isJobTab: true,
+          emptyTitle: 'No active job posts',
+          emptyBody: 'Post a job to start receiving applicants',
+          items: myJobs
+              .where((j) =>
+                  statusOf(j) == 'open' || statusOf(j) == 'in_progress')
+              .toList(),
+        ),
+
+      _ActivityTab(
+        label: 'Completed',
+        isJobTab: !hasWorker,
+        emptyTitle: 'Nothing completed yet',
+        emptyBody: 'Finished work will appear here',
+        items: [
+          if (hasWorker)
+            ...myApplications.where((a) => statusOf(a) == 'completed'),
+          if (hasEmployer) ...myJobs.where((j) => statusOf(j) == 'completed'),
+        ],
+      ),
+
+      _ActivityTab(
+        label: 'History',
+        isJobTab: !hasWorker,
+        emptyTitle: 'No history yet',
+        emptyBody: 'Past activity will appear here',
+        items: [
+          if (hasWorker)
+            ...myApplications.where((a) => const {
+                  'rejected',
+                  'withdrawn',
+                  'cancelled',
+                }.contains(statusOf(a))),
+          if (hasEmployer)
+            ...myJobs.where((j) => statusOf(j) == 'closed'),
+        ],
+      ),
+    ];
+  }
+
+  Widget _noProfileState() {
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
         backgroundColor: AppColors.primary,
         foregroundColor: Colors.white,
         elevation: 0,
-        title: const Text('My Applications',
+        title: const Text('My Activity',
             style: TextStyle(fontWeight: FontWeight.w600)),
-        bottom: TabBar(
-          controller: _tabController,
-          indicatorColor: AppColors.accent,
-          indicatorWeight: 3,
-          labelColor: Colors.white,
-          unselectedLabelColor: Colors.white60,
-          labelStyle:
-              const TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
-          tabs: [
-            Tab(text: 'Active (${_active.length})'),
-            Tab(text: 'Completed (${_completed.length})'),
-            Tab(text: 'History (${_history.length})'),
-          ],
-        ),
       ),
-      body: TabBarView(
-        controller: _tabController,
-        children: [
-          _buildList(_active),
-          _buildList(_completed),
-          _buildList(_history),
-        ],
-      ),
-    );
-  }
-
-  // ─── tab list ────────────────────────────────────────────────────────────────
-
-  Widget _buildList(List<Map<String, dynamic>> apps) {
-    if (apps.isEmpty) {
-      return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(Icons.inbox_outlined, size: 56, color: AppColors.neutral300),
-            const SizedBox(height: 16),
-            const Text('Nothing here yet',
-                style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                    color: AppColors.neutral600)),
-            const SizedBox(height: 8),
-            const Text('Browse jobs and start applying',
-                style: TextStyle(
-                    fontSize: 14, color: AppColors.neutral400)),
-            const SizedBox(height: 24),
-            OutlinedButton(
-              onPressed: () => Navigator.pushNamed(context, '/search'),
-              style: OutlinedButton.styleFrom(
-                foregroundColor: AppColors.primary,
-                side: const BorderSide(color: AppColors.primary),
-                padding: const EdgeInsets.symmetric(
-                    horizontal: 24, vertical: 12),
-                shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(10)),
-              ),
-              child: const Text('Browse Jobs',
-                  style: TextStyle(fontWeight: FontWeight.w600)),
-            ),
-          ],
-        ),
-      );
-    }
-
-    return RefreshIndicator(
-      onRefresh: () async =>
-          await Future.delayed(const Duration(seconds: 1)),
-      child: ListView.builder(
-        padding: const EdgeInsets.all(16),
-        itemCount: apps.length,
-        itemBuilder: (_, i) => _buildCard(apps[i]),
-      ),
-    );
-  }
-
-  // ─── card ────────────────────────────────────────────────────────────────────
-
-  Widget _buildCard(Map<String, dynamic> app) {
-    final status = app['status'] as String;
-    final hasReview = app['hasReview'] as bool? ?? false;
-
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.05),
-            blurRadius: 10,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: InkWell(
-        onTap: () => Navigator.pushNamed(context, '/job-details'),
-        borderRadius: BorderRadius.circular(16),
+      body: Center(
         child: Padding(
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.all(32),
           child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              // ── Title + badge ──
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Expanded(
-                    child: Text(app['jobTitle'],
-                        style: const TextStyle(
-                            fontSize: 15,
-                            fontWeight: FontWeight.w700,
-                            color: AppColors.neutral900)),
-                  ),
-                  const SizedBox(width: 8),
-                  _badge(status),
-                ],
-              ),
-              const SizedBox(height: 5),
-
-              // ── Company + verified ──
-              Row(
-                children: [
-                  Flexible(
-                    child: Text(app['company'],
-                        style: const TextStyle(
-                            fontSize: 13, color: AppColors.neutral600),
-                        overflow: TextOverflow.ellipsis),
-                  ),
-                  if (app['isVerified'] == true) ...[
-                    const SizedBox(width: 4),
-                    const Icon(Icons.verified,
-                        size: 13, color: AppColors.success),
-                  ],
-                ],
-              ),
+              const Icon(Icons.inbox_outlined,
+                  size: 56, color: AppColors.neutral300),
+              const SizedBox(height: 16),
+              const Text('Nothing to show yet',
+                  style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.neutral600)),
               const SizedBox(height: 8),
-
-              // ── Location + salary ──
-              Row(
-                children: [
-                  const Icon(Icons.location_on_outlined,
-                      size: 12, color: AppColors.neutral400),
-                  const SizedBox(width: 3),
-                  Text(app['location'],
-                      style: const TextStyle(
-                          fontSize: 12, color: AppColors.neutral500)),
-                  const SizedBox(width: 12),
-                  Text(app['salary'],
-                      style: const TextStyle(
-                          fontSize: 12,
-                          color: AppColors.success,
-                          fontWeight: FontWeight.w600)),
-                ],
+              const Text(
+                'Set up a worker profile to track applications, or an employer '
+                'profile to track the jobs you post.',
+                textAlign: TextAlign.center,
+                style: TextStyle(fontSize: 14, color: AppColors.neutral400),
               ),
-              const SizedBox(height: 5),
-
-              // ── Date info ──
-              Text('Applied ${app['appliedDate']}',
-                  style: const TextStyle(
-                      fontSize: 11, color: AppColors.neutral400)),
-              if (app['acceptedDate'] != null)
-                Text('Accepted ${app['acceptedDate']}',
-                    style: const TextStyle(
-                        fontSize: 11, color: AppColors.success)),
-              if (app['rejectedDate'] != null)
-                Text('Rejected ${app['rejectedDate']}',
-                    style: const TextStyle(
-                        fontSize: 11, color: AppColors.error)),
-              if (app['completedDate'] != null)
-                Text('Completed ${app['completedDate']}',
-                    style: const TextStyle(
-                        fontSize: 11, color: AppColors.neutral400)),
-
-              // ── Actions ──
-              if (status == 'pending') ...[
-                const SizedBox(height: 10),
-                const Divider(height: 1),
-                const SizedBox(height: 8),
-                Align(
-                  alignment: Alignment.centerRight,
-                  child: TextButton(
-                    onPressed: () => _confirmWithdraw(app),
-                    style: TextButton.styleFrom(
-                      foregroundColor: AppColors.error,
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 12, vertical: 6),
-                      textStyle: const TextStyle(
-                          fontSize: 13, fontWeight: FontWeight.w600),
-                    ),
-                    child: const Text('Withdraw'),
-                  ),
-                ),
-              ] else if (status == 'accepted') ...[
-                const SizedBox(height: 10),
-                const Divider(height: 1),
-                const SizedBox(height: 8),
-                SizedBox(
-                  width: double.infinity,
-                  child: OutlinedButton.icon(
-                    onPressed: () =>
-                        Navigator.pushNamed(context, '/messages'),
-                    icon: const Icon(Icons.message_outlined, size: 16),
-                    label: const Text('Message Employer'),
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: AppColors.primary,
-                      side: const BorderSide(color: AppColors.primary),
-                      padding: const EdgeInsets.symmetric(vertical: 10),
-                      shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(8)),
-                      textStyle: const TextStyle(
-                          fontSize: 13, fontWeight: FontWeight.w600),
-                    ),
-                  ),
-                ),
-              ] else if (status == 'completed') ...[
-                const SizedBox(height: 10),
-                const Divider(height: 1),
-                const SizedBox(height: 8),
-                hasReview
-                    ? Row(
-                        children: const [
-                          Icon(Icons.star_rounded,
-                              size: 15, color: Colors.amber),
-                          SizedBox(width: 6),
-                          Text('Review submitted',
-                              style: TextStyle(
-                                  fontSize: 13,
-                                  color: AppColors.neutral500,
-                                  fontWeight: FontWeight.w500)),
-                        ],
-                      )
-                    : SizedBox(
-                        width: double.infinity,
-                        child: ElevatedButton.icon(
-                          onPressed: () => Navigator.pushNamed(
-                            context,
-                            '/leave-review',
-                            arguments: {
-                              'revieweeName': app['company'],
-                              'revieweeRole': 'employer',
-                              'jobTitle': app['jobTitle'],
-                            },
-                          ),
-                          icon: const Icon(Icons.star_outline, size: 18),
-                          label: const Text('Leave a Review'),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: AppColors.accent,
-                            foregroundColor: Colors.white,
-                            elevation: 0,
-                            padding:
-                                const EdgeInsets.symmetric(vertical: 11),
-                            shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(10)),
-                            textStyle: const TextStyle(
-                                fontSize: 14,
-                                fontWeight: FontWeight.w600),
-                          ),
-                        ),
-                      ),
-              ],
             ],
           ),
         ),
       ),
     );
   }
+}
 
-  Widget _badge(String status) {
-    Color color;
-    String label;
-    switch (status) {
-      case 'pending':
-        color = AppColors.warning;
-        label = 'Pending';
-        break;
-      case 'accepted':
-        color = AppColors.success;
-        label = 'Accepted';
-        break;
-      case 'rejected':
-        color = AppColors.error;
-        label = 'Rejected';
-        break;
-      case 'withdrawn':
-        color = AppColors.neutral400;
-        label = 'Withdrawn';
-        break;
-      case 'completed':
-        color = AppColors.primary;
-        label = 'Completed';
-        break;
-      default:
-        color = AppColors.neutral400;
-        label = status;
+/// One tab's definition and its rows.
+class _ActivityTab {
+  const _ActivityTab({
+    required this.label,
+    required this.items,
+    required this.isJobTab,
+    required this.emptyTitle,
+    required this.emptyBody,
+  });
+
+  final String label;
+  final List<Map<String, dynamic>> items;
+
+  /// Job posts render differently from applications (applicant count vs status
+  /// against an employer).
+  final bool isJobTab;
+
+  final String emptyTitle;
+  final String emptyBody;
+}
+
+class _TabBody extends StatelessWidget {
+  const _TabBody({
+    required this.tab,
+    required this.isLoading,
+    required this.error,
+    required this.onRefresh,
+  });
+
+  final _ActivityTab tab;
+  final bool isLoading;
+  final String? error;
+  final Future<void> Function() onRefresh;
+
+  @override
+  Widget build(BuildContext context) {
+    if (isLoading && tab.items.isEmpty) {
+      return const Center(child: CircularProgressIndicator());
     }
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.1),
-        borderRadius: BorderRadius.circular(20),
+
+    if (error != null && tab.items.isEmpty) {
+      return _message(
+        icon: Icons.cloud_off,
+        title: 'Could not load',
+        body: error!,
+        actionLabel: 'Retry',
+        onAction: onRefresh,
+      );
+    }
+
+    if (tab.items.isEmpty) {
+      return RefreshIndicator(
+        onRefresh: onRefresh,
+        child: ListView(
+          children: [
+            SizedBox(height: MediaQuery.of(context).size.height * 0.18),
+            _message(icon: Icons.inbox_outlined, title: tab.emptyTitle, body: tab.emptyBody),
+          ],
+        ),
+      );
+    }
+
+    return RefreshIndicator(
+      onRefresh: onRefresh,
+      child: ListView.builder(
+        padding: const EdgeInsets.all(16),
+        itemCount: tab.items.length,
+        itemBuilder: (_, i) => tab.isJobTab
+            ? _JobPostCard(job: tab.items[i])
+            : _ApplicationCard(application: tab.items[i]),
       ),
-      child: Text(label,
-          style: TextStyle(
-              fontSize: 11, fontWeight: FontWeight.w600, color: color)),
     );
   }
 
-  void _confirmWithdraw(Map<String, dynamic> app) {
-    showDialog(
-      context: context,
-      builder: (_) => AlertDialog(
-        title: const Text('Withdraw Application?'),
-        content: Text(
-            'Withdraw from "${app['jobTitle']}"? This cannot be undone.'),
-        actions: [
-          TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('Cancel')),
-          ElevatedButton(
-            onPressed: () {
-              Navigator.pop(context);
-              setState(() => app['status'] = 'withdrawn');
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('Application withdrawn'),
-                  backgroundColor: AppColors.neutral600,
+  Widget _message({
+    required IconData icon,
+    required String title,
+    required String body,
+    String? actionLabel,
+    Future<void> Function()? onAction,
+  }) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(32),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 56, color: AppColors.neutral300),
+            const SizedBox(height: 16),
+            Text(title,
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.neutral600)),
+            const SizedBox(height: 8),
+            Text(body,
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                    fontSize: 14, color: AppColors.neutral400)),
+            if (actionLabel != null && onAction != null) ...[
+              const SizedBox(height: 24),
+              OutlinedButton(
+                onPressed: onAction,
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: AppColors.primary,
+                  side: const BorderSide(color: AppColors.primary),
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 24, vertical: 12),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10)),
                 ),
-              );
-            },
-            style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.error,
-                foregroundColor: Colors.white),
-            child: const Text('Withdraw'),
-          ),
-        ],
+                child: Text(actionLabel,
+                    style: const TextStyle(fontWeight: FontWeight.w600)),
+              ),
+            ],
+          ],
+        ),
       ),
     );
   }
 }
+
+/// Worker side — a job you applied to.
+class _ApplicationCard extends StatelessWidget {
+  const _ApplicationCard({required this.application});
+
+  final Map<String, dynamic> application;
+
+  @override
+  Widget build(BuildContext context) {
+    final job = application['job'] as Map<String, dynamic>?;
+    final employer = job?['employer'] as Map<String, dynamic>?;
+    final status = (application['status'] ?? '').toString();
+
+    return _cardShell(
+      title: (job?['title'] ?? 'Job').toString(),
+      subtitle: (employer?['name'] ?? 'Employer').toString(),
+      status: status,
+      trailing: null,
+      onTap: job == null
+          ? null
+          : () => Navigator.pushNamed(context, '/job-details',
+              arguments: {'jobId': job['id']}),
+    );
+  }
+}
+
+/// Employer side — a job you posted.
+class _JobPostCard extends StatelessWidget {
+  const _JobPostCard({required this.job});
+
+  final Map<String, dynamic> job;
+
+  @override
+  Widget build(BuildContext context) {
+    final applicants = job['application_count'] ?? 0;
+    final status = (job['status'] ?? '').toString();
+
+    return _cardShell(
+      title: (job['title'] ?? 'Job').toString(),
+      subtitle: (job['location'] ?? '').toString(),
+      status: status,
+      trailing: '$applicants applicant${applicants == 1 ? '' : 's'}',
+      onTap: () => Navigator.pushNamed(context, '/view-applicants',
+          arguments: {'jobId': job['id']}),
+    );
+  }
+}
+
+Widget _cardShell({
+  required String title,
+  required String subtitle,
+  required String status,
+  required String? trailing,
+  VoidCallback? onTap,
+}) {
+  final (bg, fg, label) = _statusStyle(status);
+
+  return Card(
+    elevation: 0,
+    margin: const EdgeInsets.only(bottom: 12),
+    shape: RoundedRectangleBorder(
+      borderRadius: BorderRadius.circular(12),
+      side: BorderSide(color: AppColors.neutral200),
+    ),
+    child: InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(12),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  child: Text(title,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w600,
+                          color: AppColors.neutral900)),
+                ),
+                const SizedBox(width: 8),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 10, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: bg,
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Text(label,
+                      style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                          color: fg)),
+                ),
+              ],
+            ),
+            if (subtitle.isNotEmpty) ...[
+              const SizedBox(height: 6),
+              Text(subtitle,
+                  style: const TextStyle(
+                      fontSize: 13, color: AppColors.neutral600)),
+            ],
+            if (trailing != null) ...[
+              const SizedBox(height: 10),
+              Row(
+                children: [
+                  const Icon(Icons.people_outline,
+                      size: 15, color: AppColors.neutral400),
+                  const SizedBox(width: 6),
+                  Text(trailing,
+                      style: const TextStyle(
+                          fontSize: 12, color: AppColors.neutral600)),
+                ],
+              ),
+            ],
+          ],
+        ),
+      ),
+    ),
+  );
+}
+
+(Color, Color, String) _statusStyle(String status) => switch (status) {
+      'pending' => (
+          AppColors.warning.withValues(alpha: 0.12),
+          AppColors.warning,
+          'Pending'
+        ),
+      'accepted' => (
+          AppColors.success.withValues(alpha: 0.12),
+          AppColors.success,
+          'Accepted'
+        ),
+      'open' => (
+          AppColors.success.withValues(alpha: 0.12),
+          AppColors.success,
+          'Open'
+        ),
+      'in_progress' => (
+          AppColors.primary.withValues(alpha: 0.12),
+          AppColors.primary,
+          'In Progress'
+        ),
+      'completed' => (
+          AppColors.primary.withValues(alpha: 0.12),
+          AppColors.primary,
+          'Completed'
+        ),
+      'rejected' => (
+          AppColors.error.withValues(alpha: 0.12),
+          AppColors.error,
+          'Rejected'
+        ),
+      'withdrawn' => (
+          AppColors.neutral200,
+          AppColors.neutral600,
+          'Withdrawn'
+        ),
+      'cancelled' => (
+          AppColors.neutral200,
+          AppColors.neutral600,
+          'Cancelled'
+        ),
+      'closed' => (AppColors.neutral200, AppColors.neutral600, 'Closed'),
+      _ => (AppColors.neutral200, AppColors.neutral600, status),
+    };

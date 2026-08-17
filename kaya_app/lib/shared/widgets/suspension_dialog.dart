@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../core/constants/app_colors.dart';
+import '../../providers/app_mode_provider.dart';
 import '../../providers/auth_provider.dart';
 
 /// Reusable Suspension Dialog
@@ -32,9 +33,14 @@ class SuspensionDialog {
           reason: reason, // Show actual reason from admin
           showLogoutButton: true,
           onClose: () async {
+            // Resolve both providers before the first await — reading them off
+            // `context` afterwards crosses an async gap.
             final authProvider = Provider.of<AuthProvider>(context, listen: false);
+            final appMode = Provider.of<AppModeProvider>(context, listen: false);
             await authProvider.logout();
-            
+            // Keep mode state in step with the cleared session.
+            await appMode.clear();
+
             if (context.mounted) {
               Navigator.of(context).pop(); // Close dialog
               Navigator.of(context).pushNamedAndRemoveUntil('/login', (route) => false);

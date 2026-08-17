@@ -1,0 +1,25 @@
+# ── Secrets ───────────────────────────────────────────────────────────────────
+# Never commit OAuth client secrets or service-account keys.
+client_secret_*.json
+*-service-account*.json
+*.pem
+*.p12
+*.keystore
+*.jks
+
+# Environment
+.env
+.env.*
+!.env.example
+
+# ── Tooling artifacts ─────────────────────────────────────────────────────────
+composer.phar
+composer-setup.php
+
+# ── OS / editor ───────────────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+*.log
+
+# Editor backups
+*.bak

@@ -53,8 +53,14 @@ class VerificationProvider with ChangeNotifier {
       final formData = FormData.fromMap({
         'type': 'government_id',
         'id_type': idType,
-        'id_photo': await MultipartFile.fromFile(idPhotoPath, filename: 'id_photo.jpg'),
-        'selfie_photo': await MultipartFile.fromFile(selfiePhotoPath, filename: 'selfie.jpg'),
+        'id_photo': await MultipartFile.fromFile(
+          idPhotoPath, 
+          filename: 'id_photo.jpg',
+        ),
+        'selfie_photo': await MultipartFile.fromFile(
+          selfiePhotoPath, 
+          filename: 'selfie.jpg',
+        ),
       });
       
       await _api.postMultipart('/verifications', formData);
@@ -62,7 +68,13 @@ class VerificationProvider with ChangeNotifier {
       _errorMessage = null;
       return true;
     } catch (e) {
-      _errorMessage = e.toString().replaceFirst('Exception: ', '');
+      String error = e.toString().replaceFirst('Exception: ', '');
+      // Make error messages more user-friendly
+      if (error.contains('kb') || error.contains('KB') || error.contains('size') || error.contains('large')) {
+        _errorMessage = 'Photo files are too large. Please try capturing photos again with better lighting to reduce file size.';
+      } else {
+        _errorMessage = error;
+      }
       _setLoading(false);
       return false;
     }
@@ -133,9 +145,9 @@ class VerificationProvider with ChangeNotifier {
     try {
       final XFile? photo = await _picker.pickImage(
         source: ImageSource.camera,
-        maxWidth: 1920,
-        maxHeight: 1920,
-        imageQuality: 85,
+        maxWidth: 1024,  // Reduced from 1920 to prevent large files
+        maxHeight: 1024,  // Reduced from 1920 to prevent large files
+        imageQuality: 70,  // Reduced from 85 to compress more
       );
       
       if (photo == null) return null;

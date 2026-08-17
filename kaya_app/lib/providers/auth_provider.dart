@@ -16,16 +16,24 @@ class AuthProvider with ChangeNotifier {
   String? get errorMessage => _errorMessage;
   Map<String, dynamic>? get user => _user;
   bool get isLoggedIn => _user != null;
-  // user_type is set later when user sets up a profile on home screen
-  String? get userType => _user?['user_type'] as String?;
-  
+
+  // NOTE: there is deliberately no `userType` getter. KAYA is hybrid — one
+  // account can be both worker and employer — so the single `user_type` column
+  // cannot describe it. Role is always derived from the profile-existence flags
+  // below, which is also how the backend decides (User::isWorker/isEmployer).
+
   // Employer profile flags from /me endpoint
   bool get employerProfileExists => _user?['employer_profile_exists'] as bool? ?? false;
   String? get employerType => _user?['employer_type'] as String?;
-  
+  bool get employerSetupCompleted => _user?['employer_setup_completed'] as bool? ?? false;
+
   // Worker profile flags from /me endpoint
   bool get workerProfileExists => _user?['worker_profile_exists'] as bool? ?? false;
   bool get workerSetupCompleted => _user?['worker_setup_completed'] as bool? ?? false;
+
+  /// True once the user has joined at least one side of the marketplace.
+  /// When false the app is in "neutral" mode and shows the dual setup card.
+  bool get hasAnyProfile => workerProfileExists || employerProfileExists;
 
   // ── Register ─────────────────────────────────────────────────────────────────
 
@@ -34,6 +42,7 @@ class AuthProvider with ChangeNotifier {
     required String email,
     required String password,
     required String passwordConfirmation,
+    required bool termsAccepted,
     String? phone,
     String? city,
   }) async {
@@ -47,6 +56,7 @@ class AuthProvider with ChangeNotifier {
         'email': email,
         'password': password,
         'password_confirmation': passwordConfirmation,
+        'terms_accepted': termsAccepted,
         if (phone != null) 'phone': phone,
         if (city != null) 'city': city,
       });
@@ -54,6 +64,7 @@ class AuthProvider with ChangeNotifier {
       final data = response.data['data'];
       await ApiClient.saveToken(data['token'] as String);
       _user = data['user'] as Map<String, dynamic>;
+      await _hydrateProfileFlags();
 
       _isLoading = false;
       notifyListeners();
@@ -82,6 +93,7 @@ class AuthProvider with ChangeNotifier {
       final data = response.data['data'];
       await ApiClient.saveToken(data['token'] as String);
       _user = data['user'] as Map<String, dynamic>;
+      await _hydrateProfileFlags();
 
       _isLoading = false;
       notifyListeners();
@@ -186,6 +198,7 @@ class AuthProvider with ChangeNotifier {
       final data = response.data['data'];
       await ApiClient.saveToken(data['token'] as String);
       _user = data['user'] as Map<String, dynamic>;
+      await _hydrateProfileFlags();
 
       _isLoading = false;
       notifyListeners();
@@ -222,6 +235,7 @@ class AuthProvider with ChangeNotifier {
       final data = response.data['data'];
       await ApiClient.saveToken(data['token'] as String);
       _user = data['user'] as Map<String, dynamic>;
+      await _hydrateProfileFlags();
 
       _isLoading = false;
       notifyListeners();
@@ -245,6 +259,23 @@ class AuthProvider with ChangeNotifier {
     await ApiClient.deleteToken();
     _user = null;
     notifyListeners();
+  }
+
+  /// register/login/google-login all return the bare `User` model — it has no
+  /// `worker_profile_exists`/`employer_profile_exists`/setup-completed keys,
+  /// which only /me computes. Without this, `hasAnyProfile` reads those as
+  /// missing (null → false) right after every single auth path, so the
+  /// "Welcome to KAYA" dual-setup prompt showed even for accounts that
+  /// already had a complete profile — until something else happened to call
+  /// fetchMe() later (e.g. opening a profile setup screen).
+  Future<void> _hydrateProfileFlags() async {
+    try {
+      final response = await _api.get('/me');
+      _user = response.data['data'] as Map<String, dynamic>;
+    } catch (_) {
+      // Keep the raw auth-response user — a transient failure here shouldn't
+      // undo a login/register that just succeeded.
+    }
   }
 
   // ── Fetch current user ───────────────────────────────────────────────────────

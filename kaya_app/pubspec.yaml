@@ -51,6 +51,10 @@ dependencies:
   
   # File picker (for cert/license/verification docs)
   file_picker: ^8.1.2
+
+  # Opening credential documents (PDF certificates/licenses) externally —
+  # images render in-app, PDFs need the system viewer.
+  url_launcher: ^6.3.0
   
   # Fonts
   google_fonts: ^6.1.0

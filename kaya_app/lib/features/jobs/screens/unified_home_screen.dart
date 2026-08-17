@@ -1,19 +1,27 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../../core/constants/app_colors.dart';
+import '../../../core/constants/app_mode.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/navigation/app_router.dart';
 import '../../../data/models/job_model.dart';
 import '../../../data/models/worker_profile_model.dart';
 import '../../../data/services/suspension_check_service.dart';
+import '../../../providers/app_mode_provider.dart';
+import '../../../providers/application_provider.dart';
 import '../../../providers/auth_provider.dart';
+import '../../../providers/job_provider.dart';
+import '../../../providers/worker_browse_provider.dart';
 import '../../help/screens/faq_screen.dart';
 import '../widgets/unified_search_bar.dart';
 import '../widgets/jobs_near_you_section.dart';
 import '../widgets/people_who_can_help_section.dart';
 
-/// Unified Home Screen - Shows both jobs and workers simultaneously
-/// No mode switching required - users see everything and use what they need
+/// Home screen for both sides of the marketplace.
+///
+/// Content is driven by the active AppMode (worker → jobs, employer → workers).
+/// Accounts with no profile yet are in "neutral" mode and see everything plus
+/// the dual setup card.
 class UnifiedHomeScreen extends StatefulWidget {
   const UnifiedHomeScreen({super.key});
 
@@ -27,34 +35,50 @@ class _UnifiedHomeScreenState extends State<UnifiedHomeScreen> {
   String _searchQuery = '';
   bool _isLoading = false;
   String? _errorMessage;
-  bool _isOpenToWork = true; // User status toggle
-  bool _isOpenToHire = false; // User status toggle
+  // (The old _isOpenToWork / _isOpenToHire booleans lived here. They were
+  // hardcoded and never mutated, so the header badges were purely decorative.
+  // The badges are now driven by AppModeProvider — see _buildStatusBadges.)
 
-  // Mock user data
-  final String _userName = 'Eddison';
-  final int _activeJobs = 3;
-  final int _pendingApplications = 1;
+  // (The hardcoded _activeJobs = 3 / _pendingApplications = 1 stats lived here.
+  // The activity cards now read real counts from JobProvider and
+  // ApplicationProvider — see _loadActivityCounts.)
   
   // Empty state dismissal flag
   bool _isEmptyStateVisible = true; // Can be dismissed
 
-  // Mock data (TODO: Replace with provider when available)
-  late List<Job> _allJobs;
-  late List<WorkerProfile> _allWorkers;
+  // Sourced from JobProvider.publicJobs / WorkerBrowseProvider.workers — see
+  // _initializeData(). Previously these were populated from _getMockJobs() /
+  // _getMockWorkers() below, so nothing you posted ever appeared here.
+  List<Job> _allJobs = [];
+  List<WorkerProfile> _allWorkers = [];
   List<Job> _filteredJobs = [];
   List<WorkerProfile> _filteredWorkers = [];
 
   @override
   void initState() {
     super.initState();
-    _initializeData();
-    
+
     // Start periodic suspension checks
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
         SuspensionCheckService.startPeriodicCheck(context);
+        _loadActivityCounts();
+        _initializeData();
       }
     });
+  }
+
+  /// Loads the real counts behind the "Your Activity" cards, fetching only the
+  /// side(s) this account actually has.
+  Future<void> _loadActivityCounts() async {
+    if (!mounted) return;
+    final appMode = context.read<AppModeProvider>();
+
+    await Future.wait([
+      if (appMode.hasEmployerProfile) context.read<JobProvider>().fetchMyJobs(),
+      if (appMode.hasWorkerProfile)
+        context.read<ApplicationProvider>().fetchMyApplications(),
+    ]);
   }
 
   @override
@@ -64,27 +88,34 @@ class _UnifiedHomeScreenState extends State<UnifiedHomeScreen> {
     super.dispose();
   }
 
-  void _initializeData() {
-    _allJobs = _getMockJobs();
-    _allWorkers = _getMockWorkers();
-    _applyFilters();
+  /// Loads whichever feed(s) the active mode needs. A hybrid/neutral account
+  /// loads both since either section may be shown.
+  Future<void> _initializeData() async {
+    if (!mounted) return;
+
+    setState(() => _isLoading = true);
+
+    final appMode = context.read<AppModeProvider>();
+    final jobProvider = context.read<JobProvider>();
+    final workerBrowse = context.read<WorkerBrowseProvider>();
+
+    await Future.wait([
+      if (!appMode.isEmployerMode) jobProvider.fetchPublicJobs(),
+      if (!appMode.isWorkerMode) workerBrowse.fetchWorkers(),
+    ]);
+
+    if (!mounted) return;
+    setState(() {
+      _allJobs = jobProvider.publicJobs;
+      _allWorkers = workerBrowse.workers;
+      _errorMessage = jobProvider.publicErrorMessage ?? workerBrowse.errorMessage;
+      _isLoading = false;
+      _applyFilters();
+    });
   }
 
   Future<void> _refreshData() async {
-    setState(() {
-      _isLoading = true;
-      _errorMessage = null;
-    });
-    
-    // Simulate API call
-    await Future.delayed(const Duration(milliseconds: 800));
-    
-    setState(() {
-      _allJobs = _getMockJobs();
-      _allWorkers = _getMockWorkers();
-      _applyFilters();
-      _isLoading = false;
-    });
+    await _initializeData();
   }
 
   void _updateSearchQuery(String query) {
@@ -125,8 +156,165 @@ class _UnifiedHomeScreenState extends State<UnifiedHomeScreen> {
     }).toList();
   }
 
-  bool _showJobsSection(SearchFilter filter) => filter == SearchFilter.all || filter == SearchFilter.workers;
-  bool _showWorkersSection(SearchFilter filter) => filter == SearchFilter.all || filter == SearchFilter.jobs;
+  bool _showJobsSection(SearchFilter filter) => filter == SearchFilter.all || filter == SearchFilter.showJobs;
+  bool _showWorkersSection(SearchFilter filter) => filter == SearchFilter.all || filter == SearchFilter.showWorkers;
+
+  /// Whether to show the dual "set up worker / set up employer" card.
+  ///
+  /// Requires BOTH sources to agree the account has no profile. `auth` is the
+  /// authoritative server flag from /me; `appMode` is derived state that lags by
+  /// a frame after onboarding. Checking only the latter left the card on screen
+  /// after a user had finished setting up.
+  bool _shouldShowProfileSetupPrompt(
+    AuthProvider auth,
+    AppModeProvider appMode,
+  ) {
+    if (auth.hasAnyProfile) return false;
+    return appMode.isNeutral && _isEmptyStateVisible;
+  }
+
+  /// The "Open to work" / "Hiring now" badges in the header.
+  ///
+  /// Single profile → one badge, plain status, not tappable (nothing to focus).
+  /// Both profiles  → both badges lit, because the home is showing jobs AND
+  ///                  workers. Tapping one narrows the view to that side;
+  ///                  tapping the lit one again returns to the unified view.
+  /// No profile     → nothing; the dual setup card covers that case.
+  Widget _buildStatusBadges(AppModeProvider appMode) {
+    if (appMode.isNeutral) return const SizedBox.shrink();
+
+    // Unfocused hybrid: both sides are on screen, so light both badges.
+    final workerLit = appMode.isUnfocused || appMode.isWorkerMode;
+    final employerLit = appMode.isUnfocused || appMode.isEmployerMode;
+
+    return Row(
+      children: [
+        if (appMode.canActivate(AppMode.worker))
+          _statusBadge(
+            label: 'Open to work',
+            icon: Icons.check_circle,
+            color: AppColors.success,
+            isActive: workerLit,
+            onTap: appMode.isHybrid
+                ? () => appMode.isWorkerMode
+                    ? appMode.clearFocus()
+                    : appMode.setMode(AppMode.worker)
+                : null,
+          ),
+        if (appMode.isHybrid) const SizedBox(width: 8),
+        if (appMode.canActivate(AppMode.employer))
+          _statusBadge(
+            label: 'Hiring now',
+            icon: Icons.business_center,
+            color: AppColors.primary,
+            isActive: employerLit,
+            onTap: appMode.isHybrid
+                ? () => appMode.isEmployerMode
+                    ? appMode.clearFocus()
+                    : appMode.setMode(AppMode.employer)
+                : null,
+          ),
+      ],
+    );
+  }
+
+  Widget _statusBadge({
+    required String label,
+    required IconData icon,
+    required Color color,
+    required bool isActive,
+    VoidCallback? onTap,
+  }) {
+    // Inactive side is desaturated so the active mode is unambiguous at a glance.
+    final foreground = isActive ? color : AppColors.neutral400;
+
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(12),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 180),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+        decoration: BoxDecoration(
+          color: isActive
+              ? color.withValues(alpha: 0.1)
+              : Colors.transparent,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: isActive
+                ? color.withValues(alpha: 0.3)
+                : AppColors.neutral300,
+          ),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 14, color: foreground),
+            const SizedBox(width: 4),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                color: foreground,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// Extract first name from full name
+  String _getFirstName(String? fullName) {
+    if (fullName == null || fullName.isEmpty) return 'User';
+    return fullName.trim().split(' ').first;
+  }
+
+  /// What the home screen shows, driven by which profiles the account holds.
+  ///
+  /// This is the "unified" behaviour:
+  ///   worker profile only   → JOBS only
+  ///   employer profile only → WORKERS only
+  ///   BOTH profiles         → HYBRID, jobs and workers together
+  ///   neither               → everything, plus the dual setup card
+  ///
+  /// A hybrid user may optionally focus one side (see the header badges); that
+  /// narrows the view until they clear it. Focus is never applied automatically
+  /// — defaulting a dual-profile account to one side would defeat the point of
+  /// a unified home.
+  ///
+  /// Which filter chips this account is even allowed to use.
+  ///
+  /// A worker-only account has no business browsing workers, and an
+  /// employer-only account has no business browsing jobs — so those chips (and
+  /// "All") are not offered at all. Only a hybrid account gets the full set.
+  List<SearchFilter>? _allowedFilters(AppModeProvider appMode) {
+    if (appMode.isHybrid) return null; // null = show every chip
+    if (appMode.isNeutral) return null; // no profile yet: browsing is fine
+
+    return appMode.isWorkerMode
+        ? const [SearchFilter.showJobs]
+        : const [SearchFilter.showWorkers];
+  }
+
+  /// What the home actually renders.
+  ///
+  /// The manual chips are a secondary override **within what the account is
+  /// allowed to see** — they can never widen it. Previously `_searchFilter`
+  /// short-circuited this method, which let an employer select "Jobs" or "All"
+  /// and see the worker-side content.
+  SearchFilter _getFilterForMode(AppModeProvider appMode) {
+    // Single-profile account: the profile decides, full stop.
+    final allowed = _allowedFilters(appMode);
+    if (allowed != null) return allowed.first;
+
+    // Hybrid that focused one side via the header badges.
+    if (appMode.mode == AppMode.worker) return SearchFilter.showJobs;
+    if (appMode.mode == AppMode.employer) return SearchFilter.showWorkers;
+
+    // Hybrid (unfocused) or neutral: honour a chip choice, else show both.
+    return _searchFilter;
+  }
 
   /// Build empty state card for incomplete profiles
   Widget _buildEmptyStateCard() {
@@ -145,21 +333,6 @@ class _UnifiedHomeScreenState extends State<UnifiedHomeScreen> {
       ),
       child: Column(
         children: [
-          // Dismiss button
-          Align(
-            alignment: Alignment.topRight,
-            child: IconButton(
-              icon: Icon(Icons.close, size: 20, color: AppColors.neutral600),
-              onPressed: () {
-                setState(() {
-                  _isEmptyStateVisible = false;
-                });
-              },
-              padding: EdgeInsets.zero,
-              constraints: const BoxConstraints(),
-            ),
-          ),
-          
           // Illustration
           Container(
             width: 80,
@@ -177,9 +350,11 @@ class _UnifiedHomeScreenState extends State<UnifiedHomeScreen> {
           
           const SizedBox(height: 16),
           
-          // Heading
+          // Heading. This card is only ever shown to an account with NO profile
+          // yet, so the copy is about choosing a side — not about missing
+          // recommendations, which made no sense before the user had picked one.
           Text(
-            'You have no recommended jobs yet',
+            'Welcome to KAYA',
             style: TextStyle(
               fontSize: 18,
               fontWeight: FontWeight.bold,
@@ -187,12 +362,12 @@ class _UnifiedHomeScreenState extends State<UnifiedHomeScreen> {
             ),
             textAlign: TextAlign.center,
           ),
-          
+
           const SizedBox(height: 8),
-          
+
           // Subtext
           Text(
-            'Update your profile or start searching for jobs to get personalised job recommendations here.',
+            'Set up a profile to get started. Looking for work? Create a worker profile. Hiring? Set up as an employer. You can do both.',
             style: TextStyle(
               fontSize: 14,
               color: AppColors.neutral600,
@@ -256,18 +431,17 @@ class _UnifiedHomeScreenState extends State<UnifiedHomeScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Consumer<AuthProvider>(
-      builder: (context, authProvider, _) {
-        // Check profile completion status
-        final isWorkerCompleted = authProvider.workerSetupCompleted;
-        final isEmployerCompleted = authProvider.employerProfileExists;
-        
-        // Determine if profile is incomplete
-        final shouldShowOverlay = !isWorkerCompleted && !isEmployerCompleted && _isEmptyStateVisible;
-        
-        // Determine which filter to use
-        final currentFilter = isWorkerCompleted ? SearchFilter.workers : _searchFilter;
-        
+    return Consumer4<AuthProvider, AppModeProvider, JobProvider,
+        ApplicationProvider>(
+      builder: (context, authProvider, appMode, jobProvider,
+          applicationProvider, _) {
+        // Dual setup card only for accounts on neither side of the marketplace
+        final shouldShowOverlay =
+            _shouldShowProfileSetupPrompt(authProvider, appMode);
+
+        // Content follows the active mode (worker → jobs, employer → workers)
+        final currentFilter = _getFilterForMode(appMode);
+
         return Scaffold(
           backgroundColor: AppColors.background,
           body: RefreshIndicator(
@@ -316,79 +490,18 @@ class _UnifiedHomeScreenState extends State<UnifiedHomeScreen> {
                                       children: [
                                         TextSpan(text: _getGreeting()),
                                         TextSpan(
-                                          text: ', $_userName',
+                                          text: ', ${_getFirstName(authProvider.user?['name'] as String?)}',
                                           style: TextStyle(color: AppColors.primary),
                                         ),
                                       ],
                                     ),
                                   ),
                                   const SizedBox(height: 4),
-                                  // Status indicators
-                                  Row(
-                                    children: [
-                                      if (_isOpenToWork)
-                                        Container(
-                                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                                          decoration: BoxDecoration(
-                                            color: AppColors.success.withValues(alpha: 0.1),
-                                            borderRadius: BorderRadius.circular(12),
-                                            border: Border.all(
-                                              color: AppColors.success.withValues(alpha: 0.3),
-                                            ),
-                                          ),
-                                          child: Row(
-                                            mainAxisSize: MainAxisSize.min,
-                                            children: [
-                                              Icon(
-                                                Icons.check_circle,
-                                                size: 14,
-                                                color: AppColors.success,
-                                              ),
-                                              const SizedBox(width: 4),
-                                              Text(
-                                                'Open to work',
-                                                style: TextStyle(
-                                                  fontSize: 12,
-                                                  fontWeight: FontWeight.w600,
-                                                  color: AppColors.success,
-                                                ),
-                                              ),
-                                            ],
-                                          ),
-                                        ),
-                                      if (_isOpenToWork && _isOpenToHire) const SizedBox(width: 8),
-                                      if (_isOpenToHire)
-                                        Container(
-                                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                                          decoration: BoxDecoration(
-                                            color: AppColors.primary.withValues(alpha: 0.1),
-                                            borderRadius: BorderRadius.circular(12),
-                                            border: Border.all(
-                                              color: AppColors.primary.withValues(alpha: 0.3),
-                                            ),
-                                          ),
-                                          child: Row(
-                                            mainAxisSize: MainAxisSize.min,
-                                            children: [
-                                              Icon(
-                                                Icons.business_center,
-                                                size: 14,
-                                                color: AppColors.primary,
-                                              ),
-                                              const SizedBox(width: 4),
-                                              Text(
-                                                'Hiring now',
-                                                style: TextStyle(
-                                                  fontSize: 12,
-                                                  fontWeight: FontWeight.w600,
-                                                  color: AppColors.primary,
-                                                ),
-                                              ),
-                                            ],
-                                          ),
-                                        ),
-                                    ],
-                                  ),
+                                  // Status badges double as the mode switch.
+                                  // These were previously driven by two dead
+                                  // local booleans that nothing ever changed;
+                                  // they now reflect and control the active mode.
+                                  _buildStatusBadges(appMode),
                                 ],
                               ),
                             ),
@@ -452,10 +565,10 @@ class _UnifiedHomeScreenState extends State<UnifiedHomeScreen> {
                   currentFilter: currentFilter,
                   onSearch: _updateSearchQuery,
                   onFilterChanged: _updateSearchFilter,
-                  // For completed workers: only show Workers filter
-                  visibleFilters: isWorkerCompleted 
-                      ? [SearchFilter.workers] 
-                      : null, // null = show all filters
+                  // Restricted to what this account may browse. A worker-only
+                  // account sees only the Jobs chip, an employer-only account
+                  // only Workers; "All" exists solely for hybrid accounts.
+                  visibleFilters: _allowedFilters(appMode),
                 ),
               ),
             ),
@@ -518,7 +631,9 @@ class _UnifiedHomeScreenState extends State<UnifiedHomeScreen> {
 
               const SliverToBoxAdapter(child: SizedBox(height: 24)),
 
-              // Your Activity Section - Quick access to active jobs and applications
+              // Your Activity Section — hidden entirely for accounts with no
+              // profile yet, since there is no activity to summarise.
+              if (!appMode.isNeutral)
               SliverToBoxAdapter(
                 child: Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -543,29 +658,43 @@ class _UnifiedHomeScreenState extends State<UnifiedHomeScreen> {
                         ],
                       ),
                       const SizedBox(height: 12),
+                      // Activity cards follow the profiles the account holds:
+                      //   worker only   → My Applications
+                      //   employer only → Active Jobs
+                      //   both          → both
+                      // These were previously hardcoded to 3 and 1 and shown to
+                      // everyone regardless of role.
                       Row(
                         children: [
-                          // Active Jobs Card
-                          Expanded(
-                            child: _ActivityCard(
-                              icon: Icons.work,
-                              iconColor: AppColors.accent,
-                              count: _activeJobs,
-                              label: 'Active Jobs',
-                              onTap: _navigateToActiveJobs,
+                          if (appMode.hasEmployerProfile) ...[
+                            Expanded(
+                              child: _ActivityCard(
+                                icon: Icons.work,
+                                iconColor: AppColors.accent,
+                                count: jobProvider.jobs
+                                    .where((j) =>
+                                        j['status'] == 'open' ||
+                                        j['status'] == 'in_progress')
+                                    .length,
+                                label: 'Active Jobs',
+                                onTap: _navigateToActiveJobs,
+                              ),
                             ),
-                          ),
-                          const SizedBox(width: 12),
-                          // Pending Applications Card
-                          Expanded(
-                            child: _ActivityCard(
-                              icon: Icons.description,
-                              iconColor: AppColors.primary,
-                              count: _pendingApplications,
-                              label: 'My Applications',
-                              onTap: _navigateToPendingApplications,
+                            if (appMode.hasWorkerProfile)
+                              const SizedBox(width: 12),
+                          ],
+                          if (appMode.hasWorkerProfile)
+                            Expanded(
+                              child: _ActivityCard(
+                                icon: Icons.description,
+                                iconColor: AppColors.primary,
+                                count: applicationProvider.applications
+                                    .where((a) => a['status'] == 'pending')
+                                    .length,
+                                label: 'My Applications',
+                                onTap: _navigateToPendingApplications,
+                              ),
                             ),
-                          ),
                         ],
                       ),
                     ],
@@ -581,12 +710,14 @@ class _UnifiedHomeScreenState extends State<UnifiedHomeScreen> {
                   child: JobsNearYouSection(
                     jobs: _filteredJobs,
                     isLoading: _isLoading,
-                    userLocation: 'Urdaneta City, Pangasinan',
+                    userLocation: authProvider.user?['city'] as String?,
                     onSeeAll: () => AppRouter.toSearchJobs(context),
                     onJobTap: _onJobTap,
                     onJobContact: _contactEmployer,
-                    // TODO: replace with actual worker skills from WorkerProfileProvider
-                    workerSkills: const ['Plumbing', 'Pipe Repair', 'Wiring', 'Carpentry', 'Painting'],
+                    // Match % now comes from each Job's server-computed
+                    // matchScore (JobMatchService), not a client-side skill
+                    // comparison — see CompactJobCard._matchPercent.
+                    workerSkills: const [],
                   ),
                 ),
                 const SliverToBoxAdapter(child: SizedBox(height: 32)),
@@ -598,7 +729,7 @@ class _UnifiedHomeScreenState extends State<UnifiedHomeScreen> {
                   child: PeopleWhoCanHelpSection(
                     workers: _filteredWorkers,
                     isLoading: _isLoading,
-                    userLocation: 'Urdaneta City, Pangasinan',
+                    userLocation: authProvider.user?['city'] as String?,
                     onSeeAll: () => AppRouter.toSearchJobs(context),
                     onWorkerTap: _onWorkerTap,
                     onWorkerInvite: _inviteWorker,
@@ -793,156 +924,13 @@ class _UnifiedHomeScreenState extends State<UnifiedHomeScreen> {
     );
   }
 
-  /// Mock jobs data - TODO: Replace with API integration
-  List<Job> _getMockJobs() {
-    return [
-      Job(
-        id: 1,
-        title: 'Emergency Pipe Repair',
-        company: 'Plumbing Services',
-        description: 'Urgent plumbing repair needed. Kitchen sink pipe burst, water damage concern.',
-        location: 'Urdaneta City',
-        salaryMin: 1200,
-        salaryMax: 1500,
-        salaryPeriod: 'day',
-        isUrgent: true,
-        requiresVerification: true,
-        distance: 2.5,
-        isActive: true,
-        category: 'Plumbing',
-        requiredSkills: ['Pipe Repair', 'Emergency Response'],
-        applicantCount: 12,
-        postedAt: DateTime.now().subtract(const Duration(hours: 2)),
-      ),
-      Job(
-        id: 2,
-        title: 'House Rewiring',
-        company: 'ElectroFix',
-        description: 'Complete house electrical rewiring project. Old wiring needs replacement.',
-        location: 'Urdaneta City',
-        salaryMin: 1800,
-        salaryMax: 2200,
-        salaryPeriod: 'day',
-        requiresVerification: true,
-        distance: 4.2,
-        isActive: true,
-        category: 'Electrical',
-        requiredSkills: ['Electrical Wiring', 'Circuit Installation'],
-        applicantCount: 8,
-        postedAt: DateTime.now().subtract(const Duration(hours: 5)),
-      ),
-      Job(
-        id: 3,
-        title: 'Room Painting',
-        company: 'Paint Masters',
-        description: 'Interior painting for 3 bedrooms and living room.',
-        location: 'Urdaneta City',
-        salaryMin: 1000,
-        salaryMax: 1300,
-        salaryPeriod: 'day',
-        distance: 1.8,
-        isActive: true,
-        category: 'Painting',
-        requiredSkills: ['Interior Painting', 'Surface Preparation'],
-        applicantCount: 15,
-        postedAt: DateTime.now().subtract(const Duration(hours: 8)),
-      ),
-      Job(
-        id: 4,
-        title: 'Kitchen Cabinet Installation',
-        company: 'Wood Craft Solutions',
-        description: 'Custom kitchen cabinet installation. Precision work required.',
-        location: 'Urdaneta City',
-        salaryMin: 1600,
-        salaryMax: 2000,
-        salaryPeriod: 'day',
-        requiresVerification: true,
-        distance: 3.1,
-        isActive: true,
-        category: 'Carpentry',
-        requiredSkills: ['Cabinet Installation', 'Precision Carpentry'],
-        applicantCount: 6,
-        postedAt: DateTime.now().subtract(const Duration(hours: 12)),
-      ),
-    ];
-  }
-
-  /// Mock workers data - TODO: Replace with API integration
-  List<WorkerProfile> _getMockWorkers() {
-    return [
-      WorkerProfile(
-        id: 1,
-        name: 'Juan Dela Cruz',
-        primarySkill: 'Professional Plumber',
-        skills: ['Plumbing', 'Pipe Repair', 'Installation'],
-        location: 'Urdaneta City',
-        rating: 4.8,
-        reviewCount: 120,
-        isVerified: true,
-        isAvailable: true,
-        distance: 3.2,
-        yearsOfExperience: 8,
-        hourlyRate: 350,
-        completedJobs: 95,
-        lastActive: DateTime.now().subtract(const Duration(minutes: 15)),
-      ),
-      WorkerProfile(
-        id: 2,
-        name: 'Maria Santos',
-        primarySkill: 'Electrical Specialist',
-        skills: ['Electrical', 'Wiring', 'Circuit Installation'],
-        location: 'Urdaneta City',
-        rating: 4.9,
-        reviewCount: 85,
-        isVerified: true,
-        isAvailable: true,
-        distance: 5.1,
-        yearsOfExperience: 6,
-        hourlyRate: 400,
-        completedJobs: 78,
-        lastActive: DateTime.now().subtract(const Duration(hours: 2)),
-      ),
-      WorkerProfile(
-        id: 3,
-        name: 'Pedro Gonzales',
-        primarySkill: 'Painting Expert',
-        skills: ['Interior Painting', 'Exterior Painting'],
-        location: 'Urdaneta City',
-        rating: 4.7,
-        reviewCount: 65,
-        isVerified: true,
-        isAvailable: false,
-        distance: 2.8,
-        yearsOfExperience: 4,
-        hourlyRate: 280,
-        completedJobs: 52,
-        lastActive: DateTime.now().subtract(const Duration(hours: 6)),
-      ),
-      WorkerProfile(
-        id: 4,
-        name: 'Ana Reyes',
-        primarySkill: 'Master Carpenter',
-        skills: ['Carpentry', 'Cabinet Making', 'Custom Woodwork'],
-        location: 'Urdaneta City',
-        rating: 4.9,
-        reviewCount: 110,
-        isVerified: true,
-        isAvailable: true,
-        distance: 4.5,
-        yearsOfExperience: 12,
-        hourlyRate: 420,
-        completedJobs: 134,
-        lastActive: DateTime.now().subtract(const Duration(minutes: 45)),
-      ),
-    ];
-  }
 
   /// Get categories title based on current filter
   String _getCategoriesTitle(SearchFilter filter) {
     switch (filter) {
-      case SearchFilter.jobs:
+      case SearchFilter.showWorkers:
         return 'Job Categories';
-      case SearchFilter.workers:
+      case SearchFilter.showJobs:
         return 'Worker Skills';
       case SearchFilter.all:
         return 'Browse Categories';
@@ -951,8 +939,8 @@ class _UnifiedHomeScreenState extends State<UnifiedHomeScreen> {
 
   /// Build appropriate categories based on current filter
   Widget _buildCategories(SearchFilter filter) {
-    // Worker filters — keep original full-width Row layout with Expanded
-    if (filter == SearchFilter.workers) {
+    // When showing jobs (worker view) — keep original full-width Row layout with Expanded
+    if (filter == SearchFilter.showJobs) {
       return Row(
         children: [
           Expanded(child: _CategoryButton(icon: Icons.build,    label: 'Skilled',   color: AppColors.primary,  onTap: () => _onCategoryTap('Skilled'))),
@@ -1010,8 +998,11 @@ class _UnifiedHomeScreenState extends State<UnifiedHomeScreen> {
 
   /// Build smart action prompts based on current filter context
   Widget _buildSmartActionPrompts(SearchFilter filter) {
-    if (filter == SearchFilter.jobs) {
-      // When viewing jobs - show employer actions
+    if (filter == SearchFilter.showJobs) {
+      // When viewing jobs (WORKER mode) - NO button needed, workers browse jobs
+      return const SizedBox.shrink(); // Remove button entirely for workers
+    } else if (filter == SearchFilter.showWorkers) {
+      // When viewing workers (EMPLOYER mode) - show Post a Job action
       return Container(
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
@@ -1049,63 +1040,13 @@ class _UnifiedHomeScreenState extends State<UnifiedHomeScreen> {
             ),
             const SizedBox(width: 12),
             ElevatedButton(
-              onPressed: () => _navigateToPostJob(),
+              onPressed: () => AppRouter.toPostJob(context),
               style: ElevatedButton.styleFrom(
                 backgroundColor: AppColors.accent,
                 foregroundColor: Colors.white,
                 padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
               ),
-              child: const Text('Post Job'),
-            ),
-          ],
-        ),
-      );
-    } else if (filter == SearchFilter.workers) {
-      // When viewing workers - show worker actions  
-      return Container(
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            colors: [AppColors.primary.withValues(alpha: 0.1), Colors.transparent],
-            begin: Alignment.centerLeft,
-            end: Alignment.centerRight,
-          ),
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: AppColors.primary.withValues(alpha: 0.2)),
-        ),
-        child: Row(
-          children: [
-            Icon(Icons.person_outline, color: AppColors.primary, size: 24),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Looking for work?',
-                    style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                      fontWeight: FontWeight.bold,
-                      color: AppColors.neutral900,
-                    ),
-                  ),
-                  Text(
-                    'Create your worker profile to get hired',
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: AppColors.neutral600,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(width: 12),
-            ElevatedButton(
-              onPressed: () => _navigateToEditProfile(),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.primary,
-                foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              ),
-              child: const Text('My Profile'),
+              child: const Text('Post a Job'),
             ),
           ],
         ),
@@ -1191,9 +1132,9 @@ class _UnifiedHomeScreenState extends State<UnifiedHomeScreen> {
   /// Get category icon based on filter
   IconData _getCategoryIcon(SearchFilter filter) {
     switch (filter) {
-      case SearchFilter.jobs:
+      case SearchFilter.showJobs:
         return Icons.work_outline;
-      case SearchFilter.workers:
+      case SearchFilter.showWorkers:
         return Icons.people_outline;
       case SearchFilter.all:
         return Icons.dashboard_outlined;

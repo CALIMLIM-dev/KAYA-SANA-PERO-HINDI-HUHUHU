@@ -44,8 +44,8 @@ class UnifiedHomeProvider with ChangeNotifier {
   // Computed properties
   bool get hasJobsData => _jobs.isNotEmpty;
   bool get hasWorkersData => _workers.isNotEmpty;
-  bool get showJobsSection => _searchFilter == SearchFilter.all || _searchFilter == SearchFilter.jobs;
-  bool get showWorkersSection => _searchFilter == SearchFilter.all || _searchFilter == SearchFilter.workers;
+  bool get showJobsSection => _searchFilter == SearchFilter.all || _searchFilter == SearchFilter.showJobs;
+  bool get showWorkersSection => _searchFilter == SearchFilter.all || _searchFilter == SearchFilter.showWorkers;
 
   /// Initialize provider with mock data
   /// TODO: Replace with actual API calls

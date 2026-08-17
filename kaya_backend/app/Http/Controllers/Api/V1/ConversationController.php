@@ -24,7 +24,7 @@ class ConversationController extends Controller
 
         $conversations = Conversation::where('status', 'unlocked')
             ->where(fn ($q) => $q->where('employer_id', $user->id)->orWhere('worker_id', $user->id))
-            ->with(['job:id,title', 'employer:id,name,profile_picture,is_verified', 'worker:id,name,profile_picture,is_verified'])
+            ->with(['job:id,title', 'employer:id,name,avatar,is_verified', 'worker:id,name,avatar,is_verified', 'latestMessage'])
             ->withCount(['messages as unread_count' => fn ($q) => $q->where('is_read', false)->where('sender_id', '!=', $user->id)])
             ->orderByDesc('updated_at')
             ->paginate(20);

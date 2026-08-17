@@ -19,6 +19,11 @@ class FeaturedJobCard extends StatelessWidget {
   /// Worker's own skills — pass empty list for employer view (no match shown)
   final List<String> workerSkills;
 
+  /// Server-computed match (JobMatchService) — category-first, so a same-trade
+  /// worker with no exact skill overlap still scores and stays visible. Takes
+  /// priority over the client-side skill-overlap fallback below.
+  final int? matchScore;
+
   const FeaturedJobCard({
     super.key,
     required this.title,
@@ -35,15 +40,17 @@ class FeaturedJobCard extends StatelessWidget {
     this.onTap,
     this.requiredSkills = const [],
     this.workerSkills = const [],
+    this.matchScore,
   });
 
   // ─── match calculation ───────────────────────────────────────────────────────
 
   bool get _showMatch =>
-      workerSkills.isNotEmpty && requiredSkills.isNotEmpty;
+      matchScore != null || (workerSkills.isNotEmpty && requiredSkills.isNotEmpty);
 
   int get _matchPercent {
-    if (!_showMatch) return 0;
+    if (matchScore != null) return matchScore!;
+    if (workerSkills.isEmpty || requiredSkills.isEmpty) return 0;
     final wLower = workerSkills.map((s) => s.toLowerCase()).toSet();
     final matched =
         requiredSkills.where((s) => wLower.contains(s.toLowerCase())).length;

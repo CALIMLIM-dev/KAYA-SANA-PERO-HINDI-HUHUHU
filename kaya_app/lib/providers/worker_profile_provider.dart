@@ -25,6 +25,10 @@ class WorkerProfileProvider with ChangeNotifier {
   bool _isLoading = false;
   String? _errorMessage;
 
+  /// Guards the auto-fetch in main.dart's proxy provider, which re-runs on every
+  /// AuthProvider notification. Without it the profile refetched continuously.
+  bool _hasFetchedOnce = false;
+
   // Stub properties for compatibility with existing screens
   String? name;
   String? location;
@@ -42,13 +46,15 @@ class WorkerProfileProvider with ChangeNotifier {
   List<SkillModel> get availableSkills => _availableSkills;
   bool get isLoading => _isLoading;
   String? get errorMessage => _errorMessage;
+  bool get hasFetchedOnce => _hasFetchedOnce;
 
   // Stub methods for compatibility
   Future<void> fetchProfile() async {
     _isLoading = true;
     _errorMessage = null;
+    _hasFetchedOnce = true;
     notifyListeners();
-    
+
     try {
       // Fetch user basic info
       final userResponse = await _apiClient.get('/user');
@@ -142,6 +148,50 @@ class WorkerProfileProvider with ChangeNotifier {
       
       if (data['success']) {
         location = newLocation;
+        notifyListeners();
+        return true;
+      } else {
+        _errorMessage = data['message'];
+        return false;
+      }
+    } catch (e) {
+      _errorMessage = e.toString();
+      return false;
+    }
+  }
+
+  Future<bool> completeSetup() async {
+    try {
+      final response = await _apiClient.post('/worker/profile/complete-setup');
+      final data = response.data as Map<String, dynamic>;
+      
+      if (data['success']) {
+        notifyListeners();
+        return true;
+      } else {
+        _errorMessage = data['message'];
+        return false;
+      }
+    } catch (e) {
+      _errorMessage = e.toString();
+      return false;
+    }
+  }
+
+  Future<bool> deleteProfile() async {
+    try {
+      final response = await _apiClient.delete('/worker/profile');
+      final data = response.data as Map<String, dynamic>;
+      
+      if (data['success']) {
+        // Clear local state
+        location = null;
+        phone = null;
+        _skills = [];
+        _certifications = [];
+        _licenses = [];
+        _licenseExaminations = [];
+        _experiences = [];
         notifyListeners();
         return true;
       } else {
@@ -272,13 +322,23 @@ class WorkerProfileProvider with ChangeNotifier {
     }
   }
 
+  /// Guards against a stale response clobbering a newer one. Switching
+  /// category quickly (A, then B before A's request lands) has no ordering
+  /// guarantee — if A's response arrives after B's, `_availableSkills` was
+  /// silently overwritten with the wrong category's skills, which is exactly
+  /// what showed up as "random" skills on the job-posting form.
+  int _skillsRequestId = 0;
+
   Future<void> fetchSkillsByCategory(int categoryId) async {
+    final requestId = ++_skillsRequestId;
     _isLoading = true;
     _errorMessage = null;
     notifyListeners();
 
     try {
       final response = await _apiClient.get('/skills?category_id=$categoryId');
+      if (requestId != _skillsRequestId) return; // superseded by a newer request
+
       final data = response.data as Map<String, dynamic>;
       if (data['success']) {
         _availableSkills = (data['data'] as List)
@@ -288,10 +348,13 @@ class WorkerProfileProvider with ChangeNotifier {
         _errorMessage = data['message'];
       }
     } catch (e) {
+      if (requestId != _skillsRequestId) return;
       _errorMessage = e.toString();
     } finally {
-      _isLoading = false;
-      notifyListeners();
+      if (requestId == _skillsRequestId) {
+        _isLoading = false;
+        notifyListeners();
+      }
     }
   }
 

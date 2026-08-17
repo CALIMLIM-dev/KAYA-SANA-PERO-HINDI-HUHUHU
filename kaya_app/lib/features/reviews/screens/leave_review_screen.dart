@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import '../../../core/constants/app_colors.dart';
+import '../../../providers/review_provider.dart';
 
 /// Leave Review Screen — post-job completion, either party leaves a review
 /// Arguments: { revieweeName, revieweeRole ('worker' | 'employer'), jobTitle }
@@ -299,7 +301,11 @@ class _LeaveReviewScreenState extends State<LeaveReviewScreen> {
                 width: double.infinity,
                 child: ElevatedButton(
                   onPressed: _canSubmit && !_isSubmitting
-                      ? () => _submitReview(revieweeName)
+                      ? () => _submitReview(
+                            revieweeName,
+                            revieweeId: args?['revieweeId'] as int?,
+                            jobId: args?['jobId'] as int?,
+                          )
                       : null,
                   style: ElevatedButton.styleFrom(
                     backgroundColor: AppColors.accent,
@@ -340,22 +346,45 @@ class _LeaveReviewScreenState extends State<LeaveReviewScreen> {
     }
   }
 
-  Future<void> _submitReview(String revieweeName) async {
-    setState(() => _isSubmitting = true);
-
-    // TODO: Call ReviewService.submitReview(...)
-    await Future.delayed(const Duration(milliseconds: 800));
-
-    setState(() => _isSubmitting = false);
-
-    if (mounted) {
+  Future<void> _submitReview(
+    String revieweeName, {
+    required int? revieweeId,
+    required int? jobId,
+  }) async {
+    // Previously this faked an 800ms delay and reported the review as submitted
+    // without sending anything.
+    if (revieweeId == null || jobId == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Review for $revieweeName submitted'),
-          backgroundColor: AppColors.success,
+        const SnackBar(
+          content: Text('Cannot submit: missing job or person details.'),
+          backgroundColor: AppColors.error,
         ),
       );
-      Navigator.pop(context);
+      return;
     }
+
+    setState(() => _isSubmitting = true);
+
+    final reviews = context.read<ReviewProvider>();
+    final success = await reviews.submitReview(
+      revieweeId: revieweeId,
+      jobId: jobId,
+      rating: _rating,
+      comment: _commentController.text,
+    );
+
+    if (!mounted) return;
+    setState(() => _isSubmitting = false);
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(success
+            ? 'Review for $revieweeName submitted'
+            : reviews.errorMessage ?? 'Could not submit review'),
+        backgroundColor: success ? AppColors.success : AppColors.error,
+      ),
+    );
+
+    if (success) Navigator.pop(context, true);
   }
 }

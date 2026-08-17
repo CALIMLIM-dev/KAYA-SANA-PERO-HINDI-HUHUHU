@@ -19,8 +19,14 @@ class UserManagementController extends Controller
             });
         }
 
+        // Filter by profile existence rather than user_type, so hybrid accounts
+        // appear under both "Worker" and "Employer".
         if ($type = $request->get('user_type')) {
-            $query->where('user_type', $type);
+            match ($type) {
+                'worker'   => $query->whereHas('workerProfile'),
+                'employer' => $query->whereHas('employerProfile'),
+                default    => null,
+            };
         }
 
         if ($status = $request->get('status')) {
@@ -64,17 +70,18 @@ class UserManagementController extends Controller
             ? $request->input('custom_reason')
             : $request->input('reason_type');
 
-        $user->update([
+        // forceFill: suspension fields are intentionally not mass-assignable.
+        $user->forceFill([
             'is_suspended' => true,
             'suspended_reason' => $reason,
-        ]);
+        ])->save();
 
         return back()->with('success', "{$user->name} has been suspended.");
     }
 
     public function activate(User $user)
     {
-        $user->update(['is_suspended' => false, 'suspended_reason' => null]);
+        $user->forceFill(['is_suspended' => false, 'suspended_reason' => null])->save();
 
         return back()->with('success', "{$user->name} has been reactivated.");
     }

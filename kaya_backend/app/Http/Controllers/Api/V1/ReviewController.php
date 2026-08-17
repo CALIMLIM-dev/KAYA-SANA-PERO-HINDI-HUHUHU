@@ -30,17 +30,30 @@ class ReviewController extends Controller
             'comment'     => ['nullable', 'string', 'max:1000'],
         ]);
 
-        // Ensure reviewer and reviewee had a relationship for this job
-        $hasRelationship = Application::where('job_id', $data['job_id'])
-            ->where(function ($q) use ($user, $data) {
-                $q->where('worker_id', $user->id)
-                  ->orWhere('worker_id', $data['reviewee_id']);
-            })
+        if ((int) $data['reviewee_id'] === $user->id) {
+            return $this->fail('You cannot review yourself', 422);
+        }
+
+        $job = \App\Models\JobPost::findOrFail($data['job_id']);
+
+        if ($job->status !== 'completed') {
+            return $this->fail('You can only review after the job is marked completed', 422);
+        }
+
+        // The reviewer and reviewee must be the two actual parties on this job:
+        // the employer who posted it, and a worker whose application was accepted.
+        // (The previous check passed if EITHER party had an accepted application,
+        // which let any hired worker review an arbitrary stranger.)
+        $isHired = fn (int $workerId) => Application::where('job_id', $job->id)
+            ->where('worker_id', $workerId)
             ->where('status', 'accepted')
             ->exists();
 
-        if (!$hasRelationship) {
-            return $this->fail('You can only review someone you worked with', 403);
+        $reviewerIsEmployer = $job->employer_id === $user->id && $isHired((int) $data['reviewee_id']);
+        $reviewerIsWorker   = $job->employer_id === (int) $data['reviewee_id'] && $isHired($user->id);
+
+        if (!$reviewerIsEmployer && !$reviewerIsWorker) {
+            return $this->fail('You can only review someone you worked with on this job', 403);
         }
 
         // Prevent duplicate reviews

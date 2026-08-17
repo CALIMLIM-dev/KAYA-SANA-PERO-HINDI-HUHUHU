@@ -37,7 +37,8 @@ class VerificationController extends Controller
             'reviewed_at' => now(),
         ]);
 
-        $verification->user->update(['is_verified' => true]);
+        // forceFill: is_verified is intentionally not mass-assignable.
+        $verification->user->forceFill(['is_verified' => true])->save();
 
         return redirect()->route('admin.verifications.index')
             ->with('success', "{$verification->user->name}'s verification was approved.");

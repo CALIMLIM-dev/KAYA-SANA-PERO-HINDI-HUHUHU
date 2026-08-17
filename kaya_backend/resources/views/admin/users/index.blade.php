@@ -49,7 +49,7 @@
                             </div>
                         </div>
                     </td>
-                    <td class="py-3 px-5 capitalize text-slate-500">{{ $user->user_type }}</td>
+                    <td class="py-3 px-5 text-slate-500">{{ $user->roleLabel() }}</td>
                     <td class="py-3 px-5 text-slate-500">{{ $user->created_at->format('M j, Y') }}</td>
                     <td class="py-3 px-5">
                         @if ($user->is_suspended)

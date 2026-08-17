@@ -9,6 +9,7 @@ class Job {
   final double? salaryMax;
   final String salaryPeriod; // 'hour', 'day', 'month'
   final bool isUrgent;
+  final bool isNegotiable;
   final bool requiresVerification;
   final double? distance; // in kilometers
   final DateTime? postedAt;
@@ -18,6 +19,24 @@ class Job {
   final List<String> requiredSkills;
   final int applicantCount;
 
+  /// Server-computed match (0-100) for the signed-in worker, from
+  /// JobMatchService — same scoring an employer sees on their applicant list.
+  /// Null when the account has no worker profile to score against.
+  final int? matchScore;
+  final List<String> matchedSkills;
+  final int? jobId;
+  final int? categoryId;
+  final int? locationId;
+
+  // Populated by GET /jobs/{id} only — the list endpoints don't compute these
+  // per-row to keep the query cheap.
+  final int? employerId;
+  final String? employerAvatar;
+  final bool hasApplied;
+  final bool isSaved;
+  final bool isOwnJob;
+  final List<String> photoUrls;
+
   const Job({
     required this.id,
     required this.title,
@@ -26,8 +45,9 @@ class Job {
     this.location,
     this.salaryMin,
     this.salaryMax,
-    this.salaryPeriod = 'day',
+    this.salaryPeriod = 'project',
     this.isUrgent = false,
+    this.isNegotiable = false,
     this.requiresVerification = false,
     this.distance,
     this.postedAt,
@@ -36,7 +56,82 @@ class Job {
     this.category,
     this.requiredSkills = const [],
     this.applicantCount = 0,
+    this.matchScore,
+    this.matchedSkills = const [],
+    this.jobId,
+    this.categoryId,
+    this.locationId,
+    this.employerId,
+    this.employerAvatar,
+    this.hasApplied = false,
+    this.isSaved = false,
+    this.isOwnJob = false,
+    this.photoUrls = const [],
   });
+
+  /// Maps a raw `jobs_posts` row from the Laravel API (GET /jobs, /jobs/my,
+  /// /jobs/{id}) to this model. The mock `fromJson` above expects different
+  /// field names ('company', 'salary_min', 'posted_at') that the real API
+  /// never sends, so it silently produced blank cards if pointed at live data.
+  factory Job.fromApi(Map<String, dynamic> json) {
+    double? asDouble(Object? v) =>
+        v == null ? null : (v is num ? v.toDouble() : double.tryParse('$v'));
+
+    final category = json['category'] as Map<String, dynamic>?;
+    final employer = json['employer'] as Map<String, dynamic>?;
+    // GET /jobs/{id} nests the same info under employer_information instead.
+    final employerInfo = json['employer_information'] as Map<String, dynamic>?;
+    final skills = json['skills'] as List?;
+
+    final status = (json['application_status'] as String?);
+
+    return Job(
+      id: json['id'] as int,
+      title: (json['title'] ?? '').toString(),
+      company: (employer?['name'] ?? employerInfo?['name'] ?? '').toString(),
+      description: json['description'] as String?,
+      location: (json['city'] ?? json['location']) as String?,
+      salaryMin: asDouble(json['budget_min']),
+      salaryMax: asDouble(json['budget_max']),
+      salaryPeriod: (json['budget_period'] as String?) ?? 'project',
+      isUrgent: json['is_urgent'] as bool? ?? false,
+      isNegotiable: json['is_negotiable'] as bool? ?? false,
+      requiresVerification: (employer?['is_verified'] as bool?) ??
+          (employerInfo?['verification_status'] as bool?) ??
+          false,
+      postedAt:
+          json['created_at'] != null ? DateTime.tryParse(json['created_at']) : null,
+      isActive: json['status'] == 'open',
+      category: category?['name'] as String?,
+      categoryId: category?['id'] as int? ?? json['category_id'] as int?,
+      locationId: json['location_id'] as int?,
+      requiredSkills: skills == null
+          ? const []
+          : skills
+              .map((s) => (s as Map<String, dynamic>)['name']?.toString() ?? '')
+              .where((s) => s.isNotEmpty)
+              .toList(),
+      applicantCount: (json['application_count'] as num?)?.toInt() ?? 0,
+      matchScore: (json['match_score'] as num?)?.toInt(),
+      matchedSkills: (json['matched_skills'] as List?)
+              ?.map((s) => s.toString())
+              .toList() ??
+          const [],
+      employerId: (employerInfo?['employer_id'] ?? json['employer_id']) as int?,
+      employerAvatar: employerInfo?['profile_photo_path'] as String?,
+      hasApplied: json['has_applied'] as bool? ?? (status != null),
+      applicationStatus: status == null
+          ? null
+          : ApplicationStatus.values.firstWhere(
+              (e) => e.name == status,
+              orElse: () => ApplicationStatus.pending,
+            ),
+      isSaved: json['is_saved'] as bool? ?? false,
+      isOwnJob: json['is_own_job'] as bool? ?? false,
+      photoUrls: (json['photo_urls'] as List?)?.map((e) => e.toString()).toList() ??
+          const [],
+    );
+  }
 
   factory Job.fromJson(Map<String, dynamic> json) {
     return Job(

@@ -31,6 +31,7 @@ class AuthController extends Controller
             'password' => ['required', 'string', 'min:8', 'confirmed'],
             'phone'    => ['nullable', 'string', 'max:20'],
             'city'     => ['nullable', 'string', 'max:255'],
+            'terms_accepted' => ['required', 'boolean', 'accepted'],
         ]);
 
         $input = $request->input('email');
@@ -46,6 +47,8 @@ class AuthController extends Controller
                 'email'    => null,
                 'phone'    => $input,
                 'password' => $request->input('password'),
+                'terms_accepted' => true,
+                'terms_accepted_at' => now(),
             ];
         } else {
             // Validate as email
@@ -59,6 +62,8 @@ class AuthController extends Controller
                 'name'     => $request->input('name') ?: null,
                 'email'    => $input,
                 'password' => $request->input('password'),
+                'terms_accepted' => true,
+                'terms_accepted_at' => now(),
             ];
         }
 
@@ -148,7 +153,8 @@ class AuthController extends Controller
             // Employer profile flags
             'employer_profile_exists' => $employerProfile !== null,
             'employer_type' => $employerProfile?->employer_type?->value,
-            
+            'employer_setup_completed' => $employerProfile?->isSetupCompleted() ?? false,
+
             // Worker profile flags
             'worker_profile_exists' => $workerProfile !== null,
             'worker_setup_completed' => $workerProfile?->isSetupCompleted() ?? false,
@@ -209,11 +215,11 @@ class AuthController extends Controller
         // Check if user already exists
         $existingUser = User::where('email', $request->email)->first();
 
-        \Log::info('Google Login Debug', [
-            'email' => $request->email,
-            'is_signup' => $request->input('is_signup'),
-            'existing_user' => $existingUser ? 'yes' : 'no',
-            'has_password' => $request->password ? 'yes' : 'no',
+        // Deliberately not logging the email or whether an account exists — that
+        // combination turns the log into an account-enumeration oracle and puts
+        // user PII into plaintext log files.
+        \Log::debug('Google login attempt', [
+            'is_signup' => $request->boolean('is_signup'),
         ]);
 
         // If this is a SIGNUP attempt and user exists, reject it
@@ -267,8 +273,16 @@ class AuthController extends Controller
 
         $user = User::where('email', $request->email)->first();
 
+        // Deliberately identical response whether or not the account exists.
+        // Returning 404 here turned this endpoint into an account-existence
+        // oracle that anyone could enumerate.
+        $genericResponse = fn () => $this->ok(
+            null,
+            'If an account exists for that email, we have sent a reset code.'
+        );
+
         if (!$user) {
-            return $this->fail('No account found with that email address.', 404);
+            return $genericResponse();
         }
 
         // Generate 6-digit reset code
@@ -279,14 +293,20 @@ class AuthController extends Controller
         $user->password_reset_expires_at = now()->addMinutes(15);
         $user->save();
 
-        // Send email
         try {
             Mail::to($user->email)->send(new PasswordResetMail($user->name ?? 'User', $resetCode));
-            return $this->ok(null, 'Password reset code sent to your email.');
         } catch (\Exception $e) {
-            \Log::error('Failed to send reset email: ' . $e->getMessage());
-            return $this->fail('Failed to send reset email: ' . $e->getMessage(), 500);
+            // Log the detail for us; never return it to the client, where it can
+            // expose mail host, credentials and other internals.
+            \Log::error('Failed to send password reset email', [
+                'user_id' => $user->id,
+                'error'   => $e->getMessage(),
+            ]);
+
+            return $this->fail('We could not send the reset email right now. Please try again shortly.', 500);
         }
+
+        return $genericResponse();
     }
 
     /**
@@ -301,20 +321,21 @@ class AuthController extends Controller
 
         $user = User::where('email', $request->email)->first();
 
-        if (!$user) {
-            return $this->fail('No account found with that email address.', 404);
-        }
+        // A missing account, a missing reset request, an expired window and a
+        // wrong code all return the same message, so this cannot be used to
+        // probe which email addresses exist.
+        $invalid = fn () => $this->fail('Invalid or expired reset code. Please request a new one.', 422);
 
-        if (!$user->password_reset_token || !$user->password_reset_expires_at) {
-            return $this->fail('No reset request found. Please request a new code.', 422);
+        if (!$user || !$user->password_reset_token || !$user->password_reset_expires_at) {
+            return $invalid();
         }
 
         if (now()->isAfter($user->password_reset_expires_at)) {
-            return $this->fail('Reset code has expired. Please request a new one.', 422);
+            return $invalid();
         }
 
         if (!Hash::check($request->code, $user->password_reset_token)) {
-            return $this->fail('Invalid reset code. Please check and try again.', 422);
+            return $invalid();
         }
 
         return $this->ok(null, 'Reset code verified successfully.');
@@ -333,20 +354,21 @@ class AuthController extends Controller
 
         $user = User::where('email', $request->email)->first();
 
-        if (!$user) {
-            return $this->fail('No account found with that email address.', 404);
-        }
+        // A missing account, a missing reset request, an expired window and a
+        // wrong code all return the same message, so this cannot be used to
+        // probe which email addresses exist.
+        $invalid = fn () => $this->fail('Invalid or expired reset code. Please request a new one.', 422);
 
-        if (!$user->password_reset_token || !$user->password_reset_expires_at) {
-            return $this->fail('No reset request found. Please request a new code.', 422);
+        if (!$user || !$user->password_reset_token || !$user->password_reset_expires_at) {
+            return $invalid();
         }
 
         if (now()->isAfter($user->password_reset_expires_at)) {
-            return $this->fail('Reset code has expired. Please request a new one.', 422);
+            return $invalid();
         }
 
         if (!Hash::check($request->code, $user->password_reset_token)) {
-            return $this->fail('Invalid reset code. Please check and try again.', 422);
+            return $invalid();
         }
 
         // Update password and clear reset token

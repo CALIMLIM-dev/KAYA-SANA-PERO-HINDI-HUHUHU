@@ -34,10 +34,16 @@ class StoreEmployerProfileRequest extends FormRequest
             $rules['company_name'] = ['required', 'string', 'max:255'];
             $rules['industry'] = ['required', 'string', 'max:255'];
             $rules['location'] = ['required', 'string', 'max:255'];
+            $rules['location_id'] = ['nullable', 'exists:locations,id'];
+            $rules['latitude'] = ['nullable', 'numeric', 'between:-90,90'];
+            $rules['longitude'] = ['nullable', 'numeric', 'between:-180,180'];
             $rules['website'] = ['nullable', 'url', 'max:255'];
             $rules['description'] = ['nullable', 'string', 'max:2000'];
         } elseif ($employerType === 'individual') {
             $rules['location'] = ['required', 'string', 'max:255'];
+            $rules['location_id'] = ['nullable', 'exists:locations,id'];
+            $rules['latitude'] = ['nullable', 'numeric', 'between:-90,90'];
+            $rules['longitude'] = ['nullable', 'numeric', 'between:-180,180'];
             $rules['description'] = ['nullable', 'string', 'max:2000'];
         }
 

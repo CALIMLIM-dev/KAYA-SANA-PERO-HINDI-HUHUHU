@@ -19,11 +19,22 @@ class CompactJobCard extends StatelessWidget {
   });
 
   // ─── match calculation ────────────────────────────────────────────────────
+  //
+  // Prefers the server's match_score (JobMatchService — category-first, so a
+  // same-trade worker with no exact skill overlap still scores well and stays
+  // visible). The client-side skill-overlap calculation below is only a
+  // fallback for a Job that was not loaded from GET /jobs (e.g. still mocked
+  // in a screen this card hasn't been wired into yet), where matchScore is
+  // always null and skills-only was the entire signal — it would have hidden
+  // a valid same-category worker with zero exact skill matches.
   bool get _showMatch =>
-      workerSkills.isNotEmpty && job.requiredSkills.isNotEmpty;
+      job.matchScore != null ||
+      (workerSkills.isNotEmpty && job.requiredSkills.isNotEmpty);
 
   int get _matchPercent {
-    if (!_showMatch) return 0;
+    if (job.matchScore != null) return job.matchScore!;
+    if (workerSkills.isEmpty || job.requiredSkills.isEmpty) return 0;
+
     final wLower = workerSkills.map((s) => s.toLowerCase()).toSet();
     final matched = job.requiredSkills
         .where((s) => wLower.contains(s.toLowerCase()))

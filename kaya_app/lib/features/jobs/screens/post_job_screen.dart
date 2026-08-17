@@ -3,7 +3,10 @@ import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 import 'dart:io';
 import '../../../core/constants/app_colors.dart';
+import '../../../data/models/location_model.dart';
 import '../../../providers/job_provider.dart';
+import '../../../providers/worker_profile_provider.dart';
+import '../../../shared/widgets/location_picker_field.dart';
 
 /// Post Job Screen - Clean, professional design following industry best practices
 class PostJobScreen extends StatefulWidget {
@@ -13,7 +16,16 @@ class PostJobScreen extends StatefulWidget {
   State<PostJobScreen> createState() => _PostJobScreenState();
 }
 
-class _PostJobScreenState extends State<PostJobScreen> {  
+class _PostJobScreenState extends State<PostJobScreen> {
+  @override
+  void initState() {
+    super.initState();
+    // Load the real category list before the picker can be opened.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) context.read<WorkerProfileProvider>().fetchCategories();
+    });
+  }
+
   final _formKey = GlobalKey<FormState>();
   final _titleController = TextEditingController();
   final _descriptionController = TextEditingController();
@@ -22,7 +34,19 @@ class _PostJobScreenState extends State<PostJobScreen> {
   final _workersNeededController = TextEditingController(text: '1');
   
   String? _selectedCategory;
+
+  /// The real database id of the chosen category.
+  ///
+  /// This used to be guessed as `indexOf(category) + 1` against a hardcoded
+  /// list, which only matched the real ids by coincidence — adding, removing or
+  /// reordering a category would have filed every new job under the wrong one.
+  int? _selectedCategoryId;
+
   String? _customCategoryName; // used when 'Other' is selected
+
+  /// Structured location chosen from the picker — carries the PSGC id and
+  /// coordinates, unlike the display string in _locationController.
+  LocationModel? _selectedLocation;
   String _salaryType = 'Daily';
   final List<String> _selectedSkills = [];
   final _customSkillController = TextEditingController();
@@ -30,6 +54,7 @@ class _PostJobScreenState extends State<PostJobScreen> {
   bool _isLoading = false;
   bool _isUrgent = false;
   bool _isNegotiable = false;
+  bool _showPhotoError = false;
 
   // Categories
   final List<Map<String, dynamic>> _categories = [
@@ -86,17 +111,69 @@ class _PostJobScreenState extends State<PostJobScreen> {
     super.dispose();
   }
 
-  List<String> get _availableSkills {
-    if (_selectedCategory == null) return [];
-    return _categorySkills[_selectedCategory!] ?? [];
+  /// Salary must parse to a real, positive number. The server also enforces
+  /// `numeric|min:0`, but catching it here gives inline feedback instead of a
+  /// 422 after the user has filled in the whole form.
+  String? _validateSalary(String? value) {
+    final raw = value?.trim() ?? '';
+    if (raw.isEmpty) return 'Required';
+
+    final amount = double.tryParse(raw.replaceAll(',', ''));
+    if (amount == null) return 'Enter a valid amount';
+    if (amount <= 0) return 'Salary must be greater than 0';
+    if (amount > 1000000) return 'Amount looks too high';
+
+    return null;
   }
 
-  void _updateSkillsForCategory(String? category) {
+  /// Skills for the chosen category, loaded from /skills?category_id= — the
+  /// same endpoint worker onboarding uses, so a job's required skills and a
+  /// worker's skills are drawn from one list and can actually be matched.
+  List<String> get _availableSkills {
+    if (_selectedCategoryId == null) return [];
+    return context
+        .read<WorkerProfileProvider>()
+        .availableSkills
+        .map((s) => s.name)
+        .toList();
+  }
+
+  /// Icon for a server-supplied category name. Falls back to a generic icon so
+  /// a category added later (including a worker's custom one) still renders.
+  IconData _iconForCategory(String name) {
+    final match = _categories.firstWhere(
+      (c) => (c['name'] as String).toLowerCase() == name.toLowerCase(),
+      orElse: () => const {'icon': Icons.category},
+    );
+    return match['icon'] as IconData;
+  }
+
+  /// Resolves the chosen skill names back to their database ids for the API.
+  List<int> get _selectedSkillIds {
+    final all = context.read<WorkerProfileProvider>().availableSkills;
+    return all
+        .where((s) => _selectedSkills.contains(s.name))
+        .map((s) => s.id)
+        .toList();
+  }
+
+  /// Selects a category and loads its skills from the API.
+  ///
+  /// [categoryId] is the real database id, resolved from the categories the
+  /// server returned — not inferred from a list position.
+  void _updateSkillsForCategory(String? category, {int? categoryId}) {
     setState(() {
       _selectedSkills.clear();
       _selectedCategory = category;
+      _selectedCategoryId = categoryId;
       if (category != 'Other') _customCategoryName = null;
     });
+
+    if (categoryId != null) {
+      // Same endpoint worker onboarding uses, so job requirements and worker
+      // skills come from one vocabulary and can be matched against each other.
+      context.read<WorkerProfileProvider>().fetchSkillsByCategory(categoryId);
+    }
   }
 
   void _handleUrgentToggle() {
@@ -150,6 +227,7 @@ class _PostJobScreenState extends State<PostJobScreen> {
         if (_selectedImages.length > 4) {
           _selectedImages.removeRange(4, _selectedImages.length);
         }
+        _showPhotoError = false;
       });
     }
   }
@@ -160,9 +238,55 @@ class _PostJobScreenState extends State<PostJobScreen> {
     });
   }
 
+  /// True once the user has typed or picked anything — an empty form can be
+  /// left without a warning.
+  bool get _hasUnsavedInput =>
+      _titleController.text.trim().isNotEmpty ||
+      _descriptionController.text.trim().isNotEmpty ||
+      _budgetController.text.trim().isNotEmpty ||
+      _locationController.text.trim().isNotEmpty ||
+      _selectedCategory != null ||
+      _selectedSkills.isNotEmpty ||
+      _selectedImages.isNotEmpty;
+
+  Future<bool> _confirmDiscard() async {
+    if (!_hasUnsavedInput) return true;
+    final shouldExit = await showDialog<bool>(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: const Text('Discard This Job Post?'),
+            content: const Text(
+              'You have unsaved changes. If you leave now, everything you\'ve entered will be discarded.',
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context, false),
+                child: const Text('Cancel'),
+              ),
+              TextButton(
+                onPressed: () => Navigator.pop(context, true),
+                child: const Text(
+                  'Discard',
+                  style: TextStyle(color: AppColors.error),
+                ),
+              ),
+            ],
+          ),
+        ) ??
+        false;
+    return shouldExit;
+  }
+
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
+    return PopScope(
+      canPop: false,
+      onPopInvoked: (didPop) async {
+        if (didPop) return;
+        final shouldExit = await _confirmDiscard();
+        if (shouldExit && mounted) Navigator.pop(context);
+      },
+      child: Scaffold(
       backgroundColor: AppColors.neutral50,
       appBar: AppBar(
         title: const Text(
@@ -175,17 +299,25 @@ class _PostJobScreenState extends State<PostJobScreen> {
         backgroundColor: AppColors.primary,
         foregroundColor: Colors.white,
         elevation: 0,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          onPressed: () async {
+            final shouldExit = await _confirmDiscard();
+            if (shouldExit && mounted) Navigator.pop(context);
+          },
+        ),
       ),
       body: Form(
         key: _formKey,
         child: SingleChildScrollView(
           child: Column(
             children: [
-              const SizedBox(height: 12),
-              
+              const SizedBox(height: 16),
+
               // Basic Information
               _buildSection(
                 title: 'Basic Information',
+                icon: Icons.work_outline,
                 children: [
                   _buildLabel('Job Title'),
                   const SizedBox(height: 8),
@@ -255,23 +387,30 @@ class _PostJobScreenState extends State<PostJobScreen> {
                   ],
                 ],
               ),
-              
-              const SizedBox(height: 12),
-              
+              const SizedBox(height: 16),
+
               // Job Photos
               _buildSection(
-                title: 'Job Photos (Optional)',
-                subtitle: 'Add up to 4 photos',
+                title: 'Job Photos',
+                subtitle: 'Add at least 1 photo (up to 4)',
+                icon: Icons.photo_camera_outlined,
                 children: [
                   _buildPhotoSelector(),
+                  if (_showPhotoError) ...[
+                    const SizedBox(height: 8),
+                    Text(
+                      'At least one photo is required',
+                      style: TextStyle(fontSize: 12.5, color: AppColors.error),
+                    ),
+                  ],
                 ],
               ),
-              
-              const SizedBox(height: 12),
-              
+              const SizedBox(height: 16),
+
               // Workers Needed
               _buildSection(
                 title: 'Workers Needed',
+                icon: Icons.groups_outlined,
                 children: [
                   TextFormField(
                     controller: _workersNeededController,
@@ -290,12 +429,12 @@ class _PostJobScreenState extends State<PostJobScreen> {
                   ),
                 ],
               ),
-              
-              const SizedBox(height: 12),
-              
+              const SizedBox(height: 16),
+
               // Salary & Location
               _buildSection(
                 title: 'Salary & Location',
+                icon: Icons.payments_outlined,
                 children: [
                   Row(
                     children: [
@@ -312,7 +451,10 @@ class _PostJobScreenState extends State<PostJobScreen> {
                                 hint: '1,200',
                                 prefix: '₱ ',
                               ),
-                              validator: (value) => value?.isEmpty ?? true ? 'Required' : null,
+                              // Previously only checked "not empty", so "abc"
+                              // passed here and then silently became null at
+                              // double.tryParse, posting a job with no salary.
+                              validator: _validateSalary,
                             ),
                           ],
                         ),
@@ -338,22 +480,27 @@ class _PostJobScreenState extends State<PostJobScreen> {
                   
                   _buildLabel('Location'),
                   const SizedBox(height: 8),
-                  TextFormField(
+                  // Picker rather than free text, so every job stores a real
+                  // location_id and coordinates — needed for "jobs near you"
+                  // and for location filtering to match reliably.
+                  LocationPickerField(
                     controller: _locationController,
-                    decoration: _inputDecoration(
-                      hint: 'e.g., Pangasinan',
-                      icon: Icons.location_on,
-                    ),
-                    validator: (value) => value?.isEmpty ?? true ? 'Required' : null,
+                    labelText: '',
+                    hintText: 'Select city or municipality',
+                    fillColor: AppColors.surfaceVariant,
+                    onSelected: (location) =>
+                        setState(() => _selectedLocation = location),
+                    validator: (value) =>
+                        value?.isEmpty ?? true ? 'Required' : null,
                   ),
                 ],
               ),
-              
-              const SizedBox(height: 12),
-              
+              const SizedBox(height: 16),
+
               // Job Priority
               _buildSection(
                 title: 'Job Priority (Optional)',
+                icon: Icons.flash_on_outlined,
                 children: [
                   Row(
                     children: [
@@ -389,41 +536,70 @@ class _PostJobScreenState extends State<PostJobScreen> {
         ),
       ),
       bottomNavigationBar: _buildBottomBar(),
+      ),
     );
   }
 
   Widget _buildSection({
     required String title,
     String? subtitle,
+    IconData? icon,
     required List<Widget> children,
   }) {
     return Container(
       width: double.infinity,
+      margin: const EdgeInsets.symmetric(horizontal: 16),
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         color: Colors.white,
-        border: Border(
-          bottom: BorderSide(color: AppColors.neutral200, width: 1),
-        ),
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.05),
+            blurRadius: 10,
+            offset: const Offset(0, 2),
+          ),
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            title,
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.w600,
-              color: AppColors.neutral900,
-            ),
+          Row(
+            children: [
+              if (icon != null) ...[
+                Container(
+                  width: 34,
+                  height: 34,
+                  decoration: BoxDecoration(
+                    color: AppColors.primary.withValues(alpha: 0.08),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Icon(icon, color: AppColors.primary, size: 18),
+                ),
+                const SizedBox(width: 10),
+              ],
+              Expanded(
+                child: Text(
+                  title,
+                  style: TextStyle(
+                    fontSize: 17,
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.neutral900,
+                  ),
+                ),
+              ),
+            ],
           ),
           if (subtitle != null) ...[
             const SizedBox(height: 4),
-            Text(
-              subtitle,
-              style: TextStyle(
-                fontSize: 13,
-                color: AppColors.neutral600,
+            Padding(
+              padding: EdgeInsets.only(left: icon != null ? 44 : 0),
+              child: Text(
+                subtitle,
+                style: TextStyle(
+                  fontSize: 13,
+                  color: AppColors.neutral600,
+                ),
               ),
             ),
           ],
@@ -491,30 +667,36 @@ class _PostJobScreenState extends State<PostJobScreen> {
     required ValueChanged<String?> onChanged,
   }) {
     return Container(
+      // Fixed height matches the adjacent salary TextFormField's rendered
+      // height (contentPadding vertical 14 + border) — without this the two
+      // side-by-side fields sat at slightly different heights.
+      height: 52,
       padding: const EdgeInsets.symmetric(horizontal: 12),
       decoration: BoxDecoration(
         color: AppColors.neutral50,
         borderRadius: BorderRadius.circular(10),
         border: Border.all(color: AppColors.neutral300),
       ),
-      child: DropdownButtonHideUnderline(
-        child: DropdownButton<String>(
-          value: value,
-          isExpanded: true,
-          icon: Icon(Icons.keyboard_arrow_down, color: AppColors.neutral600),
-          items: items.map((item) {
-            return DropdownMenuItem<String>(
-              value: item,
-              child: Text(
-                item,
-                style: TextStyle(
-                  fontSize: 15,
-                  color: AppColors.neutral900,
+      child: Center(
+        child: DropdownButtonHideUnderline(
+          child: DropdownButton<String>(
+            value: value,
+            isExpanded: true,
+            icon: Icon(Icons.keyboard_arrow_down, color: AppColors.neutral600),
+            items: items.map((item) {
+              return DropdownMenuItem<String>(
+                value: item,
+                child: Text(
+                  item,
+                  style: TextStyle(
+                    fontSize: 15,
+                    color: AppColors.neutral900,
+                  ),
                 ),
-              ),
-            );
-          }).toList(),
-          onChanged: onChanged,
+              );
+            }).toList(),
+            onChanged: onChanged,
+          ),
         ),
       ),
     );
@@ -583,28 +765,54 @@ class _PostJobScreenState extends State<PostJobScreen> {
               ),
             ),
             const SizedBox(height: 16),
+            // Categories come from the server, not a hardcoded array — the same
+            // list workers pick from during onboarding.
             Expanded(
-              child: ListView.builder(
-                itemCount: _categories.length,
-                itemBuilder: (context, index) {
-                  final category = _categories[index];
-                  final isSelected = _selectedCategory == category['name'];
-                  return ListTile(
-                    leading: Icon(
-                      category['icon'],
-                      color: isSelected ? AppColors.primary : AppColors.neutral600,
-                    ),
-                    title: Text(
-                      category['name'],
-                      style: TextStyle(
-                        fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
-                        color: isSelected ? AppColors.primary : AppColors.neutral900,
-                      ),
-                    ),
-                    trailing: isSelected ? Icon(Icons.check, color: AppColors.primary) : null,
-                    onTap: () {
-                      _updateSkillsForCategory(category['name']);
-                      Navigator.pop(context);
+              child: Consumer<WorkerProfileProvider>(
+                builder: (context, taxonomy, _) {
+                  final categories = taxonomy.categories;
+
+                  if (categories.isEmpty) {
+                    return Center(
+                      child: taxonomy.isLoading
+                          ? const CircularProgressIndicator()
+                          : const Text('No categories available'),
+                    );
+                  }
+
+                  return ListView.builder(
+                    itemCount: categories.length,
+                    itemBuilder: (context, index) {
+                      final category = categories[index];
+                      final isSelected = _selectedCategoryId == category.id;
+                      return ListTile(
+                        leading: Icon(
+                          _iconForCategory(category.name),
+                          color: isSelected
+                              ? AppColors.primary
+                              : AppColors.neutral600,
+                        ),
+                        title: Text(
+                          category.name,
+                          style: TextStyle(
+                            fontWeight:
+                                isSelected ? FontWeight.w600 : FontWeight.normal,
+                            color: isSelected
+                                ? AppColors.primary
+                                : AppColors.neutral900,
+                          ),
+                        ),
+                        trailing: isSelected
+                            ? const Icon(Icons.check, color: AppColors.primary)
+                            : null,
+                        onTap: () {
+                          _updateSkillsForCategory(
+                            category.name,
+                            categoryId: category.id,
+                          );
+                          Navigator.pop(context);
+                        },
+                      );
                     },
                   );
                 },
@@ -717,8 +925,12 @@ class _PostJobScreenState extends State<PostJobScreen> {
   Widget _buildPhotoSelector() {
     return SizedBox(
       height: 100,
-      child: Row(
-        children: [
+      // A Row here would overflow off-screen once 3-4 photos are picked on
+      // narrower phones — nothing scrolled, it just clipped/errored.
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: Row(
+          children: [
           // Existing photos
           ...List.generate(_selectedImages.length, (index) {
             return Padding(
@@ -789,7 +1001,8 @@ class _PostJobScreenState extends State<PostJobScreen> {
                 ),
               ),
             ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -914,21 +1127,46 @@ class _PostJobScreenState extends State<PostJobScreen> {
         return;
       }
 
+      if (_selectedCategoryId == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Please select a category')),
+        );
+        return;
+      }
+
+      if (_selectedImages.isEmpty) {
+        setState(() => _showPhotoError = true);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Please add at least one photo of the job')),
+        );
+        return;
+      }
+
       setState(() => _isLoading = true);
 
-      // Resolve category to an ID (use index+1 as placeholder until real categories API is connected)
-      final categoryIndex = _categories.indexWhere((c) => c['name'] == _selectedCategory);
-      final categoryId = categoryIndex + 1;
-
+      final categoryId = _selectedCategoryId!;
       final jobProvider = context.read<JobProvider>();
       final success = await jobProvider.createJob(
         title:       _titleController.text.trim(),
         description: _descriptionController.text.trim(),
         categoryId:  categoryId,
+        // Real skill ids, so a job's requirements can be matched against the
+        // skills workers picked during onboarding.
+        skillIds:    _selectedSkillIds,
         budgetMin:   double.tryParse(_budgetController.text.replaceAll(',', '')),
         location:    _locationController.text.trim(),
+        // Structured location from the picker: the id normalizes filtering and
+        // the coordinates power proximity search.
+        locationId:  _selectedLocation?.id,
+        latitude:    _selectedLocation?.latitude,
+        longitude:   _selectedLocation?.longitude,
+        city:        _selectedLocation?.displayName,
         isUrgent:    _isUrgent,
         isNegotiable: _isNegotiable,
+        // The Daily/Hourly/Project picker used to be decorative — nothing
+        // stored it and job details hardcoded "/ project".
+        budgetPeriod: _salaryType.toLowerCase(),
+        photos:      _selectedImages,
       );
 
       setState(() => _isLoading = false);

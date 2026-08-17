@@ -18,6 +18,13 @@ class WorkerProfile {
   final DateTime? lastActive;
   final int completedJobs;
 
+  /// Set when this worker came from a browse call scoped to a specific job
+  /// (e.g. suggested-workers-for-this-job), mirroring Job.matchScore.
+  final int? matchScore;
+  final int? userId;
+  final int? categoryId;
+  final int? locationId;
+
   const WorkerProfile({
     required this.id,
     required this.name,
@@ -36,7 +43,40 @@ class WorkerProfile {
     this.certifications = const [],
     this.lastActive,
     this.completedJobs = 0,
+    this.matchScore,
+    this.userId,
+    this.categoryId,
+    this.locationId,
   });
+
+  /// Maps a raw worker row from the real API (GET /workers, or the `data` array
+  /// inside GET /jobs/{job}/matches) to this model. `fromJson` above expects a
+  /// mock shape ('primary_skill', 'is_available', 'hourly_rate') the backend
+  /// never returns.
+  factory WorkerProfile.fromApi(Map<String, dynamic> json) {
+    final skills = (json['skills'] as List?)?.map((s) => s.toString()).toList() ??
+        const <String>[];
+
+    return WorkerProfile(
+      id: (json['user_id'] ?? json['id']) as int,
+      userId: json['user_id'] as int?,
+      name: (json['name'] ?? '').toString(),
+      primarySkill: skills.isNotEmpty ? skills.first : (json['category'] ?? '').toString(),
+      skills: skills,
+      location: json['location'] as String?,
+      locationId: json['location_id'] as int?,
+      categoryId: json['category_id'] as int?,
+      rating: (json['rating_avg'] is num)
+          ? (json['rating_avg'] as num).toDouble()
+          : double.tryParse('${json['rating_avg']}') ?? 0.0,
+      reviewCount: (json['rating_count'] as num?)?.toInt() ?? 0,
+      isVerified: json['is_verified'] as bool? ?? false,
+      isAvailable: (json['availability_status'] ?? 'available') == 'available',
+      bio: json['bio'] as String?,
+      profileImageUrl: json['avatar'] as String?,
+      matchScore: (json['match_score'] as num?)?.toInt(),
+    );
+  }
 
   factory WorkerProfile.fromJson(Map<String, dynamic> json) {
     return WorkerProfile(

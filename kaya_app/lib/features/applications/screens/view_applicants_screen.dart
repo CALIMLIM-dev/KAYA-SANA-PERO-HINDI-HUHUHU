@@ -1,7 +1,16 @@
 import 'package:flutter/material.dart';
-import '../../../core/constants/app_colors.dart';
+import 'package:provider/provider.dart';
 
-/// View Applicants Screen — employer sees all workers who applied to a job
+import '../../../core/constants/app_colors.dart';
+import '../../../core/utils/json_parse.dart';
+import '../../../providers/application_provider.dart';
+
+/// View Applicants Screen — employer sees everyone who actually applied to a
+/// job, via GET /jobs/{job}/applicants.
+///
+/// This used to render five hardcoded applicants (Juan Dela Cruz, Pedro
+/// Santos, Mario Reyes...) on every job regardless of who applied, and Accept/
+/// Reject only flipped local state — nothing was sent to the server.
 class ViewApplicantsScreen extends StatefulWidget {
   const ViewApplicantsScreen({super.key});
 
@@ -12,65 +21,8 @@ class ViewApplicantsScreen extends StatefulWidget {
 class _ViewApplicantsScreenState extends State<ViewApplicantsScreen>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
-
-  // TODO: Replace with real data from Provider
-  final List<Map<String, dynamic>> _applicants = [
-    {
-      'name': 'Juan Dela Cruz',
-      'skills': ['Plumbing', 'Pipe Repair', 'Leak Detection'],
-      'experience': '5 years',
-      'location': 'Pangasinan',
-      'rating': 4.9,
-      'reviewCount': 127,
-      'isVerified': true,
-      'status': 'pending',
-      'appliedDate': '2 hours ago',
-    },
-    {
-      'name': 'Pedro Santos',
-      'skills': ['Plumbing', 'Installation'],
-      'experience': '3 years',
-      'location': 'Dagupan City',
-      'rating': 4.6,
-      'reviewCount': 45,
-      'isVerified': true,
-      'status': 'pending',
-      'appliedDate': '5 hours ago',
-    },
-    {
-      'name': 'Mario Reyes',
-      'skills': ['Pipe Repair', 'Emergency Service'],
-      'experience': '7 years',
-      'location': 'Urdaneta City',
-      'rating': 4.8,
-      'reviewCount': 89,
-      'isVerified': false,
-      'status': 'pending',
-      'appliedDate': '1 day ago',
-    },
-    {
-      'name': 'Carlos Mendoza',
-      'skills': ['Plumbing', 'Pipe Repair', 'Installation', 'Leak Detection'],
-      'experience': '10 years',
-      'location': 'Pangasinan',
-      'rating': 5.0,
-      'reviewCount': 201,
-      'isVerified': true,
-      'status': 'accepted',
-      'appliedDate': '2 days ago',
-    },
-    {
-      'name': 'Roberto Cruz',
-      'skills': ['Plumbing'],
-      'experience': '1 year',
-      'location': 'San Carlos City',
-      'rating': 4.2,
-      'reviewCount': 12,
-      'isVerified': false,
-      'status': 'rejected',
-      'appliedDate': '3 days ago',
-    },
-  ];
+  int? _jobId;
+  bool _initialized = false;
 
   @override
   void initState() {
@@ -79,46 +31,113 @@ class _ViewApplicantsScreenState extends State<ViewApplicantsScreen>
   }
 
   @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_initialized) return;
+    _initialized = true;
+
+    final args = ModalRoute.of(context)?.settings.arguments;
+    _jobId = args is Map ? args['jobId'] as int? : args as int?;
+
+    if (_jobId != null) {
+      WidgetsBinding.instance.addPostFrameCallback(
+        (_) => context.read<ApplicationProvider>().fetchApplicants(_jobId!),
+      );
+    }
+  }
+
+  @override
   void dispose() {
     _tabController.dispose();
     super.dispose();
   }
 
-  List<Map<String, dynamic>> _byStatus(String status) =>
-      _applicants.where((a) => a['status'] == status).toList();
+  List<Map<String, dynamic>> _byStatus(
+          List<Map<String, dynamic>> applicants, String status) =>
+      applicants.where((a) => a['application_status'] == status).toList();
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: AppColors.background,
-      appBar: AppBar(
-        backgroundColor: AppColors.primary,
-        foregroundColor: Colors.white,
-        elevation: 0,
-        title: const Text('Applicants',
-            style: TextStyle(fontWeight: FontWeight.w600)),
-        bottom: TabBar(
-          controller: _tabController,
-          indicatorColor: AppColors.accent,
-          indicatorWeight: 3,
-          labelColor: Colors.white,
-          unselectedLabelColor: Colors.white60,
-          labelStyle:
-              const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
-          tabs: [
-            Tab(text: 'Pending (${_byStatus('pending').length})'),
-            Tab(text: 'Accepted (${_byStatus('accepted').length})'),
-            Tab(text: 'Rejected (${_byStatus('rejected').length})'),
+    if (_jobId == null) {
+      return Scaffold(
+        appBar: AppBar(title: const Text('Applicants')),
+        body: const Center(child: Text('No job specified.')),
+      );
+    }
+
+    return Consumer<ApplicationProvider>(
+      builder: (context, provider, _) {
+        final all = provider.applicants;
+        final pending = _byStatus(all, 'pending');
+        final accepted = _byStatus(all, 'accepted');
+        final rejected = _byStatus(all, 'rejected');
+
+        return Scaffold(
+          backgroundColor: AppColors.background,
+          appBar: AppBar(
+            backgroundColor: AppColors.primary,
+            foregroundColor: Colors.white,
+            elevation: 0,
+            title: const Text('Applicants',
+                style: TextStyle(fontWeight: FontWeight.w600)),
+            bottom: TabBar(
+              controller: _tabController,
+              indicatorColor: AppColors.accent,
+              indicatorWeight: 3,
+              labelColor: Colors.white,
+              unselectedLabelColor: Colors.white60,
+              labelStyle:
+                  const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
+              tabs: [
+                Tab(text: 'Pending (${pending.length})'),
+                Tab(text: 'Accepted (${accepted.length})'),
+                Tab(text: 'Rejected (${rejected.length})'),
+              ],
+            ),
+          ),
+          body: provider.isApplicantsLoading && all.isEmpty
+              ? const Center(child: CircularProgressIndicator())
+              : provider.applicantsErrorMessage != null && all.isEmpty
+                  ? _errorState(provider.applicantsErrorMessage!)
+                  : TabBarView(
+                      controller: _tabController,
+                      children: [
+                        _buildList(pending, showActions: true),
+                        _buildList(accepted, showActions: false),
+                        _buildList(rejected, showActions: false),
+                      ],
+                    ),
+        );
+      },
+    );
+  }
+
+  Widget _errorState(String message) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(32),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.cloud_off, size: 56, color: AppColors.neutral300),
+            const SizedBox(height: 16),
+            const Text('Could not load applicants',
+                style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.neutral600)),
+            const SizedBox(height: 8),
+            Text(message,
+                textAlign: TextAlign.center,
+                style: const TextStyle(fontSize: 13, color: AppColors.neutral400)),
+            const SizedBox(height: 20),
+            OutlinedButton(
+              onPressed: () =>
+                  context.read<ApplicationProvider>().fetchApplicants(_jobId!),
+              child: const Text('Retry'),
+            ),
           ],
         ),
-      ),
-      body: TabBarView(
-        controller: _tabController,
-        children: [
-          _buildList(_byStatus('pending'), showActions: true),
-          _buildList(_byStatus('accepted'), showActions: false),
-          _buildList(_byStatus('rejected'), showActions: false),
-        ],
       ),
     );
   }
@@ -142,17 +161,34 @@ class _ViewApplicantsScreenState extends State<ViewApplicantsScreen>
       );
     }
 
-    return ListView.builder(
-      padding: const EdgeInsets.all(16),
-      itemCount: applicants.length,
-      itemBuilder: (context, index) =>
-          _buildApplicantCard(applicants[index], showActions: showActions),
+    return RefreshIndicator(
+      onRefresh: () =>
+          context.read<ApplicationProvider>().fetchApplicants(_jobId!),
+      child: ListView.builder(
+        padding: const EdgeInsets.all(16),
+        itemCount: applicants.length,
+        itemBuilder: (context, index) =>
+            _buildApplicantCard(applicants[index], showActions: showActions),
+      ),
     );
   }
 
   Widget _buildApplicantCard(Map<String, dynamic> applicant,
       {required bool showActions}) {
-    final status = applicant['status'] as String;
+    final status = (applicant['application_status'] ?? 'pending').toString();
+    final name = (applicant['worker_name'] ?? 'Worker').toString();
+    // worker_rating comes from WorkerProfile.rating_avg, a Laravel decimal
+    // cast — it arrives as the string "0.00", so a plain `as num?` threw and
+    // took the whole applicants list down.
+    final rating = asDouble(applicant['worker_rating']);
+    final reviewCount = asInt(applicant['worker_rating_count']);
+    final isVerified = applicant['is_verified'] as bool? ?? false;
+    final skills = (applicant['skills'] as List?)
+            ?.map((s) => s.toString())
+            .where((s) => s.isNotEmpty)
+            .toList() ??
+        const <String>[];
+    final applicationId = applicant['application_id'] as int;
 
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
@@ -172,14 +208,13 @@ class _ViewApplicantsScreenState extends State<ViewApplicantsScreen>
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // ── Header: avatar + name + rating ──
             Row(
               children: [
                 CircleAvatar(
                   radius: 24,
                   backgroundColor: AppColors.primary.withValues(alpha: 0.1),
                   child: Text(
-                    applicant['name'].toString().split(' ').first[0],
+                    name.isNotEmpty ? name[0].toUpperCase() : '?',
                     style: const TextStyle(
                       fontSize: 18,
                       fontWeight: FontWeight.bold,
@@ -194,91 +229,65 @@ class _ViewApplicantsScreenState extends State<ViewApplicantsScreen>
                     children: [
                       Row(
                         children: [
-                          Text(
-                            applicant['name'],
-                            style: const TextStyle(
-                              fontSize: 15,
-                              fontWeight: FontWeight.w700,
-                              color: AppColors.neutral900,
-                            ),
+                          Flexible(
+                            child: Text(name,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.w700,
+                                  color: AppColors.neutral900,
+                                )),
                           ),
-                          if (applicant['isVerified'] == true) ...[
+                          if (isVerified) ...[
                             const SizedBox(width: 5),
                             const Icon(Icons.verified,
                                 size: 15, color: AppColors.success),
                           ],
                         ],
                       ),
-                      const SizedBox(height: 3),
-                      Row(
-                        children: [
-                          const Icon(Icons.star_rounded,
-                              size: 14, color: Colors.amber),
-                          const SizedBox(width: 3),
-                          Text(
-                            '${applicant['rating']} (${applicant['reviewCount']} reviews)',
-                            style: const TextStyle(
-                                fontSize: 12, color: AppColors.neutral500),
-                          ),
-                        ],
-                      ),
+                      if (reviewCount > 0) ...[
+                        const SizedBox(height: 3),
+                        Row(
+                          children: [
+                            const Icon(Icons.star_rounded,
+                                size: 14, color: Colors.amber),
+                            const SizedBox(width: 3),
+                            Text(
+                              '${rating.toStringAsFixed(1)} ($reviewCount reviews)',
+                              style: const TextStyle(
+                                  fontSize: 12, color: AppColors.neutral500),
+                            ),
+                          ],
+                        ),
+                      ],
                     ],
                   ),
                 ),
-                // Status badge for non-pending
                 if (status != 'pending') _statusBadge(status),
               ],
             ),
-
-            const SizedBox(height: 12),
-
-            // ── Info row ──
-            Row(
-              children: [
-                Icon(Icons.work_outline,
-                    size: 13, color: AppColors.neutral400),
-                const SizedBox(width: 4),
-                Text(applicant['experience'],
-                    style: const TextStyle(
-                        fontSize: 12, color: AppColors.neutral500)),
-                const SizedBox(width: 12),
-                Icon(Icons.location_on_outlined,
-                    size: 13, color: AppColors.neutral400),
-                const SizedBox(width: 4),
-                Text(applicant['location'],
-                    style: const TextStyle(
-                        fontSize: 12, color: AppColors.neutral500)),
-                const Spacer(),
-                Text(applicant['appliedDate'],
-                    style: const TextStyle(
-                        fontSize: 11, color: AppColors.neutral400)),
-              ],
-            ),
-
-            const SizedBox(height: 10),
-
-            // ── Skills ──
-            Wrap(
-              spacing: 6,
-              runSpacing: 6,
-              children: (applicant['skills'] as List<String>)
-                  .map((s) => Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 8, vertical: 4),
-                        decoration: BoxDecoration(
-                          color: AppColors.primary.withValues(alpha: 0.08),
-                          borderRadius: BorderRadius.circular(6),
-                        ),
-                        child: Text(s,
-                            style: const TextStyle(
-                                fontSize: 11,
-                                fontWeight: FontWeight.w500,
-                                color: AppColors.primary)),
-                      ))
-                  .toList(),
-            ),
-
-            // ── Action buttons for pending ──
+            if (skills.isNotEmpty) ...[
+              const SizedBox(height: 10),
+              Wrap(
+                spacing: 6,
+                runSpacing: 6,
+                children: skills
+                    .map((s) => Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 8, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: AppColors.primary.withValues(alpha: 0.08),
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: Text(s,
+                              style: const TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w500,
+                                  color: AppColors.primary)),
+                        ))
+                    .toList(),
+              ),
+            ],
             if (showActions) ...[
               const SizedBox(height: 14),
               const Divider(height: 1),
@@ -286,26 +295,9 @@ class _ViewApplicantsScreenState extends State<ViewApplicantsScreen>
               Row(
                 children: [
                   Expanded(
-                    child: OutlinedButton(
-                      onPressed: () => Navigator.pushNamed(
-                          context, '/applicant-review',
-                          arguments: applicant),
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: AppColors.primary,
-                        side: const BorderSide(color: AppColors.primary),
-                        padding: const EdgeInsets.symmetric(vertical: 10),
-                        shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(8)),
-                        textStyle: const TextStyle(
-                            fontSize: 13, fontWeight: FontWeight.w600),
-                      ),
-                      child: const Text('View Profile'),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
                     child: ElevatedButton(
-                      onPressed: () => _acceptApplicant(applicant),
+                      onPressed: () => _confirmRespond(applicationId, name,
+                          accept: true),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: AppColors.success,
                         foregroundColor: Colors.white,
@@ -320,26 +312,26 @@ class _ViewApplicantsScreenState extends State<ViewApplicantsScreen>
                     ),
                   ),
                   const SizedBox(width: 8),
-                  ElevatedButton(
-                    onPressed: () => _rejectApplicant(applicant),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppColors.error.withValues(alpha: 0.1),
-                      foregroundColor: AppColors.error,
-                      elevation: 0,
-                      padding: const EdgeInsets.symmetric(
-                          vertical: 10, horizontal: 14),
-                      shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(8)),
-                      textStyle: const TextStyle(
-                          fontSize: 13, fontWeight: FontWeight.w600),
+                  Expanded(
+                    child: ElevatedButton(
+                      onPressed: () => _confirmRespond(applicationId, name,
+                          accept: false),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppColors.error.withValues(alpha: 0.1),
+                        foregroundColor: AppColors.error,
+                        elevation: 0,
+                        padding: const EdgeInsets.symmetric(vertical: 10),
+                        shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8)),
+                        textStyle: const TextStyle(
+                            fontSize: 13, fontWeight: FontWeight.w600),
+                      ),
+                      child: const Text('Reject'),
                     ),
-                    child: const Text('Reject'),
                   ),
                 ],
               ),
             ],
-
-            // ── Message button for accepted ──
             if (status == 'accepted') ...[
               const SizedBox(height: 14),
               const Divider(height: 1),
@@ -347,8 +339,7 @@ class _ViewApplicantsScreenState extends State<ViewApplicantsScreen>
               SizedBox(
                 width: double.infinity,
                 child: OutlinedButton.icon(
-                  onPressed: () =>
-                      Navigator.pushNamed(context, '/messages'),
+                  onPressed: () => Navigator.pushNamed(context, '/messages'),
                   icon: const Icon(Icons.message_outlined, size: 16),
                   label: const Text('Send Message'),
                   style: OutlinedButton.styleFrom(
@@ -397,57 +388,38 @@ class _ViewApplicantsScreenState extends State<ViewApplicantsScreen>
     );
   }
 
-  void _acceptApplicant(Map<String, dynamic> applicant) {
+  void _confirmRespond(int applicationId, String name, {required bool accept}) {
     showDialog(
       context: context,
       builder: (_) => AlertDialog(
-        title: const Text('Accept Applicant?'),
-        content: Text(
-            'Accept ${applicant['name']}? Messaging will be unlocked between you.'),
+        title: Text(accept ? 'Accept Applicant?' : 'Reject Applicant?'),
+        content: Text(accept
+            ? 'Accept $name? Messaging will be unlocked between you.'
+            : 'Reject $name?'),
         actions: [
           TextButton(
               onPressed: () => Navigator.pop(context),
               child: const Text('Cancel')),
           ElevatedButton(
-            onPressed: () {
+            onPressed: () async {
               Navigator.pop(context);
-              setState(() => applicant['status'] = 'accepted');
+              final provider = context.read<ApplicationProvider>();
+              final ok = await provider.respondToApplicant(applicationId,
+                  accept: accept);
+              if (!mounted) return;
               ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-                content: Text('${applicant['name']} accepted'),
-                backgroundColor: AppColors.success,
+                content: Text(ok
+                    ? '$name ${accept ? 'accepted' : 'rejected'}'
+                    : provider.applicantsErrorMessage ?? 'Something went wrong'),
+                backgroundColor: ok
+                    ? (accept ? AppColors.success : null)
+                    : AppColors.error,
               ));
             },
             style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.success),
-            child: const Text('Accept',
-                style: TextStyle(color: Colors.white)),
-          ),
-        ],
-      ),
-    );
-  }
-
-  void _rejectApplicant(Map<String, dynamic> applicant) {
-    showDialog(
-      context: context,
-      builder: (_) => AlertDialog(
-        title: const Text('Reject Applicant?'),
-        content: Text('Reject ${applicant['name']}?'),
-        actions: [
-          TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('Cancel')),
-          ElevatedButton(
-            onPressed: () {
-              Navigator.pop(context);
-              setState(() => applicant['status'] = 'rejected');
-              ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Applicant rejected')));
-            },
-            style:
-                ElevatedButton.styleFrom(backgroundColor: AppColors.error),
-            child: const Text('Reject',
-                style: TextStyle(color: Colors.white)),
+                backgroundColor: accept ? AppColors.success : AppColors.error),
+            child: Text(accept ? 'Accept' : 'Reject',
+                style: const TextStyle(color: Colors.white)),
           ),
         ],
       ),

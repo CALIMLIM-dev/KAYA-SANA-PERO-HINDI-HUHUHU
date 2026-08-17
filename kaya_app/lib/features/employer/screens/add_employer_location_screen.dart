@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../../core/constants/app_colors.dart';
+import '../../../shared/widgets/location_picker_field.dart';
 
 /// Add Employer Location - City/Municipality only
 /// NO AUTO-FILL, field starts EMPTY
@@ -93,33 +94,11 @@ class _AddEmployerLocationScreenState extends State<AddEmployerLocationScreen> {
                   
                   const SizedBox(height: 32),
                   
-                  // Location Field
-                  TextField(
+                  // Location picker, not free text.
+                  LocationPickerField(
                     controller: _locationController,
-                    autofocus: true,
-                    textCapitalization: TextCapitalization.words,
-                    decoration: InputDecoration(
-                      labelText: 'City / Municipality',
-                      hintText: 'e.g. Quezon City, Metro Manila',
-                      prefixIcon: const Icon(Icons.location_on),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      enabledBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        borderSide: const BorderSide(color: AppColors.neutral300),
-                      ),
-                      focusedBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        borderSide: const BorderSide(color: AppColors.primary, width: 2),
-                      ),
-                      filled: true,
-                      fillColor: Colors.white,
-                      contentPadding: const EdgeInsets.symmetric(
-                        horizontal: 16,
-                        vertical: 16,
-                      ),
-                    ),
+                    labelText: 'City / Municipality',
+                    onSelected: (_) => setState(() {}),
                   ),
                   
                   const SizedBox(height: 16),

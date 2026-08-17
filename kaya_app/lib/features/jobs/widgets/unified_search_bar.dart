@@ -1,7 +1,11 @@
 import 'package:flutter/material.dart';
 import '../../../core/constants/app_colors.dart';
 
-enum SearchFilter { all, jobs, workers }
+/// Search filter options - values represent WHAT CONTENT to display
+/// - all: Show both jobs and workers
+/// - showJobs: Display job listings (for workers to browse)
+/// - showWorkers: Display worker profiles (for employers to browse)
+enum SearchFilter { all, showJobs, showWorkers }
 
 /// Unified Search Bar with Jobs/People filtering
 /// Replaces mode switching with simple search filtering
@@ -106,20 +110,20 @@ class _UnifiedSearchBarState extends State<UnifiedSearchBar> {
                       onTap: () => widget.onFilterChanged(SearchFilter.all),
                     ),
                   ),
-                if (_isFilterVisible(SearchFilter.jobs))
+                if (_isFilterVisible(SearchFilter.showJobs))
                   Expanded(
                     child: _FilterButton(
                       label: 'Jobs',
-                      isSelected: widget.currentFilter == SearchFilter.jobs,
-                      onTap: () => widget.onFilterChanged(SearchFilter.jobs),
+                      isSelected: widget.currentFilter == SearchFilter.showJobs,
+                      onTap: () => widget.onFilterChanged(SearchFilter.showJobs),
                     ),
                   ),
-                if (_isFilterVisible(SearchFilter.workers))
+                if (_isFilterVisible(SearchFilter.showWorkers))
                   Expanded(
                     child: _FilterButton(
                       label: 'Workers',
-                      isSelected: widget.currentFilter == SearchFilter.workers,
-                      onTap: () => widget.onFilterChanged(SearchFilter.workers),
+                      isSelected: widget.currentFilter == SearchFilter.showWorkers,
+                      onTap: () => widget.onFilterChanged(SearchFilter.showWorkers),
                     ),
                   ),
               ],
@@ -147,10 +151,10 @@ class _UnifiedSearchBarState extends State<UnifiedSearchBar> {
     switch (widget.currentFilter) {
       case SearchFilter.all:
         return 'Search jobs and workers...';
-      case SearchFilter.jobs:
-        return 'Search jobs...';
-      case SearchFilter.workers:
+      case SearchFilter.showJobs:
         return 'Search jobs to apply...';
+      case SearchFilter.showWorkers:
+        return 'Search workers to hire...';
     }
   }
 
@@ -158,9 +162,9 @@ class _UnifiedSearchBarState extends State<UnifiedSearchBar> {
     switch (widget.currentFilter) {
       case SearchFilter.all:
         return Icons.search;
-      case SearchFilter.jobs:
+      case SearchFilter.showJobs:
         return Icons.work_outline;
-      case SearchFilter.workers:
+      case SearchFilter.showWorkers:
         return Icons.person_search;
     }
   }

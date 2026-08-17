@@ -9,7 +9,7 @@
         <div class="bg-white rounded-xl border border-slate-200 p-6">
         <div class="flex items-center gap-4 mb-6">
             <div class="w-14 h-14 rounded-full bg-slate-200 flex items-center justify-center text-lg font-semibold text-slate-600 overflow-hidden">
-                @if ($user->user_type === 'worker' && $user->workerProfile && $user->workerProfile->profile_photo)
+                @if ($user->workerProfile && $user->workerProfile->profile_photo)
                     <img src="{{ asset('storage/' . $user->workerProfile->profile_photo) }}" class="w-full h-full object-cover" alt="{{ $user->name }}">
                 @else
                     {{ strtoupper(substr($user->name, 0, 1)) }}
@@ -17,7 +17,7 @@
             </div>
             <div>
                 <h2 class="text-lg font-semibold text-slate-800">{{ $user->name }}</h2>
-                <p class="text-sm text-slate-400">{{ $user->email }} · {{ ucfirst($user->user_type) }}</p>
+                <p class="text-sm text-slate-400">{{ $user->email }} · {{ $user->roleLabel() }}</p>
             </div>
             <div class="ml-auto flex items-center gap-3">
                 @if ($user->is_suspended)
@@ -58,7 +58,7 @@
             <div><dt class="text-slate-400">Last Updated</dt><dd class="text-slate-700">{{ $user->updated_at->format('M j, Y') }}</dd></div>
         </dl>
 
-        @if ($user->user_type === 'employer' && $user->postedJobs->count())
+        @if ($user->postedJobs->count())
             <h3 class="text-sm font-semibold text-slate-700 mb-2">Recent Job Posts</h3>
             <ul class="text-sm space-y-1 mb-4">
                 @foreach ($user->postedJobs as $job)
@@ -69,7 +69,7 @@
         </div>
 
         {{-- Blue Panel: Verifications + Skills --}}
-        @if ($user->user_type === 'worker')
+        @if ($user->workerProfile)
             {{-- Verifications Section --}}
             @if ($user->verifications->count() > 0)
                 <div class="bg-white rounded-xl border border-slate-200 p-6">
@@ -156,7 +156,7 @@
     </div>
 
     {{-- Right Sidebar (BLACK): Work Experience, Certifications, Licenses --}}
-    @if ($user->user_type === 'worker')
+    @if ($user->workerProfile)
         <div class="space-y-4">
                 {{-- Work Experience Section --}}
                 @if ($user->experiences->count() > 0)

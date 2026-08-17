@@ -1,9 +1,15 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import '../../../core/constants/app_colors.dart';
+import '../../../data/models/location_model.dart';
+import '../../../providers/job_provider.dart';
+import '../../../shared/widgets/location_picker_field.dart';
 
 /// Edit Job Screen — pre-filled form for editing an existing job post
-/// Arguments: { title, category, description, budget, salaryType, location,
-///              workersNeeded, isUrgent, isNegotiable, selectedSkills }
+/// Arguments: { id, title, category, category_id, description, budget,
+///              salaryType, location, workersNeeded, isUrgent, isNegotiable,
+///              selectedSkills }
+/// `id` is required — without it the job cannot be updated.
 /// Only allowed if job status = 'open'
 class EditJobScreen extends StatefulWidget {
   const EditJobScreen({super.key});
@@ -19,6 +25,13 @@ class _EditJobScreenState extends State<EditJobScreen> {
   final _budgetController      = TextEditingController();
   final _locationController    = TextEditingController();
   final _workersNeededController = TextEditingController();
+
+  /// Id of the job being edited, from route arguments.
+  int? _jobId;
+  int? _categoryId;
+
+  /// Structured location chosen from the picker.
+  LocationModel? _selectedLocation;
 
   String? _selectedCategory;
   String _salaryType = 'Daily';
@@ -88,31 +101,24 @@ class _EditJobScreenState extends State<EditJobScreen> {
       // Pre-fill from route arguments
       final args = ModalRoute.of(context)?.settings.arguments
           as Map<String, dynamic>?;
+      // NOTE: the mock "demo" pre-fill that used to live in the else branch is
+      // gone. It silently populated a real edit form with placeholder text, so
+      // saving would have overwritten a genuine job post with fake data.
       if (args != null) {
-        _titleController.text       = args['title']         ?? '';
-        _descriptionController.text = args['description']   ?? '';
-        _budgetController.text      = args['budget']        ?? '';
-        _locationController.text    = args['location']      ?? '';
+        _jobId = args['id'] as int? ?? args['jobId'] as int?;
+        _titleController.text       = (args['title'] ?? '').toString();
+        _descriptionController.text = (args['description'] ?? '').toString();
+        _budgetController.text      =
+            (args['budget'] ?? args['budget_min'] ?? '').toString();
+        _locationController.text    = (args['location'] ?? '').toString();
         _workersNeededController.text =
             (args['workersNeeded'] ?? 1).toString();
-        _selectedCategory = args['category'];
-        _salaryType       = args['salaryType'] ?? 'Daily';
-        _isUrgent         = args['isUrgent']   ?? false;
-        _isNegotiable     = args['isNegotiable'] ?? false;
+        _selectedCategory = args['category'] as String?;
+        _categoryId       = args['category_id'] as int?;
+        _salaryType       = args['salaryType'] as String? ?? 'Daily';
+        _isUrgent         = args['isUrgent'] as bool? ?? false;
+        _isNegotiable     = args['isNegotiable'] as bool? ?? false;
         _selectedSkills   = List<String>.from(args['selectedSkills'] ?? []);
-      } else {
-        // Default mock pre-fill for demo
-        _titleController.text       = 'Emergency Pipe Repair';
-        _descriptionController.text =
-            'We need an experienced plumber to fix a burst pipe in our residential property.';
-        _budgetController.text      = '1200';
-        _locationController.text    = 'Pangasinan';
-        _workersNeededController.text = '1';
-        _selectedCategory = 'Plumbing';
-        _salaryType       = 'Daily';
-        _isUrgent         = true;
-        _isNegotiable     = false;
-        _selectedSkills   = ['Plumbing', 'Pipe Repair'];
       }
     }
   }
@@ -256,11 +262,12 @@ class _EditJobScreenState extends State<EditJobScreen> {
                   const SizedBox(height: 16),
                   _label('Location'),
                   const SizedBox(height: 8),
-                  TextFormField(
+                  // Picker, not free text — see post_job_screen for the reason.
+                  LocationPickerField(
                     controller: _locationController,
-                    decoration: _inputDeco(
-                        hint: 'e.g., Pangasinan',
-                        icon: Icons.location_on),
+                    labelText: '',
+                    onSelected: (location) =>
+                        setState(() => _selectedLocation = location),
                     validator: (v) =>
                         v?.isEmpty ?? true ? 'Required' : null,
                   ),
@@ -635,19 +642,50 @@ class _EditJobScreenState extends State<EditJobScreen> {
       return;
     }
 
-    setState(() => _isLoading = true);
-    // TODO: Call JobProvider.updateJob(...)
-    await Future.delayed(const Duration(seconds: 1));
-    setState(() => _isLoading = false);
-
-    if (mounted) {
+    // Without an id there is nothing to update. Previously this method faked a
+    // one-second delay and then reported "Job updated successfully!" regardless
+    // — the edit was never sent anywhere.
+    if (_jobId == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Job updated successfully!'),
-          backgroundColor: AppColors.success,
+          content: Text('Cannot edit: this job is missing its identifier.'),
+          backgroundColor: AppColors.error,
         ),
       );
-      Navigator.pop(context);
+      return;
     }
+
+    setState(() => _isLoading = true);
+
+    final jobProvider = context.read<JobProvider>();
+    final budget = double.tryParse(_budgetController.text.replaceAll(',', ''));
+
+    final success = await jobProvider.updateJob(_jobId!, {
+      'title': _titleController.text.trim(),
+      'description': _descriptionController.text.trim(),
+      if (_categoryId != null) 'category_id': _categoryId,
+      if (budget != null) 'budget_min': budget,
+      'location': _locationController.text.trim(),
+      // Only sent when the user re-picked; otherwise the stored value stands.
+      if (_selectedLocation != null) 'location_id': _selectedLocation!.id,
+      if (_selectedLocation?.latitude != null)
+        'latitude': _selectedLocation!.latitude,
+      if (_selectedLocation?.longitude != null)
+        'longitude': _selectedLocation!.longitude,
+    });
+
+    if (!mounted) return;
+    setState(() => _isLoading = false);
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(success
+            ? 'Job updated successfully!'
+            : jobProvider.errorMessage ?? 'Failed to update job'),
+        backgroundColor: success ? AppColors.success : AppColors.error,
+      ),
+    );
+
+    if (success) Navigator.pop(context, true);
   }
 }

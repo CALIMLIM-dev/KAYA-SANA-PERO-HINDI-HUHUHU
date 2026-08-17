@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
-import '../../../core/constants/app_colors.dart';
+import 'package:provider/provider.dart';
 
-/// My Invitations Screen — Worker sees job invitations from employers
-/// Can Accept or Decline each invitation
+import '../../../core/constants/app_colors.dart';
+import '../../../providers/invitation_provider.dart';
+
+/// My Invitations Screen — Worker sees job invitations from employers.
+/// Backed by GET /my-invitations; Accept/Decline call the real endpoints.
 class MyInvitationsScreen extends StatefulWidget {
   const MyInvitationsScreen({super.key});
 
@@ -11,53 +14,13 @@ class MyInvitationsScreen extends StatefulWidget {
 }
 
 class _MyInvitationsScreenState extends State<MyInvitationsScreen> {
-  // TODO: Replace with InvitationProvider data
-  final List<Map<String, dynamic>> _invitations = [
-    {
-      'id': 1,
-      'status': 'pending',
-      'receivedDate': '2 hours ago',
-      'jobTitle': 'Emergency Pipe Repair',
-      'jobBudget': '₱1,200/day',
-      'jobLocation': 'Pangasinan',
-      'jobDescription': 'We need an experienced plumber to fix a burst pipe in our residential property.',
-      'employerName': 'Plumbing Services Inc.',
-      'employerVerified': true,
-    },
-    {
-      'id': 2,
-      'status': 'pending',
-      'receivedDate': '1 day ago',
-      'jobTitle': 'Bathroom Renovation',
-      'jobBudget': '₱2,500/day',
-      'jobLocation': 'Dagupan City',
-      'jobDescription': 'Full bathroom renovation project including tile work and fixture installation.',
-      'employerName': 'Home Builders Co.',
-      'employerVerified': true,
-    },
-    {
-      'id': 3,
-      'status': 'accepted',
-      'receivedDate': '3 days ago',
-      'jobTitle': 'Kitchen Plumbing Repair',
-      'jobBudget': '₱900/day',
-      'jobLocation': 'Urdaneta City',
-      'jobDescription': 'Kitchen sink and dishwasher plumbing repair needed.',
-      'employerName': 'Private Homeowner',
-      'employerVerified': false,
-    },
-    {
-      'id': 4,
-      'status': 'declined',
-      'receivedDate': '1 week ago',
-      'jobTitle': 'Swimming Pool Plumbing',
-      'jobBudget': '₱1,800/day',
-      'jobLocation': 'San Carlos City',
-      'jobDescription': 'Pool pump and filtration system repair.',
-      'employerName': 'Aqua Solutions',
-      'employerVerified': true,
-    },
-  ];
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) context.read<InvitationProvider>().fetchMyInvitations();
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -70,17 +33,49 @@ class _MyInvitationsScreenState extends State<MyInvitationsScreen> {
         title: const Text('My Invitations',
             style: TextStyle(fontWeight: FontWeight.w600)),
       ),
-      body: _invitations.isEmpty
-          ? _buildEmptyState()
-          : RefreshIndicator(
-              onRefresh: () async =>
-                  await Future.delayed(const Duration(seconds: 1)),
-              child: ListView.builder(
-                padding: const EdgeInsets.all(16),
-                itemCount: _invitations.length,
-                itemBuilder: (_, i) => _buildCard(_invitations[i]),
+      body: Consumer<InvitationProvider>(
+        builder: (context, provider, _) {
+          if (provider.isLoading && provider.invitations.isEmpty) {
+            return const Center(child: CircularProgressIndicator());
+          }
+
+          if (provider.errorMessage != null) {
+            return Center(
+              child: Padding(
+                padding: const EdgeInsets.all(24),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(Icons.error_outline,
+                        size: 48, color: AppColors.neutral400),
+                    const SizedBox(height: 12),
+                    Text(provider.errorMessage!, textAlign: TextAlign.center),
+                    const SizedBox(height: 16),
+                    ElevatedButton(
+                      onPressed: () =>
+                          context.read<InvitationProvider>().fetchMyInvitations(),
+                      child: const Text('Retry'),
+                    ),
+                  ],
+                ),
               ),
-            ),
+            );
+          }
+
+          final invitations = provider.invitations;
+
+          return invitations.isEmpty
+              ? _buildEmptyState()
+              : RefreshIndicator(
+                  onRefresh: () => provider.fetchMyInvitations(),
+                  child: ListView.builder(
+                    padding: const EdgeInsets.all(16),
+                    itemCount: invitations.length,
+                    itemBuilder: (_, i) => _buildCard(invitations[i]),
+                  ),
+                );
+        },
+      ),
     );
   }
 
@@ -125,8 +120,18 @@ class _MyInvitationsScreenState extends State<MyInvitationsScreen> {
   // ─── invitation card ──────────────────────────────────────────────────────────
 
   Widget _buildCard(Map<String, dynamic> inv) {
-    final status = inv['status'] as String;
+    final status = (inv['status'] ?? 'pending').toString();
     final isPending = status == 'pending';
+
+    final job = inv['job'] as Map<String, dynamic>?;
+    final employer = inv['employer'] as Map<String, dynamic>?;
+
+    final jobId = job?['id'] as int?;
+    final jobTitle = (job?['title'] ?? 'Job').toString();
+    final jobLocation = (job?['city'] ?? job?['location'] ?? '').toString();
+    final jobBudget = _formatSalary(job?['budget_min'], job?['budget_max']);
+    final employerName = (employer?['name'] ?? 'Employer').toString();
+    final employerVerified = (employer?['is_verified'] as bool?) ?? false;
 
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
@@ -153,7 +158,7 @@ class _MyInvitationsScreenState extends State<MyInvitationsScreen> {
                   radius: 22,
                   backgroundColor: AppColors.primary.withValues(alpha: 0.1),
                   child: Text(
-                    (inv['employerName'] as String)[0].toUpperCase(),
+                    employerName.isNotEmpty ? employerName[0].toUpperCase() : '?',
                     style: const TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.bold,
@@ -169,7 +174,7 @@ class _MyInvitationsScreenState extends State<MyInvitationsScreen> {
                         children: [
                           Flexible(
                             child: Text(
-                              inv['employerName'],
+                              employerName,
                               style: const TextStyle(
                                   fontSize: 13,
                                   fontWeight: FontWeight.w600,
@@ -177,16 +182,17 @@ class _MyInvitationsScreenState extends State<MyInvitationsScreen> {
                               overflow: TextOverflow.ellipsis,
                             ),
                           ),
-                          if (inv['employerVerified'] == true) ...[
+                          if (employerVerified) ...[
                             const SizedBox(width: 4),
                             const Icon(Icons.verified,
                                 size: 13, color: AppColors.success),
                           ],
                         ],
                       ),
-                      Text(inv['receivedDate'],
-                          style: const TextStyle(
-                              fontSize: 11, color: AppColors.neutral400)),
+                      if (inv['created_at'] != null)
+                        Text(_timeAgo(inv['created_at'].toString()),
+                            style: const TextStyle(
+                                fontSize: 11, color: AppColors.neutral400)),
                     ],
                   ),
                 ),
@@ -199,39 +205,33 @@ class _MyInvitationsScreenState extends State<MyInvitationsScreen> {
             const SizedBox(height: 14),
 
             // ── Job info ──
-            Text(inv['jobTitle'],
+            Text(jobTitle,
                 style: const TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.w700,
                     color: AppColors.neutral900)),
             const SizedBox(height: 6),
 
-            // Budget + location
             Row(
               children: [
-                Text(inv['jobBudget'],
+                Text(jobBudget,
                     style: const TextStyle(
                         fontSize: 14,
                         fontWeight: FontWeight.w700,
                         color: AppColors.primary)),
-                const SizedBox(width: 12),
-                const Icon(Icons.location_on_outlined,
-                    size: 13, color: AppColors.neutral400),
-                const SizedBox(width: 3),
-                Text(inv['jobLocation'],
-                    style: const TextStyle(
-                        fontSize: 12, color: AppColors.neutral500)),
+                if (jobLocation.isNotEmpty) ...[
+                  const SizedBox(width: 12),
+                  const Icon(Icons.location_on_outlined,
+                      size: 13, color: AppColors.neutral400),
+                  const SizedBox(width: 3),
+                  Flexible(
+                    child: Text(jobLocation,
+                        style: const TextStyle(
+                            fontSize: 12, color: AppColors.neutral500),
+                        overflow: TextOverflow.ellipsis),
+                  ),
+                ],
               ],
-            ),
-            const SizedBox(height: 8),
-
-            // Description preview
-            Text(
-              inv['jobDescription'],
-              style: const TextStyle(
-                  fontSize: 13, color: AppColors.neutral600, height: 1.5),
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
             ),
 
             // ── Action buttons (pending only) ──
@@ -241,11 +241,12 @@ class _MyInvitationsScreenState extends State<MyInvitationsScreen> {
               const SizedBox(height: 12),
               Row(
                 children: [
-                  // View job details
                   Expanded(
                     child: OutlinedButton(
-                      onPressed: () =>
-                          Navigator.pushNamed(context, '/job-details'),
+                      onPressed: jobId == null
+                          ? null
+                          : () => Navigator.pushNamed(context, '/job-details',
+                              arguments: {'jobId': jobId}),
                       style: OutlinedButton.styleFrom(
                         foregroundColor: AppColors.primary,
                         side: const BorderSide(color: AppColors.primary),
@@ -259,13 +260,10 @@ class _MyInvitationsScreenState extends State<MyInvitationsScreen> {
                     ),
                   ),
                   const SizedBox(width: 8),
-
-                  // Decline
                   ElevatedButton(
                     onPressed: () => _confirmDecline(inv),
                     style: ElevatedButton.styleFrom(
-                      backgroundColor:
-                          AppColors.neutral200,
+                      backgroundColor: AppColors.neutral200,
                       foregroundColor: AppColors.neutral700,
                       elevation: 0,
                       padding: const EdgeInsets.symmetric(
@@ -278,8 +276,6 @@ class _MyInvitationsScreenState extends State<MyInvitationsScreen> {
                     child: const Text('Decline'),
                   ),
                   const SizedBox(width: 8),
-
-                  // Accept
                   Expanded(
                     child: ElevatedButton(
                       onPressed: () => _confirmAccept(inv),
@@ -308,19 +304,9 @@ class _MyInvitationsScreenState extends State<MyInvitationsScreen> {
               SizedBox(
                 width: double.infinity,
                 child: OutlinedButton.icon(
-                  onPressed: () => Navigator.pushNamed(
-                    context,
-                    '/chat',
-                    arguments: {
-                      'name': inv['employerName'],
-                      'jobTitle': inv['jobTitle'],
-                      'jobLocation': inv['jobLocation'],
-                      'jobSalary': inv['jobBudget'],
-                      'isVerified': inv['employerVerified'],
-                      'isOnline': false,
-                      'otherRole': 'employer',
-                    },
-                  ),
+                  // The invitation row itself carries no conversation_id — the
+                  // conversation lives on Messages, created when accepted.
+                  onPressed: () => Navigator.pushNamed(context, '/messages'),
                   icon: const Icon(Icons.message_outlined, size: 16),
                   label: const Text('Message Employer'),
                   style: OutlinedButton.styleFrom(
@@ -339,6 +325,29 @@ class _MyInvitationsScreenState extends State<MyInvitationsScreen> {
         ),
       ),
     );
+  }
+
+  String _formatSalary(Object? min, Object? max) {
+    double? asDouble(Object? v) =>
+        v == null ? null : (v is num ? v.toDouble() : double.tryParse('$v'));
+    final minV = asDouble(min);
+    final maxV = asDouble(max);
+    if (minV == null && maxV == null) return 'Negotiable';
+    if (minV != null && maxV != null && maxV != minV) {
+      return '₱${minV.toStringAsFixed(0)}-${maxV.toStringAsFixed(0)}';
+    }
+    return '₱${(minV ?? maxV)!.toStringAsFixed(0)}';
+  }
+
+  String _timeAgo(String isoDate) {
+    final date = DateTime.tryParse(isoDate);
+    if (date == null) return '';
+    final diff = DateTime.now().difference(date);
+    if (diff.inMinutes < 1) return 'Just now';
+    if (diff.inMinutes < 60) return '${diff.inMinutes}m ago';
+    if (diff.inHours < 24) return '${diff.inHours}h ago';
+    if (diff.inDays < 7) return '${diff.inDays}d ago';
+    return '${date.month}/${date.day}/${date.year}';
   }
 
   // ─── helpers ─────────────────────────────────────────────────────────────────
@@ -372,60 +381,75 @@ class _MyInvitationsScreenState extends State<MyInvitationsScreen> {
   }
 
   void _confirmAccept(Map<String, dynamic> inv) {
+    final job = inv['job'] as Map<String, dynamic>?;
+    final jobTitle = (job?['title'] ?? 'this job').toString();
+
     showDialog(
       context: context,
       builder: (_) => AlertDialog(
         title: const Text('Accept Invitation?'),
         content: Text(
-            'Accept the invitation for "${inv['jobTitle']}"? You\'ll be able to message the employer after accepting.'),
+            'Accept the invitation for "$jobTitle"? You\'ll be able to message the employer after accepting.'),
         actions: [
           TextButton(
               onPressed: () => Navigator.pop(context),
               child: const Text('Cancel')),
           ElevatedButton(
-            onPressed: () {
+            onPressed: () async {
               Navigator.pop(context);
-              setState(() => inv['status'] = 'accepted');
+              final conversationId =
+                  await context.read<InvitationProvider>().accept(inv['id'] as int);
+              if (!mounted) return;
+              final employer = inv['employer'] as Map<String, dynamic>?;
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(
                   content: Row(
                     children: [
-                      const Icon(Icons.check_circle,
-                          color: Colors.white, size: 18),
+                      Icon(
+                          conversationId != null
+                              ? Icons.check_circle
+                              : Icons.error_outline,
+                          color: Colors.white,
+                          size: 18),
                       const SizedBox(width: 8),
-                      const Expanded(child: Text('Invitation accepted!')),
-                      TextButton(
-                        onPressed: () => Navigator.pushNamed(
-                          context,
-                          '/chat',
-                          arguments: {
-                            'name': inv['employerName'],
-                            'jobTitle': inv['jobTitle'],
-                            'jobLocation': inv['jobLocation'],
-                            'jobSalary': inv['jobBudget'],
-                            'isVerified': inv['employerVerified'],
-                            'isOnline': false,
-                            'otherRole': 'employer',
-                          },
-                        ),
-                        style: TextButton.styleFrom(
-                          foregroundColor: Colors.white,
-                          padding: EdgeInsets.zero,
-                        ),
-                        child: const Text('Message',
-                            style: TextStyle(fontWeight: FontWeight.bold)),
+                      Expanded(
+                        child: Text(conversationId != null
+                            ? 'Invitation accepted!'
+                            : context.read<InvitationProvider>().errorMessage ??
+                                'Failed to accept invitation'),
                       ),
+                      if (conversationId != null)
+                        TextButton(
+                          onPressed: () => Navigator.pushNamed(
+                            context,
+                            '/chat',
+                            arguments: {
+                              'conversationId': conversationId,
+                              'name': employer?['name'] ?? 'Employer',
+                              'jobTitle': jobTitle,
+                              'jobId': job?['id'],
+                              'otherUserId': employer?['id'],
+                              'isVerified': employer?['is_verified'] ?? false,
+                              'otherRole': 'employer',
+                            },
+                          ),
+                          style: TextButton.styleFrom(
+                            foregroundColor: Colors.white,
+                            padding: EdgeInsets.zero,
+                          ),
+                          child: const Text('Message',
+                              style: TextStyle(fontWeight: FontWeight.bold)),
+                        ),
                     ],
                   ),
-                  backgroundColor: AppColors.success,
+                  backgroundColor:
+                      conversationId != null ? AppColors.success : AppColors.error,
                   duration: const Duration(seconds: 4),
                 ),
               );
             },
-            style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.success),
-            child: const Text('Accept',
-                style: TextStyle(color: Colors.white)),
+            style: ElevatedButton.styleFrom(backgroundColor: AppColors.success),
+            child: const Text('Accept', style: TextStyle(color: Colors.white)),
           ),
         ],
       ),
@@ -433,27 +457,36 @@ class _MyInvitationsScreenState extends State<MyInvitationsScreen> {
   }
 
   void _confirmDecline(Map<String, dynamic> inv) {
+    final job = inv['job'] as Map<String, dynamic>?;
+    final jobTitle = (job?['title'] ?? 'this job').toString();
+
     showDialog(
       context: context,
       builder: (_) => AlertDialog(
         title: const Text('Decline Invitation?'),
-        content: Text('Decline the invitation for "${inv['jobTitle']}"?'),
+        content: Text('Decline the invitation for "$jobTitle"?'),
         actions: [
           TextButton(
               onPressed: () => Navigator.pop(context),
               child: const Text('Cancel')),
           ElevatedButton(
-            onPressed: () {
+            onPressed: () async {
               Navigator.pop(context);
-              setState(() => inv['status'] = 'declined');
+              final success =
+                  await context.read<InvitationProvider>().decline(inv['id'] as int);
+              if (!mounted) return;
               ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Invitation declined')),
+                SnackBar(
+                  content: Text(success
+                      ? 'Invitation declined'
+                      : context.read<InvitationProvider>().errorMessage ??
+                          'Failed to decline invitation'),
+                  backgroundColor: success ? AppColors.neutral600 : AppColors.error,
+                ),
               );
             },
-            style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.neutral600),
-            child: const Text('Decline',
-                style: TextStyle(color: Colors.white)),
+            style: ElevatedButton.styleFrom(backgroundColor: AppColors.neutral600),
+            child: const Text('Decline', style: TextStyle(color: Colors.white)),
           ),
         ],
       ),

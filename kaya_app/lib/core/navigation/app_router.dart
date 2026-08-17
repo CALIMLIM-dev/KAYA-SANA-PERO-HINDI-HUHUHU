@@ -154,17 +154,15 @@ class AppRouter {
         return MaterialPageRoute(builder: (_) => const MainNavigation());
       
       case jobDetails:
-        // For now, just navigate to job details without parameters
-        // TODO: Update JobDetailsScreen to accept Job parameter
         return MaterialPageRoute(
           builder: (_) => const JobDetailsScreen(),
+          settings: settings,
         );
-      
+
       case workerProfile:
-        // For now, just navigate to worker profile without parameters  
-        // TODO: Update WorkerProfileScreen to accept WorkerProfile parameter
         return MaterialPageRoute(
           builder: (_) => const WorkerProfileScreen(),
+          settings: settings,
         );
       
       case postJob:
@@ -270,7 +268,10 @@ class AppRouter {
         return MaterialPageRoute(builder: (_) => const ManageJobsScreen());
       
       case viewApplicants:
-        return MaterialPageRoute(builder: (_) => const ViewApplicantsScreen());
+        return MaterialPageRoute(
+          builder: (_) => const ViewApplicantsScreen(),
+          settings: settings,
+        );
       
       case '/applicant-review':
         return MaterialPageRoute(
@@ -309,7 +310,10 @@ class AppRouter {
         );
       
       case employerProfile:
-        return MaterialPageRoute(builder: (_) => const EmployerProfileScreen());
+        return MaterialPageRoute(
+          builder: (_) => const EmployerProfileScreen(),
+          settings: settings,
+        );
       
       default:
         return _errorRoute('Page not found: ${settings.name}');
@@ -349,14 +353,18 @@ class AppRouter {
     );
   }
 
-  /// Navigate to job details screen
+  /// Navigate to job details screen. Only the id is passed — the screen fetches
+  /// the rest live via GET /jobs/{id}, so the details are never stale relative
+  /// to whatever list the tap came from.
   static void toJobDetails(BuildContext context, Job job) {
-    Navigator.pushNamed(context, jobDetails, arguments: job);
+    Navigator.pushNamed(context, jobDetails, arguments: {'jobId': job.id});
   }
 
-  /// Navigate to worker profile screen
+  /// Navigate to worker profile screen. Same reasoning as toJobDetails: only
+  /// the id travels, the screen fetches the full profile itself.
   static void toWorkerProfile(BuildContext context, WorkerProfile worker) {
-    Navigator.pushNamed(context, workerProfile, arguments: worker);
+    Navigator.pushNamed(context, workerProfile,
+        arguments: {'workerId': worker.userId ?? worker.id});
   }
 
   /// Navigate to post job screen

@@ -26,6 +26,11 @@ class ApplicationController extends Controller
         if (!$user->isWorker()) return $this->fail('Forbidden', 403);
         if ($job->status !== 'open') return $this->fail('Job is not accepting applications', 422);
 
+        // Hybrid accounts hold both profiles, so a user can reach their own posting.
+        if ($job->employer_id === $user->id) {
+            return $this->fail('You cannot apply to your own job', 422);
+        }
+
         if (Application::where('job_id', $job->id)->where('worker_id', $user->id)->exists()) {
             return $this->fail('You have already applied to this job', 422);
         }
@@ -65,6 +70,13 @@ class ApplicationController extends Controller
         }
 
         $application->update(['status' => 'withdrawn']);
+
+        // Kept in step with the increment in apply(); without this the counter
+        // only ever grows and permanently overstates interest in the job.
+        JobPost::where('id', $application->job_id)
+            ->where('application_count', '>', 0)
+            ->decrement('application_count');
+
         return $this->ok($application, 'Application withdrawn');
     }
 
@@ -90,7 +102,7 @@ class ApplicationController extends Controller
                     'worker_rating'         => $profile?->rating_avg ?? 0,
                     'worker_rating_count'   => $profile?->rating_count ?? 0,
                     'is_verified'           => $worker->is_verified,
-                    'skills'                => $profile?->skills->pluck('name') ?? [],
+                    'skills'                => $profile?->skills->pluck('skill_name')->values() ?? [],
                 ];
             });
 

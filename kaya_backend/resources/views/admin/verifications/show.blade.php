@@ -10,7 +10,7 @@
             {{ strtoupper(substr($verification->user->name, 0, 1)) }}
         </div>
         <h2 class="mt-3 font-semibold text-slate-800">{{ $verification->user->name }}</h2>
-        <p class="text-xs text-slate-400">{{ ucfirst($verification->user->user_type) }} · {{ $verification->user->city ?? 'No city set' }}</p>
+        <p class="text-xs text-slate-400">{{ $verification->user->roleLabel() }} · {{ $verification->user->city ?? 'No city set' }}</p>
 
         <div class="mt-4 text-xs px-3 py-1.5 rounded-full inline-block
             {{ $verification->status === 'verified' ? 'badge-verified' : ($verification->status === 'rejected' ? 'badge-suspended' : 'badge-pending') }}">

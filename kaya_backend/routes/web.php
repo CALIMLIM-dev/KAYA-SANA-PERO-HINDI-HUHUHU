@@ -11,6 +11,9 @@ use Illuminate\Support\Facades\Route;
 // Redirect root to admin login
 Route::get('/', fn () => redirect()->route('admin.login'));
 
+// Fallback login route (Laravel's default redirect)
+Route::get('/login', fn () => redirect()->route('admin.login'))->name('login');
+
 Route::prefix('admin')->name('admin.')->group(function () {
 
     // Public — login

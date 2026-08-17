@@ -1,553 +1,581 @@
 import 'package:flutter/material.dart';
-import '../../../core/constants/app_colors.dart';
+import 'package:provider/provider.dart';
 
-/// Job Details Screen - Clean, minimal design matching modern job platforms
-class JobDetailsScreen extends StatelessWidget {
+import '../../../core/constants/app_colors.dart';
+import '../../../data/models/job_model.dart';
+import '../../../providers/application_provider.dart';
+import '../../../providers/job_provider.dart';
+
+/// Job Details — a single real job, fetched via GET /jobs/{id}.
+///
+/// Previously this was a StatelessWidget showing the same hardcoded
+/// "Emergency Pipe Repair" regardless of which job card was tapped, with no
+/// route argument reading at all, and a decorative Apply button that did
+/// nothing. Every job card in the app links here.
+class JobDetailsScreen extends StatefulWidget {
   const JobDetailsScreen({super.key});
 
   @override
+  State<JobDetailsScreen> createState() => _JobDetailsScreenState();
+}
+
+class _JobDetailsScreenState extends State<JobDetailsScreen> {
+  int? _jobId;
+  bool _initialized = false;
+  bool _isApplying = false;
+  bool _isSaving = false;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_initialized) return;
+    _initialized = true;
+
+    final args = ModalRoute.of(context)?.settings.arguments;
+    _jobId = args is Map ? args['jobId'] as int? : args as int?;
+
+    if (_jobId != null) {
+      WidgetsBinding.instance.addPostFrameCallback(
+        (_) => context.read<JobProvider>().fetchJobDetail(_jobId!),
+      );
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: AppColors.neutral50,
-      appBar: AppBar(
-        title: const Text(
-          'Job Details',
-          style: TextStyle(
-            fontWeight: FontWeight.w600,
-            color: Colors.white,
+    if (_jobId == null) {
+      return Scaffold(
+        appBar: AppBar(title: const Text('Job Details')),
+        body: const Center(child: Text('No job specified.')),
+      );
+    }
+
+    return Consumer<JobProvider>(
+      builder: (context, provider, _) {
+        final job = provider.selectedJob;
+
+        return Scaffold(
+          backgroundColor: AppColors.neutral50,
+          appBar: AppBar(
+            title: const Text('Job Details',
+                style: TextStyle(fontWeight: FontWeight.w600, color: Colors.white)),
+            backgroundColor: AppColors.primary,
+            foregroundColor: Colors.white,
+            elevation: 0,
+            actions: [
+              if (job != null && !job.isOwnJob)
+                IconButton(
+                  icon: Icon(job.isSaved ? Icons.bookmark : Icons.bookmark_border),
+                  onPressed: _isSaving ? null : () => _toggleSave(job),
+                ),
+            ],
+          ),
+          body: provider.isDetailLoading && job == null
+              ? const Center(child: CircularProgressIndicator())
+              : provider.detailErrorMessage != null && job == null
+                  ? _errorState(provider.detailErrorMessage!)
+                  : job == null
+                      ? const SizedBox.shrink()
+                      : _content(job),
+          bottomNavigationBar: job == null ? null : _actionBar(job),
+        );
+      },
+    );
+  }
+
+  Widget _errorState(String message) => Center(
+        child: Padding(
+          padding: const EdgeInsets.all(32),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(Icons.cloud_off, size: 56, color: AppColors.neutral300),
+              const SizedBox(height: 16),
+              const Text('Could not load this job',
+                  style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.neutral600)),
+              const SizedBox(height: 8),
+              Text(message,
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(fontSize: 13, color: AppColors.neutral400)),
+              const SizedBox(height: 20),
+              OutlinedButton(
+                onPressed: () =>
+                    context.read<JobProvider>().fetchJobDetail(_jobId!),
+                child: const Text('Retry'),
+              ),
+            ],
           ),
         ),
-        backgroundColor: AppColors.primary,
-        foregroundColor: Colors.white,
-        elevation: 0,
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.share_outlined),
-            onPressed: () {},
-          ),
-          IconButton(
-            icon: const Icon(Icons.bookmark_border),
-            onPressed: () {},
-          ),
-        ],
-      ),
-      body: SingleChildScrollView(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const SizedBox(height: 12),
-            
-            // Header: Title, Category, Time, Salary
-            _buildSection(
+      );
+
+  Widget _content(Job job) {
+    return SingleChildScrollView(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const SizedBox(height: 16),
+
+          // ── Header card: title, badges, salary ──
+          Container(
+            width: double.infinity,
+            margin: const EdgeInsets.symmetric(horizontal: 16),
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(16),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.05),
+                  blurRadius: 10,
+                  offset: const Offset(0, 2),
+                ),
+              ],
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  'Emergency Pipe Repair',
-                  style: TextStyle(
-                    fontSize: 22,
-                    fontWeight: FontWeight.w600,
-                    color: AppColors.neutral900,
-                  ),
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(
+                      child: Text(job.title,
+                          style: const TextStyle(
+                              fontSize: 21,
+                              fontWeight: FontWeight.bold,
+                              color: AppColors.neutral900)),
+                    ),
+                    if (job.isUrgent) ...[
+                      const SizedBox(width: 8),
+                      _badge('URGENT', AppColors.error),
+                    ],
+                  ],
                 ),
                 const SizedBox(height: 10),
-                Text(
-                  '₱1,200/day',
-                  style: TextStyle(
-                    fontSize: 20,
-                    fontWeight: FontWeight.bold,
-                    color: AppColors.success,
-                  ),
-                ),
-                const SizedBox(height: 12),
-                Row(
-                  children: [
-                    _buildInfoChip(
-                      icon: Icons.plumbing,
-                      label: 'Plumbing',
-                      color: AppColors.primary,
-                    ),
-                    const SizedBox(width: 8),
-                    _buildInfoChip(
-                      icon: Icons.access_time,
-                      label: '2 hours ago',
-                      color: AppColors.neutral600,
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 12),
-                Row(
-                  children: [
-                    _buildBadge('Urgent', Icons.flash_on, AppColors.accent),
-                    const SizedBox(width: 8),
-                    _buildBadge('Negotiable', Icons.handshake, AppColors.success),
-                  ],
-                ),
-              ],
-            ),
-            
-            const SizedBox(height: 12),
-            
-            // Employer Info
-            _buildSection(
-              title: 'Posted by',
-              children: [
-                InkWell(
-                  onTap: () => Navigator.pushNamed(context, '/employer-profile'),
-                  borderRadius: BorderRadius.circular(12),
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 4),
-                    child: Row(
-                      children: [
-                        CircleAvatar(
-                          radius: 28,
-                          backgroundColor: AppColors.primary.withValues(alpha: 0.1),
-                          child: const Icon(
-                            Icons.business,
-                            color: AppColors.primary,
-                            size: 28,
-                          ),
-                        ),
-                        const SizedBox(width: 14),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Row(
-                                children: [
-                                  Text(
-                                    'Plumbing Services Inc.',
-                                    style: TextStyle(
-                                      fontSize: 16,
-                                      fontWeight: FontWeight.w600,
-                                      color: AppColors.neutral900,
-                                    ),
-                                  ),
-                                  const SizedBox(width: 6),
-                                  const Icon(
-                                    Icons.verified,
-                                    color: AppColors.verified,
-                                    size: 16,
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 4),
-                              Row(
-                                children: [
-                                  const Icon(Icons.star, color: Colors.amber, size: 14),
-                                  const SizedBox(width: 4),
-                                  Text(
-                                    '4.8',
-                                    style: TextStyle(
-                                      fontSize: 13,
-                                      fontWeight: FontWeight.w600,
-                                      color: AppColors.neutral700,
-                                    ),
-                                  ),
-                                  Text(
-                                    ' (89 reviews)',
-                                    style: TextStyle(
-                                      fontSize: 13,
-                                      color: AppColors.neutral600,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ],
-                          ),
-                        ),
-                        const Icon(Icons.arrow_forward_ios,
-                            size: 14, color: AppColors.neutral400),
-                      ],
-                    ),
-                  ),
-                ),
-              ],
-            ),
-            
-            const SizedBox(height: 12),
-            
-            // Job Photos
-            _buildSection(
-              title: 'Photos',
-              children: [
-                SizedBox(
-                  height: 90,
-                  child: ListView(
-                    scrollDirection: Axis.horizontal,
-                    children: [
-                      _buildPhotoCard(),
-                      const SizedBox(width: 10),
-                      _buildPhotoCard(),
-                      const SizedBox(width: 10),
-                      _buildPhotoCard(),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-            
-            const SizedBox(height: 12),
-            
-            // Location
-            _buildSection(
-              title: 'Location',
-              children: [
-                Container(
-                  height: 160,
-                  width: double.infinity,
-                  decoration: BoxDecoration(
-                    color: AppColors.neutral200,
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: AppColors.neutral300),
-                  ),
-                  child: ClipRRect(
-                    borderRadius: BorderRadius.circular(12),
-                    child: Stack(
-                      children: [
-                        Container(
-                          color: AppColors.neutral100,
-                          child: Center(
-                            child: Icon(
-                              Icons.map,
-                              size: 48,
-                              color: AppColors.neutral400,
-                            ),
-                          ),
-                        ),
-                        Center(
-                          child: Icon(
-                            Icons.location_pin,
-                            size: 48,
-                            color: AppColors.error,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 14),
-                Row(
-                  children: [
-                    Icon(Icons.location_on, color: AppColors.primary, size: 20),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Urdaneta City',
-                            style: TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.w600,
-                              color: AppColors.neutral900,
-                            ),
-                          ),
-                          const SizedBox(height: 2),
-                          Text(
-                            '2.5km away',
-                            style: TextStyle(
-                              fontSize: 13,
-                              color: AppColors.neutral600,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-            
-            const SizedBox(height: 12),
-            
-            // Description
-            _buildSection(
-              title: 'Description',
-              children: [
-                Text(
-                  'We need an experienced plumber to fix a burst pipe in our residential property. The job requires immediate attention and should be completed within the day. Must have own tools and transportation.',
-                  style: TextStyle(
-                    fontSize: 15,
-                    height: 1.6,
-                    color: AppColors.neutral700,
-                  ),
-                ),
-              ],
-            ),
-            
-            const SizedBox(height: 12),
-            
-            // Workers Needed
-            _buildSection(
-              title: 'Workers Needed',
-              children: [
-                Text(
-                  '1 worker',
-                  style: TextStyle(
-                    fontSize: 15,
-                    color: AppColors.neutral700,
-                  ),
-                ),
-              ],
-            ),
-            
-            const SizedBox(height: 12),
-            
-            // Required Skills
-            _buildSection(
-              title: 'Required Skills',
-              children: [
                 Wrap(
                   spacing: 8,
                   runSpacing: 8,
                   children: [
-                    _buildSkillChip('Plumbing'),
-                    _buildSkillChip('Pipe Repair'),
-                    _buildSkillChip('Emergency Service'),
-                    _buildSkillChip('Installation'),
-                    _buildSkillChip('Leak Detection'),
+                    if (job.category != null) _iconChip(Icons.category_outlined, job.category!),
+                    if ((job.location ?? '').isNotEmpty)
+                      _iconChip(Icons.location_on_outlined, job.location!),
+                    if (job.postedAt != null)
+                      _iconChip(Icons.schedule, _timeAgo(job.postedAt!)),
+                  ],
+                ),
+                const SizedBox(height: 14),
+                // Wrap rather than a rigid Row+Spacer — a long price plus the
+                // negotiable badge plus the match pill together could overflow
+                // a narrow screen with no way to shrink; this just wraps
+                // instead of erroring.
+                Wrap(
+                  spacing: 10,
+                  runSpacing: 8,
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  children: [
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      children: [
+                        Text(
+                          _formatSalary(job.salaryMin, job.salaryMax),
+                          style: const TextStyle(
+                              fontSize: 24,
+                              fontWeight: FontWeight.bold,
+                              color: AppColors.success),
+                        ),
+                        const SizedBox(width: 6),
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: 3),
+                          child: Text(_periodLabel(job.salaryPeriod),
+                              style: const TextStyle(
+                                  fontSize: 13, color: AppColors.neutral500)),
+                        ),
+                      ],
+                    ),
+                    if (job.isNegotiable) _badge('Open to offers', AppColors.warning),
+                    if (job.matchScore != null) _matchPill(job.matchScore!),
                   ],
                 ),
               ],
             ),
-            
-            const SizedBox(height: 100),
-          ],
-        ),
+          ),
+
+          // ── Posted by ──
+          _section(
+            child: InkWell(
+              onTap: job.employerId == null
+                  ? null
+                  : () => Navigator.pushNamed(context, '/employer-profile',
+                      arguments: {'employerId': job.employerId}),
+              borderRadius: BorderRadius.circular(12),
+              child: Row(
+                children: [
+                  CircleAvatar(
+                    radius: 24,
+                    backgroundColor: AppColors.primary.withValues(alpha: 0.1),
+                    child: Text(
+                      job.company.isNotEmpty ? job.company[0].toUpperCase() : '?',
+                      style: const TextStyle(
+                          fontWeight: FontWeight.bold, color: AppColors.primary),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Flexible(
+                              child: Text(
+                                job.company.isEmpty ? 'Private Employer' : job.company,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                    fontSize: 15,
+                                    fontWeight: FontWeight.w600,
+                                    color: AppColors.neutral900),
+                              ),
+                            ),
+                            if (job.requiresVerification) ...[
+                              const SizedBox(width: 4),
+                              const Icon(Icons.verified, size: 15, color: AppColors.success),
+                            ],
+                          ],
+                        ),
+                        const Text('Posted by',
+                            style: TextStyle(fontSize: 12, color: AppColors.neutral500)),
+                      ],
+                    ),
+                  ),
+                  if (job.employerId != null)
+                    const Icon(Icons.arrow_forward_ios, size: 14, color: AppColors.neutral400),
+                ],
+              ),
+            ),
+          ),
+
+          // ── Photos ──
+          if (job.photoUrls.isNotEmpty)
+            _section(
+              title: 'Photos',
+              child: SizedBox(
+                height: 160,
+                child: ListView.separated(
+                  scrollDirection: Axis.horizontal,
+                  itemCount: job.photoUrls.length,
+                  separatorBuilder: (_, _) => const SizedBox(width: 10),
+                  itemBuilder: (context, i) => ClipRRect(
+                    borderRadius: BorderRadius.circular(12),
+                    child: Image.network(
+                      job.photoUrls[i],
+                      width: 220,
+                      height: 160,
+                      fit: BoxFit.cover,
+                      errorBuilder: (_, _, _) => Container(
+                        width: 220,
+                        height: 160,
+                        color: AppColors.neutral100,
+                        child: const Icon(Icons.broken_image_outlined,
+                            color: AppColors.neutral400),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+
+          // ── Description ──
+          if ((job.description ?? '').isNotEmpty)
+            _section(
+              title: 'Job Description',
+              child: Text(job.description!,
+                  style: const TextStyle(
+                      fontSize: 14.5, height: 1.6, color: AppColors.neutral700)),
+            ),
+
+          // ── Required skills ──
+          if (job.requiredSkills.isNotEmpty)
+            _section(
+              title: 'Required Skills',
+              child: Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: job.requiredSkills.map((s) {
+                  final matched = job.matchedSkills
+                      .any((m) => m.toLowerCase() == s.toLowerCase());
+                  return Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+                    decoration: BoxDecoration(
+                      color: matched
+                          ? AppColors.success.withValues(alpha: 0.1)
+                          : AppColors.neutral100,
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(
+                        color: matched
+                            ? AppColors.success.withValues(alpha: 0.3)
+                            : AppColors.neutral200,
+                      ),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        if (matched)
+                          const Padding(
+                            padding: EdgeInsets.only(right: 5),
+                            child: Icon(Icons.check_circle,
+                                size: 13, color: AppColors.success),
+                          ),
+                        Text(s,
+                            style: TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w500,
+                                color: matched
+                                    ? AppColors.success
+                                    : AppColors.neutral700)),
+                      ],
+                    ),
+                  );
+                }).toList(),
+              ),
+            ),
+
+          // ── Applicant count ──
+          _section(
+            child: Row(
+              children: [
+                const Icon(Icons.people_outline, size: 18, color: AppColors.neutral500),
+                const SizedBox(width: 8),
+                Text('${job.applicantCount} applicant${job.applicantCount == 1 ? '' : 's'} so far',
+                    style: const TextStyle(fontSize: 13, color: AppColors.neutral600)),
+              ],
+            ),
+          ),
+
+          const SizedBox(height: 90), // clears the bottom action bar
+        ],
       ),
-      bottomNavigationBar: _buildBottomBar(context),
     );
   }
 
-  Widget _buildSection({
-    String? title,
-    required List<Widget> children,
-  }) {
+  Widget _section({String? title, required Widget child}) {
     return Container(
       width: double.infinity,
+      margin: const EdgeInsets.fromLTRB(16, 16, 16, 0),
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         color: Colors.white,
-        border: Border(
-          bottom: BorderSide(color: AppColors.neutral200, width: 1),
-        ),
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.05),
+            blurRadius: 10,
+            offset: const Offset(0, 2),
+          ),
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           if (title != null) ...[
-            Text(
-              title,
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w600,
-                color: AppColors.neutral900,
-              ),
-            ),
-            const SizedBox(height: 14),
+            Text(title,
+                style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                    color: AppColors.neutral900)),
+            const SizedBox(height: 12),
           ],
-          ...children,
+          child,
         ],
       ),
     );
   }
 
-  Widget _buildInfoChip({
-    required IconData icon,
-    required String label,
-    required Color color,
-  }) {
+  Widget _iconChip(IconData icon, String label) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.1),
-        borderRadius: BorderRadius.circular(6),
+        color: AppColors.neutral100,
+        borderRadius: BorderRadius.circular(8),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, size: 14, color: color),
-          const SizedBox(width: 6),
-          Text(
-            label,
-            style: TextStyle(
-              fontSize: 13,
-              fontWeight: FontWeight.w500,
-              color: color,
-            ),
-          ),
+          Icon(icon, size: 14, color: AppColors.neutral600),
+          const SizedBox(width: 5),
+          Text(label, style: const TextStyle(fontSize: 12.5, color: AppColors.neutral700)),
         ],
       ),
     );
   }
 
-  Widget _buildBadge(String label, IconData icon, Color color) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-      decoration: BoxDecoration(
-        color: color,
-        borderRadius: BorderRadius.circular(16),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, color: Colors.white, size: 14),
-          const SizedBox(width: 6),
-          Text(
-            label.toUpperCase(),
+  Widget _badge(String label, Color color) => Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+        decoration: BoxDecoration(color: color, borderRadius: BorderRadius.circular(6)),
+        child: Text(label,
             style: const TextStyle(
-              color: Colors.white,
-              fontWeight: FontWeight.w600,
-              fontSize: 11,
-              letterSpacing: 0.5,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
+                fontSize: 10, fontWeight: FontWeight.bold, color: Colors.white)),
+      );
 
-  Widget _buildPhotoCard() {
+  Widget _matchPill(int score) {
+    final color = score >= 70
+        ? AppColors.success
+        : score >= 40
+            ? AppColors.warning
+            : AppColors.neutral500;
     return Container(
-      width: 110,
-      height: 90,
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
       decoration: BoxDecoration(
-        color: AppColors.neutral200,
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: AppColors.neutral300),
+        color: color.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(20),
       ),
-      child: const Icon(
-        Icons.image,
-        color: AppColors.neutral400,
-        size: 32,
-      ),
+      child: Text('$score% match',
+          style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: color)),
     );
   }
 
-  Widget _buildSkillChip(String label) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-      decoration: BoxDecoration(
-        color: AppColors.primary,
-        borderRadius: BorderRadius.circular(16),
-      ),
-      child: Text(
-        label,
-        style: const TextStyle(
-          fontSize: 13,
-          fontWeight: FontWeight.w600,
-          color: Colors.white,
-        ),
-      ),
-    );
-  }
+  /// The action bar at the bottom of the screen — what it shows depends
+  /// entirely on the real state of the job, not a static button.
+  Widget _actionBar(Job job) {
+    Widget button;
 
-  Widget _buildBottomBar(BuildContext context) {
+    if (job.isOwnJob) {
+      button = OutlinedButton.icon(
+        onPressed: () => Navigator.pushNamed(context, '/view-applicants',
+            arguments: {'jobId': job.id}),
+        icon: const Icon(Icons.people_outline),
+        label: Text('View ${job.applicantCount} Applicant${job.applicantCount == 1 ? '' : 's'}'),
+        style: _actionStyle(outlined: true),
+      );
+    } else if (!job.isActive) {
+      button = ElevatedButton(
+        onPressed: null,
+        style: _actionStyle(),
+        child: const Text('This job is no longer open'),
+      );
+    } else if (job.hasApplied) {
+      final status = job.applicationStatus;
+      final (label, color) = switch (status) {
+        ApplicationStatus.accepted => ('Application Accepted', AppColors.success),
+        ApplicationStatus.rejected => ('Application Not Selected', AppColors.error),
+        ApplicationStatus.withdrawn => ('Application Withdrawn', AppColors.neutral500),
+        _ => ('Application Pending', AppColors.warning),
+      };
+      button = ElevatedButton(
+        onPressed: null,
+        style: _actionStyle(backgroundColor: color.withValues(alpha: 0.15)),
+        child: Text(label, style: TextStyle(color: color, fontWeight: FontWeight.w600)),
+      );
+    } else {
+      button = ElevatedButton(
+        onPressed: _isApplying ? null : () => _apply(job),
+        style: _actionStyle(),
+        child: _isApplying
+            ? const SizedBox(
+                height: 20,
+                width: 20,
+                child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+              )
+            : const Text('Apply Now'),
+      );
+    }
+
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: Colors.white,
-        border: Border(
-          top: BorderSide(color: AppColors.neutral200),
-        ),
+        boxShadow: [
+          BoxShadow(color: Colors.black.withValues(alpha: 0.06), blurRadius: 10, offset: const Offset(0, -3)),
+        ],
       ),
-      child: SafeArea(
-        child: Row(
-          children: [
-            OutlinedButton(
-              onPressed: () => Navigator.pushNamed(
-                context,
-                '/chat',
-                arguments: {
-                  'name': 'Plumbing Services Inc.',
-                  'jobTitle': 'Emergency Pipe Repair',
-                  'jobLocation': 'Urdaneta City',
-                  'jobSalary': '₱1,200/day',
-                  'isVerified': true,
-                  'isOnline': true,
-                  'otherRole': 'employer',
-                },
-              ),
-              style: OutlinedButton.styleFrom(
-                side: BorderSide(color: AppColors.primary),
-                foregroundColor: AppColors.primary,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
-              ),
-              child: const Icon(Icons.message, size: 22),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: ElevatedButton(
-                onPressed: () => _showApplyDialog(context),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.primary,
-                  foregroundColor: Colors.white,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  padding: const EdgeInsets.symmetric(vertical: 14),
-                  elevation: 0,
-                ),
-                child: const Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(Icons.send, size: 20),
-                    SizedBox(width: 10),
-                    Text(
-                      'Apply Now',
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
+      child: SafeArea(top: false, child: SizedBox(width: double.infinity, child: button)),
     );
   }
 
-  void _showApplyDialog(BuildContext context) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Row(
-          children: [
-            Icon(Icons.work, color: AppColors.primary),
-            const SizedBox(width: 10),
-            const Text('Apply for Job'),
-          ],
-        ),
-        content: const Text(
-          'Submit your application for this job? The employer will review your profile and contact you if you\'re a good fit.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              Navigator.pop(context);
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('Application submitted successfully!'),
-                  backgroundColor: AppColors.success,
-                ),
-              );
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.primary,
-            ),
-            child: const Text('Submit Application'),
-          ),
-        ],
-      ),
-    );
+  ButtonStyle _actionStyle({bool outlined = false, Color? backgroundColor}) {
+    return outlined
+        ? OutlinedButton.styleFrom(
+            foregroundColor: AppColors.primary,
+            side: const BorderSide(color: AppColors.primary),
+            padding: const EdgeInsets.symmetric(vertical: 15),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            textStyle: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
+          )
+        : ElevatedButton.styleFrom(
+            backgroundColor: backgroundColor ?? AppColors.primary,
+            foregroundColor: Colors.white,
+            disabledBackgroundColor: backgroundColor ?? AppColors.neutral300,
+            elevation: 0,
+            padding: const EdgeInsets.symmetric(vertical: 15),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            textStyle: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
+          );
+  }
+
+  Future<void> _apply(Job job) async {
+    setState(() => _isApplying = true);
+    final applications = context.read<ApplicationProvider>();
+    final success = await applications.applyToJob(job.id);
+
+    if (!mounted) return;
+    setState(() => _isApplying = false);
+
+    if (success) {
+      await context.read<JobProvider>().fetchJobDetail(job.id);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+        content: Text('Application submitted!'),
+        backgroundColor: AppColors.success,
+      ));
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(applications.errorMessage ?? 'Could not submit application'),
+        backgroundColor: AppColors.error,
+      ));
+    }
+  }
+
+  Future<void> _toggleSave(Job job) async {
+    setState(() => _isSaving = true);
+    final jobProvider = context.read<JobProvider>();
+    final ok = job.isSaved ? await jobProvider.unsaveJob(job.id) : await jobProvider.saveJob(job.id);
+
+    if (!mounted) return;
+    setState(() => _isSaving = false);
+
+    if (ok) {
+      await jobProvider.fetchJobDetail(job.id);
+    } else if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(jobProvider.errorMessage ?? 'Something went wrong'),
+        backgroundColor: AppColors.error,
+      ));
+    }
+  }
+
+  String _periodLabel(String period) => switch (period) {
+        'daily' => '/ day',
+        'hourly' => '/ hour',
+        _ => '/ project',
+      };
+
+  String _formatSalary(double? min, double? max) {
+    String fmt(double v) => v == v.roundToDouble() ? v.toInt().toString() : v.toStringAsFixed(2);
+    if (min == null && max == null) return 'Negotiable';
+    if (min != null && max != null && max != min) {
+      return '₱${fmt(min)} - ₱${fmt(max)}';
+    }
+    return '₱${fmt(min ?? max!)}';
+  }
+
+  String _timeAgo(DateTime date) {
+    final diff = DateTime.now().difference(date);
+    if (diff.inDays >= 30) return '${(diff.inDays / 30).floor()}mo ago';
+    if (diff.inDays >= 1) return '${diff.inDays}d ago';
+    if (diff.inHours >= 1) return '${diff.inHours}h ago';
+    if (diff.inMinutes >= 1) return '${diff.inMinutes}m ago';
+    return 'Just now';
   }
 }

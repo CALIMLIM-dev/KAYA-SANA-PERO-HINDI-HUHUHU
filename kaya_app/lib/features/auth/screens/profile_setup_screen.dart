@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../shared/widgets/location_picker_field.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/navigation/app_router.dart';
 
@@ -386,27 +387,11 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
             ),
           ),
           const SizedBox(height: 8),
-          TextField(
-            controller: _cityController,
-            decoration: InputDecoration(
-              hintText: 'Enter your city',
-              filled: true,
-              fillColor: Colors.white,
-              prefixIcon: Icon(Icons.location_city, color: AppColors.primary),
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
-                borderSide: BorderSide(color: AppColors.neutral300),
-              ),
-              enabledBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
-                borderSide: BorderSide(color: AppColors.neutral300),
-              ),
-              focusedBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
-                borderSide: BorderSide(color: AppColors.primary, width: 2),
-              ),
-            ),
-          ),
+          LocationPickerField(
+                      controller: _cityController,
+                      labelText: 'City',
+                      onSelected: (_) => setState(() {}),
+                    ),
           
           const SizedBox(height: 16),
           

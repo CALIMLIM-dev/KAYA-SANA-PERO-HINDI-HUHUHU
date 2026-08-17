@@ -17,8 +17,10 @@ class DashboardController extends Controller
     {
         $stats = [
             'total_users'         => User::where('user_type', '!=', 'admin')->count(),
-            'total_workers'       => User::where('user_type', 'worker')->count(),
-            'total_employers'     => User::where('user_type', 'employer')->count(),
+            // Counted by profile existence, not user_type — a hybrid account holds
+            // both profiles and is intentionally counted in both totals.
+            'total_workers'       => User::where('user_type', '!=', 'admin')->whereHas('workerProfile')->count(),
+            'total_employers'     => User::where('user_type', '!=', 'admin')->whereHas('employerProfile')->count(),
             'pending_verifications' => Verification::where('status', 'pending')->count(),
             'pending_reports'     => Report::where('status', 'pending')->count(),
             'open_jobs'           => JobPost::where('status', 'open')->count(),

@@ -26,6 +26,54 @@ class ApplicationProvider with ChangeNotifier {
 
   void _setLoading(bool v) { _isLoading = v; notifyListeners(); }
 
+  // ── Applicants for a job (employer view) ────────────────────────────────────
+
+  bool _isApplicantsLoading = false;
+  String? _applicantsError;
+  List<Map<String, dynamic>> _applicants = [];
+
+  bool get isApplicantsLoading => _isApplicantsLoading;
+  String? get applicantsErrorMessage => _applicantsError;
+  List<Map<String, dynamic>> get applicants => _applicants;
+
+  /// GET /jobs/{job}/applicants — the data behind ViewApplicantsScreen, which
+  /// previously showed five hardcoded names (Juan Dela Cruz, Pedro Santos...)
+  /// regardless of who actually applied.
+  Future<void> fetchApplicants(int jobId) async {
+    _isApplicantsLoading = true;
+    _applicantsError = null;
+    notifyListeners();
+
+    try {
+      final res = await _api.get('/jobs/$jobId/applicants');
+      _applicants = (res.data['data'] as List).cast<Map<String, dynamic>>();
+    } catch (e) {
+      _applicantsError = e.toString().replaceFirst('Exception: ', '');
+      _applicants = [];
+    }
+
+    _isApplicantsLoading = false;
+    notifyListeners();
+  }
+
+  /// Accepts/rejects by application_id and reflects the change in the local
+  /// applicants list (separate from the my-applications list above).
+  Future<bool> respondToApplicant(int applicationId, {required bool accept}) async {
+    try {
+      await _api.patch('/applications/$applicationId/${accept ? 'accept' : 'reject'}');
+      final idx = _applicants.indexWhere((a) => a['application_id'] == applicationId);
+      if (idx != -1) {
+        _applicants[idx]['application_status'] = accept ? 'accepted' : 'rejected';
+        notifyListeners();
+      }
+      return true;
+    } catch (e) {
+      _applicantsError = e.toString().replaceFirst('Exception: ', '');
+      notifyListeners();
+      return false;
+    }
+  }
+
   Future<void> fetchMyApplications() async {
     _setLoading(true);
     try {

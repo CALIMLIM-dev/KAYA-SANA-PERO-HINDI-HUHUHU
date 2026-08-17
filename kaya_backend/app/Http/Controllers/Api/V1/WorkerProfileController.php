@@ -10,10 +10,63 @@ use App\Models\WorkerLicense;
 use App\Models\WorkerLicenseExamination;
 use App\Models\WorkerExperience;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
 
 class WorkerProfileController extends Controller
 {
+    // ==================== SETUP COMPLETION ====================
+    
+    public function completeSetup(Request $request)
+    {
+        $user = $request->user();
+        $profile = WorkerProfile::where('user_id', $user->id)->first();
+        
+        if (!$profile) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Worker profile not found',
+                'data' => null
+            ], 404);
+        }
+        
+        $profile->setup_completed = true;
+        $profile->save();
+        
+        return response()->json([
+            'success' => true,
+            'data' => ['setup_completed' => true],
+            'message' => 'Profile setup completed successfully'
+        ]);
+    }
+    
+    public function deleteProfile(Request $request)
+    {
+        $user = $request->user();
+        $profile = WorkerProfile::where('user_id', $user->id)->first();
+        
+        // Silent success if no profile exists
+        if ($profile) {
+            // The sub-records key off user_id, not worker_profile_id, so deleting
+            // the profile row cascades nothing. They must go explicitly, or a
+            // delete-then-recreate leaves the new profile carrying stale data.
+            DB::transaction(function () use ($user, $profile) {
+                WorkerSkill::where('user_id', $user->id)->delete();
+                WorkerExperience::where('user_id', $user->id)->delete();
+                WorkerCertification::where('user_id', $user->id)->delete();
+                WorkerLicense::where('user_id', $user->id)->delete();
+                WorkerLicenseExamination::where('user_id', $user->id)->delete();
+                $profile->delete();
+            });
+        }
+
+        return response()->json([
+            'success' => true,
+            'data' => null,
+            'message' => 'Profile deleted successfully'
+        ]);
+    }
+    
     // ==================== BASIC PROFILE ====================
     
     public function updateBasicInfo(Request $request)
@@ -53,6 +106,7 @@ class WorkerProfileController extends Controller
             [
                 'availability_status' => 'available',
                 'verification_status' => 'unverified',
+                'setup_completed' => false,
             ]
         );
 
@@ -301,8 +355,8 @@ class WorkerProfileController extends Controller
         $validator = Validator::make($request->all(), [
             'certification_name' => 'required|string|max:255',
             'issuing_organization' => 'required|string|max:255',
-            'issue_date' => 'nullable|date',
-            'expiry_date' => 'nullable|date',
+            'issue_date' => 'nullable|date|before_or_equal:today',
+            'expiry_date' => 'nullable|date|after:issue_date',
             'credential_id' => 'nullable|string|max:255',
             'document' => 'nullable|file|mimes:jpg,jpeg,png,pdf|max:5120',
         ]);
@@ -356,8 +410,8 @@ class WorkerProfileController extends Controller
         $validator = Validator::make($request->all(), [
             'certification_name' => 'required|string|max:255',
             'issuing_organization' => 'required|string|max:255',
-            'issue_date' => 'nullable|date',
-            'expiry_date' => 'nullable|date',
+            'issue_date' => 'nullable|date|before_or_equal:today',
+            'expiry_date' => 'nullable|date|after:issue_date',
             'credential_id' => 'nullable|string|max:255',
         ]);
         
@@ -420,8 +474,8 @@ class WorkerProfileController extends Controller
             'license_name' => 'required|string|max:255',
             'license_number' => 'required|string|max:255',
             'issuing_authority' => 'required|string|max:255',
-            'issue_date' => 'nullable|date',
-            'expiry_date' => 'nullable|date',
+            'issue_date' => 'nullable|date|before_or_equal:today',
+            'expiry_date' => 'nullable|date|after:issue_date',
             'document' => 'nullable|file|mimes:jpg,jpeg,png,pdf|max:5120',
         ]);
         
@@ -475,8 +529,8 @@ class WorkerProfileController extends Controller
             'license_name' => 'required|string|max:255',
             'license_number' => 'required|string|max:255',
             'issuing_authority' => 'required|string|max:255',
-            'issue_date' => 'nullable|date',
-            'expiry_date' => 'nullable|date',
+            'issue_date' => 'nullable|date|before_or_equal:today',
+            'expiry_date' => 'nullable|date|after:issue_date',
         ]);
         
         if ($validator->fails()) {
@@ -540,8 +594,8 @@ class WorkerProfileController extends Controller
             'job_title' => 'required|string|max:255',
             'company_name' => 'required|string|max:255',
             'description' => 'nullable|string',
-            'start_date' => 'required|date',
-            'end_date' => 'nullable|date',
+            'start_date' => 'required|date|before_or_equal:today',
+            'end_date' => 'nullable|date|after_or_equal:start_date|before_or_equal:today',
             'is_current' => 'nullable|boolean',
         ]);
         
@@ -588,8 +642,8 @@ class WorkerProfileController extends Controller
             'job_title' => 'required|string|max:255',
             'company_name' => 'required|string|max:255',
             'description' => 'nullable|string',
-            'start_date' => 'required|date',
-            'end_date' => 'nullable|date',
+            'start_date' => 'required|date|before_or_equal:today',
+            'end_date' => 'nullable|date|after_or_equal:start_date|before_or_equal:today',
             'is_current' => 'nullable|boolean',
         ]);
         
@@ -650,7 +704,7 @@ class WorkerProfileController extends Controller
     {
         $validator = Validator::make($request->all(), [
             'exam_name' => 'required|string|max:255',
-            'exam_date' => 'nullable|date',
+            'exam_date' => 'nullable|date|before_or_equal:today',
             'passing_score' => 'nullable|numeric|min:0|max:100',
             'actual_score' => 'nullable|numeric|min:0|max:100',
             'status' => 'required|in:passed,failed,pending',
@@ -698,7 +752,7 @@ class WorkerProfileController extends Controller
         
         $validator = Validator::make($request->all(), [
             'exam_name' => 'required|string|max:255',
-            'exam_date' => 'nullable|date',
+            'exam_date' => 'nullable|date|before_or_equal:today',
             'passing_score' => 'nullable|numeric|min:0|max:100',
             'actual_score' => 'nullable|numeric|min:0|max:100',
             'status' => 'required|in:passed,failed,pending',
@@ -742,6 +796,206 @@ class WorkerProfileController extends Controller
             'success' => true,
             'data' => null,
             'message' => 'License examination deleted successfully'
+        ]);
+    }
+
+    // ==================== BROWSE (employer-facing directory) ====================
+
+    /**
+     * GET /workers
+     *
+     * Public worker directory for the employer-mode home feed and search.
+     * Only profiles that have finished onboarding are listed — an incomplete
+     * profile has nothing an employer could act on.
+     */
+    public function browse(Request $request)
+    {
+        $data = $request->validate([
+            'q'           => ['nullable', 'string', 'max:100'],
+            'category_id' => ['nullable', 'integer', 'exists:categories,id'],
+            'skill_id'    => ['nullable', 'integer', 'exists:skills,id'],
+            'location_id' => ['nullable', 'integer', 'exists:locations,id'],
+            'per_page'    => ['nullable', 'integer', 'min:1', 'max:50'],
+        ]);
+
+        $query = WorkerProfile::query()
+            ->with(['user:id,name,avatar,is_verified,city', 'skills', 'category:id,name'])
+            ->whereNotNull('category_id')
+            ->whereNotNull('location');
+
+        if (!empty($data['category_id'])) {
+            $query->where('category_id', $data['category_id']);
+        }
+
+        if (!empty($data['location_id'])) {
+            $query->where('location_id', $data['location_id']);
+        }
+
+        if (!empty($data['skill_id'])) {
+            $query->whereHas('skills', fn ($q) => $q->where('skill_id', $data['skill_id']));
+        }
+
+        if (!empty($data['q'])) {
+            $term = $data['q'];
+            $query->where(function ($q) use ($term) {
+                $q->whereHas('user', fn ($u) => $u->where('name', 'like', "%{$term}%"))
+                    ->orWhereHas('skills', fn ($s) => $s->where('skill_name', 'like', "%{$term}%"))
+                    ->orWhereHas('category', fn ($c) => $c->where('name', 'like', "%{$term}%"));
+            });
+        }
+
+        // isSetupCompleted() requires at least one skill row, so this eager-loads
+        // the same relation the filter checks — no extra query per row.
+        $profiles = $query->get()->filter(fn (WorkerProfile $p) => $p->isSetupCompleted());
+
+        $perPage = $data['per_page'] ?? 20;
+        $page = (int) $request->input('page', 1);
+        $paged = $profiles->forPage($page, $perPage)->values();
+
+        return response()->json([
+            'success' => true,
+            'data' => [
+                'data' => $paged->map(fn (WorkerProfile $p) => [
+                    'user_id'      => $p->user_id,
+                    'name'         => $p->user?->name,
+                    'avatar'       => $p->user?->avatar,
+                    'is_verified'  => (bool) $p->user?->is_verified,
+                    'location'     => $p->location,
+                    'location_id'  => $p->location_id,
+                    'category'     => $p->category?->name,
+                    'category_id'  => $p->category_id,
+                    'bio'          => $p->bio,
+                    'rating_avg'   => $p->rating_avg,
+                    'rating_count' => $p->rating_count,
+                    'skills'       => $p->skills->pluck('skill_name')->filter()->values(),
+                    'availability_status' => $p->availability_status,
+                ]),
+                'current_page' => $page,
+                'per_page'     => $perPage,
+                'total'        => $profiles->count(),
+            ],
+            'message' => 'Success',
+        ]);
+    }
+
+    /**
+     * GET /workers/{user}
+     *
+     * Full public profile — everything WorkerProfileScreen shows an employer:
+     * bio, skills, experience, certifications, and reviews received. Only a
+     * profile that has finished onboarding is shown; a half-set-up profile has
+     * nothing an employer could evaluate.
+     */
+    public function show(Request $request, \App\Models\User $user)
+    {
+        $profile = $user->workerProfile;
+
+        if (!$profile || !$profile->isSetupCompleted()) {
+            return response()->json([
+                'success' => false,
+                'data' => null,
+                'message' => 'Worker profile not found',
+            ], 404);
+        }
+
+        $profile->load([
+            'skills', 'experiences', 'certifications', 'licenses',
+            'licenseExaminations', 'category',
+        ]);
+
+        $reviews = \App\Models\Review::where('reviewee_id', $user->id)
+            ->with('reviewer:id,name')
+            ->latest()
+            ->limit(20)
+            ->get();
+
+        // Credentials are only worth anything to an employer if the supporting
+        // document is actually viewable — a claimed license with no scan is
+        // just a text field. Resolve every stored path to an absolute URL.
+        $docUrl = fn (?string $path) => $path
+            ? \Illuminate\Support\Facades\Storage::disk('public')->url($path)
+            : null;
+
+        $year = fn ($date) => $date
+            ? \Illuminate\Support\Carbon::parse($date)->format('Y')
+            : null;
+
+        return response()->json([
+            'success' => true,
+            'data' => [
+                'user_id'             => $user->id,
+                'name'                => $user->name,
+                // The worker's own uploaded photo takes precedence; users.avatar
+                // is the fallback (Google sign-in populates that one).
+                'avatar'              => $docUrl($profile->profile_photo_path)
+                                          ?? $docUrl($user->avatar),
+                'is_verified'         => (bool) $user->is_verified,
+                'verification_status' => $profile->verification_status,
+                'location'            => $profile->location,
+                'category'            => $profile->category?->name,
+                'category_id'         => $profile->category_id,
+                'bio'                 => $profile->bio,
+                'availability_status' => $profile->availability_status,
+                'rating_avg'          => $profile->rating_avg,
+                'rating_count'        => $profile->rating_count,
+
+                // Skills carry proficiency and years — an employer choosing
+                // between two masons needs those, not just the label.
+                'skills'              => $profile->skills->map(fn ($s) => [
+                    'name'                => $s->skill_name,
+                    'proficiency_level'   => $s->proficiency_level,
+                    'years_of_experience' => $s->years_of_experience,
+                ])->values(),
+
+                'experiences'         => $profile->experiences->map(fn ($e) => [
+                    'title'       => $e->job_title,
+                    'company'     => $e->company_name,
+                    'start_date'  => $e->start_date,
+                    'end_date'    => $e->end_date,
+                    'is_current'  => (bool) $e->is_current,
+                    'description' => $e->description,
+                ])->values(),
+
+                'certifications'      => $profile->certifications->map(fn ($c) => [
+                    'title'         => $c->certification_name,
+                    'issuer'        => $c->issuing_organization,
+                    'year'          => $year($c->issue_date),
+                    'issue_date'    => $c->issue_date,
+                    'expiry_date'   => $c->expiry_date,
+                    'credential_id' => $c->credential_id,
+                    'document_url'  => $docUrl($c->document_path),
+                ])->values(),
+
+                // Licenses and license examinations were absent from this
+                // endpoint entirely — the two credential types that matter most
+                // for trades work never reached the public profile at all.
+                'licenses'            => $profile->licenses->map(fn ($l) => [
+                    'name'         => $l->license_name,
+                    'number'       => $l->license_number,
+                    'authority'    => $l->issuing_authority,
+                    'issue_date'   => $l->issue_date,
+                    'expiry_date'  => $l->expiry_date,
+                    'document_url' => $docUrl($l->document_path),
+                ])->values(),
+
+                'license_examinations' => $profile->licenseExaminations->map(fn ($e) => [
+                    'name'               => $e->exam_name,
+                    'exam_date'          => $e->exam_date,
+                    'passing_score'      => $e->passing_score,
+                    'actual_score'       => $e->actual_score,
+                    'status'             => $e->status,
+                    'certificate_number' => $e->certificate_number,
+                    'document_url'       => $docUrl($e->document_path),
+                ])->values(),
+
+                'reviews'             => $reviews->map(fn ($r) => [
+                    'reviewer' => $r->reviewer?->name,
+                    'rating'   => $r->rating,
+                    'date'     => $r->created_at?->diffForHumans(),
+                    'comment'  => $r->comment,
+                ])->values(),
+            ],
+            'message' => 'Success',
         ]);
     }
 }

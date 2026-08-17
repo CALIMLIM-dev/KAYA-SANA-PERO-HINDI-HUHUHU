@@ -7,7 +7,13 @@ import '../../../data/models/skill_model.dart';
 
 class AddSkillsScreen extends StatefulWidget {
   final List<String> initialSkills;
-  const AddSkillsScreen({super.key, this.initialSkills = const []});
+  final bool draftOnly;
+
+  const AddSkillsScreen({
+    super.key,
+    this.initialSkills = const [],
+    this.draftOnly = false,
+  });
 
   @override
   State<AddSkillsScreen> createState() => _AddSkillsScreenState();
@@ -94,6 +100,15 @@ class _AddSkillsScreenState extends State<AddSkillsScreen> {
   }
 
   Future<void> _addCustomSkill() async {
+    if (widget.draftOnly) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Custom skills can be added after profile setup.'),
+        ),
+      );
+      return;
+    }
+
     final val = _customSkillCtrl.text.trim();
     if (val.isEmpty) return;
     
@@ -131,6 +146,15 @@ class _AddSkillsScreenState extends State<AddSkillsScreen> {
   }
 
   Future<void> _showAddCustomCategoryDialog() async {
+    if (widget.draftOnly) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Custom job categories can be added after profile setup.'),
+        ),
+      );
+      return;
+    }
+
     final controller = TextEditingController();
     final result = await showDialog<String>(
       context: context,

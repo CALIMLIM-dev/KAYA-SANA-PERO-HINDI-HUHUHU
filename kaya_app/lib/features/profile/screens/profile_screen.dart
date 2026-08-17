@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../../core/constants/app_colors.dart';
+import '../../../providers/app_mode_provider.dart';
 import '../../../providers/auth_provider.dart';
+import '../../auth/widgets/terms_modal.dart';
 
 /// Profile / Account Screen
 class ProfileScreen extends StatelessWidget {
@@ -198,7 +200,7 @@ class ProfileScreen extends StatelessWidget {
                   const SizedBox(height: 12),
                   _MenuItem(
                     icon: Icons.person_outline,
-                    title: 'My Worker Profile',
+                    title: 'Worker Profile',
                     subtitle: 'Manage your skills and availability',
                     onTap: () =>
                         Navigator.pushNamed(context, '/my-worker-profile'),
@@ -207,7 +209,7 @@ class ProfileScreen extends StatelessWidget {
                     icon: Icons.business_outlined,
                     title: 'Employer Profile',
                     subtitle: auth.employerProfileExists
-                        ? 'Edit your employer profile'
+                        ? 'View and edit your employer profile'
                         : 'Set up your employer profile',
                     onTap: () => Navigator.pushNamed(
                       context,
@@ -272,7 +274,14 @@ class ProfileScreen extends StatelessWidget {
                     icon: Icons.description_outlined,
                     title: 'Terms & Privacy',
                     subtitle: 'Read our policies',
-                    onTap: () {},
+                    onTap: () {
+                      showModalBottomSheet<bool>(
+                        context: context,
+                        isScrollControlled: true,
+                        backgroundColor: Colors.transparent,
+                        builder: (_) => const TermsModal(),
+                      );
+                    },
                   ),
 
                   const SizedBox(height: 24),
@@ -322,8 +331,13 @@ class ProfileScreen extends StatelessWidget {
               
               // Perform logout
               final auth = Provider.of<AuthProvider>(context, listen: false);
+              final appMode =
+                  Provider.of<AppModeProvider>(context, listen: false);
               await auth.logout();
-              
+              // Drop the persisted Worker/Employer mode so the next account to
+              // sign in on this device does not inherit it.
+              await appMode.clear();
+
               // Navigate to login screen and clear navigation stack
               if (context.mounted) {
                 Navigator.pushNamedAndRemoveUntil(

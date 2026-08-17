@@ -11,11 +11,24 @@ class AddExperienceScreen extends StatefulWidget {
 }
 
 class _AddExperienceScreenState extends State<AddExperienceScreen> {
+  // Check if we're in onboarding memory-only mode
+  bool _inMemoryMode = false;
+  List<Map<String, dynamic>> _tempExperiences = [];
+  
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      context.read<WorkerProfileProvider>().fetchProfile();
+      // Check for arguments
+      final args = ModalRoute.of(context)?.settings.arguments as Map<String, dynamic>?;
+      if (args != null && args['inMemoryMode'] == true) {
+        setState(() {
+          _inMemoryMode = true;
+          _tempExperiences = List<Map<String, dynamic>>.from(args['experiences'] ?? []);
+        });
+      } else {
+        context.read<WorkerProfileProvider>().fetchProfile();
+      }
     });
   }
 
@@ -40,14 +53,28 @@ class _AddExperienceScreenState extends State<AddExperienceScreen> {
     );
     if (result == null || !mounted) return;
 
-    final provider = context.read<WorkerProfileProvider>();
-    final success = await provider.createExperience(result);
-    if (!mounted) return;
+    if (_inMemoryMode) {
+      // Memory mode: add to temp list
+      setState(() {
+        _tempExperiences.add({
+          'jobTitle': result['jobTitle'],
+          'company': result['company'],
+          'startDate': result['startDate'],
+          'endDate': result['endDate'],
+          'description': result['description'],
+        });
+      });
+    } else {
+      // Normal mode: save to DB
+      final provider = context.read<WorkerProfileProvider>();
+      final success = await provider.createExperience(result);
+      if (!mounted) return;
 
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-      content: Text(success ? 'Experience saved' : (provider.errorMessage ?? 'Failed to save')),
-      backgroundColor: success ? AppColors.success : AppColors.error,
-    ));
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(success ? 'Experience saved' : (provider.errorMessage ?? 'Failed to save')),
+        backgroundColor: success ? AppColors.success : AppColors.error,
+      ));
+    }
   }
 
   Future<void> _editExperience(Map<String, dynamic> exp) async {
@@ -110,78 +137,202 @@ class _AddExperienceScreenState extends State<AddExperienceScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
+    return PopScope(
+      canPop: !_inMemoryMode,
+      onPopInvoked: (didPop) {
+        if (didPop) return;
+        // In memory mode, return data when back is pressed
+        if (_inMemoryMode) {
+          Navigator.pop(context, _tempExperiences);
+        }
+      },
+      child: Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
         backgroundColor: Colors.white,
         elevation: 0,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back, color: AppColors.neutral900),
-          onPressed: () => Navigator.pop(context),
+          onPressed: () {
+            if (_inMemoryMode) {
+              Navigator.pop(context, _tempExperiences);
+            } else {
+              Navigator.pop(context);
+            }
+          },
         ),
         title: const Text('Work Experience',
             style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600, color: AppColors.neutral900)),
         centerTitle: true,
+        actions: _inMemoryMode ? [
+          TextButton(
+            onPressed: () => Navigator.pop(context, _tempExperiences),
+            child: const Text('Done', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
+          ),
+        ] : null,
       ),
-      body: Consumer<WorkerProfileProvider>(
-        builder: (context, provider, _) {
-          final exps = provider.experiences;
-          return Column(
-            children: [
-              Expanded(
-                child: SingleChildScrollView(
-                  padding: const EdgeInsets.all(20),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      SizedBox(
-                        width: double.infinity,
-                        child: OutlinedButton.icon(
-                          onPressed: _addExperience,
-                          icon: const Icon(Icons.add),
-                          label: const Text('Add Experience'),
-                          style: OutlinedButton.styleFrom(
-                            foregroundColor: AppColors.primary,
-                            side: const BorderSide(color: AppColors.primary, width: 2),
-                            padding: const EdgeInsets.symmetric(vertical: 14),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                          ),
+      body: _inMemoryMode ? _buildMemoryMode() : _buildNormalMode(),
+      ),
+    );
+  }
+
+  Widget _buildNormalMode() {
+    return Consumer<WorkerProfileProvider>(
+      builder: (context, provider, _) {
+        final exps = provider.experiences;
+        return Column(
+          children: [
+            Expanded(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.all(20),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    SizedBox(
+                      width: double.infinity,
+                      child: OutlinedButton.icon(
+                        onPressed: _addExperience,
+                        icon: const Icon(Icons.add),
+                        label: const Text('Add Experience'),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: AppColors.primary,
+                          side: const BorderSide(color: AppColors.primary, width: 2),
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                         ),
                       ),
-                      const SizedBox(height: 20),
-                      if (provider.isLoading)
-                        const Center(child: CircularProgressIndicator())
-                      else if (exps.isEmpty)
-                        Container(
-                          padding: const EdgeInsets.all(32),
-                          decoration: BoxDecoration(
-                              color: AppColors.neutral100, borderRadius: BorderRadius.circular(12)),
-                          child: const Center(
-                            child: Column(
-                              children: [
-                                Icon(Icons.work_outline, size: 48, color: AppColors.neutral400),
-                                SizedBox(height: 12),
-                                Text('No experience added yet',
-                                    style: TextStyle(fontSize: 15, color: AppColors.neutral600)),
-                              ],
-                            ),
+                    ),
+                    const SizedBox(height: 20),
+                    if (provider.isLoading)
+                      const Center(child: CircularProgressIndicator())
+                    else if (exps.isEmpty)
+                      Container(
+                        padding: const EdgeInsets.all(32),
+                        decoration: BoxDecoration(
+                            color: AppColors.neutral100, borderRadius: BorderRadius.circular(12)),
+                        child: const Center(
+                          child: Column(
+                            children: [
+                              Icon(Icons.work_outline, size: 48, color: AppColors.neutral400),
+                              SizedBox(height: 12),
+                              Text('No experience added yet',
+                                  style: TextStyle(fontSize: 15, color: AppColors.neutral600)),
+                            ],
                           ),
-                        )
-                      else
-                        ListView.separated(
-                          shrinkWrap: true,
-                          physics: const NeverScrollableScrollPhysics(),
-                          itemCount: exps.length,
-                          separatorBuilder: (_, __) => const SizedBox(height: 12),
-                          itemBuilder: (_, i) => _expCard(exps[i]),
                         ),
-                    ],
-                  ),
+                      )
+                    else
+                      ListView.separated(
+                        shrinkWrap: true,
+                        physics: const NeverScrollableScrollPhysics(),
+                        itemCount: exps.length,
+                        separatorBuilder: (_, __) => const SizedBox(height: 12),
+                        itemBuilder: (_, i) => _expCard(exps[i]),
+                      ),
+                  ],
                 ),
               ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _buildMemoryMode() {
+    return Column(
+      children: [
+        Expanded(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(20),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                SizedBox(
+                  width: double.infinity,
+                  child: OutlinedButton.icon(
+                    onPressed: _addExperience,
+                    icon: const Icon(Icons.add),
+                    label: const Text('Add Experience'),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: AppColors.primary,
+                      side: const BorderSide(color: AppColors.primary, width: 2),
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 20),
+                if (_tempExperiences.isEmpty)
+                  Container(
+                    padding: const EdgeInsets.all(32),
+                    decoration: BoxDecoration(
+                        color: AppColors.neutral100, borderRadius: BorderRadius.circular(12)),
+                    child: const Center(
+                      child: Column(
+                        children: [
+                          Icon(Icons.work_outline, size: 48, color: AppColors.neutral400),
+                          SizedBox(height: 12),
+                          Text('No experience added yet',
+                              style: TextStyle(fontSize: 15, color: AppColors.neutral600)),
+                        ],
+                      ),
+                    ),
+                  )
+                else
+                  ListView.separated(
+                    shrinkWrap: true,
+                    physics: const NeverScrollableScrollPhysics(),
+                    itemCount: _tempExperiences.length,
+                    separatorBuilder: (_, __) => const SizedBox(height: 12),
+                    itemBuilder: (_, i) => _tempExpCard(_tempExperiences[i], i),
+                  ),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _tempExpCard(Map<String, dynamic> exp, int index) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppColors.neutral200),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Text(exp['jobTitle'] ?? '',
+                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: AppColors.neutral900)),
+              ),
+              IconButton(
+                icon: const Icon(Icons.delete, size: 18, color: AppColors.error),
+                onPressed: () {
+                  setState(() => _tempExperiences.removeAt(index));
+                },
+                padding: EdgeInsets.zero, constraints: const BoxConstraints(),
+              ),
             ],
-          );
-        },
+          ),
+          const SizedBox(height: 4),
+          Text(exp['company'] ?? '',
+              style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500, color: AppColors.neutral700)),
+          const SizedBox(height: 2),
+          Text('${exp['startDate']} – ${exp['endDate']}',
+              style: const TextStyle(fontSize: 12, color: AppColors.neutral500)),
+          if ((exp['description'] as String?)?.isNotEmpty == true) ...[
+            const SizedBox(height: 6),
+            Text(exp['description'] ?? '',
+                style: const TextStyle(fontSize: 13, color: AppColors.neutral600, height: 1.4)),
+          ],
+        ],
       ),
     );
   }

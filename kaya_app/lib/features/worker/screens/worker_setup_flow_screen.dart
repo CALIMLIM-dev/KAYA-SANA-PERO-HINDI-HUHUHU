@@ -1,12 +1,22 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:file_picker/file_picker.dart';
+import 'package:dio/dio.dart';
 import '../../../core/constants/app_colors.dart';
+import '../../../data/models/location_model.dart';
 import '../../../providers/auth_provider.dart';
+import '../../../shared/widgets/location_picker_field.dart';
 import '../../../providers/worker_profile_provider.dart';
 import '../../../providers/verification_provider.dart';
 import '../../../data/models/skill_model.dart';
+import '../../../data/models/worker_certification_model.dart';
+import '../../../data/models/worker_license_model.dart';
 import '../../../data/services/api_client.dart';
 import '../../../core/navigation/app_router.dart';
+import '../../profile/screens/add_skills_screen.dart';
+import '../../profile/screens/onboarding_verification_screen.dart';
 
 /// Worker Profile Setup Flow - 6 Step Onboarding
 /// 
@@ -32,11 +42,27 @@ class _WorkerSetupFlowScreenState extends State<WorkerSetupFlowScreen> {
   late TextEditingController _locationController;
   late TextEditingController _nameController;
   
-  // Form data
+  // Form data - ALL stored in memory until Finish
   String? _location;
   String? _userName;
   List<SkillModel> _selectedSkills = [];
+  List<Map<String, dynamic>> _tempExperiences = [];
+  List<Map<String, dynamic>> _tempCertifications = [];
+  List<Map<String, dynamic>> _tempLicenses = [];
+  String? _tempProfilePhotoPath;
+  String _tempGovernmentIdType = 'Philippine National ID';
+  String? _tempIdPhotoPath;
+  String? _tempIdPhotoName;
+  String? _tempSelfiePhotoPath;
+  String? _tempSelfiePhotoName;
   bool _isSaving = false;
+
+  /// Set when the optional ID upload fails. Setup still completes, but the user
+  /// is warned so they can retry from the verification screen.
+  bool _verificationUploadFailed = false;
+
+  /// Structured location chosen from the picker (PSGC id + coordinates).
+  LocationModel? _selectedLocation;
   
   @override
   void initState() {
@@ -58,16 +84,26 @@ class _WorkerSetupFlowScreenState extends State<WorkerSetupFlowScreen> {
       await authProvider.fetchMe();
       await provider.fetchProfile();
       await provider.fetchCategories();
-      await verificationProvider.fetchVerifications();
+      await verificationProvider.fetchVerifications(); // Fetch verification status
       
-      _userName = authProvider.user?['name'] as String?;
-      _location = provider.location;
-      
-      // Update controllers with fetched data
-      _nameController.text = _userName ?? '';
-      _locationController.text = _location ?? '';
-      
-      if (mounted) setState(() {});
+      if (!mounted) return;
+
+      // Only prefill fields the user has not already started filling in.
+      //
+      // These four awaits take a second or two, and the user can type during
+      // that time. Assigning unconditionally overwrote their input with the
+      // server value — usually empty — so a name typed straight away vanished.
+      if (_nameController.text.isEmpty) {
+        _userName = authProvider.user?['name'] as String?;
+        _nameController.text = _userName ?? '';
+      }
+
+      if (_locationController.text.isEmpty) {
+        _location = provider.location;
+        _locationController.text = _location ?? '';
+      }
+
+      setState(() {});
     });
   }
 
@@ -77,6 +113,21 @@ class _WorkerSetupFlowScreenState extends State<WorkerSetupFlowScreen> {
     _locationController.dispose();
     _nameController.dispose();
     super.dispose();
+  }
+
+  /// Surfaces a failed save. Setup takes several minutes to fill in, so a
+  /// silent failure at the end is the worst possible outcome.
+  void _showSetupError(Object error) {
+    if (!mounted) return;
+
+    final message = error.toString().replaceFirst('Exception: ', '');
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('Could not finish setup: $message'),
+        backgroundColor: AppColors.error,
+        duration: const Duration(seconds: 5),
+      ),
+    );
   }
 
   void _nextStep() {
@@ -120,9 +171,27 @@ class _WorkerSetupFlowScreenState extends State<WorkerSetupFlowScreen> {
   }
 
   Future<void> _finishSetup() async {
-    // Refresh auth to update completion flags
+    // Refresh auth to update completion flags. This drives the proxy provider,
+    // so AppModeProvider learns the worker profile now exists and re-derives
+    // the home view: worker-only accounts land on jobs, while an account that
+    // now holds both profiles becomes hybrid and sees jobs AND workers. No
+    // focus is forced here — that would defeat the unified home.
     await context.read<AuthProvider>().fetchMe();
-    
+
+    if (mounted && _verificationUploadFailed) {
+      // ScaffoldMessenger is app-scoped, so this survives the route change.
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Your profile is set up, but your ID could not be uploaded. '
+            'You can retry it from Verification.',
+          ),
+          backgroundColor: AppColors.warning,
+          duration: Duration(seconds: 6),
+        ),
+      );
+    }
+
     if (mounted) {
       // Navigate to home
       Navigator.pushNamedAndRemoveUntil(
@@ -150,7 +219,39 @@ class _WorkerSetupFlowScreenState extends State<WorkerSetupFlowScreen> {
     final totalSteps = 7;
     final progress = (_currentStep + 1) / totalSteps;
     
-    return Scaffold(
+    return PopScope(
+      canPop: false,
+      onPopInvoked: (didPop) async {
+        if (didPop) return;
+        
+        final shouldExit = await showDialog<bool>(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: const Text('Discard Profile Setup?'),
+            content: const Text(
+              'Your profile is not complete. If you leave now, all progress will be discarded.',
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context, false),
+                child: const Text('Cancel'),
+              ),
+              TextButton(
+                onPressed: () => Navigator.pop(context, true),
+                child: const Text(
+                  'Discard',
+                  style: TextStyle(color: AppColors.error),
+                ),
+              ),
+            ],
+          ),
+        ) ?? false;
+        
+        if (shouldExit && mounted) {
+          if (mounted) Navigator.pop(context);
+        }
+      },
+      child: Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
         backgroundColor: Colors.white,
@@ -162,7 +263,34 @@ class _WorkerSetupFlowScreenState extends State<WorkerSetupFlowScreen> {
               )
             : IconButton(
                 icon: const Icon(Icons.close, color: AppColors.neutral900),
-                onPressed: () => Navigator.pop(context),
+                onPressed: () async {
+                  final shouldExit = await showDialog<bool>(
+                    context: context,
+                    builder: (context) => AlertDialog(
+                      title: const Text('Discard Profile Setup?'),
+                      content: const Text(
+                        'Your profile is not complete. If you leave now, all progress will be discarded.',
+                      ),
+                      actions: [
+                        TextButton(
+                          onPressed: () => Navigator.pop(context, false),
+                          child: const Text('Cancel'),
+                        ),
+                        TextButton(
+                          onPressed: () => Navigator.pop(context, true),
+                          child: const Text(
+                            'Discard',
+                            style: TextStyle(color: AppColors.error),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ) ?? false;
+                  
+                  if (shouldExit && mounted) {
+                    if (mounted) Navigator.pop(context);
+                  }
+                },
               ),
         title: Text(
           'Step ${_currentStep + 1} of $totalSteps',
@@ -197,7 +325,8 @@ class _WorkerSetupFlowScreenState extends State<WorkerSetupFlowScreen> {
           _buildVerificationStep(),
         ],
       ),
-      bottomNavigationBar: _isSaving ? null : _buildBottomBar(),
+      bottomNavigationBar: _buildBottomBar(),
+      ),
     );
   }
 
@@ -252,28 +381,16 @@ class _WorkerSetupFlowScreenState extends State<WorkerSetupFlowScreen> {
           ),
           const SizedBox(height: 16),
           
-          // Location input
-          TextField(
+          // Location picker — was a free-text field, which produced values that
+          // never matched between workers and job posts.
+          LocationPickerField(
             controller: _locationController,
-            textCapitalization: TextCapitalization.words,
-            onChanged: (value) {
-              _location = value;
-              setState(() {}); // Need setState to update button state
+            labelText: 'City or Municipality *',
+            onSelected: (location) {
+              _location = location.displayName;
+              _selectedLocation = location;
+              setState(() {}); // Refresh the Next button's enabled state
             },
-            decoration: InputDecoration(
-              labelText: 'City or Municipality *',
-              hintText: 'e.g., Manila, Quezon City',
-              filled: true,
-              fillColor: Colors.white,
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
-                borderSide: BorderSide.none,
-              ),
-              focusedBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
-                borderSide: const BorderSide(color: AppColors.primary, width: 2),
-              ),
-            ),
           ),
         ],
       ),
@@ -415,12 +532,18 @@ class _WorkerSetupFlowScreenState extends State<WorkerSetupFlowScreen> {
             width: double.infinity,
             child: OutlinedButton.icon(
               onPressed: () async {
-                final result = await Navigator.pushNamed(
+                // Convert SkillModel list to skill names for AddSkillsScreen
+                final skillNames = _selectedSkills.map((s) => s.name).toList();
+                final result = await Navigator.push<List<SkillModel>>(
                   context,
-                  AppRouter.addSkills,
-                  arguments: <String>[],
+                  MaterialPageRoute(
+                    builder: (_) => AddSkillsScreen(
+                      initialSkills: skillNames,
+                      draftOnly: true,
+                    ),
+                  ),
                 );
-                if (result != null && result is List<SkillModel> && mounted) {
+                if (result != null && mounted) {
                   setState(() => _selectedSkills = result);
                 }
               },
@@ -442,8 +565,8 @@ class _WorkerSetupFlowScreenState extends State<WorkerSetupFlowScreen> {
   }
 
   Widget _buildExperienceStep() {
-    final provider = context.watch<WorkerProfileProvider>();
-    final experiences = provider.experiencesNew;
+    // Use temp experiences from memory, NOT from provider
+    final experiences = _tempExperiences;
     
     return SingleChildScrollView(
       padding: const EdgeInsets.all(24),
@@ -525,7 +648,7 @@ class _WorkerSetupFlowScreenState extends State<WorkerSetupFlowScreen> {
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   Text(
-                                    exp.jobTitle,
+                                    exp['jobTitle'] as String,
                                     style: const TextStyle(
                                       fontSize: 14,
                                       fontWeight: FontWeight.w600,
@@ -534,7 +657,7 @@ class _WorkerSetupFlowScreenState extends State<WorkerSetupFlowScreen> {
                                   ),
                                   const SizedBox(height: 2),
                                   Text(
-                                    exp.companyName,
+                                    exp['company'] as String,
                                     style: const TextStyle(
                                       fontSize: 13,
                                       color: AppColors.neutral600,
@@ -542,7 +665,7 @@ class _WorkerSetupFlowScreenState extends State<WorkerSetupFlowScreen> {
                                   ),
                                   const SizedBox(height: 4),
                                   Text(
-                                    '${_formatDate(exp.startDate)} - ${exp.isCurrent ? 'Present' : _formatDate(exp.endDate)}',
+                                    '${exp['startDate']} - ${exp['endDate']}',
                                     style: const TextStyle(
                                       fontSize: 12,
                                       color: AppColors.neutral500,
@@ -550,6 +673,31 @@ class _WorkerSetupFlowScreenState extends State<WorkerSetupFlowScreen> {
                                   ),
                                 ],
                               ),
+                            ),
+                            IconButton(
+                              icon: const Icon(Icons.edit, size: 18, color: AppColors.primary),
+                              onPressed: () async {
+                                final result = await Navigator.push<Map<String, dynamic>>(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (_) => _ExperienceFormScreen(existing: exp),
+                                  ),
+                                );
+                                if (result != null && mounted) {
+                                  setState(() => _tempExperiences[index] = result);
+                                }
+                              },
+                              padding: EdgeInsets.zero,
+                              constraints: const BoxConstraints(),
+                            ),
+                            const SizedBox(width: 8),
+                            IconButton(
+                              icon: const Icon(Icons.delete, size: 18, color: AppColors.error),
+                              onPressed: () {
+                                setState(() => _tempExperiences.removeAt(index));
+                              },
+                              padding: EdgeInsets.zero,
+                              constraints: const BoxConstraints(),
                             ),
                           ],
                         ),
@@ -566,14 +714,19 @@ class _WorkerSetupFlowScreenState extends State<WorkerSetupFlowScreen> {
             width: double.infinity,
             child: OutlinedButton.icon(
               onPressed: () async {
-                await Navigator.pushNamed(context, AppRouter.addExperience);
-                if (mounted) {
-                  await context.read<WorkerProfileProvider>().fetchExperiences();
-                  setState(() {});
+                // Go directly to form
+                final result = await Navigator.push<Map<String, dynamic>>(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => const _ExperienceFormScreen(),
+                  ),
+                );
+                if (result != null && mounted) {
+                  setState(() => _tempExperiences.add(result));
                 }
               },
-              icon: Icon(experiences.isEmpty ? Icons.add : Icons.edit, size: 20),
-              label: Text(experiences.isEmpty ? 'Add Experience' : 'Manage Experience'),
+              icon: const Icon(Icons.add, size: 20),
+              label: const Text('Add Experience'),
               style: OutlinedButton.styleFrom(
                 foregroundColor: AppColors.primary,
                 side: const BorderSide(color: AppColors.primary, width: 1.5),
@@ -590,8 +743,8 @@ class _WorkerSetupFlowScreenState extends State<WorkerSetupFlowScreen> {
   }
 
   Widget _buildCertificationsStep() {
-    final provider = context.watch<WorkerProfileProvider>();
-    final certifications = provider.certifications;
+    // Use temp certifications from memory
+    final certifications = _tempCertifications;
     
     return SingleChildScrollView(
       padding: const EdgeInsets.all(24),
@@ -673,7 +826,7 @@ class _WorkerSetupFlowScreenState extends State<WorkerSetupFlowScreen> {
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   Text(
-                                    cert.certificationName,
+                                    cert['certification_name'] as String,
                                     style: const TextStyle(
                                       fontSize: 14,
                                       fontWeight: FontWeight.w600,
@@ -682,16 +835,16 @@ class _WorkerSetupFlowScreenState extends State<WorkerSetupFlowScreen> {
                                   ),
                                   const SizedBox(height: 2),
                                   Text(
-                                    cert.issuingOrganization,
+                                    cert['issuing_organization'] as String,
                                     style: const TextStyle(
                                       fontSize: 13,
                                       color: AppColors.neutral600,
                                     ),
                                   ),
-                                  if (cert.issueDate != null) ...[
+                                  if (cert['issue_date'] != null) ...[
                                     const SizedBox(height: 4),
                                     Text(
-                                      'Issued: ${_formatDate(cert.issueDate.toString())}',
+                                      'Issued: ${cert['issue_date']}',
                                       style: const TextStyle(
                                         fontSize: 12,
                                         color: AppColors.neutral500,
@@ -700,6 +853,31 @@ class _WorkerSetupFlowScreenState extends State<WorkerSetupFlowScreen> {
                                   ],
                                 ],
                               ),
+                            ),
+                            IconButton(
+                              icon: const Icon(Icons.edit, size: 18, color: AppColors.primary),
+                              onPressed: () async {
+                                final result = await Navigator.push<Map<String, dynamic>>(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (_) => _CertificationFormScreen(existing: cert),
+                                  ),
+                                );
+                                if (result != null && mounted) {
+                                  setState(() => _tempCertifications[index] = result);
+                                }
+                              },
+                              padding: EdgeInsets.zero,
+                              constraints: const BoxConstraints(),
+                            ),
+                            const SizedBox(width: 8),
+                            IconButton(
+                              icon: const Icon(Icons.delete, size: 18, color: AppColors.error),
+                              onPressed: () {
+                                setState(() => _tempCertifications.removeAt(index));
+                              },
+                              padding: EdgeInsets.zero,
+                              constraints: const BoxConstraints(),
                             ),
                           ],
                         ),
@@ -716,14 +894,19 @@ class _WorkerSetupFlowScreenState extends State<WorkerSetupFlowScreen> {
             width: double.infinity,
             child: OutlinedButton.icon(
               onPressed: () async {
-                await Navigator.pushNamed(context, AppRouter.addCertifications);
-                if (mounted) {
-                  await context.read<WorkerProfileProvider>().fetchCertifications();
-                  setState(() {});
+                // Go directly to form
+                final result = await Navigator.push<Map<String, dynamic>>(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => const _CertificationFormScreen(),
+                  ),
+                );
+                if (result != null && mounted) {
+                  setState(() => _tempCertifications.add(result));
                 }
               },
-              icon: Icon(certifications.isEmpty ? Icons.add : Icons.edit, size: 20),
-              label: Text(certifications.isEmpty ? 'Add Certifications' : 'Manage Certifications'),
+              icon: const Icon(Icons.add, size: 20),
+              label: const Text('Add Certifications'),
               style: OutlinedButton.styleFrom(
                 foregroundColor: AppColors.success,
                 side: const BorderSide(color: AppColors.success, width: 1.5),
@@ -740,8 +923,8 @@ class _WorkerSetupFlowScreenState extends State<WorkerSetupFlowScreen> {
   }
 
   Widget _buildLicensesStep() {
-    final provider = context.watch<WorkerProfileProvider>();
-    final licenses = provider.licenses;
+    // Use temp licenses from memory
+    final licenses = _tempLicenses;
     
     return SingleChildScrollView(
       padding: const EdgeInsets.all(24),
@@ -823,7 +1006,7 @@ class _WorkerSetupFlowScreenState extends State<WorkerSetupFlowScreen> {
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   Text(
-                                    license.licenseName,
+                                    license['license_name'] as String,
                                     style: const TextStyle(
                                       fontSize: 14,
                                       fontWeight: FontWeight.w600,
@@ -832,16 +1015,16 @@ class _WorkerSetupFlowScreenState extends State<WorkerSetupFlowScreen> {
                                   ),
                                   const SizedBox(height: 2),
                                   Text(
-                                    license.issuingAuthority,
+                                    license['issuing_authority'] as String,
                                     style: const TextStyle(
                                       fontSize: 13,
                                       color: AppColors.neutral600,
                                     ),
                                   ),
-                                  if (license.issueDate != null) ...[
+                                  if (license['issue_date'] != null) ...[
                                     const SizedBox(height: 4),
                                     Text(
-                                      'Issued: ${_formatDate(license.issueDate.toString())}',
+                                      'Issued: ${license['issue_date']}',
                                       style: const TextStyle(
                                         fontSize: 12,
                                         color: AppColors.neutral500,
@@ -850,6 +1033,31 @@ class _WorkerSetupFlowScreenState extends State<WorkerSetupFlowScreen> {
                                   ],
                                 ],
                               ),
+                            ),
+                            IconButton(
+                              icon: const Icon(Icons.edit, size: 18, color: AppColors.primary),
+                              onPressed: () async {
+                                final result = await Navigator.push<Map<String, dynamic>>(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (_) => _LicenseFormScreen(existing: license),
+                                  ),
+                                );
+                                if (result != null && mounted) {
+                                  setState(() => _tempLicenses[index] = result);
+                                }
+                              },
+                              padding: EdgeInsets.zero,
+                              constraints: const BoxConstraints(),
+                            ),
+                            const SizedBox(width: 8),
+                            IconButton(
+                              icon: const Icon(Icons.delete, size: 18, color: AppColors.error),
+                              onPressed: () {
+                                setState(() => _tempLicenses.removeAt(index));
+                              },
+                              padding: EdgeInsets.zero,
+                              constraints: const BoxConstraints(),
                             ),
                           ],
                         ),
@@ -866,14 +1074,19 @@ class _WorkerSetupFlowScreenState extends State<WorkerSetupFlowScreen> {
             width: double.infinity,
             child: OutlinedButton.icon(
               onPressed: () async {
-                await Navigator.pushNamed(context, AppRouter.addLicenses);
-                if (mounted) {
-                  await context.read<WorkerProfileProvider>().fetchLicenses();
-                  setState(() {});
+                // Go directly to form
+                final result = await Navigator.push<Map<String, dynamic>>(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => const _LicenseFormScreen(),
+                  ),
+                );
+                if (result != null && mounted) {
+                  setState(() => _tempLicenses.add(result));
                 }
               },
-              icon: Icon(licenses.isEmpty ? Icons.add : Icons.edit, size: 20),
-              label: Text(licenses.isEmpty ? 'Add Licenses' : 'Manage Licenses'),
+              icon: const Icon(Icons.add, size: 20),
+              label: const Text('Add Licenses'),
               style: OutlinedButton.styleFrom(
                 foregroundColor: AppColors.warning,
                 side: const BorderSide(color: AppColors.warning, width: 1.5),
@@ -890,8 +1103,8 @@ class _WorkerSetupFlowScreenState extends State<WorkerSetupFlowScreen> {
   }
 
   Widget _buildPhotoStep() {
-    final provider = context.watch<WorkerProfileProvider>();
-    final hasPhoto = provider.profilePhotoPath != null && provider.profilePhotoPath!.isNotEmpty;
+    // Use temp photo from memory
+    final hasPhoto = _tempProfilePhotoPath != null && _tempProfilePhotoPath!.isNotEmpty;
     
     return SingleChildScrollView(
       padding: const EdgeInsets.all(24),
@@ -932,9 +1145,7 @@ class _WorkerSetupFlowScreenState extends State<WorkerSetupFlowScreen> {
                     ),
                     image: hasPhoto
                         ? DecorationImage(
-                            image: NetworkImage(
-                              ApiClient.fileUrl(provider.profilePhotoPath!),
-                            ),
+                            image: FileImage(File(_tempProfilePhotoPath!)),
                             fit: BoxFit.cover,
                           )
                         : null,
@@ -961,7 +1172,7 @@ class _WorkerSetupFlowScreenState extends State<WorkerSetupFlowScreen> {
                         Icon(Icons.check_circle, size: 16, color: AppColors.success),
                         SizedBox(width: 6),
                         Text(
-                          'Photo uploaded',
+                          'Photo selected',
                           style: TextStyle(
                             fontSize: 13,
                             color: AppColors.success,
@@ -994,8 +1205,17 @@ class _WorkerSetupFlowScreenState extends State<WorkerSetupFlowScreen> {
                       ),
                     );
                     if (choice != null && mounted) {
-                      await provider.uploadPhoto(fromCamera: choice);
-                      if (mounted) setState(() {});
+                      // Pick image and store path in memory, DON'T upload yet
+                      final ImagePicker picker = ImagePicker();
+                      final XFile? image = await picker.pickImage(
+                        source: choice ? ImageSource.camera : ImageSource.gallery,
+                        maxWidth: 1024,
+                        maxHeight: 1024,
+                        imageQuality: 85,
+                      );
+                      if (image != null && mounted) {
+                        setState(() => _tempProfilePhotoPath = image.path);
+                      }
                     }
                   },
                   icon: Icon(hasPhoto ? Icons.edit : Icons.add_a_photo),
@@ -1018,8 +1238,8 @@ class _WorkerSetupFlowScreenState extends State<WorkerSetupFlowScreen> {
   }
 
   Widget _buildVerificationStep() {
-    final verificationProvider = context.watch<VerificationProvider>();
-    final hasVerification = verificationProvider.verifications.isNotEmpty;
+    final hasDraftVerification =
+        _tempIdPhotoPath != null && _tempSelfiePhotoPath != null;
     
     return SingleChildScrollView(
       padding: const EdgeInsets.all(24),
@@ -1046,115 +1266,122 @@ class _WorkerSetupFlowScreenState extends State<WorkerSetupFlowScreen> {
           ),
           const SizedBox(height: 32),
           
-          // Verification status - EXPANDED UI
-          if (hasVerification) ...[
+          // Verification status card - similar to employer design
+          if (hasDraftVerification) ...[
             Container(
               width: double.infinity,
-              padding: const EdgeInsets.all(24),
+              padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: [
-                    AppColors.success.withValues(alpha: 0.1),
-                    AppColors.primary.withValues(alpha: 0.05),
-                  ],
-                ),
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(
-                  color: AppColors.success.withValues(alpha: 0.3),
-                  width: 2,
-                ),
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: AppColors.warning.withValues(alpha: 0.3)),
               ),
-              child: Column(
+              child: Row(
                 children: [
                   Container(
-                    padding: const EdgeInsets.all(16),
+                    width: 40,
+                    height: 40,
                     decoration: BoxDecoration(
-                      color: Colors.white,
-                      shape: BoxShape.circle,
-                      boxShadow: [
-                        BoxShadow(
-                          color: AppColors.success.withValues(alpha: 0.2),
-                          blurRadius: 20,
-                          spreadRadius: 5,
-                        ),
-                      ],
+                      color: AppColors.warning.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(10),
                     ),
                     child: const Icon(
-                      Icons.check_circle,
-                      size: 64,
-                      color: AppColors.success,
+                      Icons.schedule,
+                      color: AppColors.warning,
+                      size: 20,
                     ),
                   ),
-                  const SizedBox(height: 20),
-                  const Text(
-                    'Verification Submitted!',
-                    style: TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold,
-                      color: AppColors.neutral900,
-                    ),
-                    textAlign: TextAlign.center,
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    'Status: ${(verificationProvider.verifications.first['status'] ?? 'pending').toString().toUpperCase()}',
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
-                      color: AppColors.primary,
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  Container(
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      color: Colors.white.withValues(alpha: 0.8),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: const Column(
+                  const SizedBox(width: 12),
+                  const Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Icon(Icons.info_outline, size: 24, color: AppColors.primary),
-                        SizedBox(height: 8),
                         Text(
-                          'Your verification is being reviewed by our team. You\'ll be notified once approved.',
+                          'Verification Ready',
                           style: TextStyle(
-                            fontSize: 13,
-                            color: AppColors.neutral700,
-                            height: 1.4,
+                            fontSize: 15,
+                            fontWeight: FontWeight.w600,
+                            color: AppColors.neutral900,
                           ),
-                          textAlign: TextAlign.center,
+                        ),
+                        SizedBox(height: 2),
+                        Text(
+                          'Will be submitted when you tap Finish',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: AppColors.neutral600,
+                          ),
                         ),
                       ],
+                    ),
+                  ),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: AppColors.warning.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    child: const Text(
+                      'Pending',
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.bold,
+                        color: AppColors.warning,
+                      ),
                     ),
                   ),
                 ],
               ),
             ),
-          ] else ...[
-            // No verification yet - show upload button
-            SizedBox(
-              width: double.infinity,
-              child: OutlinedButton.icon(
-                onPressed: () async {
-                  await Navigator.pushNamed(context, '/verification');
-                  if (mounted) {
-                    await verificationProvider.fetchVerifications();
-                    setState(() {});
-                  }
-                },
-                icon: const Icon(Icons.upload_file, size: 20),
-                label: const Text('Upload ID'),
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: AppColors.primary,
-                  side: const BorderSide(color: AppColors.primary, width: 1.5),
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
+            const SizedBox(height: 16),
+          ],
+          
+          // Use onboarding verification screen
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton.icon(
+              onPressed: () async {
+                final result = await Navigator.push<Map<String, dynamic>>(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => OnboardingVerificationScreen(
+                      existingData: {
+                        'idType': _tempGovernmentIdType,
+                        'idPhotoPath': _tempIdPhotoPath,
+                        'idPhotoName': _tempIdPhotoName,
+                        'selfiePhotoPath': _tempSelfiePhotoPath,
+                        'selfiePhotoName': _tempSelfiePhotoName,
+                      },
+                    ),
                   ),
+                );
+                if (result != null && mounted) {
+                  setState(() {
+                    _tempGovernmentIdType = result['idType'] as String? ?? 'Philippine National ID';
+                    _tempIdPhotoPath = result['idPhotoPath'] as String?;
+                    _tempIdPhotoName = result['idPhotoName'] as String?;
+                    _tempSelfiePhotoPath = result['selfiePhotoPath'] as String?;
+                    _tempSelfiePhotoName = result['selfiePhotoName'] as String?;
+                  });
+                }
+              },
+              icon: Icon(hasDraftVerification ? Icons.edit : Icons.add_a_photo, size: 20),
+              label: Text(hasDraftVerification ? 'Edit Verification' : 'Start Verification'),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: AppColors.primary,
+                side: const BorderSide(color: AppColors.primary, width: 1.5),
+                padding: const EdgeInsets.symmetric(vertical: 16),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
                 ),
               ),
+            ),
+          ),
+          if (!hasDraftVerification) ...[
+            const SizedBox(height: 12),
+            const Text(
+              'Verification will be submitted when you tap Finish.',
+              style: TextStyle(fontSize: 12, color: AppColors.neutral500),
             ),
           ],
         ],
@@ -1162,9 +1389,44 @@ class _WorkerSetupFlowScreenState extends State<WorkerSetupFlowScreen> {
     );
   }
 
+  Widget _buildDraftCaptureButton({
+    required String label,
+    required String? value,
+    required ValueChanged<Map<String, dynamic>> onSelected,
+  }) {
+    return SizedBox(
+      width: double.infinity,
+      child: OutlinedButton.icon(
+        onPressed: () async {
+          final result = await context.read<VerificationProvider>().capturePhoto();
+          if (result != null && mounted) onSelected(result);
+        },
+        icon: Icon(value == null ? Icons.camera_alt : Icons.check_circle, size: 20),
+        label: Text(value == null ? label : '$label selected'),
+        style: OutlinedButton.styleFrom(
+          foregroundColor: AppColors.primary,
+          side: const BorderSide(color: AppColors.primary, width: 1.5),
+          padding: const EdgeInsets.symmetric(vertical: 16),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget _buildBottomBar() {
     final isLastStep = _currentStep == 6;
-    final isOptionalStep = _currentStep >= 2;
+    final isOptionalStep = _currentStep >= 2; // Include last step (verification is optional)
+    
+    // Hide skip button if user has captured verification photos (in memory draft)
+    final hasDraftVerification = _tempIdPhotoPath != null && _tempSelfiePhotoPath != null;
+    
+    // Only check verification status on the verification step (step 6)
+    bool showSkipButton = isOptionalStep;
+    if (isLastStep) {
+      showSkipButton = !hasDraftVerification; // Hide skip if user captured photos
+    }
     
     return Container(
       padding: const EdgeInsets.all(20),
@@ -1181,11 +1443,27 @@ class _WorkerSetupFlowScreenState extends State<WorkerSetupFlowScreen> {
       child: SafeArea(
         child: Row(
           children: [
-            // Skip button (only on optional steps)
-            if (isOptionalStep) ...[
+            // Skip button (only on optional steps AND no existing verification)
+            if (showSkipButton) ...[
               Expanded(
                 child: OutlinedButton(
-                  onPressed: _isSaving ? null : _skipStep,
+                  onPressed: _isSaving ? null : () async {
+                    if (isLastStep) {
+                      // On last step, skip means finish without verification
+                      setState(() => _isSaving = true);
+                      try {
+                        await _saveAllDataAndComplete();
+                      } catch (e) {
+                        _showSetupError(e);
+                      } finally {
+                        if (mounted) {
+                          setState(() => _isSaving = false);
+                        }
+                      }
+                    } else {
+                      _skipStep();
+                    }
+                  },
                   style: OutlinedButton.styleFrom(
                     foregroundColor: AppColors.neutral600,
                     side: BorderSide(color: AppColors.neutral300),
@@ -1194,7 +1472,16 @@ class _WorkerSetupFlowScreenState extends State<WorkerSetupFlowScreen> {
                       borderRadius: BorderRadius.circular(12),
                     ),
                   ),
-                  child: const Text('Skip'),
+                  child: _isSaving && isLastStep
+                      ? const SizedBox(
+                          height: 20,
+                          width: 20,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            valueColor: AlwaysStoppedAnimation<Color>(AppColors.neutral600),
+                          ),
+                        )
+                      : Text(isLastStep ? 'Skip & Finish' : 'Skip'),
                 ),
               ),
               const SizedBox(width: 12),
@@ -1202,24 +1489,24 @@ class _WorkerSetupFlowScreenState extends State<WorkerSetupFlowScreen> {
             
             // Next/Finish button
             Expanded(
-              flex: isOptionalStep ? 1 : 1,
               child: ElevatedButton(
                 onPressed: (_canProceed && !_isSaving)
                     ? () async {
+                        // Moving between steps is instant — nothing is saved
+                        // until Finish. Flipping _isSaving here made the button
+                        // flash a spinner on every single Next tap.
+                        if (!isLastStep) {
+                          _nextStep();
+                          return;
+                        }
+
                         setState(() => _isSaving = true);
                         try {
-                          // Save current step data
-                          await _saveCurrentStep();
-                          
-                          // Move to next step or finish
-                          if (isLastStep) {
-                            await _finishSetup();
-                          } else {
-                            _nextStep();
-                          }
+                          await _saveAllDataAndComplete();
                         } catch (e) {
-                          // Error already shown in _saveCurrentStep
-                          print('Save error: $e');
+                          // Previously only print()ed, so a failed save looked
+                          // to the user like the button simply did nothing.
+                          _showSetupError(e);
                         } finally {
                           if (mounted) {
                             setState(() => _isSaving = false);
@@ -1261,56 +1548,961 @@ class _WorkerSetupFlowScreenState extends State<WorkerSetupFlowScreen> {
     );
   }
 
-  Future<void> _saveCurrentStep() async {
+  Future<void> _saveAllDataAndComplete() async {
     final provider = context.read<WorkerProfileProvider>();
     final authProvider = context.read<AuthProvider>();
+    final verificationProvider = context.read<VerificationProvider>();
+    final apiClient = ApiClient(); // Create ApiClient instance
     
-    switch (_currentStep) {
-      case 0: // Name + Location
-        // Get values from controllers
-        final name = _nameController.text.trim();
-        final location = _locationController.text.trim();
-        
-        // Save name to users table
-        if (name.isNotEmpty) {
-          await authProvider.updateMe(name: name);
+    try {
+      // Removed validation that blocks incomplete verification - now truly optional
+      final hasCompleteVerification =
+          _tempIdPhotoPath != null && _tempSelfiePhotoPath != null;
+
+      // 1. Save name to users table
+      final name = _nameController.text.trim();
+      if (name.isNotEmpty) {
+        await authProvider.updateMe(name: name);
+      }
+      
+      // 2. Save location (this creates profile with setup_completed=false)
+      final location = _locationController.text.trim();
+      if (location.isNotEmpty) {
+        final success = await provider.updateLocation(location);
+        if (!success && mounted) {
+          throw Exception(provider.errorMessage ?? 'Failed to save location');
         }
-        
-        // Save location to worker profile
-        if (location.isNotEmpty) {
-          final success = await provider.updateLocation(location);
-          if (!success && mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text(provider.errorMessage ?? 'Failed to save location'),
-                backgroundColor: AppColors.error,
-              ),
-            );
-            throw Exception('Save failed');
-          }
+      }
+      
+      // 3. Save skills
+      if (_selectedSkills.isNotEmpty) {
+        await provider.saveSkillsWithCategories(_selectedSkills);
+        await Future.delayed(const Duration(milliseconds: 300));
+      }
+      
+      // 4. Save experiences
+      for (var exp in _tempExperiences) {
+        await provider.createExperience(exp);
+      }
+      
+      // 5. Save certifications
+      for (var cert in _tempCertifications) {
+        await provider.addCertification(
+          WorkerCertificationModel(
+            userId: 0,
+            certificationName: cert['certification_name'] as String,
+            issuingOrganization: cert['issuing_organization'] as String,
+            issueDate: cert['issue_date'] != null ? DateTime.parse(cert['issue_date'] as String) : null,
+          ),
+          filePath: cert['filePath'] as String?,
+        );
+      }
+      
+      // 6. Save licenses
+      for (var lic in _tempLicenses) {
+        await provider.addLicense(
+          WorkerLicenseModel(
+            userId: 0,
+            licenseName: lic['license_name'] as String,
+            licenseNumber: lic['license_number'] as String? ?? 'N/A',
+            issuingAuthority: lic['issuing_authority'] as String,
+            issueDate: lic['issue_date'] != null ? DateTime.parse(lic['issue_date'] as String) : null,
+          ),
+          filePath: lic['filePath'] as String?,
+        );
+      }
+      
+      // 7. Upload profile photo
+      if (_tempProfilePhotoPath != null) {
+        final formData = FormData.fromMap({
+          'photo': await MultipartFile.fromFile(
+            _tempProfilePhotoPath!,
+            filename: 'profile.jpg',
+          ),
+        });
+        await apiClient.post('/worker/profile/photo', data: formData);
+      }
+
+      // 8. Submit verification draft only after Finish (OPTIONAL - don't fail if error)
+      if (hasCompleteVerification) {
+        try {
+          await verificationProvider.submitGovernmentID(
+            idType: _tempGovernmentIdType,
+            idPhotoPath: _tempIdPhotoPath!,
+            selfiePhotoPath: _tempSelfiePhotoPath!,
+          );
+          // If verification upload fails, just continue - it's optional
+        } catch (e) {
+          // Non-blocking, but the user must be told: they submitted an ID and
+          // would otherwise finish believing verification was under way.
+          _verificationUploadFailed = true;
         }
-        break;
-      case 1: // Skills
-        if (_selectedSkills.isNotEmpty) {
-          await provider.saveSkillsWithCategories(_selectedSkills);
-          // Add delay to ensure save completes
-          await Future.delayed(const Duration(milliseconds: 500));
-          // Verify save was successful by refetching
-          await provider.fetchSkills();
-          if (provider.skills.isEmpty && mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text('Failed to save skills. Please try again.'),
-                backgroundColor: AppColors.error,
-              ),
-            );
-            throw Exception('Skills save failed');
-          }
-        }
-        break;
-      // Other steps save through their own screens
-      default:
-        break;
+      }
+      
+      // 9. Mark setup as complete
+      await provider.completeSetup();
+      
+      // 10. Finish
+      await _finishSetup();
+      
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to save profile: $e'),
+            backgroundColor: AppColors.error,
+          ),
+        );
+      }
+      rethrow;
     }
   }
+}
+
+
+// ═══════════════════════════════════════════════════════════════════════════
+// INLINE FORM SCREENS - Used during onboarding only
+// ═══════════════════════════════════════════════════════════════════════════
+
+/// Experience form - add or edit
+class _ExperienceFormScreen extends StatefulWidget {
+  final Map<String, dynamic>? existing;
+  const _ExperienceFormScreen({this.existing});
+
+  @override
+  State<_ExperienceFormScreen> createState() => _ExperienceFormScreenState();
+}
+
+class _ExperienceFormScreenState extends State<_ExperienceFormScreen> {
+  late final TextEditingController _titleCtrl;
+  late final TextEditingController _companyCtrl;
+  late final TextEditingController _startCtrl;
+  late final TextEditingController _endCtrl;
+  late final TextEditingController _descCtrl;
+  bool _isPresent = false;
+
+  @override
+  void initState() {
+    super.initState();
+    final exp = widget.existing;
+    _titleCtrl = TextEditingController(text: exp?['jobTitle'] as String? ?? '');
+    _companyCtrl = TextEditingController(text: exp?['company'] as String? ?? '');
+    _startCtrl = TextEditingController(text: exp?['startDate'] as String? ?? '');
+    _endCtrl = TextEditingController(text: exp?['endDate'] as String? ?? '');
+    _descCtrl = TextEditingController(text: exp?['description'] as String? ?? '');
+    _isPresent = (exp?['endDate'] as String? ?? '') == 'Present';
+    for (final c in [_titleCtrl, _companyCtrl, _startCtrl, _endCtrl]) {
+      c.addListener(() => setState(() {}));
+    }
+  }
+
+  @override
+  void dispose() {
+    _titleCtrl.dispose();
+    _companyCtrl.dispose();
+    _startCtrl.dispose();
+    _endCtrl.dispose();
+    _descCtrl.dispose();
+    super.dispose();
+  }
+
+  bool get _canSave =>
+      _titleCtrl.text.trim().isNotEmpty &&
+      _companyCtrl.text.trim().isNotEmpty &&
+      _startCtrl.text.trim().isNotEmpty &&
+      (_isPresent || _endCtrl.text.trim().isNotEmpty);
+
+  Future<void> _pickDate(TextEditingController ctrl, String label) async {
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: DateTime.now(),
+      firstDate: DateTime(1970),
+      lastDate: DateTime.now(),
+      helpText: label,
+      builder: (ctx, child) => Theme(
+        data: Theme.of(ctx).copyWith(
+          colorScheme: const ColorScheme.light(
+            primary: AppColors.primary,
+            onPrimary: Colors.white,
+            onSurface: AppColors.neutral900,
+          ),
+        ),
+        child: child!,
+      ),
+    );
+    if (picked != null) {
+      setState(() => ctrl.text = '${picked.month}/${picked.year}');
+    }
+  }
+
+  void _save() {
+    if (!_canSave) return;
+    Navigator.pop(context, {
+      'jobTitle': _titleCtrl.text.trim(),
+      'company': _companyCtrl.text.trim(),
+      'startDate': _startCtrl.text.trim(),
+      'endDate': _isPresent ? 'Present' : _endCtrl.text.trim(),
+      'description': _descCtrl.text.trim(),
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: AppColors.background,
+      appBar: AppBar(
+        backgroundColor: Colors.white,
+        elevation: 0,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back, color: AppColors.neutral900),
+          onPressed: () => Navigator.pop(context),
+        ),
+        title: Text(
+          widget.existing != null ? 'Edit Experience' : 'Add Experience',
+          style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600, color: AppColors.neutral900),
+        ),
+        centerTitle: true,
+      ),
+      body: Column(
+        children: [
+          Expanded(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.all(20),
+              child: Column(
+                children: [
+                  _field(_titleCtrl, 'Job Title', 'e.g. Plumber'),
+                  const SizedBox(height: 16),
+                  _field(_companyCtrl, 'Company / Employer', 'e.g. ABC Construction'),
+                  const SizedBox(height: 16),
+                  _datePicker(_startCtrl, 'Start Date', 'Select Start Date'),
+                  const SizedBox(height: 16),
+                  if (!_isPresent) _datePicker(_endCtrl, 'End Date', 'Select End Date'),
+                  Row(
+                    children: [
+                      Checkbox(
+                        value: _isPresent,
+                        onChanged: (v) => setState(() {
+                          _isPresent = v ?? false;
+                          if (_isPresent) _endCtrl.clear();
+                        }),
+                        activeColor: AppColors.primary,
+                      ),
+                      const Text('Currently working here', style: TextStyle(fontSize: 14, color: AppColors.neutral700)),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  TextField(
+                    controller: _descCtrl,
+                    maxLines: 4,
+                    textCapitalization: TextCapitalization.sentences,
+                    decoration: _deco('Description (Optional)', 'Describe your responsibilities...'),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          Container(
+            padding: const EdgeInsets.all(20),
+            color: Colors.white,
+            child: SafeArea(
+              child: SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: _canSave ? _save : null,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.primary,
+                    foregroundColor: Colors.white,
+                    disabledBackgroundColor: AppColors.neutral300,
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    elevation: 0,
+                  ),
+                  child: const Text('Save', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _field(TextEditingController ctrl, String label, String hint) => TextField(
+        controller: ctrl,
+        textCapitalization: TextCapitalization.words,
+        decoration: _deco(label, hint),
+      );
+
+  Widget _datePicker(TextEditingController ctrl, String label, String dlgTitle) => TextField(
+        controller: ctrl,
+        readOnly: true,
+        onTap: () => _pickDate(ctrl, dlgTitle),
+        decoration: _deco(label, 'MM/YYYY').copyWith(
+          suffixIcon: const Icon(Icons.calendar_today, size: 18, color: AppColors.neutral500),
+        ),
+      );
+
+  InputDecoration _deco(String label, String hint) => InputDecoration(
+        labelText: label,
+        hintText: hint,
+        filled: true,
+        fillColor: Colors.white,
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: const BorderSide(color: AppColors.neutral300),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: const BorderSide(color: AppColors.primary, width: 2),
+        ),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+      );
+}
+
+/// Certification form - add or edit
+class _CertificationFormScreen extends StatefulWidget {
+  final Map<String, dynamic>? existing;
+  const _CertificationFormScreen({this.existing});
+
+  @override
+  State<_CertificationFormScreen> createState() => _CertificationFormScreenState();
+}
+
+class _CertificationFormScreenState extends State<_CertificationFormScreen> {
+  late final TextEditingController _nameCtrl;
+  late final TextEditingController _orgCtrl;
+  late final TextEditingController _dateCtrl;
+  String? _filePath;
+  String? _fileName;
+  bool _confirmed = false;
+
+  @override
+  void initState() {
+    super.initState();
+    final cert = widget.existing;
+    _nameCtrl = TextEditingController(text: cert?['certification_name'] as String? ?? '');
+    _orgCtrl = TextEditingController(text: cert?['issuing_organization'] as String? ?? '');
+    _dateCtrl = TextEditingController(text: cert?['issue_date'] as String? ?? '');
+    _filePath = cert?['filePath'] as String?;
+    _fileName = cert?['fileName'] as String?;
+    _confirmed = widget.existing != null;
+    for (final c in [_nameCtrl, _orgCtrl, _dateCtrl]) {
+      c.addListener(() => setState(() {}));
+    }
+  }
+
+  @override
+  void dispose() {
+    _nameCtrl.dispose();
+    _orgCtrl.dispose();
+    _dateCtrl.dispose();
+    super.dispose();
+  }
+
+  bool get _canSave =>
+      _nameCtrl.text.trim().isNotEmpty &&
+      _orgCtrl.text.trim().isNotEmpty &&
+      _dateCtrl.text.trim().isNotEmpty &&
+      (_filePath != null && _confirmed);
+
+  Future<void> _pickFile() async {
+    final result = await FilePicker.platform.pickFiles(
+      type: FileType.custom,
+      allowedExtensions: ['jpg', 'jpeg', 'png', 'pdf'],
+    );
+    if (result != null && result.files.isNotEmpty) {
+      setState(() {
+        _filePath = result.files.first.path;
+        _fileName = result.files.first.name;
+      });
+    }
+  }
+
+  Future<void> _selectDate() async {
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: DateTime.now(),
+      firstDate: DateTime(1970),
+      lastDate: DateTime.now(),
+      builder: (ctx, child) => Theme(
+        data: Theme.of(ctx).copyWith(
+          colorScheme: const ColorScheme.light(
+            primary: AppColors.primary,
+            onPrimary: Colors.white,
+            onSurface: AppColors.neutral900,
+          ),
+        ),
+        child: child!,
+      ),
+    );
+    if (picked != null) {
+      setState(() => _dateCtrl.text = '${picked.year}-${picked.month.toString().padLeft(2, '0')}-${picked.day.toString().padLeft(2, '0')}');
+    }
+  }
+
+  void _save() {
+    if (!_canSave) return;
+    Navigator.pop(context, {
+      'certification_name': _nameCtrl.text.trim(),
+      'issuing_organization': _orgCtrl.text.trim(),
+      'issue_date': _dateCtrl.text.trim(),
+      'filePath': _filePath,
+      'fileName': _fileName,
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: AppColors.background,
+      appBar: AppBar(
+        backgroundColor: Colors.white,
+        elevation: 0,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back, color: AppColors.neutral900),
+          onPressed: () => Navigator.pop(context),
+        ),
+        title: Text(
+          widget.existing != null ? 'Edit Certification' : 'Add Certification',
+          style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600, color: AppColors.neutral900),
+        ),
+        centerTitle: true,
+      ),
+      body: Column(
+        children: [
+          Expanded(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.all(20),
+              child: Column(
+                children: [
+                  _field(_nameCtrl, 'Certification Name', 'e.g. Safety Training Certificate'),
+                  const SizedBox(height: 16),
+                  _field(_orgCtrl, 'Issued By', 'e.g. TESDA, Red Cross'),
+                  const SizedBox(height: 16),
+                  _datePicker(_dateCtrl, 'Date Issued', 'Select Issue Date'),
+                  const SizedBox(height: 24),
+                  _uploadBox(),
+                  const SizedBox(height: 20),
+                  if (_filePath != null) _confirmCheck(),
+                ],
+              ),
+            ),
+          ),
+          Container(
+            padding: const EdgeInsets.all(20),
+            color: Colors.white,
+            child: SafeArea(
+              child: SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: _canSave ? _save : null,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.primary,
+                    foregroundColor: Colors.white,
+                    disabledBackgroundColor: AppColors.neutral300,
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    elevation: 0,
+                  ),
+                  child: const Text('Save', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _field(TextEditingController ctrl, String label, String hint) => TextField(
+        controller: ctrl,
+        textCapitalization: TextCapitalization.words,
+        decoration: _deco(label, hint),
+      );
+
+  Widget _datePicker(TextEditingController ctrl, String label, String dlgTitle) => TextField(
+        controller: ctrl,
+        readOnly: true,
+        onTap: _selectDate,
+        decoration: _deco(label, 'YYYY-MM-DD').copyWith(
+          suffixIcon: const Icon(Icons.calendar_today, size: 18, color: AppColors.neutral500),
+        ),
+      );
+
+  Widget _uploadBox() {
+    final hasFile = _fileName != null;
+    
+    return GestureDetector(
+      onTap: _pickFile,
+      child: Container(
+        width: double.infinity,
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: hasFile ? AppColors.success : AppColors.neutral300,
+            width: hasFile ? 2 : 1.5,
+          ),
+        ),
+        child: hasFile
+            ? Column(
+                children: [
+                  if (_isImage()) ...[
+                    ClipRRect(
+                      borderRadius: const BorderRadius.vertical(top: Radius.circular(11)),
+                      child: Image.file(
+                        File(_filePath!),
+                        height: 200,
+                        width: double.infinity,
+                        fit: BoxFit.contain,
+                      ),
+                    ),
+                  ] else ...[
+                    Container(
+                      height: 140,
+                      alignment: Alignment.center,
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          const Icon(Icons.picture_as_pdf, size: 56, color: AppColors.error),
+                          const SizedBox(height: 8),
+                          Text(_fileName ?? '',
+                              style: const TextStyle(fontSize: 13, color: AppColors.neutral600),
+                              textAlign: TextAlign.center,
+                              overflow: TextOverflow.ellipsis),
+                        ],
+                      ),
+                    ),
+                  ],
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                    decoration: BoxDecoration(
+                      color: AppColors.success.withValues(alpha: 0.08),
+                      borderRadius: const BorderRadius.vertical(bottom: Radius.circular(11)),
+                    ),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.check_circle, color: AppColors.success, size: 16),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            _fileName ?? 'Document selected',
+                            style: const TextStyle(fontSize: 13, color: AppColors.success),
+                            overflow: TextOverflow.ellipsis
+                          ),
+                        ),
+                        TextButton(
+                          onPressed: () => setState(() {
+                            _filePath = null;
+                            _fileName = null;
+                            _confirmed = widget.existing != null;
+                          }),
+                          style: TextButton.styleFrom(
+                            padding: EdgeInsets.zero,
+                            minimumSize: Size.zero,
+                            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                          ),
+                          child: const Text('Change', style: TextStyle(fontSize: 12, color: AppColors.primary)),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              )
+            : Padding(
+                padding: const EdgeInsets.symmetric(vertical: 32),
+                child: Column(children: [
+                  const Icon(Icons.upload_file_outlined, size: 40, color: AppColors.neutral400),
+                  const SizedBox(height: 12),
+                  const Text(
+                    'Tap to upload certificate',
+                    style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: AppColors.neutral700),
+                  ),
+                  const SizedBox(height: 4),
+                  const Text('JPG, PNG, or PDF — max 5MB',
+                      style: TextStyle(fontSize: 12, color: AppColors.neutral400)),
+                ]),
+              ),
+      ),
+    );
+  }
+
+  bool _isImage() {
+    if (_fileName == null) return false;
+    final ext = _fileName!.split('.').last.toLowerCase();
+    return ['jpg', 'jpeg', 'png'].contains(ext);
+  }
+
+  Widget _confirmCheck() {
+    return GestureDetector(
+      onTap: () => setState(() => _confirmed = !_confirmed),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            width: 22,
+            height: 22,
+            margin: const EdgeInsets.only(top: 1),
+            decoration: BoxDecoration(
+              color: _confirmed ? AppColors.primary : Colors.white,
+              borderRadius: BorderRadius.circular(5),
+              border: Border.all(color: _confirmed ? AppColors.primary : AppColors.neutral400),
+            ),
+            child: _confirmed
+                ? const Icon(Icons.check, size: 14, color: Colors.white)
+                : null,
+          ),
+          const SizedBox(width: 12),
+          const Expanded(
+            child: Text(
+              'I confirm this document is genuine. Submitting fake documents will result in permanent account ban and may be reported to authorities.',
+              style: TextStyle(fontSize: 13, color: AppColors.neutral700, height: 1.5),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  InputDecoration _deco(String label, String hint) => InputDecoration(
+        labelText: label,
+        hintText: hint,
+        filled: true,
+        fillColor: Colors.white,
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: const BorderSide(color: AppColors.neutral300),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: const BorderSide(color: AppColors.primary, width: 2),
+        ),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+      );
+}
+
+/// License form - add or edit
+class _LicenseFormScreen extends StatefulWidget {
+  final Map<String, dynamic>? existing;
+  const _LicenseFormScreen({this.existing});
+
+  @override
+  State<_LicenseFormScreen> createState() => _LicenseFormScreenState();
+}
+
+class _LicenseFormScreenState extends State<_LicenseFormScreen> {
+  late final TextEditingController _nameCtrl;
+  late final TextEditingController _authorityCtrl;
+  late final TextEditingController _dateCtrl;
+  String? _filePath;
+  String? _fileName;
+  bool _confirmed = false;
+
+  @override
+  void initState() {
+    super.initState();
+    final lic = widget.existing;
+    _nameCtrl = TextEditingController(text: lic?['license_name'] as String? ?? '');
+    _authorityCtrl = TextEditingController(text: lic?['issuing_authority'] as String? ?? '');
+    _dateCtrl = TextEditingController(text: lic?['issue_date'] as String? ?? '');
+    _filePath = lic?['filePath'] as String?;
+    _fileName = lic?['fileName'] as String?;
+    _confirmed = widget.existing != null;
+    for (final c in [_nameCtrl, _authorityCtrl, _dateCtrl]) {
+      c.addListener(() => setState(() {}));
+    }
+  }
+
+  @override
+  void dispose() {
+    _nameCtrl.dispose();
+    _authorityCtrl.dispose();
+    _dateCtrl.dispose();
+    super.dispose();
+  }
+
+  bool get _canSave =>
+      _nameCtrl.text.trim().isNotEmpty &&
+      _authorityCtrl.text.trim().isNotEmpty &&
+      _dateCtrl.text.trim().isNotEmpty &&
+      (_filePath != null && _confirmed);
+
+  Future<void> _pickFile() async {
+    final result = await FilePicker.platform.pickFiles(
+      type: FileType.custom,
+      allowedExtensions: ['jpg', 'jpeg', 'png', 'pdf'],
+    );
+    if (result != null && result.files.isNotEmpty) {
+      setState(() {
+        _filePath = result.files.first.path;
+        _fileName = result.files.first.name;
+      });
+    }
+  }
+
+  Future<void> _selectDate() async {
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: DateTime.now(),
+      firstDate: DateTime(1970),
+      lastDate: DateTime.now(),
+      builder: (ctx, child) => Theme(
+        data: Theme.of(ctx).copyWith(
+          colorScheme: const ColorScheme.light(
+            primary: AppColors.primary,
+            onPrimary: Colors.white,
+            onSurface: AppColors.neutral900,
+          ),
+        ),
+        child: child!,
+      ),
+    );
+    if (picked != null) {
+      setState(() => _dateCtrl.text = '${picked.year}-${picked.month.toString().padLeft(2, '0')}-${picked.day.toString().padLeft(2, '0')}');
+    }
+  }
+
+  void _save() {
+    if (!_canSave) return;
+    Navigator.pop(context, {
+      'license_name': _nameCtrl.text.trim(),
+      'license_number': 'N/A',
+      'issuing_authority': _authorityCtrl.text.trim(),
+      'issue_date': _dateCtrl.text.trim(),
+      'filePath': _filePath,
+      'fileName': _fileName,
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: AppColors.background,
+      appBar: AppBar(
+        backgroundColor: Colors.white,
+        elevation: 0,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back, color: AppColors.neutral900),
+          onPressed: () => Navigator.pop(context),
+        ),
+        title: Text(
+          widget.existing != null ? 'Edit License' : 'Add License',
+          style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600, color: AppColors.neutral900),
+        ),
+        centerTitle: true,
+      ),
+      body: Column(
+        children: [
+          Expanded(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.all(20),
+              child: Column(
+                children: [
+                  _field(_nameCtrl, 'License Name', 'e.g. Licensed Plumber'),
+                  const SizedBox(height: 16),
+                  _field(_authorityCtrl, 'Issued By', 'e.g. DOLE, PRC'),
+                  const SizedBox(height: 16),
+                  _datePicker(_dateCtrl, 'Date Issued', 'Select Issue Date'),
+                  const SizedBox(height: 24),
+                  _uploadBox(),
+                  const SizedBox(height: 20),
+                  if (_filePath != null) _confirmCheck(),
+                ],
+              ),
+            ),
+          ),
+          Container(
+            padding: const EdgeInsets.all(20),
+            color: Colors.white,
+            child: SafeArea(
+              child: SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: _canSave ? _save : null,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.primary,
+                    foregroundColor: Colors.white,
+                    disabledBackgroundColor: AppColors.neutral300,
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    elevation: 0,
+                  ),
+                  child: const Text('Save', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _field(TextEditingController ctrl, String label, String hint) => TextField(
+        controller: ctrl,
+        textCapitalization: TextCapitalization.words,
+        decoration: _deco(label, hint),
+      );
+
+  Widget _datePicker(TextEditingController ctrl, String label, String dlgTitle) => TextField(
+        controller: ctrl,
+        readOnly: true,
+        onTap: _selectDate,
+        decoration: _deco(label, 'YYYY-MM-DD').copyWith(
+          suffixIcon: const Icon(Icons.calendar_today, size: 18, color: AppColors.neutral500),
+        ),
+      );
+
+  Widget _uploadBox() {
+    final hasFile = _fileName != null;
+    
+    return GestureDetector(
+      onTap: _pickFile,
+      child: Container(
+        width: double.infinity,
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: hasFile ? AppColors.success : AppColors.neutral300,
+            width: hasFile ? 2 : 1.5,
+          ),
+        ),
+        child: hasFile
+            ? Column(
+                children: [
+                  if (_isImage()) ...[
+                    ClipRRect(
+                      borderRadius: const BorderRadius.vertical(top: Radius.circular(11)),
+                      child: Image.file(
+                        File(_filePath!),
+                        height: 200,
+                        width: double.infinity,
+                        fit: BoxFit.contain,
+                      ),
+                    ),
+                  ] else ...[
+                    Container(
+                      height: 140,
+                      alignment: Alignment.center,
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          const Icon(Icons.picture_as_pdf, size: 56, color: AppColors.error),
+                          const SizedBox(height: 8),
+                          Text(_fileName ?? '',
+                              style: const TextStyle(fontSize: 13, color: AppColors.neutral600),
+                              textAlign: TextAlign.center,
+                              overflow: TextOverflow.ellipsis),
+                        ],
+                      ),
+                    ),
+                  ],
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                    decoration: BoxDecoration(
+                      color: AppColors.success.withValues(alpha: 0.08),
+                      borderRadius: const BorderRadius.vertical(bottom: Radius.circular(11)),
+                    ),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.check_circle, color: AppColors.success, size: 16),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            _fileName ?? 'Document selected',
+                            style: const TextStyle(fontSize: 13, color: AppColors.success),
+                            overflow: TextOverflow.ellipsis
+                          ),
+                        ),
+                        TextButton(
+                          onPressed: () => setState(() {
+                            _filePath = null;
+                            _fileName = null;
+                            _confirmed = widget.existing != null;
+                          }),
+                          style: TextButton.styleFrom(
+                            padding: EdgeInsets.zero,
+                            minimumSize: Size.zero,
+                            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                          ),
+                          child: const Text('Change', style: TextStyle(fontSize: 12, color: AppColors.primary)),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              )
+            : Padding(
+                padding: const EdgeInsets.symmetric(vertical: 32),
+                child: Column(children: [
+                  const Icon(Icons.upload_file_outlined, size: 40, color: AppColors.neutral400),
+                  const SizedBox(height: 12),
+                  const Text(
+                    'Tap to upload license',
+                    style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: AppColors.neutral700),
+                  ),
+                  const SizedBox(height: 4),
+                  const Text('JPG, PNG, or PDF — max 5MB',
+                      style: TextStyle(fontSize: 12, color: AppColors.neutral400)),
+                ]),
+              ),
+      ),
+    );
+  }
+
+  bool _isImage() {
+    if (_fileName == null) return false;
+    final ext = _fileName!.split('.').last.toLowerCase();
+    return ['jpg', 'jpeg', 'png'].contains(ext);
+  }
+
+  Widget _confirmCheck() {
+    return GestureDetector(
+      onTap: () => setState(() => _confirmed = !_confirmed),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            width: 22,
+            height: 22,
+            margin: const EdgeInsets.only(top: 1),
+            decoration: BoxDecoration(
+              color: _confirmed ? AppColors.primary : Colors.white,
+              borderRadius: BorderRadius.circular(5),
+              border: Border.all(color: _confirmed ? AppColors.primary : AppColors.neutral400),
+            ),
+            child: _confirmed
+                ? const Icon(Icons.check, size: 14, color: Colors.white)
+                : null,
+          ),
+          const SizedBox(width: 12),
+          const Expanded(
+            child: Text(
+              'I confirm this document is genuine. Submitting fake documents will result in permanent account ban and may be reported to authorities.',
+              style: TextStyle(fontSize: 13, color: AppColors.neutral700, height: 1.5),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  InputDecoration _deco(String label, String hint) => InputDecoration(
+        labelText: label,
+        hintText: hint,
+        filled: true,
+        fillColor: Colors.white,
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: const BorderSide(color: AppColors.neutral300),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: const BorderSide(color: AppColors.primary, width: 2),
+        ),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+      );
 }

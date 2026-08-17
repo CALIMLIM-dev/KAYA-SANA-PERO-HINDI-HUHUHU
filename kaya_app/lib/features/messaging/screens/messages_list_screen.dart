@@ -1,7 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import '../../../core/constants/app_colors.dart';
+import '../../../core/constants/app_mode.dart';
+import '../../../providers/app_mode_provider.dart';
+import '../../../providers/auth_provider.dart';
+import '../../../providers/messaging_provider.dart';
 
-/// Conversations List Screen
+/// Conversations List Screen — backed by GET /conversations.
 class MessagesListScreen extends StatefulWidget {
   const MessagesListScreen({super.key});
 
@@ -14,68 +19,44 @@ class _MessagesListScreenState extends State<MessagesListScreen> {
   final TextEditingController _searchController = TextEditingController();
   bool _isSearching = false;
 
-  // TODO: Replace with MessagingProvider data
-  final List<Map<String, dynamic>> _conversations = [
-    {
-      'id': 1,
-      'name': 'Plumbing Services Inc.',
-      'isVerified': true,
-      'lastMessage': 'Great! When can you start the job?',
-      'timestamp': '2m ago',
-      'unreadCount': 2,
-      'jobTitle': 'Emergency Pipe Repair',
-      'isOnline': true,
-    },
-    {
-      'id': 2,
-      'name': 'Tech Solutions Inc.',
-      'isVerified': true,
-      'lastMessage': 'Thank you for your application',
-      'timestamp': '1h ago',
-      'unreadCount': 0,
-      'jobTitle': 'Electrician Needed',
-      'isOnline': false,
-    },
-    {
-      'id': 3,
-      'name': 'Baliwag Construction',
-      'isVerified': true,
-      'lastMessage': 'We received your quote. Looking good!',
-      'timestamp': '3h ago',
-      'unreadCount': 1,
-      'jobTitle': 'Carpenter for Kitchen Cabinets',
-      'isOnline': true,
-    },
-    {
-      'id': 4,
-      'name': 'Cool Air Services',
-      'isVerified': false,
-      'lastMessage': 'Do you have experience with split-type AC?',
-      'timestamp': 'Yesterday',
-      'unreadCount': 0,
-      'jobTitle': 'AC Repair Technician',
-      'isOnline': false,
-    },
-    {
-      'id': 5,
-      'name': 'Home Depot Services',
-      'isVerified': true,
-      'lastMessage': 'Job completed successfully. Thanks!',
-      'timestamp': '2 days ago',
-      'unreadCount': 0,
-      'jobTitle': 'Bathroom Tile Installation',
-      'isOnline': false,
-    },
-  ];
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) context.read<MessagingProvider>().fetchConversations();
+    });
+  }
 
-  List<Map<String, dynamic>> get _filtered {
+  /// Which side of a conversation the signed-in user is on, derived by
+  /// comparing employer_id/worker_id against the current user id — the API
+  /// already returns both, so no server change was needed for this.
+  String _myRole(Map<String, dynamic> conv, int? myId) =>
+      conv['worker_id'] == myId ? 'worker' : 'employer';
+
+  Map<String, dynamic>? _otherParty(Map<String, dynamic> conv, String myRole) =>
+      (myRole == 'worker' ? conv['employer'] : conv['worker']) as Map<String, dynamic>?;
+
+  List<Map<String, dynamic>> _forMode(
+      List<Map<String, dynamic>> conversations, AppMode? mode, int? myId) {
+    if (mode == null) return conversations;
+    final wanted = mode == AppMode.worker ? 'worker' : 'employer';
+    return conversations.where((c) => _myRole(c, myId) == wanted).toList();
+  }
+
+  List<Map<String, dynamic>> _filteredFor(
+      List<Map<String, dynamic>> conversations, AppMode? mode, int? myId) {
     final query = _searchController.text.toLowerCase();
-    return _conversations.where((c) {
-      final matchesSearch = query.isEmpty ||
-          c['name'].toString().toLowerCase().contains(query) ||
-          c['jobTitle'].toString().toLowerCase().contains(query);
-      final matchesFilter = _selectedFilter == 'All' ||
-          (_selectedFilter == 'Unread' && c['unreadCount'] > 0);
+    return _forMode(conversations, mode, myId).where((c) {
+      final myRole = _myRole(c, myId);
+      final other = _otherParty(c, myRole);
+      final name = (other?['name'] ?? '').toString().toLowerCase();
+      final jobTitle = ((c['job'] as Map?)?['title'] ?? '').toString().toLowerCase();
+      final unread = (c['unread_count'] as num?)?.toInt() ?? 0;
+
+      final matchesSearch =
+          query.isEmpty || name.contains(query) || jobTitle.contains(query);
+      final matchesFilter =
+          _selectedFilter == 'All' || (_selectedFilter == 'Unread' && unread > 0);
       return matchesSearch && matchesFilter;
     }).toList();
   }
@@ -86,110 +67,164 @@ class _MessagesListScreenState extends State<MessagesListScreen> {
     super.dispose();
   }
 
-  void _openChat(Map<String, dynamic> conversation) {
+  void _openChat(Map<String, dynamic> conv, String myRole) {
+    final other = _otherParty(conv, myRole);
+    final job = conv['job'] as Map<String, dynamic>?;
+
     Navigator.pushNamed(
       context,
       '/chat',
       arguments: {
-        'conversationId': conversation['id'],
-        'name': conversation['name'],
-        'jobTitle': conversation['jobTitle'],
-        'isVerified': conversation['isVerified'],
-        'isOnline': conversation['isOnline'],
+        'conversationId': conv['id'],
+        'name': other?['name'] ?? (myRole == 'worker' ? 'Employer' : 'Worker'),
+        'jobTitle': job?['title'] ?? 'Job',
+        'jobId': conv['job_id'],
+        'otherUserId': other?['id'],
+        'isVerified': (other?['is_verified'] as bool?) ?? false,
+        // No presence/online tracking exists yet — omitted rather than faked.
+        'otherRole': myRole == 'worker' ? 'employer' : 'worker',
       },
     );
-    // Mark as read
-    setState(() => conversation['unreadCount'] = 0);
   }
 
   @override
   Widget build(BuildContext context) {
-    final filtered = _filtered;
-    return Scaffold(
-      backgroundColor: AppColors.background,
-      appBar: AppBar(
-        backgroundColor: AppColors.primary,
-        foregroundColor: Colors.white,
-        elevation: 0,
-        title: _isSearching
-            ? TextField(
-                controller: _searchController,
-                autofocus: true,
-                onChanged: (_) => setState(() {}),
-                decoration: const InputDecoration(
-                  hintText: 'Search conversations...',
-                  border: InputBorder.none,
-                  hintStyle: TextStyle(color: Colors.white70),
-                ),
-                style: const TextStyle(color: Colors.white),
-              )
-            : const Text('Messages',
-                style: TextStyle(fontWeight: FontWeight.w600)),
-        actions: [
-          IconButton(
-            icon: Icon(_isSearching ? Icons.close : Icons.search),
-            onPressed: () => setState(() {
-              _isSearching = !_isSearching;
-              if (!_isSearching) _searchController.clear();
-            }),
-          ),
-        ],
-      ),
-      body: Column(
-        children: [
-          // ── Filter chips ──
-          Container(
-            height: 56,
-            color: Colors.white,
-            padding: const EdgeInsets.symmetric(vertical: 10),
-            child: ListView(
-              scrollDirection: Axis.horizontal,
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              children: [
-                _chip('All', null),
-                const SizedBox(width: 8),
-                _chip('Unread',
-                    _conversations.where((c) => c['unreadCount'] > 0).length),
-              ],
-            ),
-          ),
+    final appMode = context.watch<AppModeProvider>();
+    final myId = context.watch<AuthProvider>().user?['id'] as int?;
 
-          // ── Conversation list ──
-          Expanded(
-            child: filtered.isEmpty
-                ? Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(Icons.chat_bubble_outline,
-                            size: 56, color: AppColors.neutral300),
-                        const SizedBox(height: 16),
-                        const Text('No conversations yet',
-                            style: TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.w600,
-                                color: AppColors.neutral600)),
-                        const SizedBox(height: 8),
-                        const Text(
-                            'Conversations unlock once an application is accepted',
-                            style: TextStyle(
-                                fontSize: 13, color: AppColors.neutral400),
-                            textAlign: TextAlign.center),
-                      ],
+    return Consumer<MessagingProvider>(
+      builder: (context, provider, _) {
+        final conversations = provider.conversations;
+        final filtered = _filteredFor(conversations, appMode.mode, myId);
+
+        return Scaffold(
+          backgroundColor: AppColors.background,
+          appBar: AppBar(
+            backgroundColor: AppColors.primary,
+            foregroundColor: Colors.white,
+            elevation: 0,
+            title: _isSearching
+                ? TextField(
+                    controller: _searchController,
+                    autofocus: true,
+                    onChanged: (_) => setState(() {}),
+                    decoration: const InputDecoration(
+                      hintText: 'Search conversations...',
+                      border: InputBorder.none,
+                      hintStyle: TextStyle(color: Colors.white70),
                     ),
+                    style: const TextStyle(color: Colors.white),
                   )
-                : RefreshIndicator(
-                    onRefresh: () async =>
-                        await Future.delayed(const Duration(seconds: 1)),
-                    child: ListView.separated(
-                      itemCount: filtered.length,
-                      separatorBuilder: (_, __) =>
-                          const Divider(height: 1, indent: 72),
-                      itemBuilder: (context, i) =>
-                          _conversationTile(filtered[i]),
-                    ),
-                  ),
+                : const Text('Messages',
+                    style: TextStyle(fontWeight: FontWeight.w600)),
+            actions: [
+              IconButton(
+                icon: Icon(_isSearching ? Icons.close : Icons.search),
+                onPressed: () => setState(() {
+                  _isSearching = !_isSearching;
+                  if (!_isSearching) _searchController.clear();
+                }),
+              ),
+            ],
           ),
+          body: Column(
+            children: [
+              if (appMode.isHybrid && appMode.mode != null)
+                Container(
+                  width: double.infinity,
+                  color: Colors.white,
+                  padding: const EdgeInsets.fromLTRB(16, 10, 16, 0),
+                  child: Text(
+                    appMode.isWorkerMode
+                        ? 'Showing conversations where you applied'
+                        : 'Showing conversations for jobs you posted',
+                    style: const TextStyle(fontSize: 12, color: AppColors.neutral600),
+                  ),
+                ),
+
+              Container(
+                height: 56,
+                color: Colors.white,
+                padding: const EdgeInsets.symmetric(vertical: 10),
+                child: ListView(
+                  scrollDirection: Axis.horizontal,
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  children: [
+                    _chip('All', null),
+                    const SizedBox(width: 8),
+                    _chip(
+                      'Unread',
+                      _forMode(conversations, appMode.mode, myId)
+                          .where((c) => ((c['unread_count'] as num?) ?? 0) > 0)
+                          .length,
+                    ),
+                  ],
+                ),
+              ),
+
+              Expanded(
+                child: provider.isLoading && conversations.isEmpty
+                    ? const Center(child: CircularProgressIndicator())
+                    : provider.errorMessage != null
+                        ? _errorState(provider)
+                        : filtered.isEmpty
+                            ? _emptyState()
+                            : RefreshIndicator(
+                                onRefresh: () => provider.fetchConversations(),
+                                child: ListView.separated(
+                                  itemCount: filtered.length,
+                                  separatorBuilder: (_, _) =>
+                                      const Divider(height: 1, indent: 72),
+                                  itemBuilder: (context, i) =>
+                                      _conversationTile(filtered[i], myId),
+                                ),
+                              ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _errorState(MessagingProvider provider) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.error_outline, size: 48, color: AppColors.neutral400),
+            const SizedBox(height: 12),
+            Text(provider.errorMessage!, textAlign: TextAlign.center),
+            const SizedBox(height: 16),
+            ElevatedButton(
+              onPressed: () => provider.fetchConversations(),
+              child: const Text('Retry'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _emptyState() {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(Icons.chat_bubble_outline, size: 56, color: AppColors.neutral300),
+          const SizedBox(height: 16),
+          const Text('No conversations yet',
+              style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.neutral600)),
+          const SizedBox(height: 8),
+          const Text(
+              'Conversations unlock once an application is accepted',
+              style: TextStyle(fontSize: 13, color: AppColors.neutral400),
+              textAlign: TextAlign.center),
         ],
       ),
     );
@@ -238,47 +273,32 @@ class _MessagesListScreenState extends State<MessagesListScreen> {
     );
   }
 
-  Widget _conversationTile(Map<String, dynamic> conv) {
-    final unread = conv['unreadCount'] as int;
-    final initial = conv['name'].toString()[0].toUpperCase();
+  Widget _conversationTile(Map<String, dynamic> conv, int? myId) {
+    final myRole = _myRole(conv, myId);
+    final other = _otherParty(conv, myRole);
+    final job = conv['job'] as Map<String, dynamic>?;
+    final unread = (conv['unread_count'] as num?)?.toInt() ?? 0;
+    final name = (other?['name'] ?? '').toString();
+    final initial = name.isNotEmpty ? name[0].toUpperCase() : '?';
+    final isVerified = (other?['is_verified'] as bool?) ?? false;
+    final updatedAt = conv['updated_at'] as String?;
 
     return InkWell(
-      onTap: () => _openChat(conv),
+      onTap: () => _openChat(conv, myRole),
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         child: Row(
           children: [
-            // Avatar
-            Stack(
-              children: [
-                CircleAvatar(
-                  radius: 26,
-                  backgroundColor: AppColors.primary.withValues(alpha: 0.1),
-                  child: Text(initial,
-                      style: const TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                          color: AppColors.primary)),
-                ),
-                if (conv['isOnline'] == true)
-                  Positioned(
-                    bottom: 1,
-                    right: 1,
-                    child: Container(
-                      width: 12,
-                      height: 12,
-                      decoration: BoxDecoration(
-                        color: AppColors.success,
-                        shape: BoxShape.circle,
-                        border: Border.all(color: Colors.white, width: 2),
-                      ),
-                    ),
-                  ),
-              ],
+            CircleAvatar(
+              radius: 26,
+              backgroundColor: AppColors.primary.withValues(alpha: 0.1),
+              child: Text(initial,
+                  style: const TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      color: AppColors.primary)),
             ),
             const SizedBox(width: 12),
-
-            // Name + last message
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -290,18 +310,17 @@ class _MessagesListScreenState extends State<MessagesListScreen> {
                           children: [
                             Flexible(
                               child: Text(
-                                conv['name'],
+                                name,
                                 style: TextStyle(
                                   fontSize: 15,
-                                  fontWeight: unread > 0
-                                      ? FontWeight.w700
-                                      : FontWeight.w600,
+                                  fontWeight:
+                                      unread > 0 ? FontWeight.w700 : FontWeight.w600,
                                   color: AppColors.neutral900,
                                 ),
                                 overflow: TextOverflow.ellipsis,
                               ),
                             ),
-                            if (conv['isVerified'] == true) ...[
+                            if (isVerified) ...[
                               const SizedBox(width: 4),
                               const Icon(Icons.verified,
                                   size: 14, color: AppColors.success),
@@ -309,23 +328,23 @@ class _MessagesListScreenState extends State<MessagesListScreen> {
                           ],
                         ),
                       ),
-                      Text(
-                        conv['timestamp'],
-                        style: TextStyle(
-                          fontSize: 11,
-                          color: unread > 0
-                              ? AppColors.primary
-                              : AppColors.neutral400,
-                          fontWeight: unread > 0
-                              ? FontWeight.w600
-                              : FontWeight.normal,
+                      if (updatedAt != null)
+                        Text(
+                          _timeAgo(updatedAt),
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: unread > 0
+                                ? AppColors.primary
+                                : AppColors.neutral400,
+                            fontWeight:
+                                unread > 0 ? FontWeight.w600 : FontWeight.normal,
+                          ),
                         ),
-                      ),
                     ],
                   ),
                   const SizedBox(height: 3),
                   Text(
-                    conv['jobTitle'],
+                    (job?['title'] ?? 'Job').toString(),
                     style: const TextStyle(
                         fontSize: 11,
                         color: AppColors.primary,
@@ -336,15 +355,17 @@ class _MessagesListScreenState extends State<MessagesListScreen> {
                     children: [
                       Expanded(
                         child: Text(
-                          conv['lastMessage'],
+                          ((conv['latest_message']
+                                      as Map<String, dynamic>?)?['message_text'] ??
+                                  'No messages yet')
+                              .toString(),
                           style: TextStyle(
                             fontSize: 13,
                             color: unread > 0
                                 ? AppColors.neutral900
                                 : AppColors.neutral500,
-                            fontWeight: unread > 0
-                                ? FontWeight.w500
-                                : FontWeight.normal,
+                            fontWeight:
+                                unread > 0 ? FontWeight.w500 : FontWeight.normal,
                           ),
                           overflow: TextOverflow.ellipsis,
                         ),
@@ -376,5 +397,16 @@ class _MessagesListScreenState extends State<MessagesListScreen> {
         ),
       ),
     );
+  }
+
+  String _timeAgo(String isoDate) {
+    final date = DateTime.tryParse(isoDate);
+    if (date == null) return '';
+    final diff = DateTime.now().difference(date);
+    if (diff.inMinutes < 1) return 'now';
+    if (diff.inMinutes < 60) return '${diff.inMinutes}m ago';
+    if (diff.inHours < 24) return '${diff.inHours}h ago';
+    if (diff.inDays < 7) return '${diff.inDays}d ago';
+    return '${date.month}/${date.day}/${date.year}';
   }
 }

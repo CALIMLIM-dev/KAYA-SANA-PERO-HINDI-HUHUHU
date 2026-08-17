@@ -52,6 +52,37 @@ class EmployerProfileProvider with ChangeNotifier {
   bool get hasImage => _profile?.imageUrl != null;
   bool get hasFetchedOnce => _hasFetchedOnce;
 
+  // ── Public employer view (worker tapping "Posted by" on a job) ──────────────
+
+  bool _isPublicDetailLoading = false;
+  String? _publicDetailError;
+  Map<String, dynamic>? _publicEmployer;
+
+  bool get isPublicDetailLoading => _isPublicDetailLoading;
+  String? get publicDetailErrorMessage => _publicDetailError;
+  Map<String, dynamic>? get publicEmployer => _publicEmployer;
+
+  /// GET /employers/{id} — someone else's employer profile, read-only. Kept
+  /// as a raw map rather than the EmployerProfile model because it carries
+  /// fields (jobs, reviews, rating) that model doesn't and never should — that
+  /// model is scoped to the signed-in user's own profile.
+  Future<void> fetchEmployerDetail(int userId) async {
+    _isPublicDetailLoading = true;
+    _publicDetailError = null;
+    notifyListeners();
+
+    try {
+      final res = await _api.get('/employers/$userId');
+      _publicEmployer = res.data['data'] as Map<String, dynamic>;
+    } catch (e) {
+      _publicDetailError = e.toString().replaceFirst('Exception: ', '');
+      _publicEmployer = null;
+    }
+
+    _isPublicDetailLoading = false;
+    notifyListeners();
+  }
+
   void _setLoading(bool v) {
     _isLoading = v;
     notifyListeners();
@@ -155,6 +186,9 @@ class EmployerProfileProvider with ChangeNotifier {
   /// Create employer profile (first-time setup)
   /// Returns created profile directly from response (no nested fetch)
   Future<bool> createProfile({
+    int? locationId,
+    double? latitude,
+    double? longitude,
     required EmployerType employerType,
     String? companyName,
     String? industry,
@@ -171,6 +205,10 @@ class EmployerProfileProvider with ChangeNotifier {
         if (website != null) 'website': website,
         if (description != null) 'description': description,
         'location': location,
+        // Structured location from the picker (PSGC id + coordinates).
+        if (locationId != null) 'location_id': locationId,
+        if (latitude != null) 'latitude': latitude,
+        if (longitude != null) 'longitude': longitude,
       });
       
       final data = res.data['data'] as Map<String, dynamic>;
@@ -185,6 +223,46 @@ class EmployerProfileProvider with ChangeNotifier {
     } catch (e) {
       _error = _parseError(e);
       _setLoading(false);
+      return false;
+    }
+  }
+
+  /// Complete profile setup
+  Future<bool> completeSetup() async {
+    try {
+      final res = await _api.post('/employer-profile/complete-setup');
+      final data = res.data as Map<String, dynamic>;
+      
+      if (data['success']) {
+        notifyListeners();
+        return true;
+      }
+      return false;
+    } catch (e) {
+      _error = _parseError(e);
+      notifyListeners();
+      return false;
+    }
+  }
+
+  /// Delete profile (for discard during onboarding)
+  Future<bool> deleteProfile() async {
+    try {
+      final res = await _api.delete('/employer-profile');
+      final data = res.data as Map<String, dynamic>;
+      
+      if (data['success']) {
+        // Clear local state
+        _profile = null;
+        _verification = null;
+        _error = null;
+        notifyListeners();
+        return true;
+      }
+      return false;
+    } catch (e) {
+      _error = _parseError(e);
+      notifyListeners();
       return false;
     }
   }
@@ -234,8 +312,8 @@ class EmployerProfileProvider with ChangeNotifier {
 
   /// Upload employer image (company logo or individual photo)
   /// Returns full profile to maintain consistent response shape
-  Future<bool> uploadImage({bool fromCamera = false}) async {
-    if (_profile == null) {
+  Future<bool> uploadImage({bool fromCamera = false, String? fromMemory}) async {
+    if (_profile == null && fromMemory == null) {
       _error = ProfileError(
         ProfileErrorType.notFound,
         'Create profile first before uploading image.',
@@ -245,26 +323,33 @@ class EmployerProfileProvider with ChangeNotifier {
     }
 
     try {
-      XFile? file;
-      if (kIsWeb) {
-        file = await _picker.pickImage(source: ImageSource.gallery, imageQuality: 80);
+      MultipartFile multipart;
+      
+      if (fromMemory != null) {
+        // Upload from file path (memory mode during onboarding)
+        multipart = await MultipartFile.fromFile(fromMemory, filename: 'image.jpg');
       } else {
-        file = await _picker.pickImage(
-          source: fromCamera ? ImageSource.camera : ImageSource.gallery,
-          imageQuality: 80,
-        );
+        // Pick new image
+        XFile? file;
+        if (kIsWeb) {
+          file = await _picker.pickImage(source: ImageSource.gallery, imageQuality: 80);
+        } else {
+          file = await _picker.pickImage(
+            source: fromCamera ? ImageSource.camera : ImageSource.gallery,
+            imageQuality: 80,
+          );
+        }
+        if (file == null) return false;
+
+        if (kIsWeb) {
+          final bytes = await file.readAsBytes();
+          multipart = MultipartFile.fromBytes(bytes, filename: 'image.jpg');
+        } else {
+          multipart = await MultipartFile.fromFile(file.path, filename: 'image.jpg');
+        }
       }
-      if (file == null) return false;
 
       _setLoading(true);
-      
-      MultipartFile multipart;
-      if (kIsWeb) {
-        final bytes = await file.readAsBytes();
-        multipart = MultipartFile.fromBytes(bytes, filename: 'image.jpg');
-      } else {
-        multipart = await MultipartFile.fromFile(file.path, filename: 'image.jpg');
-      }
       
       final formData = FormData.fromMap({'image': multipart});
       final res = await _api.postMultipart('/employer-profile/image', formData);

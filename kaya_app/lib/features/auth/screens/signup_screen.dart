@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../providers/auth_provider.dart';
 import '../../../shared/widgets/ph_phone_field.dart';
+import '../widgets/terms_modal.dart';
 
 class SignupScreen extends StatefulWidget {
   const SignupScreen({super.key});
@@ -28,7 +29,7 @@ class _SignupScreenState extends State<SignupScreen> {
   String? _termsError;
 
   @override
-  void dispose() {
+  void dispose() {  
     _inputController.dispose();
     _passwordController.dispose();
     _confirmPasswordController.dispose();
@@ -92,6 +93,7 @@ class _SignupScreenState extends State<SignupScreen> {
       email: credential,
       password: _passwordController.text,
       passwordConfirmation: _confirmPasswordController.text,
+      termsAccepted: true, // User has accepted terms via modal
     );
 
     if (!mounted) return;
@@ -216,30 +218,57 @@ class _SignupScreenState extends State<SignupScreen> {
                     height: 24,
                     child: Checkbox(
                       value: _agreeToTerms,
-                      onChanged: (v) => setState(() {
-                        _agreeToTerms = v ?? false;
-                        _termsError = null; // Clear error when checkbox is toggled
-                      }),
+                      onChanged: null, // Disabled - can only be checked via modal
                       activeColor: AppColors.primary,
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
                     ),
                   ),
                   const SizedBox(width: 12),
                   Expanded(
-                    child: Wrap(children: [
-                      Text('I agree to the ', style: TextStyle(color: AppColors.neutral600, fontSize: 14)),
-                      GestureDetector(
-                        onTap: () {},
-                        child: Text('Terms & Conditions',
-                            style: TextStyle(color: AppColors.primary, fontSize: 14, fontWeight: FontWeight.w600)),
+                    child: GestureDetector(
+                      onTap: () async {
+                        final accepted = await showModalBottomSheet<bool>(
+                          context: context,
+                          isScrollControlled: true,
+                          backgroundColor: Colors.transparent,
+                          builder: (_) => const TermsModal(),
+                        );
+                        if (accepted == true && mounted) {
+                          setState(() {
+                            _agreeToTerms = true;
+                            _termsError = null;
+                          });
+                        }
+                      },
+                      child: Text.rich(
+                        TextSpan(
+                          text: 'I have read and agree to the ',
+                          style: TextStyle(color: AppColors.neutral600, fontSize: 14),
+                          children: [
+                            TextSpan(
+                              text: 'Terms and Conditions',
+                              style: TextStyle(
+                                color: AppColors.primary,
+                                fontWeight: FontWeight.w600,
+                                decoration: TextDecoration.underline,
+                              ),
+                            ),
+                            TextSpan(
+                              text: ' and ',
+                              style: TextStyle(color: AppColors.neutral600),
+                            ),
+                            TextSpan(
+                              text: 'Privacy Policy',
+                              style: TextStyle(
+                                color: AppColors.primary,
+                                fontWeight: FontWeight.w600,
+                                decoration: TextDecoration.underline,
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
-                      Text(' and ', style: TextStyle(color: AppColors.neutral600, fontSize: 14)),
-                      GestureDetector(
-                        onTap: () {},
-                        child: Text('Privacy Policy',
-                            style: TextStyle(color: AppColors.primary, fontSize: 14, fontWeight: FontWeight.w600)),
-                      ),
-                    ]),
+                    ),
                   ),
                 ],
               ),

@@ -3,6 +3,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:provider/provider.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../data/services/api_client.dart';
+import '../../../providers/app_mode_provider.dart';
 import '../../../providers/auth_provider.dart';
 
 /// Modern Onboarding/Welcome Screen with Professional Design
@@ -48,9 +49,15 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
     if (token != null && mounted) {
       // User is logged in, go to home
       final auth = Provider.of<AuthProvider>(context, listen: false);
+      final appMode = Provider.of<AppModeProvider>(context, listen: false);
       try {
         await auth.fetchMe();
         if (mounted && auth.user != null) {
+          // Restore the persisted Worker/Employer mode before the home screen
+          // builds, so it opens in the right mode instead of flashing the
+          // default and switching.
+          await appMode.restore();
+          if (!mounted) return;
           Navigator.pushReplacementNamed(context, '/home');
           return;
         }

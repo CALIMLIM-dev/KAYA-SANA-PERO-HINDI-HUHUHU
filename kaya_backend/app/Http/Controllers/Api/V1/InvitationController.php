@@ -31,6 +31,8 @@ class InvitationController extends Controller
         $request->validate(['worker_id' => ['required', 'exists:users,id']]);
 
         $worker = User::findOrFail($request->worker_id);
+        // Hybrid accounts are both worker and employer, so self-invitation is reachable.
+        if ($worker->id === $user->id) return $this->fail('You cannot invite yourself to your own job', 422);
         if (!$worker->isWorker()) return $this->fail('User is not a worker', 422);
         if ($worker->is_suspended) return $this->fail('Worker account is suspended', 422);
 

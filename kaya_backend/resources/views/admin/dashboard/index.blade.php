@@ -52,7 +52,7 @@
                 @foreach ($recentUsers as $user)
                     <tr class="border-b border-slate-50">
                         <td class="py-2.5">{{ $user->name }}</td>
-                        <td class="py-2.5 capitalize text-slate-500">{{ $user->user_type }}</td>
+                        <td class="py-2.5 text-slate-500">{{ $user->roleLabel() }}</td>
                         <td class="py-2.5">
                             @if ($user->is_suspended)
                                 <span class="badge-suspended text-xs px-2 py-1 rounded-full">Suspended</span>

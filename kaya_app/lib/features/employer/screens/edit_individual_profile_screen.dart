@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../shared/widgets/location_picker_field.dart';
 import 'package:provider/provider.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../providers/employer_profile_provider.dart';
@@ -162,36 +163,10 @@ class _EditIndividualProfileScreenState extends State<EditIndividualProfileScree
                     const SizedBox(height: 20),
 
                     // Location (Required)
-                    TextFormField(
+                    LocationPickerField(
                       controller: _locationController,
-                      decoration: InputDecoration(
-                        labelText: 'Location *',
-                        hintText: 'e.g., Quezon City, Philippines',
-                        filled: true,
-                        fillColor: Colors.white,
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                          borderSide: const BorderSide(color: AppColors.neutral300),
-                        ),
-                        enabledBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                          borderSide: const BorderSide(color: AppColors.neutral300),
-                        ),
-                        focusedBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                          borderSide: const BorderSide(color: AppColors.primary, width: 2),
-                        ),
-                        errorBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                          borderSide: const BorderSide(color: AppColors.error),
-                        ),
-                      ),
-                      validator: (value) {
-                        if (value == null || value.trim().isEmpty) {
-                          return 'Location is required';
-                        }
-                        return null;
-                      },
+                      labelText: 'Location *',
+                      onSelected: (_) => setState(() {}),
                     ),
                     const SizedBox(height: 20),
 

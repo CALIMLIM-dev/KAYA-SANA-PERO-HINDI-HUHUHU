@@ -12,4 +12,9 @@ class Conversation extends Model
     public function employer() { return $this->belongsTo(User::class, 'employer_id'); }
     public function worker()   { return $this->belongsTo(User::class, 'worker_id'); }
     public function messages() { return $this->hasMany(Message::class); }
+
+    public function latestMessage()
+    {
+        return $this->hasOne(Message::class)->latestOfMany();
+    }
 }
