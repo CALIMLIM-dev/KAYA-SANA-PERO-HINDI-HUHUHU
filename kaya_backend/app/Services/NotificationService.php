@@ -172,7 +172,7 @@ class NotificationService
             type: UserNotification::APPLICATION_RECEIVED,
             title: 'New applicant',
             body: ($application->worker?->name ?? 'Someone')
-                . ' applied to "' . $job->title . '"',
+                . ' applied to "' . $job->title . '".',
             referenceType: 'job',
             referenceId: $job->id,
             actorId: $application->worker_id,
@@ -189,7 +189,7 @@ class NotificationService
             audience: UserNotification::AUDIENCE_WORKER,
             type: UserNotification::APPLICATION_ACCEPTED,
             title: "You're hired",
-            body: 'Your application for "' . $job->title . '" was accepted',
+            body: 'Your application for "' . $job->title . '" was accepted.',
             referenceType: 'application',
             referenceId: $application->id,
             actorId: $job->employer_id,
@@ -206,7 +206,7 @@ class NotificationService
             audience: UserNotification::AUDIENCE_WORKER,
             type: UserNotification::APPLICATION_REJECTED,
             title: 'Application not selected',
-            body: 'You were not selected for "' . $job->title . '"',
+            body: 'You were not selected for "' . $job->title . '".',
             referenceType: 'job',
             referenceId: $job->id,
             actorId: $job->employer_id,
@@ -224,7 +224,7 @@ class NotificationService
             type: UserNotification::INVITATION_RECEIVED,
             title: 'Job invitation',
             body: ($invitation->employer?->name ?? 'An employer')
-                . ' invited you to "' . $job->title . '"',
+                . ' invited you to "' . $job->title . '".',
             referenceType: 'invitation',
             referenceId: $invitation->id,
             actorId: $invitation->employer_id,
@@ -242,7 +242,7 @@ class NotificationService
             type: UserNotification::INVITATION_ACCEPTED,
             title: 'Invitation accepted',
             body: ($invitation->worker?->name ?? 'A worker')
-                . ' accepted your invitation to "' . $job->title . '"',
+                . ' accepted your invitation to "' . $job->title . '".',
             referenceType: 'job',
             referenceId: $job->id,
             actorId: $invitation->worker_id,
@@ -260,7 +260,7 @@ class NotificationService
             type: UserNotification::INVITATION_DECLINED,
             title: 'Invitation declined',
             body: ($invitation->worker?->name ?? 'A worker')
-                . ' declined your invitation to "' . $job->title . '"',
+                . ' declined your invitation to "' . $job->title . '".',
             referenceType: 'job',
             referenceId: $job->id,
             actorId: $invitation->worker_id,
