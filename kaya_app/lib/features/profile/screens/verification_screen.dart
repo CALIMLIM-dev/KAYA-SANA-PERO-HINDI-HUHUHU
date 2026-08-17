@@ -4,6 +4,8 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../providers/verification_provider.dart';
+import '../../../core/widgets/app_toast.dart';
+import '../../../data/services/api_client.dart';
 
 /// Verification Screen
 /// Arguments: { type: 'government_id' | 'phone' | 'email' | 'business_reg', title, subtitle }
@@ -23,8 +25,16 @@ class _VerificationScreenState extends State<VerificationScreen> {
 
   // Email
   final _emailCtrl = TextEditingController();
+  final _emailCodeCtrl = TextEditingController();
   bool _emailSent = false;
   bool _emailVerified = false;
+
+  /// The server's own words when a code is refused — wrong, expired, out of
+  /// attempts, or no SMS provider configured. Shown rather than replaced with
+  /// something invented here.
+  String? _verifyError;
+
+  final ApiClient _api = ApiClient();
 
   // Document
   String? _docPath;
@@ -50,6 +60,7 @@ class _VerificationScreenState extends State<VerificationScreen> {
     _phoneCtrl.dispose();
     _otpCtrl.dispose();
     _emailCtrl.dispose();
+    _emailCodeCtrl.dispose();
     _customIdCtrl.dispose();
     super.dispose();
   }
@@ -114,6 +125,14 @@ class _VerificationScreenState extends State<VerificationScreen> {
               enabled: _phoneCtrl.text.isNotEmpty && !_isLoading,
               onPressed: _sendOTP,
             ),
+            // Where "phone verification is not available yet" lands when no
+            // SMS provider is configured. Better than a spinner that used to
+            // resolve into a success the server knew nothing about.
+            if (_verifyError != null) ...[
+              const SizedBox(height: 12),
+              Text(_verifyError!,
+                  style: const TextStyle(fontSize: 12, color: AppColors.error)),
+            ],
           ] else ...[
             _sentBanner('OTP sent to ${_phoneCtrl.text}',
                 onTap: () => setState(() { _otpSent = false; _otpCtrl.clear(); })),
@@ -128,12 +147,18 @@ class _VerificationScreenState extends State<VerificationScreen> {
               style: const TextStyle(fontSize: 24, letterSpacing: 8, fontWeight: FontWeight.w700),
               decoration: _deco(hint: '------', icon: Icons.lock_outline),
             ),
+            if (_verifyError != null)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: Text(_verifyError!,
+                    style: const TextStyle(fontSize: 12, color: AppColors.error)),
+              ),
             Row(children: [
-              const Text("Didn't receive it? ", style: TextStyle(fontSize: 13, color: AppColors.neutral500)),
+              const Text("Didn't receive it? ", style: TextStyle(fontSize: 13.5, color: AppColors.neutral500)),
               GestureDetector(
-                onTap: _sendOTP,
+                onTap: _isLoading ? null : _sendOTP,
                 child: const Text('Resend OTP',
-                    style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppColors.primary)),
+                    style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.w600, color: AppColors.primary)),
               ),
             ]),
             const SizedBox(height: 24),
@@ -188,14 +213,58 @@ class _VerificationScreenState extends State<VerificationScreen> {
                 const Text('Check your email',
                     style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: AppColors.neutral900)),
                 const SizedBox(height: 8),
-                Text('We sent a verification link to ${_emailCtrl.text}',
+                Text('We sent a 6-digit code to ${_emailCtrl.text}',
                     style: const TextStyle(fontSize: 14, color: AppColors.neutral600),
                     textAlign: TextAlign.center),
                 const SizedBox(height: 20),
+                /*
+                    A code the server checks, not a button that trusts you.
+
+                    This was "I've verified my email" wired to
+                    `setState(() => _emailVerified = true)` — a self-service
+                    verification button. It told the server nothing, so the
+                    badge reverted the moment the parent screen refetched.
+                */
+                TextField(
+                  controller: _emailCodeCtrl,
+                  keyboardType: TextInputType.number,
+                  textAlign: TextAlign.center,
+                  maxLength: 6,
+                  style: const TextStyle(
+                      fontSize: 24, fontWeight: FontWeight.w700, letterSpacing: 8),
+                  decoration: InputDecoration(
+                    counterText: '',
+                    hintText: '000000',
+                    hintStyle: TextStyle(
+                        color: AppColors.neutral300, letterSpacing: 8, fontSize: 24),
+                    filled: true,
+                    fillColor: AppColors.neutral100,
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide.none,
+                    ),
+                  ),
+                  onChanged: (_) {
+                    if (_verifyError != null) setState(() => _verifyError = null);
+                  },
+                ),
+                if (_verifyError != null) ...[
+                  const SizedBox(height: 8),
+                  Text(_verifyError!,
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(fontSize: 12, color: AppColors.error)),
+                ],
+                const SizedBox(height: 16),
                 _primaryButton(
-                  label: "I've verified my email",
-                  enabled: true,
-                  onPressed: () => setState(() => _emailVerified = true),
+                  label: 'Verify email',
+                  enabled: !_isLoading,
+                  onPressed: _verifyEmailCode,
+                ),
+                const SizedBox(height: 6),
+                TextButton(
+                  onPressed: _isLoading ? null : _sendEmail,
+                  child: Text('Send a new code',
+                      style: TextStyle(fontSize: 12, color: AppColors.primary)),
                 ),
                 const SizedBox(height: 10),
                 TextButton(
@@ -364,14 +433,14 @@ class _VerificationScreenState extends State<VerificationScreen> {
                     Icon(Icons.info_outline, size: 16, color: AppColors.primary),
                     SizedBox(width: 8),
                     Text('Accepted Documents',
-                        style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppColors.primary)),
+                        style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.w600, color: AppColors.primary)),
                   ]),
                   const SizedBox(height: 8),
                   Text(
                     isBusiness 
                       ? 'DTI Certificate, SEC Registration, or Mayor\'s Permit'
                       : 'Valid document',
-                    style: const TextStyle(fontSize: 13, color: AppColors.neutral700, height: 1.5)
+                    style: const TextStyle(fontSize: 13.5, color: AppColors.neutral700, height: 1.5)
                   ),
                 ],
               ),
@@ -409,7 +478,7 @@ class _VerificationScreenState extends State<VerificationScreen> {
                                   const Icon(Icons.picture_as_pdf, size: 56, color: AppColors.error),
                                   const SizedBox(height: 8),
                                   Text(_docName ?? '',
-                                      style: const TextStyle(fontSize: 13, color: AppColors.neutral600),
+                                      style: const TextStyle(fontSize: 13.5, color: AppColors.neutral600),
                                       textAlign: TextAlign.center,
                                       overflow: TextOverflow.ellipsis),
                                 ],
@@ -428,7 +497,7 @@ class _VerificationScreenState extends State<VerificationScreen> {
                                 const SizedBox(width: 8),
                                 Expanded(
                                   child: Text(_docName ?? 'Document selected',
-                                      style: const TextStyle(fontSize: 13, color: AppColors.success),
+                                      style: const TextStyle(fontSize: 13.5, color: AppColors.success),
                                       overflow: TextOverflow.ellipsis),
                                 ),
                                 TextButton(
@@ -487,7 +556,7 @@ class _VerificationScreenState extends State<VerificationScreen> {
                   const Expanded(
                     child: Text(
                       'I confirm these documents are genuine. Submitting fake documents will result in permanent account ban.',
-                      style: TextStyle(fontSize: 13, color: AppColors.neutral700, height: 1.5),
+                      style: TextStyle(fontSize: 13.5, color: AppColors.neutral700, height: 1.5),
                     ),
                   ),
                 ],
@@ -573,7 +642,7 @@ class _VerificationScreenState extends State<VerificationScreen> {
                         const SizedBox(width: 8),
                         Expanded(
                           child: Text('$label captured',
-                              style: const TextStyle(fontSize: 13, color: AppColors.success),
+                              style: const TextStyle(fontSize: 13.5, color: AppColors.success),
                               overflow: TextOverflow.ellipsis),
                         ),
                         TextButton(
@@ -716,10 +785,7 @@ class _VerificationScreenState extends State<VerificationScreen> {
     if (type == 'government_id') {
       // Government ID needs both ID photo and selfie
       if (_docPath == null || _selfiePath == null) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-          content: Text('Please capture both ID and selfie photos'),
-          backgroundColor: AppColors.error,
-        ));
+        AppToast.error(context, 'Please capture both ID and selfie photos');
         return;
       }
       
@@ -746,30 +812,131 @@ class _VerificationScreenState extends State<VerificationScreen> {
     if (success) {
       setState(() => _submitted = true);
     } else {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text(vp.errorMessage ?? 'Submission failed'),
-        backgroundColor: AppColors.error,
-      ));
+      AppToast.error(context, vp.errorMessage ?? 'Submission failed');
     }
   }
 
+  /*
+      Real verification.
+
+      All three of these were `Future.delayed` followed by a success flag.
+      _verifyOTP never read _otpCtrl at all, so any six digits passed, and the
+      email step had a button that simply declared itself verified. Nothing
+      reached the server, so the badge they implied did not exist — and the
+      parent screen's refetch silently reverted it, which is why it looked
+      like the verification "didn't save".
+
+      The server now issues a hashed code with a ten-minute window, counts
+      wrong attempts, and burns the code after five. The messages below come
+      from it rather than being invented here.
+  */
+
   Future<void> _sendOTP() async {
-    setState(() => _isLoading = true);
-    // TODO: wire to real SMS provider (Twilio/Vonage)
-    await Future.delayed(const Duration(milliseconds: 800));
-    setState(() { _isLoading = false; _otpSent = true; });
+    setState(() {
+      _isLoading = true;
+      _verifyError = null;
+    });
+
+    try {
+      final res = await _api.post('/contact-verification/phone/send');
+      if (!mounted) return;
+      setState(() {
+        _isLoading = false;
+        _otpSent = true;
+      });
+      AppToast.success(context, res.data['message'] as String? ?? 'Code sent.');
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _isLoading = false;
+        // A missing SMS provider answers 503 with an explanation. Showing it
+        // beats a spinner that resolves into a lie.
+        _verifyError = e.toString().replaceFirst('Exception: ', '');
+      });
+    }
   }
 
   Future<void> _verifyOTP() async {
-    setState(() => _isLoading = true);
-    await Future.delayed(const Duration(milliseconds: 600));
-    setState(() { _isLoading = false; _phoneVerified = true; });
+    final code = _otpCtrl.text.trim();
+
+    if (code.length != 6) {
+      setState(() => _verifyError = 'Enter the 6-digit code.');
+      return;
+    }
+
+    setState(() {
+      _isLoading = true;
+      _verifyError = null;
+    });
+
+    try {
+      await _api.post('/contact-verification/phone/verify', data: {'code': code});
+      if (!mounted) return;
+      setState(() {
+        _isLoading = false;
+        _phoneVerified = true;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _isLoading = false;
+        _verifyError = e.toString().replaceFirst('Exception: ', '');
+      });
+    }
   }
 
   Future<void> _sendEmail() async {
-    setState(() => _isLoading = true);
-    await Future.delayed(const Duration(milliseconds: 600));
-    setState(() { _isLoading = false; _emailSent = true; });
+    setState(() {
+      _isLoading = true;
+      _verifyError = null;
+    });
+
+    try {
+      final res = await _api.post('/contact-verification/email/send');
+      if (!mounted) return;
+      setState(() {
+        _isLoading = false;
+        _emailSent = true;
+      });
+      AppToast.success(context, res.data['message'] as String? ?? 'Code sent.');
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _isLoading = false;
+        _verifyError = e.toString().replaceFirst('Exception: ', '');
+      });
+    }
+  }
+
+  /// Replaces the "I've verified my email" button, which set a flag and told
+  /// the server nothing.
+  Future<void> _verifyEmailCode() async {
+    final code = _emailCodeCtrl.text.trim();
+
+    if (code.length != 6) {
+      setState(() => _verifyError = 'Enter the 6-digit code from the email.');
+      return;
+    }
+
+    setState(() {
+      _isLoading = true;
+      _verifyError = null;
+    });
+
+    try {
+      await _api.post('/contact-verification/email/verify', data: {'code': code});
+      if (!mounted) return;
+      setState(() {
+        _isLoading = false;
+        _emailVerified = true;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _isLoading = false;
+        _verifyError = e.toString().replaceFirst('Exception: ', '');
+      });
+    }
   }
 
   // ── Helpers ───────────────────────────────────────────────────────────────
@@ -805,7 +972,7 @@ class _VerificationScreenState extends State<VerificationScreen> {
       child: Row(children: [
         const Icon(Icons.check_circle, color: AppColors.success, size: 18),
         const SizedBox(width: 10),
-        Expanded(child: Text(msg, style: const TextStyle(fontSize: 13, color: AppColors.success))),
+        Expanded(child: Text(msg, style: const TextStyle(fontSize: 13.5, color: AppColors.success))),
         TextButton(
           onPressed: onTap,
           style: TextButton.styleFrom(padding: EdgeInsets.zero, minimumSize: Size.zero,

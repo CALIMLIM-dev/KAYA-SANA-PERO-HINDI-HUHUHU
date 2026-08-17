@@ -4,6 +4,7 @@ import '../../../core/constants/app_colors.dart';
 import '../../../providers/auth_provider.dart';
 import '../../../shared/widgets/ph_phone_field.dart';
 import '../widgets/terms_modal.dart';
+import '../../../core/widgets/app_toast.dart';
 
 class SignupScreen extends StatefulWidget {
   const SignupScreen({super.key});
@@ -27,6 +28,14 @@ class _SignupScreenState extends State<SignupScreen> {
   String? _confirmError;
   String? _googleError;
   String? _termsError;
+
+  /// Tracked per button rather than from AuthProvider.isLoading.
+  ///
+  /// Both paths go through the same provider, so a shared flag made the email
+  /// button spin while Google was working — two buttons claiming to be doing
+  /// the thing you asked for when only one of them is.
+  bool _googleBusy = false;
+  bool _emailBusy = false;
 
   @override
   void dispose() {  
@@ -88,6 +97,8 @@ class _SignupScreenState extends State<SignupScreen> {
         ? toPHE164(_inputController.text.trim())
         : _inputController.text.trim();
 
+    setState(() => _emailBusy = true);
+
     final success = await auth.register(
       name: '', // Name will be set later during profile setup
       email: credential,
@@ -97,6 +108,8 @@ class _SignupScreenState extends State<SignupScreen> {
     );
 
     if (!mounted) return;
+
+    setState(() => _emailBusy = false);
 
     if (success) {
       Navigator.pushReplacementNamed(context, '/home');
@@ -291,7 +304,7 @@ class _SignupScreenState extends State<SignupScreen> {
                           _termsError!,
                           style: TextStyle(
                             color: AppColors.error,
-                            fontSize: 13,
+                            fontSize: 13.5,
                             fontWeight: FontWeight.w500,
                           ),
                         ),
@@ -340,14 +353,18 @@ class _SignupScreenState extends State<SignupScreen> {
                   width: double.infinity,
                   height: 56,
                   child: ElevatedButton(
-                    onPressed: auth.isLoading ? null : () => _handleSignup(auth),
+                    // Disabled while EITHER path is running — two sign-ups at
+                    // once is never wanted — but only spins for its own.
+                    onPressed: _emailBusy || _googleBusy
+                        ? null
+                        : () => _handleSignup(auth),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: AppColors.primary,
                       foregroundColor: Colors.white,
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
                       elevation: 0,
                     ),
-                    child: auth.isLoading
+                    child: _emailBusy
                         ? const SizedBox(height: 22, width: 22,
                             child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
                         : const Text('Sign Up',
@@ -370,26 +387,38 @@ class _SignupScreenState extends State<SignupScreen> {
 
               Row(children: [
                 Expanded(child: _socialBtn(Icons.g_mobiledata, 'Google', () async {
+                  // Never two sign-ups at once.
+                  if (_emailBusy) return;
+
                   // Clear previous error
-                  setState(() => _googleError = null);
-                  
+                  setState(() {
+                    _googleError = null;
+                    _googleBusy = true;
+                  });
+
                   final auth = Provider.of<AuthProvider>(context, listen: false);
                   final googleData = await auth.initiateGoogleSignIn();
-                  if (googleData == null) return; // User cancelled
-                  
+
+                  if (googleData == null) {
+                    // Cancelled at the account picker. Clearing the flag here
+                    // as well as at the end, or the button stays dead until the
+                    // screen is rebuilt for some other reason.
+                    if (mounted) setState(() => _googleBusy = false);
+                    return;
+                  }
+
                   if (!mounted) return;
-                  
+
                   // Try to complete signup - backend will check if email exists
                   final success = await auth.completeGoogleSignIn(
-                    googleId: googleData['google_id'],
-                    name: googleData['name'],
-                    email: googleData['email'],
-                    avatar: googleData['avatar'],
+                    idToken: googleData['id_token'],
                     isSignup: true, // Tell backend this is signup attempt
                   );
-                  
+
                   if (!mounted) return;
-                  
+
+                  setState(() => _googleBusy = false);
+
                   if (success) {
                     // Should not happen during signup, but handle gracefully
                     Navigator.pushReplacementNamed(context, '/home');
@@ -409,11 +438,10 @@ class _SignupScreenState extends State<SignupScreen> {
                       setState(() => _googleError = error.isNotEmpty ? error : 'Google Sign-In failed. Please try again.');
                     }
                   }
-                })),
+                }, busy: _googleBusy)),
                 const SizedBox(width: 16),
                 Expanded(child: _socialBtn(Icons.facebook, 'Facebook', () {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Facebook Sign-In coming soon')));
+                  AppToast.info(context, 'Facebook Sign-In coming soon');
                 })),
               ]),
               const SizedBox(height: 48),
@@ -463,18 +491,36 @@ class _SignupScreenState extends State<SignupScreen> {
         contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
       );
 
-  Widget _socialBtn(IconData icon, String label, VoidCallback onPressed) =>
+  /// A social sign-in button that can show it is working.
+  ///
+  /// Same fix as the login screen. Google sign-in spans an account picker and
+  /// then a network call, and this button had no busy state at all — so the
+  /// button you tapped sat idle while the *Create Account* button spun, because
+  /// both were reading one shared provider flag. The wrong control reported the
+  /// work.
+  Widget _socialBtn(
+    IconData icon,
+    String label,
+    VoidCallback onPressed, {
+    bool busy = false,
+  }) =>
       OutlinedButton(
-        onPressed: onPressed,
+        onPressed: busy ? null : onPressed,
         style: OutlinedButton.styleFrom(
           padding: const EdgeInsets.symmetric(vertical: 14),
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
           side: BorderSide(color: AppColors.neutral300),
         ),
-        child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-          Icon(icon, color: AppColors.neutral700, size: 22),
-          const SizedBox(width: 8),
-          Text(label, style: TextStyle(color: AppColors.neutral700, fontWeight: FontWeight.w600, fontSize: 15)),
-        ]),
+        child: busy
+            ? const SizedBox(
+                height: 22,
+                width: 22,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              )
+            : Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+                Icon(icon, color: AppColors.neutral700, size: 22),
+                const SizedBox(width: 8),
+                Text(label, style: TextStyle(color: AppColors.neutral700, fontWeight: FontWeight.w600, fontSize: 15)),
+              ]),
       );
 }

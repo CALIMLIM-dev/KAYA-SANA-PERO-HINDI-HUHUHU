@@ -204,7 +204,7 @@ class _EmployerProfileScreenState extends State<EmployerProfileScreen> {
                                           child: Text(
                                             location,
                                             style: const TextStyle(
-                                                fontSize: 13, color: Colors.white70),
+                                                fontSize: 13.5, color: Colors.white70),
                                             overflow: TextOverflow.ellipsis,
                                           ),
                                         ),
@@ -522,7 +522,7 @@ class _EmployerProfileScreenState extends State<EmployerProfileScreen> {
         const SizedBox(height: 8),
         Text(comment,
             style: const TextStyle(
-                fontSize: 13,
+                fontSize: 13.5,
                 color: AppColors.neutral700,
                 height: 1.5)),
       ],

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../providers/worker_profile_provider.dart';
+import '../../../core/widgets/app_toast.dart';
 
 class AddPhotoScreen extends StatefulWidget {
   const AddPhotoScreen({super.key});
@@ -20,20 +21,10 @@ class _AddPhotoScreenState extends State<AddPhotoScreen> {
     if (!mounted) return;
     setState(() => _isLoading = false);
     if (success) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Photo uploaded successfully'),
-          backgroundColor: AppColors.success,
-        ),
-      );
+      AppToast.success(context, 'Photo uploaded successfully');
       Navigator.pop(context, true);
     } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(provider.errorMessage ?? 'Failed to upload photo'),
-          backgroundColor: AppColors.error,
-        ),
-      );
+      AppToast.error(context, provider.errorMessage ?? 'Failed to upload photo');
     }
   }
 
@@ -122,7 +113,7 @@ class _AddPhotoScreenState extends State<AddPhotoScreen> {
                           Expanded(
                             child: Text(
                               'Use a clear, professional photo where your face is fully visible.',
-                              style: TextStyle(fontSize: 13, color: AppColors.neutral700, height: 1.5),
+                              style: TextStyle(fontSize: 13.5, color: AppColors.neutral700, height: 1.5),
                             ),
                           ),
                         ],
@@ -176,7 +167,7 @@ class _AddPhotoScreenState extends State<AddPhotoScreen> {
                             color: AppColors.neutral900)),
                     const SizedBox(height: 4),
                     Text(description,
-                        style: TextStyle(fontSize: 13, color: AppColors.neutral600)),
+                        style: TextStyle(fontSize: 13.5, color: AppColors.neutral600)),
                   ],
                 ),
               ),

@@ -1,9 +1,13 @@
 import 'package:flutter/material.dart';
 import '../../../core/constants/app_colors.dart';
+import '../../../data/models/location_model.dart';
 import '../../../shared/widgets/location_picker_field.dart';
 
-/// Add Employer Location - City/Municipality only
-/// NO AUTO-FILL, field starts EMPTY
+/// Add Employer Location.
+///
+/// Pops with { label, location_id, latitude, longitude } — it used to return
+/// the bare display string, so the caller had no id to persist and the
+/// employer's coordinates never changed.
 class AddEmployerLocationScreen extends StatefulWidget {
   final String? initialValue;
   const AddEmployerLocationScreen({super.key, this.initialValue});
@@ -16,11 +20,14 @@ class _AddEmployerLocationScreenState extends State<AddEmployerLocationScreen> {
   late final TextEditingController _locationController;
   bool _isSaveEnabled = false;
 
+  /// The PSGC row behind the field, so the caller can persist location_id and
+  /// coordinates rather than just a label.
+  LocationModel? _selectedLocation;
+
   @override
   void initState() {
     super.initState();
     _locationController = TextEditingController(text: widget.initialValue ?? '');
-    _isSaveEnabled = _locationController.text.trim().isNotEmpty;
     _locationController.addListener(_updateSaveButton);
   }
 
@@ -32,13 +39,20 @@ class _AddEmployerLocationScreenState extends State<AddEmployerLocationScreen> {
 
   void _updateSaveButton() {
     setState(() {
-      _isSaveEnabled = _locationController.text.trim().isNotEmpty;
+      // A real selection, not just text — typed text has no location_id, so
+      // saving it would leave the employer's coordinates pointing elsewhere.
+      _isSaveEnabled = _selectedLocation != null;
     });
   }
 
   void _save() {
-    if (!_isSaveEnabled) return;
-    Navigator.pop(context, _locationController.text.trim());
+    if (_selectedLocation == null) return;
+    Navigator.pop(context, {
+      'label': _selectedLocation!.displayName,
+      'location_id': _selectedLocation!.id,
+      'latitude': _selectedLocation!.latitude,
+      'longitude': _selectedLocation!.longitude,
+    });
   }
 
   @override
@@ -97,8 +111,17 @@ class _AddEmployerLocationScreenState extends State<AddEmployerLocationScreen> {
                   // Location picker, not free text.
                   LocationPickerField(
                     controller: _locationController,
-                    labelText: 'City / Municipality',
-                    onSelected: (_) => setState(() {}),
+                    labelText: 'Barangay, City or Municipality',
+                    hintText: 'Search your barangay or city',
+                    selection: _selectedLocation,
+                    onSelected: (location) => setState(() {
+                      _selectedLocation = location;
+                      _isSaveEnabled = true;
+                    }),
+                    onCleared: () => setState(() {
+                      _selectedLocation = null;
+                      _isSaveEnabled = false;
+                    }),
                   ),
                   
                   const SizedBox(height: 16),
@@ -125,7 +148,7 @@ class _AddEmployerLocationScreenState extends State<AddEmployerLocationScreen> {
                           child: Text(
                             'Your exact address will not be shared publicly. Only the city/municipality will be visible.',
                             style: TextStyle(
-                              fontSize: 13,
+                              fontSize: 13.5,
                               color: AppColors.neutral900,
                               height: 1.5,
                             ),

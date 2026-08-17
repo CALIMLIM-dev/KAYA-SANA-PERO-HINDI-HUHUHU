@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../../core/constants/app_colors.dart';
+import '../../../core/utils/format.dart';
 import '../../../data/models/job_model.dart';
 import '../../../data/models/worker_profile_model.dart';
 import '../../../providers/job_provider.dart';
@@ -80,9 +81,16 @@ class _SearchScreenState extends State<SearchScreen> {
             categoryId: _selectedCategoryId,
           );
     } else {
+      // Pay is a column on the worker profile, so it filters server-side.
+      // Doing it here would silently drop workers who never stated a rate
+      // without the employer knowing a filter was responsible.
+      final bounded = _minSalary > 0 || _maxSalary < 5000;
+
       await context.read<WorkerBrowseProvider>().fetchWorkers(
             q: query,
             categoryId: _selectedCategoryId,
+            rateMin: bounded && _minSalary > 0 ? _minSalary : null,
+            rateMax: bounded && _maxSalary < 5000 ? _maxSalary : null,
           );
     }
   }
@@ -167,105 +175,63 @@ class _SearchScreenState extends State<SearchScreen> {
           backgroundColor: AppColors.background,
           body: CustomScrollView(
             slivers: [
+              /*
+                  One white header block instead of four stacked bars.
+
+                  The filter button used to live inside the text field's
+                  suffixIcon with its count badge absolutely positioned over it,
+                  so the badge sat on top of the tap target and the field had no
+                  edge of its own. It is now a button beside the field, sized
+                  like one, and it turns solid when filters are on — a control
+                  that is doing something should look different from one that
+                  is not.
+              */
               SliverAppBar(
                 floating: true,
                 snap: true,
-                title: Container(
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: TextField(
-                    controller: _searchController,
-                    decoration: InputDecoration(
-                      hintText: _searchType == 'Jobs'
-                          ? 'Search jobs and services...'
-                          : 'Search workers by name or skill...',
-                      prefixIcon: const Icon(Icons.search),
-                      suffixIcon: Stack(
-                        children: [
-                          IconButton(
-                            icon: const Icon(Icons.tune),
-                            onPressed: _showFilterSheet,
-                          ),
-                          if (_getActiveFilterCount() > 0)
-                            Positioned(
-                              right: 8,
-                              top: 8,
-                              child: Container(
-                                padding: const EdgeInsets.all(4),
-                                decoration: const BoxDecoration(
-                                  color: AppColors.accent,
-                                  shape: BoxShape.circle,
-                                ),
-                                constraints: const BoxConstraints(
-                                  minWidth: 16,
-                                  minHeight: 16,
-                                ),
-                                child: Text(
-                                  '${_getActiveFilterCount()}',
-                                  style: const TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 10,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                  textAlign: TextAlign.center,
-                                ),
-                              ),
-                            ),
-                        ],
-                      ),
-                      border: InputBorder.none,
-                      contentPadding:
-                          const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                    ),
-                    onChanged: _onQueryChanged,
-                  ),
+                backgroundColor: Colors.white,
+                surfaceTintColor: Colors.white,
+                elevation: 0,
+                titleSpacing: 16,
+                title: Row(
+                  children: [
+                    Expanded(child: _searchField()),
+                    const SizedBox(width: 10),
+                    _filterButton(),
+                  ],
                 ),
               ),
 
-              // Search Type Toggle
+              // Jobs / Workers as a segmented control. Two large cards took a
+              // third of the screen to say one word each.
               SliverToBoxAdapter(
                 child: Container(
-                  padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
                   color: Colors.white,
+                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 10),
                   child: Row(
                     children: [
                       Expanded(
-                        child: _SearchTypeButton(
-                          title: 'Jobs',
-                          subtitle: _searchType == 'Jobs'
-                              ? '$resultCount available'
-                              : '',
-                          isSelected: _searchType == 'Jobs',
-                          onTap: () {
-                            setState(() {
-                              _searchType = 'Jobs';
-                              _selectedSortBy = 'Recent';
-                              _selectedCategory = null;
-                              _selectedCategoryId = null;
-                            });
-                            _runSearch();
-                          },
+                        child: Container(
+                          padding: const EdgeInsets.all(3),
+                          decoration: BoxDecoration(
+                            color: AppColors.neutral100,
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: Row(
+                            children: [
+                              _segment('Jobs'),
+                              _segment('Workers'),
+                            ],
+                          ),
                         ),
                       ),
                       const SizedBox(width: 12),
-                      Expanded(
-                        child: _SearchTypeButton(
-                          title: 'Workers',
-                          subtitle: _searchType == 'Workers'
-                              ? '$resultCount near you'
-                              : '',
-                          isSelected: _searchType == 'Workers',
-                          onTap: () {
-                            setState(() {
-                              _searchType = 'Workers';
-                              _selectedSortBy = 'Recent';
-                              _selectedCategory = null;
-                              _selectedCategoryId = null;
-                            });
-                            _runSearch();
-                          },
+                      Text(
+                        '$resultCount ${_searchType == 'Jobs' ? 'jobs' : 'workers'}',
+                        style: const TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          color: AppColors.neutral500,
                         ),
                       ),
                     ],
@@ -277,8 +243,8 @@ class _SearchScreenState extends State<SearchScreen> {
               // list job posting and worker onboarding use.
               SliverToBoxAdapter(
                 child: Container(
-                  padding: const EdgeInsets.symmetric(vertical: 12),
                   color: Colors.white,
+                  padding: const EdgeInsets.only(bottom: 10),
                   child: SingleChildScrollView(
                     scrollDirection: Axis.horizontal,
                     padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -294,38 +260,11 @@ class _SearchScreenState extends State<SearchScreen> {
                 ),
               ),
 
-              // Sort and Results Count
-              SliverToBoxAdapter(
-                child: Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text(
-                        _searchType == 'Jobs'
-                            ? '$resultCount jobs found'
-                            : '$resultCount workers found',
-                        style: Theme.of(context)
-                            .textTheme
-                            .titleMedium
-                            ?.copyWith(fontWeight: FontWeight.bold),
-                      ),
-                      DropdownButton<String>(
-                        value: _selectedSortBy,
-                        underline: const SizedBox(),
-                        icon: const Icon(Icons.arrow_drop_down),
-                        items: _getCurrentSortOptions().map((option) {
-                          return DropdownMenuItem(
-                            value: option,
-                            child: Text(option, style: const TextStyle(fontSize: 14)),
-                          );
-                        }).toList(),
-                        onChanged: (value) => setState(() => _selectedSortBy = value!),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
+              // Active filters, shown as removable chips. Previously the only
+              // sign a filter was on was a number on an icon, so people forgot
+              // why their results were empty.
+              if (_getActiveFilterCount() > 0 || _selectedSortBy != 'Recent')
+                SliverToBoxAdapter(child: _activeFilterBar()),
 
               if (isLoading && resultCount == 0)
                 const SliverFillRemaining(
@@ -370,6 +309,200 @@ class _SearchScreenState extends State<SearchScreen> {
     );
   }
 
+  Widget _searchField() {
+    return TextField(
+      controller: _searchController,
+      textInputAction: TextInputAction.search,
+      style: const TextStyle(fontSize: 14),
+      decoration: InputDecoration(
+        hintText: _searchType == 'Jobs' ? 'Search jobs' : 'Search workers',
+        hintStyle: const TextStyle(fontSize: 14, color: AppColors.neutral400),
+        prefixIcon: const Icon(Icons.search, size: 20, color: AppColors.neutral400),
+        prefixIconConstraints: const BoxConstraints(minWidth: 40),
+        // Clearing a search should not require selecting the text and deleting
+        // it, which is what it took before.
+        suffixIcon: _searchController.text.isEmpty
+            ? null
+            : IconButton(
+                icon: const Icon(Icons.close, size: 18, color: AppColors.neutral400),
+                onPressed: () {
+                  _searchController.clear();
+                  _onQueryChanged('');
+                },
+              ),
+        filled: true,
+        fillColor: AppColors.neutral100,
+        isDense: true,
+        contentPadding: const EdgeInsets.symmetric(vertical: 12),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(11),
+          borderSide: BorderSide.none,
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(11),
+          borderSide: BorderSide.none,
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(11),
+          borderSide: const BorderSide(color: AppColors.primary, width: 1.5),
+        ),
+      ),
+      onChanged: (value) {
+        // Rebuilds so the clear button appears on the first character.
+        setState(() {});
+        _onQueryChanged(value);
+      },
+    );
+  }
+
+  Widget _filterButton() {
+    final count = _getActiveFilterCount();
+    final active = count > 0;
+
+    return GestureDetector(
+      onTap: _showFilterSheet,
+      child: Container(
+        height: 44,
+        padding: const EdgeInsets.symmetric(horizontal: 12),
+        decoration: BoxDecoration(
+          color: active ? AppColors.primary : AppColors.neutral100,
+          borderRadius: BorderRadius.circular(11),
+        ),
+        child: Row(
+          children: [
+            Icon(Icons.tune,
+                size: 19,
+                color: active ? Colors.white : AppColors.neutral600),
+            if (active) ...[
+              const SizedBox(width: 6),
+              Text('$count',
+                  style: const TextStyle(
+                      fontSize: 13.5,
+                      fontWeight: FontWeight.w700,
+                      color: Colors.white)),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _segment(String type) {
+    final selected = _searchType == type;
+
+    return Expanded(
+      child: GestureDetector(
+        onTap: selected
+            ? null
+            : () {
+                setState(() {
+                  _searchType = type;
+                  _selectedSortBy = 'Recent';
+                  _selectedCategory = null;
+                  _selectedCategoryId = null;
+                });
+                _runSearch();
+              },
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 140),
+          padding: const EdgeInsets.symmetric(vertical: 8),
+          decoration: BoxDecoration(
+            color: selected ? Colors.white : Colors.transparent,
+            borderRadius: BorderRadius.circular(8),
+            boxShadow: selected
+                ? [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.06),
+                      blurRadius: 3,
+                      offset: const Offset(0, 1),
+                    ),
+                  ]
+                : null,
+          ),
+          child: Text(
+            type,
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontSize: 13.5,
+              fontWeight: FontWeight.w600,
+              color: selected ? AppColors.neutral900 : AppColors.neutral500,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// Every active filter as a chip you can tap to remove.
+  ///
+  /// A count on an icon told you *that* something was filtered but never what,
+  /// so an empty result looked like there was simply nothing to find.
+  Widget _activeFilterBar() {
+    final chips = <Widget>[];
+
+    void chip(String label, VoidCallback onRemove) {
+      chips.add(Padding(
+        padding: const EdgeInsets.only(right: 8),
+        child: InkWell(
+          onTap: () {
+            setState(onRemove);
+            _runSearch();
+          },
+          borderRadius: BorderRadius.circular(8),
+          child: Container(
+            padding: const EdgeInsets.fromLTRB(10, 6, 7, 6),
+            decoration: BoxDecoration(
+              color: AppColors.primary.withValues(alpha: 0.08),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(label,
+                    style: const TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: AppColors.primary)),
+                const SizedBox(width: 4),
+                const Icon(Icons.close, size: 13, color: AppColors.primary),
+              ],
+            ),
+          ),
+        ),
+      ));
+    }
+
+    if (_selectedSortBy != 'Recent') {
+      chip('Sort: $_selectedSortBy', () => _selectedSortBy = 'Recent');
+    }
+    if (_selectedLocation != null && _selectedLocation != 'All') {
+      chip(_selectedLocation!, () => _selectedLocation = null);
+    }
+    if (_minSalary > 0 || _maxSalary < 5000) {
+      chip('₱${_minSalary.toInt()}–${_maxSalary.toInt()}', () {
+        _minSalary = 0;
+        _maxSalary = 5000;
+      });
+    }
+    if (_minRating > 0) {
+      chip('${_minRating.toStringAsFixed(1)}+ rating', () => _minRating = 0);
+    }
+    if (_verifiedOnly) chip('Verified only', () => _verifiedOnly = false);
+    if (_urgentOnly) chip('Urgent only', () => _urgentOnly = false);
+
+    if (chips.isEmpty) return const SizedBox.shrink();
+
+    return Container(
+      color: Colors.white,
+      padding: const EdgeInsets.fromLTRB(0, 0, 0, 12),
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        child: Row(children: chips),
+      ),
+    );
+  }
+
   Widget _categoryChip(int? id, String name) {
     final isSelected = _selectedCategoryId == id;
     return Padding(
@@ -404,7 +537,7 @@ class _SearchScreenState extends State<SearchScreen> {
       reviews: '',
       salary: _formatSalary(job.salaryMin, job.salaryMax),
       category: job.category,
-      distance: job.distance != null ? '${job.distance!.toStringAsFixed(1)}km away' : null,
+      distance: job.distance == null ? null : formatDistance(job.distance!),
       isUrgent: job.isUrgent,
       requiresVerification: job.requiresVerification,
       requiredSkills: job.requiredSkills,
@@ -425,6 +558,8 @@ class _SearchScreenState extends State<SearchScreen> {
       isVerified: worker.isVerified,
       skills: worker.skills,
       matchScore: worker.matchScore,
+      distanceKm: worker.distance,
+      rateLabel: worker.rateLabel,
       onTap: () => Navigator.pushNamed(context, '/worker-profile',
           arguments: {'workerId': worker.userId ?? worker.id}),
     );
@@ -455,7 +590,7 @@ class _SearchScreenState extends State<SearchScreen> {
             const SizedBox(height: 8),
             Text(message,
                 textAlign: TextAlign.center,
-                style: const TextStyle(fontSize: 13, color: AppColors.neutral400)),
+                style: const TextStyle(fontSize: 13.5, color: AppColors.neutral400)),
             const SizedBox(height: 20),
             OutlinedButton(onPressed: _runSearch, child: const Text('Retry')),
           ],
@@ -549,29 +684,85 @@ class _SearchScreenState extends State<SearchScreen> {
                 child: ListView(
                   padding: const EdgeInsets.all(20),
                   children: [
+                    // Sort lives here now. It used to be a dropdown in its own
+                    // bar above the results, which cost a full row of height to
+                    // show one value that is changed rarely.
+                    const Text('Sort by',
+                        style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
+                    const SizedBox(height: 10),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: _getCurrentSortOptions().map((option) {
+                        final selected = _selectedSortBy == option;
+                        return GestureDetector(
+                          onTap: () => setSheetState(() {
+                            setState(() => _selectedSortBy = option);
+                          }),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                            decoration: BoxDecoration(
+                              color: selected
+                                  ? AppColors.primary.withValues(alpha: 0.1)
+                                  : AppColors.neutral100,
+                              borderRadius: BorderRadius.circular(9),
+                              border: Border.all(
+                                color: selected ? AppColors.primary : Colors.transparent,
+                                width: 1.5,
+                              ),
+                            ),
+                            child: Text(
+                              option,
+                              style: TextStyle(
+                                fontSize: 13.5,
+                                fontWeight: FontWeight.w600,
+                                color: selected ? AppColors.primary : AppColors.neutral600,
+                              ),
+                            ),
+                          ),
+                        );
+                      }).toList(),
+                    ),
+                    const SizedBox(height: 24),
                     Text(
-                      _searchType == 'Jobs' ? 'Pay Range (per day)' : 'Minimum Rating',
+                      _searchType == 'Jobs' ? 'Pay Range (per day)' : 'Rate (per day)',
                       style: Theme.of(context)
                           .textTheme
                           .titleMedium
                           ?.copyWith(fontWeight: FontWeight.bold),
                     ),
                     const SizedBox(height: 8),
-                    if (_searchType == 'Jobs') ...[
-                      Text('₱${_minSalary.toStringAsFixed(0)} - ₱${_maxSalary.toStringAsFixed(0)}'),
-                      RangeSlider(
-                        values: RangeValues(_minSalary, _maxSalary),
-                        min: 0,
-                        max: 5000,
-                        divisions: 50,
-                        labels: RangeLabels(
-                            '₱${_minSalary.toStringAsFixed(0)}', '₱${_maxSalary.toStringAsFixed(0)}'),
-                        onChanged: (values) => setSheetState(() => setState(() {
-                          _minSalary = values.start;
-                          _maxSalary = values.end;
-                        })),
+                    // Both sides now have money to filter on: jobs carry a
+                    // budget, workers carry a rate. Workers had only a rating
+                    // filter because the rate columns did not exist.
+                    Text('₱${_minSalary.toStringAsFixed(0)} - ₱${_maxSalary.toStringAsFixed(0)}'),
+                    RangeSlider(
+                      values: RangeValues(_minSalary, _maxSalary),
+                      min: 0,
+                      max: 5000,
+                      divisions: 50,
+                      labels: RangeLabels(
+                          '₱${_minSalary.toStringAsFixed(0)}', '₱${_maxSalary.toStringAsFixed(0)}'),
+                      onChanged: (values) => setSheetState(() => setState(() {
+                        _minSalary = values.start;
+                        _maxSalary = values.end;
+                      })),
+                    ),
+                    if (_searchType == 'Workers') ...[
+                      const SizedBox(height: 8),
+                      Text(
+                        'Workers who have not set a rate are hidden while this is narrowed.',
+                        style: TextStyle(fontSize: 11, color: AppColors.neutral500),
                       ),
-                    ] else ...[
+                      const SizedBox(height: 20),
+                      Text(
+                        'Minimum Rating',
+                        style: Theme.of(context)
+                            .textTheme
+                            .titleMedium
+                            ?.copyWith(fontWeight: FontWeight.bold),
+                      ),
+                      const SizedBox(height: 8),
                       Row(
                         children: List.generate(
                           5,
@@ -650,57 +841,3 @@ class _SearchScreenState extends State<SearchScreen> {
 }
 
 /// Search Type Toggle Button Widget
-class _SearchTypeButton extends StatelessWidget {
-  final String title;
-  final String subtitle;
-  final bool isSelected;
-  final VoidCallback onTap;
-
-  const _SearchTypeButton({
-    required this.title,
-    required this.subtitle,
-    required this.isSelected,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 12),
-        decoration: BoxDecoration(
-          color: isSelected ? AppColors.primary : Colors.transparent,
-          borderRadius: BorderRadius.circular(8),
-          border: Border.all(
-            color: isSelected ? AppColors.primary : AppColors.neutral300,
-          ),
-        ),
-        child: Column(
-          children: [
-            Text(
-              title,
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                color: isSelected ? Colors.white : AppColors.neutral700,
-                fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
-                fontSize: 14,
-              ),
-            ),
-            const SizedBox(height: 2),
-            Text(
-              subtitle,
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                color: isSelected
-                    ? Colors.white.withValues(alpha: 0.8)
-                    : AppColors.neutral500,
-                fontSize: 11,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}

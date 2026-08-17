@@ -2,9 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../../core/constants/app_colors.dart';
+import '../../../core/utils/format.dart';
 import '../../../data/models/job_model.dart';
 import '../../../providers/application_provider.dart';
 import '../../../providers/job_provider.dart';
+import '../../../core/widgets/app_toast.dart';
 
 /// Job Details — a single real job, fetched via GET /jobs/{id}.
 ///
@@ -24,6 +26,15 @@ class _JobDetailsScreenState extends State<JobDetailsScreen> {
   bool _initialized = false;
   bool _isApplying = false;
   bool _isSaving = false;
+
+  final PageController _photoController = PageController();
+  int _photoIndex = 0;
+
+  @override
+  void dispose() {
+    _photoController.dispose();
+    super.dispose();
+  }
 
   @override
   void didChangeDependencies() {
@@ -54,30 +65,32 @@ class _JobDetailsScreenState extends State<JobDetailsScreen> {
       builder: (context, provider, _) {
         final job = provider.selectedJob;
 
+        // Until the job loads there is nothing to build a header from, so this
+        // keeps the plain bar — a collapsing photo header that collapses over
+        // a spinner just looks broken.
+        if (job == null) {
+          return Scaffold(
+            backgroundColor: AppColors.neutral50,
+            appBar: AppBar(
+              title: const Text('Job Details',
+                  style:
+                      TextStyle(fontWeight: FontWeight.w600, color: Colors.white)),
+              backgroundColor: AppColors.primary,
+              foregroundColor: Colors.white,
+              elevation: 0,
+            ),
+            body: provider.isDetailLoading
+                ? const Center(child: CircularProgressIndicator())
+                : provider.detailErrorMessage != null
+                    ? _errorState(provider.detailErrorMessage!)
+                    : const SizedBox.shrink(),
+          );
+        }
+
         return Scaffold(
           backgroundColor: AppColors.neutral50,
-          appBar: AppBar(
-            title: const Text('Job Details',
-                style: TextStyle(fontWeight: FontWeight.w600, color: Colors.white)),
-            backgroundColor: AppColors.primary,
-            foregroundColor: Colors.white,
-            elevation: 0,
-            actions: [
-              if (job != null && !job.isOwnJob)
-                IconButton(
-                  icon: Icon(job.isSaved ? Icons.bookmark : Icons.bookmark_border),
-                  onPressed: _isSaving ? null : () => _toggleSave(job),
-                ),
-            ],
-          ),
-          body: provider.isDetailLoading && job == null
-              ? const Center(child: CircularProgressIndicator())
-              : provider.detailErrorMessage != null && job == null
-                  ? _errorState(provider.detailErrorMessage!)
-                  : job == null
-                      ? const SizedBox.shrink()
-                      : _content(job),
-          bottomNavigationBar: job == null ? null : _actionBar(job),
+          body: _content(job),
+          bottomNavigationBar: _actionBar(job),
         );
       },
     );
@@ -99,7 +112,7 @@ class _JobDetailsScreenState extends State<JobDetailsScreen> {
               const SizedBox(height: 8),
               Text(message,
                   textAlign: TextAlign.center,
-                  style: const TextStyle(fontSize: 13, color: AppColors.neutral400)),
+                  style: const TextStyle(fontSize: 13.5, color: AppColors.neutral400)),
               const SizedBox(height: 20),
               OutlinedButton(
                 onPressed: () =>
@@ -111,97 +124,127 @@ class _JobDetailsScreenState extends State<JobDetailsScreen> {
         ),
       );
 
+  /// Photo → what & how much → who → detail.
+  ///
+  /// The old order buried the photos two thirds down the page, under the
+  /// employer card, so the first thing a worker saw about a job was a wall of
+  /// chips. Photos are the fastest way to judge whether work is worth
+  /// travelling for, and pay is the second — so those go first and everything
+  /// else supports them.
   Widget _content(Job job) {
-    return SingleChildScrollView(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const SizedBox(height: 16),
-
-          // ── Header card: title, badges, salary ──
-          Container(
-            width: double.infinity,
-            margin: const EdgeInsets.symmetric(horizontal: 16),
-            padding: const EdgeInsets.all(20),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(16),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.05),
-                  blurRadius: 10,
-                  offset: const Offset(0, 2),
+    return CustomScrollView(
+      slivers: [
+        _headerSliver(job),
+        SliverToBoxAdapter(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // ── Title, pay, key facts ──
+              Container(
+                width: double.infinity,
+                margin: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+                padding: const EdgeInsets.all(20),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(16),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.05),
+                      blurRadius: 10,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
                 ),
-              ],
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
+                child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Expanded(
-                      child: Text(job.title,
-                          style: const TextStyle(
-                              fontSize: 21,
-                              fontWeight: FontWeight.bold,
-                              color: AppColors.neutral900)),
-                    ),
-                    if (job.isUrgent) ...[
-                      const SizedBox(width: 8),
-                      _badge('URGENT', AppColors.error),
-                    ],
-                  ],
-                ),
-                const SizedBox(height: 10),
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  children: [
-                    if (job.category != null) _iconChip(Icons.category_outlined, job.category!),
-                    if ((job.location ?? '').isNotEmpty)
-                      _iconChip(Icons.location_on_outlined, job.location!),
-                    if (job.postedAt != null)
-                      _iconChip(Icons.schedule, _timeAgo(job.postedAt!)),
-                  ],
-                ),
-                const SizedBox(height: 14),
-                // Wrap rather than a rigid Row+Spacer — a long price plus the
-                // negotiable badge plus the match pill together could overflow
-                // a narrow screen with no way to shrink; this just wraps
-                // instead of erroring.
-                Wrap(
-                  spacing: 10,
-                  runSpacing: 8,
-                  crossAxisAlignment: WrapCrossAlignment.center,
-                  children: [
                     Row(
-                      mainAxisSize: MainAxisSize.min,
-                      crossAxisAlignment: CrossAxisAlignment.end,
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(
-                          _formatSalary(job.salaryMin, job.salaryMax),
-                          style: const TextStyle(
-                              fontSize: 24,
-                              fontWeight: FontWeight.bold,
-                              color: AppColors.success),
-                        ),
-                        const SizedBox(width: 6),
-                        Padding(
-                          padding: const EdgeInsets.only(bottom: 3),
-                          child: Text(_periodLabel(job.salaryPeriod),
+                        Expanded(
+                          child: Text(job.title,
                               style: const TextStyle(
-                                  fontSize: 13, color: AppColors.neutral500)),
+                                  fontSize: 22,
+                                  height: 1.25,
+                                  fontWeight: FontWeight.bold,
+                                  color: AppColors.neutral900)),
+                        ),
+                        if (job.isUrgent) ...[
+                          const SizedBox(width: 8),
+                          _badge('URGENT', AppColors.error),
+                        ],
+                      ],
+                    ),
+
+                    // Pay sits directly under the title, before anything else.
+                    // It is the number the decision turns on.
+                    const SizedBox(height: 12),
+                    // Wrap rather than a rigid Row+Spacer — a long price plus
+                    // the negotiable badge plus the match pill together could
+                    // overflow a narrow screen with no way to shrink.
+                    Wrap(
+                      spacing: 10,
+                      runSpacing: 8,
+                      crossAxisAlignment: WrapCrossAlignment.center,
+                      children: [
+                        Row(
+                          mainAxisSize: MainAxisSize.min,
+                          crossAxisAlignment: CrossAxisAlignment.end,
+                          children: [
+                            Text(
+                              _formatSalary(job.salaryMin, job.salaryMax),
+                              style: const TextStyle(
+                                  fontSize: 24,
+                                  fontWeight: FontWeight.bold,
+                                  color: AppColors.success),
+                            ),
+                            const SizedBox(width: 6),
+                            Padding(
+                              padding: const EdgeInsets.only(bottom: 4),
+                              child: Text(_periodLabel(job.salaryPeriod),
+                                  style: const TextStyle(
+                                      fontSize: 13.5, color: AppColors.neutral500)),
+                            ),
+                          ],
+                        ),
+                        if (job.isNegotiable)
+                          _badge('Open to offers', AppColors.warning),
+                        if (job.matchScore != null) _matchPill(job.matchScore!),
+                      ],
+                    ),
+
+                    const SizedBox(height: 14),
+                    const Divider(height: 1, color: AppColors.neutral200),
+                    const SizedBox(height: 14),
+
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: [
+                        if (job.category != null)
+                          _iconChip(Icons.category_outlined, job.category!),
+                        if ((job.location ?? '').isNotEmpty)
+                          _iconChip(Icons.location_on_outlined, job.location!),
+                        if (job.distance != null)
+                          _iconChip(
+                              Icons.near_me_outlined, formatDistance(job.distance!)),
+                        // When the work happens. Absent on jobs posted before
+                        // scheduling existed, which is why it is conditional
+                        // rather than showing a placeholder.
+                        if (job.scheduleLabel != null)
+                          _iconChip(Icons.event_outlined, job.scheduleLabel!),
+                        if (job.postedAt != null)
+                          _iconChip(Icons.schedule, _timeAgo(job.postedAt!)),
+                        _iconChip(
+                          Icons.people_outline,
+                          '${job.applicantCount} applicant'
+                          '${job.applicantCount == 1 ? '' : 's'}',
                         ),
                       ],
                     ),
-                    if (job.isNegotiable) _badge('Open to offers', AppColors.warning),
-                    if (job.matchScore != null) _matchPill(job.matchScore!),
                   ],
                 ),
-              ],
-            ),
-          ),
+              ),
 
           // ── Posted by ──
           _section(
@@ -257,43 +300,13 @@ class _JobDetailsScreenState extends State<JobDetailsScreen> {
             ),
           ),
 
-          // ── Photos ──
-          if (job.photoUrls.isNotEmpty)
-            _section(
-              title: 'Photos',
-              child: SizedBox(
-                height: 160,
-                child: ListView.separated(
-                  scrollDirection: Axis.horizontal,
-                  itemCount: job.photoUrls.length,
-                  separatorBuilder: (_, _) => const SizedBox(width: 10),
-                  itemBuilder: (context, i) => ClipRRect(
-                    borderRadius: BorderRadius.circular(12),
-                    child: Image.network(
-                      job.photoUrls[i],
-                      width: 220,
-                      height: 160,
-                      fit: BoxFit.cover,
-                      errorBuilder: (_, _, _) => Container(
-                        width: 220,
-                        height: 160,
-                        color: AppColors.neutral100,
-                        child: const Icon(Icons.broken_image_outlined,
-                            color: AppColors.neutral400),
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-            ),
-
           // ── Description ──
           if ((job.description ?? '').isNotEmpty)
             _section(
               title: 'Job Description',
               child: Text(job.description!,
                   style: const TextStyle(
-                      fontSize: 14.5, height: 1.6, color: AppColors.neutral700)),
+                      fontSize: 14, height: 1.6, color: AppColors.neutral700)),
             ),
 
           // ── Required skills ──
@@ -330,7 +343,7 @@ class _JobDetailsScreenState extends State<JobDetailsScreen> {
                           ),
                         Text(s,
                             style: TextStyle(
-                                fontSize: 13,
+                                fontSize: 13.5,
                                 fontWeight: FontWeight.w500,
                                 color: matched
                                     ? AppColors.success
@@ -342,20 +355,126 @@ class _JobDetailsScreenState extends State<JobDetailsScreen> {
               ),
             ),
 
-          // ── Applicant count ──
-          _section(
-            child: Row(
-              children: [
-                const Icon(Icons.people_outline, size: 18, color: AppColors.neutral500),
-                const SizedBox(width: 8),
-                Text('${job.applicantCount} applicant${job.applicantCount == 1 ? '' : 's'} so far',
-                    style: const TextStyle(fontSize: 13, color: AppColors.neutral600)),
-              ],
-            ),
+              // Applicant count moved up into the facts row — it was a whole
+              // card of its own for one short sentence.
+              const SizedBox(height: 90), // clears the bottom action bar
+            ],
           ),
+        ),
+      ],
+    );
+  }
 
-          const SizedBox(height: 90), // clears the bottom action bar
-        ],
+  /// Photo carousel as a collapsing header, or a plain bar when there are none.
+  ///
+  /// Edge to edge and 300 tall: a job photo shrunk into a rounded card halfway
+  /// down the page tells you almost nothing about the work, which is what the
+  /// previous layout did.
+  Widget _headerSliver(Job job) {
+    final photos = job.photoUrls;
+
+    final actions = [
+      if (!job.isOwnJob)
+        IconButton(
+          icon: Icon(job.isSaved ? Icons.bookmark : Icons.bookmark_border),
+          tooltip: job.isSaved ? 'Saved' : 'Save this job',
+          onPressed: _isSaving ? null : () => _toggleSave(job),
+        ),
+    ];
+
+    if (photos.isEmpty) {
+      return SliverAppBar(
+        pinned: true,
+        backgroundColor: AppColors.primary,
+        foregroundColor: Colors.white,
+        elevation: 0,
+        title: const Text('Job Details',
+            style: TextStyle(fontWeight: FontWeight.w600, color: Colors.white)),
+        actions: actions,
+      );
+    }
+
+    return SliverAppBar(
+      pinned: true,
+      expandedHeight: 300,
+      backgroundColor: AppColors.primary,
+      foregroundColor: Colors.white,
+      elevation: 0,
+      actions: actions,
+      flexibleSpace: FlexibleSpaceBar(
+        background: Stack(
+          fit: StackFit.expand,
+          children: [
+            PageView.builder(
+              controller: _photoController,
+              itemCount: photos.length,
+              onPageChanged: (i) => setState(() => _photoIndex = i),
+              itemBuilder: (context, i) => Image.network(
+                photos[i],
+                fit: BoxFit.cover,
+                errorBuilder: (_, _, _) => Container(
+                  color: AppColors.neutral200,
+                  child: const Icon(Icons.broken_image_outlined,
+                      size: 48, color: AppColors.neutral400),
+                ),
+                loadingBuilder: (context, child, progress) => progress == null
+                    ? child
+                    : Container(
+                        color: AppColors.neutral100,
+                        child: const Center(
+                            child: CircularProgressIndicator(strokeWidth: 2)),
+                      ),
+              ),
+            ),
+
+            // Keeps the back arrow and save icon legible over a bright photo.
+            Positioned(
+              top: 0,
+              left: 0,
+              right: 0,
+              height: 96,
+              child: IgnorePointer(
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      colors: [
+                        Colors.black.withValues(alpha: 0.45),
+                        Colors.transparent,
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
+
+            if (photos.length > 1)
+              Positioned(
+                bottom: 12,
+                left: 0,
+                right: 0,
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: List.generate(
+                    photos.length,
+                    (i) => AnimatedContainer(
+                      duration: const Duration(milliseconds: 200),
+                      margin: const EdgeInsets.symmetric(horizontal: 3),
+                      width: i == _photoIndex ? 18 : 6,
+                      height: 6,
+                      decoration: BoxDecoration(
+                        color: i == _photoIndex
+                            ? Colors.white
+                            : Colors.white.withValues(alpha: 0.5),
+                        borderRadius: BorderRadius.circular(3),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+          ],
+        ),
       ),
     );
   }
@@ -405,7 +524,7 @@ class _JobDetailsScreenState extends State<JobDetailsScreen> {
         children: [
           Icon(icon, size: 14, color: AppColors.neutral600),
           const SizedBox(width: 5),
-          Text(label, style: const TextStyle(fontSize: 12.5, color: AppColors.neutral700)),
+          Text(label, style: const TextStyle(fontSize: 12, color: AppColors.neutral700)),
         ],
       ),
     );
@@ -525,15 +644,9 @@ class _JobDetailsScreenState extends State<JobDetailsScreen> {
     if (success) {
       await context.read<JobProvider>().fetchJobDetail(job.id);
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-        content: Text('Application submitted!'),
-        backgroundColor: AppColors.success,
-      ));
+      AppToast.success(context, 'Application submitted!');
     } else {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text(applications.errorMessage ?? 'Could not submit application'),
-        backgroundColor: AppColors.error,
-      ));
+      AppToast.error(context, applications.errorMessage ?? 'Could not submit application');
     }
   }
 
@@ -548,10 +661,7 @@ class _JobDetailsScreenState extends State<JobDetailsScreen> {
     if (ok) {
       await jobProvider.fetchJobDetail(job.id);
     } else if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text(jobProvider.errorMessage ?? 'Something went wrong'),
-        backgroundColor: AppColors.error,
-      ));
+      AppToast.error(context, jobProvider.errorMessage ?? 'Something went wrong');
     }
   }
 

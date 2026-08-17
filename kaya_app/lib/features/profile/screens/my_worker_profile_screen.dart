@@ -6,6 +6,8 @@ import '../../../data/models/worker_skill_model.dart';
 import '../../../data/models/skill_model.dart';
 import '../../../providers/worker_profile_provider.dart';
 import '../../../providers/verification_provider.dart';
+import '../../../providers/profile_view_provider.dart';
+import '../../../core/widgets/app_toast.dart';
 
 /// My Worker Profile - JobStreet-inspired card layout
 /// Shows filled data in cards, NOT empty clickable placeholders
@@ -22,24 +24,47 @@ class _MyWorkerProfileScreenState extends State<MyWorkerProfileScreen> with Sing
   // Profile data read from WorkerProfileProvider — no local state needed
   // These getters proxy to the provider for display
 
+  /// True while a manual reload is in flight, so the button can show it.
+  bool _isReloading = false;
+
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) {
-        try {
-          context.read<WorkerProfileProvider>().fetchProfile().catchError((e) {
-            print('Error fetching worker profile: $e');
-          });
-          context.read<VerificationProvider>().fetchVerifications().catchError((e) {
-            print('Error fetching verifications: $e');
-          });
-        } catch (e) {
-          print('Error in initState: $e');
-        }
-      }
+      if (mounted) _reload();
     });
+  }
+
+  /// Loads the profile and its verifications.
+  ///
+  /// Both fetches used to hang off `.catchError((e) => print(...))`, so a
+  /// failure printed to a console nobody reads and left the screen showing an
+  /// empty profile — indistinguishable from an account that genuinely has
+  /// nothing filled in, and with no way to try again.
+  ///
+  /// Failures are still not fatal: the providers keep whatever they already
+  /// had. What changed is that the user can see it happening and retry.
+  Future<void> _reload() async {
+    if (!mounted) return;
+    setState(() => _isReloading = true);
+
+    try {
+      await Future.wait([
+        context.read<WorkerProfileProvider>().fetchProfile(),
+        context.read<VerificationProvider>().fetchVerifications(),
+        // Fetched alongside the profile rather than on its own timer, so the
+        // view count is as fresh as everything else on the screen.
+        context.read<ProfileViewProvider>().fetch(),
+      ]);
+    } catch (e) {
+      debugPrint('[worker profile] reload failed: $e');
+      if (mounted) {
+        AppToast.info(context, 'Could not refresh your profile. Check your connection.');
+      }
+    } finally {
+      if (mounted) setState(() => _isReloading = false);
+    }
   }
 
   @override
@@ -52,17 +77,29 @@ class _MyWorkerProfileScreenState extends State<MyWorkerProfileScreen> with Sing
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.background,
+      /*
+          White on yellow is unreadable, and the default elevation drew a hard
+          dark ring around the button that looked like a rendering fault.
+
+          Dark ink on the accent instead — the accent is a light yellow, so it
+          behaves like a highlight, not like a dark brand colour. Elevation is
+          dropped to 2 so the button sits on the page rather than hovering off
+          it. The list below gets bottom padding so this no longer covers the
+          last row.
+      */
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () => Navigator.pushNamedAndRemoveUntil(context, '/home', (r) => false),
         backgroundColor: AppColors.accent,
-        icon: const Icon(Icons.check, color: Colors.white),
-        label: const Text('Done', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
+        foregroundColor: AppColors.neutral900,
+        elevation: 2,
+        icon: const Icon(Icons.check, size: 20),
+        label: const Text('Done', style: TextStyle(fontWeight: FontWeight.w700)),
       ),
       body: NestedScrollView(
         headerSliverBuilder: (context, innerBoxIsScrolled) {
           return [
             SliverAppBar(
-              expandedHeight: 280,
+              expandedHeight: 190,
               floating: false,
               pinned: true,
               backgroundColor: AppColors.primary,
@@ -70,6 +107,25 @@ class _MyWorkerProfileScreenState extends State<MyWorkerProfileScreen> with Sing
                 icon: const Icon(Icons.arrow_back, color: Colors.white),
                 onPressed: () => Navigator.pop(context),
               ),
+              // A way back when the load fails. Errors here were swallowed into
+              // a print(), so a failed fetch showed an empty profile with no
+              // sign anything had gone wrong and no way to try again.
+              actions: [
+                IconButton(
+                  icon: _isReloading
+                      ? const SizedBox(
+                          width: 18,
+                          height: 18,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            valueColor: AlwaysStoppedAnimation(Colors.white),
+                          ),
+                        )
+                      : const Icon(Icons.refresh, color: Colors.white),
+                  tooltip: 'Reload profile',
+                  onPressed: _isReloading ? null : _reload,
+                ),
+              ],
               flexibleSpace: FlexibleSpaceBar(
                 background: Container(
                   decoration: BoxDecoration(
@@ -85,7 +141,10 @@ class _MyWorkerProfileScreenState extends State<MyWorkerProfileScreen> with Sing
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const SizedBox(height: 56),
+                          // Clears the pinned toolbar. Sized with the header
+                          // height above — a spacer left at 56 overflows once
+                          // the header is no longer 280 tall.
+                          const SizedBox(height: 34),
                           Row(
                             crossAxisAlignment: CrossAxisAlignment.center,
                             children: [
@@ -185,7 +244,7 @@ class _MyWorkerProfileScreenState extends State<MyWorkerProfileScreen> with Sing
                                         Text(
                                           context.watch<WorkerProfileProvider>().location ?? 'Add location',
                                           style: TextStyle(
-                                            fontSize: 13,
+                                            fontSize: 13.5,
                                             color: context.watch<WorkerProfileProvider>().location != null
                                                 ? Colors.white70
                                                 : Colors.white30,
@@ -375,11 +434,69 @@ class _MyWorkerProfileScreenState extends State<MyWorkerProfileScreen> with Sing
     return d;
   }
 
+  /// "8 employers viewed your profile this week."
+  ///
+  /// Hidden entirely until the count is both loaded and non-zero. A brand-new
+  /// worker being told "0 people viewed your profile" on the day they sign up
+  /// is discouraging and tells them nothing they can act on — and "0" is also
+  /// what a failed request looks like, so showing it would sometimes be a lie.
+  Widget _buildViewsBanner() {
+    final views = context.watch<ProfileViewProvider>();
+
+    if (!views.hasLoaded || views.workerUniqueViewers == 0) {
+      return const SizedBox.shrink();
+    }
+
+    final n = views.workerUniqueViewers;
+    final people = n == 1 ? 'employer' : 'employers';
+    final window = views.days == 7 ? 'this week' : 'in the last ${views.days} days';
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 16),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      decoration: BoxDecoration(
+        color: AppColors.primary.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppColors.primary.withValues(alpha: 0.2)),
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.visibility_outlined,
+              size: 20, color: AppColors.primary),
+          const SizedBox(width: 12),
+          // Expanded + soft wrapping: the sentence changes length with the
+          // number and the window, and a fixed row here would overflow on a
+          // narrow screen.
+          Expanded(
+            child: RichText(
+              text: TextSpan(
+                style: const TextStyle(
+                    fontSize: 13.5, color: AppColors.neutral700),
+                children: [
+                  TextSpan(
+                    text: '$n $people ',
+                    style: const TextStyle(
+                        fontWeight: FontWeight.w700,
+                        color: AppColors.neutral900),
+                  ),
+                  TextSpan(text: 'viewed your profile $window'),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildSuggestedTab() {
     final p = context.watch<WorkerProfileProvider>();
     return ListView(
-      padding: const EdgeInsets.all(16),
+      // 96 at the bottom clears the floating Done button, which was sitting
+      // on top of the final row.
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 96),
       children: [
+        _buildViewsBanner(),
         const Text(
           'Complete Your Profile',
           style: TextStyle(
@@ -397,17 +514,14 @@ class _MyWorkerProfileScreenState extends State<MyWorkerProfileScreen> with Sing
           iconColor: AppColors.primary,
           content: p.name != null
               ? Text(p.name!, style: const TextStyle(fontSize: 14, color: AppColors.neutral900))
-              : const Text('Add your full name', style: TextStyle(color: AppColors.neutral600)),
+              : const Text('Not set', style: TextStyle(color: AppColors.neutral600)),
           onTap: () async {
             final result = await Navigator.pushNamed(context, '/add-name',
                 arguments: context.read<WorkerProfileProvider>().name);
             if (result != null && result is String && mounted) {
               final success = await context.read<WorkerProfileProvider>().updateName(result);
               if (!success && mounted) {
-                ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-                  content: Text(context.read<WorkerProfileProvider>().errorMessage ?? 'Failed to save'),
-                  backgroundColor: AppColors.error,
-                ));
+                AppToast.error(context, context.read<WorkerProfileProvider>().errorMessage ?? 'Failed to save');
               }
             }
           },
@@ -420,17 +534,20 @@ class _MyWorkerProfileScreenState extends State<MyWorkerProfileScreen> with Sing
           iconColor: AppColors.success,
           content: p.location != null
               ? Text(p.location!, style: const TextStyle(fontSize: 14, color: AppColors.neutral900))
-              : const Text('Add your location', style: TextStyle(color: AppColors.neutral600)),
+              : const Text('Not set', style: TextStyle(color: AppColors.neutral600)),
           onTap: () async {
             final result = await Navigator.pushNamed(context, '/add-location',
                 arguments: context.read<WorkerProfileProvider>().location);
-            if (result != null && result is String && mounted) {
-              final success = await context.read<WorkerProfileProvider>().updateLocation(result);
+            if (result is Map && mounted) {
+              final success =
+                  await context.read<WorkerProfileProvider>().updateLocation(
+                        (result['label'] ?? '').toString(),
+                        locationId: result['location_id'] as int?,
+                        latitude: result['latitude'] as double?,
+                        longitude: result['longitude'] as double?,
+                      );
               if (!success && mounted) {
-                ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-                  content: Text(context.read<WorkerProfileProvider>().errorMessage ?? 'Failed to save'),
-                  backgroundColor: AppColors.error,
-                ));
+                AppToast.error(context, context.read<WorkerProfileProvider>().errorMessage ?? 'Failed to save');
               }
             }
           },
@@ -451,7 +568,7 @@ class _MyWorkerProfileScreenState extends State<MyWorkerProfileScreen> with Sing
                       Text('Email: ${p.email}', style: const TextStyle(fontSize: 14)),
                   ],
                 )
-              : const Text('Add your contact details', style: TextStyle(color: AppColors.neutral600)),
+              : const Text('Not set', style: TextStyle(color: AppColors.neutral600)),
           onTap: () async {
             final result = await Navigator.pushNamed(context, '/add-personal-details',
                 arguments: {
@@ -567,7 +684,7 @@ class _MyWorkerProfileScreenState extends State<MyWorkerProfileScreen> with Sing
                         );
                       }).toList(),
                     )
-                  : const Text('Add your skills', style: TextStyle(color: AppColors.neutral600)),
+                  : const Text('None added', style: TextStyle(color: AppColors.neutral600)),
               onTap: () async {
                 final skillNames = skills.map((s) => s.skillName).toList();
                 final result = await Navigator.pushNamed(context, '/add-skills', 
@@ -604,7 +721,7 @@ class _MyWorkerProfileScreenState extends State<MyWorkerProfileScreen> with Sing
                     ),
                   )).toList(),
                 )
-              : const Text('Add your experience', style: TextStyle(color: AppColors.neutral600)),
+              : const Text('None added', style: TextStyle(color: AppColors.neutral600)),
           onTap: () => Navigator.pushNamed(context, '/add-experience'),
         ),
 
@@ -625,14 +742,14 @@ class _MyWorkerProfileScreenState extends State<MyWorkerProfileScreen> with Sing
                         Expanded(
                           child: Text(
                             '${cert.certificationName} - ${cert.issuingOrganization}',
-                            style: const TextStyle(fontSize: 13),
+                            style: const TextStyle(fontSize: 13.5),
                           ),
                         ),
                       ],
                     ),
                   )).toList(),
                 )
-              : const Text('Add certifications', style: TextStyle(color: AppColors.neutral600)),
+              : const Text('None added', style: TextStyle(color: AppColors.neutral600)),
           onTap: () => Navigator.pushNamed(context, '/add-certifications'),
         ),
 
@@ -653,68 +770,94 @@ class _MyWorkerProfileScreenState extends State<MyWorkerProfileScreen> with Sing
                         Expanded(
                           child: Text(
                             '${lic.licenseName} - ${lic.issuingAuthority}',
-                            style: const TextStyle(fontSize: 13),
+                            style: const TextStyle(fontSize: 13.5),
                           ),
                         ),
                       ],
                     ),
                   )).toList(),
                 )
-              : const Text('Add licenses', style: TextStyle(color: AppColors.neutral600)),
+              : const Text('None added', style: TextStyle(color: AppColors.neutral600)),
           onTap: () => Navigator.pushNamed(context, '/add-licenses'),
         ),
       ],
     );
   }
 
+  /*
+      One row of the profile.
+
+      Rebuilt after screenshotting the screen. It used to be a 130px card
+      carrying a 48x48 tinted icon square — blue for name, green for location,
+      yellow for skills — so five stacked rows were five small logos in five
+      unrelated colours, and only four fitted on a phone.
+
+      The icon box is gone entirely. It identified nothing the label did not
+      already say, and it was the single biggest source of visual noise.
+      `icon` and `iconColor` are still accepted so the seven call sites did not
+      all have to change in the same edit; they are deliberately unused.
+
+      What replaced it: label above value, a chevron for rows that are filled
+      and a `+` for rows that are not, and a hairline border instead of an
+      elevation shadow. About 68px per row against 130.
+  */
   Widget _buildInfoCard({
     required String title,
+    // ignore: avoid_unused_constructor_parameters
     required IconData icon,
+    // ignore: avoid_unused_constructor_parameters
     required Color iconColor,
     required Widget content,
     required VoidCallback onTap,
   }) {
     return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      child: Material(
+      margin: const EdgeInsets.only(bottom: 10),
+      decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(12),
-        elevation: 1,
+        border: Border.all(color: AppColors.neutral200),
+      ),
+      child: Material(
+        color: Colors.transparent,
         child: InkWell(
           onTap: onTap,
           borderRadius: BorderRadius.circular(12),
           child: Padding(
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 13),
             child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
                     children: [
                       Text(
                         title,
                         style: const TextStyle(
-                          fontSize: 15,
-                          fontWeight: FontWeight.bold,
-                          color: AppColors.neutral900,
+                          fontSize: 13,
+                          fontWeight: FontWeight.w500,
+                          color: AppColors.neutral600,
                         ),
                       ),
-                      const SizedBox(height: 8),
-                      content,
+                      const SizedBox(height: 2),
+                      // The caller's content, re-styled from here so one change
+                      // reaches every row rather than seven.
+                      DefaultTextStyle.merge(
+                        style: const TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w600,
+                          color: AppColors.neutral900,
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                        maxLines: 2,
+                        child: content,
+                      ),
                     ],
                   ),
                 ),
                 const SizedBox(width: 12),
-                Container(
-                  width: 48,
-                  height: 48,
-                  decoration: BoxDecoration(
-                    color: iconColor.withValues(alpha: 0.1),
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: Icon(icon, color: iconColor, size: 24),
-                ),
+                const Icon(Icons.chevron_right,
+                    size: 22, color: AppColors.neutral400),
               ],
             ),
           ),

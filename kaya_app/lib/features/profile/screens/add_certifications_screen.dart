@@ -3,8 +3,10 @@ import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:provider/provider.dart';
 import '../../../core/constants/app_colors.dart';
+import '../../../data/services/api_client.dart';
 import '../../../providers/worker_profile_provider.dart';
 import '../../../data/models/worker_certification_model.dart';
+import '../../../core/widgets/app_toast.dart';
 
 /// Certifications screen — directly saves each cert to DB on Save
 class AddCertificationsScreen extends StatefulWidget {
@@ -46,10 +48,7 @@ class _AddCertificationsScreenState extends State<AddCertificationsScreen> {
     );
     if (!mounted) return;
 
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-      content: Text(success ? 'Certification saved' : (provider.errorMessage ?? 'Failed to save')),
-      backgroundColor: success ? AppColors.success : AppColors.error,
-    ));
+    AppToast.info(context, success ? 'Certification saved' : (provider.errorMessage ?? 'Failed to save'));
   }
 
   Future<void> _editCert(WorkerCertificationModel cert) async {
@@ -71,10 +70,7 @@ class _AddCertificationsScreenState extends State<AddCertificationsScreen> {
     final success = await provider.updateCertification(cert.id!, updatedCert);
     if (!mounted) return;
 
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-      content: Text(success ? 'Certification updated' : (provider.errorMessage ?? 'Failed to update')),
-      backgroundColor: success ? AppColors.success : AppColors.error,
-    ));
+    AppToast.info(context, success ? 'Certification updated' : (provider.errorMessage ?? 'Failed to update'));
   }
 
   Future<void> _deleteCert(int id) async {
@@ -194,7 +190,7 @@ class _AddCertificationsScreenState extends State<AddCertificationsScreen> {
               children: [
                 Text(cert.certificationName, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
                 Text(cert.issuingOrganization,
-                    style: const TextStyle(fontSize: 13, color: AppColors.neutral600)),
+                    style: const TextStyle(fontSize: 13.5, color: AppColors.neutral600)),
                 if (displayDate.isNotEmpty)
                   Text('Issued: $displayDate',
                       style: const TextStyle(fontSize: 12, color: AppColors.neutral500)),
@@ -451,7 +447,7 @@ class _CertFormScreenState extends State<_CertFormScreen> {
                           const Icon(Icons.picture_as_pdf, size: 56, color: AppColors.error),
                           const SizedBox(height: 8),
                           Text(_fileName ?? '',
-                              style: const TextStyle(fontSize: 13, color: AppColors.neutral600),
+                              style: const TextStyle(fontSize: 13.5, color: AppColors.neutral600),
                               textAlign: TextAlign.center,
                               overflow: TextOverflow.ellipsis),
                         ],
@@ -462,7 +458,9 @@ class _CertFormScreenState extends State<_CertFormScreen> {
                     ClipRRect(
                       borderRadius: const BorderRadius.vertical(top: Radius.circular(11)),
                       child: Image.network(
-                        'https://bullring-glorified-observing.ngrok-free.dev/storage/$_existingDocUrl',
+                        // Was a hardcoded tunnel URL, so an existing document
+                        // stopped rendering the moment the tunnel changed.
+                        ApiClient.fileUrl(_existingDocUrl),
                         height: 200,
                         width: double.infinity,
                         fit: BoxFit.contain,
@@ -475,7 +473,7 @@ class _CertFormScreenState extends State<_CertFormScreen> {
                               Icon(Icons.image_outlined, size: 56, color: AppColors.neutral400),
                               SizedBox(height: 8),
                               Text('Existing document',
-                                  style: TextStyle(fontSize: 13, color: AppColors.neutral600)),
+                                  style: TextStyle(fontSize: 13.5, color: AppColors.neutral600)),
                             ],
                           ),
                         ),
@@ -495,7 +493,7 @@ class _CertFormScreenState extends State<_CertFormScreen> {
                         Expanded(
                           child: Text(
                             hasNewFile ? (_fileName ?? 'Document selected') : 'Existing document',
-                            style: const TextStyle(fontSize: 13, color: AppColors.success),
+                            style: const TextStyle(fontSize: 13.5, color: AppColors.success),
                             overflow: TextOverflow.ellipsis
                           ),
                         ),
@@ -564,7 +562,7 @@ class _CertFormScreenState extends State<_CertFormScreen> {
           const Expanded(
             child: Text(
               'I confirm this document is genuine. Submitting fake documents will result in permanent account ban and may be reported to authorities.',
-              style: TextStyle(fontSize: 13, color: AppColors.neutral700, height: 1.5),
+              style: TextStyle(fontSize: 13.5, color: AppColors.neutral700, height: 1.5),
             ),
           ),
         ],

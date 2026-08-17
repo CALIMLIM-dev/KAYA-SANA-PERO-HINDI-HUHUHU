@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:provider/provider.dart';
@@ -18,6 +20,16 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
   final PageController _pageController = PageController();
   int _currentPage = 0;
   bool _isChecking = true; // Add loading state
+
+  /// Set once the startup check has been running long enough that a bare
+  /// spinner stops reassuring anyone.
+  bool _isSlow = false;
+
+  /// The session is still valid but the server could not be reached. Distinct
+  /// from being signed out, and it must not look the same.
+  bool _startupFailed = false;
+
+  Timer? _slowTimer;
 
   final List<OnboardingPage> _pages = [
     OnboardingPage(
@@ -44,33 +56,61 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
   }
 
   Future<void> _checkOnboardingStatus() async {
+    if (mounted) setState(() => _startupFailed = false);
+
+    // The request can take up to a minute on a bad connection. Say something
+    // after a few seconds rather than showing a bare circle the whole time.
+    _slowTimer?.cancel();
+    _slowTimer = Timer(const Duration(seconds: 6), () {
+      if (mounted) setState(() => _isSlow = true);
+    });
+
     // First check if user is already logged in
     final token = await ApiClient.getToken();
     if (token != null && mounted) {
       // User is logged in, go to home
       final auth = Provider.of<AuthProvider>(context, listen: false);
       final appMode = Provider.of<AppModeProvider>(context, listen: false);
-      try {
-        await auth.fetchMe();
-        if (mounted && auth.user != null) {
-          // Restore the persisted Worker/Employer mode before the home screen
-          // builds, so it opens in the right mode instead of flashing the
-          // default and switching.
-          await appMode.restore();
-          if (!mounted) return;
-          Navigator.pushReplacementNamed(context, '/home');
-          return;
+
+      await auth.fetchMe();
+
+      if (mounted && auth.user != null) {
+        // Restore the persisted Worker/Employer mode before the home screen
+        // builds, so it opens in the right mode instead of flashing the
+        // default and switching.
+        await appMode.restore();
+        _slowTimer?.cancel();
+        if (!mounted) return;
+        Navigator.pushReplacementNamed(context, '/home');
+        return;
+      }
+
+      /*
+          The session survived; the network did not.
+
+          Dropping the user at the login screen here is what made a flaky
+          connection look like being signed out. They still hold a valid token,
+          so the right thing is to say the connection failed and let them try
+          again.
+      */
+      if (auth.lastFetchWasNetworkError) {
+        _slowTimer?.cancel();
+        if (mounted) {
+          setState(() {
+            _startupFailed = true;
+            _isSlow = false;
+          });
         }
-      } catch (e) {
-        // Token invalid, clear it and continue
-        await ApiClient.deleteToken();
+        return;
       }
     }
     
+    _slowTimer?.cancel();
+
     // Check if user has seen onboarding
     final prefs = await SharedPreferences.getInstance();
     final hasSeenOnboarding = prefs.getBool('has_seen_onboarding') ?? false;
-    
+
     if (hasSeenOnboarding && mounted) {
       // User has seen onboarding, skip to login
       Navigator.pushReplacementNamed(context, '/login');
@@ -82,18 +122,88 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
 
   @override
   void dispose() {
+    _slowTimer?.cancel();
     _pageController.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    // Show loading while checking status
-    if (_isChecking) {
-      return const Scaffold(
+    /*
+        The startup screen used to be a bare CircularProgressIndicator for as
+        long as /me took — up to a minute on the 30s connect + 30s receive
+        timeouts — and then, if it failed, the login screen. No text, no retry,
+        no explanation. That is what "the loading just freezes" was.
+    */
+    if (_startupFailed) {
+      return Scaffold(
         backgroundColor: Colors.white,
         body: Center(
-          child: CircularProgressIndicator(),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 32),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(Icons.wifi_off_rounded, size: 40, color: AppColors.neutral300),
+                const SizedBox(height: 16),
+                Text(
+                  "Can't reach KAYA",
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.neutral900,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  // Says what is true: they are still signed in.
+                  'Check your connection and try again. You are still signed in.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(fontSize: 13.5, height: 1.5, color: AppColors.neutral500),
+                ),
+                const SizedBox(height: 20),
+                ElevatedButton(
+                  onPressed: _checkOnboardingStatus,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.primary,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 12),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    elevation: 0,
+                  ),
+                  child: const Text('Try again'),
+                ),
+                TextButton(
+                  onPressed: () => Navigator.pushReplacementNamed(context, '/login'),
+                  child: Text('Sign in with a different account',
+                      style: TextStyle(fontSize: 12, color: AppColors.neutral500)),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+
+    if (_isChecking) {
+      return Scaffold(
+        backgroundColor: Colors.white,
+        body: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const CircularProgressIndicator(),
+              // Only after it has been slow enough to worry about. Showing this
+              // immediately would make a fast start look like a problem.
+              if (_isSlow) ...[
+                const SizedBox(height: 20),
+                Text(
+                  'Still connecting…',
+                  style: TextStyle(fontSize: 13.5, color: AppColors.neutral500),
+                ),
+              ],
+            ],
+          ),
         ),
       );
     }

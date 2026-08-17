@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../../../shared/widgets/location_picker_field.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/navigation/app_router.dart';
+import '../../../core/widgets/app_toast.dart';
 
 /// Profile Setup Onboarding - Forced flow before home screen
 /// JobStreet-style step-by-step profile completion
@@ -359,9 +360,7 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
           OutlinedButton.icon(
             onPressed: () {
               // TODO: Implement location picker
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Location picker coming soon')),
-              );
+              AppToast.info(context, 'Location picker coming soon');
             },
             icon: const Icon(Icons.my_location),
             label: const Text('Use Current Location'),
@@ -626,7 +625,7 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
                   child: Text(
                     'You can add more details later in your profile',
                     style: TextStyle(
-                      fontSize: 13,
+                      fontSize: 13.5,
                       color: AppColors.neutral700,
                     ),
                   ),
@@ -793,7 +792,7 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
                   child: Text(
                     'Verification can be completed later from your profile settings',
                     style: TextStyle(
-                      fontSize: 13,
+                      fontSize: 13.5,
                       color: AppColors.neutral700,
                     ),
                   ),
@@ -917,7 +916,7 @@ class _VerificationBenefit extends StatelessWidget {
                 Text(
                   subtitle,
                   style: TextStyle(
-                    fontSize: 13,
+                    fontSize: 13.5,
                     color: AppColors.neutral600,
                   ),
                 ),

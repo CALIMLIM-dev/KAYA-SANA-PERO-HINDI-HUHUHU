@@ -270,7 +270,7 @@ class _OnboardingVerificationScreenState extends State<OnboardingVerificationScr
                       const Expanded(
                         child: Text(
                           'I confirm these documents are genuine. Submitting fake documents will result in permanent account ban.',
-                          style: TextStyle(fontSize: 13, color: AppColors.neutral700, height: 1.5),
+                          style: TextStyle(fontSize: 13.5, color: AppColors.neutral700, height: 1.5),
                         ),
                       ),
                     ],
@@ -344,7 +344,7 @@ class _OnboardingVerificationScreenState extends State<OnboardingVerificationScr
                         const SizedBox(width: 8),
                         Expanded(
                           child: Text('$label captured',
-                              style: const TextStyle(fontSize: 13, color: AppColors.success),
+                              style: const TextStyle(fontSize: 13.5, color: AppColors.success),
                               overflow: TextOverflow.ellipsis),
                         ),
                         TextButton(

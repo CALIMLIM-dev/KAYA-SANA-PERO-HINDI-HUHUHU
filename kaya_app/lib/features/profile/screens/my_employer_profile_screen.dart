@@ -1,5 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import '../../../core/constants/app_colors.dart';
+import '../../../core/widgets/app_toast.dart';
+import '../../../data/models/employer_profile_model.dart';
+import '../../../providers/employer_profile_provider.dart';
+import '../../../providers/verification_provider.dart';
 
 /// My Employer Profile - JobStreet-inspired layout
 /// Toggle (Company / Individual) is visible directly on the profile tab
@@ -16,19 +21,47 @@ class _MyEmployerProfileScreenState extends State<MyEmployerProfileScreen>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
 
-  // Role toggle — null means not yet chosen
-  String? _role; // 'Company' | 'Individual'
+  /// 'Company' | 'Individual', read from the server — never local state.
+  ///
+  /// This used to be a mutable field driven by an on-screen toggle, so the
+  /// whole page could render as a company while the account was an individual.
+  /// The type is decided once during setup and fixed afterwards, so the only
+  /// correct source is the stored profile.
+  String? get _role =>
+      context.watch<EmployerProfileProvider>().profile?.employerType.label;
 
-  // Profile data — all null until user fills them in
-  String? _name;
-  String? _description;
-  String? _location;
-  bool _hasPhoto = false;
-  String _verificationStatus = 'unverified'; // verified | pending | unverified
+  /*
+      Read from the stored profile, not from local fields.
+
+      These were plain variables initialised to null and never populated from
+      anywhere. An employer with a fully filled-in profile opened this screen
+      and saw "Add your company name", "Location not set" and "Your Name" —
+      their real details were on the server the whole time and simply never
+      read. `_role` above was the only thing that looked at the provider.
+  */
+  EmployerProfile? get _profile =>
+      context.watch<EmployerProfileProvider>().profile;
+
+  String? get _name => _profile?.companyName;
+  String? get _description => _profile?.description;
+  String? get _location {
+    final value = _profile?.location;
+    return (value == null || value.isEmpty) ? null : value;
+  }
+
+  bool get _hasPhoto => (_profile?.imageUrl ?? _profile?.imagePath) != null;
+
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      // Nothing loaded the profile this screen is supposed to display.
+      final provider = context.read<EmployerProfileProvider>();
+      if (provider.profile == null) provider.fetchProfile();
+      context.read<VerificationProvider>().fetchVerifications();
+    });
   }
 
   @override
@@ -47,7 +80,7 @@ class _MyEmployerProfileScreenState extends State<MyEmployerProfileScreen>
       body: NestedScrollView(
         headerSliverBuilder: (context, innerBoxIsScrolled) => [
           SliverAppBar(
-            expandedHeight: 280,
+            expandedHeight: 214,
             floating: false,
             pinned: true,
             backgroundColor: AppColors.primary,
@@ -110,7 +143,7 @@ class _MyEmployerProfileScreenState extends State<MyEmployerProfileScreen>
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const SizedBox(height: 44),
+              const SizedBox(height: 34),
 
               // ── Avatar + info row ──
               Row(
@@ -118,10 +151,13 @@ class _MyEmployerProfileScreenState extends State<MyEmployerProfileScreen>
                 children: [
                   // Profile photo — tappable to upload
                   GestureDetector(
-                    onTap: () {
-                      // TODO: wire to image picker
-                      setState(() => _hasPhoto = !_hasPhoto);
-                    },
+                    // The picker is not built yet. This used to flip a local
+                    // flag, swapping the camera icon for a business icon —
+                    // which looked exactly like an upload had succeeded.
+                    onTap: () => AppToast.info(
+                      context,
+                      'Adding a company photo is coming soon.',
+                    ),
                     child: Stack(
                       children: [
                         Container(
@@ -244,7 +280,7 @@ class _MyEmployerProfileScreenState extends State<MyEmployerProfileScreen>
                         : _description!)
                     : 'No description yet',
                 style: TextStyle(
-                  fontSize: 13,
+                  fontSize: 13.5,
                   color: _description != null
                       ? Colors.white60
                       : Colors.white24,
@@ -263,10 +299,17 @@ class _MyEmployerProfileScreenState extends State<MyEmployerProfileScreen>
     );
   }
 
+  /// Reads the real verification records.
+  ///
+  /// This used a local field fixed at 'unverified', so an employer who had
+  /// been approved still saw "Not Verified" forever. The worker profile
+  /// already read the provider — see `my_worker_profile_screen`.
   Widget _buildVerificationBadge() {
-    if (_verificationStatus == 'verified') {
+    final status = context.watch<VerificationProvider>().statusFor('government_id');
+
+    if (status == 'verified') {
       return _badge(Icons.verified, 'Verified', AppColors.success);
-    } else if (_verificationStatus == 'pending') {
+    } else if (status == 'pending') {
       return _badge(Icons.hourglass_top, 'Verification Pending', AppColors.warning);
     }
     return _badge(Icons.info_outline, 'Not Verified', Colors.white38);
@@ -294,49 +337,81 @@ class _MyEmployerProfileScreenState extends State<MyEmployerProfileScreen>
 
   // ─── profile tab ────────────────────────────────────────────────────────────
 
+  /// The account type, stated rather than offered.
+  ///
+  /// Says plainly that it cannot be changed. Leaving that unsaid invites the
+  /// user to hunt for a setting that does not exist — and the reason it does
+  /// not exist is real: a company profile carries business verification and
+  /// document requirements an individual one does not, so switching would
+  /// invalidate whatever has already been approved.
+  Widget _buildAccountTypeRow() {
+    final role = _role;
+
+    // Same anatomy as every other row — label above value — so the one
+    // read-only row does not announce itself as a different kind of thing. The
+    // padlock replaces the chevron, which is the only difference that carries
+    // meaning here: this row is the one you cannot open.
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 13),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppColors.neutral200),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Text('Account type',
+                    style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w500,
+                        color: AppColors.neutral600)),
+                const SizedBox(height: 2),
+                Text(role ?? 'Not set',
+                    style: const TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w600,
+                        color: AppColors.neutral900)),
+              ],
+            ),
+          ),
+          const SizedBox(width: 12),
+          const Icon(Icons.lock_outline, size: 18, color: AppColors.neutral400),
+        ],
+      ),
+    );
+  }
+
   Widget _buildProfileTab() {
     return ListView(
       padding: const EdgeInsets.fromLTRB(16, 20, 16, 32),
       children: [
-        // ── ROLE TOGGLE ── visible directly on the screen, NOT inside a card
+        // Same heading the worker profile opens with, so the two sides of one
+        // account read as the same product.
         const Text(
-          'I am a...',
+          'Complete Your Profile',
           style: TextStyle(
-            fontSize: 13,
-            fontWeight: FontWeight.w600,
-            color: AppColors.neutral600,
+            fontSize: 18,
+            fontWeight: FontWeight.bold,
+            color: AppColors.neutral900,
           ),
         ),
-        const SizedBox(height: 8),
-        Container(
-          padding: const EdgeInsets.all(4),
-          decoration: BoxDecoration(
-            color: AppColors.neutral200,
-            borderRadius: BorderRadius.circular(12),
-          ),
-          child: Row(
-            children: [
-              Expanded(
-                child: _buildToggleOption(
-                  type: 'Company',
-                  icon: Icons.business_center,
-                  label: 'Company',
-                  isSelected: _role == 'Company',
-                  onTap: () => setState(() => _role = 'Company'),
-                ),
-              ),
-              Expanded(
-                child: _buildToggleOption(
-                  type: 'Individual',
-                  icon: Icons.person,
-                  label: 'Individual',
-                  isSelected: _role == 'Individual',
-                  onTap: () => setState(() => _role = 'Individual'),
-                ),
-              ),
-            ],
-          ),
-        ),
+        const SizedBox(height: 16),
+
+        // ── ACCOUNT TYPE ── read-only.
+        //
+        // This was a live Company/Individual toggle the user could flip at
+        // will. It changed nothing: the server keys its validation off the
+        // stored employer_type and never accepts a new one, so flipping it
+        // only made the screen disagree with the account. Worse, it implied
+        // the choice was reversible when it is decided once, during setup, and
+        // fixed after — a company profile carries business verification an
+        // individual one does not.
+        _buildAccountTypeRow(),
 
         const SizedBox(height: 24),
 
@@ -380,8 +455,24 @@ class _MyEmployerProfileScreenState extends State<MyEmployerProfileScreen>
                 '/add-employer-details',
                 arguments: _name,
               );
-              if (result != null && result is String) {
-                setState(() => _name = result);
+              if (result is! String || !mounted) return;
+
+              // This only set local state, so the name rendered in the card,
+              // looked saved, and was gone on the next rebuild. The Location
+              // card below already did it correctly.
+              final saved = await context
+                  .read<EmployerProfileProvider>()
+                  .updateProfile(companyName: result);
+
+              if (!mounted) return;
+              if (saved) {
+                AppToast.success(context, 'Name updated');
+              } else {
+                AppToast.error(
+                  context,
+                  context.read<EmployerProfileProvider>().errorMessage ??
+                      'Could not save your name',
+                );
               }
             },
           ),
@@ -407,8 +498,23 @@ class _MyEmployerProfileScreenState extends State<MyEmployerProfileScreen>
                 context,
                 '/add-employer-about',
               );
-              if (result != null && result is String) {
-                setState(() => _description = result);
+              if (result is! String || !mounted) return;
+
+              // Same bug as the name card: written to a local field and never
+              // sent, so what a worker reads on the public profile stayed empty.
+              final saved = await context
+                  .read<EmployerProfileProvider>()
+                  .updateProfile(description: result);
+
+              if (!mounted) return;
+              if (saved) {
+                AppToast.success(context, 'About updated');
+              } else {
+                AppToast.error(
+                  context,
+                  context.read<EmployerProfileProvider>().errorMessage ??
+                      'Could not save your description',
+                );
               }
             },
           ),
@@ -434,8 +540,29 @@ class _MyEmployerProfileScreenState extends State<MyEmployerProfileScreen>
                 context,
                 '/add-employer-location',
               );
-              if (result != null && result is String) {
-                setState(() => _location = result);
+              if (result is! Map || !mounted) return;
+
+              // This only set local state before, so the new location was
+              // never sent anywhere and vanished on the next reload.
+              final saved =
+                  await context.read<EmployerProfileProvider>().updateProfile(
+                        location: (result['label'] ?? '').toString(),
+                        locationId: result['location_id'] as int?,
+                        latitude: result['latitude'] as double?,
+                        longitude: result['longitude'] as double?,
+                      );
+
+              if (!mounted) return;
+              if (saved) {
+                // No setState needed: _location reads the provider, which
+                // updateProfile has already refreshed.
+                AppToast.success(context, 'Location updated');
+              } else {
+                AppToast.error(
+                  context,
+                  context.read<EmployerProfileProvider>().errorMessage ??
+                      'Could not save your location',
+                );
               }
             },
           ),
@@ -533,89 +660,79 @@ class _MyEmployerProfileScreenState extends State<MyEmployerProfileScreen>
 
   // ─── reusable widgets ────────────────────────────────────────────────────────
 
-  Widget _buildToggleOption({
-    required String type,
-    required IconData icon,
-    required String label,
-    required bool isSelected,
-    required VoidCallback onTap,
-  }) {
-    return GestureDetector(
-      onTap: onTap,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 180),
-        padding: const EdgeInsets.symmetric(vertical: 12),
-        decoration: BoxDecoration(
-          color: isSelected ? AppColors.primary : Colors.transparent,
-          borderRadius: BorderRadius.circular(8),
-        ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(icon,
-                color: isSelected ? Colors.white : AppColors.neutral600,
-                size: 18),
-            const SizedBox(width: 7),
-            Text(
-              label,
-              style: TextStyle(
-                fontSize: 14,
-                fontWeight:
-                    isSelected ? FontWeight.w600 : FontWeight.w500,
-                color: isSelected ? Colors.white : AppColors.neutral600,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
 
+  /// The same row the worker profile uses, character for character.
+  ///
+  /// This screen kept the older anatomy: a bold 15px title, the value below it,
+  /// and a 44×44 tinted icon box on the right. The worker profile was rebuilt
+  /// away from that — a quiet 13px label with the value beneath it and a plain
+  /// chevron — so the two halves of one account described themselves in two
+  /// different visual languages, which is what "the design isn't consistent"
+  /// meant.
+  ///
+  /// The icon box goes for the same reason it went there: ten stacked rows each
+  /// carrying a tinted square reads as a wall of small logos, and none of these
+  /// icons distinguishes anything the label does not already say.
+  ///
+  /// [icon] and [iconColor] are kept in the signature so the call sites stay
+  /// untouched, matching how the worker screen retired them.
   Widget _buildInfoCard({
     required String title,
+    // ignore: avoid_unused_constructor_parameters
     required IconData icon,
+    // ignore: avoid_unused_constructor_parameters
     required Color iconColor,
     required Widget content,
     required VoidCallback onTap,
   }) {
     return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      child: Material(
+      margin: const EdgeInsets.only(bottom: 10),
+      decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(12),
-        elevation: 1,
+        border: Border.all(color: AppColors.neutral200),
+      ),
+      child: Material(
+        color: Colors.transparent,
         child: InkWell(
           onTap: onTap,
           borderRadius: BorderRadius.circular(12),
           child: Padding(
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 13),
             child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
                     children: [
-                      Text(title,
-                          style: const TextStyle(
-                              fontSize: 15,
-                              fontWeight: FontWeight.bold,
-                              color: AppColors.neutral900)),
-                      const SizedBox(height: 8),
-                      content,
+                      Text(
+                        title,
+                        style: const TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w500,
+                          color: AppColors.neutral600,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      // Re-styled from here so one change reaches every row
+                      // rather than each call site.
+                      DefaultTextStyle.merge(
+                        style: const TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w600,
+                          color: AppColors.neutral900,
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                        maxLines: 2,
+                        child: content,
+                      ),
                     ],
                   ),
                 ),
                 const SizedBox(width: 12),
-                Container(
-                  width: 44,
-                  height: 44,
-                  decoration: BoxDecoration(
-                    color: iconColor.withValues(alpha: 0.1),
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: Icon(icon, color: iconColor, size: 22),
-                ),
+                const Icon(Icons.chevron_right,
+                    size: 22, color: AppColors.neutral400),
               ],
             ),
           ),

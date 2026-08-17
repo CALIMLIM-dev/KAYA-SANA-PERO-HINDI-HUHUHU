@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../../core/constants/app_colors.dart';
+import '../../../core/utils/realtime_refresh.dart';
 import '../../../core/constants/app_mode.dart';
 import '../../../providers/app_mode_provider.dart';
 import '../../../providers/auth_provider.dart';
@@ -14,16 +15,41 @@ class MessagesListScreen extends StatefulWidget {
   State<MessagesListScreen> createState() => _MessagesListScreenState();
 }
 
-class _MessagesListScreenState extends State<MessagesListScreen> {
+class _MessagesListScreenState extends State<MessagesListScreen>
+    with RealtimeRefresh {
   String _selectedFilter = 'All';
   final TextEditingController _searchController = TextEditingController();
   bool _isSearching = false;
+
+  /// The inbox listens to the user's notification feed rather than to every
+  /// conversation: it only needs to know that *something* changed, and a
+  /// channel per thread would cost one subscription each to learn the same.
+  /*
+      `application.` as well as `message.`.
+
+      A conversation is created the moment an applicant is accepted, and that
+      emits `application.accepted` — not a message. Listening only for messages
+      meant the thread existed on the server while this list carried on showing
+      the set it fetched at app start, so a new hire's chat was invisible here
+      until somebody sent the first message.
+
+      `invitation.` for the same reason: accepting an invitation opens a
+      conversation too.
+  */
+  @override
+  List<String> get refreshOn => const ['message.', 'application.', 'invitation.'];
+
+  @override
+  void onRealtimeRefresh() =>
+      context.read<MessagingProvider>().fetchConversations(silent: true);
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) context.read<MessagingProvider>().fetchConversations();
+      if (!mounted) return;
+      context.read<MessagingProvider>().fetchConversations();
+      bindRealtimeRefresh();
     });
   }
 
@@ -63,6 +89,7 @@ class _MessagesListScreenState extends State<MessagesListScreen> {
 
   @override
   void dispose() {
+    // RealtimeRefresh releases its own subscription in its dispose.
     _searchController.dispose();
     super.dispose();
   }
@@ -81,6 +108,15 @@ class _MessagesListScreenState extends State<MessagesListScreen> {
         'jobId': conv['job_id'],
         'otherUserId': other?['id'],
         'isVerified': (other?['is_verified'] as bool?) ?? false,
+        // Drives the activity dot in the chat header. Derived from the other
+        // party's last authenticated request, not from a presence channel —
+        // see TouchLastSeen for why.
+        'lastSeenAt': other?['last_seen_at'],
+        // Location sharing is scoped to the hire, and only offered while the
+        // job is actually in progress.
+        'applicationId': conv['application_id'],
+        'jobStatus': job?['status'],
+        'myRole': myRole,
         // No presence/online tracking exists yet — omitted rather than faked.
         'otherRole': myRole == 'worker' ? 'employer' : 'worker',
       },
@@ -223,7 +259,7 @@ class _MessagesListScreenState extends State<MessagesListScreen> {
           const SizedBox(height: 8),
           const Text(
               'Conversations unlock once an application is accepted',
-              style: TextStyle(fontSize: 13, color: AppColors.neutral400),
+              style: TextStyle(fontSize: 13.5, color: AppColors.neutral400),
               textAlign: TextAlign.center),
         ],
       ),
@@ -247,7 +283,7 @@ class _MessagesListScreenState extends State<MessagesListScreen> {
           children: [
             Text(label,
                 style: TextStyle(
-                    fontSize: 13,
+                    fontSize: 13.5,
                     fontWeight: FontWeight.w600,
                     color: isSelected ? Colors.white : AppColors.neutral700)),
             if (count != null && count > 0) ...[
@@ -360,7 +396,7 @@ class _MessagesListScreenState extends State<MessagesListScreen> {
                                   'No messages yet')
                               .toString(),
                           style: TextStyle(
-                            fontSize: 13,
+                            fontSize: 13.5,
                             color: unread > 0
                                 ? AppColors.neutral900
                                 : AppColors.neutral500,

@@ -2,8 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/employer_type.dart';
+import '../../../data/models/location_model.dart';
 import '../../../providers/employer_profile_provider.dart';
 import '../../../shared/widgets/location_picker_field.dart';
+import '../../../core/widgets/app_toast.dart';
 
 /// Edit Employer Profile Screen
 /// Pre-filled with existing data, each field is editable
@@ -22,12 +24,30 @@ class _EditEmployerProfileScreenState
   final _descriptionController = TextEditingController();
   final _locationController    = TextEditingController();
 
+  /// The PSGC row behind the location field. Needed so a location change
+  /// updates location_id too, not just the label.
+  LocationModel? _selectedLocation;
+
   bool _isLoading = false;
   bool _initialized = false;
+
+  /// What the form was loaded with, so "has changes" can mean what it says.
+  String _initialName = '';
+  String _initialDescription = '';
+  String _initialLocation = '';
+
+  /// This asked whether any field was *non-empty*, which on a form prefilled
+  /// from an existing profile is true before the user touches anything. So Save
+  /// was always live, and tapping it with no edits sent a pointless write.
+  ///
+  /// A changed location counts even when its label is identical: picking the
+  /// same-named barangay in a different province changes the id and the
+  /// coordinates while the text stays put.
   bool get _hasChanges =>
-      _nameController.text.trim().isNotEmpty ||
-      _descriptionController.text.trim().isNotEmpty ||
-      _locationController.text.trim().isNotEmpty;
+      _nameController.text.trim() != _initialName ||
+      _descriptionController.text.trim() != _initialDescription ||
+      _locationController.text.trim() != _initialLocation ||
+      _selectedLocation != null;
 
   @override
   void dispose() {
@@ -47,6 +67,10 @@ class _EditEmployerProfileScreenState
       _nameController.text        = args?['name']        ?? '';
       _descriptionController.text = args?['description'] ?? '';
       _locationController.text    = args?['location']    ?? '';
+
+      _initialName        = _nameController.text.trim();
+      _initialDescription = _descriptionController.text.trim();
+      _initialLocation    = _locationController.text.trim();
     }
   }
 
@@ -64,19 +88,22 @@ class _EditEmployerProfileScreenState
           icon: const Icon(Icons.arrow_back, color: Colors.white),
           onPressed: () => Navigator.pop(context),
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel',
-                style: TextStyle(color: Colors.white70, fontSize: 14)),
-          ),
-        ],
+        // The "Cancel" action that used to sit here is gone.
+        //
+        // It popped the route — exactly what the back arrow beside it already
+        // does — so the app bar carried two controls for one job, and the
+        // second was clipped at the edge. Deleting the clipped duplicate is a
+        // better fix than finding room for it.
       ),
       body: Column(
         children: [
           Expanded(
             child: SingleChildScrollView(
-              padding: const EdgeInsets.all(20),
+              // Extra room at the bottom so the last row is not pressed
+              // against the Save bar. Scrolled to the end, Verification used to
+              // sit directly under the bar's shadow and read as being covered
+              // by it.
+              padding: const EdgeInsets.fromLTRB(20, 20, 20, 32),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -108,7 +135,11 @@ class _EditEmployerProfileScreenState
                   const SizedBox(height: 8),
                   TextField(
                     controller: _descriptionController,
-                    maxLines: 6,
+                    // Four, not six. At six this one box was a third of the
+                    // screen, which is what pushed Verification down under the
+                    // Save bar in the first place. It still scrolls for longer
+                    // text; it just no longer reserves the room up front.
+                    maxLines: 4,
                     maxLength: 500,
                     textCapitalization: TextCapitalization.sentences,
                     onChanged: (_) => setState(() {}),
@@ -127,7 +158,19 @@ class _EditEmployerProfileScreenState
                   LocationPickerField(
                     controller: _locationController,
                     labelText: '',
-                    onSelected: (_) => setState(() {}),
+                    hintText: 'Search barangay, city or municipality',
+                    // Every other field on this form is outlined; without this
+                    // the location field was the one borderless control among
+                    // them.
+                    borderColor: AppColors.neutral300,
+                    selection: _selectedLocation,
+                    // Was `(_) => setState(() {})`, which threw the chosen
+                    // place away and saved the label alone — leaving
+                    // location_id pointing at the previous town, so distances
+                    // and the job-post prefill used the wrong coordinates.
+                    onSelected: (location) =>
+                        setState(() => _selectedLocation = location),
+                    onCleared: () => setState(() => _selectedLocation = null),
                   ),
 
                   const SizedBox(height: 28),
@@ -141,11 +184,7 @@ class _EditEmployerProfileScreenState
                     icon: Icons.lock_outline,
                     label: 'Change Password',
                     onTap: () {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                            content: Text(
-                                'Password change — coming soon')),
-                      );
+                      AppToast.info(context, 'Password change — coming soon');
                     },
                   ),
 
@@ -323,18 +362,18 @@ class _EditEmployerProfileScreenState
       companyName: isCompany ? _nameController.text.trim() : null,
       description: _descriptionController.text.trim(),
       location: _locationController.text.trim(),
+      // Only sent when the user actually picked a new place — omitting them
+      // leaves the stored values alone rather than nulling them, so editing
+      // just the description can't wipe the coordinates.
+      locationId: _selectedLocation?.id,
+      latitude: _selectedLocation?.latitude,
+      longitude: _selectedLocation?.longitude,
     );
 
     if (!mounted) return;
     setState(() => _isLoading = false);
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-            success ? 'Profile updated' : provider.errorMessage ?? 'Update failed'),
-        backgroundColor: success ? AppColors.success : AppColors.error,
-      ),
-    );
+    AppToast.info(context, success ? 'Profile updated' : provider.errorMessage ?? 'Update failed');
 
     if (success) {
       Navigator.pop(context, {

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../../core/constants/app_colors.dart';
+import '../../../core/widgets/app_toast.dart';
 
 class AddNameScreen extends StatefulWidget {
   final String? initialValue;
@@ -32,8 +33,7 @@ class _AddNameScreenState extends State<AddNameScreen> {
   void _save() {
     final name = _ctrl.text.trim();
     if (name.length < 2) {
-      ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Name must be at least 2 characters')));
+      AppToast.info(context, 'Name must be at least 2 characters');
       return;
     }
     Navigator.pop(context, name);

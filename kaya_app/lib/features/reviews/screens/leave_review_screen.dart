@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../providers/review_provider.dart';
+import '../../../core/widgets/app_toast.dart';
 
 /// Leave Review Screen — post-job completion, either party leaves a review
 /// Arguments: { revieweeName, revieweeRole ('worker' | 'employer'), jobTitle }
@@ -110,7 +111,7 @@ class _LeaveReviewScreenState extends State<LeaveReviewScreen> {
                               Text(
                                 isWorker ? 'Worker' : 'Employer',
                                 style: const TextStyle(
-                                    fontSize: 13, color: AppColors.neutral500),
+                                    fontSize: 13.5, color: AppColors.neutral500),
                               ),
                               const SizedBox(height: 3),
                               Row(
@@ -147,7 +148,7 @@ class _LeaveReviewScreenState extends State<LeaveReviewScreen> {
                   const SizedBox(height: 4),
                   const Text('Tap to rate',
                       style: TextStyle(
-                          fontSize: 13, color: AppColors.neutral500)),
+                          fontSize: 13.5, color: AppColors.neutral500)),
                   const SizedBox(height: 12),
 
                   Row(
@@ -194,7 +195,7 @@ class _LeaveReviewScreenState extends State<LeaveReviewScreen> {
                   const SizedBox(height: 4),
                   const Text('Select all that apply',
                       style: TextStyle(
-                          fontSize: 13, color: AppColors.neutral500)),
+                          fontSize: 13.5, color: AppColors.neutral500)),
                   const SizedBox(height: 12),
 
                   Wrap(
@@ -224,7 +225,7 @@ class _LeaveReviewScreenState extends State<LeaveReviewScreen> {
                           ),
                           child: Text(tag,
                               style: TextStyle(
-                                fontSize: 13,
+                                fontSize: 13.5,
                                 fontWeight: FontWeight.w500,
                                 color: selected
                                     ? Colors.white
@@ -246,7 +247,7 @@ class _LeaveReviewScreenState extends State<LeaveReviewScreen> {
                   const SizedBox(height: 4),
                   const Text('Share your experience (min 10 characters)',
                       style: TextStyle(
-                          fontSize: 13, color: AppColors.neutral500)),
+                          fontSize: 13.5, color: AppColors.neutral500)),
                   const SizedBox(height: 12),
 
                   TextField(
@@ -260,7 +261,7 @@ class _LeaveReviewScreenState extends State<LeaveReviewScreen> {
                           ? 'How was the quality of work? Was the worker professional and on time?'
                           : 'Was the employer clear about the job? Did they pay on time?',
                       hintStyle: const TextStyle(
-                          color: AppColors.neutral400, fontSize: 13),
+                          color: AppColors.neutral400, fontSize: 13.5),
                       filled: true,
                       fillColor: Colors.white,
                       border: OutlineInputBorder(
@@ -354,12 +355,7 @@ class _LeaveReviewScreenState extends State<LeaveReviewScreen> {
     // Previously this faked an 800ms delay and reported the review as submitted
     // without sending anything.
     if (revieweeId == null || jobId == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Cannot submit: missing job or person details.'),
-          backgroundColor: AppColors.error,
-        ),
-      );
+      AppToast.error(context, 'Cannot submit: missing job or person details.');
       return;
     }
 
@@ -376,14 +372,9 @@ class _LeaveReviewScreenState extends State<LeaveReviewScreen> {
     if (!mounted) return;
     setState(() => _isSubmitting = false);
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(success
+    AppToast.info(context, success
             ? 'Review for $revieweeName submitted'
-            : reviews.errorMessage ?? 'Could not submit review'),
-        backgroundColor: success ? AppColors.success : AppColors.error,
-      ),
-    );
+            : reviews.errorMessage ?? 'Could not submit review');
 
     if (success) Navigator.pop(context, true);
   }

@@ -1,8 +1,18 @@
 import 'package:flutter/material.dart';
 import '../../../core/constants/app_colors.dart';
+import '../../../core/widgets/app_toast.dart';
+import '../../../data/models/location_model.dart';
+import '../../../shared/widgets/location_picker_field.dart';
 
+/// Sets a worker's base location: the PSGC place plus an exact pin.
+///
+/// The separate free-text "Barangay" box that used to live here is gone —
+/// the picker itself now searches barangays, so two fields meant the label
+/// ("$barangay, $city") could disagree with the place actually selected.
+///
+/// Pops with { label, location_id, latitude, longitude }.
 class AddLocationScreen extends StatefulWidget {
-  /// Pass the currently saved location string (e.g. "Poblacion, Urdaneta City")
+  /// Currently saved location label, e.g. "Urdaneta City, Pangasinan".
   final String? initialValue;
   const AddLocationScreen({super.key, this.initialValue});
 
@@ -11,55 +21,68 @@ class AddLocationScreen extends StatefulWidget {
 }
 
 class _AddLocationScreenState extends State<AddLocationScreen> {
-  late final TextEditingController _cityCtrl;
-  late final TextEditingController _barangayCtrl;
-  bool _isSaveEnabled = false;
+  late final TextEditingController _locationCtrl;
+
+  /// The PSGC row behind the field. Returning only the display string left the
+  /// profile with no location_id and therefore no coordinates, which silently
+  /// disabled every distance figure for that worker.
+  LocationModel? _selectedLocation;
+
+  double? _pinnedLat;
+  double? _pinnedLng;
 
   @override
   void initState() {
     super.initState();
-    // Pre-fill: saved format is "Barangay, City"
-    String city = '', barangay = '';
-    if (widget.initialValue != null && widget.initialValue!.contains(',')) {
-      final parts = widget.initialValue!.split(',');
-      barangay = parts[0].trim();
-      city = parts.sublist(1).join(',').trim();
-    }
-    _cityCtrl     = TextEditingController(text: city);
-    _barangayCtrl = TextEditingController(text: barangay);
-    _isSaveEnabled = city.isNotEmpty && barangay.isNotEmpty;
-
-    _cityCtrl.addListener(_update);
-    _barangayCtrl.addListener(_update);
-  }
-
-  void _update() {
-    setState(() {
-      _isSaveEnabled = _cityCtrl.text.trim().isNotEmpty && _barangayCtrl.text.trim().isNotEmpty;
-    });
+    _locationCtrl = TextEditingController(text: widget.initialValue ?? '');
   }
 
   @override
   void dispose() {
-    _cityCtrl.dispose();
-    _barangayCtrl.dispose();
+    _locationCtrl.dispose();
     super.dispose();
   }
 
+  /// Both a real place and a pin are required — a saved label with no
+  /// coordinates is what made "km away" read 0 for everyone in a town.
+  bool get _canSave =>
+      _selectedLocation != null && _pinnedLat != null && _pinnedLng != null;
+
   void _save() {
-    final city     = _cityCtrl.text.trim();
-    final barangay = _barangayCtrl.text.trim();
-    if (city.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('City / Municipality is required')));
+    if (_selectedLocation == null) {
+      AppToast.info(context, 'Pick your location from the suggestions');
       return;
     }
-    if (barangay.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Barangay / District is required')));
+    if (_pinnedLat == null || _pinnedLng == null) {
+      AppToast.info(context, 'Pin your exact location on the map');
       return;
     }
-    Navigator.pop(context, '$barangay, $city');
+
+    Navigator.pop(context, {
+      'label': _selectedLocation!.displayName,
+      'location_id': _selectedLocation!.id,
+      'latitude': _pinnedLat,
+      'longitude': _pinnedLng,
+    });
+  }
+
+  Future<void> _openPinPicker() async {
+    final result = await Navigator.pushNamed(
+      context,
+      '/pin-location',
+      arguments: {
+        'latitude': _pinnedLat ?? _selectedLocation?.latitude,
+        'longitude': _pinnedLng ?? _selectedLocation?.longitude,
+        'label': _selectedLocation?.displayName,
+      },
+    );
+
+    if (result is! Map || !mounted) return;
+
+    setState(() {
+      _pinnedLat = (result['latitude'] as num?)?.toDouble();
+      _pinnedLng = (result['longitude'] as num?)?.toDouble();
+    });
   }
 
   @override
@@ -75,7 +98,10 @@ class _AddLocationScreenState extends State<AddLocationScreen> {
         ),
         title: Text(
           widget.initialValue != null ? 'Edit Location' : 'Add Your Location',
-          style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600, color: AppColors.neutral900),
+          style: const TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.w600,
+              color: AppColors.neutral900),
         ),
         centerTitle: true,
       ),
@@ -89,42 +115,121 @@ class _AddLocationScreenState extends State<AddLocationScreen> {
                 children: [
                   const SizedBox(height: 20),
                   const Text('Where are you located?',
-                      style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: AppColors.neutral900)),
+                      style: TextStyle(
+                          fontSize: 22,
+                          fontWeight: FontWeight.bold,
+                          color: AppColors.neutral900)),
                   const SizedBox(height: 8),
-                  const Text('Helps employers find workers in their area.',
-                      style: TextStyle(fontSize: 15, color: AppColors.neutral600, height: 1.5)),
-                  const SizedBox(height: 32),
-                  _field(_cityCtrl, 'City / Municipality', 'Enter city', Icons.location_city),
+                  const Text(
+                      'Employers see how far you are from a job, so this needs '
+                      'to be accurate.',
+                      style: TextStyle(
+                          fontSize: 15,
+                          color: AppColors.neutral600,
+                          height: 1.5)),
+                  const SizedBox(height: 28),
+
+                  LocationPickerField(
+                    controller: _locationCtrl,
+                    labelText: 'Barangay, City or Municipality *',
+                    hintText: 'Search your barangay or city',
+                    selection: _selectedLocation,
+                    onSelected: (loc) => setState(() {
+                      _selectedLocation = loc;
+                      // A new place invalidates a pin set for the old one.
+                      _pinnedLat = null;
+                      _pinnedLng = null;
+                    }),
+                    onCleared: () => setState(() {
+                      _selectedLocation = null;
+                      _pinnedLat = null;
+                      _pinnedLng = null;
+                    }),
+                  ),
+
                   const SizedBox(height: 16),
-                  _field(_barangayCtrl, 'Barangay / District', 'Enter barangay', Icons.location_on),
+                  _buildPinRow(),
                 ],
               ),
             ),
           ),
-          _saveBar(_isSaveEnabled, _save),
+          _saveBar(_canSave, _save),
         ],
       ),
     );
   }
 
-  Widget _field(TextEditingController ctrl, String label, String hint, IconData icon) {
-    return TextField(
-      controller: ctrl,
-      textCapitalization: TextCapitalization.words,
-      decoration: InputDecoration(
-        labelText: label,
-        hintText: hint,
-        prefixIcon: Icon(icon, color: AppColors.neutral600),
-        filled: true,
-        fillColor: Colors.white,
-        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-        enabledBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12),
-            borderSide: const BorderSide(color: AppColors.neutral300)),
-        focusedBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12),
-            borderSide: const BorderSide(color: AppColors.primary, width: 2)),
-        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+  Widget _buildPinRow() {
+    final hasPin = _pinnedLat != null && _pinnedLng != null;
+    final canPin = _selectedLocation != null;
+
+    return InkWell(
+      onTap: canPin ? _openPinPicker : null,
+      borderRadius: BorderRadius.circular(12),
+      child: Container(
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: hasPin
+              ? AppColors.success.withValues(alpha: 0.06)
+              : Colors.white,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: hasPin
+                ? AppColors.success.withValues(alpha: 0.4)
+                : AppColors.neutral300,
+          ),
+        ),
+        child: Row(
+          children: [
+            Icon(
+              hasPin ? Icons.where_to_vote : Icons.add_location_alt_outlined,
+              size: 22,
+              color: canPin
+                  ? (hasPin ? AppColors.success : AppColors.primary)
+                  : AppColors.neutral400,
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    hasPin
+                        ? 'Exact location pinned'
+                        : 'Pin your exact location *',
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                      color:
+                          canPin ? AppColors.neutral900 : AppColors.neutral400,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    !canPin
+                        ? 'Choose your location first'
+                        : hasPin
+                            ? '${_pinnedLat!.toStringAsFixed(5)}, ${_pinnedLng!.toStringAsFixed(5)}'
+                            : 'Required — so jobs show the real distance to you',
+                    style: const TextStyle(
+                        fontSize: 12, color: AppColors.neutral500),
+                  ),
+                ],
+              ),
+            ),
+            if (hasPin)
+              IconButton(
+                icon: const Icon(Icons.close,
+                    size: 18, color: AppColors.neutral500),
+                onPressed: () => setState(() {
+                  _pinnedLat = null;
+                  _pinnedLng = null;
+                }),
+              )
+            else if (canPin)
+              const Icon(Icons.chevron_right, color: AppColors.neutral400),
+          ],
+        ),
       ),
     );
   }
@@ -135,7 +240,12 @@ Widget _saveBar(bool enabled, VoidCallback onSave) {
     padding: const EdgeInsets.all(20),
     decoration: BoxDecoration(
       color: Colors.white,
-      boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 10, offset: const Offset(0, -5))],
+      boxShadow: [
+        BoxShadow(
+            color: Colors.black.withValues(alpha: 0.05),
+            blurRadius: 10,
+            offset: const Offset(0, -5))
+      ],
     ),
     child: SafeArea(
       child: SizedBox(
@@ -148,10 +258,12 @@ Widget _saveBar(bool enabled, VoidCallback onSave) {
             disabledBackgroundColor: AppColors.neutral300,
             disabledForegroundColor: AppColors.neutral600,
             padding: const EdgeInsets.symmetric(vertical: 16),
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            shape:
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
             elevation: 0,
           ),
-          child: const Text('Save', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
+          child: const Text('Save Location',
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
         ),
       ),
     ),

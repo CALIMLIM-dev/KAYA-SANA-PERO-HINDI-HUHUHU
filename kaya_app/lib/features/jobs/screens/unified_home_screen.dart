@@ -11,11 +11,15 @@ import '../../../providers/app_mode_provider.dart';
 import '../../../providers/application_provider.dart';
 import '../../../providers/auth_provider.dart';
 import '../../../providers/job_provider.dart';
+import '../../../providers/worker_profile_provider.dart';
 import '../../../providers/worker_browse_provider.dart';
 import '../../help/screens/faq_screen.dart';
 import '../widgets/unified_search_bar.dart';
 import '../widgets/jobs_near_you_section.dart';
 import '../widgets/people_who_can_help_section.dart';
+import '../../notifications/widgets/notification_bell.dart';
+import '../../../core/utils/realtime_refresh.dart';
+import '../../../data/services/realtime_service.dart';
 
 /// Home screen for both sides of the marketplace.
 ///
@@ -29,7 +33,8 @@ class UnifiedHomeScreen extends StatefulWidget {
   State<UnifiedHomeScreen> createState() => _UnifiedHomeScreenState();
 }
 
-class _UnifiedHomeScreenState extends State<UnifiedHomeScreen> {
+class _UnifiedHomeScreenState extends State<UnifiedHomeScreen>
+    with RealtimeRefresh {
   // State variables
   SearchFilter _searchFilter = SearchFilter.all;
   String _searchQuery = '';
@@ -54,6 +59,13 @@ class _UnifiedHomeScreenState extends State<UnifiedHomeScreen> {
   List<Job> _filteredJobs = [];
   List<WorkerProfile> _filteredWorkers = [];
 
+  /// How far "near you" reaches for the worker directory.
+  ///
+  /// 50 km covers a province comfortably without pulling in the next region.
+  /// The server drops anyone whose position cannot be worked out, so this is a
+  /// real bound rather than a hint.
+  static const double _nearbyRadiusKm = 50;
+
   @override
   void initState() {
     super.initState();
@@ -64,8 +76,48 @@ class _UnifiedHomeScreenState extends State<UnifiedHomeScreen> {
         SuspensionCheckService.startPeriodicCheck(context);
         _loadActivityCounts();
         _initializeData();
+        // The category row reads these; without the fetch it renders empty.
+        final taxonomy = context.read<WorkerProfileProvider>();
+        if (taxonomy.categories.isEmpty) taxonomy.fetchCategories();
+        _watchNewJobs();
+        bindRealtimeRefresh();
       }
     });
+  }
+
+  /// Activity counts follow the user's own events.
+  @override
+  List<String> get refreshOn => const ['application.', 'invitation.', 'job.'];
+
+  @override
+  void onRealtimeRefresh() => _loadActivityCounts();
+
+  VoidCallback? _disposeJobsListener;
+
+  /// New job postings, on the app's one public channel.
+  ///
+  /// Only in worker mode: a freshly posted job is noise to someone who is
+  /// currently hiring, and reloading their worker feed underneath them would be
+  /// worse than not knowing.
+  ///
+  /// It re-fetches rather than inserting the broadcast payload. The feed is
+  /// filtered by category, distance-scored against the viewer's location and
+  /// sorted server-side — a broadcast has no idea where any given listener is
+  /// standing, so splicing the row in locally would put it in the wrong place
+  /// or show it to someone the filters exclude.
+  void _watchNewJobs() {
+    _disposeJobsListener = RealtimeService.instance.on(
+      'jobs',
+      'job.published',
+      (_) {
+        if (!mounted) return;
+        final appMode = context.read<AppModeProvider>();
+        if (!appMode.hasWorkerProfile) return;
+        if (appMode.mode == AppMode.employer) return;
+        _initializeData();
+      },
+      private: false,
+    );
   }
 
   /// Loads the real counts behind the "Your Activity" cards, fetching only the
@@ -85,6 +137,8 @@ class _UnifiedHomeScreenState extends State<UnifiedHomeScreen> {
   void dispose() {
     // Stop suspension checks when leaving home screen
     SuspensionCheckService.stopPeriodicCheck();
+    _disposeJobsListener?.call();
+    // RealtimeRefresh releases its own subscription via super.dispose().
     super.dispose();
   }
 
@@ -99,9 +153,31 @@ class _UnifiedHomeScreenState extends State<UnifiedHomeScreen> {
     final jobProvider = context.read<JobProvider>();
     final workerBrowse = context.read<WorkerBrowseProvider>();
 
+    // Fetch based on what the account *owns*, not what it is focused on.
+    //
+    // Gating on the current mode meant a hybrid focused on worker never loaded
+    // the worker directory — so clearing the focus, or picking the "All" chip,
+    // showed an empty "people who can help" section until a manual refresh. A
+    // hybrid can switch at any moment, so both lists have to be ready.
+    final employerOnly = appMode.hasEmployerProfile && !appMode.hasWorkerProfile;
+    final workerOnly = appMode.hasWorkerProfile && !appMode.hasEmployerProfile;
+
+    /*
+        "Jobs near you" now actually is.
+
+        These sections are headed "Open jobs in {your city}" and "people who can
+        help", but both were fed the unfiltered feed — the server computed a
+        distance per row and nothing ever used it. Asking for nearest-first, and
+        for workers within a radius, makes the heading true.
+
+        Jobs are sorted rather than cut off: a worker in a quiet town would
+        otherwise open the app to an empty screen. Workers are cut off, because
+        an employer hiring for a specific site genuinely cannot use someone
+        eighty kilometres away.
+    */
     await Future.wait([
-      if (!appMode.isEmployerMode) jobProvider.fetchPublicJobs(),
-      if (!appMode.isWorkerMode) workerBrowse.fetchWorkers(),
+      if (!employerOnly) jobProvider.fetchPublicJobs(nearestFirst: true),
+      if (!workerOnly) workerBrowse.fetchWorkers(radiusKm: _nearbyRadiusKm),
     ]);
 
     if (!mounted) return;
@@ -395,7 +471,7 @@ class _UnifiedHomeScreenState extends State<UnifiedHomeScreen> {
                   child: const Text(
                     'Set up Worker Profile',
                     style: TextStyle(
-                      fontSize: 13,
+                      fontSize: 13.5,
                       fontWeight: FontWeight.w600,
                     ),
                   ),
@@ -416,7 +492,7 @@ class _UnifiedHomeScreenState extends State<UnifiedHomeScreen> {
                   child: const Text(
                     'Set up as Employer',
                     style: TextStyle(
-                      fontSize: 13,
+                      fontSize: 13.5,
                       fontWeight: FontWeight.w600,
                     ),
                   ),
@@ -539,10 +615,7 @@ class _UnifiedHomeScreenState extends State<UnifiedHomeScreen> {
                                       ),
                                     ],
                                   ),
-                                  child: IconButton(
-                                    icon: const Icon(Icons.notifications_outlined, size: 20),
-                                    onPressed: () => AppRouter.toNotifications(context),
-                                  ),
+                                  child: const NotificationBell(),
                                 ),
                               ],
                             ),
@@ -730,6 +803,9 @@ class _UnifiedHomeScreenState extends State<UnifiedHomeScreen> {
                     workers: _filteredWorkers,
                     isLoading: _isLoading,
                     userLocation: authProvider.user?['city'] as String?,
+                    // Same bound the fetch used, so the heading cannot drift
+                    // away from what was actually asked for.
+                    radiusKm: _nearbyRadiusKm,
                     onSeeAll: () => AppRouter.toSearchJobs(context),
                     onWorkerTap: _onWorkerTap,
                     onWorkerInvite: _inviteWorker,
@@ -866,62 +942,30 @@ class _UnifiedHomeScreenState extends State<UnifiedHomeScreen> {
     AppRouter.toJobDetails(context, job);
   }
 
+  /// Opens the job so the worker can read it and apply.
+  ///
+  /// This popped a dialog offering to "Message" the employer and then showed
+  /// "Contacting employer for X" — no navigation, no conversation created.
+  /// Messaging an employer is not possible before applying anyway: a
+  /// conversation only exists once an application is accepted, which is the
+  /// rule that stops the inbox becoming a cold-contact channel.
   void _contactEmployer(Job job) {
-    // Show contact options instead of application
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Text('Contact Employer'),
-        content: Text('Contact employer about "${job.title}"?'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              Navigator.pop(context);
-              // TODO: Navigate to messaging or show contact info
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(content: Text('Contacting employer for ${job.title}')),
-              );
-            },
-            child: const Text('Message'),
-          ),
-        ],
-      ),
-    );
+    Navigator.pushNamed(context, '/job-details', arguments: {'jobId': job.id});
   }
 
   void _onWorkerTap(WorkerProfile worker) {
     AppRouter.toWorkerProfile(context, worker);
   }
 
+  /// Sends the worker to their profile, where the invitation is actually made.
+  ///
+  /// This asked "Invite X to apply for a job?" — without ever asking *which*
+  /// job — and then reported "Invitation sent". Nothing was sent, and the
+  /// worker saw nothing, while the receiving half of invitations was fully
+  /// built. Choosing a job is not optional, so the flow belongs on the profile
+  /// screen that can present one.
   void _inviteWorker(WorkerProfile worker) {
-    // Show job selection for invitation
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Invite to Job'),
-        content: Text('Invite ${worker.name} to apply for a job?'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              Navigator.pop(context);
-              // TODO: Handle actual worker invitation
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(content: Text('Invitation sent to ${worker.name}')),
-              );
-            },
-            child: const Text('Send Invite'),
-          ),
-        ],
-      ),
-    );
+    AppRouter.toWorkerProfile(context, worker);
   }
 
 
@@ -954,46 +998,63 @@ class _UnifiedHomeScreenState extends State<UnifiedHomeScreen> {
       );
     }
 
-    // Job categories + All — horizontal scroll with all 18
-    const allCategories = [
-      {'name': 'Plumbing',         'icon': Icons.plumbing},
-      {'name': 'Electrical',       'icon': Icons.electrical_services},
-      {'name': 'Painting',         'icon': Icons.format_paint},
-      {'name': 'Carpentry',        'icon': Icons.carpenter},
-      {'name': 'Construction',     'icon': Icons.construction},
-      {'name': 'HVAC',             'icon': Icons.ac_unit},
-      {'name': 'Landscaping',      'icon': Icons.grass},
-      {'name': 'Cleaning',         'icon': Icons.cleaning_services},
-      {'name': 'Roofing',          'icon': Icons.roofing},
-      {'name': 'Flooring',         'icon': Icons.layers},
-      {'name': 'Automotive',       'icon': Icons.car_repair},
-      {'name': 'Appliance Repair', 'icon': Icons.kitchen},
-      {'name': 'Security',         'icon': Icons.security},
-      {'name': 'Moving',           'icon': Icons.local_shipping},
-      {'name': 'Pest Control',     'icon': Icons.bug_report},
-      {'name': 'Pool Services',    'icon': Icons.pool},
-      {'name': 'Delivery',         'icon': Icons.delivery_dining},
-      {'name': 'Other',            'icon': Icons.build},
-    ];
+    /*
+        Categories come from the server, not from a list in this file.
+
+        The hardcoded version carried an "Other" entry that does not exist in
+        the categories table, and any category added in the admin panel would
+        never have appeared here. Icons stay client-side because the table has
+        no icon column; anything unmapped falls back to a generic tool.
+    */
+    final categories = context.watch<WorkerProfileProvider>().categories;
+
+    if (categories.isEmpty) {
+      return const SizedBox(height: 120);
+    }
 
     return SizedBox(
       height: 120,
       child: ListView.separated(
         scrollDirection: Axis.horizontal,
         padding: const EdgeInsets.symmetric(horizontal: 4),
-        itemCount: allCategories.length,
+        itemCount: categories.length,
         separatorBuilder: (_, __) => const SizedBox(width: 8),
         itemBuilder: (context, i) {
-          final item = allCategories[i];
+          final category = categories[i];
           return _CategoryButton(
-            icon: item['icon'] as IconData,
-            label: item['name'] as String,
+            icon: _iconForCategory(category.name),
+            label: category.name,
             color: AppColors.categoryIcon,
-            onTap: () => _onCategoryTap(item['name'] as String),
+            onTap: () => _onCategoryTap(category.name),
           );
         },
       ),
     );
+  }
+
+  /// Maps a category name to an icon. Unknown names get a generic tool rather
+  /// than a blank space, so a category added later still renders.
+  static IconData _iconForCategory(String name) {
+    const icons = {
+      'plumbing': Icons.plumbing,
+      'electrical': Icons.electrical_services,
+      'painting': Icons.format_paint,
+      'carpentry': Icons.carpenter,
+      'construction': Icons.construction,
+      'hvac': Icons.ac_unit,
+      'landscaping': Icons.grass,
+      'cleaning': Icons.cleaning_services,
+      'roofing': Icons.roofing,
+      'flooring': Icons.layers,
+      'automotive': Icons.car_repair,
+      'appliance repair': Icons.kitchen,
+      'security': Icons.security,
+      'moving': Icons.local_shipping,
+      'pest control': Icons.bug_report,
+      'pool services': Icons.pool,
+      'delivery': Icons.delivery_dining,
+    };
+    return icons[name.toLowerCase().trim()] ?? Icons.build;
   }
 
   /// Build smart action prompts based on current filter context
@@ -1157,10 +1218,23 @@ class _CategoryButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    /*
+        Fixed width, deliberately.
+
+        These sit in a horizontal list, where an unsized tile takes its width
+        from its widest child — the label. "Appliance Repair" produced a wide
+        tile and "Moving" a narrow one, and because the icon stayed 50px in
+        both, it read as oversized in the narrow tiles and lost in the wide
+        ones. The row looked like the icons were different sizes when only the
+        words were.
+
+        84 fits "Appliance Repair" on two lines at 11.5px without clipping.
+    */
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        padding: const EdgeInsets.all(12),
+        width: 84,
+        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 12),
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(16),
@@ -1177,28 +1251,34 @@ class _CategoryButton extends StatelessWidget {
           ],
         ),
         child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
+          mainAxisAlignment: MainAxisAlignment.start,
           children: [
             Container(
-              width: 50,
-              height: 50,
+              width: 44,
+              height: 44,
               decoration: BoxDecoration(
                 color: color.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(12),
               ),
-              child: Icon(icon, color: color, size: 28),
+              child: Icon(icon, color: color, size: 24),
             ),
             const SizedBox(height: 8),
-            Text(
-              label,
-              style: const TextStyle(
-                fontWeight: FontWeight.w600,
-                fontSize: 12,
-                color: AppColors.neutral800,
+            // Fixed height so a one-word and a two-word label produce tiles of
+            // the same height, keeping every icon on the same baseline.
+            SizedBox(
+              height: 30,
+              child: Text(
+                label,
+                style: const TextStyle(
+                  fontWeight: FontWeight.w600,
+                  fontSize: 11,
+                  height: 1.25,
+                  color: AppColors.neutral800,
+                ),
+                textAlign: TextAlign.center,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
               ),
-              textAlign: TextAlign.center,
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
             ),
           ],
         ),

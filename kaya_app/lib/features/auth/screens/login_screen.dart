@@ -4,6 +4,7 @@ import '../../../core/constants/app_colors.dart';
 import '../../../providers/auth_provider.dart';
 import '../../../shared/widgets/ph_phone_field.dart';
 import '../../../shared/widgets/suspension_dialog.dart';
+import '../../../core/widgets/app_toast.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -21,6 +22,18 @@ class _LoginScreenState extends State<LoginScreen> {
   String? _inputError;
   String? _passwordError;
   String? _googleError;
+
+  /// Google sign-in spans an account picker and then a network call. Without
+  /// this the button looked idle for the whole second half.
+  bool _googleBusy = false;
+
+  /// Tracked separately from AuthProvider.isLoading.
+  ///
+  /// Both sign-in paths go through the same provider, so a shared flag made the
+  /// email button spin while Google was working — two buttons claiming to be
+  /// doing the thing you asked for when only one of them is. Each button now
+  /// reports on its own action.
+  bool _emailBusy = false;
 
   @override
   void dispose() {
@@ -63,10 +76,14 @@ class _LoginScreenState extends State<LoginScreen> {
         ? toPHE164(_inputController.text.trim())
         : _inputController.text.trim();
 
+    setState(() => _emailBusy = true);
+
     final result = await auth.login(email: credential, password: _passwordController.text);
 
     if (!mounted) return;
-    
+
+    setState(() => _emailBusy = false);
+
     // Check if account is suspended - ALWAYS show generic message on login
     if (result['is_suspended'] == true) {
       SuspensionDialog.showOnLogin(
@@ -187,14 +204,18 @@ class _LoginScreenState extends State<LoginScreen> {
                   width: double.infinity,
                   height: 56,
                   child: ElevatedButton(
-                    onPressed: auth.isLoading ? null : () => _handleLogin(auth),
+                    // Disabled while EITHER path is running — two sign-ins at
+                    // once is never wanted — but only spins for its own.
+                    onPressed: _emailBusy || _googleBusy
+                        ? null
+                        : () => _handleLogin(auth),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: AppColors.primary,
                       foregroundColor: Colors.white,
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
                       elevation: 0,
                     ),
-                    child: auth.isLoading
+                    child: _emailBusy
                         ? const SizedBox(height: 22, width: 22,
                             child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
                         : const Text('Sign In',
@@ -250,37 +271,46 @@ class _LoginScreenState extends State<LoginScreen> {
 
               Row(children: [
                 Expanded(child: _socialBtn(Icons.g_mobiledata, 'Google', () async {
+                  // Never two sign-ins at once.
+                  if (_emailBusy) return;
+
                   // Clear previous error
-                  setState(() => _googleError = null);
-                  
+                  setState(() {
+                    _googleError = null;
+                    _googleBusy = true;
+                  });
+
                   final auth = Provider.of<AuthProvider>(context, listen: false);
-                  // Force account picker to show
-                  final googleData = await auth.initiateGoogleSignIn();
-                  if (googleData == null) return; // User cancelled
-                  
-                  if (!mounted) return;
-                  
-                  // Login attempt - backend will handle existing users automatically
-                  final success = await auth.completeGoogleSignIn(
-                    googleId: googleData['google_id'],
-                    name: googleData['name'],
-                    email: googleData['email'],
-                    avatar: googleData['avatar'],
-                    isSignup: false, // Tell backend this is login
-                  );
-                  
-                  if (!mounted) return;
-                  
-                  if (success) {
-                    Navigator.pushReplacementNamed(context, '/home');
-                  } else {
-                    setState(() => _googleError = auth.errorMessage ?? 'Google Sign-In failed. Please try again.');
+                  try {
+                    // Force account picker to show
+                    final googleData = await auth.initiateGoogleSignIn();
+
+                    // Cancelling the picker is not a failure — but the button
+                    // has to come back to life either way, which is why every
+                    // exit from here runs through the finally below.
+                    if (googleData == null) return;
+                    if (!mounted) return;
+
+                    // Login attempt - backend will handle existing users automatically
+                    final success = await auth.completeGoogleSignIn(
+                      idToken: googleData['id_token'],
+                      isSignup: false, // Tell backend this is login
+                    );
+
+                    if (!mounted) return;
+
+                    if (success) {
+                      Navigator.pushReplacementNamed(context, '/home');
+                    } else {
+                      setState(() => _googleError = auth.errorMessage ?? 'Google Sign-In failed. Please try again.');
+                    }
+                  } finally {
+                    if (mounted) setState(() => _googleBusy = false);
                   }
-                })),
+                }, busy: _googleBusy)),
                 const SizedBox(width: 16),
                 Expanded(child: _socialBtn(Icons.facebook, 'Facebook', () {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Facebook Sign-In coming soon')));
+                  AppToast.info(context, 'Facebook Sign-In coming soon');
                 })),
               ]),
               const SizedBox(height: 48),
@@ -330,18 +360,39 @@ class _LoginScreenState extends State<LoginScreen> {
         contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
       );
 
-  Widget _socialBtn(IconData icon, String label, VoidCallback onPressed) =>
+  /// A social sign-in button that can show it is working.
+  ///
+  /// This had no busy state at all. Tapping Google opened the account picker,
+  /// then made a network call, and throughout the button looked idle and
+  /// stayed tappable — so a slow connection read as a dead button, and a
+  /// second tap started the whole flow again.
+  Widget _socialBtn(
+    IconData icon,
+    String label,
+    VoidCallback onPressed, {
+    bool busy = false,
+  }) =>
       OutlinedButton(
-        onPressed: onPressed,
+        onPressed: busy ? null : onPressed,
         style: OutlinedButton.styleFrom(
           padding: const EdgeInsets.symmetric(vertical: 14),
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
           side: BorderSide(color: AppColors.neutral300),
         ),
-        child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-          Icon(icon, color: AppColors.neutral700, size: 22),
-          const SizedBox(width: 8),
-          Text(label, style: TextStyle(color: AppColors.neutral700, fontWeight: FontWeight.w600, fontSize: 15)),
-        ]),
+        child: busy
+            ? const SizedBox(
+                height: 22,
+                width: 22,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              )
+            : Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+                Icon(icon, color: AppColors.neutral700, size: 22),
+                const SizedBox(width: 8),
+                Text(label,
+                    style: TextStyle(
+                        color: AppColors.neutral700,
+                        fontWeight: FontWeight.w600,
+                        fontSize: 15)),
+              ]),
       );
 }

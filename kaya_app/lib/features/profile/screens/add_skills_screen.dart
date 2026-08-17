@@ -4,6 +4,7 @@ import '../../../core/constants/app_colors.dart';
 import '../../../providers/worker_profile_provider.dart';
 import '../../../data/models/category_model.dart';
 import '../../../data/models/skill_model.dart';
+import '../../../core/widgets/app_toast.dart';
 
 class AddSkillsScreen extends StatefulWidget {
   final List<String> initialSkills;
@@ -101,11 +102,7 @@ class _AddSkillsScreenState extends State<AddSkillsScreen> {
 
   Future<void> _addCustomSkill() async {
     if (widget.draftOnly) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Custom skills can be added after profile setup.'),
-        ),
-      );
+      AppToast.info(context, 'Custom skills can be added after profile setup.');
       return;
     }
 
@@ -113,18 +110,14 @@ class _AddSkillsScreenState extends State<AddSkillsScreen> {
     if (val.isEmpty) return;
     
     if (_selectedCategory == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please select a job category first')),
-      );
+      AppToast.info(context, 'Please select a job category first');
       return;
     }
 
     // Check if skill already exists in selected skills
     final existsInSelected = _selectedSkills.any((s) => s.name.toLowerCase() == val.toLowerCase());
     if (existsInSelected) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Skill already selected')),
-      );
+      AppToast.info(context, 'Skill already selected');
       return;
     }
 
@@ -138,20 +131,14 @@ class _AddSkillsScreenState extends State<AddSkillsScreen> {
         _customSkillCtrl.clear();
       });
     } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(provider.errorMessage ?? 'Failed to add custom skill')),
-      );
+      AppToast.info(context, provider.errorMessage ?? 'Failed to add custom skill');
     }
     setState(() => _isLoadingSkills = false);
   }
 
   Future<void> _showAddCustomCategoryDialog() async {
     if (widget.draftOnly) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Custom job categories can be added after profile setup.'),
-        ),
-      );
+      AppToast.info(context, 'Custom job categories can be added after profile setup.');
       return;
     }
 
@@ -190,9 +177,7 @@ class _AddSkillsScreenState extends State<AddSkillsScreen> {
       if (newCategory != null) {
         await _loadSkillsForCategory(newCategory);
       } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(provider.errorMessage ?? 'Failed to create category')),
-        );
+        AppToast.info(context, provider.errorMessage ?? 'Failed to create category');
       }
       setState(() => _isLoadingCategories = false);
     }
@@ -257,7 +242,7 @@ class _AddSkillsScreenState extends State<AddSkillsScreen> {
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Text(skill.name, style: const TextStyle(fontSize: 13, color: AppColors.primary)),
+                Text(skill.name, style: const TextStyle(fontSize: 13.5, color: AppColors.primary)),
                 const SizedBox(width: 4),
                 GestureDetector(
                   onTap: () => _toggleSkill(skill),
@@ -429,7 +414,7 @@ class _AddSkillsScreenState extends State<AddSkillsScreen> {
                                   ],
                                   Text(skill.name,
                                       style: TextStyle(
-                                        fontSize: 13,
+                                        fontSize: 13.5,
                                         fontWeight: selected ? FontWeight.w600 : FontWeight.normal,
                                         color: selected ? AppColors.primary : AppColors.neutral700,
                                       )),

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../../core/constants/app_colors.dart';
+import '../../../core/widgets/app_toast.dart';
 
 class AddPersonalDetailsScreen extends StatefulWidget {
   final String? initialPhone;
@@ -43,7 +44,7 @@ class _AddPersonalDetailsScreenState extends State<AddPersonalDetailsScreen> {
     final email = _emailCtrl.text.trim();
 
     if (phone.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Phone number is required')));
+      AppToast.info(context, 'Phone number is required');
       return;
     }
     // PH validation: 09XXXXXXXXX, +639XXXXXXXXX, or 9XXXXXXXXX
@@ -52,16 +53,15 @@ class _AddPersonalDetailsScreenState extends State<AddPersonalDetailsScreen> {
                       (digits.length == 12 && digits.startsWith('639')) ||
                       (digits.length == 10 && digits.startsWith('9'));
     if (!isValidPH) {
-      ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Enter a valid PH number (e.g. 09171234567)')));
+      AppToast.info(context, 'Enter a valid PH number (e.g. 09171234567)');
       return;
     }
     if (email.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Email is required')));
+      AppToast.info(context, 'Email is required');
       return;
     }
     if (!RegExp(r'^[^@]+@[^@]+\.[^@]+').hasMatch(email)) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Enter a valid email address')));
+      AppToast.info(context, 'Enter a valid email address');
       return;
     }
     Navigator.pop(context, {'phone': phone, 'email': email});

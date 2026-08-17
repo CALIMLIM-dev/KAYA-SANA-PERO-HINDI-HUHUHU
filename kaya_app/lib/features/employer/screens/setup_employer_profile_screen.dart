@@ -11,6 +11,7 @@ import '../../../providers/auth_provider.dart';
 import '../../../providers/employer_profile_provider.dart';
 import '../../../providers/verification_provider.dart';
 import '../../profile/screens/onboarding_verification_screen.dart';
+import '../../../core/widgets/app_toast.dart';
 
 /// Employer onboarding flow.
 ///
@@ -30,6 +31,13 @@ class _SetupEmployerProfileScreenState extends State<SetupEmployerProfileScreen>
   final _formKey = GlobalKey<FormState>();
 
   final _nameController = TextEditingController();
+
+  /// Whether the account name may still be edited from this screen.
+  ///
+  /// The server refuses to rename a verified account, so offering an editable
+  /// field would just produce a rejection at the end of a long form.
+  bool get _nameIsLocked =>
+      context.read<AuthProvider>().user?['is_verified'] == true;
   final _companyNameController = TextEditingController();
   final _industryController = TextEditingController();
   final _websiteController = TextEditingController();
@@ -286,9 +294,7 @@ class _SetupEmployerProfileScreenState extends State<SetupEmployerProfileScreen>
 
   void _showError(String message) {
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(message), backgroundColor: AppColors.error),
-    );
+    AppToast.error(context, message);
   }
 
   String get _primaryLabel {
@@ -430,6 +436,32 @@ class _SetupEmployerProfileScreenState extends State<SetupEmployerProfileScreen>
                   ? 'Businesses will submit company information and can upload a business permit, DTI certificate, or SEC registration.'
                   : 'Individuals will use their account name, location, photo, and government ID verification.',
             ),
+
+            // Said here because this is the last moment it can be changed.
+            // The two types require different verification documents, so
+            // switching afterwards would invalidate whatever has already been
+            // approved — the profile screen shows this locked, and a user who
+            // was never told will read that as a missing feature.
+            const SizedBox(height: 12),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Icon(Icons.lock_outline,
+                    size: 15, color: AppColors.neutral500),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    "You can't change this later, so pick the one that matches "
+                    'how you will be hiring.',
+                    style: TextStyle(
+                      fontSize: 12,
+                      height: 1.4,
+                      color: AppColors.neutral600,
+                    ),
+                  ),
+                ),
+              ],
+            ),
           ],
         ],
       ),
@@ -491,13 +523,41 @@ class _SetupEmployerProfileScreenState extends State<SetupEmployerProfileScreen>
                 keyboardType: TextInputType.url,
               ),
             ] else ...[
+              // This is the account name, not a separate employer name.
+              //
+              // It is prefilled from the account and, once the account's ID has
+              // been verified, cannot be edited here. The same name appears on
+              // the worker profile, on posted jobs, in chat and against every
+              // review — letting the employer step rewrite it would mean a
+              // worker could verify as one person, build up reviews, then
+              // rename the account and keep the verified badge.
               _textField(
                 controller: _nameController,
                 label: 'Full Name *',
-                hint: 'e.g., Juan Dela Cruz',
                 icon: Icons.person,
                 requiredMessage: 'Full name is required',
                 textCapitalization: TextCapitalization.words,
+                readOnly: _nameIsLocked,
+              ),
+              const SizedBox(height: 6),
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Icon(_nameIsLocked ? Icons.lock_outline : Icons.info_outline,
+                      size: 14, color: AppColors.neutral500),
+                  const SizedBox(width: 6),
+                  Expanded(
+                    child: Text(
+                      _nameIsLocked
+                          ? 'Locked because your ID is verified. This is the name '
+                              'shown everywhere on your account.'
+                          : 'This is your account name and is shown everywhere, '
+                              'including on your worker profile.',
+                      style: const TextStyle(
+                          fontSize: 12, height: 1.35, color: AppColors.neutral600),
+                    ),
+                  ),
+                ],
               ),
             ],
             const SizedBox(height: 16),
@@ -506,10 +566,22 @@ class _SetupEmployerProfileScreenState extends State<SetupEmployerProfileScreen>
             LocationPickerField(
               controller: _locationController,
               labelText: 'Location *',
+              // Parent is the source of truth, so the field can reconcile its
+              // label when the selection changes from outside.
+              selection: _selectedLocation,
               onSelected: (location) =>
                   setState(() => _selectedLocation = location),
-              validator: (v) =>
-                  (v?.trim().isEmpty ?? true) ? 'Location is required' : null,
+              onCleared: () => setState(() => _selectedLocation = null),
+              // Checks the *selection*, not just that text is present.
+              //
+              // The previous validator only required a non-empty string, so
+              // typing "Manila" and never picking it from the list passed —
+              // and saved an employer with a location label but no location_id,
+              // which means no coordinates, no distance, and no matching. The
+              // same gap was fixed in job posting; this call site kept its own
+              // weaker rule.
+              validator: (_) =>
+                  _selectedLocation == null ? 'Pick a location from the list' : null,
             ),
             const SizedBox(height: 16),
             _textField(
@@ -954,18 +1026,23 @@ class _SetupEmployerProfileScreenState extends State<SetupEmployerProfileScreen>
     );
   }
 
+  /// [hint] is optional — pass one only when it teaches a format or unit the
+  /// label can't. "Full Name" with "e.g., Juan Dela Cruz" under it is the label
+  /// said twice.
   Widget _textField({
     required TextEditingController controller,
     required String label,
-    required String hint,
+    String? hint,
     required IconData icon,
     String? requiredMessage,
     int maxLines = 1,
     TextInputType? keyboardType,
     TextCapitalization textCapitalization = TextCapitalization.none,
+    bool readOnly = false,
   }) {
     return TextFormField(
       controller: controller,
+      readOnly: readOnly,
       maxLines: maxLines,
       keyboardType: keyboardType,
       textCapitalization: textCapitalization,
@@ -1033,7 +1110,7 @@ class _SetupEmployerProfileScreenState extends State<SetupEmployerProfileScreen>
                 Text(
                   text,
                   style: const TextStyle(
-                    fontSize: 13,
+                    fontSize: 13.5,
                     color: AppColors.neutral600,
                     height: 1.5,
                   ),

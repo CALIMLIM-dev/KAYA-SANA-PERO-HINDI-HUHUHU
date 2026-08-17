@@ -1,8 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../../core/constants/app_colors.dart';
+import '../../../core/utils/json_parse.dart';
+import '../../../providers/invitation_provider.dart';
+import '../../../providers/job_provider.dart';
 import '../../../providers/worker_browse_provider.dart';
+import '../../../core/widgets/app_toast.dart';
 
 /// Public Worker Profile Screen — shown to employers when browsing workers.
 /// Reads {'workerId': int} from route arguments and fetches the real profile
@@ -91,33 +96,34 @@ class _WorkerProfileScreenState extends State<WorkerProfileScreen> {
     );
   }
 
-  // rating_avg is a Laravel `decimal` cast, which serializes as a STRING
-  // ("4.50"), not a JSON number — `as num?` throws on it. Parse defensively,
-  // same as Job.fromApi already does for budget_min/max.
-  double _asDouble(Object? v) =>
-      v == null ? 0 : (v is num ? v.toDouble() : double.tryParse('$v') ?? 0);
-
-  int _asInt(Object? v) =>
-      v == null ? 0 : (v is num ? v.toInt() : int.tryParse('$v') ?? 0);
-
   Widget _content(BuildContext context, Map<String, dynamic> w) {
     final name = (w['name'] as String?) ?? 'Worker';
     final category = (w['category'] as String?) ?? '';
     final location = (w['location'] as String?) ?? '';
-    final rating = _asDouble(w['rating_avg']);
-    final reviewCount = _asInt(w['rating_count']);
+    final avatar = (w['avatar'] as String?) ?? '';
+    final rating = asDouble(w['rating_avg']);
+    final reviewCount = asInt(w['rating_count']);
     final isVerified = (w['is_verified'] as bool?) ?? false;
     final availability = (w['availability_status'] as String?) ?? 'unavailable';
     final isAvailable = availability == 'available';
     final bio = (w['bio'] as String?) ?? '';
+
+    // Skills now carry proficiency + years, not just a label — the browse
+    // endpoint still sends plain strings, so accept both shapes.
     final skills = ((w['skills'] as List?) ?? [])
-        .map((s) => s is Map ? (s['name']?.toString() ?? '') : s.toString())
-        .where((s) => s.isNotEmpty)
+        .map((s) => s is Map
+            ? Map<String, dynamic>.from(s)
+            : <String, dynamic>{'name': s.toString()})
+        .where((s) => (s['name']?.toString() ?? '').isNotEmpty)
         .toList();
+
     final experiences = ((w['experiences'] as List?) ?? []).cast<Map<String, dynamic>>();
     final certifications = ((w['certifications'] as List?) ?? []).cast<Map<String, dynamic>>();
+    final licenses = ((w['licenses'] as List?) ?? []).cast<Map<String, dynamic>>();
+    final exams = ((w['license_examinations'] as List?) ?? []).cast<Map<String, dynamic>>();
     final reviews = ((w['reviews'] as List?) ?? []).cast<Map<String, dynamic>>();
-    final yearsOfExperience = experiences.length;
+
+    final credentialCount = certifications.length + licenses.length + exams.length;
 
     return Scaffold(
       backgroundColor: AppColors.neutral50,
@@ -156,13 +162,20 @@ class _WorkerProfileScreenState extends State<WorkerProfileScreen> {
                               ),
                               child: CircleAvatar(
                                 backgroundColor: AppColors.primaryLight,
-                                child: Text(
-                                  name.isNotEmpty ? name[0].toUpperCase() : '?',
-                                  style: const TextStyle(
-                                      fontSize: 36,
-                                      fontWeight: FontWeight.bold,
-                                      color: Colors.white),
-                                ),
+                                backgroundImage: avatar.isNotEmpty
+                                    ? NetworkImage(avatar)
+                                    : null,
+                                child: avatar.isNotEmpty
+                                    ? null
+                                    : Text(
+                                        name.isNotEmpty
+                                            ? name[0].toUpperCase()
+                                            : '?',
+                                        style: const TextStyle(
+                                            fontSize: 36,
+                                            fontWeight: FontWeight.bold,
+                                            color: Colors.white),
+                                      ),
                               ),
                             ),
                             if (isVerified)
@@ -238,7 +251,7 @@ class _WorkerProfileScreenState extends State<WorkerProfileScreen> {
                           )
                         else
                           const Text('No reviews yet',
-                              style: TextStyle(color: Colors.white60, fontSize: 13)),
+                              style: TextStyle(color: Colors.white60, fontSize: 13.5)),
                       ],
                     ),
                   ),
@@ -274,9 +287,9 @@ class _WorkerProfileScreenState extends State<WorkerProfileScreen> {
                   const SizedBox(width: 12),
                   Expanded(
                     child: _statCard(
-                      icon: Icons.schedule,
-                      value: '$yearsOfExperience job${yearsOfExperience == 1 ? '' : 's'}',
-                      label: 'Experience',
+                      icon: Icons.workspace_premium_outlined,
+                      value: '$credentialCount',
+                      label: 'Credentials',
                       color: AppColors.primary,
                     ),
                   ),
@@ -353,19 +366,67 @@ class _WorkerProfileScreenState extends State<WorkerProfileScreen> {
 
           if (bio.isNotEmpty) const SliverToBoxAdapter(child: SizedBox(height: 12)),
 
-          if (skills.isNotEmpty)
-            SliverToBoxAdapter(
-              child: _section(
-                title: 'Skills & Expertise',
-                child: Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  children: skills.map((s) => _skillChip(s, Icons.build)).toList(),
-                ),
+          // ── Trade + skills ──
+          // The trade (category) is what the worker actually does; listing
+          // bare skill chips without it left an employer guessing.
+          SliverToBoxAdapter(
+            child: _section(
+              // "Trade" is industry jargon a Filipino jobseeker browsing on a
+              // phone has no reason to know, and it didn't match the wording
+              // used everywhere else in the app.
+              title: 'Job Category & Skills',
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  if (category.isNotEmpty) ...[
+                    Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: AppColors.primary.withValues(alpha: 0.1),
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: const Icon(Icons.handyman_outlined,
+                              color: AppColors.primary, size: 20),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Text('Primary Trade',
+                                  style: TextStyle(
+                                      fontSize: 12,
+                                      color: AppColors.neutral500)),
+                              const SizedBox(height: 2),
+                              Text(category,
+                                  style: const TextStyle(
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.w700,
+                                      color: AppColors.neutral900)),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                    if (skills.isNotEmpty) const Divider(height: 26),
+                  ],
+                  if (skills.isNotEmpty)
+                    Column(
+                      children:
+                          skills.map((s) => _skillRow(s)).toList(),
+                    )
+                  else
+                    const Text('No skills listed yet.',
+                        style: TextStyle(
+                            fontSize: 14, color: AppColors.neutral600)),
+                ],
               ),
             ),
+          ),
 
-          if (skills.isNotEmpty) const SliverToBoxAdapter(child: SizedBox(height: 12)),
+          const SliverToBoxAdapter(child: SizedBox(height: 12)),
 
           if (experiences.isNotEmpty)
             SliverToBoxAdapter(
@@ -392,10 +453,18 @@ class _WorkerProfileScreenState extends State<WorkerProfileScreen> {
                 title: 'Certifications',
                 child: Column(
                   children: certifications
-                      .map((cert) => _certItem(
-                            title: (cert['title'] ?? '').toString(),
-                            issuer: (cert['issuer'] ?? '').toString(),
-                            year: (cert['year'] ?? '').toString(),
+                      .map((c) => _credentialItem(
+                            icon: Icons.verified_outlined,
+                            color: AppColors.success,
+                            title: (c['title'] ?? '').toString(),
+                            subtitle: (c['issuer'] ?? '').toString(),
+                            detail: _credentialDates(
+                              year: c['year'],
+                              expiry: c['expiry_date'],
+                              extra: c['credential_id'],
+                              extraLabel: 'ID',
+                            ),
+                            documentUrl: c['document_url'] as String?,
                           ))
                       .toList(),
                 ),
@@ -403,6 +472,74 @@ class _WorkerProfileScreenState extends State<WorkerProfileScreen> {
             ),
 
           if (certifications.isNotEmpty) const SliverToBoxAdapter(child: SizedBox(height: 12)),
+
+          // ── Licenses ──
+          // Neither licenses nor license examinations reached this screen
+          // before — the two credential types that matter most for trades.
+          if (licenses.isNotEmpty)
+            SliverToBoxAdapter(
+              child: _section(
+                title: 'Licenses',
+                child: Column(
+                  children: licenses
+                      .map((l) => _credentialItem(
+                            icon: Icons.badge_outlined,
+                            color: AppColors.primary,
+                            title: (l['name'] ?? '').toString(),
+                            subtitle: (l['authority'] ?? '').toString(),
+                            detail: _credentialDates(
+                              year: l['issue_date'],
+                              expiry: l['expiry_date'],
+                              extra: l['number'],
+                              extraLabel: 'No.',
+                            ),
+                            documentUrl: l['document_url'] as String?,
+                          ))
+                      .toList(),
+                ),
+              ),
+            ),
+
+          if (licenses.isNotEmpty) const SliverToBoxAdapter(child: SizedBox(height: 12)),
+
+          // ── License examinations ──
+          if (exams.isNotEmpty)
+            SliverToBoxAdapter(
+              child: _section(
+                title: 'License Examinations',
+                child: Column(
+                  children: exams.map((e) {
+                    final status = (e['status'] ?? '').toString();
+                    final score = asDoubleOrNull(e['actual_score']);
+                    return _credentialItem(
+                      icon: status == 'passed'
+                          ? Icons.assignment_turned_in_outlined
+                          : Icons.assignment_outlined,
+                      color: status == 'passed'
+                          ? AppColors.success
+                          : status == 'failed'
+                              ? AppColors.error
+                              : AppColors.warning,
+                      title: (e['name'] ?? '').toString(),
+                      subtitle: [
+                        if (status.isNotEmpty)
+                          status[0].toUpperCase() + status.substring(1),
+                        if (score != null)
+                          'Score: ${score.toStringAsFixed(score == score.roundToDouble() ? 0 : 2)}',
+                      ].join(' · '),
+                      detail: _credentialDates(
+                        year: e['exam_date'],
+                        extra: e['certificate_number'],
+                        extraLabel: 'Cert.',
+                      ),
+                      documentUrl: e['document_url'] as String?,
+                    );
+                  }).toList(),
+                ),
+              ),
+            ),
+
+          if (exams.isNotEmpty) const SliverToBoxAdapter(child: SizedBox(height: 12)),
 
           if (reviews.isNotEmpty)
             SliverToBoxAdapter(
@@ -523,7 +660,7 @@ class _WorkerProfileScreenState extends State<WorkerProfileScreen> {
           const SizedBox(height: 8),
           Text(value,
               style: const TextStyle(
-                  fontSize: 13,
+                  fontSize: 13.5,
                   fontWeight: FontWeight.bold,
                   color: AppColors.neutral900),
               textAlign: TextAlign.center,
@@ -538,27 +675,239 @@ class _WorkerProfileScreenState extends State<WorkerProfileScreen> {
     );
   }
 
-  Widget _skillChip(String label, IconData icon) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      decoration: BoxDecoration(
-        color: AppColors.primary.withValues(alpha: 0.08),
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: AppColors.primary.withValues(alpha: 0.2)),
-      ),
+  /// A skill with its proficiency and years — an employer picking between two
+  /// masons needs that detail, not just the label.
+  Widget _skillRow(Map<String, dynamic> skill) {
+    final name = (skill['name'] ?? '').toString();
+    final proficiency = (skill['proficiency_level'] ?? '').toString();
+    final years = asIntOrNull(skill['years_of_experience']);
+
+    final profColor = switch (proficiency.toLowerCase()) {
+      'expert' => AppColors.success,
+      'advanced' => AppColors.primary,
+      'intermediate' => AppColors.warning,
+      _ => AppColors.neutral500,
+    };
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
       child: Row(
-        mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, size: 14, color: AppColors.primary),
-          const SizedBox(width: 6),
-          Text(label,
-              style: const TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w500,
-                  color: AppColors.primary)),
+          const Icon(Icons.build_outlined, size: 16, color: AppColors.primary),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(name,
+                style: const TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.neutral900)),
+          ),
+          if (years != null && years > 0) ...[
+            Text('$years yr${years == 1 ? '' : 's'}',
+                style: const TextStyle(
+                    fontSize: 12, color: AppColors.neutral500)),
+            const SizedBox(width: 8),
+          ],
+          if (proficiency.isNotEmpty)
+            Container(
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+              decoration: BoxDecoration(
+                color: profColor.withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: Text(
+                proficiency[0].toUpperCase() + proficiency.substring(1),
+                style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                    color: profColor),
+              ),
+            ),
         ],
       ),
     );
+  }
+
+  /// Builds the small grey line under a credential: issued/expiry dates plus
+  /// an identifying number, skipping whatever the worker didn't fill in.
+  String _credentialDates({
+    Object? year,
+    Object? expiry,
+    Object? extra,
+    String? extraLabel,
+  }) {
+    String? y(Object? v) {
+      if (v == null) return null;
+      final s = v.toString();
+      if (s.isEmpty) return null;
+      // Accept both a bare year ("2026") and a full ISO timestamp.
+      final parsed = DateTime.tryParse(s);
+      return parsed != null ? '${parsed.year}' : s;
+    }
+
+    final parts = <String>[];
+    final issued = y(year);
+    final exp = y(expiry);
+
+    if (issued != null && exp != null) {
+      parts.add('$issued – $exp');
+    } else if (issued != null) {
+      parts.add('Issued $issued');
+    } else if (exp != null) {
+      parts.add('Expires $exp');
+    }
+
+    final extraStr = extra?.toString().trim() ?? '';
+    if (extraStr.isNotEmpty && extraStr.toUpperCase() != 'N/A') {
+      parts.add('${extraLabel ?? ''} $extraStr'.trim());
+    }
+
+    return parts.join(' · ');
+  }
+
+  /// A credential (certification / license / exam) with its supporting
+  /// document. The document is the whole point — a claimed license with no
+  /// viewable scan is just a text field an employer has to take on faith.
+  Widget _credentialItem({
+    required IconData icon,
+    required Color color,
+    required String title,
+    required String subtitle,
+    String? detail,
+    String? documentUrl,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 14),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            width: 40,
+            height: 40,
+            decoration: BoxDecoration(
+              color: color.withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Icon(icon, color: color, size: 20),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(title,
+                    style: const TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w600,
+                        color: AppColors.neutral900)),
+                if (subtitle.isNotEmpty)
+                  Text(subtitle,
+                      style: const TextStyle(
+                          fontSize: 13.5, color: AppColors.neutral600)),
+                if (detail != null && detail.isNotEmpty)
+                  Text(detail,
+                      style: const TextStyle(
+                          fontSize: 12, color: AppColors.neutral500)),
+                if (documentUrl != null && documentUrl.isNotEmpty) ...[
+                  const SizedBox(height: 6),
+                  InkWell(
+                    onTap: () => _openDocument(documentUrl),
+                    borderRadius: BorderRadius.circular(6),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 2),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            documentUrl.toLowerCase().endsWith('.pdf')
+                                ? Icons.picture_as_pdf_outlined
+                                : Icons.image_outlined,
+                            size: 14,
+                            color: AppColors.primary,
+                          ),
+                          const SizedBox(width: 5),
+                          const Text('View document',
+                              style: TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w600,
+                                  color: AppColors.primary)),
+                        ],
+                      ),
+                    ),
+                  ),
+                ] else ...[
+                  const SizedBox(height: 4),
+                  const Text('No document provided',
+                      style: TextStyle(
+                          fontSize: 11,
+                          fontStyle: FontStyle.italic,
+                          color: AppColors.neutral400)),
+                ],
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Images open in-app (fast, no context switch); PDFs go to the system
+  /// viewer because Flutter can't render them without a heavy dependency.
+  Future<void> _openDocument(String url) async {
+    final isPdf = url.toLowerCase().endsWith('.pdf');
+
+    if (!isPdf) {
+      if (!mounted) return;
+      await showDialog<void>(
+        context: context,
+        builder: (_) => Dialog(
+          backgroundColor: Colors.black,
+          insetPadding: const EdgeInsets.all(12),
+          child: Stack(
+            children: [
+              InteractiveViewer(
+                maxScale: 5,
+                child: Center(
+                  child: Image.network(
+                    url,
+                    fit: BoxFit.contain,
+                    errorBuilder: (_, _, _) => const Padding(
+                      padding: EdgeInsets.all(40),
+                      child: Text('Could not load document',
+                          style: TextStyle(color: Colors.white)),
+                    ),
+                    loadingBuilder: (c, child, progress) => progress == null
+                        ? child
+                        : const Padding(
+                            padding: EdgeInsets.all(40),
+                            child: CircularProgressIndicator(
+                                color: Colors.white),
+                          ),
+                  ),
+                ),
+              ),
+              Positioned(
+                top: 4,
+                right: 4,
+                child: IconButton(
+                  icon: const Icon(Icons.close, color: Colors.white),
+                  onPressed: () => Navigator.pop(context),
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+      return;
+    }
+
+    final uri = Uri.tryParse(url);
+    if (uri == null) return;
+    final ok = await launchUrl(uri, mode: LaunchMode.externalApplication);
+    if (!ok && mounted) {
+      AppToast.error(context, 'Could not open the document');
+    }
   }
 
   Widget _experienceItem({
@@ -597,52 +946,14 @@ class _WorkerProfileScreenState extends State<WorkerProfileScreen> {
                 if (duration.isNotEmpty) ...[
                   const SizedBox(height: 2),
                   Text(duration,
-                      style: const TextStyle(fontSize: 13, color: AppColors.neutral600)),
+                      style: const TextStyle(fontSize: 13.5, color: AppColors.neutral600)),
                 ],
                 if (description.isNotEmpty) ...[
                   const SizedBox(height: 6),
                   Text(description,
                       style: const TextStyle(
-                          fontSize: 13, color: AppColors.neutral600, height: 1.4)),
+                          fontSize: 13.5, color: AppColors.neutral600, height: 1.4)),
                 ],
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _certItem({
-    required String title,
-    required String issuer,
-    required String year,
-  }) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 12),
-      child: Row(
-        children: [
-          Container(
-            width: 40,
-            height: 40,
-            decoration: BoxDecoration(
-              color: AppColors.success.withValues(alpha: 0.1),
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: const Icon(Icons.verified, color: AppColors.success, size: 20),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(title,
-                    style: const TextStyle(
-                        fontSize: 15,
-                        fontWeight: FontWeight.w600,
-                        color: AppColors.neutral900)),
-                Text('$issuer • $year',
-                    style: const TextStyle(fontSize: 13, color: AppColors.neutral600)),
               ],
             ),
           ),
@@ -710,27 +1021,89 @@ class _WorkerProfileScreenState extends State<WorkerProfileScreen> {
     );
   }
 
-  void _showInviteDialog(BuildContext context, String workerName) {
-    showDialog(
+  /// Picks one of your open jobs and sends a real invitation.
+  ///
+  /// The dialog said "Select a job post to invite $name to apply for" and then
+  /// offered a single "Select Job" button that selected nothing, popped, and
+  /// announced "Invitation sent!". No job was chosen, no request was made, and
+  /// the worker never saw an invitation — while the receiving side of the
+  /// feature was fully built and waiting.
+  Future<void> _showInviteDialog(BuildContext context, String workerName) async {
+    if (_workerId == null) return;
+
+    final jobProvider = context.read<JobProvider>();
+    await jobProvider.fetchMyJobs();
+    if (!mounted) return;
+
+    // Only open jobs can carry an invitation — the server refuses the rest.
+    final openJobs = jobProvider.jobs
+        .where((j) => (j['status'] ?? '').toString() == 'open')
+        .toList();
+
+    if (openJobs.isEmpty) {
+      AppToast.info(context, 'Post an open job first, then you can invite $workerName.');
+      return;
+    }
+
+    final jobId = await showDialog<int>(
       context: context,
-      builder: (_) => AlertDialog(
-        title: const Text('Invite to Apply'),
-        content: Text('Select a job post to invite $workerName to apply for:'),
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Invite to apply'),
+        content: SizedBox(
+          width: double.maxFinite,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('Which job is $workerName being invited to?',
+                  style: const TextStyle(fontSize: 13.5, color: AppColors.neutral600)),
+              const SizedBox(height: 12),
+              Flexible(
+                child: ListView.builder(
+                  shrinkWrap: true,
+                  itemCount: openJobs.length,
+                  itemBuilder: (_, i) {
+                    final job = openJobs[i];
+                    return ListTile(
+                      contentPadding: EdgeInsets.zero,
+                      title: Text((job['title'] ?? 'Untitled').toString(),
+                          style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
+                      subtitle: Text((job['location'] ?? '').toString(),
+                          style: const TextStyle(fontSize: 12)),
+                      onTap: () => Navigator.pop(dialogContext, job['id'] as int?),
+                    );
+                  },
+                ),
+              ),
+            ],
+          ),
+        ),
         actions: [
           TextButton(
-              onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
-          ElevatedButton(
-            onPressed: () {
-              Navigator.pop(context);
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(content: Text('Invitation sent to $workerName!')),
-              );
-            },
-            style: ElevatedButton.styleFrom(backgroundColor: AppColors.primary),
-            child: const Text('Select Job', style: TextStyle(color: Colors.white)),
-          ),
+              onPressed: () => Navigator.pop(dialogContext),
+              child: const Text('Cancel')),
         ],
       ),
     );
+
+    if (jobId == null || !mounted) return;
+
+    final sent = await context
+        .read<InvitationProvider>()
+        .sendInvitation(jobId: jobId, workerId: _workerId!);
+
+    if (!mounted) return;
+
+    if (sent) {
+      AppToast.success(context, 'Invitation sent to $workerName.');
+    } else {
+      // Surfaces the server's own reason — already invited, worker suspended,
+      // job no longer open — rather than a generic failure.
+      AppToast.error(
+        context,
+        context.read<InvitationProvider>().errorMessage ??
+            'Could not send the invitation.',
+      );
+    }
   }
 }

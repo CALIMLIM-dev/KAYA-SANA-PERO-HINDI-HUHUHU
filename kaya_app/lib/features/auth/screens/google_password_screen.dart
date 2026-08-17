@@ -54,10 +54,7 @@ class _GooglePasswordScreenState extends State<GooglePasswordScreen> {
     if (!_validate()) return;
 
     final success = await auth.completeGoogleSignIn(
-      googleId: googleData['google_id'],
-      name: googleData['name'],
-      email: googleData['email'],
-      avatar: googleData['avatar'],
+      idToken: googleData['id_token'],
       password: _passwordController.text,
       isSignup: true, // This is a new account signup
     );

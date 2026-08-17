@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../providers/worker_profile_provider.dart';
+import '../../../core/widgets/app_toast.dart';
 
 class AddExperienceScreen extends StatefulWidget {
   const AddExperienceScreen({super.key});
@@ -70,10 +71,7 @@ class _AddExperienceScreenState extends State<AddExperienceScreen> {
       final success = await provider.createExperience(result);
       if (!mounted) return;
 
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text(success ? 'Experience saved' : (provider.errorMessage ?? 'Failed to save')),
-        backgroundColor: success ? AppColors.success : AppColors.error,
-      ));
+      AppToast.info(context, success ? 'Experience saved' : (provider.errorMessage ?? 'Failed to save'));
     }
   }
 
@@ -98,10 +96,7 @@ class _AddExperienceScreenState extends State<AddExperienceScreen> {
     final success = await provider.updateExperience(id, result);
     if (!mounted) return;
 
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-      content: Text(success ? 'Experience updated' : (provider.errorMessage ?? 'Failed to update')),
-      backgroundColor: success ? AppColors.success : AppColors.error,
-    ));
+    AppToast.info(context, success ? 'Experience updated' : (provider.errorMessage ?? 'Failed to update'));
   }
 
   // Convert "YYYY-MM-01" back to "M/YYYY" for the form
@@ -330,7 +325,7 @@ class _AddExperienceScreenState extends State<AddExperienceScreen> {
           if ((exp['description'] as String?)?.isNotEmpty == true) ...[
             const SizedBox(height: 6),
             Text(exp['description'] ?? '',
-                style: const TextStyle(fontSize: 13, color: AppColors.neutral600, height: 1.4)),
+                style: const TextStyle(fontSize: 13.5, color: AppColors.neutral600, height: 1.4)),
           ],
         ],
       ),
@@ -380,7 +375,7 @@ class _AddExperienceScreenState extends State<AddExperienceScreen> {
           if ((exp['description'] as String?)?.isNotEmpty == true) ...[
             const SizedBox(height: 6),
             Text(exp['description'] ?? '',
-                style: const TextStyle(fontSize: 13, color: AppColors.neutral600, height: 1.4)),
+                style: const TextStyle(fontSize: 13.5, color: AppColors.neutral600, height: 1.4)),
           ],
         ],
       ),

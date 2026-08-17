@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import '../../../core/utils/realtime_refresh.dart';
 
 import '../../../core/constants/app_colors.dart';
 import '../../../providers/job_provider.dart';
+import '../../../core/widgets/app_toast.dart';
 
 /// Manage Jobs Screen — employer's posted jobs, on real data from JobProvider.
 ///
@@ -20,16 +22,26 @@ class ManageJobsScreen extends StatefulWidget {
 }
 
 class _ManageJobsScreenState extends State<ManageJobsScreen>
-    with SingleTickerProviderStateMixin {
+    with SingleTickerProviderStateMixin, RealtimeRefresh {
   late TabController _tabController;
+
+  /// Keeps the applicant counts on each job card honest while the employer is
+  /// looking at them.
+  @override
+  List<String> get refreshOn => const ['application.', 'invitation.'];
+
+  @override
+  void onRealtimeRefresh() => context.read<JobProvider>().fetchMyJobs();
 
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
-    WidgetsBinding.instance.addPostFrameCallback(
-      (_) => context.read<JobProvider>().fetchMyJobs(),
-    );
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      context.read<JobProvider>().fetchMyJobs();
+      bindRealtimeRefresh();
+    });
   }
 
   @override
@@ -123,7 +135,7 @@ class _ManageJobsScreenState extends State<ManageJobsScreen>
             const SizedBox(height: 8),
             Text(message,
                 textAlign: TextAlign.center,
-                style: const TextStyle(fontSize: 13, color: AppColors.neutral400)),
+                style: const TextStyle(fontSize: 13.5, color: AppColors.neutral400)),
             const SizedBox(height: 20),
             OutlinedButton(
               onPressed: () => context.read<JobProvider>().fetchMyJobs(),
@@ -173,6 +185,12 @@ class _ManageJobsScreenState extends State<ManageJobsScreen>
     final status = _statusOf(job);
     final jobId = job['id'] as int;
     final title = (job['title'] ?? '').toString();
+
+    // The single hire on this job, when there is exactly one. Null on a job
+    // with two people on it, where a card cannot say which of them you mean —
+    // those keep going through the applicant list.
+    final hire = job['hire'] as Map<String, dynamic>?;
+    final conversationId = hire?['conversation_id'] as int?;
     final category = (job['category'] as Map<String, dynamic>?)?['name']?.toString();
     final location = (job['city'] ?? job['location'] ?? '').toString();
     final applicants = (job['application_count'] as num?)?.toInt() ?? 0;
@@ -287,7 +305,7 @@ class _ManageJobsScreenState extends State<ManageJobsScreen>
                           shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(8)),
                           textStyle: const TextStyle(
-                              fontSize: 13, fontWeight: FontWeight.w600),
+                              fontSize: 13.5, fontWeight: FontWeight.w600),
                         ),
                       ),
                     ),
@@ -302,7 +320,7 @@ class _ManageJobsScreenState extends State<ManageJobsScreen>
                         shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(8)),
                       ),
-                      child: const Text('Manage', style: TextStyle(fontSize: 13)),
+                      child: const Text('Manage', style: TextStyle(fontSize: 13.5)),
                     ),
                   ],
                 ),
@@ -310,12 +328,58 @@ class _ManageJobsScreenState extends State<ManageJobsScreen>
                 const SizedBox(height: 12),
                 const Divider(height: 1),
                 const SizedBox(height: 10),
+                /*
+                    Completion state, so the button is not a dead end.
+
+                    The employer taps "Mark Complete", the server records their
+                    half and correctly leaves the job in progress — and this card
+                    then looked exactly as it did before, so it read as though
+                    nothing happened and invited another tap. This says who is
+                    still to confirm.
+                */
+                if (hire != null && hire['employer_completed_at'] != null) ...[
+                  Row(
+                    children: [
+                      const Icon(Icons.hourglass_empty,
+                          size: 14, color: AppColors.neutral500),
+                      const SizedBox(width: 6),
+                      Expanded(
+                        child: Text(
+                          'You marked this done — waiting for '
+                          '${hire['worker_name'] ?? 'the worker'} to confirm',
+                          style: const TextStyle(
+                              fontSize: 12, color: AppColors.neutral600),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 10),
+                ],
                 Row(
                   children: [
                     Expanded(
                       child: OutlinedButton.icon(
-                        onPressed: () =>
-                            Navigator.pushNamed(context, '/messages'),
+                        // Straight to the thread. This pushed '/messages', the
+                        // whole inbox — the same fault fixed on the applicant
+                        // list, still living here because this screen is a
+                        // second copy of that one.
+                        onPressed: conversationId == null
+                            ? null
+                            : () => Navigator.pushNamed(
+                                  context,
+                                  '/chat',
+                                  arguments: {
+                                    'conversationId': conversationId,
+                                    'name': hire?['worker_name'] ?? 'Worker',
+                                    'jobTitle': title,
+                                    'jobId': jobId,
+                                    'otherUserId': hire?['worker_id'],
+                                    'applicationId': hire?['application_id'],
+                                    'jobStatus': status,
+                                    'myRole': 'employer',
+                                    'otherRole': 'worker',
+                                  },
+                                ),
                         icon: const Icon(Icons.message_outlined, size: 16),
                         label: const Text('Message Worker'),
                         style: OutlinedButton.styleFrom(
@@ -325,7 +389,7 @@ class _ManageJobsScreenState extends State<ManageJobsScreen>
                           shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(8)),
                           textStyle: const TextStyle(
-                              fontSize: 13, fontWeight: FontWeight.w600),
+                              fontSize: 13.5, fontWeight: FontWeight.w600),
                         ),
                       ),
                     ),
@@ -343,7 +407,7 @@ class _ManageJobsScreenState extends State<ManageJobsScreen>
                       ),
                       child: const Text('Mark Complete',
                           style: TextStyle(
-                              fontSize: 13, fontWeight: FontWeight.w600)),
+                              fontSize: 13.5, fontWeight: FontWeight.w600)),
                     ),
                   ],
                 ),
@@ -351,14 +415,52 @@ class _ManageJobsScreenState extends State<ManageJobsScreen>
                 const SizedBox(height: 12),
                 const Divider(height: 1),
                 const SizedBox(height: 10),
+                /*
+                    Straight to the review when one person was hired.
+
+                    This said "View Applicants & Leave a Review" and sent you to
+                    the applicant list to find the button — the same burial that
+                    was fixed on the My Activity card. With one hire the card
+                    knows who you mean, so it just opens the review.
+                */
+                if (hire != null && hire['i_reviewed_them'] == true)
+                  Row(
+                    children: [
+                      const Icon(Icons.check_circle_outline,
+                          size: 15, color: AppColors.success),
+                      const SizedBox(width: 6),
+                      Expanded(
+                        child: Text(
+                          'You reviewed ${hire['worker_name'] ?? 'the worker'}',
+                          style: const TextStyle(
+                              fontSize: 12, color: AppColors.neutral600),
+                        ),
+                      ),
+                    ],
+                  )
+                else
                 SizedBox(
                   width: double.infinity,
                   child: OutlinedButton.icon(
-                    onPressed: () => Navigator.pushNamed(
-                        context, '/view-applicants',
-                        arguments: {'jobId': jobId}),
+                    onPressed: () => hire == null
+                        ? Navigator.pushNamed(context, '/view-applicants',
+                            arguments: {'jobId': jobId})
+                        : Navigator.pushNamed(
+                            context,
+                            '/leave-review',
+                            arguments: {
+                              'revieweeId': hire['worker_id'],
+                              'revieweeName':
+                                  (hire['worker_name'] ?? 'Worker').toString(),
+                              'revieweeRole': 'worker',
+                              'jobId': jobId,
+                              'jobTitle': title,
+                            },
+                          ),
                     icon: const Icon(Icons.star_outline, size: 18),
-                    label: const Text('View Applicants & Leave a Review'),
+                    label: Text(hire == null
+                        ? 'View applicants to review'
+                        : 'Review ${hire['worker_name'] ?? 'worker'}'),
                     style: OutlinedButton.styleFrom(
                       foregroundColor: AppColors.accent,
                       side: const BorderSide(color: AppColors.accent),
@@ -465,10 +567,18 @@ class _ManageJobsScreenState extends State<ManageJobsScreen>
                     color: AppColors.neutral900)),
             const SizedBox(height: 4),
             const Text('Choose an action',
-                style: TextStyle(fontSize: 13, color: AppColors.neutral600)),
+                style: TextStyle(fontSize: 13.5, color: AppColors.neutral600)),
             const SizedBox(height: 20),
             _actionTile(Icons.edit_outlined, 'Edit Job', AppColors.primary, () {
               Navigator.pop(context);
+              /*
+                  Everything the edit form can change has to arrive here.
+
+                  Only half of it used to. The form opened with its own
+                  defaults for the rest — not urgent, Daily, no maximum — so an
+                  urgent job displayed as ordinary, and saving would have
+                  written those defaults back over the real values.
+              */
               Navigator.pushNamed(context, '/edit-job', arguments: {
                 'id': jobId,
                 'title': job['title'],
@@ -476,6 +586,19 @@ class _ManageJobsScreenState extends State<ManageJobsScreen>
                 'category_id': category?['id'],
                 'description': job['description'],
                 'budget_min': job['budget_min'],
+                'budget_max': job['budget_max'],
+                'budget_period': job['budget_period'],
+                'is_urgent': job['is_urgent'],
+                'is_negotiable': job['is_negotiable'],
+                // Same reason as the fields above: the edit form sends these
+                // back, so omitting them here would hand it nulls and wipe the
+                // job's schedule on the first save.
+                'start_date': job['start_date'],
+                'end_date': job['end_date'],
+                'skill_ids': (job['skills'] as List?)
+                    ?.map((s) => (s as Map)['id'])
+                    .whereType<int>()
+                    .toList(),
                 'location': job['city'] ?? job['location'],
                 'location_id': job['location_id'],
               });
@@ -514,24 +637,40 @@ class _ManageJobsScreenState extends State<ManageJobsScreen>
       context: context,
       builder: (_) => AlertDialog(
         title: const Text('Mark as Completed?'),
-        content: Text('Mark "$title" as completed?'),
+        // Says what actually happens. Completion is two-sided now: this records
+        // the employer's half and the worker still has to confirm.
+        content: Text(
+          'Mark "$title" as complete? The worker has to confirm as well before '
+          'the job counts as finished and either of you can leave a review.',
+        ),
         actions: [
           TextButton(
               onPressed: () => Navigator.pop(context),
-              child: const Text('Cancel')),
+              child: const Text('Not yet')),
           ElevatedButton(
             onPressed: () async {
               Navigator.pop(context);
-              final ok =
-                  await context.read<JobProvider>().changeStatus(jobId, 'completed');
+              final provider = context.read<JobProvider>();
+              final ok = await provider.changeStatus(jobId, 'completed');
               if (!mounted) return;
-              ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-                content: Text(ok
-                    ? 'Job marked as completed'
-                    : context.read<JobProvider>().errorMessage ??
-                        'Failed to update job'),
-                backgroundColor: ok ? AppColors.success : AppColors.error,
-              ));
+
+              /*
+                  The server's own wording, not a fixed string.
+
+                  This said "Job marked as completed" whenever the call
+                  succeeded. Since completion became two-sided that call
+                  succeeds while leaving the job in progress — so the employer
+                  was told the job was finished, then found no review button and
+                  a job still listed as active. The screen was reporting an
+                  outcome it had not checked.
+              */
+              AppToast.info(
+                context,
+                ok
+                    ? (provider.lastStatusMessage ??
+                        'Marked complete. Waiting for the worker to confirm.')
+                    : provider.errorMessage ?? 'Failed to update job',
+              );
             },
             style: ElevatedButton.styleFrom(backgroundColor: AppColors.success),
             child: const Text('Mark Complete',
@@ -558,13 +697,10 @@ class _ManageJobsScreenState extends State<ManageJobsScreen>
               final ok =
                   await context.read<JobProvider>().changeStatus(jobId, 'closed');
               if (!mounted) return;
-              ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-                content: Text(ok
+              AppToast.info(context, ok
                     ? 'Job closed'
                     : context.read<JobProvider>().errorMessage ??
-                        'Failed to close job'),
-                backgroundColor: ok ? null : AppColors.error,
-              ));
+                        'Failed to close job');
             },
             style: ElevatedButton.styleFrom(backgroundColor: AppColors.error),
             child:

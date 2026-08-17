@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../../core/constants/app_colors.dart';
+import '../../../core/utils/format.dart';
 import '../../../data/models/worker_profile_model.dart';
 
 /// Compact Worker Card for horizontal scrolling  
@@ -75,7 +76,7 @@ class CompactWorkerCard extends StatelessWidget {
                                 worker.name,
                                 style: Theme.of(context).textTheme.titleSmall?.copyWith(
                                   fontWeight: FontWeight.bold,
-                                  fontSize: 13,
+                                  fontSize: 13.5,
                                 ),
                                 overflow: TextOverflow.ellipsis,
                                 maxLines: 1,
@@ -244,7 +245,7 @@ class CompactWorkerCard extends StatelessWidget {
       parts.add(worker.location!);
     }
     if (worker.distance != null) {
-      parts.add('${worker.distance!.toStringAsFixed(1)}km away');
+      parts.add(formatDistance(worker.distance!));
     }
     return parts.join(' • ');
   }

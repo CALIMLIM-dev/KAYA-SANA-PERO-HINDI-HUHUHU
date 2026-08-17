@@ -2,8 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../providers/app_mode_provider.dart';
+import '../../../providers/notification_provider.dart';
+import '../../../providers/profile_view_provider.dart';
 import '../../../providers/auth_provider.dart';
-import '../../auth/widgets/terms_modal.dart';
+import '../../legal/screens/legal_screen.dart';
 
 /// Profile / Account Screen
 class ProfileScreen extends StatelessWidget {
@@ -12,14 +14,20 @@ class ProfileScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final auth = context.watch<AuthProvider>();
-    final String userName = 'Eddison';
-    final String userRole = 'Worker';
-    final String primarySkill = 'Professional Plumber';
-    final String location = 'Urdaneta City, Pangasinan';
-    final String email = 'eddison@email.com';
-    final String phone = '+63 912 345 6789';
-    final bool isVerified = DateTime.now().millisecondsSinceEpoch < 0;
-    final int yearsExperience = 5;
+
+    // Everything shown here now comes from the signed-in account.
+    //
+    // This screen previously declared eight hardcoded values — name 'Eddison',
+    // 'Professional Plumber', '5 years experience', an email and a phone
+    // number — so every user who opened their own profile saw one developer's
+    // details. The trade, years of experience and location were dropped rather
+    // than wired: they belong to the worker profile, they are already shown on
+    // it, and repeating them here only creates a second place to go stale.
+    final String userName = (auth.user?['name'] as String?)?.trim().isNotEmpty == true
+        ? auth.user!['name'] as String
+        : 'Your account';
+    final String email = (auth.user?['email'] as String?) ?? '';
+    final bool isVerified = auth.user?['is_verified'] == true;
 
     return Scaffold(
       backgroundColor: AppColors.neutral50,
@@ -86,51 +94,17 @@ class ProfileScreen extends StatelessWidget {
                                 fontSize: 24,
                                 fontWeight: FontWeight.bold,
                                 color: Colors.white)),
-                        const SizedBox(height: 4),
-                        Text(
-                          userRole == 'Worker' ? primarySkill : 'Employer',
-                          style: TextStyle(
-                              fontSize: 16,
-                              color: Colors.white.withValues(alpha: 0.9)),
-                        ),
-                        const SizedBox(height: 8),
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            const Icon(Icons.location_on,
-                                color: Colors.white, size: 16),
-                            const SizedBox(width: 4),
-                            Text(location,
-                                style: TextStyle(
-                                    color:
-                                        Colors.white.withValues(alpha: 0.9),
-                                    fontSize: 14)),
-                          ],
-                        ),
-                        if (userRole == 'Worker') ...[
-                          const SizedBox(height: 16),
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 16, vertical: 8),
-                            decoration: BoxDecoration(
-                              color:
-                                  Colors.white.withValues(alpha: 0.2),
-                              borderRadius: BorderRadius.circular(20),
-                            ),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                const Icon(Icons.work,
-                                    color: Colors.white, size: 16),
-                                const SizedBox(width: 6),
-                                Text('$yearsExperience years experience',
-                                    style: TextStyle(
-                                        color: Colors.white
-                                            .withValues(alpha: 0.9),
-                                        fontSize: 14,
-                                        fontWeight: FontWeight.w600)),
-                              ],
-                            ),
+                        // Trade, years of experience and location used to sit
+                        // here as fixed strings. They belong to the worker
+                        // profile, which already shows them — duplicating them
+                        // on this screen only created a second place to drift.
+                        if (email.isNotEmpty) ...[
+                          const SizedBox(height: 4),
+                          Text(
+                            email,
+                            style: TextStyle(
+                                fontSize: 14,
+                                color: Colors.white.withValues(alpha: 0.9)),
                           ),
                         ],
                       ],
@@ -151,44 +125,12 @@ class ProfileScreen extends StatelessWidget {
             ),
           ),
 
-          // ── Contact Info ──
-          SliverToBoxAdapter(
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  _SectionHeader(title: 'Contact Information'),
-                  const SizedBox(height: 12),
-                  Container(
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Column(
-                      children: [
-                        _InfoRow(
-                            icon: Icons.email_outlined,
-                            label: 'Email',
-                            value: email),
-                        const Divider(height: 24),
-                        _InfoRow(
-                            icon: Icons.phone_outlined,
-                            label: 'Phone',
-                            value: phone),
-                        const Divider(height: 24),
-                        _InfoRow(
-                            icon: Icons.location_on_outlined,
-                            label: 'Location',
-                            value: location),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
+          // A "Contact Information" card sat here showing a fixed email, phone
+          // number and location — the same three values for every account.
+          // Removed rather than wired up: the email is already in the header,
+          // and phone and location are edited on the worker profile, so a
+          // read-only copy here would just be another thing to keep in step.
+          const SliverToBoxAdapter(child: SizedBox(height: 8)),
 
           // ── Account ──
           SliverToBoxAdapter(
@@ -198,10 +140,26 @@ class ProfileScreen extends StatelessWidget {
                 children: [
                   _SectionHeader(title: 'Account'),
                   const SizedBox(height: 12),
+                  // Both sides are always listed, whether or not the account
+                  // has them. That is the hybrid model made visible: an
+                  // account is not "a worker" or "an employer", it simply has
+                  // or hasn't set each side up, and either can be added at any
+                  // time. Hiding the missing one would leave a user with no
+                  // way to discover they could hire as well as work.
+                  //
+                  // Neither branches on existence here — the routers decide.
                   _MenuItem(
                     icon: Icons.person_outline,
                     title: 'Worker Profile',
-                    subtitle: 'Manage your skills and availability',
+                    // Only when there is something to prompt. "Edit your
+                    // skills, experience and rate" under "Worker Profile" was
+                    // saying the same thing twice.
+                    subtitle: auth.workerProfileExists
+                        ? null
+                        : 'Set this up to apply for jobs',
+                    trailing: auth.workerProfileExists
+                        ? null
+                        : const _AddChip(),
                     onTap: () =>
                         Navigator.pushNamed(context, '/my-worker-profile'),
                   ),
@@ -209,14 +167,13 @@ class ProfileScreen extends StatelessWidget {
                     icon: Icons.business_outlined,
                     title: 'Employer Profile',
                     subtitle: auth.employerProfileExists
-                        ? 'View and edit your employer profile'
-                        : 'Set up your employer profile',
-                    onTap: () => Navigator.pushNamed(
-                      context,
-                      auth.employerProfileExists
-                          ? '/my-employer-profile'
-                          : '/setup-employer-profile',
-                    ),
+                        ? null
+                        : 'Set this up to post jobs and hire',
+                    trailing: auth.employerProfileExists
+                        ? null
+                        : const _AddChip(),
+                    onTap: () =>
+                        Navigator.pushNamed(context, '/my-employer-profile'),
                   ),
 
                   const SizedBox(height: 24),
@@ -227,15 +184,17 @@ class ProfileScreen extends StatelessWidget {
                   _MenuItem(
                     icon: Icons.bookmark_outline,
                     title: 'Saved Jobs',
-                    subtitle: 'View your saved job postings',
                     onTap: () =>
                         Navigator.pushNamed(context, '/saved-jobs'),
                   ),
-                  if (userRole == 'Employer')
+                  // Gated on the real profile flag. This used to read
+                  // `userRole == 'Employer'` against a variable hardcoded to
+                  // 'Worker', so the condition was never true and My Job Posts
+                  // was invisible to everyone, employers included.
+                  if (auth.employerProfileExists)
                     _MenuItem(
                       icon: Icons.business_center_outlined,
                       title: 'My Job Posts',
-                      subtitle: 'Manage jobs you posted',
                       onTap: () =>
                           Navigator.pushNamed(context, '/manage-jobs'),
                     ),
@@ -248,7 +207,6 @@ class ProfileScreen extends StatelessWidget {
                   _MenuItem(
                     icon: Icons.settings_outlined,
                     title: 'Settings',
-                    subtitle: 'Security, language, notifications',
                     onTap: () =>
                         Navigator.pushNamed(context, '/settings'),
                   ),
@@ -261,27 +219,23 @@ class ProfileScreen extends StatelessWidget {
                   _MenuItem(
                     icon: Icons.help_outline,
                     title: 'Help Center',
-                    subtitle: 'FAQs and support',
                     onTap: () => Navigator.pushNamed(context, '/faq'),
                   ),
-                  _MenuItem(
-                    icon: Icons.info_outline,
-                    title: 'About',
-                    subtitle: 'Version 1.0.0',
-                    onTap: () {},
-                  ),
+                  // "About" was a row with an empty onTap — it looked tappable
+                  // and did nothing, which reads as a broken app rather than a
+                  // missing screen. The only thing it carried was the version,
+                  // so that is shown plainly at the bottom instead.
                   _MenuItem(
                     icon: Icons.description_outlined,
                     title: 'Terms & Privacy',
-                    subtitle: 'Read our policies',
-                    onTap: () {
-                      showModalBottomSheet<bool>(
-                        context: context,
-                        isScrollControlled: true,
-                        backgroundColor: Colors.transparent,
-                        builder: (_) => const TermsModal(),
-                      );
-                    },
+                    // Opens the reader, not the sign-up consent sheet. The sheet
+                    // gates its button on scrolling both documents to the end,
+                    // which is right when taking consent and absurd when
+                    // somebody wants to check one clause.
+                    onTap: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => const LegalScreen()),
+                    ),
                   ),
 
                   const SizedBox(height: 24),
@@ -300,6 +254,15 @@ class ProfileScreen extends StatelessWidget {
                         shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(12)),
                       ),
+                    ),
+                  ),
+
+                  const SizedBox(height: 20),
+                  Center(
+                    child: Text(
+                      'KAYA version 1.0.0',
+                      style: TextStyle(
+                          fontSize: 12, color: AppColors.neutral400),
                     ),
                   ),
 
@@ -333,10 +296,20 @@ class ProfileScreen extends StatelessWidget {
               final auth = Provider.of<AuthProvider>(context, listen: false);
               final appMode =
                   Provider.of<AppModeProvider>(context, listen: false);
+              final notifications =
+                  Provider.of<NotificationProvider>(context, listen: false);
+              final profileViews =
+                  Provider.of<ProfileViewProvider>(context, listen: false);
               await auth.logout();
               // Drop the persisted Worker/Employer mode so the next account to
               // sign in on this device does not inherit it.
               await appMode.clear();
+              // Same reason: a stale badge count and someone else's inbox must
+              // not survive into the next session.
+              notifications.clear();
+              // And the previous account's view count, which would otherwise
+              // greet the next person as if it were theirs.
+              profileViews.clear();
 
               // Navigate to login screen and clear navigation stack
               if (context.mounted) {
@@ -375,54 +348,31 @@ class _SectionHeader extends StatelessWidget {
   }
 }
 
-class _InfoRow extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  final String value;
-
-  const _InfoRow(
-      {required this.icon, required this.label, required this.value});
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      children: [
-        Icon(icon, color: AppColors.primary, size: 20),
-        const SizedBox(width: 12),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(label,
-                  style: const TextStyle(
-                      fontSize: 12,
-                      color: AppColors.neutral600,
-                      fontWeight: FontWeight.w500)),
-              const SizedBox(height: 2),
-              Text(value,
-                  style: const TextStyle(
-                      fontSize: 15,
-                      color: AppColors.neutral900,
-                      fontWeight: FontWeight.w600)),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-}
-
 class _MenuItem extends StatelessWidget {
   final IconData icon;
   final String title;
-  final String subtitle;
+
+  /// Optional, and usually absent.
+  ///
+  /// Every row used to carry one, so the screen read as a manual — "Saved
+  /// Jobs / View your saved job postings" says the same thing twice and gives
+  /// the eye nothing to rank. A subtitle is kept only where it tells you
+  /// something the title cannot, which in practice means prompting a profile
+  /// side that has not been set up yet. Those rows then stand out, which is
+  /// the point.
+  final String? subtitle;
   final VoidCallback onTap;
+
+  /// Replaces the chevron when a row needs to say more than "opens something" —
+  /// used to mark a profile side the account hasn't set up yet.
+  final Widget? trailing;
 
   const _MenuItem({
     required this.icon,
     required this.title,
-    required this.subtitle,
+    this.subtitle,
     required this.onTap,
+    this.trailing,
   });
 
   @override
@@ -446,13 +396,47 @@ class _MenuItem extends StatelessWidget {
                 .textTheme
                 .titleSmall
                 ?.copyWith(fontWeight: FontWeight.w600)),
-        subtitle: Text(subtitle,
-            style: Theme.of(context)
-                .textTheme
-                .bodySmall
-                ?.copyWith(color: AppColors.neutral600)),
-        trailing: const Icon(Icons.chevron_right, color: AppColors.neutral400),
+        subtitle: subtitle == null
+            ? null
+            : Text(subtitle!,
+                style: Theme.of(context)
+                    .textTheme
+                    .bodySmall
+                    ?.copyWith(color: AppColors.neutral600)),
+        trailing: trailing ??
+            const Icon(Icons.chevron_right, color: AppColors.neutral400),
         onTap: onTap,
+      ),
+    );
+  }
+}
+
+/// Marks a profile side the account hasn't created yet.
+///
+/// A row that reads identically whether or not you have the thing gives the
+/// user no way to tell "edit" from "create" until they've tapped it.
+class _AddChip extends StatelessWidget {
+  const _AddChip();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+      decoration: BoxDecoration(
+        color: AppColors.primary.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: const Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(Icons.add, size: 14, color: AppColors.primary),
+          SizedBox(width: 3),
+          Text('Add',
+              style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w700,
+                  color: AppColors.primary)),
+        ],
       ),
     );
   }

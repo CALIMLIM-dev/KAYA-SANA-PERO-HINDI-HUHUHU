@@ -2,8 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../data/models/location_model.dart';
+import '../../../data/models/skill_model.dart';
 import '../../../providers/job_provider.dart';
+import '../../../providers/worker_profile_provider.dart';
 import '../../../shared/widgets/location_picker_field.dart';
+import '../../../core/widgets/app_toast.dart';
 
 /// Edit Job Screen — pre-filled form for editing an existing job post
 /// Arguments: { id, title, category, category_id, description, budget,
@@ -35,13 +38,54 @@ class _EditJobScreenState extends State<EditJobScreen> {
 
   String? _selectedCategory;
   String _salaryType = 'Daily';
-  List<String> _selectedSkills = [];
+
+  /// Real skill ids, so the job's requirements can be matched against the
+  /// skills workers picked during onboarding. The old `List<String>` of names
+  /// came from a hardcoded map and could never be sent — the server takes ids.
+  List<int> _selectedSkillIds = [];
+
+  final _budgetMaxController = TextEditingController();
   bool _isLoading = false;
+  // Prefilled from the job being edited — see the note in didChangeDependencies.
+  DateTime? _startDate;
+  DateTime? _endDate;
+
   bool _isUrgent = false;
   bool _isNegotiable = false;
   bool _initialized = false;
 
-  final List<Map<String, dynamic>> _categories = [
+  /// Categories from the server, each carrying its real id.
+  ///
+  /// The hardcoded list below has no ids at all, which is why picking a new
+  /// category could never change the job's category — and it carried an
+  /// "Other" entry that does not exist in the categories table.
+  List<Map<String, dynamic>> get _categories {
+    final rows = context.read<WorkerProfileProvider>().categories;
+    if (rows.isEmpty) return _fallbackCategories;
+
+    return rows
+        .map((c) => {
+              'id': c.id,
+              'name': c.name,
+              'icon': _iconFor(c.name),
+            })
+        .toList();
+  }
+
+  /// Icons are client-side because the table has no icon column. An unmapped
+  /// name gets a generic tool rather than a blank space.
+  static IconData _iconFor(String name) {
+    for (final c in _fallbackCategories) {
+      if ((c['name'] as String).toLowerCase() == name.toLowerCase()) {
+        return c['icon'] as IconData;
+      }
+    }
+    return Icons.build;
+  }
+
+  /// Only used to look up icons, and as a last resort if the taxonomy has not
+  /// loaded yet. Never used to derive an id.
+  static final List<Map<String, dynamic>> _fallbackCategories = [
     {'name': 'Plumbing',        'icon': Icons.plumbing},
     {'name': 'Electrical',      'icon': Icons.electrical_services},
     {'name': 'Painting',        'icon': Icons.format_paint},
@@ -62,26 +106,6 @@ class _EditJobScreenState extends State<EditJobScreen> {
     {'name': 'Other',           'icon': Icons.build},
   ];
 
-  final Map<String, List<String>> _categorySkills = {
-    'Plumbing':        ['Plumbing', 'Pipe Repair', 'Emergency Service', 'Installation', 'Leak Detection'],
-    'Electrical':      ['Wiring', 'Circuit Repair', 'Panel Installation', 'Troubleshooting', 'Lighting'],
-    'Painting':        ['Interior Painting', 'Exterior Painting', 'Surface Preparation', 'Color Matching'],
-    'Carpentry':       ['Cabinet Making', 'Furniture Repair', 'Framing', 'Trim Work', 'Custom Woodwork'],
-    'Construction':    ['Concrete Work', 'Masonry', 'Tile Work', 'Drywall', 'Framing'],
-    'HVAC':            ['AC Repair', 'Heating Installation', 'Duct Cleaning', 'Maintenance'],
-    'Landscaping':     ['Lawn Care', 'Garden Design', 'Tree Trimming', 'Irrigation'],
-    'Cleaning':        ['Deep Cleaning', 'Window Cleaning', 'Floor Polishing', 'Sanitization'],
-    'Roofing':         ['Roof Repair', 'Installation', 'Inspection', 'Waterproofing'],
-    'Flooring':        ['Tile Installation', 'Hardwood', 'Laminate', 'Vinyl'],
-    'Automotive':      ['Engine Repair', 'Oil Change', 'Brake Service', 'Diagnostics'],
-    'Appliance Repair':['Refrigerator', 'Washing Machine', 'Oven', 'Dishwasher'],
-    'Security':        ['CCTV Installation', 'Alarm Systems', 'Access Control', 'Monitoring'],
-    'Moving':          ['Packing', 'Loading', 'Transportation', 'Unpacking'],
-    'Pest Control':    ['Termite Treatment', 'Rodent Control', 'Fumigation', 'Prevention'],
-    'Pool Services':   ['Pool Cleaning', 'Chemical Balance', 'Repair', 'Maintenance'],
-    'Delivery':        ['Same Day', 'Express', 'Bulk', 'Fragile Items'],
-    'Other':           ['General Labor', 'Handyman', 'Specialized Work'],
-  };
 
   @override
   void dispose() {
@@ -90,6 +114,7 @@ class _EditJobScreenState extends State<EditJobScreen> {
     _budgetController.dispose();
     _locationController.dispose();
     _workersNeededController.dispose();
+    _budgetMaxController.dispose();
     super.dispose();
   }
 
@@ -115,21 +140,191 @@ class _EditJobScreenState extends State<EditJobScreen> {
             (args['workersNeeded'] ?? 1).toString();
         _selectedCategory = args['category'] as String?;
         _categoryId       = args['category_id'] as int?;
-        _salaryType       = args['salaryType'] as String? ?? 'Daily';
-        _isUrgent         = args['isUrgent'] as bool? ?? false;
-        _isNegotiable     = args['isNegotiable'] as bool? ?? false;
-        _selectedSkills   = List<String>.from(args['selectedSkills'] ?? []);
+        _budgetMaxController.text =
+            (args['budget_max'] ?? '').toString().replaceAll('null', '');
+
+        /*
+            Read the job's own values, not this form's defaults.
+
+            These four used to fall back to Daily / not urgent / not
+            negotiable because the caller never sent them. The form showed an
+            urgent job as ordinary — and now that the payload includes them,
+            defaulting would write that back and un-urgent the job on save.
+        */
+        _salaryType = _periodToLabel(args['budget_period'] as String?);
+        _isUrgent     = args['is_urgent'] == true || args['isUrgent'] == true;
+        _isNegotiable = args['is_negotiable'] == true || args['isNegotiable'] == true;
+        _selectedSkillIds = List<int>.from(args['skill_ids'] ?? const <int>[]);
+
+        /*
+            Same trap as the four above, and worse.
+
+            The payload below sends start_date, and update() accepts it as
+            nullable — so failing to prefill here would send null and erase the
+            job's schedule the first time the employer corrects a typo. Read the
+            job's own dates or send nothing at all.
+        */
+        _startDate = DateTime.tryParse((args['start_date'] ?? '').toString());
+        _endDate   = DateTime.tryParse((args['end_date'] ?? '').toString());
       }
+
+      // The category picker and skill chips read the server's taxonomy, so it
+      // has to be there. Without this the picker falls back to the local list
+      // (icons only, no ids) and no skill chip can appear.
+      final taxonomy = context.read<WorkerProfileProvider>();
+      if (taxonomy.categories.isEmpty) taxonomy.fetchCategories();
+      if (taxonomy.availableSkills.isEmpty) taxonomy.fetchSkills();
     }
   }
 
-  List<String> get _availableSkills =>
-      _selectedCategory != null ? (_categorySkills[_selectedCategory!] ?? []) : [];
+  // ── Schedule ────────────────────────────────────────────────────────────────
 
-  void _updateCategory(String? category) {
+  Widget _dateRow({
+    required String label,
+    required DateTime? value,
+    required VoidCallback? onTap,
+    VoidCallback? onClear,
+  }) {
+    const months = [
+      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+    ];
+    final shown = value == null
+        ? null
+        : '${months[value.month - 1]} ${value.day}, ${value.year}';
+
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(12),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        decoration: BoxDecoration(
+          color: onTap == null ? AppColors.neutral100 : Colors.white,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: shown != null ? AppColors.primary : AppColors.neutral300,
+          ),
+        ),
+        child: Row(
+          children: [
+            Icon(Icons.calendar_today_outlined,
+                size: 18,
+                color: shown != null ? AppColors.primary : AppColors.neutral500),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(label,
+                      style: const TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                          color: AppColors.neutral600)),
+                  const SizedBox(height: 2),
+                  Text(
+                    shown ?? 'Not set',
+                    // A formatted date in a fixed-width row is a classic
+                    // overflow on narrow phones.
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight:
+                          shown != null ? FontWeight.w600 : FontWeight.w400,
+                      color: shown != null
+                          ? AppColors.neutral900
+                          : AppColors.neutral500,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            if (onClear != null)
+              IconButton(
+                icon: const Icon(Icons.close, size: 18),
+                color: AppColors.neutral500,
+                onPressed: onClear,
+                tooltip: 'Clear',
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _pickDate({required bool isStart}) async {
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+
+    /*
+        The lower bound is the job's own start date when it is already in the
+        past, not today.
+
+        A job posted last week for yesterday is still editable — the server
+        deliberately drops `after_or_equal:today` on update for that reason —
+        and a picker that refused to open on its current value would strand the
+        employer on a form they cannot submit.
+    */
+    final currentStart = _startDate;
+    final firstDate = isStart
+        ? (currentStart != null && currentStart.isBefore(today)
+            ? currentStart
+            : today)
+        : currentStart!;
+
+    final initial = (isStart ? _startDate : _endDate) ?? firstDate;
+
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: initial.isBefore(firstDate) ? firstDate : initial,
+      firstDate: firstDate,
+      lastDate: firstDate.add(const Duration(days: 365)),
+    );
+    if (picked == null) return;
+
     setState(() {
-      _selectedSkills = [];
+      if (isStart) {
+        _startDate = picked;
+        // An end date now before the start would be rejected server-side.
+        if (_endDate != null && _endDate!.isBefore(picked)) _endDate = null;
+      } else {
+        _endDate = picked;
+      }
+    });
+  }
+
+  /// The server stores `daily` / `hourly` / `project`; the picker shows
+  /// Daily / Hourly / Project.
+  String _periodToLabel(String? period) => switch (period) {
+        'hourly'  => 'Hourly',
+        'project' => 'Project',
+        _         => 'Daily',
+      };
+
+  /// Real skills for the chosen category, from the server's taxonomy.
+  ///
+  /// This used to read a hardcoded map of skill *names*, which had no ids and
+  /// so could never be sent — `required_skill_ids` was simply left out of the
+  /// payload while the chips looked like they were doing something.
+  List<SkillModel> get _availableSkills {
+    if (_categoryId == null) return const [];
+    return context
+        .read<WorkerProfileProvider>()
+        .availableSkills
+        .where((s) => s.categoryId == _categoryId)
+        .toList();
+  }
+
+  /// Sets both the label and the id.
+  ///
+  /// Only the label was set before, so the payload kept sending whichever
+  /// `category_id` arrived in the route arguments. Picking a new category
+  /// moved the checkmark, changed the skill chips, and reported success —
+  /// while the job stayed in its original category.
+  void _updateCategory(String? category, int? categoryId) {
+    setState(() {
+      _selectedSkillIds = [];
       _selectedCategory = category;
+      _categoryId = categoryId;
     });
   }
 
@@ -266,10 +461,40 @@ class _EditJobScreenState extends State<EditJobScreen> {
                   LocationPickerField(
                     controller: _locationController,
                     labelText: '',
+                    hintText: 'Search barangay, city or municipality',
+                    selection: _selectedLocation,
                     onSelected: (location) =>
                         setState(() => _selectedLocation = location),
+                    // Text edited after choosing — drop the id so the job
+                    // can't keep one place's coordinates under another's name.
+                    onCleared: () => setState(() => _selectedLocation = null),
                     validator: (v) =>
                         v?.isEmpty ?? true ? 'Required' : null,
+                  ),
+                ],
+              ),
+
+              const SizedBox(height: 12),
+
+              // ── Schedule ──
+              _section(
+                title: 'Schedule',
+                children: [
+                  _dateRow(
+                    label: 'Start date',
+                    value: _startDate,
+                    onTap: () => _pickDate(isStart: true),
+                  ),
+                  const SizedBox(height: 10),
+                  _dateRow(
+                    label: 'End date (optional)',
+                    value: _endDate,
+                    onTap: _startDate == null
+                        ? null
+                        : () => _pickDate(isStart: false),
+                    onClear: _endDate == null
+                        ? null
+                        : () => setState(() => _endDate = null),
                   ),
                 ],
               ),
@@ -433,8 +658,12 @@ class _EditJobScreenState extends State<EditJobScreen> {
           children: [
             if (_selectedCategory != null)
               Icon(
+                // orElse: a job filed under a category that has since been
+                // renamed would otherwise throw here rather than render.
                 _categories.firstWhere(
-                    (c) => c['name'] == _selectedCategory)['icon'],
+                  (c) => c['name'] == _selectedCategory,
+                  orElse: () => {'icon': Icons.build},
+                )['icon'] as IconData,
                 color: AppColors.primary,
                 size: 20,
               )
@@ -507,7 +736,7 @@ class _EditJobScreenState extends State<EditJobScreen> {
                             color: AppColors.primary)
                         : null,
                     onTap: () {
-                      _updateCategory(cat['name']);
+                      _updateCategory(cat['name'] as String?, cat['id'] as int?);
                       Navigator.pop(context);
                     },
                   );
@@ -525,12 +754,12 @@ class _EditJobScreenState extends State<EditJobScreen> {
       spacing: 8,
       runSpacing: 8,
       children: _availableSkills.map((skill) {
-        final isSel = _selectedSkills.contains(skill);
+        final isSel = _selectedSkillIds.contains(skill.id);
         return GestureDetector(
           onTap: () => setState(() {
             isSel
-                ? _selectedSkills.remove(skill)
-                : _selectedSkills.add(skill);
+                ? _selectedSkillIds.remove(skill.id)
+                : _selectedSkillIds.add(skill.id);
           }),
           child: Container(
             padding: const EdgeInsets.symmetric(
@@ -544,7 +773,7 @@ class _EditJobScreenState extends State<EditJobScreen> {
                     : AppColors.neutral300,
               ),
             ),
-            child: Text(skill,
+            child: Text(skill.name,
                 style: TextStyle(
                   fontSize: 14,
                   fontWeight: isSel
@@ -637,8 +866,7 @@ class _EditJobScreenState extends State<EditJobScreen> {
   Future<void> _saveChanges() async {
     if (!_formKey.currentState!.validate()) return;
     if (_selectedCategory == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Please select a category')));
+      AppToast.info(context, 'Please select a category');
       return;
     }
 
@@ -646,12 +874,7 @@ class _EditJobScreenState extends State<EditJobScreen> {
     // one-second delay and then reported "Job updated successfully!" regardless
     // — the edit was never sent anywhere.
     if (_jobId == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Cannot edit: this job is missing its identifier.'),
-          backgroundColor: AppColors.error,
-        ),
-      );
+      AppToast.error(context, 'Cannot edit: this job is missing its identifier.');
       return;
     }
 
@@ -660,11 +883,27 @@ class _EditJobScreenState extends State<EditJobScreen> {
     final jobProvider = context.read<JobProvider>();
     final budget = double.tryParse(_budgetController.text.replaceAll(',', ''));
 
+    final budgetMax = double.tryParse(_budgetMaxController.text.replaceAll(',', ''));
+
     final success = await jobProvider.updateJob(_jobId!, {
       'title': _titleController.text.trim(),
       'description': _descriptionController.text.trim(),
       if (_categoryId != null) 'category_id': _categoryId,
       if (budget != null) 'budget_min': budget,
+      /*
+          Five fields the form collected and then dropped.
+
+          The server has accepted all of them from the start — they were just
+          never put in the body. So the urgent toggle, the negotiable toggle,
+          the Daily/Hourly/Project picker, the maximum budget and the skill
+          chips all moved on screen, reported "Job updated successfully!", and
+          changed nothing.
+      */
+      if (budgetMax != null) 'budget_max': budgetMax,
+      'budget_period': _salaryType.toLowerCase(),
+      'is_urgent': _isUrgent,
+      'is_negotiable': _isNegotiable,
+      'required_skill_ids': _selectedSkillIds,
       'location': _locationController.text.trim(),
       // Only sent when the user re-picked; otherwise the stored value stands.
       if (_selectedLocation != null) 'location_id': _selectedLocation!.id,
@@ -672,19 +911,19 @@ class _EditJobScreenState extends State<EditJobScreen> {
         'latitude': _selectedLocation!.latitude,
       if (_selectedLocation?.longitude != null)
         'longitude': _selectedLocation!.longitude,
+      // Sent only when known. A job posted before scheduling existed has no
+      // date, and sending an explicit null would be indistinguishable from the
+      // employer clearing one — which the form offers no way to do.
+      if (_startDate != null) 'start_date': JobProvider.ymd(_startDate!),
+      if (_endDate != null) 'end_date': JobProvider.ymd(_endDate!),
     });
 
     if (!mounted) return;
     setState(() => _isLoading = false);
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(success
+    AppToast.info(context, success
             ? 'Job updated successfully!'
-            : jobProvider.errorMessage ?? 'Failed to update job'),
-        backgroundColor: success ? AppColors.success : AppColors.error,
-      ),
-    );
+            : jobProvider.errorMessage ?? 'Failed to update job');
 
     if (success) Navigator.pop(context, true);
   }

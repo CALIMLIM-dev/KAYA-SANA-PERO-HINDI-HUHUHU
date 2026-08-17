@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../../core/constants/app_colors.dart';
+import '../../../core/utils/format.dart';
 
 /// Worker directory card — employer-mode Search/Home. Distinct from
 /// FeaturedJobCard: workers have an availability status, not a price, and no
@@ -14,6 +15,10 @@ class WorkerCard extends StatelessWidget {
   final bool isVerified;
   final List<String> skills;
   final int? matchScore;
+  final double? distanceKm;
+
+  /// The servers phrasing, e.g. "P500-P800/day - Open to offers".
+  final String? rateLabel;
   final VoidCallback? onTap;
 
   const WorkerCard({
@@ -27,6 +32,8 @@ class WorkerCard extends StatelessWidget {
     this.isVerified = false,
     this.skills = const [],
     this.matchScore,
+    this.distanceKm,
+    this.rateLabel,
     this.onTap,
   });
 
@@ -108,7 +115,7 @@ class WorkerCard extends StatelessWidget {
                       Text(
                         primarySkill,
                         style: const TextStyle(
-                          fontSize: 13,
+                          fontSize: 13.5,
                           color: AppColors.neutral600,
                         ),
                         overflow: TextOverflow.ellipsis,
@@ -121,7 +128,9 @@ class WorkerCard extends StatelessWidget {
                           const SizedBox(width: 2),
                           Expanded(
                             child: Text(
-                              location,
+                              distanceKm != null
+                                  ? '$location · ${formatDistance(distanceKm!)}'
+                                  : location,
                               style: const TextStyle(
                                 fontSize: 12,
                                 color: AppColors.neutral400,
@@ -131,6 +140,22 @@ class WorkerCard extends StatelessWidget {
                           ),
                         ],
                       ),
+                      // What they charge, straight from the server so this
+                      // card, the profile and the search result all phrase it
+                      // the same way. Absent when no rate is set — an employer
+                      // reading "₱0" would think the worker works for nothing.
+                      if (rateLabel != null && rateLabel!.isNotEmpty) ...[
+                        const SizedBox(height: 3),
+                        Text(
+                          rateLabel!,
+                          style: const TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                            color: AppColors.primary,
+                          ),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ],
                     ],
                   ),
                 ),
@@ -254,7 +279,7 @@ class WorkerCard extends StatelessWidget {
                       Text(
                         'View Profile',
                         style: TextStyle(
-                          fontSize: 13,
+                          fontSize: 13.5,
                           fontWeight: FontWeight.w600,
                           color: AppColors.primary,
                         ),

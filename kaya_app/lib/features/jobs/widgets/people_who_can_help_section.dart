@@ -8,6 +8,10 @@ class PeopleWhoCanHelpSection extends StatelessWidget {
   final List<WorkerProfile> workers;
   final bool isLoading;
   final String? userLocation;
+
+  /// The radius the list was actually fetched with, so the heading can state it
+  /// instead of naming a city most of the results are not in.
+  final double? radiusKm;
   final VoidCallback? onSeeAll;
   final Function(WorkerProfile)? onWorkerTap;
   final Function(WorkerProfile)? onWorkerInvite;
@@ -17,6 +21,7 @@ class PeopleWhoCanHelpSection extends StatelessWidget {
     required this.workers,
     this.isLoading = false,
     this.userLocation,
+    this.radiusKm,
     this.onSeeAll,
     this.onWorkerTap,
     this.onWorkerInvite,
@@ -44,9 +49,15 @@ class PeopleWhoCanHelpSection extends StatelessWidget {
                     ),
                   ),
                   Text(
-                    userLocation != null
-                        ? 'Skilled professionals in $userLocation'
-                        : 'Skilled professionals nearby',
+                    // "in {your city}" was wrong: this list is everyone within
+                    // a radius, which spans several towns. Naming the radius is
+                    // both honest and more useful than a city name that half
+                    // the results do not match.
+                    radiusKm == null
+                        ? 'Skilled professionals nearby'
+                        : userLocation != null
+                            ? 'Within ${radiusKm!.round()} km of $userLocation'
+                            : 'Within ${radiusKm!.round()} km of you',
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
                       color: AppColors.neutral600,
                     ),

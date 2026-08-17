@@ -24,6 +24,31 @@ class JobsNearYouSection extends StatelessWidget {
     this.workerSkills = const [],
   });
 
+  /// What this list actually is, rather than what we wish it were.
+  ///
+  /// This used to read "Open jobs in {your city}" over a list that was never
+  /// filtered to that city — the server sorts nearest-first but returns
+  /// everything, so someone in Urdaneta was told "Open jobs in Urdaneta City"
+  /// above jobs in three other provinces. Reported as a bug, and it was one:
+  /// the heading was making a promise the data underneath never kept.
+  ///
+  /// Sorting rather than cutting off is the right call — a worker in a quiet
+  /// town would otherwise open the app to an empty screen — so the heading is
+  /// what has to change.
+  String _subtitle() {
+    final hasDistances = jobs.any((j) => j.distance != null);
+
+    if (!hasDistances) {
+      // No coordinates on the viewer means the order is arbitrary. Say so, and
+      // say what would fix it.
+      return 'All open jobs · add your location to sort by distance';
+    }
+
+    return userLocation != null
+        ? 'Nearest to $userLocation first'
+        : 'Nearest to you first';
+  }
+
   @override
   Widget build(BuildContext context) {
     return Column(
@@ -46,9 +71,7 @@ class JobsNearYouSection extends StatelessWidget {
                     ),
                   ),
                   Text(
-                    userLocation != null
-                        ? 'Open jobs in $userLocation'
-                        : 'Open jobs in your area',
+                    _subtitle(),
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
                       color: AppColors.neutral600,
                     ),
@@ -74,7 +97,23 @@ class JobsNearYouSection extends StatelessWidget {
         
         // Jobs Horizontal List
         SizedBox(
-          height: 150, // Increased from 140 to fix overflow
+          /*
+              168, and this is the second time it has been raised.
+
+              It went 140 → 150 to "fix overflow", which bought 10px of slack
+              and left the card one line away from breaking again — which is
+              what the reported overflow on this widget was. Adding the schedule
+              row then overflowed it by exactly 3px, caught by the render test
+              rather than by a tester.
+
+              168 fits the current content with room for one more line. If
+              another row is ever added here, raise this in the same commit and
+              re-run `flutter test test/screens_render_test.dart` — the card is
+              a fixed height on purpose, because a horizontal carousel of
+              different-height cards looks broken, so the height and the content
+              have to be changed together.
+          */
+          height: 168,
           child: NotificationListener<ScrollNotification>(
             onNotification: (scrollNotification) {
               // Prevent parent scroll view from handling horizontal scroll

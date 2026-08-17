@@ -1,12 +1,18 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_map/flutter_map.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:latlong2/latlong.dart';
 import 'package:provider/provider.dart';
 import 'dart:io';
 import '../../../core/constants/app_colors.dart';
+import '../../../core/utils/pin_location_match.dart';
 import '../../../data/models/location_model.dart';
+import '../../../providers/employer_profile_provider.dart';
 import '../../../providers/job_provider.dart';
+import '../../../providers/location_provider.dart';
 import '../../../providers/worker_profile_provider.dart';
 import '../../../shared/widgets/location_picker_field.dart';
+import '../../../core/widgets/app_toast.dart';
 
 /// Post Job Screen - Clean, professional design following industry best practices
 class PostJobScreen extends StatefulWidget {
@@ -17,12 +23,71 @@ class PostJobScreen extends StatefulWidget {
 }
 
 class _PostJobScreenState extends State<PostJobScreen> {
+  /// True while the location is the employer's own, untouched. Drives the
+  /// "using your profile location" note — a silent prefill would quietly file
+  /// jobs at the office instead of the site, and nothing would look wrong.
+  bool _locationIsProfileDefault = false;
+
   @override
   void initState() {
     super.initState();
-    // Load the real category list before the picker can be opened.
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) context.read<WorkerProfileProvider>().fetchCategories();
+      if (!mounted) return;
+      // Load the real category list before the picker can be opened.
+      context.read<WorkerProfileProvider>().fetchCategories();
+      _prefillLocationFromProfile();
+    });
+  }
+
+  /// Most jobs are at or near the employer's own base, so start there and let
+  /// them change it. Only prefills when the profile carries a real
+  /// location_id — a bare display string would post a job with no coordinates.
+  Future<void> _prefillLocationFromProfile() async {
+    if (_locationController.text.trim().isNotEmpty) return;
+
+    final provider = context.read<EmployerProfileProvider>();
+
+    // The profile loads asynchronously, so on a cold open it is still null
+    // when this first frame runs — waiting for it is the difference between
+    // the prefill working and silently not happening.
+    if (provider.profile == null) {
+      await provider.fetchProfile();
+      if (!mounted) return;
+    }
+
+    final profile = provider.profile;
+    if (profile == null || profile.locationId == null) return;
+    if (profile.location.isEmpty) return;
+    // The user may have typed while we waited.
+    if (_locationController.text.trim().isNotEmpty) return;
+
+    // The profile stores coordinates only when the employer dropped a pin, so
+    // usually they're null — resolve the town's own centroid instead, or the
+    // pin map opens zoomed out on the whole country with nothing to aim at.
+    var lat = profile.latitude;
+    var lng = profile.longitude;
+
+    if (lat == null || lng == null) {
+      final town =
+          await context.read<LocationProvider>().byId(profile.locationId!);
+      if (!mounted) return;
+      lat = town?.latitude;
+      lng = town?.longitude;
+    }
+
+    setState(() {
+      // Location only — the picker writes the label itself. Writing it here
+      // raced its listener and cleared the selection immediately, which is why
+      // the prefill looked like it never happened.
+      _selectedLocation = LocationModel(
+        id: profile.locationId!,
+        name: profile.location,
+        displayName: profile.location,
+        type: 'city',
+        latitude: lat,
+        longitude: lng,
+      );
+      _locationIsProfileDefault = true;
     });
   }
 
@@ -47,6 +112,12 @@ class _PostJobScreenState extends State<PostJobScreen> {
   /// Structured location chosen from the picker — carries the PSGC id and
   /// coordinates, unlike the display string in _locationController.
   LocationModel? _selectedLocation;
+
+  /// Exact pin, if the employer dropped one. Overrides the barangay/city
+  /// centroid so "3 km away" reflects the actual site rather than the middle
+  /// of the barangay.
+  double? _pinnedLat;
+  double? _pinnedLng;
   String _salaryType = 'Daily';
   final List<String> _selectedSkills = [];
   final _customSkillController = TextEditingController();
@@ -55,6 +126,16 @@ class _PostJobScreenState extends State<PostJobScreen> {
   bool _isUrgent = false;
   bool _isNegotiable = false;
   bool _showPhotoError = false;
+
+  // Schedule. _endDate stays null for a single-day job rather than being set
+  // equal to _startDate, so the two states remain distinguishable server-side.
+  DateTime? _startDate;
+  DateTime? _endDate;
+  TimeOfDay? _startTime;
+  bool _isMultiDay = false;
+  bool _showScheduleError = false;
+  bool _isLoadingSkills = false;
+  bool _showPinError = false;
 
   // Categories
   final List<Map<String, dynamic>> _categories = [
@@ -161,19 +242,29 @@ class _PostJobScreenState extends State<PostJobScreen> {
   ///
   /// [categoryId] is the real database id, resolved from the categories the
   /// server returned — not inferred from a list position.
-  void _updateSkillsForCategory(String? category, {int? categoryId}) {
+  Future<void> _updateSkillsForCategory(String? category, {int? categoryId}) async {
     setState(() {
       _selectedSkills.clear();
       _selectedCategory = category;
       _selectedCategoryId = categoryId;
+      _isLoadingSkills = categoryId != null;
       if (category != 'Other') _customCategoryName = null;
     });
 
-    if (categoryId != null) {
-      // Same endpoint worker onboarding uses, so job requirements and worker
-      // skills come from one vocabulary and can be matched against each other.
-      context.read<WorkerProfileProvider>().fetchSkillsByCategory(categoryId);
-    }
+    if (categoryId == null) return;
+
+    // Awaited, then setState — _availableSkills reads the provider with
+    // context.read, which does not rebuild on notifyListeners. Without this
+    // the skills arrived but never painted, and only appeared after picking a
+    // different category forced a rebuild — showing the *previous*
+    // category's skills.
+    await context.read<WorkerProfileProvider>().fetchSkillsByCategory(categoryId);
+
+    if (!mounted) return;
+    // The user may have moved on while this was in flight.
+    if (_selectedCategoryId != categoryId) return;
+
+    setState(() => _isLoadingSkills = false);
   }
 
   void _handleUrgentToggle() {
@@ -323,15 +414,12 @@ class _PostJobScreenState extends State<PostJobScreen> {
                   const SizedBox(height: 8),
                   TextFormField(
                     controller: _titleController,
-                    decoration: _inputDecoration(
-                      hint: 'e.g., Emergency Pipe Repair',
-                      icon: Icons.work_outline,
-                    ),
+                    decoration: _inputDecoration(icon: Icons.work_outline),
                     validator: (value) => value?.isEmpty ?? true ? 'Required' : null,
                   ),
                   const SizedBox(height: 16),
                   
-                  _buildLabel('Category'),
+                  _buildLabel('Job Category'),
                   const SizedBox(height: 8),
                   _buildCategorySelector(),
 
@@ -344,10 +432,7 @@ class _PostJobScreenState extends State<PostJobScreen> {
                       initialValue: _customCategoryName,
                       textCapitalization: TextCapitalization.words,
                       onChanged: (v) => setState(() => _customCategoryName = v.trim()),
-                      decoration: _inputDecoration(
-                        hint: 'e.g., Welding, Tailoring, Massage Therapy',
-                        icon: Icons.edit_outlined,
-                      ),
+                      decoration: _inputDecoration(icon: Icons.edit_outlined),
                       validator: (v) =>
                           _selectedCategory == 'Other' && (v?.isEmpty ?? true)
                               ? 'Please specify the category'
@@ -369,17 +454,37 @@ class _PostJobScreenState extends State<PostJobScreen> {
                     validator: (value) => value?.isEmpty ?? true ? 'Required' : null,
                   ),
                   
-                  if (_selectedCategory != null && _availableSkills.isNotEmpty) ...[
+                  // Shown while the category's skills are in flight, so the
+                  // section is never just silently missing.
+                  if (_isLoadingSkills) ...[
+                    const SizedBox(height: 16),
+                    _buildLabel('Required Skills'),
+                    const SizedBox(height: 12),
+                    const Row(
+                      children: [
+                        SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        ),
+                        SizedBox(width: 10),
+                        Text('Loading skills…',
+                            style: TextStyle(
+                                fontSize: 13.5, color: AppColors.neutral600)),
+                      ],
+                    ),
+                  ] else if (_selectedCategory != null &&
+                      _availableSkills.isNotEmpty) ...[
                     const SizedBox(height: 16),
                     _buildLabel('Required Skills'),
                     const SizedBox(height: 8),
                     _buildSkillChips(),
                     const SizedBox(height: 10),
                     _buildCustomSkillInput(),
-                  ],
-
-                  // For "Other" category with no predefined skills, show custom skill input
-                  if (_selectedCategory == 'Other' && _availableSkills.isEmpty) ...[
+                  ] else if (_selectedCategory != null) ...[
+                    // Category chosen but the list came back empty ("Other",
+                    // or a category with no seeded skills) — let them type
+                    // their own rather than leaving a dead end.
                     const SizedBox(height: 16),
                     _buildLabel('Required Skills'),
                     const SizedBox(height: 8),
@@ -400,7 +505,7 @@ class _PostJobScreenState extends State<PostJobScreen> {
                     const SizedBox(height: 8),
                     Text(
                       'At least one photo is required',
-                      style: TextStyle(fontSize: 12.5, color: AppColors.error),
+                      style: TextStyle(fontSize: 12, color: AppColors.error),
                     ),
                   ],
                 ],
@@ -415,10 +520,7 @@ class _PostJobScreenState extends State<PostJobScreen> {
                   TextFormField(
                     controller: _workersNeededController,
                     keyboardType: TextInputType.number,
-                    decoration: _inputDecoration(
-                      hint: 'e.g., 1',
-                      icon: Icons.people,
-                    ),
+                    decoration: _inputDecoration(icon: Icons.people),
                     validator: (value) {
                       if (value?.isEmpty ?? true) return 'Required';
                       final number = int.tryParse(value!);
@@ -486,14 +588,58 @@ class _PostJobScreenState extends State<PostJobScreen> {
                   LocationPickerField(
                     controller: _locationController,
                     labelText: '',
-                    hintText: 'Select city or municipality',
+                    hintText: 'Search barangay, city or municipality',
                     fillColor: AppColors.surfaceVariant,
-                    onSelected: (location) =>
-                        setState(() => _selectedLocation = location),
+                    // Profile prefills and pin reconciliation set this
+                    // directly; without it the field would treat them as
+                    // typed text and reject a place we chose ourselves.
+                    selection: _selectedLocation,
+                    onSelected: (location) => setState(() {
+                      _selectedLocation = location;
+                      // A new place invalidates any pin dropped for the old one.
+                      _pinnedLat = null;
+                      _pinnedLng = null;
+                      _locationIsProfileDefault = false;
+                    }),
+                    // Text edited after choosing — drop the stale id and pin
+                    // rather than saving them against a different label.
+                    onCleared: () => setState(() {
+                      _selectedLocation = null;
+                      _pinnedLat = null;
+                      _pinnedLng = null;
+                      _locationIsProfileDefault = false;
+                    }),
                     validator: (value) =>
                         value?.isEmpty ?? true ? 'Required' : null,
                   ),
+                  if (_locationIsProfileDefault) ...[
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        const Icon(Icons.info_outline,
+                            size: 15, color: AppColors.primary),
+                        const SizedBox(width: 6),
+                        const Expanded(
+                          child: Text(
+                            'Using your profile location — change it if the job is elsewhere.',
+                            style: TextStyle(
+                                fontSize: 12, color: AppColors.neutral600),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                  const SizedBox(height: 12),
+                  _buildPinRow(),
                 ],
+              ),
+              const SizedBox(height: 16),
+
+              // Schedule
+              _buildSection(
+                title: 'Schedule',
+                icon: Icons.event_outlined,
+                children: [_buildScheduleFields()],
               ),
               const SizedBox(height: 16),
 
@@ -540,6 +686,322 @@ class _PostJobScreenState extends State<PostJobScreen> {
     );
   }
 
+  // ── Schedule ────────────────────────────────────────────────────────────────
+
+  /// Start date, an optional end date, and an optional time.
+  ///
+  /// The start date is required by the server. Without dates on jobs, being
+  /// hired once has to cancel every other application a worker has, because
+  /// there is no way to tell which of them actually collide.
+  ///
+  /// The end date is behind a toggle rather than always visible: most of this
+  /// work is a single day, and two date fields side by side invites people to
+  /// fill both in when only the first is meaningful.
+  Widget _buildScheduleFields() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _buildDateField(
+          label: 'Start date *',
+          value: _startDate,
+          hint: 'When does the work begin?',
+          onTap: _pickStartDate,
+          isError: _showScheduleError,
+        ),
+        if (_showScheduleError) ...[
+          const SizedBox(height: 6),
+          const Text(
+            'Please choose when the work starts.',
+            style: TextStyle(fontSize: 12, color: AppColors.error),
+          ),
+        ],
+        const SizedBox(height: 12),
+        /*
+            A switch label has to say what turning it ON does.
+
+            This one mutated: off it read "Single day job", on it read "Runs
+            over several days". So the label described the state you were
+            already in, and gave no clue what the switch was for — you had to
+            flip it to find out, which is the whole of the "schedule is very
+            confusing" complaint in one control.
+
+            Fixed label, with the current state spelled out underneath.
+        */
+        Row(
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'Runs over several days',
+                    style: TextStyle(
+                        fontSize: 13.5,
+                        fontWeight: FontWeight.w600,
+                        color: AppColors.neutral800),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    _isMultiDay
+                        ? 'Set the last day below'
+                        : 'Off — this is a one-day job',
+                    style: const TextStyle(
+                        fontSize: 12, color: AppColors.neutral500),
+                  ),
+                ],
+              ),
+            ),
+            Switch(
+              value: _isMultiDay,
+              activeThumbColor: AppColors.primary,
+              onChanged: (on) => setState(() {
+                _isMultiDay = on;
+                // Clearing on the way out matters: a stale end date left behind
+                // by a toggle would be sent with a job the employer had since
+                // decided was one day long.
+                if (!on) _endDate = null;
+              }),
+            ),
+          ],
+        ),
+        if (_isMultiDay) ...[
+          const SizedBox(height: 4),
+          _buildDateField(
+            label: 'End date',
+            value: _endDate,
+            hint: 'Last day of work',
+            onTap: _startDate == null ? null : _pickEndDate,
+          ),
+          if (_startDate == null) ...[
+            const SizedBox(height: 6),
+            const Text(
+              'Pick the start date first.',
+              style: TextStyle(fontSize: 12, color: AppColors.neutral600),
+            ),
+          ],
+        ],
+        const SizedBox(height: 12),
+        _buildDateField(
+          label: 'Start time (optional)',
+          value: null,
+          display: _startTime?.format(context),
+          // "Agree in chat" alone read as an instruction rather than as what
+          // happens if you skip the field.
+          hint: 'Not set — agree in chat',
+          icon: Icons.schedule_outlined,
+          onTap: _pickStartTime,
+          onClear: _startTime == null
+              ? null
+              : () => setState(() => _startTime = null),
+        ),
+
+        /*
+            What the worker will actually see.
+
+            Three separate controls produce one line of text on the job card,
+            and until you posted the job there was no way to know what that line
+            would say. Showing it here closes the loop — and it is built by the
+            same rules as Job.scheduleLabel, so the form and the card cannot
+            describe the same dates differently.
+        */
+        if (_startDate != null) ...[
+          const SizedBox(height: 14),
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            decoration: BoxDecoration(
+              color: AppColors.primary.withValues(alpha: 0.06),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Row(
+              children: [
+                const Icon(Icons.event_available_outlined,
+                    size: 16, color: AppColors.primary),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    'Workers will see: ${_schedulePreview()}',
+                    style: const TextStyle(
+                        fontSize: 12.5,
+                        fontWeight: FontWeight.w600,
+                        color: AppColors.primary),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+
+  /// Mirrors Job.scheduleLabel — same collapsing of a same-month range, same
+  /// handling of an absent end date and time.
+  String _schedulePreview() {
+    final start = _startDate!;
+    final end = _endDate;
+
+    String short(DateTime d) {
+      const months = [
+        'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+        'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+      ];
+      return '${months[d.month - 1]} ${d.day}';
+    }
+
+    if (end != null &&
+        !(end.year == start.year &&
+            end.month == start.month &&
+            end.day == start.day)) {
+      return end.year == start.year && end.month == start.month
+          ? '${short(start)} – ${end.day}'
+          : '${short(start)} – ${short(end)}';
+    }
+
+    final time = _startTime?.format(context);
+    return time == null ? short(start) : '${short(start)}, $time';
+  }
+
+  /// One tappable row, used for all three fields so they read as a set.
+  Widget _buildDateField({
+    required String label,
+    required DateTime? value,
+    required String hint,
+    required VoidCallback? onTap,
+    String? display,
+    IconData icon = Icons.calendar_today_outlined,
+    bool isError = false,
+    VoidCallback? onClear,
+  }) {
+    final shown = display ?? (value == null ? null : _formatDate(value));
+    final disabled = onTap == null;
+
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(12),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+        decoration: BoxDecoration(
+          color: disabled ? AppColors.neutral100 : Colors.white,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: isError
+                ? AppColors.error
+                : (shown != null ? AppColors.primary : AppColors.neutral300),
+          ),
+        ),
+        child: Row(
+          children: [
+            Icon(icon,
+                size: 18,
+                color: shown != null
+                    ? AppColors.primary
+                    : AppColors.neutral500),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    label,
+                    style: const TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                        color: AppColors.neutral600),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    shown ?? hint,
+                    // Overflow guard: a long formatted date on a narrow phone
+                    // is exactly the kind of row that reports a RenderFlex
+                    // overflow on one device and not another.
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight:
+                          shown != null ? FontWeight.w600 : FontWeight.w400,
+                      color: shown != null
+                          ? AppColors.neutral900
+                          : AppColors.neutral500,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            if (onClear != null)
+              IconButton(
+                icon: const Icon(Icons.close, size: 18),
+                color: AppColors.neutral500,
+                onPressed: onClear,
+                tooltip: 'Clear',
+              )
+            else if (!disabled)
+              const Icon(Icons.chevron_right,
+                  size: 20, color: AppColors.neutral400),
+          ],
+        ),
+      ),
+    );
+  }
+
+  String _formatDate(DateTime d) {
+    const months = [
+      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+    ];
+    return '${months[d.month - 1]} ${d.day}, ${d.year}';
+  }
+
+  Future<void> _pickStartDate() async {
+    final now = DateTime.now();
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: _startDate ?? now,
+      // Today, not tomorrow. Same-day hiring is the normal case for this kind
+      // of work — a burst pipe does not wait until tomorrow — and the server
+      // uses after_or_equal:today for the same reason.
+      firstDate: DateTime(now.year, now.month, now.day),
+      lastDate: now.add(const Duration(days: 365)),
+    );
+    if (picked == null) return;
+
+    setState(() {
+      _startDate = picked;
+      _showScheduleError = false;
+      // An end date that now sits before the start would be rejected by the
+      // server. Dropping it here turns a validation error into a field the
+      // employer simply picks again.
+      if (_endDate != null && _endDate!.isBefore(picked)) _endDate = null;
+    });
+  }
+
+  Future<void> _pickEndDate() async {
+    final start = _startDate!;
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: _endDate ?? start,
+      firstDate: start,
+      lastDate: start.add(const Duration(days: 365)),
+    );
+    if (picked != null) setState(() => _endDate = picked);
+  }
+
+  Future<void> _pickStartTime() async {
+    final picked = await showTimePicker(
+      context: context,
+      initialTime: _startTime ?? const TimeOfDay(hour: 8, minute: 0),
+    );
+    if (picked != null) setState(() => _startTime = picked);
+  }
+
+  /// 24-hour `HH:mm`, which is the only shape the server's `date_format:H:i`
+  /// rule accepts. `TimeOfDay.format` follows the phone's locale and would send
+  /// "8:00 AM" on a device set to 12-hour time.
+  String? get _startTimeForApi => _startTime == null
+      ? null
+      : '${_startTime!.hour.toString().padLeft(2, '0')}:'
+          '${_startTime!.minute.toString().padLeft(2, '0')}';
+
   Widget _buildSection({
     required String title,
     String? subtitle,
@@ -582,7 +1044,7 @@ class _PostJobScreenState extends State<PostJobScreen> {
                 child: Text(
                   title,
                   style: TextStyle(
-                    fontSize: 17,
+                    fontSize: 16,
                     fontWeight: FontWeight.w700,
                     color: AppColors.neutral900,
                   ),
@@ -597,7 +1059,7 @@ class _PostJobScreenState extends State<PostJobScreen> {
               child: Text(
                 subtitle,
                 style: TextStyle(
-                  fontSize: 13,
+                  fontSize: 13.5,
                   color: AppColors.neutral600,
                 ),
               ),
@@ -608,6 +1070,273 @@ class _PostJobScreenState extends State<PostJobScreen> {
         ],
       ),
     );
+  }
+
+  /// Exact-pin row under the location picker.
+  ///
+  /// Required: a barangay centroid puts every job in that barangay on the same
+  /// point, so workers can't tell which end of it a site is on. The pin is
+  /// what makes the distance reflect the actual job.
+  Widget _buildPinRow() {
+    final hasPin = _pinnedLat != null && _pinnedLng != null;
+    final canPin = _selectedLocation != null;
+
+    if (hasPin) return _buildPinPreview();
+
+    return InkWell(
+      onTap: canPin ? _openPinPicker : null,
+      borderRadius: BorderRadius.circular(10),
+      child: Container(
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: hasPin
+              ? AppColors.success.withValues(alpha: 0.06)
+              : AppColors.neutral50,
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(
+            color: hasPin ? AppColors.success.withValues(alpha: 0.4) : AppColors.neutral300,
+          ),
+        ),
+        child: Row(
+          children: [
+            Icon(
+              hasPin ? Icons.where_to_vote : Icons.add_location_alt_outlined,
+              size: 20,
+              color: canPin
+                  ? (hasPin ? AppColors.success : AppColors.primary)
+                  : AppColors.neutral400,
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    hasPin ? 'Exact location pinned' : 'Pin exact location',
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                      color: canPin ? AppColors.neutral900 : AppColors.neutral400,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    !canPin
+                        ? 'Choose a location first'
+                        : hasPin
+                            // Raw coordinates used to be shown here. They tell
+                            // someone posting a job nothing they can act on —
+                            // the map above already shows where the pin is.
+                            ? 'Tap to move the pin'
+                            : 'Required — tap to mark the exact spot',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: _showPinError
+                          ? AppColors.error
+                          : AppColors.neutral500,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            if (hasPin)
+              IconButton(
+                icon: const Icon(Icons.close, size: 18, color: AppColors.neutral500),
+                onPressed: () => setState(() {
+                  _pinnedLat = null;
+                  _pinnedLng = null;
+                }),
+              )
+            else if (canPin)
+              const Icon(Icons.chevron_right, color: AppColors.neutral400),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// A pinned location shown as a map rather than "15.97611, 120.57111" —
+  /// coordinates are unreadable, and the whole point of pinning is visual.
+  Widget _buildPinPreview() {
+    final point = LatLng(_pinnedLat!, _pinnedLng!);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        ClipRRect(
+          borderRadius: BorderRadius.circular(12),
+          child: SizedBox(
+            height: 150,
+            child: Stack(
+              children: [
+                FlutterMap(
+                  options: MapOptions(
+                    initialCenter: point,
+                    initialZoom: 16,
+                    // Preview only — panning happens in the picker.
+                    interactionOptions: const InteractionOptions(
+                      flags: InteractiveFlag.none,
+                    ),
+                  ),
+                  children: [
+                    TileLayer(
+                      urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                      userAgentPackageName: 'ph.kaya.app',
+                      // See pin_location_screen: maxZoom alone blanks the map
+                      // past z19 because the camera keeps going after the tiles
+                      // stop. maxNativeZoom upscales instead.
+                      maxNativeZoom: 19,
+                      maxZoom: 21,
+                    ),
+                    MarkerLayer(
+                      markers: [
+                        Marker(
+                          point: point,
+                          width: 40,
+                          height: 40,
+                          alignment: Alignment.topCenter,
+                          child: const Icon(Icons.location_pin,
+                              size: 40, color: AppColors.error),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+                // Whole-surface tap target to reopen the picker.
+                Positioned.fill(
+                  child: Material(
+                    color: Colors.transparent,
+                    child: InkWell(onTap: _openPinPicker),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+        const SizedBox(height: 8),
+        Row(
+          children: [
+            const Icon(Icons.where_to_vote, size: 16, color: AppColors.success),
+            const SizedBox(width: 6),
+            const Expanded(
+              child: Text('Exact location pinned',
+                  style: TextStyle(
+                      fontSize: 13.5,
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.neutral900)),
+            ),
+            TextButton(
+              onPressed: _openPinPicker,
+              style: TextButton.styleFrom(
+                padding: EdgeInsets.zero,
+                minimumSize: Size.zero,
+                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              ),
+              child: const Text('Change',
+                  style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.w600)),
+            ),
+            const SizedBox(width: 14),
+            TextButton(
+              onPressed: () => setState(() {
+                _pinnedLat = null;
+                _pinnedLng = null;
+              }),
+              style: TextButton.styleFrom(
+                foregroundColor: AppColors.error,
+                padding: EdgeInsets.zero,
+                minimumSize: Size.zero,
+                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              ),
+              child: const Text('Remove',
+                  style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.w600)),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Future<void> _openPinPicker() async {
+    final result = await Navigator.pushNamed(
+      context,
+      '/pin-location',
+      arguments: {
+        // Open on the chosen place rather than making the user pan there.
+        'latitude': _pinnedLat ?? _selectedLocation?.latitude,
+        'longitude': _pinnedLng ?? _selectedLocation?.longitude,
+        'label': _selectedLocation?.displayName,
+      },
+    );
+
+    if (result is! Map || !mounted) return;
+
+    final lat = (result['latitude'] as num?)?.toDouble();
+    final lng = (result['longitude'] as num?)?.toDouble();
+    final resolved = result['resolved'] as LocationModel?;
+
+    if (lat == null || lng == null) return;
+
+    // The pin is the more precise truth, so when it lands somewhere other than
+    // the chosen place the two must be reconciled — otherwise the job reads
+    // "Urdaneta City" while sitting in Binalonan and nothing flags it.
+    final movedElsewhere = resolved != null &&
+        _selectedLocation != null &&
+        !isSamePlace(resolved, _selectedLocation!);
+
+    if (movedElsewhere) {
+      final useResolved = await _confirmLocationChange(resolved);
+      if (!mounted) return;
+
+      if (useResolved) {
+        setState(() {
+          // Only the location — the picker writes its own label from this.
+          // Setting controller.text here fired the field's listener before it
+          // could see the new selection, which wiped it straight back out.
+          _selectedLocation = resolved;
+          _locationIsProfileDefault = false;
+          _pinnedLat = lat;
+          _pinnedLng = lng;
+          _showPinError = false;
+        });
+      }
+      // Declined: drop the pin rather than keep one that contradicts the label.
+      return;
+    }
+
+    setState(() {
+      _pinnedLat = lat;
+      _pinnedLng = lng;
+    });
+  }
+
+  /// Asked only when the pin disagrees with the chosen place. Keeping both
+  /// would be the bug; this makes the user pick which one is right.
+  Future<bool> _confirmLocationChange(LocationModel resolved) async {
+    return await showDialog<bool>(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: const Text('Pin is somewhere else'),
+            content: Text(
+              'Your pin is in ${resolved.displayName}, not '
+              '${_selectedLocation?.displayName ?? 'the selected location'}.\n\n'
+              'Use the pinned location instead?',
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context, false),
+                child: const Text('Discard pin'),
+              ),
+              ElevatedButton(
+                onPressed: () => Navigator.pop(context, true),
+                style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.primary,
+                    foregroundColor: Colors.white),
+                child: const Text('Use pinned'),
+              ),
+            ],
+          ),
+        ) ??
+        false;
   }
 
   Widget _buildLabel(String text) {
@@ -621,8 +1350,14 @@ class _PostJobScreenState extends State<PostJobScreen> {
     );
   }
 
+  /// [hint] is optional on purpose.
+  ///
+  /// Every field here already has a visible label above it, so a hint that
+  /// just restates the label with an example is noise the user has to read
+  /// past. Pass one only when it teaches something the label can't — a format,
+  /// a unit, or what to search by.
   InputDecoration _inputDecoration({
-    required String hint,
+    String? hint,
     IconData? icon,
     String? prefix,
   }) {
@@ -728,7 +1463,7 @@ class _PostJobScreenState extends State<PostJobScreen> {
             const SizedBox(width: 12),
             Expanded(
               child: Text(
-                _selectedCategory ?? 'Select category',
+                _selectedCategory ?? 'Select job category',
                 style: TextStyle(
                   fontSize: 15,
                   color: _selectedCategory != null ? AppColors.neutral900 : AppColors.neutral400,
@@ -757,7 +1492,7 @@ class _PostJobScreenState extends State<PostJobScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'Select Category',
+              'Select Job Category',
               style: TextStyle(
                 fontSize: 18,
                 fontWeight: FontWeight.w600,
@@ -875,7 +1610,7 @@ class _PostJobScreenState extends State<PostJobScreen> {
             children: _selectedSkills
                 .where((s) => !_availableSkills.contains(s))
                 .map((skill) => Chip(
-                      label: Text(skill, style: const TextStyle(fontSize: 13)),
+                      label: Text(skill, style: const TextStyle(fontSize: 13.5)),
                       backgroundColor: AppColors.primary.withValues(alpha: 0.1),
                       deleteIconColor: AppColors.primary,
                       onDeleted: () => setState(() => _selectedSkills.remove(skill)),
@@ -1019,16 +1754,7 @@ class _PostJobScreenState extends State<PostJobScreen> {
       onTap: onTap,
       onLongPress: showWarning
           ? () {
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: const Text(
-                    '⚠️ Warning: Your account might get flagged for misleading information if job is not actually urgent',
-                    style: TextStyle(fontSize: 13),
-                  ),
-                  backgroundColor: AppColors.warning,
-                  duration: const Duration(seconds: 4),
-                ),
-              );
+              AppToast.warning(context, '⚠️ Warning: Your account might get flagged for misleading information if job is not actually urgent');
             }
           : null,
       child: Container(
@@ -1121,24 +1847,40 @@ class _PostJobScreenState extends State<PostJobScreen> {
   Future<void> _submitJob() async {
     if (_formKey.currentState!.validate()) {
       if (_selectedCategory == null) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Please select a category')),
-        );
+        AppToast.info(context, 'Please select a category');
         return;
       }
 
       if (_selectedCategoryId == null) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Please select a category')),
-        );
+        AppToast.info(context, 'Please select a category');
         return;
       }
 
       if (_selectedImages.isEmpty) {
         setState(() => _showPhotoError = true);
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Please add at least one photo of the job')),
-        );
+        AppToast.info(context, 'Please add at least one photo of the job');
+        return;
+      }
+
+      // The picker's own validator covers this, but a job with no location_id
+      // saves with no coordinates — invisible in "jobs near you", no distance,
+      // no proximity score. Worth a second gate rather than a silent bad row.
+      if (_selectedLocation == null) {
+        AppToast.info(context, 'Please pick the job location from the suggestions');
+        return;
+      }
+
+      if (_pinnedLat == null || _pinnedLng == null) {
+        setState(() => _showPinError = true);
+        AppToast.info(context, 'Please pin the exact job location on the map');
+        return;
+      }
+
+      // Caught here as well as server-side so the employer sees the field turn
+      // red rather than a toast about a form they have already scrolled past.
+      if (_startDate == null) {
+        setState(() => _showScheduleError = true);
+        AppToast.info(context, 'Please choose when the work starts');
         return;
       }
 
@@ -1158,8 +1900,10 @@ class _PostJobScreenState extends State<PostJobScreen> {
         // Structured location from the picker: the id normalizes filtering and
         // the coordinates power proximity search.
         locationId:  _selectedLocation?.id,
-        latitude:    _selectedLocation?.latitude,
-        longitude:   _selectedLocation?.longitude,
+        // A dropped pin beats the barangay/city centroid. When absent the
+        // centroid is used, which is what makes pinning optional.
+        latitude:    _pinnedLat ?? _selectedLocation?.latitude,
+        longitude:   _pinnedLng ?? _selectedLocation?.longitude,
         city:        _selectedLocation?.displayName,
         isUrgent:    _isUrgent,
         isNegotiable: _isNegotiable,
@@ -1167,26 +1911,21 @@ class _PostJobScreenState extends State<PostJobScreen> {
         // stored it and job details hardcoded "/ project".
         budgetPeriod: _salaryType.toLowerCase(),
         photos:      _selectedImages,
+        startDate:   _startDate!,
+        // Only sent when the employer said the job runs over several days, so
+        // turning the toggle off cannot leave a stale end date on the record.
+        endDate:     _isMultiDay ? _endDate : null,
+        startTime:   _startTimeForApi,
       );
 
       setState(() => _isLoading = false);
 
       if (!mounted) return;
       if (success) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Job posted successfully!'),
-            backgroundColor: AppColors.success,
-          ),
-        );
+        AppToast.success(context, 'Job posted successfully!');
         Navigator.pop(context);
       } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(jobProvider.errorMessage ?? 'Failed to post job'),
-            backgroundColor: AppColors.error,
-          ),
-        );
+        AppToast.error(context, jobProvider.errorMessage ?? 'Failed to post job');
       }
     }
   }

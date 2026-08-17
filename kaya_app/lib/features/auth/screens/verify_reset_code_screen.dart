@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../providers/auth_provider.dart';
+import '../../../core/widgets/app_toast.dart';
 
 class VerifyResetCodeScreen extends StatefulWidget {
   const VerifyResetCodeScreen({super.key});
@@ -54,12 +55,7 @@ class _VerifyResetCodeScreenState extends State<VerifyResetCodeScreen> {
 
     if (!mounted) return;
     if (success) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('New verification code sent to your email'),
-          backgroundColor: Colors.green,
-        ),
-      );
+      AppToast.info(context, 'New verification code sent to your email');
       // Clear all fields
       for (var controller in _controllers) {
         controller.clear();

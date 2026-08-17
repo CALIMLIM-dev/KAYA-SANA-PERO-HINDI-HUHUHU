@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../../core/constants/app_colors.dart';
+import '../../../core/utils/format.dart';
 import '../../../data/models/job_model.dart';
 
 /// Compact Job Card matching Worker Card style
@@ -104,7 +105,7 @@ class CompactJobCard extends StatelessWidget {
                                 job.title,
                                 style: Theme.of(context).textTheme.titleSmall?.copyWith(
                                   fontWeight: FontWeight.bold,
-                                  fontSize: 13,
+                                  fontSize: 13.5,
                                 ),
                                 overflow: TextOverflow.ellipsis,
                                 maxLines: 1,
@@ -129,30 +130,34 @@ class CompactJobCard extends StatelessWidget {
                     ),
                   ),
                   
-                  // Urgent Badge
-                  if (job.isUrgent)
-                    Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Container(
-                          width: 6,
-                          height: 6,
-                          decoration: BoxDecoration(
-                            color: AppColors.accent,
-                            shape: BoxShape.circle,
-                          ),
+                  // Urgent badge.
+                  //
+                  // This was a 6px dot stacked above the word URGENT in a
+                  // Column, which rendered as a loose dot floating beside the
+                  // job title with the label crushed underneath it — it read as
+                  // a rendering fault rather than a badge. A pill, matching the
+                  // match-percentage chip on the row below, says the same thing
+                  // in one line and sits in the space that is actually there.
+                  if (job.isUrgent) ...[
+                    const SizedBox(width: 6),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 6, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: AppColors.accent.withValues(alpha: 0.16),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: const Text(
+                        'URGENT',
+                        style: TextStyle(
+                          fontSize: 9,
+                          fontWeight: FontWeight.w700,
+                          color: Color(0xFF8A6D00),
+                          height: 1.2,
                         ),
-                        const SizedBox(height: 2),
-                        Text(
-                          'URGENT',
-                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                            color: AppColors.accent,
-                            fontSize: 8,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                      ],
+                      ),
                     ),
+                  ],
                 ],
               ),
             ),
@@ -205,12 +210,74 @@ class CompactJobCard extends StatelessWidget {
                   children: [
                     const Icon(Icons.location_on, color: AppColors.neutral500, size: 10),
                     const SizedBox(width: 3),
+                    /*
+                        Location and distance as two elements, not one string.
+
+                        They were joined into "Brgy. Nancayasan, Urdaneta City,
+                        Pangasinan • 3.4 km" and ellipsized as a whole, so on
+                        any job with a full barangay-level address the distance
+                        — the last thing in the string — was always the part
+                        that got cut. On a list whose entire premise is
+                        "nearest first", that is the one number worth keeping.
+
+                        The address truncates; the distance never does.
+                    */
                     Expanded(
                       child: Text(
-                        _getLocationText(),
+                        job.location ?? '',
                         style: Theme.of(context).textTheme.bodySmall?.copyWith(
                           color: AppColors.neutral500,
                           fontSize: 10,
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                        maxLines: 1,
+                      ),
+                    ),
+                    if (job.distance != null) ...[
+                      const SizedBox(width: 6),
+                      Text(
+                        formatDistance(job.distance!),
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: AppColors.neutral600,
+                          fontSize: 10,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            ],
+
+            /*
+                When the job actually happens.
+
+                Job.scheduleLabel has existed since scheduling landed, with a
+                comment saying the card, the details page and the applications
+                list should all read from it so they cannot describe the same
+                dates differently — and then no card ever rendered it. A worker
+                deciding whether to tap could not see whether the job was next
+                week or today without opening it.
+
+                It goes in the gap the Spacer was already holding open, so the
+                card does not grow.
+            */
+            if (job.scheduleLabel != null) ...[
+              const SizedBox(height: 2),
+              SizedBox(
+                height: 14,
+                child: Row(
+                  children: [
+                    const Icon(Icons.event,
+                        color: AppColors.neutral500, size: 10),
+                    const SizedBox(width: 3),
+                    Expanded(
+                      child: Text(
+                        job.scheduleLabel!,
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: AppColors.neutral600,
+                          fontSize: 10,
+                          fontWeight: FontWeight.w600,
                         ),
                         overflow: TextOverflow.ellipsis,
                         maxLines: 1,
@@ -220,7 +287,7 @@ class CompactJobCard extends StatelessWidget {
                 ),
               ),
             ],
-            
+
             const Spacer(),
             
             // Bottom Row: Applicants and Action Button
@@ -316,17 +383,6 @@ class CompactJobCard extends StatelessWidget {
     return 'Negotiable';
   }
 
-  String _getLocationText() {
-    final parts = <String>[];
-    if (job.location != null) {
-      parts.add(job.location!);
-    }
-    if (job.distance != null) {
-      parts.add('${job.distance!.toStringAsFixed(1)}km away');
-    }
-    return parts.join(' • ');
-  }
-
   String _getTimeAgo() {
     if (job.postedAt == null) return '';
     
@@ -361,6 +417,14 @@ class CompactJobCard extends StatelessWidget {
     }
   }
 
+  /// What the button does, not what we wish it did.
+  ///
+  /// This said "Contact", which promises a message to the employer. It opens
+  /// the job. Messaging is not possible before applying anyway — a conversation
+  /// only exists once an application is accepted, which is the rule that keeps
+  /// the inbox from becoming a cold-contact channel. So the label was offering
+  /// something the app deliberately does not do, on every job card on the home
+  /// screen.
   String _getApplicationButtonText() {
     switch (job.applicationStatus) {
       case ApplicationStatus.pending:
@@ -370,7 +434,7 @@ class CompactJobCard extends StatelessWidget {
       case ApplicationStatus.rejected:
         return 'Rejected';
       default:
-        return 'Contact';
+        return 'View job';
     }
   }
 }

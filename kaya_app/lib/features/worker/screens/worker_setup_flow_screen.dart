@@ -5,6 +5,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:dio/dio.dart';
 import '../../../core/constants/app_colors.dart';
+import '../../../core/utils/pin_location_match.dart';
 import '../../../data/models/location_model.dart';
 import '../../../providers/auth_provider.dart';
 import '../../../shared/widgets/location_picker_field.dart';
@@ -17,6 +18,7 @@ import '../../../data/services/api_client.dart';
 import '../../../core/navigation/app_router.dart';
 import '../../profile/screens/add_skills_screen.dart';
 import '../../profile/screens/onboarding_verification_screen.dart';
+import '../../../core/widgets/app_toast.dart';
 
 /// Worker Profile Setup Flow - 6 Step Onboarding
 /// 
@@ -57,12 +59,27 @@ class _WorkerSetupFlowScreenState extends State<WorkerSetupFlowScreen> {
   String? _tempSelfiePhotoName;
   bool _isSaving = false;
 
+  /// Which button started the save, so only that one shows a spinner.
+  ///
+  /// Both buttons used to read the same `_isSaving` flag, so finishing made
+  /// "Skip & Finish" spin too and skipping made "Finish" spin — two spinners
+  /// for one action, and no way to tell which one you actually pressed. They
+  /// still share `_isSaving` for *disabling*, which is correct: while either
+  /// is running neither should be pressable.
+  bool _finishPressed = false;
+
   /// Set when the optional ID upload fails. Setup still completes, but the user
   /// is warned so they can retry from the verification screen.
   bool _verificationUploadFailed = false;
 
   /// Structured location chosen from the picker (PSGC id + coordinates).
   LocationModel? _selectedLocation;
+
+  /// Exact pin for where this worker is based, if they set one. Overrides the
+  /// town/barangay centroid — without it, every worker in a town shares one
+  /// point and jobs there all read 0 km away.
+  double? _pinnedLat;
+  double? _pinnedLng;
   
   @override
   void initState() {
@@ -121,13 +138,7 @@ class _WorkerSetupFlowScreenState extends State<WorkerSetupFlowScreen> {
     if (!mounted) return;
 
     final message = error.toString().replaceFirst('Exception: ', '');
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('Could not finish setup: $message'),
-        backgroundColor: AppColors.error,
-        duration: const Duration(seconds: 5),
-      ),
-    );
+    AppToast.error(context, 'Could not finish setup: $message');
   }
 
   void _nextStep() {
@@ -180,16 +191,8 @@ class _WorkerSetupFlowScreenState extends State<WorkerSetupFlowScreen> {
 
     if (mounted && _verificationUploadFailed) {
       // ScaffoldMessenger is app-scoped, so this survives the route change.
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(
-            'Your profile is set up, but your ID could not be uploaded. '
-            'You can retry it from Verification.',
-          ),
-          backgroundColor: AppColors.warning,
-          duration: Duration(seconds: 6),
-        ),
-      );
+      AppToast.warning(context, 'Your profile is set up, but your ID could not be uploaded. '
+            'You can retry it from Verification.');
     }
 
     if (mounted) {
@@ -204,9 +207,15 @@ class _WorkerSetupFlowScreenState extends State<WorkerSetupFlowScreen> {
 
   bool get _canProceed {
     switch (_currentStep) {
-      case 0: // Location + Name - Check controllers directly
-        return _nameController.text.trim().isNotEmpty && 
-               _locationController.text.trim().isNotEmpty;
+      case 0: // Name + location + exact pin
+        // _selectedLocation, not just non-empty text: typed text that was
+        // never picked from the suggestions has no location_id, so the profile
+        // saves with no coordinates and the worker is invisible to every
+        // distance and proximity calculation.
+        return _nameController.text.trim().isNotEmpty &&
+            _selectedLocation != null &&
+            _pinnedLat != null &&
+            _pinnedLng != null;
       case 1: // Skills
         return _selectedSkills.isNotEmpty;
       default:
@@ -385,16 +394,186 @@ class _WorkerSetupFlowScreenState extends State<WorkerSetupFlowScreen> {
           // never matched between workers and job posts.
           LocationPickerField(
             controller: _locationController,
-            labelText: 'City or Municipality *',
+            labelText: 'Barangay, City or Municipality *',
+            hintText: 'Search your barangay or city',
+            selection: _selectedLocation,
             onSelected: (location) {
               _location = location.displayName;
               _selectedLocation = location;
+              // A new place invalidates a pin dropped for the old one.
+              _pinnedLat = null;
+              _pinnedLng = null;
               setState(() {}); // Refresh the Next button's enabled state
             },
+            // Text edited after choosing — drop the id so the profile can't
+            // save one place's coordinates under another place's name.
+            onCleared: () => setState(() {
+              _selectedLocation = null;
+              _pinnedLat = null;
+              _pinnedLng = null;
+            }),
           ),
+          const SizedBox(height: 12),
+          _buildWorkerPinRow(),
         ],
       ),
     );
+  }
+
+  /// Required exact pin for where the worker is based.
+  ///
+  /// Without it every worker in a town sits on that town's single centroid, so
+  /// a job in the same town reads the same distance for all of them — which
+  /// takes the location component of matching out of play entirely.
+  Widget _buildWorkerPinRow() {
+    final hasPin = _pinnedLat != null && _pinnedLng != null;
+    final canPin = _selectedLocation != null;
+
+    return InkWell(
+      onTap: canPin ? _openWorkerPinPicker : null,
+      borderRadius: BorderRadius.circular(12),
+      child: Container(
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: hasPin
+              ? AppColors.success.withValues(alpha: 0.06)
+              : Colors.white,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: hasPin
+                ? AppColors.success.withValues(alpha: 0.4)
+                : Colors.transparent,
+          ),
+        ),
+        child: Row(
+          children: [
+            Icon(
+              hasPin ? Icons.where_to_vote : Icons.add_location_alt_outlined,
+              size: 20,
+              color: canPin
+                  ? (hasPin ? AppColors.success : AppColors.primary)
+                  : AppColors.neutral400,
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    hasPin
+                        ? 'Exact location pinned'
+                        : 'Pin your exact location *',
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                      color: canPin ? AppColors.neutral900 : AppColors.neutral400,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    !canPin
+                        ? 'Choose your location first'
+                        : hasPin
+                            ? '${_pinnedLat!.toStringAsFixed(5)}, ${_pinnedLng!.toStringAsFixed(5)}'
+                            : 'Required — so jobs show the real distance to you',
+                    style: const TextStyle(
+                        fontSize: 12, color: AppColors.neutral500),
+                  ),
+                ],
+              ),
+            ),
+            if (hasPin)
+              IconButton(
+                icon: const Icon(Icons.close,
+                    size: 18, color: AppColors.neutral500),
+                onPressed: () => setState(() {
+                  _pinnedLat = null;
+                  _pinnedLng = null;
+                }),
+              )
+            else if (canPin)
+              const Icon(Icons.chevron_right, color: AppColors.neutral400),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _openWorkerPinPicker() async {
+    final result = await Navigator.pushNamed(
+      context,
+      '/pin-location',
+      arguments: {
+        'latitude': _pinnedLat ?? _selectedLocation?.latitude,
+        'longitude': _pinnedLng ?? _selectedLocation?.longitude,
+        'label': _selectedLocation?.displayName,
+      },
+    );
+
+    if (result is! Map || !mounted) return;
+
+    final lat = (result['latitude'] as num?)?.toDouble();
+    final lng = (result['longitude'] as num?)?.toDouble();
+    final resolved = result['resolved'] as LocationModel?;
+
+    if (lat == null || lng == null) return;
+
+    // This check existed only in job posting, which is how a worker could pick
+    // "Urdaneta City" from the list, pin Manila on the map, and save both. The
+    // profile then displayed Urdaneta while its coordinates sat 200km away, so
+    // every distance and match was computed against a place the profile never
+    // showed.
+    final movedElsewhere = resolved != null &&
+        _selectedLocation != null &&
+        !isSamePlace(resolved, _selectedLocation!);
+
+    if (movedElsewhere) {
+      final useResolved = await _confirmWorkerLocationChange(resolved);
+      if (!mounted) return;
+
+      if (useResolved) {
+        setState(() {
+          _selectedLocation = resolved;
+          _location = resolved.displayName;
+          _pinnedLat = lat;
+          _pinnedLng = lng;
+        });
+      }
+      // Declined: keep no pin rather than one that contradicts the label.
+      return;
+    }
+
+    setState(() {
+      _pinnedLat = lat;
+      _pinnedLng = lng;
+    });
+  }
+
+  /// Asked only when the pin disagrees with the chosen place. Keeping both
+  /// would be the bug; this makes the worker say which one is right.
+  Future<bool> _confirmWorkerLocationChange(LocationModel resolved) async {
+    return await showDialog<bool>(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: const Text('Pin is somewhere else'),
+            content: Text(
+              'Your pin is in ${resolved.displayName}, not '
+              '${_selectedLocation?.displayName ?? 'the location you chose'}.\n\n'
+              'Use the pinned location instead?',
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context, false),
+                child: const Text('Keep my choice'),
+              ),
+              ElevatedButton(
+                onPressed: () => Navigator.pop(context, true),
+                child: const Text('Use the pin'),
+              ),
+            ],
+          ),
+        ) ??
+        false;
   }
 
   Widget _buildSkillsStep() {
@@ -510,7 +689,7 @@ class _WorkerSetupFlowScreenState extends State<WorkerSetupFlowScreen> {
                               child: Text(
                                 skill.name,
                                 style: const TextStyle(
-                                  fontSize: 13,
+                                  fontSize: 13.5,
                                   color: AppColors.primary,
                                   fontWeight: FontWeight.w500,
                                 ),
@@ -659,7 +838,7 @@ class _WorkerSetupFlowScreenState extends State<WorkerSetupFlowScreen> {
                                   Text(
                                     exp['company'] as String,
                                     style: const TextStyle(
-                                      fontSize: 13,
+                                      fontSize: 13.5,
                                       color: AppColors.neutral600,
                                     ),
                                   ),
@@ -837,7 +1016,7 @@ class _WorkerSetupFlowScreenState extends State<WorkerSetupFlowScreen> {
                                   Text(
                                     cert['issuing_organization'] as String,
                                     style: const TextStyle(
-                                      fontSize: 13,
+                                      fontSize: 13.5,
                                       color: AppColors.neutral600,
                                     ),
                                   ),
@@ -1017,7 +1196,7 @@ class _WorkerSetupFlowScreenState extends State<WorkerSetupFlowScreen> {
                                   Text(
                                     license['issuing_authority'] as String,
                                     style: const TextStyle(
-                                      fontSize: 13,
+                                      fontSize: 13.5,
                                       color: AppColors.neutral600,
                                     ),
                                   ),
@@ -1174,7 +1353,7 @@ class _WorkerSetupFlowScreenState extends State<WorkerSetupFlowScreen> {
                         Text(
                           'Photo selected',
                           style: TextStyle(
-                            fontSize: 13,
+                            fontSize: 13.5,
                             color: AppColors.success,
                             fontWeight: FontWeight.w600,
                           ),
@@ -1450,7 +1629,10 @@ class _WorkerSetupFlowScreenState extends State<WorkerSetupFlowScreen> {
                   onPressed: _isSaving ? null : () async {
                     if (isLastStep) {
                       // On last step, skip means finish without verification
-                      setState(() => _isSaving = true);
+                      setState(() {
+                        _isSaving = true;
+                        _finishPressed = false;
+                      });
                       try {
                         await _saveAllDataAndComplete();
                       } catch (e) {
@@ -1472,7 +1654,8 @@ class _WorkerSetupFlowScreenState extends State<WorkerSetupFlowScreen> {
                       borderRadius: BorderRadius.circular(12),
                     ),
                   ),
-                  child: _isSaving && isLastStep
+                  // Spins only when *this* button started the save.
+                  child: _isSaving && isLastStep && !_finishPressed
                       ? const SizedBox(
                           height: 20,
                           width: 20,
@@ -1500,7 +1683,10 @@ class _WorkerSetupFlowScreenState extends State<WorkerSetupFlowScreen> {
                           return;
                         }
 
-                        setState(() => _isSaving = true);
+                        setState(() {
+                          _isSaving = true;
+                          _finishPressed = true;
+                        });
                         try {
                           await _saveAllDataAndComplete();
                         } catch (e) {
@@ -1524,7 +1710,8 @@ class _WorkerSetupFlowScreenState extends State<WorkerSetupFlowScreen> {
                   ),
                   elevation: 0,
                 ),
-                child: _isSaving
+                // Spins only when *this* button started the save.
+                child: _isSaving && _finishPressed
                     ? const SizedBox(
                         height: 20,
                         width: 20,
@@ -1568,7 +1755,17 @@ class _WorkerSetupFlowScreenState extends State<WorkerSetupFlowScreen> {
       // 2. Save location (this creates profile with setup_completed=false)
       final location = _locationController.text.trim();
       if (location.isNotEmpty) {
-        final success = await provider.updateLocation(location);
+        // Send the picker's structured location, not just the display text —
+        // without location_id the profile has no coordinates and every
+        // "x km away" / proximity match for this worker comes out empty.
+        final success = await provider.updateLocation(
+          location,
+          locationId: _selectedLocation?.id,
+          // A dropped pin beats the centroid; without one the town's own
+          // coordinates are used, which is what keeps pinning optional.
+          latitude: _pinnedLat ?? _selectedLocation?.latitude,
+          longitude: _pinnedLng ?? _selectedLocation?.longitude,
+        );
         if (!success && mounted) {
           throw Exception(provider.errorMessage ?? 'Failed to save location');
         }
@@ -1647,12 +1844,7 @@ class _WorkerSetupFlowScreenState extends State<WorkerSetupFlowScreen> {
       
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Failed to save profile: $e'),
-            backgroundColor: AppColors.error,
-          ),
-        );
+        AppToast.error(context, 'Failed to save profile: $e');
       }
       rethrow;
     }
@@ -2068,7 +2260,7 @@ class _CertificationFormScreenState extends State<_CertificationFormScreen> {
                           const Icon(Icons.picture_as_pdf, size: 56, color: AppColors.error),
                           const SizedBox(height: 8),
                           Text(_fileName ?? '',
-                              style: const TextStyle(fontSize: 13, color: AppColors.neutral600),
+                              style: const TextStyle(fontSize: 13.5, color: AppColors.neutral600),
                               textAlign: TextAlign.center,
                               overflow: TextOverflow.ellipsis),
                         ],
@@ -2088,7 +2280,7 @@ class _CertificationFormScreenState extends State<_CertificationFormScreen> {
                         Expanded(
                           child: Text(
                             _fileName ?? 'Document selected',
-                            style: const TextStyle(fontSize: 13, color: AppColors.success),
+                            style: const TextStyle(fontSize: 13.5, color: AppColors.success),
                             overflow: TextOverflow.ellipsis
                           ),
                         ),
@@ -2157,7 +2349,7 @@ class _CertificationFormScreenState extends State<_CertificationFormScreen> {
           const Expanded(
             child: Text(
               'I confirm this document is genuine. Submitting fake documents will result in permanent account ban and may be reported to authorities.',
-              style: TextStyle(fontSize: 13, color: AppColors.neutral700, height: 1.5),
+              style: TextStyle(fontSize: 13.5, color: AppColors.neutral700, height: 1.5),
             ),
           ),
         ],
@@ -2392,7 +2584,7 @@ class _LicenseFormScreenState extends State<_LicenseFormScreen> {
                           const Icon(Icons.picture_as_pdf, size: 56, color: AppColors.error),
                           const SizedBox(height: 8),
                           Text(_fileName ?? '',
-                              style: const TextStyle(fontSize: 13, color: AppColors.neutral600),
+                              style: const TextStyle(fontSize: 13.5, color: AppColors.neutral600),
                               textAlign: TextAlign.center,
                               overflow: TextOverflow.ellipsis),
                         ],
@@ -2412,7 +2604,7 @@ class _LicenseFormScreenState extends State<_LicenseFormScreen> {
                         Expanded(
                           child: Text(
                             _fileName ?? 'Document selected',
-                            style: const TextStyle(fontSize: 13, color: AppColors.success),
+                            style: const TextStyle(fontSize: 13.5, color: AppColors.success),
                             overflow: TextOverflow.ellipsis
                           ),
                         ),
@@ -2481,7 +2673,7 @@ class _LicenseFormScreenState extends State<_LicenseFormScreen> {
           const Expanded(
             child: Text(
               'I confirm this document is genuine. Submitting fake documents will result in permanent account ban and may be reported to authorities.',
-              style: TextStyle(fontSize: 13, color: AppColors.neutral700, height: 1.5),
+              style: TextStyle(fontSize: 13.5, color: AppColors.neutral700, height: 1.5),
             ),
           ),
         ],

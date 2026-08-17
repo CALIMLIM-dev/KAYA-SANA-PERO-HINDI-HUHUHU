@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../../core/constants/app_colors.dart';
+import '../../../core/widgets/app_toast.dart';
 
 /// Applicant Review Screen — employer reviews a single applicant
 /// Per product rules: shows Profile Picture, Full Name, Verification Status,
@@ -99,7 +100,7 @@ class _ApplicantReviewScreenState extends State<ApplicantReviewScreen> {
                               child: Text(
                                 (applicant['name'] as String)[0].toUpperCase(),
                                 style: const TextStyle(
-                                  fontSize: 30,
+                                  fontSize: 32,
                                   fontWeight: FontWeight.bold,
                                   color: Colors.white,
                                 ),
@@ -174,7 +175,7 @@ class _ApplicantReviewScreenState extends State<ApplicantReviewScreen> {
                             Text(
                               '${applicant['rating']} (${applicant['reviewCount']} reviews)',
                               style: const TextStyle(
-                                  fontSize: 13, color: Colors.white70),
+                                  fontSize: 13.5, color: Colors.white70),
                             ),
                             const SizedBox(width: 12),
                             const Icon(Icons.location_on,
@@ -182,7 +183,7 @@ class _ApplicantReviewScreenState extends State<ApplicantReviewScreen> {
                             const SizedBox(width: 3),
                             Text(applicant['location'],
                                 style: const TextStyle(
-                                    fontSize: 13, color: Colors.white70)),
+                                    fontSize: 13.5, color: Colors.white70)),
                           ],
                         ),
                       ],
@@ -223,7 +224,7 @@ class _ApplicantReviewScreenState extends State<ApplicantReviewScreen> {
                               ? 'Applicant Accepted — Messaging Unlocked'
                               : 'Applicant Rejected',
                           style: TextStyle(
-                            fontSize: 13,
+                            fontSize: 13.5,
                             fontWeight: FontWeight.w600,
                             color: _applicationStatus == 'accepted'
                                 ? AppColors.success
@@ -319,7 +320,7 @@ class _ApplicantReviewScreenState extends State<ApplicantReviewScreen> {
                                 ),
                                 child: Text(skill,
                                     style: const TextStyle(
-                                        fontSize: 13,
+                                        fontSize: 13.5,
                                         fontWeight: FontWeight.w500,
                                         color: AppColors.primary)),
                               ))
@@ -362,7 +363,7 @@ class _ApplicantReviewScreenState extends State<ApplicantReviewScreen> {
                                             color: AppColors.neutral900)),
                                     Text(exp['company'],
                                         style: const TextStyle(
-                                            fontSize: 13,
+                                            fontSize: 13.5,
                                             color: AppColors.neutral600)),
                                     Text(exp['duration'],
                                         style: const TextStyle(
@@ -473,7 +474,7 @@ class _ApplicantReviewScreenState extends State<ApplicantReviewScreen> {
                                   children: [
                                     Text(review['reviewer'],
                                         style: const TextStyle(
-                                            fontSize: 13,
+                                            fontSize: 13.5,
                                             fontWeight: FontWeight.w600,
                                             color: AppColors.neutral900)),
                                     Row(
@@ -505,7 +506,7 @@ class _ApplicantReviewScreenState extends State<ApplicantReviewScreen> {
                           const SizedBox(height: 6),
                           Text(review['comment'],
                               style: const TextStyle(
-                                  fontSize: 13,
+                                  fontSize: 13.5,
                                   color: AppColors.neutral700,
                                   height: 1.5)),
                         ],
@@ -553,7 +554,7 @@ class _ApplicantReviewScreenState extends State<ApplicantReviewScreen> {
                       ),
                       child: const Text('View Full Profile',
                           style: TextStyle(
-                              fontSize: 13, fontWeight: FontWeight.w600)),
+                              fontSize: 13.5, fontWeight: FontWeight.w600)),
                     ),
                     const SizedBox(width: 10),
 
@@ -572,7 +573,7 @@ class _ApplicantReviewScreenState extends State<ApplicantReviewScreen> {
                       ),
                       child: const Text('Reject',
                           style: TextStyle(
-                              fontSize: 13, fontWeight: FontWeight.w600)),
+                              fontSize: 13.5, fontWeight: FontWeight.w600)),
                     ),
                     const SizedBox(width: 10),
 
@@ -590,7 +591,7 @@ class _ApplicantReviewScreenState extends State<ApplicantReviewScreen> {
                         ),
                         child: const Text('Accept Applicant',
                             style: TextStyle(
-                                fontSize: 13, fontWeight: FontWeight.w600)),
+                                fontSize: 13.5, fontWeight: FontWeight.w600)),
                       ),
                     ),
                   ],
@@ -673,13 +674,7 @@ class _ApplicantReviewScreenState extends State<ApplicantReviewScreen> {
             onPressed: () {
               Navigator.pop(context);
               setState(() => _applicationStatus = 'accepted');
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content:
-                      Text('${applicant['name']} accepted — messaging unlocked'),
-                  backgroundColor: AppColors.success,
-                ),
-              );
+              AppToast.success(context, '${applicant['name']} accepted — messaging unlocked');
             },
             style: ElevatedButton.styleFrom(
                 backgroundColor: AppColors.success),
@@ -705,9 +700,7 @@ class _ApplicantReviewScreenState extends State<ApplicantReviewScreen> {
             onPressed: () {
               Navigator.pop(context);
               setState(() => _applicationStatus = 'rejected');
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Applicant rejected')),
-              );
+              AppToast.info(context, 'Applicant rejected');
             },
             style:
                 ElevatedButton.styleFrom(backgroundColor: AppColors.error),

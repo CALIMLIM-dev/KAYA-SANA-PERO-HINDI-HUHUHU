@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import '../../../core/utils/realtime_refresh.dart';
 
 import '../../../core/constants/app_colors.dart';
 import '../../../providers/app_mode_provider.dart';
 import '../../../providers/application_provider.dart';
 import '../../../providers/job_provider.dart';
+import '../widgets/completion_action.dart';
 
 /// My Activity.
 ///
@@ -23,11 +25,24 @@ class ApplicationsScreen extends StatefulWidget {
   State<ApplicationsScreen> createState() => _ApplicationsScreenState();
 }
 
-class _ApplicationsScreenState extends State<ApplicationsScreen> {
+class _ApplicationsScreenState extends State<ApplicationsScreen>
+    with RealtimeRefresh {
+  /// A worker sitting on this screen sees "accepted" land the moment the
+  /// employer taps it — the single most important status change in the app.
+  /// Invitations are included because accepting one creates an application.
+  @override
+  List<String> get refreshOn => const ['application.', 'invitation.', 'job.'];
+
+  @override
+  void onRealtimeRefresh() => _load();
+
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) => _load());
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _load();
+      bindRealtimeRefresh();
+    });
   }
 
   Future<void> _load() async {
@@ -272,8 +287,8 @@ class _TabBody extends StatelessWidget {
         padding: const EdgeInsets.all(16),
         itemCount: tab.items.length,
         itemBuilder: (_, i) => tab.isJobTab
-            ? _JobPostCard(job: tab.items[i])
-            : _ApplicationCard(application: tab.items[i]),
+            ? _JobPostCard(job: tab.items[i], onChanged: onRefresh)
+            : _ApplicationCard(application: tab.items[i], onChanged: onRefresh),
       ),
     );
   }
@@ -329,9 +344,13 @@ class _TabBody extends StatelessWidget {
 
 /// Worker side — a job you applied to.
 class _ApplicationCard extends StatelessWidget {
-  const _ApplicationCard({required this.application});
+  const _ApplicationCard({required this.application, required this.onChanged});
 
   final Map<String, dynamic> application;
+
+  /// Called after a completion is recorded, so the list reloads and both cards
+  /// pick up the new timestamps.
+  final Future<void> Function() onChanged;
 
   @override
   Widget build(BuildContext context) {
@@ -339,11 +358,113 @@ class _ApplicationCard extends StatelessWidget {
     final employer = job?['employer'] as Map<String, dynamic>?;
     final status = (application['status'] ?? '').toString();
 
+    /*
+        Two-sided completion, worker's side.
+
+        The employer used to decide alone and this application flipped to
+        completed underneath the worker with no say in it. Now each side
+        confirms, and the work is only done when both have.
+    */
+    final iConfirmed = application['worker_completed_at'] != null;
+    final theyConfirmed = application['employer_completed_at'] != null;
+    final isHired = status == 'accepted' || status == 'completed';
+    final workDone = status == 'completed';
+
+    final canConfirm = isHired && !workDone && !iConfirmed;
+
+    /*
+        Dual review, from the worker's side.
+
+        The button used to appear on every completed job whether or not a
+        review had already been left, so a second tap produced a 422 the user
+        could do nothing about. And nothing ever said the employer had reviewed
+        them — which is the half that makes people finish theirs.
+
+        What their review actually says stays hidden until this side writes one.
+        Reading it first and answering in kind is how a rating system turns into
+        a negotiation.
+    */
+    final iReviewed = application['i_reviewed_them'] == true;
+    final theyReviewed = application['they_reviewed_me'] == true;
+
+    final canReview = workDone && employer != null && !iReviewed;
+
+    final String? reviewNote = !isHired
+        ? null
+        : !workDone
+            // Completion first — the review note would be noise before there is
+            // anything to review.
+            ? (iConfirmed
+                ? 'Marked done · waiting for the employer to confirm'
+                : theyConfirmed
+                    ? 'The employer marked this done — confirm to finish it'
+                    : null)
+            : iReviewed && theyReviewed
+                ? 'You both reviewed each other'
+                : iReviewed
+                    ? 'Review sent · waiting for theirs'
+                    : theyReviewed
+                        ? 'They reviewed you — yours unlocks theirs'
+                        : null;
+
+    // The worker's way into the thread, matching the employer's on the
+    // applicant list. Before this the only route was the Messages tab, so one
+    // direction of the same conversation was a tap and the other was a hunt.
+    //
+    // Null until the application is accepted — messaging unlocks on hire, so
+    // there is genuinely nothing to open before that.
+    final conversationId = application['conversation_id'] as int?;
+    final canMessage = conversationId != null && employer != null;
+
     return _cardShell(
       title: (job?['title'] ?? 'Job').toString(),
       subtitle: (employer?['name'] ?? 'Employer').toString(),
       status: status,
       trailing: null,
+      note: reviewNote,
+      // Completion comes before reviewing, and they never both apply — you
+      // cannot review work that is not finished — so one slot serves both.
+      actionIcon: canConfirm ? Icons.check_circle_outline : Icons.star_outline,
+      onMessage: !canMessage
+          ? null
+          : () => Navigator.pushNamed(
+                context,
+                '/chat',
+                arguments: {
+                  'conversationId': conversationId,
+                  'name': (employer['name'] ?? 'Employer').toString(),
+                  'jobTitle': (job?['title'] ?? 'Job').toString(),
+                  'jobId': job?['id'],
+                  'otherUserId': employer['id'],
+                  'isVerified': (employer['is_verified'] as bool?) ?? false,
+                  'applicationId': application['id'],
+                  'jobStatus': job?['status'],
+                  'myRole': 'worker',
+                  'otherRole': 'employer',
+                },
+              ),
+      actionLabel: canConfirm
+          ? 'Mark as complete'
+          : canReview
+              ? 'Review employer'
+              : null,
+      onAction: canConfirm
+          ? () => confirmCompletion(
+                context, application['id'] as int, 'employer', onChanged)
+          : !canReview
+              ? null
+              : () => Navigator.pushNamed(
+                    context,
+                    '/leave-review',
+                    arguments: {
+                      'revieweeId': employer['id'],
+                      'revieweeName':
+                          (employer['name'] ?? 'Employer').toString(),
+                      'revieweeRole': 'employer',
+                      'jobId': job!['id'],
+                      'jobTitle': (job['title'] ?? 'this job').toString(),
+                    },
+                  ),
       onTap: job == null
           ? null
           : () => Navigator.pushNamed(context, '/job-details',
@@ -354,20 +475,71 @@ class _ApplicationCard extends StatelessWidget {
 
 /// Employer side — a job you posted.
 class _JobPostCard extends StatelessWidget {
-  const _JobPostCard({required this.job});
+  const _JobPostCard({required this.job, required this.onChanged});
 
   final Map<String, dynamic> job;
+  final Future<void> Function() onChanged;
 
   @override
   Widget build(BuildContext context) {
     final applicants = job['application_count'] ?? 0;
     final status = (job['status'] ?? '').toString();
 
+    /*
+        Complete and review, on the job card itself.
+
+        Both used to live three taps in — My Jobs, then Manage, then Applicants,
+        and only then a Review button — which is why nobody found them. This
+        card is where an employer looks when they think "that job is done", so
+        this is where the buttons belong.
+
+        Only when exactly one person was hired: with two, the card cannot say
+        who you mean, so those still go through the applicants list. The server
+        sends `hire` as null in that case rather than picking one.
+    */
+    final hire = job['hire'] as Map<String, dynamic>?;
+
+    final iConfirmed = hire?['employer_completed_at'] != null;
+    final workDone = hire?['status'] == 'completed';
+    final canConfirm = hire != null && !workDone && !iConfirmed;
+    final canReview = hire != null && workDone && hire['i_reviewed_them'] != true;
+
+    final String? note = hire == null
+        ? null
+        : !workDone
+            ? (iConfirmed ? 'Waiting for ${hire['worker_name']} to confirm' : null)
+            : hire['i_reviewed_them'] == true
+                ? 'You reviewed ${hire['worker_name']}'
+                : null;
+
     return _cardShell(
       title: (job['title'] ?? 'Job').toString(),
       subtitle: (job['location'] ?? '').toString(),
       status: status,
       trailing: '$applicants applicant${applicants == 1 ? '' : 's'}',
+      note: note,
+      actionIcon: canConfirm ? Icons.check_circle_outline : Icons.star_outline,
+      actionLabel: canConfirm
+          ? 'Mark as complete'
+          : canReview
+              ? 'Review ${hire['worker_name'] ?? 'worker'}'
+              : null,
+      onAction: canConfirm
+          ? () => confirmCompletion(
+                context, hire['application_id'] as int, 'worker', onChanged)
+          : !canReview
+              ? null
+              : () => Navigator.pushNamed(
+                    context,
+                    '/leave-review',
+                    arguments: {
+                      'revieweeId': hire['worker_id'],
+                      'revieweeName': (hire['worker_name'] ?? 'Worker').toString(),
+                      'revieweeRole': 'worker',
+                      'jobId': job['id'],
+                      'jobTitle': (job['title'] ?? 'this job').toString(),
+                    },
+                  ),
       onTap: () => Navigator.pushNamed(context, '/view-applicants',
           arguments: {'jobId': job['id']}),
     );
@@ -380,6 +552,20 @@ Widget _cardShell({
   required String status,
   required String? trailing,
   VoidCallback? onTap,
+  /// Optional call to action shown under the card — currently "Review
+  /// employer", offered only once a job is completed.
+  String? actionLabel,
+  VoidCallback? onAction,
+  /// Icon on the action button. Defaults to the review star; completion uses a
+  /// tick, because a star on "Mark as complete" reads like a rating.
+  IconData actionIcon = Icons.star_outline,
+  /// Optional "Message" button, shown once a conversation exists. Sits beside
+  /// the action when both are present rather than stacking, so an accepted and
+  /// completed job does not grow two full-width buttons.
+  VoidCallback? onMessage,
+  /// Optional one-line state under the buttons — currently where the mutual
+  /// review stands. A sentence, because a badge cannot say "waiting for theirs".
+  String? note,
 }) {
   final (bg, fg, label) = _statusStyle(status);
 
@@ -429,7 +615,66 @@ Widget _cardShell({
               const SizedBox(height: 6),
               Text(subtitle,
                   style: const TextStyle(
-                      fontSize: 13, color: AppColors.neutral600)),
+                      fontSize: 13.5, color: AppColors.neutral600)),
+            ],
+            if (onMessage != null || (actionLabel != null && onAction != null)) ...[
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  if (onMessage != null)
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        onPressed: onMessage,
+                        icon: const Icon(Icons.message_outlined, size: 16),
+                        label: const Text('Message'),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: AppColors.primary,
+                          side: const BorderSide(color: AppColors.primary),
+                          padding: const EdgeInsets.symmetric(vertical: 10),
+                          shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8)),
+                          textStyle: const TextStyle(
+                              fontSize: 13.5, fontWeight: FontWeight.w600),
+                        ),
+                      ),
+                    ),
+                  if (onMessage != null && actionLabel != null && onAction != null)
+                    const SizedBox(width: 8),
+                  if (actionLabel != null && onAction != null)
+                    Expanded(
+                      child: ElevatedButton.icon(
+                        onPressed: onAction,
+                        icon: Icon(actionIcon, size: 16),
+                        label: Text(actionLabel, overflow: TextOverflow.ellipsis),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppColors.accent,
+                          foregroundColor: AppColors.neutral900,
+                          elevation: 0,
+                          padding: const EdgeInsets.symmetric(vertical: 10),
+                          shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8)),
+                          textStyle: const TextStyle(
+                              fontSize: 13.5, fontWeight: FontWeight.w600),
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+            ],
+            if (note != null) ...[
+              const SizedBox(height: 10),
+              Row(
+                children: [
+                  const Icon(Icons.rate_review_outlined,
+                      size: 14, color: AppColors.neutral400),
+                  const SizedBox(width: 6),
+                  Expanded(
+                    child: Text(note,
+                        style: const TextStyle(
+                            fontSize: 12, color: AppColors.neutral600)),
+                  ),
+                ],
+              ),
             ],
             if (trailing != null) ...[
               const SizedBox(height: 10),

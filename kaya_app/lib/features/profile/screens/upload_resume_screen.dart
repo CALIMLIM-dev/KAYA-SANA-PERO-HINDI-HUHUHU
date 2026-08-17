@@ -335,7 +335,7 @@ class _UploadResumeScreenState extends State<UploadResumeScreen> {
             child: Text(
               text,
               style: TextStyle(
-                fontSize: 13,
+                fontSize: 13.5,
                 color: AppColors.neutral700,
                 height: 1.5,
               ),

@@ -102,7 +102,7 @@ class SuspensionDialog extends StatelessWidget {
                     const Text(
                       'If you believe this is a mistake, you can appeal this decision.',
                       style: TextStyle(
-                        fontSize: 13,
+                        fontSize: 13.5,
                         color: AppColors.neutral500,
                         height: 1.5,
                       ),

@@ -224,7 +224,7 @@ class _AddEmployerAboutScreenState extends State<AddEmployerAboutScreen> {
       child: Text(
         text,
         style: TextStyle(
-          fontSize: 13,
+          fontSize: 13.5,
           color: AppColors.neutral900,
           height: 1.5,
         ),

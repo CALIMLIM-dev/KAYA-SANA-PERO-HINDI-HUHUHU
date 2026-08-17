@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import '../../../core/utils/realtime_refresh.dart';
 
 import '../../../core/constants/app_colors.dart';
 import '../../../providers/invitation_provider.dart';
+import '../../../core/widgets/app_toast.dart';
 
 /// My Invitations Screen — Worker sees job invitations from employers.
 /// Backed by GET /my-invitations; Accept/Decline call the real endpoints.
@@ -13,12 +15,22 @@ class MyInvitationsScreen extends StatefulWidget {
   State<MyInvitationsScreen> createState() => _MyInvitationsScreenState();
 }
 
-class _MyInvitationsScreenState extends State<MyInvitationsScreen> {
+class _MyInvitationsScreenState extends State<MyInvitationsScreen>
+    with RealtimeRefresh {
+  @override
+  List<String> get refreshOn => const ['invitation.'];
+
+  @override
+  void onRealtimeRefresh() =>
+      context.read<InvitationProvider>().fetchMyInvitations();
+
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) context.read<InvitationProvider>().fetchMyInvitations();
+      if (!mounted) return;
+      context.read<InvitationProvider>().fetchMyInvitations();
+      bindRealtimeRefresh();
     });
   }
 
@@ -176,7 +188,7 @@ class _MyInvitationsScreenState extends State<MyInvitationsScreen> {
                             child: Text(
                               employerName,
                               style: const TextStyle(
-                                  fontSize: 13,
+                                  fontSize: 13.5,
                                   fontWeight: FontWeight.w600,
                                   color: AppColors.neutral700),
                               overflow: TextOverflow.ellipsis,
@@ -254,7 +266,7 @@ class _MyInvitationsScreenState extends State<MyInvitationsScreen> {
                         shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(8)),
                         textStyle: const TextStyle(
-                            fontSize: 13, fontWeight: FontWeight.w600),
+                            fontSize: 13.5, fontWeight: FontWeight.w600),
                       ),
                       child: const Text('View Job'),
                     ),
@@ -271,7 +283,7 @@ class _MyInvitationsScreenState extends State<MyInvitationsScreen> {
                       shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(8)),
                       textStyle: const TextStyle(
-                          fontSize: 13, fontWeight: FontWeight.w600),
+                          fontSize: 13.5, fontWeight: FontWeight.w600),
                     ),
                     child: const Text('Decline'),
                   ),
@@ -287,7 +299,7 @@ class _MyInvitationsScreenState extends State<MyInvitationsScreen> {
                         shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(8)),
                         textStyle: const TextStyle(
-                            fontSize: 13, fontWeight: FontWeight.w600),
+                            fontSize: 13.5, fontWeight: FontWeight.w600),
                       ),
                       child: const Text('Accept'),
                     ),
@@ -316,7 +328,7 @@ class _MyInvitationsScreenState extends State<MyInvitationsScreen> {
                     shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(8)),
                     textStyle: const TextStyle(
-                        fontSize: 13, fontWeight: FontWeight.w600),
+                        fontSize: 13.5, fontWeight: FontWeight.w600),
                   ),
                 ),
               ),
@@ -401,50 +413,34 @@ class _MyInvitationsScreenState extends State<MyInvitationsScreen> {
                   await context.read<InvitationProvider>().accept(inv['id'] as int);
               if (!mounted) return;
               final employer = inv['employer'] as Map<String, dynamic>?;
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Row(
-                    children: [
-                      Icon(
-                          conversationId != null
-                              ? Icons.check_circle
-                              : Icons.error_outline,
-                          color: Colors.white,
-                          size: 18),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Text(conversationId != null
-                            ? 'Invitation accepted!'
-                            : context.read<InvitationProvider>().errorMessage ??
-                                'Failed to accept invitation'),
-                      ),
-                      if (conversationId != null)
-                        TextButton(
-                          onPressed: () => Navigator.pushNamed(
-                            context,
-                            '/chat',
-                            arguments: {
-                              'conversationId': conversationId,
-                              'name': employer?['name'] ?? 'Employer',
-                              'jobTitle': jobTitle,
-                              'jobId': job?['id'],
-                              'otherUserId': employer?['id'],
-                              'isVerified': employer?['is_verified'] ?? false,
-                              'otherRole': 'employer',
-                            },
-                          ),
-                          style: TextButton.styleFrom(
-                            foregroundColor: Colors.white,
-                            padding: EdgeInsets.zero,
-                          ),
-                          child: const Text('Message',
-                              style: TextStyle(fontWeight: FontWeight.bold)),
-                        ),
-                    ],
-                  ),
-                  backgroundColor:
-                      conversationId != null ? AppColors.success : AppColors.error,
-                  duration: const Duration(seconds: 4),
+
+              if (conversationId == null) {
+                AppToast.error(
+                  context,
+                  context.read<InvitationProvider>().errorMessage ??
+                      'Failed to accept invitation',
+                );
+                return;
+              }
+
+              AppToast.show(
+                context,
+                'Invitation accepted!',
+                type: ToastType.success,
+                duration: const Duration(seconds: 4),
+                actionLabel: 'Message',
+                onAction: () => Navigator.pushNamed(
+                  context,
+                  '/chat',
+                  arguments: {
+                    'conversationId': conversationId,
+                    'name': employer?['name'] ?? 'Employer',
+                    'jobTitle': jobTitle,
+                    'jobId': job?['id'],
+                    'otherUserId': employer?['id'],
+                    'isVerified': employer?['is_verified'] ?? false,
+                    'otherRole': 'employer',
+                  },
                 ),
               );
             },
@@ -475,15 +471,10 @@ class _MyInvitationsScreenState extends State<MyInvitationsScreen> {
               final success =
                   await context.read<InvitationProvider>().decline(inv['id'] as int);
               if (!mounted) return;
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Text(success
+              AppToast.info(context, success
                       ? 'Invitation declined'
                       : context.read<InvitationProvider>().errorMessage ??
-                          'Failed to decline invitation'),
-                  backgroundColor: success ? AppColors.neutral600 : AppColors.error,
-                ),
-              );
+                          'Failed to decline invitation');
             },
             style: ElevatedButton.styleFrom(backgroundColor: AppColors.neutral600),
             child: const Text('Decline', style: TextStyle(color: Colors.white)),

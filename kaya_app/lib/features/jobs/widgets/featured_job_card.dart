@@ -137,7 +137,7 @@ class FeaturedJobCard extends StatelessWidget {
                             child: Text(
                               company,
                               style: const TextStyle(
-                                fontSize: 13,
+                                fontSize: 13.5,
                                 color: AppColors.neutral600,
                               ),
                               overflow: TextOverflow.ellipsis,
@@ -238,7 +238,7 @@ class FeaturedJobCard extends StatelessWidget {
                       Text(
                         'View Details',
                         style: TextStyle(
-                          fontSize: 13,
+                          fontSize: 13.5,
                           fontWeight: FontWeight.w600,
                           color: AppColors.primary,
                         ),
