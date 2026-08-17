@@ -16,6 +16,8 @@ class JobPost extends Model
         'location_id', 'latitude', 'longitude', 'address_line',
         'status', 'application_count', 'is_urgent', 'is_negotiable', 'photos',
         'budget_period',
+        // When the work happens. end_date null means a single day.
+        'start_date', 'end_date', 'start_time',
     ];
 
     protected $casts = [
@@ -24,6 +26,11 @@ class JobPost extends Model
         'is_urgent'     => 'boolean',
         'is_negotiable' => 'boolean',
         'photos'        => 'array',
+        // date:, not datetime: — these are calendar days, and casting them to
+        // datetime would attach a midnight that the app would then render as a
+        // start time nobody chose.
+        'start_date'    => 'date:Y-m-d',
+        'end_date'      => 'date:Y-m-d',
     ];
 
     protected $appends = ['photo_urls'];
@@ -35,12 +42,24 @@ class JobPost extends Model
     public function getPhotoUrlsAttribute(): array
     {
         return collect($this->photos ?? [])
-            ->map(fn ($path) => \Illuminate\Support\Facades\Storage::disk('public')->url($path))
+            ->map(fn ($path) => \Illuminate\Support\Facades\Storage::disk(config('filesystems.media'))->url($path))
             ->values()
             ->all();
     }
 
+    /**
+     * NOTE: `location` is also a string column on this table (the display
+     * name), and Laravel resolves attributes before relations — so
+     * `$job->location` returns that string, never this relation. Use
+     * psgcLocation() when you need the Location row.
+     */
     public function location()
+    {
+        return $this->belongsTo(\App\Models\Location::class, 'location_id');
+    }
+
+    /** Unshadowed alias of location() — see the note above. */
+    public function psgcLocation()
     {
         return $this->belongsTo(\App\Models\Location::class, 'location_id');
     }

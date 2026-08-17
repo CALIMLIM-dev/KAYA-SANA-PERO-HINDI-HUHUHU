@@ -17,4 +17,10 @@ class Conversation extends Model
     {
         return $this->hasOne(Message::class)->latestOfMany();
     }
+
+    // NOTE: there is deliberately no application() relation. The hire is
+    // identified by job_id AND worker_id, and a hasOne with a whereColumn
+    // against `conversations` breaks under eager loading — Laravel queries
+    // `applications` on its own, so the outer table isn't in scope. See
+    // ConversationController::index, which pairs them explicitly.
 }

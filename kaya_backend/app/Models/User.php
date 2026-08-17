@@ -28,11 +28,42 @@ class User extends Authenticatable
         'terms_accepted', 'terms_accepted_at',
     ];
 
+    /*
+        Anything not listed here ships to whoever loads the relation.
+
+        This covered only the password fields, so every other column travelled
+        with the `employer` relation on the job feed: email, phone, city,
+        google_id, and the whole moderation block. `GET /jobs` paged to the end
+        handed a minute-old account the contact details of every employer on
+        the platform, plus the administrator's private note about why an
+        account was banned — a column whose own migration says it is not shown
+        even to the user it describes.
+
+        Contact details are released deliberately, by the endpoint that decides
+        someone has earned them (an accepted hire), using makeVisible() — not
+        by default on every relation that happens to be eager-loaded.
+    */
     protected $hidden = [
         'password',
         'remember_token',
         'password_reset_token',
         'password_reset_expires_at',
+        // Contact details.
+        'email',
+        'phone',
+        'google_id',
+        // Moderation. Internal to the admin panel.
+        'suspended_reason_code',
+        'suspended_by',
+        'suspended_at',
+        'suspended_until',
+        'suspension_note',
+        // Nobody else's business what they chose to be notified about.
+        'notification_preferences',
+        // Hashed, but still a live credential for ten minutes. There is no
+        // reason for either to leave the server.
+        'email_verification_code',
+        'phone_verification_code',
     ];
 
     protected $casts = [
@@ -43,7 +74,39 @@ class User extends Authenticatable
         'terms_accepted'    => 'boolean',
         'terms_accepted_at' => 'datetime',
         'password_reset_expires_at' => 'datetime',
+        'notification_preferences'  => 'array',
+        'phone_verified_at'         => 'datetime',
+        // Touched by TouchLastSeen on authenticated API requests; drives the
+        // activity dot in chat. Not hidden — it is only ever loaded for the
+        // other party on a conversation you are already part of.
+        'last_seen_at'              => 'datetime',
+        'email_verification_expires_at' => 'datetime',
+        'phone_verification_expires_at' => 'datetime',
     ];
+
+    /**
+     * Which notification categories this account wants.
+     *
+     * Everything is on unless explicitly turned off, so a new account and an
+     * account that has never opened settings behave the same, and adding a
+     * category later does not silently arrive muted.
+     */
+    public const NOTIFICATION_CATEGORIES = ['applications', 'invitations', 'messages', 'jobs'];
+
+    public function wantsNotification(string $category): bool
+    {
+        return ($this->notification_preferences[$category] ?? true) === true;
+    }
+
+    /** The full set, with anything unset filled in as on. */
+    public function notificationPreferences(): array
+    {
+        $stored = $this->notification_preferences ?? [];
+
+        return collect(self::NOTIFICATION_CATEGORIES)
+            ->mapWithKeys(fn ($key) => [$key => ($stored[$key] ?? true) === true])
+            ->all();
+    }
 
     // ── Relationships ─────────────────────────────────────────────────────────
 

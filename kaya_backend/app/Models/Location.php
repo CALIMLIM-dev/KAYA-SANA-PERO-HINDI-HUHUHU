@@ -79,9 +79,24 @@ class Location extends Model
 
     /**
      * Places a user can actually pick. Regions and provinces are too coarse to
-     * post a job against, barangays too granular for the public listing.
+     * post a job against.
+     *
+     * Barangays are included: with city-level granularity alone, everyone in
+     * one city shares a centroid and proximity reads 0 km between them — fine
+     * for a small town, badly wrong across Davao City (~66 km end to end) or
+     * Quezon City (~15 km).
      */
     public function scopeSelectable(Builder $query): Builder
+    {
+        return $query->whereIn('type', [
+            self::TYPE_CITY,
+            self::TYPE_MUNICIPALITY,
+            self::TYPE_BARANGAY,
+        ]);
+    }
+
+    /** City/municipality only — for surfaces that must stay coarse. */
+    public function scopeCitiesOnly(Builder $query): Builder
     {
         return $query->whereIn('type', [self::TYPE_CITY, self::TYPE_MUNICIPALITY]);
     }
@@ -105,11 +120,15 @@ class Location extends Model
                     ->orWhere('search_name', 'like', "%{$term}%")
                     ->orWhere('province_name', 'like', "{$term}%");
             })
-            // Prefix matches first: typing "urdan" should surface Urdaneta
-            // before anything that merely contains those letters.
+            // Exact match first — typing "urdaneta" in full should not be
+            // outranked by "Urdaneta Norte" just because both are prefixes.
+            ->orderByRaw('CASE WHEN search_name = ? THEN 0 ELSE 1 END', [$term])
+            // Then prefix matches over mere contains-matches.
             ->orderByRaw('CASE WHEN search_name LIKE ? THEN 0 ELSE 1 END', ["{$term}%"])
-            // Chartered cities before municipalities — more likely intended.
-            ->orderByRaw("CASE WHEN type = 'city' THEN 0 ELSE 1 END")
+            // City > municipality > barangay. Without this the 41k barangays
+            // would bury the city someone was actually looking for — there are
+            // ~1,500 barangays named "Poblacion" alone.
+            ->orderByRaw("CASE type WHEN 'city' THEN 0 WHEN 'municipality' THEN 1 ELSE 2 END")
             ->orderBy('search_name');
     }
 
