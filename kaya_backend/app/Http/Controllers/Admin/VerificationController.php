@@ -3,7 +3,9 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Models\UserNotification;
 use App\Models\Verification;
+use App\Services\NotificationService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Storage;
@@ -41,6 +43,11 @@ class VerificationController extends Controller
         // forceFill: is_verified is intentionally not mass-assignable.
         $verification->user->forceFill(['is_verified' => true])->save();
 
+        app(NotificationService::class)->verificationApproved(
+            userId: $verification->user_id,
+            audience: $this->audienceFor($verification),
+        );
+
         return redirect()->route('admin.verifications.index')
             ->with('success', "{$verification->user->name}'s verification was approved.");
     }
@@ -56,8 +63,32 @@ class VerificationController extends Controller
             'rejection_reason' => $request->get('reason'),
         ]);
 
+        // The reason travels with it. Without it the person is told they failed
+        // and left to guess what to change, which usually means resubmitting
+        // exactly the same document.
+        app(NotificationService::class)->verificationRejected(
+            userId: $verification->user_id,
+            audience: $this->audienceFor($verification),
+            reason: $request->get('reason'),
+        );
+
         return redirect()->route('admin.verifications.index')
             ->with('success', "{$verification->user->name}'s verification was rejected.");
+    }
+
+    /**
+     * Which side of the app this person will read the notification on.
+     *
+     * Verification is account-level rather than role-level, so either audience
+     * is defensible for a hybrid. Worker is chosen when they have that profile
+     * because the verified badge does more there — it is what an employer looks
+     * for when choosing between applicants.
+     */
+    private function audienceFor(Verification $verification): string
+    {
+        return $verification->user?->workerProfile()->exists()
+            ? UserNotification::AUDIENCE_WORKER
+            : UserNotification::AUDIENCE_EMPLOYER;
     }
 
     /**

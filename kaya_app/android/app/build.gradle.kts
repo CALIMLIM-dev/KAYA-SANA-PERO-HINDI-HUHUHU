@@ -4,21 +4,6 @@ plugins {
     id("dev.flutter.flutter-gradle-plugin")
 }
 
-/*
-    Firebase, only once it exists.
-
-    The google-services plugin fails the build outright when
-    android/app/google-services.json is missing, so applying it unconditionally
-    would break every build until someone creates a Firebase project — including
-    for anyone who never touches push notifications.
-
-    Applied conditionally instead: without the file the app builds and runs
-    exactly as before, and FcmService reports push as unavailable. Drop the file
-    in and push starts working with no further edits here.
-*/
-if (file("google-services.json").exists()) {
-    apply(plugin = "com.google.gms.google-services")
-}
 
 android {
     namespace = "com.alphatech.kaya_app"

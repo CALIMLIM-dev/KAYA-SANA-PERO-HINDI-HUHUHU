@@ -91,20 +91,4 @@ return [
         'ors_key'  => env('ORS_API_KEY'),
     ],
 
-    /*
-     | Firebase Cloud Messaging — notifications for a phone that is not running
-     | the app.
-     |
-     | Path to the service-account JSON downloaded from the Firebase console
-     | (Project settings, Service accounts, Generate new private key). Keep it
-     | outside the repository: it is a private key, and unlike the Google OAuth
-     | *client* ID it grants real authority.
-     |
-     | Unset is a supported state. FcmSender does nothing without it, and the
-     | app keeps its in-app banner, so nothing breaks by leaving this empty.
-     */
-    'fcm' => [
-        'credentials' => env('FCM_CREDENTIALS'),
-    ],
-
 ];

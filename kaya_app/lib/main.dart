@@ -21,20 +21,9 @@ import 'providers/profile_view_provider.dart';
 import 'providers/verification_provider.dart';
 import 'data/services/api_client.dart';
 import 'data/services/background_controller.dart';
-import 'data/services/push_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-
-  /*
-      Bring Firebase up before the app, but never block on it.
-
-      PushService reports unavailable and swallows its own failure when
-      google-services.json is absent, so a build without Firebase starts
-      exactly as it always did. Awaiting it costs a few milliseconds and means
-      the token is ready by the time anyone signs in.
-  */
-  await PushService.instance.init();
 
   // Declares the notification channel the foreground service posts into.
   // Android drops a notification aimed at a channel that does not exist yet,

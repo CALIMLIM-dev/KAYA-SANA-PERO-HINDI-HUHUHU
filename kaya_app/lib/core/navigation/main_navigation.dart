@@ -5,7 +5,6 @@ import '../../features/jobs/screens/unified_home_screen.dart';
 import '../../features/jobs/screens/search_screen.dart';
 import '../../features/messaging/screens/messages_list_screen.dart';
 import '../../features/profile/screens/profile_screen.dart';
-import '../../data/services/push_service.dart';
 import '../../providers/messaging_provider.dart';
 import '../../providers/notification_provider.dart';
 import '../widgets/bottom_nav_bar.dart';
@@ -87,21 +86,6 @@ class _MainNavigationState extends State<MainNavigation>
     WidgetsBinding.instance.addObserver(this);
     MainNavigation.selectedTab.addListener(_onTabRequested);
 
-    /*
-        Ask for notification permission here rather than at start-up.
-
-        Android 13 and above will not show a notification until the user allows
-        it. Asking on the splash screen — before they have seen what the app
-        does — is how you get it declined permanently, and there is no second
-        prompt afterwards. By this point they are signed in and looking at
-        their jobs, so the request has a visible reason behind it.
-
-        Silent on Android 12 and below, where the permission is implicit, and
-        on any build without Firebase, where PushService reports unavailable.
-    */
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      PushService.instance.requestPermissionAndRegister();
-    });
   }
 
   @override

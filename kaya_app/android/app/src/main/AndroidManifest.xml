@@ -86,15 +86,6 @@
             android:name="flutterEmbedding"
             android:value="2" />
 
-        <!-- The channel a push lands in when the app is not running.
-
-             Must match the channel_id FcmSender sends. Android silently drops a
-             notification addressed to a channel that does not exist, which is a
-             failure with no error anywhere to explain it. -->
-        <meta-data
-            android:name="com.google.firebase.messaging.default_notification_channel_id"
-            android:value="kaya_default" />
-
         <!-- The foreground service that keeps reporting position after the app
              is swiped out of recents.
 

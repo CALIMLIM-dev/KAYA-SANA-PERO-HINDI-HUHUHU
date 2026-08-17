@@ -68,33 +68,16 @@ class NotificationService
         $this->broadcast($notification);
 
         /*
-            And to the phone itself, for when the app is not running.
+            Delivery to a phone that is not running the app is handled by the
+            foreground service, not from here.
 
-            Deliberately here rather than at each call site: this method is the
-            single funnel every notification type already passes through, so
-            hires, messages, invitations and matches all gain push at once and
-            a new type cannot forget to.
-
-            The two paths do not overlap in practice. The socket reaches an app
-            that is open; FCM reaches one that is not. A device that is running
-            the app may receive both, which is why the client suppresses a push
-            for the thread it is currently showing.
-
-            No-ops entirely when FCM_CREDENTIALS is unset, and swallows its own
-            failures, so an unconfigured or unreachable FCM cannot break the
-            hire that triggered it.
+            There is no push provider in this project by choice. While a job is
+            active the app runs a foreground service that polls for anything
+            new and raises it on the notification shade, which covers the window
+            where coordination actually matters without depending on a third
+            party. Outside that window a notification waits in the list until
+            the app is next opened.
         */
-        app(FcmSender::class)->sendToUser(
-            userId: $userId,
-            title: $title,
-            body: $body ?? '',
-            data: [
-                'type' => $type,
-                'reference_type' => (string) $referenceType,
-                'reference_id' => (string) $referenceId,
-                'notification_id' => (string) $notification->id,
-            ],
-        );
 
         return $notification;
     }
@@ -457,6 +440,47 @@ class NotificationService
             referenceType: 'job',
             referenceId: $review->job_id,
             actorId: $review->reviewer_id,
+        );
+    }
+
+    /*
+        An admin decided on an identity submission.
+
+        The one notification a person genuinely cannot work out for themselves.
+        Verification is reviewed by hand, on no fixed schedule, and until now
+        the only way to learn the outcome was to reopen the verification screen
+        and look — so someone who uploaded an ID and heard nothing could not
+        tell whether they had been rejected or simply not reached yet.
+
+        A rejection carries the admin's reason. Without it the notification says
+        the submission failed and leaves the person to guess what to change,
+        which usually means they submit the same thing again.
+    */
+    public function verificationApproved(int $userId, string $audience): void
+    {
+        $this->push(
+            userId: $userId,
+            audience: $audience,
+            type: UserNotification::VERIFICATION_APPROVED,
+            title: 'You are verified',
+            body: 'Your identity check passed. The verified badge now shows on your profile.',
+            referenceType: 'verification',
+            referenceId: null,
+        );
+    }
+
+    public function verificationRejected(int $userId, string $audience, ?string $reason): void
+    {
+        $this->push(
+            userId: $userId,
+            audience: $audience,
+            type: UserNotification::VERIFICATION_REJECTED,
+            title: 'Verification was not approved',
+            body: $reason === null || $reason === ''
+                ? 'Your identity check was not approved. You can submit again from your profile.'
+                : $reason.' You can submit again from your profile.',
+            referenceType: 'verification',
+            referenceId: null,
         );
     }
 
