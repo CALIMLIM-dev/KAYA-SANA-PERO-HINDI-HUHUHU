@@ -24,8 +24,14 @@ class EmployerProfileResource extends JsonResource
             'website' => $this->website,
             'description' => $this->description,
             'location' => $this->location,
+            // Structured location. Without these the app can only prefill the
+            // display string, which would save a job with no coordinates —
+            // the same silent failure the picker now guards against.
+            'location_id' => $this->location_id,
+            'latitude' => $this->latitude !== null ? (float) $this->latitude : null,
+            'longitude' => $this->longitude !== null ? (float) $this->longitude : null,
             'image_path' => $this->image_path,
-            'image_url' => $this->image_path ? Storage::disk('public')->url($this->image_path) : null,
+            'image_url' => $this->image_path ? Storage::disk(config('filesystems.media'))->url($this->image_path) : null,
             'created_at' => $this->created_at?->toISOString(),
             'updated_at' => $this->updated_at?->toISOString(),
         ];

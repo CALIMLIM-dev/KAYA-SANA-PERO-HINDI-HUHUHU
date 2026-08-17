@@ -7,12 +7,19 @@ use App\Http\Controllers\Api\V1\EmployerProfileController;
 use App\Http\Controllers\Api\V1\JobController;
 use App\Http\Controllers\Api\V1\ApplicationController;
 use App\Http\Controllers\Api\V1\InvitationController;
+use App\Http\Controllers\Api\V1\JobTrackingController;
+use App\Http\Controllers\Api\V1\NotificationController;
+use App\Http\Controllers\Api\V1\ProfileViewController;
+use App\Http\Controllers\Api\V1\RealtimeController;
 use App\Http\Controllers\Api\V1\ConversationController;
+use App\Http\Controllers\Api\V1\ReportController;
 use App\Http\Controllers\Api\V1\ReviewController;
 use App\Http\Controllers\Api\V1\SkillController;
 use App\Http\Controllers\Api\V1\CategoryController;
 use App\Http\Controllers\Api\V1\LocationController;
+use App\Http\Controllers\Api\V1\ContactVerificationController;
 use App\Http\Controllers\Api\V1\VerificationController;
+use App\Http\Controllers\Api\V1\VerificationDocumentController;
 
 Route::prefix('v1')->group(function () {
 
@@ -20,12 +27,12 @@ Route::prefix('v1')->group(function () {
     // Throttled per IP. Credential-guessing endpoints get the tighter limit;
     // verify-reset-code especially, since the code is only 6 digits and is valid
     // for 15 minutes (~1e6 space, trivially brute-forceable unthrottled).
-    Route::middleware('throttle:10,1')->group(function () {
+    Route::middleware('throttle:auth')->group(function () {
         Route::post('/login',        [AuthController::class, 'login']);
         Route::post('/google-login', [AuthController::class, 'googleLogin']);
     });
 
-    Route::middleware('throttle:5,1')->group(function () {
+    Route::middleware('throttle:auth')->group(function () {
         Route::post('/register',          [AuthController::class, 'register']);
         Route::post('/forgot-password',   [AuthController::class, 'forgotPassword']);
         Route::post('/verify-reset-code', [AuthController::class, 'verifyResetCode']);
@@ -33,12 +40,26 @@ Route::prefix('v1')->group(function () {
     });
 
     // ── Authenticated ─────────────────────────────────────────────────────────
-    Route::middleware('auth:sanctum')->group(function () {
+    // not.suspended: a ban has to hold on every endpoint, not on the three that
+    // happened to check it. /me and /logout stay reachable so a suspended user
+    // can read why, and sign out.
+    Route::middleware(['auth:sanctum', 'not.suspended'])->group(function () {
+
+        // Where the WebSocket server lives. Fetched once after login so the
+        // host isn't compiled into the app binary.
+        Route::get('/realtime/config', [RealtimeController::class, 'config']);
 
         Route::post('/logout', [AuthController::class, 'logout']);
         Route::get('/me',      [AuthController::class, 'me']);
         Route::get('/check-status', [AuthController::class, 'checkStatus']);
         Route::patch('/me',    [AuthController::class, 'updateMe']);
+
+        // Settings. Password changes are throttled because the endpoint takes
+        // the current password and so can be used to test guesses.
+        Route::put('/me/password', [AuthController::class, 'changePassword'])
+            ->middleware('throttle:auth');
+        Route::get('/me/notification-preferences',  [AuthController::class, 'notificationPreferences']);
+        Route::put('/me/notification-preferences',  [AuthController::class, 'updateNotificationPreferences']);
         Route::get('/user',    [AuthController::class, 'user']);
 
         // Locations (PSGC lookup for the location picker)
@@ -50,17 +71,31 @@ Route::prefix('v1')->group(function () {
         Route::get('/workers', [WorkerProfileController::class, 'browse']);
         Route::get('/workers/{user}', [WorkerProfileController::class, 'show']);
 
-        // Skills & Categories
+        // Skills & Categories.
+        //
+        // The writes are throttled hard because both tables are global: a row
+        // created here shows up in every user's picker immediately and there is
+        // no moderation queue for them. Ten an hour is far past what someone
+        // adding a genuinely missing trade needs, and useless for defacement.
+        // Categories are additionally capped per account in the controller;
+        // skills have no created_by column to cap against.
         Route::get('/skills',     [SkillController::class, 'index']);
-        Route::post('/skills',    [SkillController::class, 'store']);
+        Route::post('/skills',    [SkillController::class, 'store'])->middleware('throttle:taxonomy');
         Route::get('/categories', [CategoryController::class, 'index']);
-        Route::post('/categories', [CategoryController::class, 'store']);
+        Route::post('/categories', [CategoryController::class, 'store'])->middleware('throttle:taxonomy');
 
         // Worker Profile
         Route::post('/worker/profile/complete-setup',              [WorkerProfileController::class, 'completeSetup']);
         Route::delete('/worker/profile',                           [WorkerProfileController::class, 'deleteProfile']);
         Route::put('/worker/profile',                              [WorkerProfileController::class, 'updateBasicInfo']);
         Route::post('/worker/profile/photo',                       [WorkerProfileController::class, 'uploadPhoto']);
+
+        // Resume. Stored privately and served only through the download route,
+        // which checks the caller — a CV carries a phone number, home address
+        // and full work history, so it is never a public storage URL.
+        Route::post('/worker/profile/resume',   [WorkerProfileController::class, 'uploadResume']);
+        Route::delete('/worker/profile/resume', [WorkerProfileController::class, 'deleteResume']);
+        Route::get('/workers/{user}/resume',    [WorkerProfileController::class, 'downloadResume']);
         // NOTE: a parallel /worker-profile/* family used to live here. Six of its
         // routes were bound to controller methods that never existed (show, update,
         // attachSkill, detachSkill, createExperience, createCertification) and one
@@ -128,9 +163,20 @@ Route::prefix('v1')->group(function () {
 
         // Applications
         Route::get('/my-applications',                      [ApplicationController::class, 'myApplications']);
+        // Either party marks their side done. Which side is derived from the
+        // job, never taken from the request.
+        Route::patch('/applications/{application}/complete', [ApplicationController::class, 'complete']);
         Route::delete('/applications/{application}',        [ApplicationController::class, 'withdraw']);
         Route::patch('/applications/{application}/accept',  [ApplicationController::class, 'accept']);
         Route::patch('/applications/{application}/reject',  [ApplicationController::class, 'reject']);
+
+        // Worker location sharing during an active hire. Consent lives on the
+        // application, so every route is scoped to one — there is deliberately
+        // no account-wide "where is this worker" endpoint.
+        Route::get('/applications/{application}/tracking',         [JobTrackingController::class, 'show']);
+        Route::post('/applications/{application}/tracking',        [JobTrackingController::class, 'start']);
+        Route::delete('/applications/{application}/tracking',      [JobTrackingController::class, 'stop']);
+        Route::post('/applications/{application}/tracking/ping',   [JobTrackingController::class, 'ping']);
 
         // Invitations
         Route::get('/my-invitations',                       [InvitationController::class, 'myInvitations']);
@@ -143,11 +189,52 @@ Route::prefix('v1')->group(function () {
         Route::post('/conversations/{conversation}/messages',   [ConversationController::class, 'sendMessage']);
         Route::patch('/conversations/{conversation}/read',      [ConversationController::class, 'markRead']);
 
-        // Reviews
+        // Notifications. `audience` mirrors the app's worker/employer mode, so
+        // a hybrid account doesn't see the other side's alerts.
+        Route::get('/notifications',                    [NotificationController::class, 'index']);
+        Route::get('/notifications/unread-count',       [NotificationController::class, 'unreadCount']);
+
+        // Who has been looking at you. Own account only — see the controller.
+        Route::get('/profile-views/summary',            [ProfileViewController::class, 'summary']);
+        Route::post('/notifications/read-all',          [NotificationController::class, 'readAll']);
+        Route::patch('/notifications/{notification}/read', [NotificationController::class, 'markRead']);
+
+        // Reviews. The status route is what makes the pair mutual rather than
+        // two unrelated submissions: it tells each side where the other is.
         Route::post('/reviews', [ReviewController::class, 'store']);
+        Route::get('/jobs/{job}/review-status', [ReviewController::class, 'status']);
+
+        // Reports. Throttled: filing is cheap and the queue is read by people,
+        // so a loop here costs an administrator's afternoon, not a server.
+        Route::get('/report-reasons', [ReportController::class, 'reasons']);
+        Route::post('/reports', [ReportController::class, 'store'])
+            ->middleware('throttle:reports');
+
+        /*
+            Email and phone verification.
+            Throttled: these send real messages that cost money, and a code
+            endpoint left open is a way to bill someone else's SMS credits.
+        */
+        Route::get('/contact-verification', [ContactVerificationController::class, 'status']);
+        Route::middleware('throttle:verification-send')->group(function () {
+            Route::post('/contact-verification/email/send', [ContactVerificationController::class, 'sendEmailCode']);
+            Route::post('/contact-verification/phone/send', [ContactVerificationController::class, 'sendPhoneCode']);
+        });
+        // Guessing is bounded per code as well, but this stops someone working
+        // through the million possibilities by requesting new codes.
+        Route::middleware('throttle:verification-verify')->group(function () {
+            Route::post('/contact-verification/email/verify', [ContactVerificationController::class, 'verifyEmailCode']);
+            Route::post('/contact-verification/phone/verify', [ContactVerificationController::class, 'verifyPhoneCode']);
+        });
 
         // Verifications
         Route::get('/verifications',  [VerificationController::class, 'index']);
         Route::post('/verifications', [VerificationController::class, 'store']);
+        // Government IDs and selfies live on the private disk and are streamed
+        // through here — owner or admin only. They used to sit on the public
+        // disk with a guessable-once-seen URL and no check at all.
+        Route::get('/verifications/{verification}/document/{side}',
+            [VerificationDocumentController::class, 'show'])
+            ->whereIn('side', ['front', 'back', 'selfie']);
     });
 });

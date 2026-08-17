@@ -29,6 +29,31 @@ class CategoryController extends Controller
             ], 422);
         }
 
+        /*
+            A cap on custom categories per account.
+
+            Every row created here is `is_active => true` and appears
+            immediately in every user's picker, and there is no moderation
+            queue for them in the admin panel. Unbounded, one free account can
+            fill the category list for the whole platform — defacement that
+            costs nothing to perform and has to be cleaned up by hand.
+
+            Five is well past what an honest user needs: the seeded list of 17
+            already covers the trades, and a custom entry is for the rare case
+            it does not.
+        */
+        $ownCustom = Category::where('created_by', $request->user()->id)
+            ->where('is_custom', true)
+            ->count();
+
+        if ($ownCustom >= 5) {
+            return response()->json([
+                'success' => false,
+                'message' => 'You have added as many custom categories as we allow. Contact support if you need another.',
+                'data' => null,
+            ], 429);
+        }
+
         // Check if category already exists (case-insensitive)
         $existing = Category::whereRaw('LOWER(name) = ?', [strtolower($request->name)])->first();
         

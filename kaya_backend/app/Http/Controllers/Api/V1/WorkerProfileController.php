@@ -11,6 +11,7 @@ use App\Models\WorkerLicenseExamination;
 use App\Models\WorkerExperience;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Validator;
 
 class WorkerProfileController extends Controller
@@ -75,6 +76,19 @@ class WorkerProfileController extends Controller
             'name' => 'nullable|string|max:255',
             'city' => 'nullable|string|max:255',
             'phone' => 'nullable|string|max:20',
+            // Structured location from the PSGC picker. Without these the
+            // profile only ever stored the display string, so a worker had no
+            // coordinates and every distance/proximity figure came out null.
+            'location_id' => 'nullable|integer|exists:locations,id',
+            'latitude'    => 'nullable|numeric|between:-90,90',
+            'longitude'   => 'nullable|numeric|between:-180,180',
+            // What the worker charges. gte:rate_min rejects an inverted range,
+            // which would otherwise be stored happily and then break every pay
+            // filter — the same rule jobs already apply to budget_max.
+            'rate_min'           => 'nullable|numeric|min:0',
+            'rate_max'           => 'nullable|numeric|min:0|gte:rate_min',
+            'rate_unit'          => 'nullable|in:hour,day,project',
+            'is_rate_negotiable' => 'nullable|boolean',
         ]);
         
         if ($validator->fails()) {
@@ -110,11 +124,31 @@ class WorkerProfileController extends Controller
             ]
         );
 
+        $profileDirty = false;
+
         if ($request->filled('city')) {
             $profile->location = $request->city;
+            $profileDirty = true;
+        }
+
+        foreach (['location_id', 'latitude', 'longitude', 'rate_min', 'rate_max', 'rate_unit'] as $field) {
+            if ($request->filled($field)) {
+                $profile->{$field} = $request->input($field);
+                $profileDirty = true;
+            }
+        }
+
+        // has() not filled(): `false` is a real value here, and filled() would
+        // treat turning the flag off as "not sent" and silently keep it on.
+        if ($request->has('is_rate_negotiable')) {
+            $profile->is_rate_negotiable = $request->boolean('is_rate_negotiable');
+            $profileDirty = true;
+        }
+
+        if ($profileDirty) {
             $profile->save();
         }
-        
+
         return response()->json([
             'success' => true,
             'data' => [
@@ -144,12 +178,12 @@ class WorkerProfileController extends Controller
         $user = $request->user();
         
         // Delete old photo if exists
-        if ($user->avatar && \Storage::disk('public')->exists($user->avatar)) {
-            \Storage::disk('public')->delete($user->avatar);
+        if ($user->avatar && \Storage::disk(config('filesystems.media'))->exists($user->avatar)) {
+            \Storage::disk(config('filesystems.media'))->delete($user->avatar);
         }
         
         // Store new photo
-        $path = $request->file('photo')->store('profile_photos', 'public');
+        $path = $request->file('photo')->store('profile_photos', config('filesystems.media'));
         $user->avatar = $path;
         $user->save();
 
@@ -221,8 +255,16 @@ class WorkerProfileController extends Controller
     {
         $validator = Validator::make($request->all(), [
             'skill_name' => 'required|string|max:255',
-            'proficiency_level' => 'required|in:beginner,intermediate,advanced,expert',
-            'years_of_experience' => 'required|integer|min:0',
+            // Optional, because the app has no screen that asks for them.
+            //
+            // These were required, so the client invented values to satisfy the
+            // rule — every skill was sent as "intermediate, 1 year" regardless
+            // of the worker. The public profile showed that back to employers
+            // as if the worker had claimed it, which is worse than showing
+            // nothing: it is a fabricated credential on a hiring platform.
+            // Null means "not stated" and renders as nothing.
+            'proficiency_level' => 'nullable|in:beginner,intermediate,advanced,expert',
+            'years_of_experience' => 'nullable|integer|min:0',
             'category_id' => 'nullable|exists:categories,id',
             'skill_id' => 'nullable|exists:skills,id',
         ]);
@@ -293,8 +335,16 @@ class WorkerProfileController extends Controller
         
         $validator = Validator::make($request->all(), [
             'skill_name' => 'required|string|max:255',
-            'proficiency_level' => 'required|in:beginner,intermediate,advanced,expert',
-            'years_of_experience' => 'required|integer|min:0',
+            // Optional, because the app has no screen that asks for them.
+            //
+            // These were required, so the client invented values to satisfy the
+            // rule — every skill was sent as "intermediate, 1 year" regardless
+            // of the worker. The public profile showed that back to employers
+            // as if the worker had claimed it, which is worse than showing
+            // nothing: it is a fabricated credential on a hiring platform.
+            // Null means "not stated" and renders as nothing.
+            'proficiency_level' => 'nullable|in:beginner,intermediate,advanced,expert',
+            'years_of_experience' => 'nullable|integer|min:0',
         ]);
         
         if ($validator->fails()) {
@@ -380,7 +430,7 @@ class WorkerProfileController extends Controller
         
         // Handle file upload
         if ($request->hasFile('document')) {
-            $path = $request->file('document')->store('certifications', 'public');
+            $path = $request->file('document')->store('certifications', config('filesystems.media'));
             $data['document_path'] = $path;
         }
         
@@ -498,7 +548,7 @@ class WorkerProfileController extends Controller
         
         // Handle file upload
         if ($request->hasFile('document')) {
-            $path = $request->file('document')->store('licenses', 'public');
+            $path = $request->file('document')->store('licenses', config('filesystems.media'));
             $data['document_path'] = $path;
         }
         
@@ -816,10 +866,21 @@ class WorkerProfileController extends Controller
             'skill_id'    => ['nullable', 'integer', 'exists:skills,id'],
             'location_id' => ['nullable', 'integer', 'exists:locations,id'],
             'per_page'    => ['nullable', 'integer', 'min:1', 'max:50'],
+            // Pay filtering. A worker with no rate on file is kept when no
+            // bound is given and dropped when one is — an unstated rate cannot
+            // be claimed to fall inside a range.
+            'rate_min'    => ['nullable', 'numeric', 'min:0'],
+            'rate_max'    => ['nullable', 'numeric', 'min:0'],
+            'rate_unit'   => ['nullable', 'in:hour,day,project'],
+            // Distance. Without it this endpoint returned every worker in the
+            // country while the screen above it said "near you".
+            'radius_km'   => ['nullable', 'numeric', 'min:1', 'max:500'],
         ]);
 
         $query = WorkerProfile::query()
-            ->with(['user:id,name,avatar,is_verified,city', 'skills', 'category:id,name'])
+            // psgcLocation (not location — that's a string column on this
+            // table) supplies the town centroid for the distance figure.
+            ->with(['user:id,name,avatar,is_verified,city', 'skills', 'category:id,name', 'psgcLocation'])
             ->whereNotNull('category_id')
             ->whereNotNull('location');
 
@@ -844,9 +905,62 @@ class WorkerProfileController extends Controller
             });
         }
 
+        // Rate is a column, so it filters in the database rather than after.
+        if (!empty($data['rate_unit'])) {
+            $query->where('rate_unit', $data['rate_unit']);
+        }
+        if (isset($data['rate_min'])) {
+            // Their top rate must reach what the employer is willing to pay
+            // from; a worker asking more than the ceiling is excluded below.
+            $query->whereNotNull('rate_min')
+                ->where(fn ($q) => $q->where('rate_max', '>=', $data['rate_min'])
+                    ->orWhere(fn ($q2) => $q2->whereNull('rate_max')
+                        ->where('rate_min', '>=', $data['rate_min'])));
+        }
+        if (isset($data['rate_max'])) {
+            $query->whereNotNull('rate_min')->where('rate_min', '<=', $data['rate_max']);
+        }
+
         // isSetupCompleted() requires at least one skill row, so this eager-loads
         // the same relation the filter checks — no extra query per row.
         $profiles = $query->get()->filter(fn (WorkerProfile $p) => $p->isSetupCompleted());
+
+        // Where the person browsing is, so each worker can carry a real
+        // "x km away" instead of the employer guessing from a place name.
+        [$viewerLat, $viewerLng] = $this->viewerCoords($request);
+
+        /*
+            Distance filtering and ordering.
+
+            Applied here rather than in SQL because the distance comes from
+            workerDistance(), which falls back through the profile's own
+            coordinates to its PSGC town centroid. Expressing that fallback as
+            a query expression would duplicate the rule in two places.
+
+            A worker whose distance cannot be computed at all is kept when no
+            radius was asked for, and dropped when one was — "within 10 km"
+            cannot honestly include someone whose position is unknown.
+        */
+        $withDistance = $profiles->map(function (WorkerProfile $p) use ($viewerLat, $viewerLng) {
+            $p->setAttribute('computed_distance_km', $this->workerDistance($p, $viewerLat, $viewerLng));
+            return $p;
+        });
+
+        if (!empty($data['radius_km'])) {
+            $withDistance = $withDistance->filter(
+                fn (WorkerProfile $p) => $p->computed_distance_km !== null
+                    && $p->computed_distance_km <= $data['radius_km']
+            );
+        }
+
+        // Nearest first whenever the viewer has a position at all.
+        if ($viewerLat !== null && $viewerLng !== null) {
+            $withDistance = $withDistance->sortBy(
+                fn (WorkerProfile $p) => $p->computed_distance_km ?? PHP_FLOAT_MAX
+            );
+        }
+
+        $profiles = $withDistance->values();
 
         $perPage = $data['per_page'] ?? 20;
         $page = (int) $request->input('page', 1);
@@ -856,17 +970,48 @@ class WorkerProfileController extends Controller
             'success' => true,
             'data' => [
                 'data' => $paged->map(fn (WorkerProfile $p) => [
+                    /*
+                        Coarse on purpose.
+
+                        This used to be the exact figure to 0.1 km, while the
+                        viewer sets their own coordinates freely through
+                        PUT /employer-profile. Reading the distance from three
+                        chosen positions puts three circles on a map that
+                        intersect at one point — the worker's home, to about a
+                        hundred metres. show() deliberately withholds latitude
+                        and longitude; this handed the same thing back as a
+                        derived value.
+
+                        Bucketed, it still answers the only question an
+                        employer actually has — is this person near enough —
+                        and the exact number stays server-side for the radius
+                        filter and the sort above.
+                    */
+                    'distance_km'    => $this->bucketDistance($p->computed_distance_km),
+                    'distance_label' => $this->distanceLabel($p->computed_distance_km),
                     'user_id'      => $p->user_id,
+                    // What they charge. rate_label is the phrasing every
+                    // surface should show; the raw numbers are there for
+                    // filtering and for the edit form.
+                    'rate_min'           => $p->rate_min,
+                    'rate_max'           => $p->rate_max,
+                    'rate_unit'          => $p->rate_unit,
+                    'is_rate_negotiable' => $p->is_rate_negotiable,
+                    'rate_label'         => $p->rateLabel(),
                     'name'         => $p->user?->name,
-                    'avatar'       => $p->user?->avatar,
+                    // Same resolver the profile screen uses — these two
+                    // disagreed, so one account showed two different photos.
+                    'avatar'       => $p->resolvedAvatarUrl(),
                     'is_verified'  => (bool) $p->user?->is_verified,
                     'location'     => $p->location,
                     'location_id'  => $p->location_id,
                     'category'     => $p->category?->name,
                     'category_id'  => $p->category_id,
                     'bio'          => $p->bio,
-                    'rating_avg'   => $p->rating_avg,
-                    'rating_count' => $p->rating_count,
+                    // Same cast as the single-profile view: decimal:2 would
+                    // otherwise send the string "5.00" into a numeric field.
+                    'rating_avg'   => (float) $p->rating_avg,
+                    'rating_count' => (int) $p->rating_count,
                     'skills'       => $p->skills->pluck('skill_name')->filter()->values(),
                     'availability_status' => $p->availability_status,
                 ]),
@@ -876,6 +1021,85 @@ class WorkerProfileController extends Controller
             ],
             'message' => 'Success',
         ]);
+    }
+
+    /**
+     * Coordinates of whoever is browsing — their employer profile first (they
+     * are hiring, so the job site is what matters), then their worker profile.
+     *
+     * @return array{0: ?float, 1: ?float}
+     */
+    private function viewerCoords(Request $request): array
+    {
+        $user = $request->user();
+        if (!$user) return [null, null];
+
+        foreach ([$user->employerProfile, $user->workerProfile] as $profile) {
+            if (!$profile) continue;
+
+            if ($profile->latitude !== null && $profile->longitude !== null) {
+                return [(float) $profile->latitude, (float) $profile->longitude];
+            }
+
+            if ($profile->location_id) {
+                $loc = \App\Models\Location::find($profile->location_id);
+                if ($loc && $loc->latitude !== null) {
+                    return [(float) $loc->latitude, (float) $loc->longitude];
+                }
+            }
+        }
+
+        return [null, null];
+    }
+
+    /** Rounded km between the viewer and this worker, or null if unknown. */
+    /**
+     * Rounds a distance down to a band before it leaves the server.
+     *
+     * Precision here is what makes trilateration possible — see the comment at
+     * the call site. The bands widen with distance because that is where
+     * precision stops being useful anyway: "3 km" and "3.4 km" mean the same
+     * thing to someone deciding whether to hire.
+     */
+    private function bucketDistance(?float $km): ?float
+    {
+        if ($km === null) return null;
+
+        if ($km < 1)  return 1;
+        if ($km < 5)  return 5;
+        if ($km < 15) return 15;
+        if ($km < 30) return 30;
+        if ($km < 50) return 50;
+
+        return 100;
+    }
+
+    /** The band in words, so the app does not have to invent the phrasing. */
+    private function distanceLabel(?float $km): ?string
+    {
+        if ($km === null) return null;
+
+        if ($km < 1)  return 'Under 1 km away';
+        if ($km < 5)  return 'Under 5 km away';
+        if ($km < 15) return '5–15 km away';
+        if ($km < 30) return '15–30 km away';
+        if ($km < 50) return '30–50 km away';
+
+        return 'Over 50 km away';
+    }
+
+    private function workerDistance(WorkerProfile $p, ?float $lat, ?float $lng): ?float
+    {
+        $wLat = $p->latitude !== null ? (float) $p->latitude : $p->psgcLocation?->latitude;
+        $wLng = $p->longitude !== null ? (float) $p->longitude : $p->psgcLocation?->longitude;
+
+        $km = \App\Services\JobMatchService::distanceBetween(
+            $lat, $lng,
+            $wLat === null ? null : (float) $wLat,
+            $wLng === null ? null : (float) $wLng,
+        );
+
+        return $km === null ? null : round($km, 1);
     }
 
     /**
@@ -898,12 +1122,30 @@ class WorkerProfileController extends Controller
             ], 404);
         }
 
+        /*
+            Count the view.
+
+            Recorded after the 404 above, so opening a profile that does not
+            exist is not counted as someone having looked at it. Self-views and
+            repeat views on the same day are dropped inside the recorder.
+        */
+        app(\App\Services\ProfileViewRecorder::class)->record(
+            viewer: $request->user(),
+            viewed: $user,
+            viewedAs: \App\Models\ProfileView::AS_WORKER,
+            source: $request->query('source'),
+        );
+
         $profile->load([
             'skills', 'experiences', 'certifications', 'licenses',
             'licenseExaminations', 'category',
         ]);
 
+        // Their worker reviews only. A hybrid account's worker profile was
+        // showing reviews written about them as an employer — see the mirror of
+        // this in EmployerProfileController.
         $reviews = \App\Models\Review::where('reviewee_id', $user->id)
+            ->where('reviewee_role', 'worker')
             ->with('reviewer:id,name')
             ->latest()
             ->limit(20)
@@ -912,9 +1154,54 @@ class WorkerProfileController extends Controller
         // Credentials are only worth anything to an employer if the supporting
         // document is actually viewable — a claimed license with no scan is
         // just a text field. Resolve every stored path to an absolute URL.
-        $docUrl = fn (?string $path) => $path
-            ? \Illuminate\Support\Facades\Storage::disk('public')->url($path)
+        /*
+            Credential documents and licence numbers are not public.
+
+            This endpoint is reachable by any authenticated account, and it was
+            returning the raw `license_number` — for Philippine trades that is
+            the PRC, TESDA or driver's licence number, a government identifier —
+            alongside a permanent public URL to the scan. A licence scan
+            typically carries a date of birth, a signature and a home address.
+            Walking users.id harvested both for every worker on the platform.
+
+            The reasoning for showing scans at all is sound: a claimed licence
+            with no scan is just a text field. But that argument applies to an
+            employer weighing a hire, not to every account in the app. Same
+            entitlement rule as the resume — the owner, or an employer this
+            worker has actually applied to.
+
+            Everyone else still learns the credential exists, who issued it and
+            when, which is what a public profile is for.
+        */
+        $viewer = $request->user();
+        $canSeeDocuments = $viewer && (
+            $viewer->id === $user->id
+            || \App\Models\Application::where('worker_id', $user->id)
+                ->whereHas('job', fn ($q) => $q->where('employer_id', $viewer->id))
+                ->exists()
+        );
+
+        $docUrl = fn (?string $path) => ($path && $canSeeDocuments)
+            ? \Illuminate\Support\Facades\Storage::disk(config('filesystems.media'))->url($path)
             : null;
+
+        // So the profile can show "certificate on file" without leaking it.
+        $hasDoc = fn (?string $path) => filled($path);
+
+        /**
+         * Masks a credential number for anyone not entitled to the document.
+         *
+         * The last four are kept so an employer who already holds a copy can
+         * confirm they match, which is the only legitimate use for seeing it
+         * before a hire.
+         */
+        $credentialNumber = function (?string $number) use ($canSeeDocuments) {
+            if (blank($number) || $canSeeDocuments) return $number;
+
+            return strlen($number) > 4
+                ? str_repeat('•', max(strlen($number) - 4, 3)) . substr($number, -4)
+                : '••••';
+        };
 
         $year = fn ($date) => $date
             ? \Illuminate\Support\Carbon::parse($date)->format('Y')
@@ -925,10 +1212,7 @@ class WorkerProfileController extends Controller
             'data' => [
                 'user_id'             => $user->id,
                 'name'                => $user->name,
-                // The worker's own uploaded photo takes precedence; users.avatar
-                // is the fallback (Google sign-in populates that one).
-                'avatar'              => $docUrl($profile->profile_photo_path)
-                                          ?? $docUrl($user->avatar),
+                'avatar'              => $profile->resolvedAvatarUrl(),
                 'is_verified'         => (bool) $user->is_verified,
                 'verification_status' => $profile->verification_status,
                 'location'            => $profile->location,
@@ -936,8 +1220,25 @@ class WorkerProfileController extends Controller
                 'category_id'         => $profile->category_id,
                 'bio'                 => $profile->bio,
                 'availability_status' => $profile->availability_status,
-                'rating_avg'          => $profile->rating_avg,
+                /*
+                    Cast, because decimal:2 serialises as the STRING "5.00".
+
+                    The employer endpoint returns a number for the same field,
+                    so one account's two halves described their rating in two
+                    different JSON types. Any client doing `as num` on this
+                    throws — which is exactly how the applicants list went down
+                    once already, on `worker_rating` arriving as "0.00".
+                */
+                'rating_avg'          => (float) $profile->rating_avg,
                 'rating_count'        => $profile->rating_count,
+
+                // What they charge. rate_label is the phrasing every surface
+                // shows; the raw numbers are for the edit form and filtering.
+                'rate_min'            => $profile->rate_min,
+                'rate_max'            => $profile->rate_max,
+                'rate_unit'           => $profile->rate_unit,
+                'is_rate_negotiable'  => $profile->is_rate_negotiable,
+                'rate_label'          => $profile->rateLabel(),
 
                 // Skills carry proficiency and years — an employer choosing
                 // between two masons needs those, not just the label.
@@ -962,8 +1263,9 @@ class WorkerProfileController extends Controller
                     'year'          => $year($c->issue_date),
                     'issue_date'    => $c->issue_date,
                     'expiry_date'   => $c->expiry_date,
-                    'credential_id' => $c->credential_id,
+                    'credential_id' => $credentialNumber($c->credential_id),
                     'document_url'  => $docUrl($c->document_path),
+                    'has_document'  => $hasDoc($c->document_path),
                 ])->values(),
 
                 // Licenses and license examinations were absent from this
@@ -971,11 +1273,12 @@ class WorkerProfileController extends Controller
                 // for trades work never reached the public profile at all.
                 'licenses'            => $profile->licenses->map(fn ($l) => [
                     'name'         => $l->license_name,
-                    'number'       => $l->license_number,
+                    'number'       => $credentialNumber($l->license_number),
                     'authority'    => $l->issuing_authority,
                     'issue_date'   => $l->issue_date,
                     'expiry_date'  => $l->expiry_date,
                     'document_url' => $docUrl($l->document_path),
+                    'has_document' => $hasDoc($l->document_path),
                 ])->values(),
 
                 'license_examinations' => $profile->licenseExaminations->map(fn ($e) => [
@@ -984,8 +1287,9 @@ class WorkerProfileController extends Controller
                     'passing_score'      => $e->passing_score,
                     'actual_score'       => $e->actual_score,
                     'status'             => $e->status,
-                    'certificate_number' => $e->certificate_number,
+                    'certificate_number' => $credentialNumber($e->certificate_number),
                     'document_url'       => $docUrl($e->document_path),
+                    'has_document'       => $hasDoc($e->document_path),
                 ])->values(),
 
                 'reviews'             => $reviews->map(fn ($r) => [
@@ -997,5 +1301,167 @@ class WorkerProfileController extends Controller
             ],
             'message' => 'Success',
         ]);
+    }
+
+    // ── Resume ──────────────────────────────────────────────────────────────
+
+    /**
+     * POST /worker/profile/resume
+     *
+     * Stored on the private disk, not `public`. Everything else this app
+     * uploads — avatars, job photos — is world-readable by design. A resume is
+     * not: it carries a phone number, a home address and a full employment
+     * history, and a public storage URL is guessable and permanent. It is
+     * served only through downloadResume(), which checks who is asking.
+     */
+    public function uploadResume(Request $request)
+    {
+        $validator = Validator::make($request->all(), [
+            // No images. A photo of a CV defeats the point for an employer
+            // trying to read it, and lets someone upload arbitrary media here.
+            'resume' => 'required|file|mimes:pdf,doc,docx|max:5120',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'success' => false,
+                'message' => $validator->errors()->first(),
+                'data'    => null,
+            ], 422);
+        }
+
+        $profile = WorkerProfile::where('user_id', $request->user()->id)->first();
+
+        if (!$profile) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Set up your worker profile first',
+                'data'    => null,
+            ], 422);
+        }
+
+        // Replacing a resume removes the old file. Without this every re-upload
+        // leaves an orphan on disk that nothing will ever reference or clean up.
+        if ($profile->hasResume() && Storage::disk(config('filesystems.documents'))->exists($profile->resume_path)) {
+            Storage::disk(config('filesystems.documents'))->delete($profile->resume_path);
+        }
+
+        $file = $request->file('resume');
+        $path = $file->store('resumes', config('filesystems.documents'));
+
+        $profile->update([
+            'resume_path'          => $path,
+            'resume_original_name' => $file->getClientOriginalName(),
+            'resume_uploaded_at'   => now(),
+        ]);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Resume uploaded',
+            'data'    => $this->resumePayload($profile->fresh()),
+        ]);
+    }
+
+    /** DELETE /worker/profile/resume */
+    public function deleteResume(Request $request)
+    {
+        $profile = WorkerProfile::where('user_id', $request->user()->id)->first();
+
+        if (!$profile || !$profile->hasResume()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'No resume to remove',
+                'data'    => null,
+            ], 404);
+        }
+
+        if (Storage::disk(config('filesystems.documents'))->exists($profile->resume_path)) {
+            Storage::disk(config('filesystems.documents'))->delete($profile->resume_path);
+        }
+
+        $profile->update([
+            'resume_path'          => null,
+            'resume_original_name' => null,
+            'resume_uploaded_at'   => null,
+        ]);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Resume removed',
+            'data'    => $this->resumePayload($profile->fresh()),
+        ]);
+    }
+
+    /**
+     * GET /workers/{user}/resume
+     *
+     * The access rule is the feature here. A resume is released to:
+     *
+     *   • the worker themselves, and
+     *   • an employer the worker has actually applied to.
+     *
+     * Applying is the consent. Browsing the worker directory is not — otherwise
+     * any account that can reach /workers could harvest home addresses and
+     * phone numbers in bulk, which is exactly the abuse RA 10173 exists to
+     * prevent.
+     */
+    public function downloadResume(Request $request, \App\Models\User $user)
+    {
+        $viewer  = $request->user();
+        $profile = WorkerProfile::where('user_id', $user->id)->first();
+
+        if (!$profile || !$profile->hasResume()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'This worker has no resume on file',
+                'data'    => null,
+            ], 404);
+        }
+
+        $isOwner = $viewer->id === $user->id;
+
+        $hasApplicationToViewer = \App\Models\Application::where('worker_id', $user->id)
+            ->whereHas('job', fn ($q) => $q->where('employer_id', $viewer->id))
+            ->exists();
+
+        if (!$isOwner && !$hasApplicationToViewer) {
+            return response()->json([
+                'success' => false,
+                'message' => 'You can view this resume once this worker applies to one of your jobs',
+                'data'    => null,
+            ], 403);
+        }
+
+        if (!Storage::disk(config('filesystems.documents'))->exists($profile->resume_path)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'The file is missing',
+                'data'    => null,
+            ], 404);
+        }
+
+        // Downloads under the name the worker uploaded, not the random storage
+        // name — an employer saving three CVs shouldn't end up with three
+        // meaningless filenames.
+        return Storage::disk(config('filesystems.documents'))->download(
+            $profile->resume_path,
+            $profile->resume_original_name ?: 'resume.pdf',
+        );
+    }
+
+    /**
+     * What the client is told about a resume.
+     *
+     * Deliberately never includes `resume_path`. The client has no use for the
+     * storage path and shipping it invites someone to try building a URL from
+     * it — the download endpoint is the only way in.
+     */
+    private function resumePayload(WorkerProfile $profile): array
+    {
+        return [
+            'has_resume'  => $profile->hasResume(),
+            'file_name'   => $profile->resume_original_name,
+            'uploaded_at' => $profile->resume_uploaded_at?->toIso8601String(),
+        ];
     }
 }

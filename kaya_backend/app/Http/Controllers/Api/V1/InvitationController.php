@@ -2,6 +2,9 @@
 
 namespace App\Http\Controllers\Api\V1;
 
+use App\Events\InvitationAccepted;
+use App\Events\InvitationDeclined;
+use App\Events\InvitationSent;
 use App\Http\Controllers\Controller;
 use App\Models\Application;
 use App\Models\Conversation;
@@ -50,6 +53,8 @@ class InvitationController extends Controller
             'status'      => 'pending',
         ]);
 
+        InvitationSent::dispatch($invitation->load(['job', 'employer']));
+
         return $this->ok($invitation, 'Invitation sent successfully', 201);
     }
 
@@ -59,7 +64,7 @@ class InvitationController extends Controller
         if (!$user->isWorker()) return $this->fail('Forbidden', 403);
 
         $invitations = $user->invitationsReceived()
-            ->with(['job.employer.employerProfile', 'employer'])
+            ->with(['job.employer:id,name,avatar,is_verified', 'job.employer.employerProfile', 'employer:id,name,avatar,is_verified'])
             ->latest()
             ->paginate(20);
 
@@ -97,6 +102,8 @@ class InvitationController extends Controller
             $conversation->update(['status' => 'unlocked']);
         }
 
+        InvitationAccepted::dispatch($invitation->load(['job', 'worker']));
+
         return $this->ok([
             'invitation'      => $invitation,
             'application_id'  => $application->id,
@@ -111,6 +118,8 @@ class InvitationController extends Controller
         if ($invitation->status !== 'pending') return $this->fail('Invitation status must be pending to decline', 422);
 
         $invitation->update(['status' => 'declined']);
+
+        InvitationDeclined::dispatch($invitation->load(['job', 'worker']));
 
         return $this->ok($invitation, 'Invitation declined successfully');
     }

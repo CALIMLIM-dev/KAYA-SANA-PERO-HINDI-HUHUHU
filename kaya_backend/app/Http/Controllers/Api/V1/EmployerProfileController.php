@@ -197,11 +197,11 @@ class EmployerProfileController extends Controller
 
         // Delete old image if exists
         if ($profile->image_path) {
-            Storage::disk('public')->delete($profile->image_path);
+            Storage::disk(config('filesystems.media'))->delete($profile->image_path);
         }
 
         // Store new image
-        $path = $request->file('image')->store('employer_images', 'public');
+        $path = $request->file('image')->store('employer_images', config('filesystems.media'));
 
         // Update both image_path (new) and logo_path (legacy) during transition
         $profile->update([
@@ -237,13 +237,32 @@ class EmployerProfileController extends Controller
             return $this->fail('Employer profile not found', 404);
         }
 
+        // Counted as a view of their employer side specifically — a hybrid
+        // account's worker view count must not be inflated by people reading
+        // their company page.
+        app(\App\Services\ProfileViewRecorder::class)->record(
+            viewer: $request->user(),
+            viewed: $user,
+            viewedAs: \App\Models\ProfileView::AS_EMPLOYER,
+            source: $request->query('source'),
+        );
+
         $jobs = \App\Models\JobPost::where('employer_id', $user->id)
             ->where('status', 'open')
             ->latest()
             ->limit(20)
             ->get();
 
+        /*
+            Their employer reviews only.
+
+            This used to read every review the person had ever received. For a
+            hybrid account — worker and employer on the same login, which two of
+            the demo accounts are — their company page showed reviews written
+            about them as somebody's hired hand, and averaged the two together.
+        */
         $reviews = \App\Models\Review::where('reviewee_id', $user->id)
+            ->where('reviewee_role', 'employer')
             ->with('reviewer:id,name')
             ->latest()
             ->limit(20)
@@ -260,9 +279,12 @@ class EmployerProfileController extends Controller
             'website'        => $profile->website,
             'description'    => $profile->description,
             'location'       => $profile->location,
-            'image_url'      => $profile->image_path ? Storage::disk('public')->url($profile->image_path) : null,
-            'rating_avg'     => $reviews->count() ? round($reviews->avg('rating'), 1) : null,
-            'rating_count'   => $reviews->count(),
+            'image_url'      => $profile->image_path ? Storage::disk(config('filesystems.media'))->url($profile->image_path) : null,
+            // From the stored aggregate, not from the 20 reviews above — that
+            // list is capped for display, so averaging it quietly reported the
+            // mean of someone's most recent 20 as their overall rating.
+            'rating_avg'     => $profile->rating_count > 0 ? (float) $profile->rating_avg : null,
+            'rating_count'   => (int) $profile->rating_count,
             'jobs'           => $jobs->map(fn ($j) => [
                 'id'         => $j->id,
                 'title'      => $j->title,

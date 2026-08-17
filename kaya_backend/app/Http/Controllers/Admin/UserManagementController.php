@@ -4,7 +4,11 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\User;
+use App\Services\SuspensionService;
+use App\Support\ModerationReasons;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Validation\Rule;
 
 class UserManagementController extends Controller
 {
@@ -56,32 +60,46 @@ class UserManagementController extends Controller
             'verifications',
         ]);
 
-        return view('admin.users.show', compact('user'));
+        return view('admin.users.show', [
+            'user'              => $user,
+            'suspensionReasons' => ModerationReasons::SUSPENSION,
+        ]);
     }
 
-    public function suspend(Request $request, User $user)
+    /**
+     * Reasons come from the shared catalogue rather than from whatever string
+     * the form posted. The old version stored the option's label as the reason,
+     * so rewording an option orphaned every account banned under the old text,
+     * and a crafted request could store any sentence at all.
+     */
+    public function suspend(Request $request, User $user, SuspensionService $suspensions)
     {
-        $request->validate([
-            'reason_type' => ['required', 'string'],
-            'custom_reason' => ['required_if:reason_type,custom', 'nullable', 'string', 'max:500'],
+        $data = $request->validate([
+            'reason_code' => ['required', Rule::in(ModerationReasons::suspensionCodes())],
+            'duration'    => ['required', Rule::in(['7', '14', '30', '90', 'permanent'])],
+            'note'        => ['nullable', 'string', 'max:1000'],
         ]);
 
-        $reason = $request->input('reason_type') === 'custom' 
-            ? $request->input('custom_reason')
-            : $request->input('reason_type');
+        // An administrator locking out another administrator is not moderation,
+        // and there is no way back in through this panel.
+        if ($user->isAdmin()) {
+            return back()->withErrors(['reason_code' => 'Administrator accounts cannot be suspended.']);
+        }
 
-        // forceFill: suspension fields are intentionally not mass-assignable.
-        $user->forceFill([
-            'is_suspended' => true,
-            'suspended_reason' => $reason,
-        ])->save();
+        $suspensions->suspend(
+            user: $user,
+            reasonCode: $data['reason_code'],
+            duration: $data['duration'],
+            note: $data['note'] ?? null,
+            admin: Auth::user(),
+        );
 
         return back()->with('success', "{$user->name} has been suspended.");
     }
 
-    public function activate(User $user)
+    public function activate(User $user, SuspensionService $suspensions)
     {
-        $user->forceFill(['is_suspended' => false, 'suspended_reason' => null])->save();
+        $suspensions->reinstate($user);
 
         return back()->with('success', "{$user->name} has been reactivated.");
     }

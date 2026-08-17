@@ -34,7 +34,7 @@ class VerificationController extends Controller
         if ($type === 'government_id') {
             // Government ID requires ID photo, selfie photo, and ID type
             $request->validate([
-                'type'          => ['required', 'string'],
+                'type'          => ['required', 'string', 'in:government_id'],
                 'id_type'       => ['required', 'string', 'max:100'],
                 'id_photo'      => ['required', 'file', 'mimes:jpg,jpeg,png', 'max:5120'],
                 'selfie_photo'  => ['required', 'file', 'mimes:jpg,jpeg,png', 'max:5120'],
@@ -46,8 +46,8 @@ class VerificationController extends Controller
                 ->delete();
             
             // Store both photos
-            $idPath = $request->file('id_photo')->store('verifications/ids', 'public');
-            $selfiePath = $request->file('selfie_photo')->store('verifications/selfies', 'public');
+            $idPath = $request->file('id_photo')->store('verifications/ids', config('filesystems.documents'));
+            $selfiePath = $request->file('selfie_photo')->store('verifications/selfies', config('filesystems.documents'));
 
             $verification = Verification::create([
                 'user_id'             => $user->id,
@@ -63,7 +63,7 @@ class VerificationController extends Controller
         } else {
             // Other document types (business_reg, etc.)
             $request->validate([
-                'type'     => ['required', 'string'],
+                'type'     => ['required', 'string', 'in:business_reg,business_permit,dti,sec'],
                 'document' => ['required', 'file', 'mimes:jpg,jpeg,png,pdf', 'max:5120'],
             ]);
             
@@ -72,7 +72,7 @@ class VerificationController extends Controller
                 ->where('document_type', $type)
                 ->delete();
 
-            $path = $request->file('document')->store('verifications', 'public');
+            $path = $request->file('document')->store('verifications', config('filesystems.documents'));
 
             $verification = Verification::create([
                 'user_id'             => $user->id,

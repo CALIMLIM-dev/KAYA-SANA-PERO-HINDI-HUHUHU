@@ -46,7 +46,7 @@ class LocationController extends Controller
             ->selectable()
             ->search($term)
             ->limit($limit)
-            ->get(['id', 'name', 'display_name', 'type', 'province_name', 'region_name', 'latitude', 'longitude']);
+            ->get(['id', 'parent_id', 'name', 'display_name', 'type', 'province_name', 'region_name', 'latitude', 'longitude']);
 
         return $this->ok($results->map(fn (Location $l) => $this->present($l)));
     }
@@ -120,6 +120,11 @@ class LocationController extends Controller
     {
         return [
             'id'            => $location->id,
+            // Lets the client tell "a barangay inside the chosen city" apart
+            // from "a different place". Without it, pinning anywhere inside
+            // Urdaneta resolved to a barangay whose id differs from the city's
+            // and looked like the user had pinned somewhere else entirely.
+            'parent_id'     => $location->parent_id,
             'name'          => $location->name,
             'display_name'  => $location->display_name ?? $location->name,
             'type'          => $location->type,

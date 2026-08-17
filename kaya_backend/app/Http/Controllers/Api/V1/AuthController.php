@@ -10,6 +10,7 @@ use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use Illuminate\Support\Facades\Mail;
 use App\Mail\PasswordResetMail;
+use App\Services\GoogleTokenVerifier;
 
 class AuthController extends Controller
 {
@@ -70,7 +71,7 @@ class AuthController extends Controller
         $user  = User::create($userData);
         $token = $user->createToken('kaya_app')->plainTextToken;
 
-        return $this->ok(['user' => $user, 'token' => $token], 'Registration successful', 201);
+        return $this->ok(['user' => $this->ownAccount($user), 'token' => $token], 'Registration successful', 201);
     }
 
     public function login(Request $request)
@@ -106,13 +107,29 @@ class AuthController extends Controller
 
         $token = $user->createToken('kaya_app')->plainTextToken;
 
-        return $this->ok(['user' => $user, 'token' => $token], 'Login successful');
+        return $this->ok(['user' => $this->ownAccount($user), 'token' => $token], 'Login successful');
     }
 
     public function logout(Request $request)
     {
         $request->user()->currentAccessToken()->delete();
         return $this->ok(null, 'Logged out');
+    }
+
+    /**
+     * The account holder's own record, with their contact details restored.
+     *
+     * `User::$hidden` withholds email, phone and google_id so they cannot ride
+     * along on an eager-loaded relation and leak to strangers. That default is
+     * right everywhere except here: someone is entitled to see their own email
+     * address, and the app reads it after signing in.
+     *
+     * Moderation columns stay hidden even from the owner — a suspension note is
+     * written for administrators, not for the person it describes.
+     */
+    private function ownAccount(User $user): User
+    {
+        return $user->makeVisible(['email', 'phone', 'google_id']);
     }
 
     public function me(Request $request)
@@ -158,6 +175,11 @@ class AuthController extends Controller
             // Worker profile flags
             'worker_profile_exists' => $workerProfile !== null,
             'worker_setup_completed' => $workerProfile?->isSetupCompleted() ?? false,
+
+            // How complete the profile employers actually read is, plus the
+            // single next thing worth doing. Served from /me so every screen
+            // shows the same number — see WorkerProfile::completeness().
+            'worker_profile_completeness' => $workerProfile?->completeness(),
         ]);
     }
     
@@ -177,6 +199,77 @@ class AuthController extends Controller
     /**
      * Update current user's basic info (name, phone)
      */
+    /**
+     * Changes the account password.
+     *
+     * The settings screen had this form already, with three fields and an
+     * "Update Password" button that closed the sheet and announced success
+     * without sending anything — so nobody's password ever changed.
+     *
+     * Requires the current password. Without it, anyone holding a phone that
+     * is already signed in could lock the owner out of their own account.
+     */
+    public function changePassword(Request $request)
+    {
+        $data = $request->validate([
+            'current_password' => ['required', 'string'],
+            'password'         => ['required', 'string', 'min:8', 'confirmed'],
+        ]);
+
+        $user = $request->user();
+
+        if (! Hash::check($data['current_password'], $user->password)) {
+            return $this->fail('Your current password is incorrect.', 422);
+        }
+
+        if (Hash::check($data['password'], $user->password)) {
+            return $this->fail('Your new password must be different from the current one.', 422);
+        }
+
+        $user->forceFill(['password' => Hash::make($data['password'])])->save();
+
+        /*
+            Every other session is signed out, and this one is re-issued.
+
+            A password change usually means "someone else may have my
+            password". Leaving their tokens alive would make the change
+            pointless. The new token is returned so the app can carry on
+            without bouncing the user to the login screen.
+        */
+        $user->tokens()->delete();
+        $token = $user->createToken('kaya_app')->plainTextToken;
+
+        return $this->ok(['token' => $token], 'Password updated. Other devices have been signed out.');
+    }
+
+    public function notificationPreferences(Request $request)
+    {
+        return $this->ok(['preferences' => $request->user()->notificationPreferences()]);
+    }
+
+    /**
+     * Saves the settings switches.
+     *
+     * They were widget state before this existed: flipping one changed
+     * nothing, and the value was gone as soon as the screen closed.
+     */
+    public function updateNotificationPreferences(Request $request)
+    {
+        $rules = [];
+        foreach (User::NOTIFICATION_CATEGORIES as $category) {
+            $rules[$category] = ['required', 'boolean'];
+        }
+
+        $data = $request->validate($rules);
+
+        $request->user()->forceFill(['notification_preferences' => $data])->save();
+
+        return $this->ok(
+            ['preferences' => $request->user()->fresh()->notificationPreferences()],
+            'Notification settings saved.'
+        );
+    }
+
     public function updateMe(Request $request)
     {
         $data = $request->validate([
@@ -186,16 +279,40 @@ class AuthController extends Controller
 
         $user = $request->user();
 
-        if (!empty($data['name'])) {
+        if (!empty($data['name']) && $data['name'] !== $user->name) {
+            // A verified account cannot rename itself.
+            //
+            // One name identifies the whole account — it is shown on the worker
+            // profile, on jobs posted as an employer, in chat and against every
+            // review. Verification means an administrator matched that name to
+            // a government ID.
+            //
+            // Without this check, the employer setup flow could rewrite it
+            // freely: a worker could verify as one person, collect reviews and
+            // a verified badge, then rename the account to somebody else and
+            // keep both. The badge would still be displayed, now vouching for a
+            // name nobody ever checked.
+            //
+            // Changing a verified name has to go back through verification, so
+            // it is refused here rather than silently un-verifying the account.
+            if ($user->is_verified) {
+                return $this->fail(
+                    'Your name is locked because your ID has been verified. '
+                    . 'Contact support if you need to change it.',
+                    422
+                );
+            }
+
             $user->name = $data['name'];
         }
+
         if (array_key_exists('phone', $data) && !empty($data['phone'])) {
             $user->phone = $data['phone'];
         }
 
         $user->save();
 
-        return $this->ok($user, 'Profile updated');
+        return $this->ok($this->ownAccount($user), 'Profile updated');
     }
 
     /**
@@ -204,16 +321,33 @@ class AuthController extends Controller
     public function googleLogin(Request $request)
     {
         $request->validate([
-            'google_id'    => ['required', 'string'],
-            'name'         => ['nullable', 'string'], // Changed to nullable
-            'email'        => ['required', 'email'],
-            'avatar'       => ['nullable', 'string'],
-            'password'     => ['nullable', 'string', 'min:8'],
-            'is_signup'    => ['nullable', 'boolean'], // New parameter to distinguish signup vs login
+            'id_token'  => ['required', 'string'],
+            'password'  => ['nullable', 'string', 'min:8'],
+            'is_signup' => ['nullable', 'boolean'],
         ]);
 
-        // Check if user already exists
-        $existingUser = User::where('email', $request->email)->first();
+        /*
+            Identity comes from the token, never from the request.
+
+            This endpoint used to accept `google_id` and `email` as plain fields
+            and log in whoever owned that address. Anyone who knew a user's email
+            could post it with any made-up google_id and receive a working API
+            token for that account — no password, no contact with Google.
+
+            Everything below now uses claims Google signed. The client can still
+            send whatever it likes; none of it is read.
+        */
+        try {
+            $claims = app(GoogleTokenVerifier::class)->verify($request->string('id_token'));
+        } catch (\RuntimeException $e) {
+            return $this->fail($e->getMessage(), 401);
+        }
+
+        $googleId = $claims['sub'];
+        $email     = $claims['email'];
+        $avatar    = $claims['picture'];
+
+        $existingUser = User::where('email', $email)->first();
 
         // Deliberately not logging the email or whether an account exists — that
         // combination turns the log into an account-enumeration oracle and puts
@@ -228,13 +362,33 @@ class AuthController extends Controller
         }
 
         if ($existingUser) {
+            /*
+                A ban has to hold on every door.
+
+                login() has refused suspended accounts from the start, but this
+                path did not — and because suspending deletes the account's
+                tokens, the ban itself pushed the user straight back to the
+                sign-in screen, where Google handed them a fresh one. The
+                suspension revoked the session and then replaced it.
+            */
+            if ($existingUser->is_suspended) {
+                return response()->json([
+                    'success' => false,
+                    'data' => [
+                        'is_suspended'     => true,
+                        'suspended_reason' => $existingUser->suspended_reason,
+                    ],
+                    'message' => 'Account suspended',
+                ], 403);
+            }
+
             // Existing user - just log them in (LOGIN flow)
-            $existingUser->google_id = $request->google_id;
-            $existingUser->avatar = $request->avatar;
+            $existingUser->google_id = $googleId;
+            $existingUser->avatar    = $avatar;
             $existingUser->save();
 
             $token = $existingUser->createToken('kaya_app')->plainTextToken;
-            return $this->ok(['user' => $existingUser, 'token' => $token], 'Google login successful');
+            return $this->ok(['user' => $this->ownAccount($existingUser), 'token' => $token], 'Google login successful');
         }
 
         // New user attempting to login
@@ -247,19 +401,21 @@ class AuthController extends Controller
             return $this->fail('Password is required for new accounts', 422);
         }
 
-        // Create new user with password
+        // The name is left unset on purpose: the user chooses it during profile
+        // setup, and once an ID is verified it becomes locked to what the
+        // document says.
         $user = User::create([
-            'name'      => $request->name ?: null, // Allow null name
-            'email'     => $request->email,
-            'google_id' => $request->google_id,
-            'avatar'    => $request->avatar,
+            'name'      => null,
+            'email'     => $email,
+            'google_id' => $googleId,
+            'avatar'    => $avatar,
             'password'  => $request->password,
             'is_verified' => false, // User must complete verification (phone + gmail + valid ID)
         ]);
 
         $token = $user->createToken('kaya_app')->plainTextToken;
 
-        return $this->ok(['user' => $user, 'token' => $token], 'Account created successfully', 201);
+        return $this->ok(['user' => $this->ownAccount($user), 'token' => $token], 'Account created successfully', 201);
     }
 
     /**
