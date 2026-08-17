@@ -68,4 +68,43 @@ return [
         'sender_name' => env('SEMAPHORE_SENDER_NAME', 'SEMAPHORE'),
     ],
 
+    /*
+     | Road routing for the live tracking map.
+     |
+     | Neither option is a paid mapping API.
+     |
+     | 'osrm' is the default because it needs no key and works the moment the
+     | code is deployed. It is a public demo server, so it is rate-limited and
+     | carries no uptime promise — fine for development, a gamble on demo day.
+     |
+     | 'ors' is OpenRouteService. The key is free (2,000 routes a day), but it
+     | is a real supported tier rather than a demo box, which is what you want
+     | when a panel is watching. Set ROUTING_PROVIDER=ors and ORS_API_KEY to
+     | switch; nothing else changes.
+     |
+     | If routing fails either way, the map falls back to the straight dashed
+     | line it drew before.
+     */
+    'routing' => [
+        'provider' => env('ROUTING_PROVIDER', 'osrm'),
+        'osrm_url' => env('OSRM_URL', 'https://router.project-osrm.org'),
+        'ors_key'  => env('ORS_API_KEY'),
+    ],
+
+    /*
+     | Firebase Cloud Messaging — notifications for a phone that is not running
+     | the app.
+     |
+     | Path to the service-account JSON downloaded from the Firebase console
+     | (Project settings, Service accounts, Generate new private key). Keep it
+     | outside the repository: it is a private key, and unlike the Google OAuth
+     | *client* ID it grants real authority.
+     |
+     | Unset is a supported state. FcmSender does nothing without it, and the
+     | app keeps its in-app banner, so nothing breaks by leaving this empty.
+     */
+    'fcm' => [
+        'credentials' => env('FCM_CREDENTIALS'),
+    ],
+
 ];

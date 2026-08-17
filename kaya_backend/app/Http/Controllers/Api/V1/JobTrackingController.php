@@ -9,6 +9,7 @@ use App\Models\Application;
 use App\Models\JobLocationPing;
 use App\Models\JobTrackingSession;
 use App\Services\RealtimeBroadcaster;
+use App\Services\RoutingService;
 use Illuminate\Http\Request;
 
 /**
@@ -245,6 +246,27 @@ class JobTrackingController extends Controller
             ]
             : null;
 
+        /*
+            The road route between the two pins.
+
+            A straight line pointed through blocks and across rivers, and the
+            distance under it was a figure nobody travels. This is the way the
+            worker is actually coming, with an arrival time derived from it.
+
+            Cached by the routing service and fail-soft by design: if the router
+            is slow, down or rate-limited this comes back null and the map draws
+            the dashed straight line it drew before. Live tracking is a safety
+            feature, and it must not go dark because a third party did.
+        */
+        $route = ($ping !== null && $destination !== null)
+            ? app(RoutingService::class)->route(
+                (float) $ping->latitude,
+                (float) $ping->longitude,
+                $destination['latitude'],
+                $destination['longitude'],
+            )
+            : null;
+
         return $this->ok([
             'sharing'      => true,
             'can_share'    => false,
@@ -252,13 +274,16 @@ class JobTrackingController extends Controller
             'worker_name'  => $session->worker?->name,
             'consented_at' => $session->consented_at?->toIso8601String(),
             'destination'  => $destination,
+            // Road geometry, distance and ETA. Null when routing is unavailable.
+            'route'        => $route,
             'latest'       => $ping === null ? null : [
                 'latitude'    => (float) $ping->latitude,
                 'longitude'   => (float) $ping->longitude,
                 'accuracy_m'  => $ping->accuracy_m,
                 'recorded_at' => $ping->recorded_at?->toIso8601String(),
                 'age_seconds' => $ping->recorded_at?->diffInSeconds(now()),
-                // Straight-line distance, which is what the drawn line is.
+                // Straight-line distance. Kept as the fallback figure for when
+                // no route is available; the road distance lives on `route`.
                 'distance_km' => $destination === null ? null : round(
                     $this->haversineKm(
                         (float) $ping->latitude,
