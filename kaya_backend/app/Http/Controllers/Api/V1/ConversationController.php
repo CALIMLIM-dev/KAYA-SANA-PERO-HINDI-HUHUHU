@@ -81,6 +81,36 @@ class ConversationController extends Controller
             return $this->fail('You do not have permission to view this conversation', 403);
         }
 
+        /*
+            Incremental fetch, for polling.
+
+            `?after_id=N` returns only messages newer than N, oldest first, and
+            nothing else. The client polls this every few seconds while a chat
+            is open, so the overwhelmingly common answer is an empty array —
+            which is the point. Re-sending a fifty-message thread every three
+            seconds to discover nothing changed is unusable on a slow
+            connection, and it is exactly what a poll would otherwise do.
+
+            Not paginated, because a delta is not a page: the client already
+            holds everything up to N, and wrapping the handful of new rows in
+            pagination metadata would invite the client to treat "no new
+            messages" as "end of thread" and stop asking.
+
+            Capped anyway. A client returning after a long absence with a very
+            old cursor should get a bounded response rather than the entire
+            history in one go; it can simply ask again with the new highest id.
+        */
+        if ($request->filled('after_id')) {
+            $messages = $conversation->messages()
+                ->with('sender:id,name')
+                ->where('id', '>', (int) $request->input('after_id'))
+                ->orderBy('id')
+                ->limit(100)
+                ->get();
+
+            return $this->ok(['data' => $messages]);
+        }
+
         $messages = $conversation->messages()
             ->with('sender:id,name')
             ->orderBy('created_at')

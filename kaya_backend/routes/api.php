@@ -8,6 +8,7 @@ use App\Http\Controllers\Api\V1\JobController;
 use App\Http\Controllers\Api\V1\ApplicationController;
 use App\Http\Controllers\Api\V1\InvitationController;
 use App\Http\Controllers\Api\V1\JobTrackingController;
+use App\Http\Controllers\Api\V1\DeviceTokenController;
 use App\Http\Controllers\Api\V1\NotificationController;
 use App\Http\Controllers\Api\V1\ProfileViewController;
 use App\Http\Controllers\Api\V1\RealtimeController;
@@ -198,6 +199,11 @@ Route::prefix('v1')->group(function () {
         Route::get('/profile-views/summary',            [ProfileViewController::class, 'summary']);
         Route::post('/notifications/read-all',          [NotificationController::class, 'readAll']);
         Route::patch('/notifications/{notification}/read', [NotificationController::class, 'markRead']);
+
+        // Push registration. The socket only reaches a running app; this is how
+        // a notification reaches a phone with the app closed.
+        Route::post('/device-tokens',   [DeviceTokenController::class, 'store']);
+        Route::delete('/device-tokens', [DeviceTokenController::class, 'destroy']);
 
         // Reviews. The status route is what makes the pair mutual rather than
         // two unrelated submissions: it tells each side where the other is.

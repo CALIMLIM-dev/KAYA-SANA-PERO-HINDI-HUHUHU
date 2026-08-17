@@ -26,23 +26,74 @@ class RealtimeController extends Controller
 {
     public function config(Request $request)
     {
-        $host = config('broadcasting.connections.reverb.options.host');
-        $port = (int) config('broadcasting.connections.reverb.options.port');
-        $tls  = config('broadcasting.connections.reverb.options.useTLS', false);
+        $driver = config('broadcasting.default');
+        $endpoint = $driver === 'pusher' ? $this->pusherEndpoint() : $this->reverbEndpoint();
 
         return response()->json([
             'success' => true,
             'data' => [
-                'driver'    => config('broadcasting.default'),
-                'key'       => config('broadcasting.connections.reverb.key'),
-                'host'      => $host,
-                'port'      => $port,
-                'use_tls'   => (bool) $tls,
+                'driver'    => $driver,
+                'key'       => $endpoint['key'],
+                'host'      => $endpoint['host'],
+                'port'      => $endpoint['port'],
+                'use_tls'   => $endpoint['tls'],
                 // The client needs its own id to subscribe to its feed, and
                 // this saves it a second call to /me just to learn it.
                 'user_id'   => $request->user()->id,
             ],
             'message' => 'Success',
         ]);
+    }
+
+    /**
+     * Self-hosted Reverb.
+     *
+     * REVERB_HOST is whatever address the *phone* can reach this machine on,
+     * which is not the same as the address the server binds to. On a developer
+     * machine that is a LAN address, and a LAN address only resolves on that
+     * LAN — which is why realtime works on the office WiFi and dies the moment
+     * a phone is on mobile data, while the REST API keeps working through the
+     * tunnel. Reverb listens on its own port and nothing tunnels it.
+     *
+     * @return array{key: ?string, host: ?string, port: int, tls: bool}
+     */
+    private function reverbEndpoint(): array
+    {
+        return [
+            'key'  => config('broadcasting.connections.reverb.key'),
+            'host' => config('broadcasting.connections.reverb.options.host'),
+            'port' => (int) config('broadcasting.connections.reverb.options.port'),
+            'tls'  => (bool) config('broadcasting.connections.reverb.options.useTLS', false),
+        ];
+    }
+
+    /**
+     * Hosted Pusher, which removes the reachability problem entirely.
+     *
+     * Reverb speaks the Pusher protocol, so the app's client needs no change to
+     * talk to Pusher itself — only a different address, which is the whole
+     * reason this endpoint exists.
+     *
+     * Note the host is *not* the one in config/broadcasting.php. That entry is
+     * `api-{cluster}.pusher.com`, the REST endpoint this server publishes to.
+     * Clients open sockets against `ws-{cluster}.pusher.com`, and handing the
+     * app the publishing host would fail to connect for a reason nothing in the
+     * logs would explain.
+     *
+     * @return array{key: ?string, host: string, port: int, tls: bool}
+     */
+    private function pusherEndpoint(): array
+    {
+        $cluster = config('broadcasting.connections.pusher.options.cluster', 'mt1');
+        $scheme = config('broadcasting.connections.pusher.options.scheme', 'https');
+
+        return [
+            'key'  => config('broadcasting.connections.pusher.key'),
+            // PUSHER_HOST is honoured so a self-hosted Pusher-compatible server
+            // can still be pointed at; otherwise this is Pusher's socket host.
+            'host' => env('PUSHER_HOST') ?: "ws-{$cluster}.pusher.com",
+            'port' => (int) env('PUSHER_PORT', $scheme === 'https' ? 443 : 80),
+            'tls'  => $scheme === 'https',
+        ];
     }
 }

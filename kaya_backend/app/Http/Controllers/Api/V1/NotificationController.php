@@ -36,7 +36,33 @@ class NotificationController extends Controller
             'audience'    => ['nullable', 'in:worker,employer'],
             'unread_only' => ['nullable', 'boolean'],
             'per_page'    => ['nullable', 'integer', 'min:1', 'max:50'],
+            'after_id'    => ['nullable', 'integer', 'min:0'],
         ]);
+
+        /*
+            Incremental fetch, for the background service.
+
+            While a job is active the app runs a foreground service that polls
+            for anything new and raises it on the phone's notification shade.
+            That poll runs on someone's mobile data with the app closed, so it
+            asks only for notifications newer than the last it saw — normally
+            an empty array, rather than a page of rows it already showed.
+
+            Oldest first here, unlike the list below: these are about to be
+            displayed one after another, and a notification shade that reads
+            newest-to-oldest as they arrive is backwards.
+        */
+        if ($request->filled('after_id')) {
+            $fresh = UserNotification::where('user_id', $request->user()->id)
+                ->forAudience($data['audience'] ?? null)
+                ->where('id', '>', (int) $data['after_id'])
+                ->orderBy('id')
+                ->limit(20)
+                ->get()
+                ->map(fn (UserNotification $n) => $n->toPayload());
+
+            return $this->ok(['data' => $fresh]);
+        }
 
         // `created_at` is second-resolution, and a single action can write
         // several notifications inside one second — ordering by it alone leaves
