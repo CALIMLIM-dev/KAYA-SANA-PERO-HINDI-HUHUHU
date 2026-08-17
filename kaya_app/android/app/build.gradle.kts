@@ -36,9 +36,22 @@ android {
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
         versionName = flutter.versionName
-        
-        // Google Sign-In OAuth Client ID
-        manifestPlaceholders["googleClientId"] = "217067120890-b5p9b0lkath30n40ph3ii14gamnk1oom.apps.googleusercontent.com"
+
+        /*
+            No Google client id is declared here.
+
+            A manifestPlaceholder named googleClientId used to be set to a
+            different client id from the one the app actually signs in with,
+            and nothing in AndroidManifest.xml ever referenced it — so it
+            configured nothing while looking authoritative, which is worse than
+            absent when someone is debugging a sign-in failure.
+
+            google_sign_in needs no client id in the manifest on Android. It
+            identifies the app by its package name and signing certificate,
+            registered against the Android OAuth client in Google Cloud, and
+            takes the *web* client id at runtime as serverClientId so the ID
+            token is minted for the backend to verify.
+        */
     }
 
     buildTypes {

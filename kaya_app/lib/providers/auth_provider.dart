@@ -203,10 +203,46 @@ class AuthProvider with ChangeNotifier {
         'email': googleUser.email,
       };
     } catch (e) {
-      _errorMessage = 'Google Sign-In failed: ${e.toString()}';
+      _errorMessage = _googleSignInError(e);
       notifyListeners();
       return null;
     }
+  }
+
+  /*
+      Turn the platform's status codes into something that names the cause.
+
+      The raw exception reaches the user as
+      "PlatformException(sign_in_failed, ...ApiException: 10: , null, null)",
+      which tells them nothing and tells a developer almost as little unless
+      they already know what the number means.
+
+      Code 10 is worth the special case. It is by far the most common Google
+      sign-in failure and it never means what it appears to: the app is fine,
+      the token is fine, and the cause is always that this build's signing
+      certificate and package name are not the pair registered against the
+      Android OAuth client. It fails identically for every account, which is
+      why it gets mistaken for the app being broken.
+  */
+  String _googleSignInError(Object e) {
+    final text = e.toString();
+
+    if (text.contains('ApiException: 10')) {
+      return 'This build is not registered with Google. The app signature and '
+          'package name must match the Android OAuth client in Google Cloud.';
+    }
+    if (text.contains('ApiException: 7') || text.contains('NETWORK_ERROR')) {
+      return 'Could not reach Google. Check your connection and try again.';
+    }
+    if (text.contains('12501') || text.contains('SIGN_IN_CANCELLED')) {
+      return 'Sign-in was cancelled.';
+    }
+    if (text.contains('12500')) {
+      return 'Google sign-in could not complete. Make sure Google Play '
+          'services is up to date on this device.';
+    }
+
+    return 'Google sign-in failed. Please try again.';
   }
 
   /// Identity is carried entirely by [idToken]; the server reads nothing else.
