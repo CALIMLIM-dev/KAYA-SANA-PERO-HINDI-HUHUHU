@@ -255,14 +255,32 @@ class AuthController extends Controller
      */
     public function updateNotificationPreferences(Request $request)
     {
+        /*
+            A partial update, merged over what is stored.
+
+            These used to be `required`, which meant the request had to carry
+            every category. That is fine until a category is added: an app
+            build that predates it sends the older, shorter set and every save
+            starts failing with a 422 that says nothing useful to the person
+            toggling a switch. Since installed apps are not upgraded in step
+            with the server, "send them all" is not a contract this endpoint can
+            hold.
+
+            `sometimes` accepts whichever subset arrives, and merging keeps
+            categories the client did not mention rather than dropping them to
+            false — a switch nobody touched should not silently turn off.
+        */
         $rules = [];
         foreach (User::NOTIFICATION_CATEGORIES as $category) {
-            $rules[$category] = ['required', 'boolean'];
+            $rules[$category] = ['sometimes', 'boolean'];
         }
 
         $data = $request->validate($rules);
 
-        $request->user()->forceFill(['notification_preferences' => $data])->save();
+        $user = $request->user();
+        $merged = array_merge($user->notificationPreferences(), $data);
+
+        $user->forceFill(['notification_preferences' => $merged])->save();
 
         return $this->ok(
             ['preferences' => $request->user()->fresh()->notificationPreferences()],

@@ -7,6 +7,7 @@ use App\Events\Realtime\JobPublished;
 use App\Http\Controllers\Controller;
 use App\Models\Application;
 use App\Models\JobPost;
+use App\Services\NotificationService;
 use App\Services\RealtimeBroadcaster;
 use Illuminate\Http\Request;
 
@@ -194,6 +195,24 @@ class JobController extends Controller
         if ($skillIds) $job->skills()->sync($skillIds);
 
         app(RealtimeBroadcaster::class)->push(new JobPublished($job));
+
+        /*
+            Tell the workers this job actually suits.
+
+            JobPublished is a broadcast to a general channel that refreshes any
+            open feed — useful, but it reaches only people already looking at
+            the app, and it says nothing about whether the job is relevant to
+            them. This is the per-worker half: a real notification, to the
+            people it fits, which is what makes a posted job find someone.
+
+            Run inline rather than queued. The events here are all
+            ShouldBroadcastNow for the same reason — QUEUE_CONNECTION is
+            `database` and no queue worker runs in this deployment, so anything
+            pushed onto a queue would simply never be delivered. The cost is
+            bounded by the candidate pre-filter and the recipient cap inside
+            jobMatched().
+        */
+        app(NotificationService::class)->jobMatched($job);
 
         return $this->ok($job->load(['category', 'skills']), 'Job created', 201);
     }

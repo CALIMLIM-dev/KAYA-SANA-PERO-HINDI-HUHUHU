@@ -39,6 +39,40 @@ class UserNotification extends Model
     public const INVITATION_DECLINED  = 'invitation.declined';
     public const MESSAGE_RECEIVED     = 'message.received';
     public const JOB_COMPLETED        = 'job.completed';
+    /*
+        A new job that suits this worker.
+
+        Under the 'job.' prefix deliberately, so categoryFor() files it with the
+        other job notifications and the existing "jobs" switch in settings mutes
+        it. A new notification type that no preference covers is one users
+        cannot turn off.
+    */
+    public const JOB_MATCH            = 'job.match';
+
+    /*
+        The events a person is waiting on, which were silent.
+
+        Each of these is a moment where the other party has done something the
+        first party has to respond to, or would simply want to know. Without a
+        notification the only way to find out is to reopen the app and check —
+        which is what "the app feels dead" actually means.
+    */
+
+    /** One side confirmed the work is done; the other still has to. */
+    public const APPLICATION_COMPLETION_PENDING = 'application.completion_pending';
+
+    /** An applicant pulled out, so the employer's shortlist just changed. */
+    public const APPLICATION_WITHDRAWN = 'application.withdrawn';
+
+    /** Somebody reviewed you. */
+    public const REVIEW_RECEIVED = 'review.received';
+
+    /** The job is finished and a review can now be written. */
+    public const REVIEW_REQUESTED = 'review.requested';
+
+    /** An admin approved or rejected an identity submission. */
+    public const VERIFICATION_APPROVED = 'verification.approved';
+    public const VERIFICATION_REJECTED = 'verification.rejected';
 
     /**
      * Which settings switch governs each type.
@@ -50,10 +84,15 @@ class UserNotification extends Model
     public static function categoryFor(string $type): string
     {
         return [
-            'application' => 'applications',
-            'invitation'  => 'invitations',
-            'message'     => 'messages',
-            'job'         => 'jobs',
+            'application'  => 'applications',
+            'invitation'   => 'invitations',
+            'message'      => 'messages',
+            'job'          => 'jobs',
+            'review'       => 'reviews',
+            // Identity checks are account business, not job business — someone
+            // who mutes job alerts still needs to hear that their ID was
+            // rejected and their verified badge is not coming.
+            'verification' => 'account',
         ][explode('.', $type)[0]] ?? 'jobs';
     }
 

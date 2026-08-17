@@ -7,6 +7,7 @@ use App\Models\Application;
 use App\Models\Invitation;
 use App\Models\JobPost;
 use App\Models\Message;
+use App\Models\Review;
 use App\Models\UserNotification;
 
 /**
@@ -65,6 +66,35 @@ class NotificationService
         // socket is delivery, and RealtimeBroadcaster keeps a Reverb outage
         // from turning a successful hire into a 500.
         $this->broadcast($notification);
+
+        /*
+            And to the phone itself, for when the app is not running.
+
+            Deliberately here rather than at each call site: this method is the
+            single funnel every notification type already passes through, so
+            hires, messages, invitations and matches all gain push at once and
+            a new type cannot forget to.
+
+            The two paths do not overlap in practice. The socket reaches an app
+            that is open; FCM reaches one that is not. A device that is running
+            the app may receive both, which is why the client suppresses a push
+            for the thread it is currently showing.
+
+            No-ops entirely when FCM_CREDENTIALS is unset, and swallows its own
+            failures, so an unconfigured or unreachable FCM cannot break the
+            hire that triggered it.
+        */
+        app(FcmSender::class)->sendToUser(
+            userId: $userId,
+            title: $title,
+            body: $body ?? '',
+            data: [
+                'type' => $type,
+                'reference_type' => (string) $referenceType,
+                'reference_id' => (string) $referenceId,
+                'notification_id' => (string) $notification->id,
+            ],
+        );
 
         return $notification;
     }
@@ -305,5 +335,179 @@ class NotificationService
                 actorId: $job->employer_id,
             );
         }
+    }
+
+    /*
+        A new job that suits you.
+
+        The retention feature the app was missing: a worker had no way to learn
+        a matching job existed except by opening the app and scrolling the feed.
+        The scoring already existed — JobMatchService powers the employer's
+        "suggested workers" list — so this is the same judgement pointed the
+        other way.
+
+        Two deliberate limits, because a notification is far more intrusive than
+        a row in a list:
+
+        MIN_NOTIFY_SCORE is set above JobMatchService::MIN_VISIBLE_SCORE. Being
+        in the same category (40) is enough to appear in a list, but not enough
+        to be worth interrupting someone for — this requires the category plus
+        proximity or genuine skill overlap. Otherwise every plumber in the
+        province is notified of every plumbing job, and they all turn
+        notifications off within a week.
+
+        MAX_RECIPIENTS caps the blast. A job in a busy category could otherwise
+        notify hundreds of people at once, which is indistinguishable from spam
+        and would make the app the thing that made their phone buzz all day.
+
+        Candidates are pre-filtered in SQL to workers who share the category or
+        one of the job's skills — precisely the set that can reach the
+        threshold — rather than scoring every profile in the database.
+    */
+    public const MIN_NOTIFY_SCORE = 45;
+    public const MAX_RECIPIENTS = 25;
+
+    /*
+        One side pressed "mark as complete"; the other has not.
+
+        The single most important missing notification. Completion needs both
+        parties, so until the second one confirms the job sits in a half-state
+        — and the person being waited on had no way to know they were being
+        waited on. They would open the app days later and find a job still
+        showing as active, with no reason given.
+
+        Sent to whichever side has *not* confirmed.
+    */
+    public function completionPending(Application $application, string $confirmedSide): void
+    {
+        $application->loadMissing('job');
+        $job = $application->job;
+
+        if (! $job) {
+            return;
+        }
+
+        $employerConfirmed = $confirmedSide === 'employer';
+
+        $recipientId = $employerConfirmed ? $application->worker_id : $job->employer_id;
+        $actorId = $employerConfirmed ? $job->employer_id : $application->worker_id;
+        $who = $employerConfirmed ? 'The employer' : 'The worker';
+
+        $this->push(
+            userId: $recipientId,
+            audience: $employerConfirmed
+                ? UserNotification::AUDIENCE_WORKER
+                : UserNotification::AUDIENCE_EMPLOYER,
+            type: UserNotification::APPLICATION_COMPLETION_PENDING,
+            title: 'Confirm the job is done',
+            body: $who.' marked "'.$job->title.'" as complete. Confirm to finish it and leave a review.',
+            referenceType: 'application',
+            referenceId: $application->id,
+            actorId: $actorId,
+        );
+    }
+
+    /**
+     * An applicant withdrew.
+     *
+     * The employer's shortlist just got shorter without them touching it, and
+     * an unexplained disappearance reads as a bug in the app.
+     */
+    public function applicationWithdrawn(Application $application): void
+    {
+        $application->loadMissing(['job', 'worker']);
+        $job = $application->job;
+
+        if (! $job) {
+            return;
+        }
+
+        $this->push(
+            userId: $job->employer_id,
+            audience: UserNotification::AUDIENCE_EMPLOYER,
+            type: UserNotification::APPLICATION_WITHDRAWN,
+            title: 'An applicant withdrew',
+            body: ($application->worker?->name ?? 'Someone')
+                .' withdrew their application for "'.$job->title.'".',
+            referenceType: 'job',
+            referenceId: $job->id,
+            actorId: $application->worker_id,
+        );
+    }
+
+    /*
+        Somebody reviewed you.
+
+        The body deliberately does not quote the review. Reviews are withheld
+        until both sides have written one, and a notification that leaked the
+        text would walk straight around that rule — the whole point of which is
+        that neither party can tailor their review to the one they already
+        received.
+    */
+    public function reviewReceived(Review $review): void
+    {
+        $this->push(
+            userId: $review->reviewee_id,
+            audience: $review->reviewee_role === 'worker'
+                ? UserNotification::AUDIENCE_WORKER
+                : UserNotification::AUDIENCE_EMPLOYER,
+            type: UserNotification::REVIEW_RECEIVED,
+            title: 'You have a new review',
+            body: 'Someone you worked with left you a review. Write yours to see it.',
+            referenceType: 'job',
+            referenceId: $review->job_id,
+            actorId: $review->reviewer_id,
+        );
+    }
+
+    /** @return int how many workers were notified */
+    public function jobMatched(JobPost $job): int
+    {
+        $job->loadMissing(['skills', 'psgcLocation']);
+        $skillIds = $job->skills->pluck('id');
+
+        $candidates = \App\Models\WorkerProfile::query()
+            ->with(['skills', 'psgcLocation'])
+            ->where('user_id', '!=', $job->employer_id)
+            ->where(function ($q) use ($job, $skillIds) {
+                $q->where('category_id', $job->category_id);
+
+                if ($skillIds->isNotEmpty()) {
+                    $q->orWhereHas('skills', fn ($s) => $s->whereIn('skills.id', $skillIds));
+                }
+            })
+            ->get()
+            ->filter(fn ($profile) => $profile->isSetupCompleted());
+
+        $ranked = $candidates
+            ->map(fn ($profile) => [
+                'profile' => $profile,
+                'score' => \App\Services\JobMatchService::score($job, $profile)['score'],
+            ])
+            ->filter(fn ($row) => $row['score'] >= self::MIN_NOTIFY_SCORE)
+            ->sortByDesc('score')
+            ->take(self::MAX_RECIPIENTS);
+
+        $notified = 0;
+
+        foreach ($ranked as $row) {
+            $sent = $this->push(
+                userId: $row['profile']->user_id,
+                audience: UserNotification::AUDIENCE_WORKER,
+                type: UserNotification::JOB_MATCH,
+                title: 'New job for you',
+                body: '"' . $job->title . '" in ' . ($job->location ?: 'your area')
+                    . ' matches your skills.',
+                referenceType: 'job',
+                referenceId: $job->id,
+                actorId: $job->employer_id,
+            );
+
+            if ($sent !== null) {
+                $notified++;
+            }
+        }
+
+        return $notified;
     }
 }

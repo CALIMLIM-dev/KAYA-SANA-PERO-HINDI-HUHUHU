@@ -115,10 +115,33 @@ class SettingsTest extends TestCase
             ->assertOk()
             ->json('data.preferences');
 
-        $this->assertSame(
-            ['applications' => true, 'invitations' => true, 'messages' => true, 'jobs' => true],
-            $prefs
-        );
+        // Every category, whatever the current set is — asserting a fixed list
+        // here only records which categories existed on the day it was written,
+        // and fails the next time one is added rather than catching a bug.
+        $this->assertSame(User::NOTIFICATION_CATEGORIES, array_keys($prefs));
+        $this->assertNotEmpty($prefs);
+        foreach ($prefs as $category => $enabled) {
+            $this->assertTrue($enabled, "{$category} should default to on");
+        }
+    }
+
+    #[Test]
+    public function a_partial_update_leaves_the_others_alone(): void
+    {
+        // An installed app predates any category added after it shipped, so it
+        // sends a shorter set. That must still save, and must not silently
+        // switch off everything it did not mention.
+        $user = $this->user();
+
+        $this->actingAs($user)->putJson('/api/v1/me/notification-preferences', [
+            'messages' => false,
+        ])->assertOk();
+
+        $prefs = $user->fresh()->notificationPreferences();
+
+        $this->assertFalse($prefs['messages']);
+        $this->assertTrue($prefs['applications']);
+        $this->assertTrue($prefs['jobs']);
     }
 
     #[Test]

@@ -91,7 +91,18 @@ class User extends Authenticatable
      * account that has never opened settings behave the same, and adding a
      * category later does not silently arrive muted.
      */
-    public const NOTIFICATION_CATEGORIES = ['applications', 'invitations', 'messages', 'jobs'];
+    /*
+        'reviews' and 'account' were added alongside the notifications that
+        needed them.
+
+        Both default to on, here and in wantsNotification(), so an existing
+        account with only the original four stored keeps receiving the new
+        kinds rather than silently missing them — a stored preference map is a
+        record of what someone turned *off*, not an allow-list.
+    */
+    public const NOTIFICATION_CATEGORIES = [
+        'applications', 'invitations', 'messages', 'jobs', 'reviews', 'account',
+    ];
 
     public function wantsNotification(string $category): bool
     {

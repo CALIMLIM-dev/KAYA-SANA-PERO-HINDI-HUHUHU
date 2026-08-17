@@ -7,6 +7,7 @@ use App\Models\Application;
 use App\Models\JobPost;
 use App\Models\Review;
 use App\Models\User;
+use App\Services\NotificationService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
@@ -94,6 +95,18 @@ class ReviewController extends Controller
 
             return $review;
         });
+
+        /*
+            Tell the person they were reviewed.
+
+            After the transaction, so nothing is announced that could still roll
+            back — and the body carries no rating and no text, because reviews
+            stay withheld until both sides have written one. A notification
+            quoting the review would walk straight around that rule, which
+            exists so neither party can tune their review to the one they have
+            already read.
+        */
+        app(NotificationService::class)->reviewReceived($review);
 
         return $this->ok([
             'review' => $review->load('reviewer:id,name'),

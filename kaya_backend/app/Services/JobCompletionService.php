@@ -6,6 +6,7 @@ use App\Events\JobCompleted;
 use App\Models\Application;
 use App\Models\JobPost;
 use App\Models\User;
+use App\Services\NotificationService;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -48,13 +49,19 @@ class JobCompletionService
      */
     public function confirm(Application $application, string $side): Application
     {
-        DB::transaction(function () use ($application, $side) {
+        // Whether this call is the one that actually records a confirmation,
+        // as opposed to a repeat tap. Only a first confirmation is worth
+        // telling the other side about.
+        $wasFirstConfirmation = false;
+
+        DB::transaction(function () use ($application, $side, &$wasFirstConfirmation) {
             $column = $side === self::SIDE_EMPLOYER
                 ? 'employer_completed_at'
                 : 'worker_completed_at';
 
             if ($application->{$column} === null) {
                 $application->{$column} = now();
+                $wasFirstConfirmation = true;
             }
 
             // Only once both are in. The application keeps its 'accepted'
@@ -71,7 +78,25 @@ class JobCompletionService
             $this->settleJob($application->job);
         });
 
-        return $application->refresh();
+        $application->refresh();
+
+        /*
+            Tell the other side they are being waited on.
+
+            Only when one side has confirmed and the other has not. Once both
+            are in, the job is finished and JobCompleted announces that instead
+            — sending both would be two notifications for one event, the second
+            of which is already out of date.
+
+            Outside the transaction: a notification about a state that then
+            rolled back is worse than one that arrives a moment late.
+        */
+        if ($wasFirstConfirmation
+            && ! ($application->employer_completed_at && $application->worker_completed_at)) {
+            app(NotificationService::class)->completionPending($application, $side);
+        }
+
+        return $application;
     }
 
     /**
