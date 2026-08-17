@@ -2,16 +2,51 @@
     package="com.alphatech.kaya_app">
     <!-- Internet permission for API calls and Google Sign-In -->
     <uses-permission android:name="android.permission.INTERNET"/>
-    
+
+    <!-- "Use my current location" on the pin-drop map (geolocator).
+         COARSE alone is enough to resolve a barangay; FINE lets a worker pin
+         an exact site. Both are runtime permissions the user can decline —
+         the map still works by tapping. -->
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION"/>
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION"/>
+
+    <!--
+        Location while the app is not on screen, for the job tracker.
+
+        A worker travelling to a job has their phone in a pocket. Android
+        suspends timers and cuts location to a backgrounded app, so without a
+        foreground service the pings stop and the employer watches a frozen pin
+        believing it is current.
+
+        FOREGROUND_SERVICE_LOCATION is required from Android 14; the older
+        FOREGROUND_SERVICE covers Android 9-13.
+
+        ACCESS_BACKGROUND_LOCATION cannot be granted from an in-app prompt on
+        Android 11+ — the user has to set "Allow all the time" in system
+        settings. The tracking panel has to say so, because the permission
+        dialog will not.
+    -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE"/>
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_LOCATION"/>
+    <uses-permission android:name="android.permission.ACCESS_BACKGROUND_LOCATION"/>
+
     <application
         android:label="KAYA"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
+        <!-- taskAffinity was previously set to "" here. An empty affinity means
+             the activity belongs to no task, so launching from different entry
+             points (launcher, notification, an intent) each spawned a SEPARATE
+             task — and every one of them showed its own "KAYA" card in the app
+             switcher, stacking up as "KAYA KAYA KAYA".
+
+             Removing it restores the default affinity (the package name), which
+             is what the stock Flutter template uses: one task, one entry.
+             singleTop then does its job of reusing the existing activity. -->
         <activity
             android:name=".MainActivity"
             android:exported="true"
             android:launchMode="singleTop"
-            android:taskAffinity=""
             android:theme="@style/LaunchTheme"
             android:configChanges="orientation|keyboardHidden|keyboard|screenSize|smallestScreenSize|locale|layoutDirection|fontScale|screenLayout|density|uiMode"
             android:hardwareAccelerated="true"
@@ -47,5 +82,27 @@
         </intent>
         <!-- Required for Google Sign-In -->
         <package android:name="com.google.android.gms" />
+
+        <!-- Opening certificates, licences and resumes.
+
+             Android 11 (API 30) hid other installed apps from us unless we
+             declare what we intend to open. Without these, url_launcher's
+             canLaunchUrl/launchUrl finds no handler and simply returns false —
+             so tapping a PDF did nothing at all, with no error and nothing in
+             the log to explain it. Images were unaffected because those render
+             in-app and never leave Flutter, which is why only PDFs looked
+             broken. -->
+        <intent>
+            <action android:name="android.intent.action.VIEW" />
+            <data android:scheme="https" />
+        </intent>
+        <intent>
+            <action android:name="android.intent.action.VIEW" />
+            <data android:scheme="http" />
+        </intent>
+        <intent>
+            <action android:name="android.intent.action.VIEW" />
+            <data android:mimeType="application/pdf" />
+        </intent>
     </queries>
 </manifest>

@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    Colours used by Android itself, before Flutter is running. These have to be
+    duplicated here rather than read from AppColors — the launch window is drawn
+    by the OS while the Dart VM is still starting, so nothing in lib/ exists yet.
+
+    splash_background is white to match the first screen Flutter draws. The
+    launch window is only visible for the moment the engine takes to boot, so
+    matching what comes next is what makes the launch feel instant — any other
+    colour reads as a flash.
+-->
+<resources>
+    <color name="splash_background">#FFFFFFFF</color>
+</resources>

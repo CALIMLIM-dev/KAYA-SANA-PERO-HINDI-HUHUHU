@@ -16,7 +16,13 @@ publish_to: 'none' # Remove this line if you wish to publish to pub.dev
 # https://developer.apple.com/library/archive/documentation/General/Reference/InfoPlistKeyReference/Articles/CoreFoundationKeys.html
 # In Windows, build-name is used as the major, minor, and patch parts
 # of the product and file versions while build-number is used as the build suffix.
-version: 1.0.0+1
+# Semantic versioning. The part before "+" is what users see and what release
+# tags are named after; the number after it is the Android build number and must
+# increase on every build that is distributed, or Android refuses to install
+# over the previous one.
+#
+# Keep this in step with CHANGELOG.md and the git tag for the release.
+version: 1.1.0+2
 
 environment:
   sdk: ^3.12.0
@@ -55,6 +61,15 @@ dependencies:
   # Opening credential documents (PDF certificates/licenses) externally —
   # images render in-app, PDFs need the system viewer.
   url_launcher: ^6.3.0
+
+  # Map + pin drop. flutter_map renders OpenStreetMap tiles, which need no API
+  # key and cost nothing — deliberately not Google Maps, which would require a
+  # billed key for the same job.
+  flutter_map: ^7.0.2
+  latlong2: ^0.9.1
+
+  # Device GPS for "use my current location".
+  geolocator: ^13.0.1
   
   # Fonts
   google_fonts: ^6.1.0
@@ -71,7 +86,7 @@ dependencies:
   
   # Charts
   fl_chart: ^0.68.0
-
+  web_socket_channel: ^3.0.3
 dev_dependencies:
   flutter_test:
     sdk: flutter

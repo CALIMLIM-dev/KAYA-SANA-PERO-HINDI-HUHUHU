@@ -102,6 +102,62 @@ void main() {
       expect(provider.mode, AppMode.worker);
     });
 
+    test(
+      'REGRESSION: adding an employer profile to a worker-only account lands '
+      'on the unified view, not stuck on jobs. The mode a single-profile '
+      'account is forced into is not a choice, so it must not survive as a '
+      'focus once the second profile exists.',
+      () {
+        final provider = AppModeProvider()
+          ..reconcile(hasWorker: true, hasEmployer: false);
+
+        expect(provider.mode, AppMode.worker, reason: 'forced while worker-only');
+
+        // The user adds an employer profile.
+        provider.reconcile(hasWorker: true, hasEmployer: true);
+
+        expect(provider.isHybrid, isTrue);
+        expect(
+          provider.isUnfocused,
+          isTrue,
+          reason: 'the forced worker mode was never a deliberate focus, so the '
+              'home should open showing jobs AND workers',
+        );
+        expect(provider.mode, isNull);
+      },
+    );
+
+    test(
+      'the same upgrade keeps a focus the user actually picked',
+      () async {
+        // The mirror of the case above: an explicit choice must survive, or
+        // clearing the bug would break deliberate focusing instead.
+        final provider = AppModeProvider()
+          ..reconcile(hasWorker: true, hasEmployer: true);
+
+        await provider.setMode(AppMode.employer);
+        provider.reconcile(hasWorker: true, hasEmployer: true);
+
+        expect(provider.mode, AppMode.employer);
+        expect(provider.isUnfocused, isFalse);
+      },
+    );
+
+    test(
+      'employer-only upgraded to hybrid also lands unfocused',
+      () {
+        final provider = AppModeProvider()
+          ..reconcile(hasWorker: false, hasEmployer: true);
+
+        expect(provider.mode, AppMode.employer);
+
+        provider.reconcile(hasWorker: true, hasEmployer: true);
+
+        expect(provider.isUnfocused, isTrue);
+        expect(provider.mode, isNull);
+      },
+    );
+
     test('is idempotent — repeat calls do not notify', () {
       final provider = AppModeProvider();
       var notifications = 0;
