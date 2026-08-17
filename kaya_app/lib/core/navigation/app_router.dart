@@ -37,9 +37,8 @@ import '../../features/notifications/screens/notifications_screen.dart';
 
 // Profile Screens
 import '../../features/profile/screens/profile_screen.dart';
-import '../../features/profile/screens/my_worker_profile_screen.dart';
-import '../../features/profile/screens/my_employer_profile_screen.dart';
 import '../../features/profile/screens/worker_profile_router.dart';
+import '../../features/profile/screens/employer_profile_router.dart';
 import '../../features/profile/screens/add_name_screen.dart';
 import '../../features/profile/screens/add_location_screen.dart';
 import '../../features/profile/screens/add_personal_details_screen.dart';
@@ -69,6 +68,9 @@ import '../../features/employer/screens/edit_employer_profile_screen.dart';
 
 // Help Screens
 import '../../features/help/screens/faq_screen.dart';
+
+// Location
+import '../../features/location/screens/pin_location_screen.dart';
 
 /// Centralized app router for navigation management
 class AppRouter {
@@ -113,6 +115,7 @@ class AppRouter {
   static const String manageJobs = '/manage-jobs';
   static const String viewApplicants = '/view-applicants';
   static const String employerProfile = '/employer-profile';
+  static const String pinLocation = '/pin-location';
 
   /// Generate routes for the app
   static Route<dynamic> generateRoute(RouteSettings settings) {
@@ -198,14 +201,20 @@ class AppRouter {
       case editWorkerProfile:
         return MaterialPageRoute(builder: (_) => const EditWorkerProfileScreen());
       
+      // Both roles go through their router, which picks setup-or-view.
+      //
+      // These used to land on the view screens directly, so tapping "Worker
+      // Profile" with no worker profile opened a screen built to display one
+      // and the employer entry re-implemented the check at its call site. A
+      // hybrid account needs "add the side I don't have, edit the side I do"
+      // to work identically for both, and that is a routing decision, not
+      // something every caller should repeat.
       case myWorkerProfile:
-        return MaterialPageRoute(builder: (_) => const MyWorkerProfileScreen());
-      
       case setupWorkerProfile:
         return MaterialPageRoute(builder: (_) => const WorkerProfileRouter());
-      
+
       case myEmployerProfile:
-        return MaterialPageRoute(builder: (_) => const MyEmployerProfileScreen());
+        return MaterialPageRoute(builder: (_) => const EmployerProfileRouter());
       
       case addName:
         final initName = settings.arguments as String?;
@@ -312,6 +321,12 @@ class AppRouter {
       case employerProfile:
         return MaterialPageRoute(
           builder: (_) => const EmployerProfileScreen(),
+          settings: settings,
+        );
+
+      case pinLocation:
+        return MaterialPageRoute(
+          builder: (_) => const PinLocationScreen(),
           settings: settings,
         );
       

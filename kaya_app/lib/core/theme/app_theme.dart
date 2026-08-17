@@ -4,6 +4,33 @@ import '../constants/app_colors.dart';
 
 /// KAYA Material 3 Theme
 class AppTheme {
+  /*
+      The type scale.
+
+      Twenty-four distinct font sizes were in use across the feature screens,
+      seven of them — 12, 12.5, 13, 13.5, 14, 14.5, 15 — inside a three-pixel
+      band. Nobody can see the difference between 13 and 13.5 on a phone. What
+      they can see is that nothing is clearly a heading and nothing is clearly
+      a caption, because every piece of text carries roughly the same weight.
+
+      Six roles, plus two display sizes for figures that are meant to dominate.
+      New code should reference these rather than typing a number, so the scale
+      does not drift back.
+  */
+  static const double textDisplay = 32.0;   // hero figures
+  static const double textNumber = 24.0;    // stat tiles
+  static const double textTitle = 20.0;     // screen title
+  static const double textHeading = 16.0;   // section heading
+  static const double textCardTitle = 14.0; // card / row title
+  static const double textBody = 13.5;      // body copy
+  static const double textSecondary = 12.0; // supporting text
+  static const double textCaption = 11.0;   // labels, chips, timestamps
+
+  // Radii already exist below as radiusSmall / radiusMedium / radiusLarge.
+  // Ten distinct values are in use across the screens (2, 4, 5, 6, 8, 10, 12,
+  // 16, 20, 28) — 12 accounts for 279 of them, so the rest are noise. New code
+  // should use the three constants rather than a literal.
+
   // Spacing
   static const double spacing4 = 4.0;
   static const double spacing8 = 8.0;

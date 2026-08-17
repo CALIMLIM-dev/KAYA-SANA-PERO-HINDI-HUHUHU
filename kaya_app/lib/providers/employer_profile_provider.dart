@@ -66,7 +66,16 @@ class EmployerProfileProvider with ChangeNotifier {
   /// as a raw map rather than the EmployerProfile model because it carries
   /// fields (jobs, reviews, rating) that model doesn't and never should — that
   /// model is scoped to the signed-in user's own profile.
+  /// Which employer [_publicEmployer] holds, so the previous one isn't shown
+  /// under a new employer's screen while the request is in flight.
+  int? _publicEmployerId;
+
   Future<void> fetchEmployerDetail(int userId) async {
+    if (_publicEmployerId != userId) {
+      _publicEmployer = null;
+      _publicEmployerId = userId;
+    }
+
     _isPublicDetailLoading = true;
     _publicDetailError = null;
     notifyListeners();
@@ -268,12 +277,19 @@ class EmployerProfileProvider with ChangeNotifier {
   }
 
   /// Update employer profile with type-specific validation
+  /// [locationId] is the PSGC row behind [location]. Sending only the display
+  /// string left the stored location_id pointing at wherever the employer used
+  /// to be — so the label said one town while every distance and the job-post
+  /// prefill still used the old one's coordinates.
   Future<bool> updateProfile({
     String? companyName,
     String? industry,
     String? website,
     String? description,
     String? location,
+    int? locationId,
+    double? latitude,
+    double? longitude,
   }) async {
     if (_profile == null) {
       _error = ProfileError(
@@ -292,6 +308,9 @@ class EmployerProfileProvider with ChangeNotifier {
         if (website != null) 'website': website,
         if (description != null) 'description': description,
         if (location != null) 'location': location,
+        if (locationId != null) 'location_id': locationId,
+        if (latitude != null) 'latitude': latitude,
+        if (longitude != null) 'longitude': longitude,
       });
       
       final data = res.data['data'] as Map<String, dynamic>;

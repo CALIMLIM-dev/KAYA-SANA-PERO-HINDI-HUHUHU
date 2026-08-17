@@ -1,4 +1,5 @@
 import '../../../core/constants/employer_type.dart';
+import '../../core/utils/json_parse.dart';
 
 /// Employer Profile Model
 /// 
@@ -12,6 +13,14 @@ class EmployerProfile {
   final String? website;
   final String? description;
   final String location;
+
+  /// Structured PSGC location. Needed so job posting can prefill a real
+  /// location rather than just the display string — a prefill without the id
+  /// would save a job with no coordinates.
+  final int? locationId;
+  final double? latitude;
+  final double? longitude;
+
   final String? imagePath;
   final String? imageUrl;
   final DateTime createdAt;
@@ -26,6 +35,9 @@ class EmployerProfile {
     this.website,
     this.description,
     required this.location,
+    this.locationId,
+    this.latitude,
+    this.longitude,
     this.imagePath,
     this.imageUrl,
     required this.createdAt,
@@ -43,6 +55,9 @@ class EmployerProfile {
       website: json['website'] as String?,
       description: json['description'] as String?,
       location: json['location'] as String? ?? '',
+      locationId: json['location_id'] as int?,
+      latitude: asDoubleOrNull(json['latitude']),
+      longitude: asDoubleOrNull(json['longitude']),
       imagePath: json['image_path'] as String?,
       imageUrl: json['image_url'] as String?,
       createdAt: DateTime.parse(json['created_at'] as String),

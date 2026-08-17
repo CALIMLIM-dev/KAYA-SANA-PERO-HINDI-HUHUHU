@@ -5,6 +5,7 @@ class LocationModel {
     required this.name,
     required this.displayName,
     required this.type,
+    this.parentId,
     this.provinceName,
     this.regionName,
     this.latitude,
@@ -12,6 +13,10 @@ class LocationModel {
   });
 
   final int id;
+
+  /// Enclosing place — a barangay's city, a city's province. Used to tell
+  /// "inside the chosen city" apart from "somewhere else entirely".
+  final int? parentId;
 
   /// Official PSGC name, e.g. "City of Urdaneta".
   final String name;
@@ -33,6 +38,7 @@ class LocationModel {
 
     return LocationModel(
       id: json['id'] as int,
+      parentId: json['parent_id'] as int?,
       name: (json['name'] ?? '').toString(),
       displayName: (json['display_name'] ?? json['name'] ?? '').toString(),
       type: (json['type'] ?? '').toString(),

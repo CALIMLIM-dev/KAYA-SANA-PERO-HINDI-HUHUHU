@@ -39,7 +39,19 @@ class ApplicationProvider with ChangeNotifier {
   /// GET /jobs/{job}/applicants — the data behind ViewApplicantsScreen, which
   /// previously showed five hardcoded names (Juan Dela Cruz, Pedro Santos...)
   /// regardless of who actually applied.
+  /// Which job [_applicants] currently belongs to, so a different job's list
+  /// isn't shown under the new job's header while its request is in flight.
+  int? _applicantsJobId;
+
   Future<void> fetchApplicants(int jobId) async {
+    // Same reason as JobProvider.fetchJobDetail: without this the employer
+    // opens job B and sees job A's applicants for a moment. Worse here than on
+    // a detail screen — Accept and Reject are right there, on the wrong people.
+    if (_applicantsJobId != jobId) {
+      _applicants = [];
+      _applicantsJobId = jobId;
+    }
+
     _isApplicantsLoading = true;
     _applicantsError = null;
     notifyListeners();
@@ -60,7 +72,19 @@ class ApplicationProvider with ChangeNotifier {
   /// applicants list (separate from the my-applications list above).
   Future<bool> respondToApplicant(int applicationId, {required bool accept}) async {
     try {
-      await _api.patch('/applications/$applicationId/${accept ? 'accept' : 'reject'}');
+      final res = await _api
+          .patch('/applications/$applicationId/${accept ? 'accept' : 'reject'}');
+
+      // Accepting can cancel the worker's other applications where the dates
+      // clash. Recorded so the confirmation can say so — otherwise the change
+      // only shows up as other employers' lists quietly shrinking.
+      lastAcceptCancelledCount = 0;
+      if (accept) {
+        final body = res.data['data'];
+        final cancelled = body is Map ? body['cancelled_applications'] : null;
+        if (cancelled is List) lastAcceptCancelledCount = cancelled.length;
+      }
+
       final idx = _applicants.indexWhere((a) => a['application_id'] == applicationId);
       if (idx != -1) {
         _applicants[idx]['application_status'] = accept ? 'accepted' : 'rejected';
@@ -118,9 +142,52 @@ class ApplicationProvider with ChangeNotifier {
     }
   }
 
+  /// The message the server returned for the last completion — either "waiting
+  /// for the other side" or "both confirmed". Read once by the caller so the
+  /// screen can say which of the two happened.
+  String? lastCompletionMessage;
+
+  /// Marks this side of a hire done. Both parties call the same endpoint; which
+  /// side you are is worked out from the job, not sent by the app.
+  ///
+  /// The work only counts as finished when both have confirmed, so this usually
+  /// leaves the application where it was and the caller refetches to pick up
+  /// the new timestamps.
+  Future<bool> markComplete(int applicationId) async {
+    try {
+      final res = await _api.patch('/applications/$applicationId/complete');
+      lastCompletionMessage = res.data['message'] as String?;
+
+      final application = res.data['data']?['application'];
+      if (application is Map<String, dynamic>) {
+        final idx = _applications.indexWhere((a) => a['id'] == applicationId);
+        if (idx != -1) _applications[idx] = application;
+      }
+
+      notifyListeners();
+      return true;
+    } catch (e) {
+      _errorMessage = e.toString().replaceFirst('Exception: ', '');
+      notifyListeners();
+      return false;
+    }
+  }
+
+  /// How many of the worker's other applications were cancelled by the last
+  /// accept, because their dates clashed with the job just hired for.
+  ///
+  /// Read once by the screen that called [accept] so it can say what happened.
+  /// Other applications going quiet with no explanation reads as a bug in the
+  /// app rather than as the feature it is.
+  int lastAcceptCancelledCount = 0;
+
   Future<bool> accept(int applicationId) async {
     try {
-      await _api.patch('/applications/$applicationId/accept');
+      final res = await _api.patch('/applications/$applicationId/accept');
+
+      final cancelled = res.data['data']?['cancelled_applications'];
+      lastAcceptCancelledCount = cancelled is List ? cancelled.length : 0;
+
       final idx = _applications.indexWhere((a) => a['id'] == applicationId);
       if (idx != -1) {
         _applications[idx]['status'] = 'accepted';
@@ -128,6 +195,7 @@ class ApplicationProvider with ChangeNotifier {
       }
       return true;
     } catch (e) {
+      lastAcceptCancelledCount = 0;
       _errorMessage = e.toString().replaceFirst('Exception: ', '');
       notifyListeners();
       return false;

@@ -1,3 +1,5 @@
+import '../../core/utils/json_parse.dart';
+
 /// Worker Profile Model for KAYA app
 class WorkerProfile {
   final int id;
@@ -25,6 +27,15 @@ class WorkerProfile {
   final int? categoryId;
   final int? locationId;
 
+  /// What the worker charges. `rateLabel` is the server's phrasing — always
+  /// prefer it over reassembling the numbers, so every screen reads the same.
+  /// Null when the worker has not set a rate; show nothing rather than "₱0".
+  final double? rateMin;
+  final double? rateMax;
+  final String? rateUnit;
+  final bool isRateNegotiable;
+  final String? rateLabel;
+
   const WorkerProfile({
     required this.id,
     required this.name,
@@ -47,6 +58,11 @@ class WorkerProfile {
     this.userId,
     this.categoryId,
     this.locationId,
+    this.rateMin,
+    this.rateMax,
+    this.rateUnit,
+    this.isRateNegotiable = false,
+    this.rateLabel,
   });
 
   /// Maps a raw worker row from the real API (GET /workers, or the `data` array
@@ -66,15 +82,22 @@ class WorkerProfile {
       location: json['location'] as String?,
       locationId: json['location_id'] as int?,
       categoryId: json['category_id'] as int?,
-      rating: (json['rating_avg'] is num)
-          ? (json['rating_avg'] as num).toDouble()
-          : double.tryParse('${json['rating_avg']}') ?? 0.0,
-      reviewCount: (json['rating_count'] as num?)?.toInt() ?? 0,
+      // rating_avg is a Laravel decimal cast — arrives as the string "0.00".
+      rating: asDouble(json['rating_avg']),
+      reviewCount: asInt(json['rating_count']),
+      // Straight-line km from whoever is browsing, computed server-side.
+      distance: asDoubleOrNull(json['distance_km']),
       isVerified: json['is_verified'] as bool? ?? false,
       isAvailable: (json['availability_status'] ?? 'available') == 'available',
       bio: json['bio'] as String?,
       profileImageUrl: json['avatar'] as String?,
       matchScore: (json['match_score'] as num?)?.toInt(),
+      // Decimal casts arrive as strings, same as rating_avg above.
+      rateMin: asDoubleOrNull(json['rate_min']),
+      rateMax: asDoubleOrNull(json['rate_max']),
+      rateUnit: json['rate_unit'] as String?,
+      isRateNegotiable: json['is_rate_negotiable'] as bool? ?? false,
+      rateLabel: json['rate_label'] as String?,
     );
   }
 

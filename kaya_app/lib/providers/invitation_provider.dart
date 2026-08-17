@@ -57,6 +57,28 @@ class InvitationProvider with ChangeNotifier {
     }
   }
 
+  /// Invites a worker to apply to one of your jobs.
+  ///
+  /// The send side of invitations was never wired on the client. Two buttons
+  /// in the app — "Invite to Apply" on a worker's profile and the invite
+  /// action on the home screen — popped "Invitation sent!" and called nothing,
+  /// so the worker never received the invitation the employer was told about.
+  ///
+  /// The endpoint has existed all along and enforces the rules: the job must
+  /// be yours and open, the target must be a worker, not yourself, not
+  /// suspended, and not already invited.
+  Future<bool> sendInvitation({required int jobId, required int workerId}) async {
+    try {
+      await _api.post('/jobs/$jobId/invite', data: {'worker_id': workerId});
+      _errorMessage = null;
+      return true;
+    } catch (e) {
+      _errorMessage = e.toString().replaceFirst('Exception: ', '');
+      notifyListeners();
+      return false;
+    }
+  }
+
   Future<bool> decline(int invitationId) async {
     try {
       await _api.patch('/invitations/$invitationId/decline');

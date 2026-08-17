@@ -1,3 +1,5 @@
+import '../../core/utils/json_parse.dart';
+
 /// Job Model for KAYA app
 class Job {
   final int id;
@@ -14,6 +16,14 @@ class Job {
   final double? distance; // in kilometers
   final DateTime? postedAt;
   final bool isActive;
+
+  /// The raw server status: open | in_progress | completed | closed.
+  ///
+  /// [isActive] only tells you whether it is `open`, which collapses the other
+  /// three into one indistinguishable "not active". Screens that need to know
+  /// *why* a job is inactive — offering a review only after completion, for
+  /// instance — had no way to ask.
+  final String status;
   final ApplicationStatus? applicationStatus;
   final String? category;
   final List<String> requiredSkills;
@@ -37,6 +47,49 @@ class Job {
   final bool isOwnJob;
   final List<String> photoUrls;
 
+  /// When the work happens.
+  ///
+  /// [endDate] null means a single day — the common case, and left null rather
+  /// than copied from [startDate] so "one day" and "a range one day long" stay
+  /// distinguishable. [startTime] null means the hour is still to be agreed in
+  /// chat, which is how most of this work is actually arranged.
+  final DateTime? startDate;
+  final DateTime? endDate;
+  final String? startTime;
+
+  /// The schedule as one short line, or null when the job predates scheduling.
+  ///
+  /// Defined here rather than in each screen so the job card, the details page
+  /// and the applications list cannot drift into describing the same dates
+  /// differently. Null is returned rather than "Not specified" — a chip that
+  /// says nothing is worse than no chip.
+  String? get scheduleLabel {
+    final start = startDate;
+    if (start == null) return null;
+
+    final end = endDate;
+    if (end != null && !_sameDay(end, start)) {
+      // Same month reads better collapsed: "Aug 20 – 27", not "Aug 20 – Aug 27".
+      return end.year == start.year && end.month == start.month
+          ? '${_short(start)} – ${end.day}'
+          : '${_short(start)} – ${_short(end)}';
+    }
+
+    final time = startTime;
+    return time == null ? _short(start) : '${_short(start)}, $time';
+  }
+
+  static bool _sameDay(DateTime a, DateTime b) =>
+      a.year == b.year && a.month == b.month && a.day == b.day;
+
+  static String _short(DateTime d) {
+    const months = [
+      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+    ];
+    return '${months[d.month - 1]} ${d.day}';
+  }
+
   const Job({
     required this.id,
     required this.title,
@@ -52,6 +105,7 @@ class Job {
     this.distance,
     this.postedAt,
     this.isActive = true,
+    this.status = '',
     this.applicationStatus,
     this.category,
     this.requiredSkills = const [],
@@ -67,6 +121,9 @@ class Job {
     this.isSaved = false,
     this.isOwnJob = false,
     this.photoUrls = const [],
+    this.startDate,
+    this.endDate,
+    this.startTime,
   });
 
   /// Maps a raw `jobs_posts` row from the Laravel API (GET /jobs, /jobs/my,
@@ -101,10 +158,29 @@ class Job {
           false,
       postedAt:
           json['created_at'] != null ? DateTime.tryParse(json['created_at']) : null,
+      // Sent as plain Y-m-d — the server casts these as dates, not datetimes,
+      // so there is no midnight here to be mistaken for a start time. Jobs
+      // posted before scheduling existed have null and render without a date
+      // rather than with a made-up one.
+      startDate: DateTime.tryParse((json['start_date'] ?? '').toString()),
+      endDate: DateTime.tryParse((json['end_date'] ?? '').toString()),
+      // MySQL TIME arrives as "08:30:00"; the seconds are never meaningful
+      // here. Trimmed by splitting rather than by substring, which would throw
+      // on anything shorter than five characters.
+      startTime: () {
+        final raw = json['start_time'] as String?;
+        if (raw == null || raw.isEmpty) return null;
+        final parts = raw.split(':');
+        return parts.length >= 2 ? '${parts[0]}:${parts[1]}' : raw;
+      }(),
       isActive: json['status'] == 'open',
+      status: (json['status'] ?? '').toString(),
       category: category?['name'] as String?,
       categoryId: category?['id'] as int? ?? json['category_id'] as int?,
       locationId: json['location_id'] as int?,
+      // Straight-line km from the signed-in worker, computed server-side by
+      // JobMatchService. Null when either side has no coordinates.
+      distance: asDoubleOrNull(json['distance_km']),
       requiredSkills: skills == null
           ? const []
           : skills

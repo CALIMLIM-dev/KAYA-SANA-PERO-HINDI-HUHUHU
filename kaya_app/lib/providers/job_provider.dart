@@ -36,6 +36,13 @@ class JobProvider with ChangeNotifier {
     int? categoryId,
     String? location,
     List<int>? skillIds,
+    /// Orders by distance from the signed-in worker's location. Ignored by the
+    /// server for anyone without a worker profile — there is nowhere to
+    /// measure from.
+    bool nearestFirst = false,
+    /// Hard cut-off in kilometres. The server answers 422 when the account has
+    /// no location, rather than quietly returning everything.
+    double? radiusKm,
   }) async {
     _isPublicLoading = true;
     _publicError = null;
@@ -47,6 +54,8 @@ class JobProvider with ChangeNotifier {
         if (categoryId != null) 'category_id': categoryId,
         if (location != null && location.isNotEmpty) 'location': location,
         if (skillIds != null && skillIds.isNotEmpty) 'skill_ids': skillIds,
+        if (nearestFirst) 'sort': 'nearest',
+        if (radiusKm != null) 'radius_km': radiusKm,
       });
 
       final page = res.data['data'] as Map<String, dynamic>;
@@ -80,6 +89,17 @@ class JobProvider with ChangeNotifier {
 
   // ── Create job ────────────────────────────────────────────────────────────────
 
+  /// A calendar date with no time and no timezone, which is what the schedule
+  /// columns actually hold.
+  ///
+  /// `toIso8601String()` would append a time and a Z, and the server would then
+  /// compare that instant against midnight local — rejecting a job that starts
+  /// today as starting in the past whenever the phone is ahead of the server.
+  static String ymd(DateTime d) =>
+      '${d.year.toString().padLeft(4, '0')}-'
+      '${d.month.toString().padLeft(2, '0')}-'
+      '${d.day.toString().padLeft(2, '0')}';
+
   Future<bool> createJob({
     required String title,
     required String description,
@@ -96,6 +116,12 @@ class JobProvider with ChangeNotifier {
     bool isUrgent = false,
     bool isNegotiable = false,
     required List<File> photos,
+    // Required by the server on new posts: a job with no date cannot be checked
+    // against a worker's other commitments, so auto-withdraw-on-hire would
+    // silently skip exactly the jobs that omitted it.
+    required DateTime startDate,
+    DateTime? endDate,
+    String? startTime,
   }) async {
     _setLoading(true);
     try {
@@ -120,6 +146,13 @@ class JobProvider with ChangeNotifier {
         // be true or false." Send the numeric form instead.
         'is_urgent':     isUrgent ? '1' : '0',
         'is_negotiable': isNegotiable ? '1' : '0',
+        // Y-m-d only. Sending an ISO timestamp would make Laravel's
+        // `after_or_equal:today` compare against midnight in the server's
+        // timezone, so a job legitimately starting today would be rejected as
+        // being in the past.
+        'start_date': ymd(startDate),
+        if (endDate != null) 'end_date': ymd(endDate),
+        if (startTime != null) 'start_time': startTime,
         'photos': await Future.wait(photos.map(
           (f) => MultipartFile.fromFile(f.path, filename: f.path.split(Platform.pathSeparator).last),
         )),
@@ -164,11 +197,40 @@ class JobProvider with ChangeNotifier {
 
   // ── Change status ──────────────────────────────────────────────────────────────
 
+  /// The server's own wording for the last status change.
+  ///
+  /// Read once by the caller. Completion is two-sided, so "completed" can mean
+  /// either "waiting for the worker" or "both confirmed", and only the server
+  /// knows which.
+  String? lastStatusMessage;
+
+  /// Changes a job's status and adopts **the status the server actually set**.
+  ///
+  /// This used to write the requested status into the local list on success:
+  ///
+  ///     _jobs[idx]['status'] = status;
+  ///
+  /// which was fine while asking was the same as getting. It stopped being true
+  /// when completion became two-sided — the request succeeds, the server
+  /// records the employer's half and deliberately leaves the job `in_progress`,
+  /// and the app then showed it as `completed` anyway. The job jumped to the
+  /// Completed tab, the review button never appeared because the server still
+  /// disagreed, and nothing on screen explained why.
   Future<bool> changeStatus(int jobId, String status) async {
     try {
-      await _api.patch('/jobs/$jobId/status', data: {'status': status});
+      final res = await _api.patch('/jobs/$jobId/status', data: {'status': status});
+
+      final body = res.data;
+      lastStatusMessage = body is Map ? body['message'] as String? : null;
+
+      final job = body is Map ? body['data'] : null;
+      final actual = job is Map ? job['status'] as String? : null;
+
       final idx = _jobs.indexWhere((j) => j['id'] == jobId);
-      if (idx != -1) { _jobs[idx]['status'] = status; notifyListeners(); }
+      if (idx != -1) {
+        _jobs[idx]['status'] = actual ?? _jobs[idx]['status'];
+        notifyListeners();
+      }
       return true;
     } catch (e) {
       _errorMessage = e.toString().replaceFirst('Exception: ', '');
@@ -205,6 +267,19 @@ class JobProvider with ChangeNotifier {
   /// GET /jobs/{id} — everything job_details_screen needs in one call,
   /// including this worker's match score, applied/saved state.
   Future<void> fetchJobDetail(int jobId) async {
+    // Drop the previous job before loading a different one.
+    //
+    // Without this, opening job B renders job A — its title, its photos, its
+    // pay — for as long as the request takes, then snaps to the real content.
+    // That is the "the last screen flashes up first" effect: the detail screen
+    // builds from whatever the provider is still holding.
+    //
+    // Guarded on the id so a pull-to-refresh or a retry of the *same* job
+    // doesn't blank the screen the user is already reading.
+    if (_selectedJob?.id != jobId) {
+      _selectedJob = null;
+    }
+
     _isDetailLoading = true;
     _detailError = null;
     notifyListeners();
@@ -223,6 +298,36 @@ class JobProvider with ChangeNotifier {
 
   // ── Saved jobs (worker side) ─────────────────────────────────────────────────
 
+  // ── Saved jobs ──────────────────────────────────────────────────────────────
+
+  bool _isSavedLoading = false;
+  String? _savedError;
+  List<Job> _savedJobs = [];
+
+  bool get isSavedLoading => _isSavedLoading;
+  String? get savedErrorMessage => _savedError;
+  List<Job> get savedJobs => _savedJobs;
+
+  /// GET /saved-jobs. The screen showed five hardcoded cards before this
+  /// existed, so nothing a worker actually saved was ever displayed.
+  Future<void> fetchSavedJobs() async {
+    _isSavedLoading = true;
+    _savedError = null;
+    notifyListeners();
+
+    try {
+      final res = await _api.get('/saved-jobs');
+      final rows = res.data['data'] as List;
+      _savedJobs = rows.map((j) => Job.fromApi(j as Map<String, dynamic>)).toList();
+    } catch (e) {
+      _savedError = e.toString().replaceFirst('Exception: ', '');
+      _savedJobs = [];
+    }
+
+    _isSavedLoading = false;
+    notifyListeners();
+  }
+
   Future<bool> saveJob(int jobId) async {
     try {
       await _api.post('/jobs/$jobId/save');
@@ -237,12 +342,38 @@ class JobProvider with ChangeNotifier {
   Future<bool> unsaveJob(int jobId) async {
     try {
       await _api.delete('/jobs/$jobId/save');
+      // Drop it locally too, so the saved list does not keep showing a job the
+      // user just removed until the next full fetch.
+      _savedJobs.removeWhere((j) => j.id == jobId);
+      notifyListeners();
       return true;
     } catch (e) {
       _errorMessage = e.toString().replaceFirst('Exception: ', '');
       notifyListeners();
       return false;
     }
+  }
+
+  /// Unsaves everything currently in the list.
+  ///
+  /// There is no bulk endpoint, so this is one request per job. Any that fail
+  /// stay saved and are reported, rather than being silently dropped from the
+  /// list — the old "Clear All" showed a success toast and deleted nothing.
+  Future<int> clearSavedJobs() async {
+    final ids = _savedJobs.map((j) => j.id).toList();
+    var removed = 0;
+
+    for (final id in ids) {
+      try {
+        await _api.delete('/jobs/$id/save');
+        removed++;
+      } catch (_) {
+        // Left in place; the refetch below will show it still saved.
+      }
+    }
+
+    await fetchSavedJobs();
+    return removed;
   }
 
   void clearError() { _errorMessage = null; notifyListeners(); }

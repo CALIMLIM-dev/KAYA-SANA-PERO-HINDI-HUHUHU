@@ -35,7 +35,17 @@ class WorkerBrowseProvider with ChangeNotifier {
   /// reviews, which the directory-list endpoint deliberately omits to keep
   /// that query cheap. Kept as a raw map rather than WorkerProfile because it
   /// carries fields (experiences, certifications, reviews) that model doesn't.
+  /// Which worker [_selectedWorker] holds. Without it, opening a second
+  /// worker's profile shows the first one's name, photo and skills until the
+  /// request lands — the "previous screen flashes up" effect.
+  int? _selectedWorkerId;
+
   Future<void> fetchWorkerDetail(int userId) async {
+    if (_selectedWorkerId != userId) {
+      _selectedWorker = null;
+      _selectedWorkerId = userId;
+    }
+
     _isDetailLoading = true;
     _detailError = null;
     notifyListeners();
@@ -57,6 +67,13 @@ class WorkerBrowseProvider with ChangeNotifier {
     int? categoryId,
     int? skillId,
     int? locationId,
+    // Pay and distance are filtered by the server: a worker with no rate on
+    // file cannot honestly be claimed to fall inside a range, and a radius
+    // cannot include someone whose position is unknown.
+    double? rateMin,
+    double? rateMax,
+    String? rateUnit,
+    double? radiusKm,
   }) async {
     _isLoading = true;
     _errorMessage = null;
@@ -68,6 +85,10 @@ class WorkerBrowseProvider with ChangeNotifier {
         if (categoryId != null) 'category_id': categoryId,
         if (skillId != null) 'skill_id': skillId,
         if (locationId != null) 'location_id': locationId,
+        if (rateMin != null) 'rate_min': rateMin,
+        if (rateMax != null) 'rate_max': rateMax,
+        if (rateUnit != null) 'rate_unit': rateUnit,
+        if (radiusKm != null) 'radius_km': radiusKm,
       });
 
       final page = res.data['data'] as Map<String, dynamic>;

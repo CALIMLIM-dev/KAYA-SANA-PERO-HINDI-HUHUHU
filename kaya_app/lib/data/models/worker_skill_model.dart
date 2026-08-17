@@ -2,8 +2,15 @@ class WorkerSkillModel {
   final int? id;
   final int userId;
   final String skillName;
-  final String proficiencyLevel;
-  final int yearsOfExperience;
+  /// Null means the worker never stated it.
+  ///
+  /// Nothing in the app asks for either yet. They used to be required, so the
+  /// provider filled in "intermediate" and "1 year" for every skill just to
+  /// satisfy the API — and the public profile showed that to employers as a
+  /// claim the worker had made. On a hiring platform that is a fabricated
+  /// credential, so null now means "not stated" and renders as nothing.
+  final String? proficiencyLevel;
+  final int? yearsOfExperience;
   final int? categoryId;
   final int? skillId;
   final String? categoryName;
@@ -14,8 +21,8 @@ class WorkerSkillModel {
     this.id,
     required this.userId,
     required this.skillName,
-    required this.proficiencyLevel,
-    required this.yearsOfExperience,
+    this.proficiencyLevel,
+    this.yearsOfExperience,
     this.categoryId,
     this.skillId,
     this.categoryName,
@@ -43,8 +50,9 @@ class WorkerSkillModel {
       if (id != null) 'id': id,
       'user_id': userId,
       'skill_name': skillName,
-      'proficiency_level': proficiencyLevel,
-      'years_of_experience': yearsOfExperience,
+      // Omitted when unset, so the server stores null rather than a default.
+      if (proficiencyLevel != null) 'proficiency_level': proficiencyLevel,
+      if (yearsOfExperience != null) 'years_of_experience': yearsOfExperience,
       if (categoryId != null) 'category_id': categoryId,
       if (skillId != null) 'skill_id': skillId,
     };

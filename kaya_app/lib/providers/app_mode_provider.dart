@@ -26,6 +26,15 @@ class AppModeProvider with ChangeNotifier {
   bool _hasWorker = false;
   bool _hasEmployer = false;
 
+  /// Whether [_mode] is a deliberate focus or one forced by owning a single
+  /// profile.
+  ///
+  /// Only [setMode] and [restore] set this, and only [setMode] writes to
+  /// storage — so a persisted value always represents a real choice. Without
+  /// the distinction a mode forced on a worker-only account survives into
+  /// hybrid and masquerades as a focus the user picked.
+  bool _modeWasChosen = false;
+
   AppMode? get mode => _mode;
   bool get restored => _restored;
   bool get hasWorkerProfile => _hasWorker;
@@ -68,8 +77,11 @@ class AppModeProvider with ChangeNotifier {
 
       // Only adopt the stored mode if the user still owns that profile — they
       // may have deleted it on another device.
+      // Only setMode() ever writes to storage, so anything found here was a
+      // deliberate focus rather than one forced by owning a single profile.
       if (stored != null && canActivate(stored)) {
         _mode = stored;
+        _modeWasChosen = true;
       }
     } catch (_) {
       // Storage is unavailable; fall back to whatever reconcile() decided.
@@ -86,6 +98,7 @@ class AppModeProvider with ChangeNotifier {
     if (!canActivate(mode) || _mode == mode) return;
 
     _mode = mode;
+    _modeWasChosen = true;
     notifyListeners();
 
     try {
@@ -143,7 +156,20 @@ class AppModeProvider with ChangeNotifier {
       return;
     }
 
-    // Both profiles: keep whatever focus the user chose (possibly none).
+    // Both profiles: keep the focus only if the user actually chose it.
+    //
+    // A worker-only account has its mode *forced* to worker by the branch
+    // above. The moment an employer profile is added that value is still
+    // sitting there, and treating it as a choice left every new hybrid stuck on
+    // the jobs-only view with no obvious way back — the "All" chip has no
+    // effect while a focus is set, and clearing it means tapping the badge that
+    // already looks active.
+    //
+    // A mode nobody picked is not a focus, so it is dropped here and the
+    // account opens on the unified view.
+    if (!_modeWasChosen) {
+      _mode = null;
+    }
   }
 
   /// Drops an explicit focus and returns a hybrid account to the unified view.
@@ -152,6 +178,7 @@ class AppModeProvider with ChangeNotifier {
     if (!isHybrid || _mode == null) return;
 
     _mode = null;
+    _modeWasChosen = false;
     notifyListeners();
 
     try {
@@ -165,6 +192,7 @@ class AppModeProvider with ChangeNotifier {
   /// Clears mode and its persisted value. Call on logout.
   Future<void> clear() async {
     _mode = null;
+    _modeWasChosen = false;
     _restored = false;
     _hasWorker = false;
     _hasEmployer = false;

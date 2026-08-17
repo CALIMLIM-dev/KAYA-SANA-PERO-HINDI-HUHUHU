@@ -58,13 +58,27 @@ class WorkerProfileProvider with ChangeNotifier {
     try {
       // Fetch user basic info
       final userResponse = await _apiClient.get('/user');
-      if (userResponse.data != null && userResponse.data['success'] == true) {
-        final userData = userResponse.data['data'];
-        name = userData['name'];
-        email = userData['email'];
-        phone = userData['phone'];
-        location = userData['city']; // Backend uses 'city' column
-        profilePhotoPath = userData['avatar'];
+
+      /*
+          Checked as a Map before it is indexed like one.
+
+          `response.data['success']` assumed JSON. When the body is a String —
+          an ngrok interstitial, a 502 HTML page, a tunnel that died mid-request
+          — indexing it throws "type 'String' is not a subtype of type 'int' of
+          'index'", which is thrown from deep inside Dart and names neither the
+          request nor the screen. That message has been appearing on every test
+          run of this project, and it would appear in production the first time
+          the tunnel hiccuped, as a profile that silently failed to load.
+      */
+      final body = userResponse.data;
+      final userData = body is Map ? body['data'] : null;
+
+      if (body is Map && body['success'] == true && userData is Map) {
+        name = userData['name'] as String?;
+        email = userData['email'] as String?;
+        phone = userData['phone'] as String?;
+        location = userData['city'] as String?; // Backend uses 'city' column
+        profilePhotoPath = userData['avatar'] as String?;
       }
       
       // Fetch all the profile data types (don't fail if one fails)
@@ -141,9 +155,22 @@ class WorkerProfileProvider with ChangeNotifier {
     }
   }
 
-  Future<bool> updateLocation(String newLocation) async {
+  /// [locationId] is the PSGC row id from the picker. Passing only the display
+  /// string leaves the profile without coordinates, which silently disables
+  /// every distance and proximity feature for that worker.
+  Future<bool> updateLocation(
+    String newLocation, {
+    int? locationId,
+    double? latitude,
+    double? longitude,
+  }) async {
     try {
-      final response = await _apiClient.put('/worker/profile', data: {'city': newLocation});
+      final response = await _apiClient.put('/worker/profile', data: {
+        'city': newLocation,
+        if (locationId != null) 'location_id': locationId,
+        if (latitude != null) 'latitude': latitude,
+        if (longitude != null) 'longitude': longitude,
+      });
       final data = response.data as Map<String, dynamic>;
       
       if (data['success']) {
@@ -235,8 +262,6 @@ class WorkerProfileProvider with ChangeNotifier {
         final skill = WorkerSkillModel(
           userId: 0, // Set by backend
           skillName: skillModel.name,
-          proficiencyLevel: 'intermediate',
-          yearsOfExperience: 1,
           categoryId: skillModel.categoryId,
           skillId: skillModel.id,
         );
@@ -265,8 +290,6 @@ class WorkerProfileProvider with ChangeNotifier {
         final skill = WorkerSkillModel(
           userId: 0, // Set by backend
           skillName: skillName,
-          proficiencyLevel: 'intermediate',
-          yearsOfExperience: 1,
         );
         await addSkill(skill);
       }
@@ -280,7 +303,36 @@ class WorkerProfileProvider with ChangeNotifier {
 
   // ==================== CATEGORIES ====================
   
-  Future<void> fetchCategories() async {
+  /*
+      Categories and skills are fetched once per session, not per screen.
+
+      They are a fixed taxonomy — 17 categories and 72 skills that do not change
+      while someone uses the app — but `fetchCategories()` had no cache, and it
+      is called from fifteen places, several of them unconditionally on every
+      screen open. Posting a job, searching, adding skills and opening the home
+      feed each re-downloaded the same list and each flipped `_isLoading`, which
+      is what put a spinner in front of the category picker every single time.
+
+      The server was never slow: these endpoints answer in about 260ms, and most
+      of that is the tunnel. The wait was the app asking again and again.
+
+      `force: true` is there for the case that genuinely needs it — creating a
+      custom category, where the list really has changed.
+  */
+  bool _categoriesLoaded = false;
+  bool _categoriesInFlight = false;
+  // Note: fetchSkills() reads the worker's OWN skills, which change when they
+  // add one, so it is deliberately not cached. Only the taxonomy is.
+
+  /// True once the taxonomy is in memory, so callers can skip the round trip.
+  bool get categoriesLoaded => _categoriesLoaded;
+
+  Future<void> fetchCategories({bool force = false}) async {
+    // An in-flight request must not be duplicated either: four screens built at
+    // once would otherwise fire four identical calls before the first returns.
+    if (!force && (_categoriesLoaded || _categoriesInFlight)) return;
+    _categoriesInFlight = true;
+
     _isLoading = true;
     _errorMessage = null;
     notifyListeners();
@@ -292,12 +344,16 @@ class WorkerProfileProvider with ChangeNotifier {
         _categories = (data['data'] as List)
             .map((json) => CategoryModel.fromJson(json))
             .toList();
+        // Only on success. A failed fetch must stay retryable, or one bad
+        // request early on would leave the picker permanently empty.
+        _categoriesLoaded = true;
       } else {
         _errorMessage = data['message'];
       }
     } catch (e) {
       _errorMessage = e.toString();
     } finally {
+      _categoriesInFlight = false;
       _isLoading = false;
       notifyListeners();
     }
