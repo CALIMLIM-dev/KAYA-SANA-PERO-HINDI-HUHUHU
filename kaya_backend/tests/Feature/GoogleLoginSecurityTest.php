@@ -1,0 +1,152 @@
+<?php
+
+namespace Tests\Feature;
+
+use App\Models\User;
+use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Http;
+use PHPUnit\Framework\Attributes\Test;
+use Tests\TestCase;
+
+/**
+ * Google sign-in must derive identity from a token Google signed, never from
+ * fields the client sent.
+ *
+ * The endpoint previously accepted `google_id` and `email` directly and issued
+ * an API token to whoever owned that address, so knowing somebody's email was
+ * enough to log in as them. The first test here is that exact attack.
+ */
+class GoogleLoginSecurityTest extends TestCase
+{
+    use RefreshDatabase;
+
+    private const CLIENT_ID = '111-web.apps.googleusercontent.com';
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+        config(['services.google.client_id' => self::CLIENT_ID]);
+    }
+
+    /** Pretends to be Google's tokeninfo endpoint. */
+    private function googleReturns(array $claims, int $status = 200): void
+    {
+        Http::fake(['oauth2.googleapis.com/tokeninfo*' => Http::response($claims, $status)]);
+    }
+
+    private function validClaims(array $overrides = []): array
+    {
+        return array_merge([
+            'sub'            => '1029384756',
+            'aud'            => self::CLIENT_ID,
+            'iss'            => 'https://accounts.google.com',
+            'email'          => 'victim@gmail.com',
+            'email_verified' => 'true',
+            'exp'            => time() + 3600,
+            'name'           => 'Real Google Name',
+            'picture'        => 'https://lh3.googleusercontent.com/x',
+        ], $overrides);
+    }
+
+    #[Test]
+    public function knowing_an_email_is_not_enough_to_log_in_as_that_person(): void
+    {
+        User::factory()->create(['email' => 'victim@gmail.com']);
+
+        // The old attack: a real email, a fabricated google_id, no token.
+        $this->postJson('/api/v1/google-login', [
+            'google_id' => 'totally-made-up-000',
+            'email'     => 'victim@gmail.com',
+        ])->assertStatus(422);
+
+        $this->assertSame(0, \DB::table('personal_access_tokens')->count(), 'no token may be issued');
+    }
+
+    #[Test]
+    public function a_token_issued_for_a_different_application_is_rejected(): void
+    {
+        User::factory()->create(['email' => 'victim@gmail.com']);
+        $this->googleReturns($this->validClaims(['aud' => 'someone-elses-app.apps.googleusercontent.com']));
+
+        $this->postJson('/api/v1/google-login', ['id_token' => 'x'])
+            ->assertStatus(401)
+            ->assertJsonFragment(['message' => 'That sign-in was not issued for KAYA.']);
+
+        $this->assertSame(0, \DB::table('personal_access_tokens')->count());
+    }
+
+    #[Test]
+    public function a_token_google_will_not_vouch_for_is_rejected(): void
+    {
+        User::factory()->create(['email' => 'victim@gmail.com']);
+        $this->googleReturns(['error' => 'invalid_token'], 400);
+
+        $this->postJson('/api/v1/google-login', ['id_token' => 'forged'])->assertStatus(401);
+        $this->assertSame(0, \DB::table('personal_access_tokens')->count());
+    }
+
+    #[Test]
+    public function an_unverified_google_email_is_rejected(): void
+    {
+        User::factory()->create(['email' => 'victim@gmail.com']);
+        $this->googleReturns($this->validClaims(['email_verified' => 'false']));
+
+        $this->postJson('/api/v1/google-login', ['id_token' => 'x'])->assertStatus(401);
+        $this->assertSame(0, \DB::table('personal_access_tokens')->count());
+    }
+
+    #[Test]
+    public function an_expired_token_is_rejected(): void
+    {
+        User::factory()->create(['email' => 'victim@gmail.com']);
+        $this->googleReturns($this->validClaims(['exp' => time() - 60]));
+
+        $this->postJson('/api/v1/google-login', ['id_token' => 'x'])->assertStatus(401);
+    }
+
+    #[Test]
+    public function the_endpoint_refuses_to_run_when_the_server_is_not_configured(): void
+    {
+        // Without an audience to check against, any Google token would pass.
+        // Failing shut is the only safe behaviour.
+        config(['services.google.client_id' => null]);
+        $this->googleReturns($this->validClaims());
+
+        $this->postJson('/api/v1/google-login', ['id_token' => 'x'])->assertStatus(401);
+        $this->assertSame(0, \DB::table('personal_access_tokens')->count());
+    }
+
+    #[Test]
+    public function a_genuine_token_logs_the_right_person_in(): void
+    {
+        $user = User::factory()->create(['email' => 'victim@gmail.com']);
+        $this->googleReturns($this->validClaims());
+
+        $this->postJson('/api/v1/google-login', ['id_token' => 'good'])
+            ->assertOk()
+            ->assertJsonPath('data.user.id', $user->id);
+
+        $this->assertSame('1029384756', $user->fresh()->google_id);
+    }
+
+    #[Test]
+    public function the_claimed_email_in_the_body_is_ignored_entirely(): void
+    {
+        $victim   = User::factory()->create(['email' => 'victim@gmail.com']);
+        $attacker = User::factory()->create(['email' => 'attacker@gmail.com']);
+
+        // A real token for the attacker, with the victim's address alongside it.
+        $this->googleReturns($this->validClaims(['email' => 'attacker@gmail.com', 'sub' => '999']));
+
+        $this->postJson('/api/v1/google-login', [
+            'id_token'  => 'attackers-own-token',
+            'email'     => 'victim@gmail.com',
+            'google_id' => '1029384756',
+        ])
+            ->assertOk()
+            ->assertJsonPath('data.user.id', $attacker->id);
+
+        // The victim's account must be untouched.
+        $this->assertNull($victim->fresh()->google_id);
+    }
+}
