@@ -150,6 +150,11 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
         Navigator.pushNamed(context, '/my-invitations');
       case 'conversation':
         Navigator.pushNamed(context, AppRouter.messages);
+      // Approved or rejected identity check. It carries no id — there is one
+      // verification screen and it shows the current state, including the
+      // admin's rejection reason.
+      case 'verification':
+        Navigator.pushNamed(context, '/verification');
     }
   }
 
@@ -159,6 +164,9 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
       return NotificationType.application;
     }
     if (type.startsWith('verification.')) return NotificationType.verification;
+    if (type.startsWith('review.')) return NotificationType.review;
+    // Job matches and completions read as work, not as a system message.
+    if (type.startsWith('job.')) return NotificationType.application;
     return NotificationType.system;
   }
 

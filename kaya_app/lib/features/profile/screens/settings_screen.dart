@@ -37,6 +37,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
     'invitations': ('Invitations', Icons.mail_outline),
     'messages': ('Messages', Icons.chat_bubble_outline),
     'jobs': ('Job updates', Icons.work_outline),
+    'reviews': ('Reviews', Icons.star_outline),
+    'account': ('Account and verification', Icons.verified_user_outlined),
   };
 
   @override

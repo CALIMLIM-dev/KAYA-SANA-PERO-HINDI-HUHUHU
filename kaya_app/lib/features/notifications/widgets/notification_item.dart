@@ -5,6 +5,8 @@ enum NotificationType {
   application,
   message,
   verification,
+  /// A review was left, or one is now possible.
+  review,
   system,
 }
 
@@ -121,6 +123,8 @@ class NotificationItem extends StatelessWidget {
         return Icons.message_outlined;
       case NotificationType.verification:
         return Icons.verified_outlined;
+      case NotificationType.review:
+        return Icons.star_outline;
       case NotificationType.system:
         return Icons.info_outline;
     }
@@ -134,6 +138,8 @@ class NotificationItem extends StatelessWidget {
         return AppColors.info;
       case NotificationType.verification:
         return AppColors.success;
+      case NotificationType.review:
+        return AppColors.warning;
       case NotificationType.system:
         return AppColors.warning;
     }
