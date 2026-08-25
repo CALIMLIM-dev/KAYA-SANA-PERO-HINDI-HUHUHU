@@ -62,11 +62,21 @@ class _MessagesListScreenState extends State<MessagesListScreen>
   Map<String, dynamic>? _otherParty(Map<String, dynamic> conv, String myRole) =>
       (myRole == 'worker' ? conv['employer'] : conv['worker']) as Map<String, dynamic>?;
 
+  /*
+      No longer filtered by mode, because a thread no longer belongs to one.
+
+      There is exactly one conversation per person now, whichever of you hired
+      the other and however many times. Hiding it in the mode that does not
+      match the *latest* job would make a chat vanish the moment the roles
+      swapped — you would look for someone you talk to constantly and find
+      nothing, with no way to tell why.
+
+      _myRole still decides whose name and avatar to show, which is the job it
+      was really doing.
+  */
   List<Map<String, dynamic>> _forMode(
       List<Map<String, dynamic>> conversations, AppMode? mode, int? myId) {
-    if (mode == null) return conversations;
-    final wanted = mode == AppMode.worker ? 'worker' : 'employer';
-    return conversations.where((c) => _myRole(c, myId) == wanted).toList();
+    return conversations;
   }
 
   List<Map<String, dynamic>> _filteredFor(
@@ -165,19 +175,18 @@ class _MessagesListScreenState extends State<MessagesListScreen>
           ),
           body: Column(
             children: [
-              if (appMode.isHybrid && appMode.mode != null)
-                Container(
-                  width: double.infinity,
-                  color: Colors.white,
-                  padding: const EdgeInsets.fromLTRB(16, 10, 16, 0),
-                  child: Text(
-                    appMode.isWorkerMode
-                        ? 'Showing conversations where you applied'
-                        : 'Showing conversations for jobs you posted',
-                    style: const TextStyle(fontSize: 12, color: AppColors.neutral600),
-                  ),
-                ),
+              /*
+                  The banner that used to sit here said "Showing conversations
+                  where you applied" / "for jobs you posted". It stopped being
+                  true when threads became one-per-person: the list is no longer
+                  filtered by mode, so the line promised a filter that no longer
+                  runs, with a thread from the other role sitting right under it.
 
+                  What it was trying to say is still worth saying — it just
+                  belongs to each thread rather than to the screen, because for
+                  a hybrid the answer differs per person and can swap over time.
+                  It moved into the row, next to the job it describes.
+              */
               Container(
                 height: 56,
                 color: Colors.white,
@@ -211,8 +220,8 @@ class _MessagesListScreenState extends State<MessagesListScreen>
                                   itemCount: filtered.length,
                                   separatorBuilder: (_, _) =>
                                       const Divider(height: 1, indent: 72),
-                                  itemBuilder: (context, i) =>
-                                      _conversationTile(filtered[i], myId),
+                                  itemBuilder: (context, i) => _conversationTile(
+                                      filtered[i], myId, appMode.isHybrid),
                                 ),
                               ),
               ),
@@ -309,7 +318,8 @@ class _MessagesListScreenState extends State<MessagesListScreen>
     );
   }
 
-  Widget _conversationTile(Map<String, dynamic> conv, int? myId) {
+  Widget _conversationTile(
+      Map<String, dynamic> conv, int? myId, bool isHybrid) {
     final myRole = _myRole(conv, myId);
     final other = _otherParty(conv, myRole);
     final job = conv['job'] as Map<String, dynamic>?;
@@ -379,12 +389,41 @@ class _MessagesListScreenState extends State<MessagesListScreen>
                     ],
                   ),
                   const SizedBox(height: 3),
-                  Text(
-                    (job?['title'] ?? 'Job').toString(),
-                    style: const TextStyle(
-                        fontSize: 11,
-                        color: AppColors.primary,
-                        fontWeight: FontWeight.w500),
+                  Row(
+                    children: [
+                      /*
+                          Only a hybrid needs telling which way round a thread
+                          is. Someone who only works is the worker in every one
+                          of theirs, so the label would be on every row saying
+                          nothing.
+
+                          A conversation only unlocks on an accepted hire, so
+                          this is always a hire that happened, never an
+                          application that went nowhere. It follows the most
+                          recent job between the two of you, which is what
+                          employer_id and worker_id track.
+                      */
+                      if (isHybrid) ...[
+                        Text(
+                          myRole == 'worker' ? 'You were hired' : 'You hired',
+                          style: const TextStyle(
+                              fontSize: 11,
+                              color: AppColors.neutral500,
+                              fontWeight: FontWeight.w500),
+                        ),
+                        const SizedBox(width: 6),
+                      ],
+                      Flexible(
+                        child: Text(
+                          (job?['title'] ?? 'Job').toString(),
+                          style: const TextStyle(
+                              fontSize: 11,
+                              color: AppColors.primary,
+                              fontWeight: FontWeight.w500),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ],
                   ),
                   const SizedBox(height: 2),
                   Row(
