@@ -579,18 +579,30 @@ class _UnifiedHomeScreenState extends State<UnifiedHomeScreen>
                                   // These were previously driven by two dead
                                   // local booleans that nothing ever changed;
                                   // they now reflect and control the active mode.
-                                  _buildStatusBadges(appMode),
+                                  /*
+                                      The balance sits with the status badges
+                                      rather than up in the icon row.
+
+                                      That row was built for two buttons, and a
+                                      third element took width from the
+                                      greeting's Expanded, so a long name
+                                      squeezed or wrapped. Down here it reads
+                                      as one more thing that is true about you
+                                      right now, next to the mode badges.
+                                  */
+                                  Row(
+                                    children: [
+                                      Flexible(child: _buildStatusBadges(appMode)),
+                                      const SizedBox(width: 6),
+                                      const _BalanceChip(),
+                                    ],
+                                  ),
                                 ],
                               ),
                             ),
                             // Action Icons
                             Row(
                               children: [
-                                // Leads the row rather than sitting between the
-                                // two icon buttons, where it read as a third
-                                // button and broke the pair.
-                                const _BalanceChip(),
-                                const SizedBox(width: 8),
                                 Container(
                                   decoration: BoxDecoration(
                                     color: Colors.white,
@@ -1180,13 +1192,19 @@ class _UnifiedHomeScreenState extends State<UnifiedHomeScreen>
   /// Get time-based greeting
   String _getGreeting() {
     final hour = DateTime.now().hour;
-    if (hour < 12) {
-      return 'Good Morning';
-    } else if (hour < 17) {
-      return 'Good Afternoon';
-    } else {
-      return 'Good Evening';
-    }
+
+    /*
+        The small hours are not morning.
+
+        Anything before noon used to count as morning, so at half past midnight
+        the app said Good Morning to somebody who had not been to bed. Hours
+        zero to four belong to the night before, which is how people actually
+        talk about them.
+    */
+    if (hour < 5) return 'Good Evening';
+    if (hour < 12) return 'Good Morning';
+    if (hour < 18) return 'Good Afternoon';
+    return 'Good Evening';
   }
 
   /// Get category icon based on filter
@@ -1438,38 +1456,32 @@ class _BalanceChipState extends State<_BalanceChip> {
     // the first thing it does is tell you something untrue about your money.
     if (!credits.hasLoadedOnce) return const SizedBox.shrink();
 
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.1),
-            blurRadius: 4,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
+    // Shaped like the mode badges it now sits beside, rather than like the
+    // shadowed icon buttons it used to sit between.
+    return InkWell(
+      borderRadius: BorderRadius.circular(12),
+      onTap: () async {
+        await Navigator.pushNamed(context, AppRouter.wallet);
+        if (context.mounted) context.read<CreditsProvider>().refresh();
+      },
+      child: Container(
+        decoration: BoxDecoration(
+          color: AppColors.primary.withValues(alpha: 0.1),
           borderRadius: BorderRadius.circular(12),
-          onTap: () async {
-            await Navigator.pushNamed(context, AppRouter.wallet);
-            if (context.mounted) context.read<CreditsProvider>().refresh();
-          },
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 9),
+          border: Border.all(color: AppColors.primary.withValues(alpha: 0.3)),
+        ),
+        child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                const Icon(Credits.icon, size: 18, color: AppColors.primary),
-                const SizedBox(width: 5),
+                const Icon(Credits.icon, size: 14, color: AppColors.primary),
+                const SizedBox(width: 4),
                 Text(
                   '${credits.balance}',
                   style: const TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w700,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
                     color: AppColors.primary,
                   ),
                 ),
@@ -1483,10 +1495,10 @@ class _BalanceChipState extends State<_BalanceChip> {
                     nobody does.
                 */
                 if (credits.hasSomethingToClaim) ...[
-                  const SizedBox(width: 5),
+                  const SizedBox(width: 4),
                   Container(
-                    width: 7,
-                    height: 7,
+                    width: 6,
+                    height: 6,
                     decoration: const BoxDecoration(
                       color: AppColors.success,
                       shape: BoxShape.circle,
@@ -1496,7 +1508,6 @@ class _BalanceChipState extends State<_BalanceChip> {
               ],
             ),
           ),
-        ),
       ),
     );
   }

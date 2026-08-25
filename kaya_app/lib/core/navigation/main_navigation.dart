@@ -83,6 +83,23 @@ class _MainNavigationState extends State<MainNavigation>
   @override
   void initState() {
     super.initState();
+
+    /*
+        Every session starts on Home.
+
+        selectedTab is static, so it outlives the widget and outlives the
+        account. Signing out from the Profile tab left it pointing at Profile,
+        and the next person to log in on that phone landed there instead of on
+        the home screen — looking at their own profile before they had seen
+        anything else.
+
+        Reset here rather than in a logout handler because this shell is
+        rebuilt for every session however it started, so there is no sign-out
+        path that can miss it.
+    */
+    MainNavigation.selectedTab.value = MainNavigation.homeTab;
+    _currentIndex = MainNavigation.homeTab;
+
     WidgetsBinding.instance.addObserver(this);
     MainNavigation.selectedTab.addListener(_onTabRequested);
 
