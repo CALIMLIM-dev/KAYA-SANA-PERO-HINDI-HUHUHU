@@ -49,7 +49,15 @@ Route::prefix('v1')->group(function () {
         // host isn't compiled into the app binary.
         Route::get('/realtime/config', [RealtimeController::class, 'config']);
 
-        Route::post('/logout', [AuthController::class, 'logout']);
+        /*
+            Signing out must work even when the token is already gone.
+            Suspension DELETES a user's tokens, so a banned client could never
+            reach this endpoint - it 401'd, the sign-out never completed, and
+            the phone sat in a 401 loop polling forever. Logging out with no
+            valid token is a no-op, not an error.
+        */
+        Route::post('/logout', [AuthController::class, 'logout'])
+            ->withoutMiddleware(['auth:sanctum', 'not.suspended']);
         Route::get('/me',      [AuthController::class, 'me']);
         Route::get('/check-status', [AuthController::class, 'checkStatus']);
         Route::patch('/me',    [AuthController::class, 'updateMe']);

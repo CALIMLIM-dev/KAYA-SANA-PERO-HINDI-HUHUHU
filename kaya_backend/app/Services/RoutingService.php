@@ -34,6 +34,12 @@ class RoutingService
     /** Give up quickly. This runs inside a polled endpoint. */
     private const TIMEOUT_SECONDS = 4;
 
+    /**
+     * Ceiling on drawn shape points. Generous on purpose: a route is fetched
+     * on demand and cached, so fidelity matters far more than a few kilobytes.
+     */
+    private const MAX_SHAPE_POINTS = 2000;
+
     /** A found route is stable; the roads do not move. */
     private const CACHE_MINUTES = 30;
 
@@ -189,10 +195,13 @@ class RoutingService
      * GeoJSON is [longitude, latitude]; every map library in this app takes
      * latitude first. Flipping once here keeps that confusion out of the client.
      *
-     * The line is also thinned: a city route can carry a thousand points, which
-     * is more shape than a phone-sized map can show and more JSON than a polled
-     * endpoint should carry. Endpoints are always kept so the line still meets
-     * both pins exactly.
+     * The line is thinned only above MAX_SHAPE_POINTS, and endpoints are always
+     * kept so it still meets both pins exactly.
+     *
+     * The old reasoning here — that a thousand points is "more shape than a
+     * phone-sized map can show" — is what caused the bug it justified. A map
+     * zooms in; at street level the discarded points are exactly the ones that
+     * keep the line on its own side of the road.
      *
      * @param  list<array{0: float, 1: float}>  $coordinates
      * @return list<array{0: float, 1: float}>
@@ -200,7 +209,24 @@ class RoutingService
     private function toLatLngPairs(array $coordinates): array
     {
         $total = count($coordinates);
-        $step = max(1, (int) ceil($total / 300));
+
+        /*
+            Thin only as a last resort, and nowhere near as hard as this used to.
+
+            The cap was 300, which sounded harmless and was not: uniform
+            sampling of a polyline CUTS CORNERS. A real 180 km route from OSRM
+            carries 1955 points; keeping every 7th left an average of 647 m
+            between drawn points, so the line short-cut across blocks, crossed
+            medians, and ran down the wrong side of one-way streets. The route
+            was right — the drawing was a crude approximation of it, and that
+            is what testers reported as the map "taking the long way" and
+            "going against a one-way".
+
+            The saving was never worth it either: those 1955 points are 45 KB,
+            and a route is fetched on demand and cached for half an hour, not
+            polled. Anything under the cap now passes through untouched.
+        */
+        $step = max(1, (int) ceil($total / self::MAX_SHAPE_POINTS));
 
         $points = [];
         for ($i = 0; $i < $total; $i += $step) {

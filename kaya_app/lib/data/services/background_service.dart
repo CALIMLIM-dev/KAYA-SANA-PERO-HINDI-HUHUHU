@@ -67,6 +67,29 @@ class _KayaTaskHandler extends TaskHandler {
   DateTime _lastPing = DateTime.fromMillisecondsSinceEpoch(0);
   static const Duration _pingEvery = Duration(minutes: 1);
 
+  /*
+      Set the moment the server says our token is no longer good.
+
+      Suspending an account deletes its tokens server-side, and this isolate
+      cannot be told by the app because it does not share memory with it. Left
+      alone it polls a rejected request every few seconds for as long as
+      Android keeps it alive - which under START_STICKY is indefinitely. A 401
+      is the one error that will never come right by retrying, so it is the one
+      error that has to stop the service instead of being swallowed with the
+      rest.
+  */
+  bool _tokenRejected = false;
+
+  Future<void> _onUnauthorized() async {
+    if (_tokenRejected) return;
+    _tokenRejected = true;
+    debugPrint('[bg] token rejected - stopping the service');
+
+    // Drop the dead credential so a restarted service cannot resume the loop.
+    await FlutterForegroundTask.saveData(key: BackgroundKeys.token, value: '');
+    await FlutterForegroundTask.stopService();
+  }
+
   @override
   Future<void> onStart(DateTime timestamp, TaskStarter starter) async {
     _token = await FlutterForegroundTask.getData<String>(key: BackgroundKeys.token);
@@ -86,7 +109,8 @@ class _KayaTaskHandler extends TaskHandler {
 
   @override
   Future<void> onRepeatEvent(DateTime timestamp) async {
-    if (_token == null || _baseUrl == null) return;
+    if (_tokenRejected) return;
+    if (_token == null || _token!.isEmpty || _baseUrl == null) return;
 
     if (DateTime.now().difference(_lastPing) >= _pingEvery) {
       _lastPing = DateTime.now();
@@ -190,6 +214,11 @@ class _KayaTaskHandler extends TaskHandler {
       _decorate(request);
 
       final response = await request.close();
+      if (response.statusCode == 401 || response.statusCode == 403) {
+        await response.drain<void>();
+        await _onUnauthorized();
+        return null;
+      }
       if (response.statusCode >= 400) return null;
 
       final text = await response.transform(utf8.decoder).join();
@@ -210,6 +239,9 @@ class _KayaTaskHandler extends TaskHandler {
 
       final response = await request.close();
       await response.drain<void>();
+      if (response.statusCode == 401 || response.statusCode == 403) {
+        await _onUnauthorized();
+      }
     } finally {
       client.close(force: true);
     }

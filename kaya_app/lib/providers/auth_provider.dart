@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import '../data/services/api_client.dart';
+import '../data/services/background_controller.dart';
 import '../data/services/message_cache.dart';
 import '../data/services/realtime_service.dart';
 
@@ -300,6 +301,17 @@ class AuthProvider with ChangeNotifier {
 
     // Local, instant, and the only part that must not fail.
     await ApiClient.deleteToken();
+
+    /*
+        Stop the foreground service too.
+
+        It runs in its own isolate holding its own copy of the token, so
+        clearing storage here does not reach it. Left running it polls with a
+        credential the server has already rejected, every few seconds, for as
+        long as Android keeps it up - and START_STICKY means Android keeps
+        restarting it. A suspended tester's phone sat in exactly that loop.
+    */
+    await BackgroundController.instance.stop();
 
     // disconnect() clears its listeners and subscriptions synchronously before
     // it awaits the socket close, so the next account cannot inherit this one's

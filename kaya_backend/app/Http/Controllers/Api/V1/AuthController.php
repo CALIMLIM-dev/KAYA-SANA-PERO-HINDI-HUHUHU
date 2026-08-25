@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api\V1;
 use App\Http\Controllers\Controller;
 use App\Models\User;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
@@ -110,9 +111,17 @@ class AuthController extends Controller
         return $this->ok(['user' => $this->ownAccount($user), 'token' => $token], 'Login successful');
     }
 
+    /**
+     * Sign out. Deliberately tolerant of a missing or already-revoked token:
+     * the route runs without auth so that a client whose token was destroyed
+     * underneath it (suspension does exactly that) can still complete its
+     * sign-out instead of retrying a 401 forever.
+     */
     public function logout(Request $request)
     {
-        $request->user()->currentAccessToken()->delete();
+        $user = $request->user() ?? Auth::guard('sanctum')->user();
+        $user?->currentAccessToken()?->delete();
+
         return $this->ok(null, 'Logged out');
     }
 

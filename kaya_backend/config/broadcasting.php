@@ -15,7 +15,13 @@ return [
     |
     */
 
-    'default' => env('BROADCAST_CONNECTION', 'null'),
+    /*
+        Laravel's env reader turns a bare `null` in .env into PHP null, which
+        is NOT the same as selecting the 'null' connection below - it resolves
+        to no driver at all. `?:` makes the disabled case land on the real null
+        driver instead of an unnamed one.
+    */
+    'default' => env('BROADCAST_CONNECTION') ?: 'null',
 
     /*
     |--------------------------------------------------------------------------
@@ -42,7 +48,15 @@ return [
                 'useTLS' => env('REVERB_SCHEME', 'https') === 'https',
             ],
             'client_options' => [
-                // Guzzle client options: https://docs.guzzlephp.org/en/stable/request-options.html
+                /*
+                    Guzzle defaults to no timeout, so a Reverb that is not
+                    listening cost 30s per publish and the phone gave up first,
+                    reporting it to the user as "no internet connection".
+                    A broadcast is best-effort on top of the REST endpoints - it
+                    must never hold a write request open.
+                */
+                'connect_timeout' => 1,
+                'timeout' => 2,
             ],
         ],
 
