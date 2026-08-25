@@ -51,6 +51,12 @@ class CreditLedger
         return DB::transaction(function () use (
             $user, $amount, $reason, $using, $referenceType, $referenceId
         ) {
+            // A first-time spender has no wallet row yet, and a missing row
+            // would fail the guarded update below as "not enough credits"
+            // rather than as "no wallet" — which is the same refusal for the
+            // wrong reason, and would hide the welcome grant entirely.
+            $this->walletFor($user);
+
             /*
                 A guarded conditional UPDATE, and the affected row count is the
                 answer. No SELECT ... FOR UPDATE anywhere.
@@ -208,9 +214,48 @@ class CreditLedger
      */
     public function walletFor(User $user): CreditWallet
     {
+        $existing = CreditWallet::where('user_id', $user->id)->first();
+
+        if ($existing !== null) {
+            return $existing;
+        }
+
+        /*
+            A new wallet arrives with the welcome credits already in it.
+
+            Otherwise the first thing a new account meets is a paywall, before
+            it has applied to anything or learned what a credit is for — which
+            is the fastest way to lose somebody who signed up on a
+            recommendation.
+
+            The balance and the ledger row are written together, because the
+            reconciliation check asserts that summing the ledger equals the
+            balance. A wallet that started at twenty with no row explaining it
+            would look exactly like twenty credits appearing from nowhere.
+        */
+        $grant = (int) config('kaya.credits.signup_grant', 0);
+
         try {
-            return CreditWallet::firstOrCreate(['user_id' => $user->id], ['balance' => 0]);
+            return DB::transaction(function () use ($user, $grant) {
+                $wallet = CreditWallet::create([
+                    'user_id' => $user->id,
+                    'balance' => $grant,
+                ]);
+
+                if ($grant > 0) {
+                    CreditTransaction::create([
+                        'user_id' => $user->id,
+                        'delta' => $grant,
+                        'balance_after' => $grant,
+                        'reason' => CreditTransaction::REASON_LAUNCH_GRANT,
+                        'note' => 'Welcome credits',
+                    ]);
+                }
+
+                return $wallet;
+            });
         } catch (UniqueConstraintViolationException) {
+            // Two requests arrived together and the index refused the second.
             return CreditWallet::where('user_id', $user->id)->firstOrFail();
         }
     }

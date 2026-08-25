@@ -6,7 +6,7 @@ use Illuminate\Database\Eloquent\Model;
 
 class Application extends Model
 {
-    protected $fillable = ['job_id', 'worker_id', 'status'];
+    protected $fillable = ['job_id', 'worker_id', 'status', 'credit_transaction_id'];
 
     /**
      * Cast so "who confirmed first" can be compared and rendered as a time

@@ -10,7 +10,9 @@ use App\Models\Application;
 use App\Models\Conversation;
 use App\Models\Invitation;
 use App\Models\JobPost;
+use App\Models\CreditTransaction;
 use App\Models\User;
+use App\Services\CreditLedger;
 use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Http\Request;
 
@@ -67,12 +69,20 @@ class InvitationController extends Controller
         }
 
         try {
-            $invitation = Invitation::create([
-                'job_id'      => $job->id,
-                'employer_id' => $user->id,
-                'worker_id'   => $worker->id,
-                'status'      => 'pending',
-            ]);
+            $invitation = app(CreditLedger::class)->charge(
+                user: $user,
+                amount: (int) config('kaya.credits.invite'),
+                reason: CreditTransaction::REASON_INVITATION,
+                referenceType: 'job',
+                referenceId: $job->id,
+                using: fn (CreditTransaction $charge) => Invitation::create([
+                    'job_id'      => $job->id,
+                    'employer_id' => $user->id,
+                    'worker_id'   => $worker->id,
+                    'status'      => 'pending',
+                    'credit_transaction_id' => $charge->id,
+                ]),
+            );
         } catch (UniqueConstraintViolationException) {
             /*
                 The check above and this insert are two statements, so two

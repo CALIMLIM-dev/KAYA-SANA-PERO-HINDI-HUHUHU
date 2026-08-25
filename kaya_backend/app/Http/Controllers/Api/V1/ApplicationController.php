@@ -11,7 +11,10 @@ use App\Models\Conversation;
 use App\Models\JobPost;
 use App\Services\JobCompletionService;
 use App\Services\NotificationService;
+use App\Models\CreditTransaction;
+use App\Services\CreditLedger;
 use App\Services\ScheduleConflictService;
+use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Http\Request;
 
 class ApplicationController extends Controller
@@ -41,14 +44,47 @@ class ApplicationController extends Controller
             return $this->fail('You have already applied to this job', 422);
         }
 
-        $application = Application::create([
-            'job_id'    => $job->id,
-            'worker_id' => $user->id,
-            'status'    => 'pending',
-        ]);
+        /*
+            Charged, and the application written inside the same transaction.
 
-        $job->increment('application_count');
+            The check above gives the friendly answer for the common case, but
+            it and the insert are two statements, so two taps can both pass it.
+            The unique index refuses the second, and because that insert lives
+            inside the charge, the credits go back with it — the caller cannot
+            be billed for an application that does not exist.
 
+            Insufficient balance raises InsufficientCreditsException, which
+            renders itself as a 402 carrying the price and the balance, so the
+            app can offer to top up rather than showing a bare failure.
+        */
+        try {
+            $application = app(CreditLedger::class)->charge(
+                user: $user,
+                amount: (int) config('kaya.credits.apply'),
+                reason: CreditTransaction::REASON_APPLICATION,
+                referenceType: 'job',
+                referenceId: $job->id,
+                using: function (CreditTransaction $charge) use ($job, $user) {
+                    $application = Application::create([
+                        'job_id'    => $job->id,
+                        'worker_id' => $user->id,
+                        'status'    => 'pending',
+                        // Which charge paid for this, so a refund knows what to
+                        // reverse without searching the ledger by shape.
+                        'credit_transaction_id' => $charge->id,
+                    ]);
+
+                    $job->increment('application_count');
+
+                    return $application;
+                },
+            );
+        } catch (UniqueConstraintViolationException) {
+            return $this->fail('You have already applied to this job', 422);
+        }
+
+        // After the charge commits. An event announcing an application that
+        // then rolled back would be worse than one arriving a moment late.
         ApplicationSubmitted::dispatch($application->load(['job', 'worker']));
 
         return $this->ok($application->load('job'), 'Application submitted', 201);
@@ -118,6 +154,16 @@ class ApplicationController extends Controller
             return $this->fail('Can only withdraw pending applications', 422);
         }
 
+        /*
+            Refunded, but only inside a grace window.
+
+            Beyond it, "apply, get seen, withdraw" would be a free application
+            and the fee would stop meaning anything. Inside it, an honest
+            misclick is not punished, which is the only reason the window
+            exists at all.
+        */
+        $refunded = $this->refundIfWithinGrace($application);
+
         $application->update(['status' => 'withdrawn']);
 
         // Kept in step with the increment in apply(); without this the counter
@@ -130,7 +176,37 @@ class ApplicationController extends Controller
         // and a candidate vanishing with no explanation reads as a bug.
         app(NotificationService::class)->applicationWithdrawn($application);
 
-        return $this->ok($application, 'Application withdrawn');
+        return $this->ok(
+            $application,
+            $refunded
+                ? 'Application withdrawn and your credits returned'
+                : 'Application withdrawn',
+        );
+    }
+
+    /**
+     * Gives the credits back when a worker withdraws quickly.
+     *
+     * Returns whether anything was actually refunded, so the message can say
+     * so rather than promising a refund that did not happen.
+     */
+    private function refundIfWithinGrace(Application $application): bool
+    {
+        if ($application->credit_transaction_id === null) {
+            return false;
+        }
+
+        $minutes = (int) config('kaya.credits.withdraw_refund_minutes');
+
+        if ($application->created_at === null
+            || $application->created_at->lt(now()->subMinutes($minutes))) {
+            return false;
+        }
+
+        $charge = CreditTransaction::find($application->credit_transaction_id);
+
+        return $charge !== null
+            && app(CreditLedger::class)->refund($charge, 'withdrawn within the grace window') !== null;
     }
 
     public function jobApplicants(Request $request, JobPost $job)

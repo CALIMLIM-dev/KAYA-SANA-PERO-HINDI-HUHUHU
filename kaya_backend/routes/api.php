@@ -12,6 +12,7 @@ use App\Http\Controllers\Api\V1\NotificationController;
 use App\Http\Controllers\Api\V1\ProfileViewController;
 use App\Http\Controllers\Api\V1\RealtimeController;
 use App\Http\Controllers\Api\V1\ConversationController;
+use App\Http\Controllers\Api\V1\CreditController;
 use App\Http\Controllers\Api\V1\ReportController;
 use App\Http\Controllers\Api\V1\ReviewController;
 use App\Http\Controllers\Api\V1\SkillController;
@@ -196,6 +197,16 @@ Route::prefix('v1')->group(function () {
         Route::get('/conversations/{conversation}/messages',    [ConversationController::class, 'messages']);
         Route::post('/conversations/{conversation}/messages',   [ConversationController::class, 'sendMessage']);
         Route::patch('/conversations/{conversation}/read',      [ConversationController::class, 'markRead']);
+
+        /*
+            Credits. Read only — nothing here moves a balance.
+
+            Spending lives with the thing being paid for, so a charge and the
+            action it bought commit together or not at all. An endpoint that
+            just took credits would be able to take them for nothing.
+        */
+        Route::get('/credits/wallet',       [CreditController::class, 'wallet']);
+        Route::get('/credits/transactions', [CreditController::class, 'transactions']);
 
         // Notifications. `audience` mirrors the app's worker/employer mode, so
         // a hybrid account doesn't see the other side's alerts.

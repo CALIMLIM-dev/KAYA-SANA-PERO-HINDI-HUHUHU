@@ -174,10 +174,46 @@ class ScheduleConflictService
                 ->decrement('application_count');
         });
 
+        /*
+            Always refunded, without a window or a condition.
+
+            The worker did not choose this. They applied, they were charged, and
+            then being hired somewhere else took the application away from them
+            — so keeping the credits would mean charging somebody for the
+            privilege of getting work. Every other refund rule in this app has a
+            limit; this one deliberately has none.
+
+            After the transaction, alongside the notification, because a refund
+            written inside a transaction that then rolls back would leave the
+            ledger claiming money moved when it did not.
+        */
+        $this->refundCancelled($clashing);
+
         // Sent after the transaction commits, not inside it. A notification for
         // a cancellation that then rolled back would be worse than none.
         $this->notifications->applicationsCancelledByClash($accepted, $clashing);
 
         return $clashing;
+    }
+
+    /**
+     * Returns the credits for applications cancelled by a clash.
+     *
+     * Silent about failures on purpose: refund() answers null when a charge was
+     * already refunded, which is a normal outcome here rather than a problem —
+     * the same application can be swept twice if two hires land together.
+     */
+    private function refundCancelled(Collection $cancelled): void
+    {
+        $ledger = app(\App\Services\CreditLedger::class);
+
+        $charges = \App\Models\CreditTransaction::whereIn(
+            'id',
+            $cancelled->pluck('credit_transaction_id')->filter()->all(),
+        )->get();
+
+        foreach ($charges as $charge) {
+            $ledger->refund($charge, 'cancelled by a scheduling clash');
+        }
     }
 }
