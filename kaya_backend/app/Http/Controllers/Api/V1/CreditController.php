@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api\V1;
 use App\Http\Controllers\Controller;
 use App\Models\CreditPackage;
 use App\Models\CreditTransaction;
+use App\Services\CreditGrants;
 use App\Services\CreditLedger;
 use Illuminate\Http\Request;
 
@@ -17,7 +18,10 @@ use Illuminate\Http\Request;
  */
 class CreditController extends Controller
 {
-    public function __construct(private CreditLedger $ledger) {}
+    public function __construct(
+        private CreditLedger $ledger,
+        private CreditGrants $grants,
+    ) {}
 
     private function ok($data, string $msg = 'Success', int $status = 200)
     {
@@ -45,6 +49,14 @@ class CreditController extends Controller
                 'unlock' => (int) config('kaya.credits.unlock'),
             ],
             'monthly_grant' => (int) config('kaya.credits.monthly_grant'),
+            /*
+                What is sitting there waiting to be collected.
+
+                Sent with the balance so the wallet can show the button without
+                a second request, and so the home screen can badge it — the
+                whole point of claiming is that somebody notices.
+            */
+            'claimable' => $this->grants->available($user),
             'packages' => CreditPackage::active()->get()->map(fn (CreditPackage $p) => [
                 'id' => $p->id,
                 'name' => $p->name,
@@ -55,6 +67,31 @@ class CreditController extends Controller
                 'amount_php' => $p->amountPhp(),
             ]),
         ]);
+    }
+
+    /**
+     * Collect whatever is owed.
+     *
+     * Answers with what was actually paid rather than what was available, so a
+     * second tap that lost the race honestly reports nothing — the wallet then
+     * says so instead of celebrating credits it did not receive.
+     */
+    public function claim(Request $request)
+    {
+        $user = $request->user();
+        $claimed = $this->grants->claim($user);
+
+        if ($claimed['total'] === 0) {
+            return $this->ok([
+                'claimed' => $claimed,
+                'balance' => $this->ledger->balance($user),
+            ], 'Nothing to claim right now');
+        }
+
+        return $this->ok([
+            'claimed' => $claimed,
+            'balance' => $this->ledger->balance($user),
+        ], 'Claimed ' . $claimed['total']);
     }
 
     /**

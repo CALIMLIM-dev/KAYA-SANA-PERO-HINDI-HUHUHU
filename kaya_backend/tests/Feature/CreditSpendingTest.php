@@ -261,24 +261,61 @@ class CreditSpendingTest extends TestCase
             ->assertJsonStructure(['data' => ['balance', 'costs', 'packages']]);
     }
 
+    /*
+        The free credits are claimed, not deposited.
+
+        They used to appear on their own the first time a wallet was touched,
+        which meant nobody ever noticed getting them — the balance was simply
+        larger than zero. Now the wallet reports what is waiting and a button
+        pays it out.
+    */
     /** @test */
-    public function a_brand_new_account_is_given_credits_rather_than_a_paywall()
+    public function a_new_account_is_owed_credits_and_claims_them()
     {
         $user = User::factory()->create();
         WorkerProfile::create(['user_id' => $user->id]);
 
-        // No wallet row yet — this is the first time credits are touched.
+        $welcome = (int) config('kaya.credits.signup_grant');
+        $monthly = (int) config('kaya.credits.monthly_grant');
+
         $this->actingAs($user, 'sanctum')
             ->getJson('/api/v1/credits/wallet')
             ->assertOk()
-            ->assertJsonPath('data.balance', (int) config('kaya.credits.signup_grant'));
+            ->assertJsonPath('data.balance', 0)
+            ->assertJsonPath('data.claimable.welcome', $welcome)
+            ->assertJsonPath('data.claimable.monthly', $monthly);
 
-        // And the grant is explained by a ledger row, so summing the ledger
+        $this->actingAs($user, 'sanctum')
+            ->postJson('/api/v1/credits/claim')
+            ->assertOk()
+            ->assertJsonPath('data.claimed.total', $welcome + $monthly)
+            ->assertJsonPath('data.balance', $welcome + $monthly);
+
+        // Every credit is explained by a ledger row, so summing the ledger
         // still equals the balance.
         $this->assertSame(
-            (int) config('kaya.credits.signup_grant'),
+            $welcome + $monthly,
             (int) CreditTransaction::where('user_id', $user->id)->sum('delta'),
         );
+    }
+
+    /** @test */
+    public function claiming_twice_pays_once()
+    {
+        $user = User::factory()->create();
+        WorkerProfile::create(['user_id' => $user->id]);
+
+        $this->actingAs($user, 'sanctum')->postJson('/api/v1/credits/claim')->assertOk();
+        $after = $this->balance($user);
+
+        // The second tap honestly reports nothing rather than celebrating
+        // credits it did not receive.
+        $this->actingAs($user, 'sanctum')
+            ->postJson('/api/v1/credits/claim')
+            ->assertOk()
+            ->assertJsonPath('data.claimed.total', 0);
+
+        $this->assertSame($after, $this->balance($user));
     }
 /** @test */
     public function deleting_a_job_refunds_everyone_still_waiting()

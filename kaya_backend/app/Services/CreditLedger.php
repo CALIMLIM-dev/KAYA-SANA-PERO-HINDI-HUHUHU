@@ -221,38 +221,19 @@ class CreditLedger
         }
 
         /*
-            A new wallet arrives with the welcome credits already in it.
+            An empty wallet, on purpose.
 
-            Otherwise the first thing a new account meets is a paywall, before
-            it has applied to anything or learned what a credit is for — which
-            is the fastest way to lose somebody who signed up on a
-            recommendation.
-
-            The balance and the ledger row are written together, because the
-            reconciliation check asserts that summing the ledger equals the
-            balance. A wallet that started at twenty with no row explaining it
-            would look exactly like twenty credits appearing from nowhere.
+            The welcome credits used to be dropped in here silently, which
+            meant nobody ever noticed getting them. They are claimed instead —
+            see CreditGrants — because a thing you press a button for registers
+            as a gift and a number that was always there registers as nothing.
         */
-        $grant = (int) config('kaya.credits.signup_grant', 0);
-
         try {
-            return DB::transaction(function () use ($user, $grant) {
-                $wallet = CreditWallet::create([
+            return DB::transaction(function () use ($user) {
+                return CreditWallet::create([
                     'user_id' => $user->id,
-                    'balance' => $grant,
+                    'balance' => 0,
                 ]);
-
-                if ($grant > 0) {
-                    CreditTransaction::create([
-                        'user_id' => $user->id,
-                        'delta' => $grant,
-                        'balance_after' => $grant,
-                        'reason' => CreditTransaction::REASON_LAUNCH_GRANT,
-                        'note' => 'Welcome credits',
-                    ]);
-                }
-
-                return $wallet;
             });
         } catch (UniqueConstraintViolationException) {
             // Two requests arrived together and the index refused the second.

@@ -615,8 +615,20 @@ class _JobDetailsScreenState extends State<JobDetailsScreen> {
 
                   if (cost == null) return const Text('Apply Now');
 
+                  /*
+                      Free credits waiting is not the same as being broke.
+
+                      Somebody who has never opened the wallet has an empty
+                      balance and a gift sitting there unclaimed, and telling
+                      them to buy something would be both wrong and the worst
+                      possible first impression.
+                  */
+                  if (credits.hasSomethingToClaim) {
+                    return const Text('Claim your free Barya');
+                  }
+
                   if (!credits.canAfford('apply')) {
-                    return Text('Top up to apply');
+                    return const Text('Top up to apply');
                   }
 
                   return Text('Apply Now  ·  ${Credits.amount(cost)}');
@@ -662,7 +674,9 @@ class _JobDetailsScreenState extends State<JobDetailsScreen> {
 
     // No point firing a request that is certain to come back 402. Send them
     // where they can do something about it instead.
-    if (credits.hasLoadedOnce && !credits.canAfford('apply')) {
+    // Unclaimed credits go to the wallet too, but to claim rather than buy.
+    if (credits.hasLoadedOnce &&
+        (credits.hasSomethingToClaim || !credits.canAfford('apply'))) {
       await Navigator.pushNamed(context, AppRouter.wallet);
       if (!mounted) return;
       await credits.refresh();

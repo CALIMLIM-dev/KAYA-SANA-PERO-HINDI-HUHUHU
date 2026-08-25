@@ -586,6 +586,11 @@ class _UnifiedHomeScreenState extends State<UnifiedHomeScreen>
                             // Action Icons
                             Row(
                               children: [
+                                // Leads the row rather than sitting between the
+                                // two icon buttons, where it read as a third
+                                // button and broke the pair.
+                                const _BalanceChip(),
+                                const SizedBox(width: 8),
                                 Container(
                                   decoration: BoxDecoration(
                                     color: Colors.white,
@@ -604,8 +609,6 @@ class _UnifiedHomeScreenState extends State<UnifiedHomeScreen>
                                     tooltip: 'FAQ',
                                   ),
                                 ),
-                                const SizedBox(width: 8),
-                                const _BalanceChip(),
                                 const SizedBox(width: 8),
                                 Container(
                                   decoration: BoxDecoration(
@@ -1470,6 +1473,26 @@ class _BalanceChipState extends State<_BalanceChip> {
                     color: AppColors.primary,
                   ),
                 ),
+                /*
+                    A dot when free credits are waiting.
+
+                    This is the whole reason claiming beats depositing: the
+                    chip is what tells somebody there is something to collect,
+                    on the screen they are already looking at. Without it they
+                    would have to think to open the wallet to find out, which
+                    nobody does.
+                */
+                if (credits.hasSomethingToClaim) ...[
+                  const SizedBox(width: 5),
+                  Container(
+                    width: 7,
+                    height: 7,
+                    decoration: const BoxDecoration(
+                      color: AppColors.success,
+                      shape: BoxShape.circle,
+                    ),
+                  ),
+                ],
               ],
             ),
           ),

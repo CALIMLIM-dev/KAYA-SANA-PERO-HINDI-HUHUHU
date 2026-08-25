@@ -221,6 +221,7 @@ Route::prefix('v1')->group(function () {
         */
         Route::get('/credits/wallet',       [CreditController::class, 'wallet']);
         Route::get('/credits/transactions', [CreditController::class, 'transactions']);
+        Route::post('/credits/claim',       [CreditController::class, 'claim']);
         Route::post('/credits/checkout',    [CreditCheckoutController::class, 'checkout'])
             ->middleware('throttle:credits-checkout');
 

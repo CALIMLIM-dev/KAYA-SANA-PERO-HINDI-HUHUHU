@@ -31,6 +31,14 @@ class InvitationGuardTest extends TestCase
         $user = User::factory()->create();
         EmployerProfile::create(['user_id' => $user->id]);
 
+        /*
+            Inviting costs credits, and a new wallet starts empty because the
+            free ones are claimed rather than deposited. Seeded directly so
+            these tests stay about the invitation guard rather than about
+            having enough to pay for one.
+        */
+        \App\Models\CreditWallet::create(['user_id' => $user->id, 'balance' => 100]);
+
         return $user;
     }
 

@@ -72,6 +72,7 @@ class CreditsProvider with ChangeNotifier {
   int _balance = 0;
   Map<String, int> _costs = const {};
   int _monthlyGrant = 0;
+  int _claimable = 0;
   List<CreditPackage> _packages = const [];
 
   bool _isLoading = false;
@@ -89,6 +90,10 @@ class CreditsProvider with ChangeNotifier {
   bool get hasLoadedOnce => _hasLoadedOnce;
   String? get error => _error;
   int get monthlyGrant => _monthlyGrant;
+
+  /// Free credits sitting there waiting to be collected.
+  int get claimable => _claimable;
+  bool get hasSomethingToClaim => _claimable > 0;
 
   /// What an action costs, or null while the wallet has not loaded.
   ///
@@ -115,6 +120,9 @@ class CreditsProvider with ChangeNotifier {
 
       _balance = (data['balance'] as num?)?.toInt() ?? 0;
       _monthlyGrant = (data['monthly_grant'] as num?)?.toInt() ?? 0;
+
+      final claimable = (data['claimable'] as Map?) ?? const {};
+      _claimable = (claimable['total'] as num?)?.toInt() ?? 0;
 
       final costs = (data['costs'] as Map?) ?? const {};
       _costs = {
@@ -179,6 +187,30 @@ class CreditsProvider with ChangeNotifier {
     }
   }
 
+  /*
+      Collects whatever is owed.
+
+      Returns how many were actually paid, which is not always what was on
+      offer — two taps arriving together means the second one gets nothing, and
+      saying so is better than celebrating credits that never arrived.
+  */
+  Future<int> claim() async {
+    try {
+      final response = await _api.post('/credits/claim');
+      final data = response.data['data'] as Map<String, dynamic>;
+
+      _balance = (data['balance'] as num?)?.toInt() ?? _balance;
+      _claimable = 0;
+      notifyListeners();
+
+      return ((data['claimed'] as Map?)?['total'] as num?)?.toInt() ?? 0;
+    } catch (e) {
+      _error = e.toString().replaceFirst('Exception: ', '');
+      notifyListeners();
+      return 0;
+    }
+  }
+
   /// Adopts a balance the server reported alongside some other response.
   void adopt(int? balance) {
     if (balance == null || balance == _balance) return;
@@ -191,6 +223,7 @@ class CreditsProvider with ChangeNotifier {
     _costs = const {};
     _packages = const [];
     _entries = const [];
+    _claimable = 0;
     _hasLoadedOnce = false;
     _error = null;
     notifyListeners();

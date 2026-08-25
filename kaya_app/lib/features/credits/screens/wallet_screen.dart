@@ -17,6 +17,7 @@ class WalletScreen extends StatefulWidget {
 
 class _WalletScreenState extends State<WalletScreen> with WidgetsBindingObserver {
   bool _buying = false;
+  bool _claiming = false;
 
   @override
   void initState() {
@@ -49,6 +50,26 @@ class _WalletScreenState extends State<WalletScreen> with WidgetsBindingObserver
       context.read<CreditsProvider>().refresh();
       context.read<CreditsProvider>().loadHistory();
     }
+  }
+
+  Future<void> _claim() async {
+    if (_claiming) return;
+    setState(() => _claiming = true);
+
+    final credits = context.read<CreditsProvider>();
+    final claimed = await credits.claim();
+
+    if (!mounted) return;
+    setState(() => _claiming = false);
+
+    if (claimed > 0) {
+      AppToast.success(context, 'You got $claimed ${Credits.plural}.');
+      await credits.loadHistory();
+      return;
+    }
+
+    // Somebody else's tap won the race, or the account is not eligible.
+    AppToast.info(context, credits.error ?? 'Nothing to claim right now.');
   }
 
   Future<void> _buy(CreditPackage package) async {
@@ -114,15 +135,12 @@ class _WalletScreenState extends State<WalletScreen> with WidgetsBindingObserver
               padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
               children: [
                 _balanceCard(credits),
-                const SizedBox(height: 22),
-                _costsCard(credits),
+                if (credits.hasSomethingToClaim) ...[
+                  const SizedBox(height: 12),
+                  _claimCard(credits),
+                ],
                 const SizedBox(height: 22),
                 Text('Top up', style: _sectionStyle),
-                const SizedBox(height: 4),
-                Text(
-                  'Cheaper per ${Credits.name} the more you buy.',
-                  style: const TextStyle(fontSize: 13, color: AppColors.neutral600),
-                ),
                 const SizedBox(height: 12),
                 if (credits.packages.isEmpty)
                   _emptyPackages()
@@ -201,44 +219,67 @@ class _WalletScreenState extends State<WalletScreen> with WidgetsBindingObserver
     );
   }
 
-  /// What things cost, read from the server rather than written into the app.
-  Widget _costsCard(CreditsProvider credits) {
-    final rows = <(String, String)>[
-      ('Apply to a job', 'apply'),
-      ('Invite a worker', 'invite'),
-      ('Unlock contact details', 'unlock'),
-    ];
+  /*
+      The free credits, waiting to be collected.
 
+      A claim button rather than a silent deposit. Credits that appear on their
+      own are credits nobody notices — the balance is simply bigger than it
+      was, which reads as an accounting detail. Pressing something and watching
+      the number jump is the same twenty credits and an entirely different
+      feeling, and it is the only moment the app gets to say that free credits
+      exist at all.
+
+      Hidden completely when there is nothing owed, so it never becomes a dead
+      button sitting there greyed out.
+  */
+  Widget _claimCard(CreditsProvider credits) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+      width: double.infinity,
+      padding: const EdgeInsets.fromLTRB(18, 16, 18, 16),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AppColors.success.withValues(alpha: 0.09),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.neutral200),
+        border: Border.all(color: AppColors.success.withValues(alpha: 0.35)),
       ),
-      child: Column(
+      child: Row(
         children: [
-          for (var i = 0; i < rows.length; i++) ...[
-            if (i > 0) const Divider(height: 1),
-            Padding(
-              padding: const EdgeInsets.symmetric(vertical: 13),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: Text(rows[i].$1,
-                        style: const TextStyle(fontSize: 14, color: AppColors.neutral800)),
+          const Icon(Icons.card_giftcard, color: AppColors.success, size: 26),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  '${credits.claimable} free ${Credits.plural}',
+                  style: const TextStyle(
+                    fontSize: 15.5,
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.neutral900,
                   ),
-                  Icon(Credits.icon, size: 15, color: AppColors.primary),
-                  const SizedBox(width: 5),
-                  Text(
-                    '${credits.costOf(rows[i].$2) ?? '—'}',
-                    style: const TextStyle(
-                        fontSize: 14, fontWeight: FontWeight.w600, color: AppColors.primary),
-                  ),
-                ],
-              ),
+                ),
+                const SizedBox(height: 2),
+                const Text(
+                  'Waiting for you',
+                  style: TextStyle(fontSize: 12.5, color: AppColors.neutral600),
+                ),
+              ],
             ),
-          ],
+          ),
+          ElevatedButton(
+            onPressed: _claiming ? null : _claim,
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.success,
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 11),
+            ),
+            child: _claiming
+                ? const SizedBox(
+                    width: 16,
+                    height: 16,
+                    child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                  )
+                : const Text('Claim', style: TextStyle(fontWeight: FontWeight.w700)),
+          ),
         ],
       ),
     );
@@ -272,7 +313,7 @@ class _WalletScreenState extends State<WalletScreen> with WidgetsBindingObserver
           ],
         ),
         subtitle: Text(
-          '${package.name}  ·  ₱${package.perCredit.toStringAsFixed(2)} each',
+          package.name,
           style: const TextStyle(fontSize: 12, color: AppColors.neutral500),
         ),
         trailing: ElevatedButton(

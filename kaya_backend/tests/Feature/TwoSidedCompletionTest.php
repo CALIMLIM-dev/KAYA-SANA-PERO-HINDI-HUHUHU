@@ -167,6 +167,17 @@ class TwoSidedCompletionTest extends TestCase
             'application_count' => 0,
         ]);
 
+        /*
+            Applying costs credits, and a new wallet starts empty because the
+            free ones are claimed rather than deposited. Seeded here so this
+            stays a test about the completion flow rather than about paying to
+            enter it.
+        */
+        \App\Models\CreditWallet::create([
+            'user_id' => $this->worker->id,
+            'balance' => 100,
+        ]);
+
         $this->actingAs($this->worker, 'sanctum')
             ->postJson("/api/v1/jobs/{$job->id}/apply")
             ->assertSuccessful();

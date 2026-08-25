@@ -32,11 +32,15 @@ Schedule::command('kaya:lift-expired-suspensions')->hourly();
 Schedule::command('kaya:reconcile-credit-payments')->everyFifteenMinutes();
 
 /*
-    The free monthly credits, on the first of the month.
+    The free monthly credits are CLAIMED in the app, not deposited on a
+    schedule, so nothing is scheduled here on purpose.
 
-    The wallet screen promises these, so a month where this does not run is a
-    month the app lied to everybody. Safe to run more often than needed — the
-    wallet records which month it last paid, and a unique index on the ledger
-    refuses a second payment for the same one regardless.
+    Depositing them silently is what made them invisible: the balance was
+    simply larger than last month, which reads as an accounting detail rather
+    than as a gift, and most people would never learn the free credits existed.
+    Claiming turns the same twenty credits into a moment.
+
+    kaya:grant-monthly-credits still exists as an admin tool for backfilling,
+    and is deliberately left unscheduled — running it would collect everybody's
+    credits on their behalf and take that moment away.
 */
-Schedule::command('kaya:grant-monthly-credits')->monthlyOn(1, '02:00');
