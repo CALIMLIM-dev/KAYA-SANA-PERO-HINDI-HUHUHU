@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_mode.dart';
+import '../../../core/constants/credits.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/navigation/app_router.dart';
 import '../../../data/models/job_model.dart';
@@ -10,6 +11,7 @@ import '../../../data/services/suspension_check_service.dart';
 import '../../../providers/app_mode_provider.dart';
 import '../../../providers/application_provider.dart';
 import '../../../providers/auth_provider.dart';
+import '../../../providers/credits_provider.dart';
 import '../../../providers/job_provider.dart';
 import '../../../providers/worker_profile_provider.dart';
 import '../../../providers/worker_browse_provider.dart';
@@ -602,6 +604,8 @@ class _UnifiedHomeScreenState extends State<UnifiedHomeScreen>
                                     tooltip: 'FAQ',
                                   ),
                                 ),
+                                const SizedBox(width: 8),
+                                const _BalanceChip(),
                                 const SizedBox(width: 8),
                                 Container(
                                   decoration: BoxDecoration(
@@ -1392,6 +1396,83 @@ class _ActivityCard extends StatelessWidget {
               ),
             ),
           ],
+        ),
+      ),
+    );
+  }
+}
+/// The credit balance, in the home header.
+///
+/// Here rather than only in Profile because this is where people are when they
+/// decide to apply for something, and a balance they have to go looking for is
+/// one they discover is empty at the worst possible moment — halfway through
+/// tapping Apply.
+///
+/// Loads once and then reads whatever the provider holds, so applying for a
+/// job updates it without this widget knowing anything about applications.
+class _BalanceChip extends StatefulWidget {
+  const _BalanceChip();
+
+  @override
+  State<_BalanceChip> createState() => _BalanceChipState();
+}
+
+class _BalanceChipState extends State<_BalanceChip> {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) context.read<CreditsProvider>().load();
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final credits = context.watch<CreditsProvider>();
+
+    // Nothing at all until the number is known. A chip that says zero and then
+    // corrects itself is worse than one that arrives a moment later, because
+    // the first thing it does is tell you something untrue about your money.
+    if (!credits.hasLoadedOnce) return const SizedBox.shrink();
+
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.1),
+            blurRadius: 4,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(12),
+          onTap: () async {
+            await Navigator.pushNamed(context, AppRouter.wallet);
+            if (context.mounted) context.read<CreditsProvider>().refresh();
+          },
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 9),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(Credits.icon, size: 18, color: AppColors.primary),
+                const SizedBox(width: 5),
+                Text(
+                  '${credits.balance}',
+                  style: const TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.primary,
+                  ),
+                ),
+              ],
+            ),
+          ),
         ),
       ),
     );
