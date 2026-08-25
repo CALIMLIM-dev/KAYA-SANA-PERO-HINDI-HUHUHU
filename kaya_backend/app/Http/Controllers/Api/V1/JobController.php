@@ -570,8 +570,60 @@ class JobController extends Controller
         $user = $request->user();
         if ($job->employer_id !== $user->id) return $this->fail('Forbidden', 403);
 
+        /*
+            Give the applicants their credits back first.
+
+            They paid to apply to a job that is now being taken away by the
+            person who posted it. Nobody chose that on their side, and keeping
+            the money would mean charging people for an opportunity that was
+            withdrawn — the most obviously unfair non-refund available and the
+            first support message anybody would send.
+
+            Only pending ones. An accepted application has already produced
+            what it was bought for.
+        */
+        $refunded = $this->refundPendingApplicants($job);
+
         $job->delete();
-        return $this->ok(null, 'Job deleted');
+
+        return $this->ok(
+            ['refunded_applications' => $refunded],
+            $refunded > 0
+                ? 'Job deleted and ' . $refunded . ' applicant'
+                    . ($refunded === 1 ? '' : 's') . ' refunded'
+                : 'Job deleted',
+        );
+    }
+
+    /**
+     * Returns the credits of everyone still waiting on this job.
+     *
+     * Returns how many were actually refunded, so the employer's screen can
+     * say what happened rather than quietly moving other people's balances.
+     */
+    private function refundPendingApplicants(JobPost $job): int
+    {
+        $charges = \App\Models\CreditTransaction::whereIn(
+            'id',
+            Application::where('job_id', $job->id)
+                ->where('status', 'pending')
+                ->pluck('credit_transaction_id')
+                ->filter()
+                ->all(),
+        )->get();
+
+        $ledger = app(\App\Services\CreditLedger::class);
+        $refunded = 0;
+
+        foreach ($charges as $charge) {
+            // Null means it was already refunded, which is a normal outcome
+            // rather than a failure worth reporting.
+            if ($ledger->refund($charge, 'the job was removed') !== null) {
+                $refunded++;
+            }
+        }
+
+        return $refunded;
     }
 
     public function save(Request $request, JobPost $job)

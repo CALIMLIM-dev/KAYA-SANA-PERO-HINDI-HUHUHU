@@ -280,4 +280,25 @@ class CreditSpendingTest extends TestCase
             (int) CreditTransaction::where('user_id', $user->id)->sum('delta'),
         );
     }
+/** @test */
+    public function deleting_a_job_refunds_everyone_still_waiting()
+    {
+        $employer = $this->employer();
+        $worker = $this->worker(50);
+        $job = $this->job($employer);
+
+        $this->actingAs($worker, "sanctum")
+            ->postJson("/api/v1/jobs/{$job->id}/apply")->assertCreated();
+
+        $cost = (int) config("kaya.credits.apply");
+        $this->assertSame(50 - $cost, $this->balance($worker));
+
+        $this->actingAs($employer, "sanctum")
+            ->deleteJson("/api/v1/jobs/{$job->id}")
+            ->assertOk()
+            ->assertJsonPath("data.refunded_applications", 1);
+
+        // They paid to apply to something the employer then took away.
+        $this->assertSame(50, $this->balance($worker), "The applicant was not refunded.");
+    }
 }
