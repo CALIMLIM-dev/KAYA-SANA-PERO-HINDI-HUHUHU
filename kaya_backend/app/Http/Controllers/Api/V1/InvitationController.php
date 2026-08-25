@@ -11,6 +11,7 @@ use App\Models\Conversation;
 use App\Models\Invitation;
 use App\Models\JobPost;
 use App\Models\User;
+use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Http\Request;
 
 class InvitationController extends Controller
@@ -39,19 +40,48 @@ class InvitationController extends Controller
         if (!$worker->isWorker()) return $this->fail('User is not a worker', 422);
         if ($worker->is_suspended) return $this->fail('Worker account is suspended', 422);
 
+        /*
+            Matched against the whole key, not a subset of statuses.
+
+            invitations carries a unique index on (job_id, employer_id,
+            worker_id) with no status in it, while this check only looked at
+            pending and accepted. A worker who declined therefore passed the
+            guard and hit the constraint, so re-inviting them answered 500 with
+            a raw SQL error — a live crash on an ordinary action.
+
+            The guard now covers exactly what the index covers, and says which
+            of the three cases it is, because "already invited" and "they said
+            no" call for very different things from the employer.
+        */
         $existing = Invitation::where('job_id', $job->id)
+            ->where('employer_id', $user->id)
             ->where('worker_id', $worker->id)
-            ->whereIn('status', ['pending', 'accepted'])
             ->first();
 
-        if ($existing) return $this->fail('Invitation already sent to this worker', 422);
+        if ($existing) {
+            return $this->fail(match ($existing->status) {
+                'accepted' => $worker->name . ' has already accepted an invitation to this job',
+                'declined' => $worker->name . ' declined an invitation to this job',
+                default    => 'Invitation already sent to this worker',
+            }, 422);
+        }
 
-        $invitation = Invitation::create([
-            'job_id'      => $job->id,
-            'employer_id' => $user->id,
-            'worker_id'   => $worker->id,
-            'status'      => 'pending',
-        ]);
+        try {
+            $invitation = Invitation::create([
+                'job_id'      => $job->id,
+                'employer_id' => $user->id,
+                'worker_id'   => $worker->id,
+                'status'      => 'pending',
+            ]);
+        } catch (UniqueConstraintViolationException) {
+            /*
+                The check above and this insert are two statements, so two
+                taps close together can both pass the read and race here. The
+                database refuses the second, and the friendly answer is the
+                same one it would have been a moment earlier.
+            */
+            return $this->fail('Invitation already sent to this worker', 422);
+        }
 
         InvitationSent::dispatch($invitation->load(['job', 'employer']));
 
