@@ -26,3 +26,11 @@ Thumbs.db
 
 # Conflicted with nixpacks.toml as a second start command
 kaya_backend/Procfile
+
+# Golden test diff output. Regenerated on every failing run.
+kaya_app/test/failures/
+
+# The answer key to the decoy test cases. Never publish this: the four decoys
+# only measure whether a tester really opened the app for as long as nobody
+# knows which four they are.
+TRAP KEY - DO NOT SEND TO TESTER.txt
