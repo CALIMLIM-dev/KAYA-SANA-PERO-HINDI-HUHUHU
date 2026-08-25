@@ -98,10 +98,17 @@ class NotificationService
             ->groupBy('audience')
             ->pluck('total', 'audience');
 
+        // Shared rows count towards BOTH badges, matching scopeForAudience.
+        // Without this the bell disagrees with the list it opens.
+        $shared = (int) $counts->get(UserNotification::AUDIENCE_BOTH, 0);
+
         $this->realtime->push(new NotificationPushed(
             notification: $notification,
-            unreadWorker: (int) $counts->get(UserNotification::AUDIENCE_WORKER, 0),
-            unreadEmployer: (int) $counts->get(UserNotification::AUDIENCE_EMPLOYER, 0),
+            unreadWorker: (int) $counts->get(UserNotification::AUDIENCE_WORKER, 0) + $shared,
+            unreadEmployer: (int) $counts->get(UserNotification::AUDIENCE_EMPLOYER, 0) + $shared,
+            // Every unread row counted once, which the two badges above cannot
+            // give you by addition now that shared rows sit in both.
+            unreadTotal: (int) $counts->sum(),
         ));
     }
 
@@ -282,13 +289,17 @@ class NotificationService
             ? $conversation->employer_id
             : $conversation->worker_id;
 
-        $audience = $senderIsWorker
-            ? UserNotification::AUDIENCE_EMPLOYER
-            : UserNotification::AUDIENCE_WORKER;
+        /*
+            Not scoped to the role on the latest job.
 
+            The inbox shows one thread per person and does not filter by mode,
+            so scoping this would hide the alert for a conversation the
+            recipient can plainly see -- and since the roles swap when two
+            people hire each other, which mode hid it would change over time.
+        */
         $this->push(
             userId: $recipientId,
-            audience: $audience,
+            audience: UserNotification::AUDIENCE_BOTH,
             type: UserNotification::MESSAGE_RECEIVED,
             title: 'New message',
             body: ($message->sender?->name ?? 'Someone') . ': '
@@ -497,7 +508,14 @@ class NotificationService
                 $q->where('category_id', $job->category_id);
 
                 if ($skillIds->isNotEmpty()) {
-                    $q->orWhereHas('skills', fn ($s) => $s->whereIn('skills.id', $skillIds));
+                    /*
+                        WorkerProfile::skills() is a hasMany onto worker_skills_new,
+                        not a pivot to the skills table - so the column to match is
+                        that table's own skill_id. Qualifying it as skills.id put a
+                        table in the where clause that the subquery never joins,
+                        which threw 1054 on every job post.
+                    */
+                    $q->orWhereHas('skills', fn ($s) => $s->whereIn('worker_skills_new.skill_id', $skillIds));
                 }
             })
             ->get()

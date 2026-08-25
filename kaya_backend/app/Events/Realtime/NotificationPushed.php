@@ -29,6 +29,12 @@ class NotificationPushed implements ShouldBroadcastNow
         /** Unread totals so the badge is exact rather than incremented blind. */
         public int $unreadWorker,
         public int $unreadEmployer,
+        /*
+            Passed in rather than added up, because the two badges overlap: a
+            notification with AUDIENCE_BOTH counts towards both of them, so
+            worker + employer would count every message twice.
+        */
+        public int $unreadTotal,
     ) {}
 
     public function broadcastOn(): array
@@ -48,7 +54,7 @@ class NotificationPushed implements ShouldBroadcastNow
             'unread'       => [
                 'worker'   => $this->unreadWorker,
                 'employer' => $this->unreadEmployer,
-                'total'    => $this->unreadWorker + $this->unreadEmployer,
+                'total'    => $this->unreadTotal,
             ],
         ];
     }

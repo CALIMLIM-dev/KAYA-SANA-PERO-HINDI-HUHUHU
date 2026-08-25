@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/foundation.dart';
 
 import '../core/constants/app_mode.dart';
@@ -34,8 +35,6 @@ class AppNotification {
   final bool isRead;
   final DateTime? createdAt;
   final String? age;
-
-  bool get isWorker => audience == 'worker';
 
   factory AppNotification.fromJson(Map<String, dynamic> json) {
     return AppNotification(
@@ -87,6 +86,7 @@ class NotificationProvider with ChangeNotifier {
   List<AppNotification> _items = [];
   int _unreadWorker = 0;
   int _unreadEmployer = 0;
+  int _unreadTotal = 0;
   bool _isLoading = false;
   bool _hasLoadedOnce = false;
   String? _error;
@@ -100,7 +100,11 @@ class NotificationProvider with ChangeNotifier {
 
   int get unreadWorker => _unreadWorker;
   int get unreadEmployer => _unreadEmployer;
-  int get unreadTotal => _unreadWorker + _unreadEmployer;
+
+  /// Held separately rather than added up: a shared notification counts towards
+  /// both badges, so worker + employer would count every message twice. The
+  /// server sends this already counted, the same way it sends the other two.
+  int get unreadTotal => _unreadTotal;
 
   /// The badge for the mode the user is currently in. A neutral account (no
   /// profiles yet) sees everything, which matches what the list shows them.
@@ -116,7 +120,13 @@ class NotificationProvider with ChangeNotifier {
   List<AppNotification> itemsFor(AppMode? mode) {
     if (mode == null) return items;
     final wanted = mode == AppMode.worker ? 'worker' : 'employer';
-    return _items.where((n) => n.audience == wanted).toList(growable: false);
+    // 'both' belongs to whichever mode is showing. Messages use it, because the
+    // inbox is not filtered by mode either — hiding the alert for a thread the
+    // user can plainly see is how a hybrid misses a message. Mirrors
+    // UserNotification::scopeForAudience on the server.
+    return _items
+        .where((n) => n.audience == wanted || n.audience == 'both')
+        .toList(growable: false);
   }
 
   // ── loading ────────────────────────────────────────────────────────────────
@@ -194,11 +204,24 @@ class NotificationProvider with ChangeNotifier {
     final snapshot = List.of(_items);
     final beforeWorker = _unreadWorker;
     final beforeEmployer = _unreadEmployer;
+    final beforeTotal = _unreadTotal;
+
+    /*
+        Shared rows are cleared too, and must be.
+
+        They are shown in whichever mode is open, so "mark all read" from here
+        visibly covers them — and the server agrees, because forAudience()
+        matches them in both modes. Leaving them unread locally would put the
+        badge and the list it opens into disagreement until the next fetch.
+    */
+    bool inScope(AppNotification n) =>
+        audience == null || n.audience == audience || n.audience == 'both';
+
+    final clearedShared =
+        _items.where((n) => !n.isRead && n.audience == 'both').length;
 
     _items = _items
-        .map((n) => (audience == null || n.audience == audience)
-            ? n.copyWith(isRead: true)
-            : n)
+        .map((n) => inScope(n) ? n.copyWith(isRead: true) : n)
         .toList();
 
     if (audience == null) {
@@ -206,9 +229,16 @@ class NotificationProvider with ChangeNotifier {
       _unreadEmployer = 0;
     } else if (audience == 'worker') {
       _unreadWorker = 0;
+      // The shared ones just left the other badge as well.
+      _unreadEmployer = (_unreadEmployer - clearedShared).clamp(0, 1 << 30);
     } else {
       _unreadEmployer = 0;
+      _unreadWorker = (_unreadWorker - clearedShared).clamp(0, 1 << 30);
     }
+
+    // Nothing shared is unread any more, so the badges no longer overlap and
+    // adding them is exact again.
+    _unreadTotal = _unreadWorker + _unreadEmployer;
     notifyListeners();
 
     try {
@@ -220,6 +250,7 @@ class NotificationProvider with ChangeNotifier {
       _items = snapshot;
       _unreadWorker = beforeWorker;
       _unreadEmployer = beforeEmployer;
+      _unreadTotal = beforeTotal;
       notifyListeners();
       debugPrint('[notifications] markAllRead failed: $e');
     }
@@ -230,8 +261,14 @@ class NotificationProvider with ChangeNotifier {
     _items = [];
     _unreadWorker = 0;
     _unreadEmployer = 0;
+    _unreadTotal = 0;
     _hasLoadedOnce = false;
     _error = null;
+    // Reset the watermark too, or the next account to sign in on this handset
+    // starts with the previous one's highest id and sees no banners until it
+    // is passed.
+    _newestSeenId = 0;
+    stopPolling();
     notifyListeners();
   }
 
@@ -269,12 +306,103 @@ class NotificationProvider with ChangeNotifier {
   @visibleForTesting
   void debugHandlePush(Map<String, dynamic> data) => _onPushed(data);
 
+  /*
+      Polling, because the socket is not the delivery mechanism here.
+
+      The in-app banner listened only to `notification.created` over the
+      WebSocket. This project has no push provider by choice and Reverb is not
+      part of the deployment, so that event never arrives and no banner ever
+      appeared — the notification landed silently in the list instead.
+
+      This asks the same endpoint the background service already polls, on the
+      same cadence, and republishes anything genuinely new through `arrived`.
+      Everything downstream then works whether a socket exists or not.
+  */
+  static const Duration _pollEvery = Duration(seconds: 8);
+
+  Timer? _poll;
+  int _newestSeenId = 0;
+
+  /// Fires once per newly-arrived notification, newest last. The banner host
+  /// listens to this; nothing else should need it.
+  final ValueNotifier<AppNotification?> arrived = ValueNotifier(null);
+
+  void startPolling() {
+    _poll ??= Timer.periodic(_pollEvery, (_) => _pollOnce());
+    _pollOnce();
+  }
+
+  void stopPolling() {
+    _poll?.cancel();
+    _poll = null;
+  }
+
+  Future<void> _pollOnce() async {
+    try {
+      final response = await _api.get('/notifications', queryParameters: {
+        'per_page': 10,
+      });
+
+      final payload = response.data['data'];
+      final rows = payload is Map ? payload['data'] : payload;
+
+      final fetched = (rows as List? ?? [])
+          .whereType<Map>()
+          .map((r) => AppNotification.fromJson(Map<String, dynamic>.from(r)))
+          .toList();
+
+      absorbPolled(fetched);
+    } catch (e) {
+      // A missed poll is a late banner, not a failure worth surfacing.
+      debugPrint('[notifications] poll failed: $e');
+    }
+  }
+
+  /// The merge half of a poll, split out so it can be tested without a server.
+  /// Announcing the same notification twice, or announcing a whole unread
+  /// backlog on launch, both fail silently — they just look like a buggy app.
+  @visibleForTesting
+  void absorbPolled(List<AppNotification> fetched) {
+    if (fetched.isEmpty) return;
+
+    // First poll of a session only establishes the high-water mark. Without
+    // this, opening the app would fire a banner for every unread backlog
+    // item at once.
+    if (_newestSeenId == 0) {
+      _newestSeenId = fetched.map((n) => n.id).reduce((a, b) => a > b ? a : b);
+      return;
+    }
+
+    final fresh = fetched.where((n) => n.id > _newestSeenId).toList()
+      ..sort((a, b) => a.id.compareTo(b.id));
+
+    if (fresh.isEmpty) return;
+
+    _newestSeenId = fresh.last.id;
+
+    for (final n in fresh) {
+      _items.removeWhere((existing) => existing.id == n.id);
+      _items.insert(0, n);
+    }
+
+    _recountFromItems();
+    notifyListeners();
+
+    for (final n in fresh) {
+      arrived.value = n;
+    }
+  }
+
   void _onPushed(Map<String, dynamic> data) {
     final raw = data['notification'];
     if (raw is! Map) return;
 
     final notification =
         AppNotification.fromJson(Map<String, dynamic>.from(raw));
+
+    // Keep the poll's high-water mark in step, so a pushed notification is not
+    // re-announced by the next poll.
+    if (notification.id > _newestSeenId) _newestSeenId = notification.id;
 
     // De-duplicate on id. A notification can arrive twice — once pushed, once
     // in a refresh that raced it — and appending blindly would show it twice.
@@ -287,6 +415,8 @@ class NotificationProvider with ChangeNotifier {
     if (unread is Map) {
       _unreadWorker = asInt(unread['worker']);
       _unreadEmployer = asInt(unread['employer']);
+      // Sent already counted, because the two above overlap on shared rows.
+      _unreadTotal = asInt(unread['total']);
     } else {
       _recountFromItems();
     }
@@ -296,21 +426,41 @@ class NotificationProvider with ChangeNotifier {
 
   // ── helpers ────────────────────────────────────────────────────────────────
 
+  /*
+      A shared notification counts towards BOTH badges.
+
+      It shows in both lists, so a badge that only lit in one would send the
+      user to a list that had already changed without warning them — and for a
+      message, the other mode would show no bell at all for a thread sitting
+      right there in the inbox.
+
+      The two totals therefore overlap by design, which is why unreadTotal
+      cannot simply add them.
+  */
   void _recountFromItems() {
-    _unreadWorker = _items.where((n) => !n.isRead && n.isWorker).length;
-    _unreadEmployer = _items.where((n) => !n.isRead && !n.isWorker).length;
+    bool unreadIn(AppNotification n, String audience) =>
+        !n.isRead && (n.audience == audience || n.audience == 'both');
+
+    _unreadWorker = _items.where((n) => unreadIn(n, 'worker')).length;
+    _unreadEmployer = _items.where((n) => unreadIn(n, 'employer')).length;
+    _unreadTotal = _items.where((n) => !n.isRead).length;
   }
 
   void _adjustUnread(String audience, int delta) {
-    if (audience == 'worker') {
+    if (audience == 'worker' || audience == 'both') {
       _unreadWorker = (_unreadWorker + delta).clamp(0, 1 << 30);
-    } else {
+    }
+    if (audience == 'employer' || audience == 'both') {
       _unreadEmployer = (_unreadEmployer + delta).clamp(0, 1 << 30);
     }
+    // Once, however many badges it touched.
+    _unreadTotal = (_unreadTotal + delta).clamp(0, 1 << 30);
   }
 
   @override
   void dispose() {
+    stopPolling();
+    arrived.dispose();
     _disposeListener?.call();
     RealtimeService.instance.connected.removeListener(_onConnectionChanged);
     super.dispose();

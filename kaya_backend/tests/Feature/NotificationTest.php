@@ -92,8 +92,20 @@ class NotificationTest extends TestCase
         $this->assertDatabaseCount('user_notifications', 0);
     }
 
+    /*
+        The audience half of this used to assert 'employer' and 'worker'.
+
+        That was the bug. The inbox shows one thread per person and does not
+        filter by mode, so scoping a message notification to the role on the
+        latest job hid the alert from a hybrid sitting in the other mode -- for
+        a conversation they can see in their own inbox. Since roles swap when
+        two people hire each other, which mode hid it changed over time too.
+
+        Who receives it is unchanged and still asserted: that half was always
+        right, and it is the half a careless edit is most likely to break.
+    */
     /** @test */
-    public function message_notifications_go_to_the_other_side_in_that_sides_capacity()
+    public function message_notifications_go_to_the_other_side_and_show_in_both_modes()
     {
         $employer = User::factory()->create();
         $worker   = User::factory()->create();
@@ -117,7 +129,7 @@ class NotificationTest extends TestCase
 
         $this->assertDatabaseHas('user_notifications', [
             'user_id'  => $employer->id,
-            'audience' => UserNotification::AUDIENCE_EMPLOYER,
+            'audience' => UserNotification::AUDIENCE_BOTH,
             'type'     => UserNotification::MESSAGE_RECEIVED,
         ]);
 
@@ -132,8 +144,88 @@ class NotificationTest extends TestCase
 
         $this->assertDatabaseHas('user_notifications', [
             'user_id'  => $worker->id,
-            'audience' => UserNotification::AUDIENCE_WORKER,
+            'audience' => UserNotification::AUDIENCE_BOTH,
             'type'     => UserNotification::MESSAGE_RECEIVED,
+        ]);
+
+        // The sender is never notified of their own message. Kept because this
+        // is the guard that a refactor of the recipient logic silently breaks.
+        $this->assertDatabaseMissing('user_notifications', [
+            'user_id' => $worker->id,
+            'actor_id' => $worker->id,
+            'type' => UserNotification::MESSAGE_RECEIVED,
+        ]);
+    }
+
+    /*
+        The other half of the same rule: widening messages must not widen
+        everything. Role-scoped news stays scoped, or the per-mode badge stops
+        meaning anything.
+    */
+    /** @test */
+    public function a_shared_notification_survives_both_audience_filters()
+    {
+        $hybrid = User::factory()->create();
+
+        UserNotification::create([
+            'user_id' => $hybrid->id,
+            'audience' => UserNotification::AUDIENCE_BOTH,
+            'type' => UserNotification::MESSAGE_RECEIVED,
+            'title' => 'New message',
+            'body' => 'Someone: hello',
+        ]);
+
+        foreach (['worker', 'employer'] as $mode) {
+            $this->actingAs($hybrid, 'sanctum')
+                ->getJson("/api/v1/notifications?audience={$mode}")
+                ->assertOk()
+                ->assertJsonCount(1, 'data.data');
+
+            $this->actingAs($hybrid, 'sanctum')
+                ->getJson("/api/v1/notifications/unread-count?audience={$mode}")
+                ->assertOk()
+                ->assertJsonPath('data.unread_count', 1);
+        }
+    }
+
+    /*
+        Marking one mode read clears the shared rows too, and that is correct:
+        they were listed in that mode, so the user just read them. The client
+        mirrors this locally -- if the two ever disagree, the badge and the list
+        it opens stop matching.
+    */
+    /** @test */
+    public function marking_one_mode_read_also_clears_shared_notifications()
+    {
+        $hybrid = User::factory()->create();
+
+        UserNotification::create([
+            'user_id' => $hybrid->id,
+            'audience' => UserNotification::AUDIENCE_BOTH,
+            'type' => UserNotification::MESSAGE_RECEIVED,
+            'title' => 'New message',
+        ]);
+        UserNotification::create([
+            'user_id' => $hybrid->id,
+            'audience' => UserNotification::AUDIENCE_EMPLOYER,
+            'type' => UserNotification::APPLICATION_RECEIVED,
+            'title' => 'New applicant',
+        ]);
+
+        $this->actingAs($hybrid, 'sanctum')
+            ->postJson('/api/v1/notifications/read-all', ['audience' => 'worker'])
+            ->assertOk();
+
+        $this->assertDatabaseMissing('user_notifications', [
+            'audience' => UserNotification::AUDIENCE_BOTH,
+            'read_at' => null,
+        ]);
+
+        // The employer-only row was never on screen in worker mode, so it stays
+        // unread. Clearing it would dismiss news the user has not seen.
+        $this->assertDatabaseHas('user_notifications', [
+            'audience' => UserNotification::AUDIENCE_EMPLOYER,
+            'read_at' => null,
         ]);
     }
 

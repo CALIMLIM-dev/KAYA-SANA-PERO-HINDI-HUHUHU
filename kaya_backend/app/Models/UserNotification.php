@@ -27,6 +27,16 @@ class UserNotification extends Model
     public const AUDIENCE_WORKER = 'worker';
     public const AUDIENCE_EMPLOYER = 'employer';
 
+    /*
+        For notifications whose target is shared between both roles.
+
+        Only messages use this, and deliberately so. The inbox is not filtered
+        by mode -- there is one thread per person regardless of who hired whom
+        -- so a notification that opens a thread must not be hidden by a mode
+        the thread itself ignores. Role-scoped news stays role-scoped.
+    */
+    public const AUDIENCE_BOTH = 'both';
+
     /**
      * Event types. Kept as constants so the app and the emitters agree on the
      * exact strings — the client switches on these for icons and routing.
@@ -144,6 +154,10 @@ class UserNotification extends Model
             return $query;
         }
 
-        return $query->where('audience', $audience);
+        // AUDIENCE_BOTH survives every filter, which is the whole point of it.
+        return $query->where(
+            fn ($q) => $q->where('audience', $audience)
+                ->orWhere('audience', self::AUDIENCE_BOTH)
+        );
     }
 }

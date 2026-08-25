@@ -21,6 +21,9 @@ void main() {
     bool isRead = false,
     int unreadWorker = 1,
     int unreadEmployer = 0,
+    // Sent by the server already counted, NOT added up here: a shared row sits
+    // in both badges, so the sum is not the number of unread notifications.
+    int? unreadTotal,
     String? createdAt,
   }) {
     return {
@@ -39,7 +42,7 @@ void main() {
       'unread': {
         'worker': unreadWorker,
         'employer': unreadEmployer,
-        'total': unreadWorker + unreadEmployer,
+        'total': unreadTotal ?? unreadWorker + unreadEmployer,
       },
     };
   }
@@ -121,6 +124,48 @@ void main() {
       expect(provider.unreadFor(AppMode.worker), 3);
       expect(provider.unreadFor(AppMode.employer), 5);
     });
+
+    /*
+        Messages are the one thing that belongs to both modes, because the inbox
+        shows one thread per person and does not filter by mode. Scoping them to
+        the role on the latest job meant a hybrid in the other mode got no bell
+        and no banner for a conversation sitting in their own inbox — and since
+        roles swap when two people hire each other, which mode hid it changed
+        over time.
+    */
+    test('a shared notification shows in both modes', () {
+      final provider = NotificationProvider();
+
+      provider.debugHandlePush(push(
+        id: 1,
+        audience: 'both',
+        type: 'message.received',
+        title: 'New message',
+      ));
+
+      expect(provider.itemsFor(AppMode.worker).map((n) => n.id), [1]);
+      expect(provider.itemsFor(AppMode.employer).map((n) => n.id), [1]);
+    });
+
+    test('a shared notification is not counted twice in the total', () {
+      // The two badges deliberately overlap on shared rows, so adding them up
+      // would report two unread where the user can see one.
+      final provider = NotificationProvider();
+
+      provider.debugHandlePush(push(
+        id: 1,
+        audience: 'both',
+        type: 'message.received',
+        unreadWorker: 1,
+        unreadEmployer: 1,
+        unreadTotal: 1,
+      ));
+
+      expect(provider.unreadWorker, 1);
+      expect(provider.unreadEmployer, 1);
+      expect(provider.unreadFor(null), 1);
+    });
+
   });
 
   group('clear', () {
