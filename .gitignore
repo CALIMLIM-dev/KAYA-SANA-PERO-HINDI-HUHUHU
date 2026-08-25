@@ -34,3 +34,8 @@ kaya_app/test/failures/
 # only measure whether a tester really opened the app for as long as nobody
 # knows which four they are.
 TRAP KEY - DO NOT SEND TO TESTER.txt
+
+# Gradle build output. Regenerated on every compile, so it belongs nowhere near
+# a commit — one report file had already slipped in.
+kaya_app/android/build/
+kaya_app/android/.gradle/
