@@ -21,6 +21,7 @@ class ReviewProvider with ChangeNotifier {
     required int jobId,
     required int rating,
     String? comment,
+    List<String> tags = const [],
   }) async {
     _isSubmitting = true;
     _errorMessage = null;
@@ -33,6 +34,9 @@ class ReviewProvider with ChangeNotifier {
         'rating': rating,
         if (comment != null && comment.trim().isNotEmpty)
           'comment': comment.trim(),
+        // Omitted rather than sent empty, so a review with no chips picked
+        // reads as "never asked" rather than "nothing stood out".
+        if (tags.isNotEmpty) 'tags': tags,
       });
 
       _isSubmitting = false;

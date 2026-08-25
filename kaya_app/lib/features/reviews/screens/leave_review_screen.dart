@@ -367,6 +367,9 @@ class _LeaveReviewScreenState extends State<LeaveReviewScreen> {
       jobId: jobId,
       rating: _rating,
       comment: _commentController.text,
+      // These were collected into _selectedTags and then left behind — the
+      // chips responded to every tap and changed nothing.
+      tags: _selectedTags.toList(),
     );
 
     if (!mounted) return;

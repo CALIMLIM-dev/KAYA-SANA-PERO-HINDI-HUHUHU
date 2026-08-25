@@ -298,6 +298,7 @@ class EmployerProfileController extends Controller
                 'rating'   => $r->rating,
                 'date'     => $r->created_at?->diffForHumans(),
                 'comment'  => $r->comment,
+                'tags'     => $r->tags ?? [],
             ])->values(),
         ]);
     }

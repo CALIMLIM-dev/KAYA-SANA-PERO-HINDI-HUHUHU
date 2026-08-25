@@ -35,6 +35,16 @@ class ReviewController extends Controller
             'job_id'      => ['required', 'exists:jobs_posts,id'],
             'rating'      => ['required', 'integer', 'min:1', 'max:5'],
             'comment'     => ['nullable', 'string', 'max:1000'],
+            /*
+                What stood out, as short labels.
+
+                Bounded on purpose. The app offers seven fixed chips, but this
+                is an open field on the wire, so without a cap it is a place to
+                paste a paragraph and have it render as a chip on someone's
+                public profile.
+            */
+            'tags'        => ['nullable', 'array', 'max:5'],
+            'tags.*'      => ['string', 'max:40'],
         ]);
 
         $revieweeId = (int) $data['reviewee_id'];
@@ -89,6 +99,11 @@ class ReviewController extends Controller
                 'reviewee_role' => $role,
                 'rating'        => $data['rating'],
                 'comment'       => $data['comment'] ?? null,
+                // Deduplicated and re-indexed, so the same chip sent twice is
+                // stored once and the json is a list rather than an object.
+                'tags'          => isset($data['tags'])
+                    ? array_values(array_unique($data['tags']))
+                    : null,
             ]);
 
             $this->recomputeRating($revieweeId, $role);
