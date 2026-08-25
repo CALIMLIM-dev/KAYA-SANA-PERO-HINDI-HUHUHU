@@ -88,12 +88,19 @@ class _MyEmployerProfileScreenState extends State<MyEmployerProfileScreen>
               icon: const Icon(Icons.arrow_back, color: Colors.white),
               onPressed: () => Navigator.pop(context),
             ),
-            actions: [
-              IconButton(
-                icon: const Icon(Icons.more_vert, color: Colors.white),
-                onPressed: () {},
-              ),
-            ],
+            /*
+                The overflow menu is gone rather than filled.
+
+                It was an IconButton with an empty handler — three dots at the
+                top of the screen that opened nothing, on the one screen where
+                people go looking for how to change their details. Every action
+                it might plausibly have held is already a tappable card below
+                it, so there was nothing to move into it.
+
+                Removed rather than left inert: a control that answers a tap
+                with silence reads as the app being broken, and it sends people
+                hunting in the wrong place for the edit they wanted.
+            */
             flexibleSpace: FlexibleSpaceBar(
               background: _buildHeader(),
             ),

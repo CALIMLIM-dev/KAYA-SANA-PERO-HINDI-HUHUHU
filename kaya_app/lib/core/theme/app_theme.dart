@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../constants/app_colors.dart';
 
@@ -82,6 +83,54 @@ class AppTheme {
           foregroundColor: Colors.white,
           padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(radiusMedium)),
+        ),
+      ),
+
+      /*
+          Dividers, which were never given a colour.
+
+          21 of the 27 in the app were written as a bare Divider, so they fell
+          through to the framework default — a line dark enough to read as
+          black against these light surfaces. The handful that looked right
+          were the ones where somebody had passed a colour by hand, which is
+          why the inbox and the public worker profile stood out while the login
+          screen did not.
+
+          Setting it here fixes every bare one at once and leaves the explicit
+          ones alone, since a colour on the widget still wins.
+
+          `space` is deliberately not set. Several dividers use `height` for
+          their spacing (Divider(height: 26) on the worker profile, for one),
+          and a theme-level space would quietly change that layout while we
+          are only trying to change a colour.
+      */
+      dividerColor: AppColors.neutral200,
+      dividerTheme: const DividerThemeData(
+        color: AppColors.neutral200,
+        thickness: 1,
+      ),
+
+      /*
+          Stops an AppBar from repainting the system navigation bar black.
+
+          main() sets the overlay style once at startup, but every AppBar
+          re-applies its own on the way in, and the default it computes puts
+          the navigation area back to the platform colour with its divider
+          restored. That is why the black band looked like a Messages problem:
+          Messages has an AppBar, so it undid the global setting the moment it
+          opened.
+
+          Only the three navigation fields are given. The status bar entries
+          are deliberately left null so each AppBar still works its own out
+          from its background colour — the bars in this app are not all the
+          same shade, and forcing one icon brightness would make the clock
+          disappear on the light ones.
+      */
+      appBarTheme: const AppBarTheme(
+        systemOverlayStyle: SystemUiOverlayStyle(
+          systemNavigationBarColor: Colors.white,
+          systemNavigationBarDividerColor: Colors.transparent,
+          systemNavigationBarIconBrightness: Brightness.dark,
         ),
       ),
     );

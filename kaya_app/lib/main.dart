@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'core/theme/app_theme.dart';
 import 'core/navigation/app_router.dart';
@@ -29,6 +30,28 @@ void main() async {
   // Android drops a notification aimed at a channel that does not exist yet,
   // so this has to happen before anything tries to start the service.
   BackgroundController.instance.configure();
+
+  /*
+      The black band under the bottom navigation.
+
+      Android draws its own navigation area — the gesture pill or the three
+      buttons — and until an app says otherwise it paints that area with the
+      platform default and puts a hairline divider above it. Both are dark, so
+      the app's white nav bar sat on a black strip with a black line across the
+      top of it, on every screen.
+
+      Nothing in the app had ever set this, which is why it looked like a
+      styling bug in Messages when it was really the operating system drawing
+      underneath every screen equally.
+
+      systemNavigationBarDividerColor is the line itself, and it has to be
+      cleared separately — setting the bar colour alone leaves the rule behind.
+  */
+  SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
+    systemNavigationBarColor: Colors.white,
+    systemNavigationBarDividerColor: Colors.transparent,
+    systemNavigationBarIconBrightness: Brightness.dark,
+  ));
 
   runApp(const KayaApp());
 }

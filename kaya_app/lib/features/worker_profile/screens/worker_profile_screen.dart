@@ -4,11 +4,10 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../../../core/constants/app_colors.dart';
 import '../../../core/utils/json_parse.dart';
-import '../../../providers/invitation_provider.dart';
-import '../../../providers/job_provider.dart';
 import '../../../providers/worker_browse_provider.dart';
 import '../../../core/navigation/main_navigation.dart';
 import '../../../core/widgets/app_toast.dart';
+import '../../invitations/widgets/invite_to_job.dart';
 
 /// Public Worker Profile Screen — shown to employers when browsing workers.
 /// Reads {'workerId': int} from route arguments and fetches the real profile
@@ -23,6 +22,21 @@ class WorkerProfileScreen extends StatefulWidget {
 class _WorkerProfileScreenState extends State<WorkerProfileScreen> {
   int? _workerId;
   bool _requested = false;
+
+  /*
+      Whether the reviews section is showing all of them.
+
+      See All was a TextButton with an empty handler. On a worker with four or
+      more reviews it appeared, invited the tap, and did nothing — and the
+      three reviews on screen were the newest, so the ones it was hiding were
+      exactly the history someone was trying to read before hiring.
+
+      Expanded in place rather than on a new screen. There is nothing on a
+      reviews page that is not already here, and a route would need a new
+      screen, a registration and an argument for a list the profile already
+      holds.
+  */
+  bool _showAllReviews = false;
 
   @override
   void didChangeDependencies() {
@@ -547,16 +561,28 @@ class _WorkerProfileScreenState extends State<WorkerProfileScreen> {
               child: _section(
                 title: 'Reviews & Ratings',
                 showSeeAll: reviews.length > 3,
+                seeAllLabel: _showAllReviews ? 'Show less' : 'See all',
+                onSeeAll: () =>
+                    setState(() => _showAllReviews = !_showAllReviews),
                 child: Column(
                   children: [
-                    for (var i = 0; i < reviews.length && i < 3; i++) ...[
+                    for (var i = 0;
+                        i < reviews.length &&
+                            (_showAllReviews || i < 3);
+                        i++) ...[
                       _reviewItem(
                         name: (reviews[i]['reviewer'] ?? '').toString(),
                         rating: (reviews[i]['rating'] as num?)?.toInt() ?? 5,
                         date: (reviews[i]['date'] ?? '').toString(),
                         comment: (reviews[i]['comment'] ?? '').toString(),
+                        tags: ((reviews[i]['tags'] as List?) ?? const [])
+                            .map((t) => t.toString())
+                            .where((t) => t.isNotEmpty)
+                            .toList(),
                       ),
-                      if (i < 2 && i < reviews.length - 1) const Divider(height: 24),
+                      if (i < reviews.length - 1 &&
+                          (_showAllReviews || i < 2))
+                        const Divider(height: 24),
                     ],
                   ],
                 ),
@@ -593,6 +619,8 @@ class _WorkerProfileScreenState extends State<WorkerProfileScreen> {
     required String title,
     required Widget child,
     bool showSeeAll = false,
+    String seeAllLabel = 'See all',
+    VoidCallback? onSeeAll,
   }) {
     return Container(
       width: double.infinity,
@@ -614,15 +642,17 @@ class _WorkerProfileScreenState extends State<WorkerProfileScreen> {
                       fontSize: 18,
                       fontWeight: FontWeight.bold,
                       color: AppColors.neutral900)),
-              if (showSeeAll)
+              // Rendered only when it can act. A label that looks like a
+              // button and ignores taps is worse than no label.
+              if (showSeeAll && onSeeAll != null)
                 TextButton(
-                  onPressed: () {},
+                  onPressed: onSeeAll,
                   style: TextButton.styleFrom(
                       padding: EdgeInsets.zero,
                       minimumSize: Size.zero,
                       tapTargetSize: MaterialTapTargetSize.shrinkWrap),
-                  child: const Text('See All',
-                      style: TextStyle(
+                  child: Text(seeAllLabel,
+                      style: const TextStyle(
                           color: AppColors.primary,
                           fontSize: 14,
                           fontWeight: FontWeight.w600)),
@@ -968,6 +998,7 @@ class _WorkerProfileScreenState extends State<WorkerProfileScreen> {
     required int rating,
     required String date,
     required String comment,
+    List<String> tags = const [],
   }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -1018,93 +1049,54 @@ class _WorkerProfileScreenState extends State<WorkerProfileScreen> {
         const SizedBox(height: 8),
         Text(comment,
             style: const TextStyle(fontSize: 14, color: AppColors.neutral700, height: 1.5)),
+
+        /*
+            What stood out, from the chips the reviewer picked.
+
+            These were collected on the review screen and thrown away — no
+            column, no field on the request, nothing rendered. Showing them
+            here is the whole reason for asking: a rating says how well the job
+            went and this says which part of it.
+        */
+        if (tags.isNotEmpty) ...[
+          const SizedBox(height: 10),
+          Wrap(
+            spacing: 6,
+            runSpacing: 6,
+            children: [
+              for (final tag in tags)
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                  decoration: BoxDecoration(
+                    color: AppColors.primary.withValues(alpha: 0.07),
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Text(
+                    tag,
+                    style: const TextStyle(
+                      fontSize: 11.5,
+                      color: AppColors.primary,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        ],
       ],
     );
   }
 
   /// Picks one of your open jobs and sends a real invitation.
   ///
-  /// The dialog said "Select a job post to invite $name to apply for" and then
-  /// offered a single "Select Job" button that selected nothing, popped, and
-  /// announced "Invitation sent!". No job was chosen, no request was made, and
-  /// the worker never saw an invitation — while the receiving side of the
-  /// feature was fully built and waiting.
+  /// The dialog itself now lives in features/invitations, because the chat
+  /// offers the same action — reaching a worker you have already hired through
+  /// their profile screen was the long way round. Kept as a method here so the
+  /// button above reads the same as it always did.
   Future<void> _showInviteDialog(BuildContext context, String workerName) async {
     if (_workerId == null) return;
 
-    final jobProvider = context.read<JobProvider>();
-    await jobProvider.fetchMyJobs();
-    if (!mounted) return;
-
-    // Only open jobs can carry an invitation — the server refuses the rest.
-    final openJobs = jobProvider.jobs
-        .where((j) => (j['status'] ?? '').toString() == 'open')
-        .toList();
-
-    if (openJobs.isEmpty) {
-      AppToast.info(context, 'Post an open job first, then you can invite $workerName.');
-      return;
-    }
-
-    final jobId = await showDialog<int>(
-      context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: const Text('Invite to apply'),
-        content: SizedBox(
-          width: double.maxFinite,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text('Which job is $workerName being invited to?',
-                  style: const TextStyle(fontSize: 13.5, color: AppColors.neutral600)),
-              const SizedBox(height: 12),
-              Flexible(
-                child: ListView.builder(
-                  shrinkWrap: true,
-                  itemCount: openJobs.length,
-                  itemBuilder: (_, i) {
-                    final job = openJobs[i];
-                    return ListTile(
-                      contentPadding: EdgeInsets.zero,
-                      title: Text((job['title'] ?? 'Untitled').toString(),
-                          style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
-                      subtitle: Text((job['location'] ?? '').toString(),
-                          style: const TextStyle(fontSize: 12)),
-                      onTap: () => Navigator.pop(dialogContext, job['id'] as int?),
-                    );
-                  },
-                ),
-              ),
-            ],
-          ),
-        ),
-        actions: [
-          TextButton(
-              onPressed: () => Navigator.pop(dialogContext),
-              child: const Text('Cancel')),
-        ],
-      ),
-    );
-
-    if (jobId == null || !mounted) return;
-
-    final sent = await context
-        .read<InvitationProvider>()
-        .sendInvitation(jobId: jobId, workerId: _workerId!);
-
-    if (!mounted) return;
-
-    if (sent) {
-      AppToast.success(context, 'Invitation sent to $workerName.');
-    } else {
-      // Surfaces the server's own reason — already invited, worker suspended,
-      // job no longer open — rather than a generic failure.
-      AppToast.error(
-        context,
-        context.read<InvitationProvider>().errorMessage ??
-            'Could not send the invitation.',
-      );
-    }
+    await showInviteToJobSheet(context,
+        workerId: _workerId!, workerName: workerName);
   }
 }

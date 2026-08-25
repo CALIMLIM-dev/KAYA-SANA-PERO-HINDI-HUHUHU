@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../profile/widgets/change_password_sheet.dart';
 import 'package:provider/provider.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/employer_type.dart';
@@ -184,7 +185,11 @@ class _EditEmployerProfileScreenState
                     icon: Icons.lock_outline,
                     label: 'Change Password',
                     onTap: () {
-                      AppToast.info(context, 'Password change — coming soon');
+                      // Was "coming soon" for a form that has been finished and
+                      // wired to PUT /me/password the whole time — it just
+                      // lived inside the settings screen and nothing else
+                      // could reach it.
+                      showChangePasswordSheet(context);
                     },
                   ),
 
