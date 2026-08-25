@@ -99,8 +99,28 @@ class DemoDataSeeder extends Seeder
         foreach ($names as $i => $name) {
             $slug = str($name)->slug('.')->lower()->toString();
 
-            // Spread across the window so the sign-up trend has a shape.
-            $created = Carbon::now()->subDays(random_int(1, 88))->setTime(random_int(7, 20), random_int(0, 59));
+            /*
+                Spread across the window so the sign-up trend has a shape.
+
+                Dealt out rather than drawn at random. A uniform random pick
+                over 88 days puts only about a third of these inside the 30 day
+                chart the analytics page opens on, and occasionally lands the
+                survivors on a single day — leaving the sign-up chart as one
+                bar, or none, in front of whoever the demo is for. It also made
+                the seeder test intermittent, which is worse than a failing
+                test because it teaches people to re-run rather than look.
+
+                Alternating between a recent stretch and the older tail keeps
+                the long trend interesting while guaranteeing several distinct
+                days inside every period the page offers, including the
+                shortest.
+            */
+            $daysAgo = $i % 2 === 0
+                ? 1 + ($i % 6)                       // inside even a 7 day view
+                : 8 + (($i * 7) % 80);               // the older tail
+
+            $created = Carbon::now()->subDays($daysAgo)
+                ->setTime(random_int(7, 20), random_int(0, 59));
 
             $user = User::create([
                 'name'              => $name,
