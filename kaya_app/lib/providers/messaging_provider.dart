@@ -170,6 +170,25 @@ class MessagingProvider with ChangeNotifier {
       // socket, or the next poll, will catch up.
       if (silent) return;
 
+      /*
+          Neither must a failed refresh throw away what was already painted.
+
+          The cache is loaded above precisely so a thread is readable with no
+          signal. Clearing _messages here undid that a moment later: the
+          messages appeared, the request failed, and the screen emptied - which
+          is what testers saw as "nothing shows until you turn WiFi back on".
+
+          With something on screen the failure is not worth an error either.
+          The content is real, merely not just-refreshed, and an error banner
+          over a readable thread only says the network is down, which the
+          phone already shows.
+      */
+      if (_messages.isNotEmpty) {
+        _isMessagesLoading = false;
+        notifyListeners();
+        return;
+      }
+
       _messagesError = e.toString().replaceFirst('Exception: ', '');
       _messages = [];
       _isMessagesLoading = false;

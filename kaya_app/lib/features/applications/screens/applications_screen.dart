@@ -516,6 +516,21 @@ class _JobPostCard extends StatelessWidget {
     final hire = job['hire'] as Map<String, dynamic>?;
 
     final iConfirmed = hire?['employer_completed_at'] != null;
+
+    /*
+        The worker's side of the confirmation, which this card never read.
+
+        The worker's own card has always had both halves — it says "waiting for
+        the employer" after they confirm, and "the employer marked this done"
+        when the employer goes first. This one only ever had the first half, so
+        an employer whose worker had already finished saw a bare Mark as
+        complete button with nothing explaining that somebody was waiting on
+        them. The information was in the payload the whole time and simply was
+        not being looked at.
+    */
+    final theyConfirmed = hire?['worker_completed_at'] != null;
+    final workerName = (hire?['worker_name'] ?? 'the worker').toString();
+
     final workDone = hire?['status'] == 'completed';
     final canConfirm = hire != null && !workDone && !iConfirmed;
     final canReview = hire != null && workDone && hire['i_reviewed_them'] != true;
@@ -523,9 +538,13 @@ class _JobPostCard extends StatelessWidget {
     final String? note = hire == null
         ? null
         : !workDone
-            ? (iConfirmed ? 'Waiting for ${hire['worker_name']} to confirm' : null)
+            ? (iConfirmed
+                ? 'Marked done · waiting for $workerName to confirm'
+                : theyConfirmed
+                    ? '$workerName marked this done — confirm to finish it'
+                    : null)
             : hire['i_reviewed_them'] == true
-                ? 'You reviewed ${hire['worker_name']}'
+                ? 'You reviewed $workerName'
                 : null;
 
     return _cardShell(

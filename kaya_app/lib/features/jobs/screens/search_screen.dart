@@ -7,6 +7,8 @@ import '../../../core/constants/app_colors.dart';
 import '../../../core/utils/format.dart';
 import '../../../data/models/job_model.dart';
 import '../../../data/models/worker_profile_model.dart';
+import '../../../core/constants/app_mode.dart';
+import '../../../providers/app_mode_provider.dart';
 import '../../../providers/job_provider.dart';
 import '../../../providers/worker_browse_provider.dart';
 import '../../../providers/worker_profile_provider.dart';
@@ -32,7 +34,6 @@ class _SearchScreenState extends State<SearchScreen> {
   final TextEditingController _searchController = TextEditingController();
   Timer? _debounce;
 
-  String? _selectedCategory;
   int? _selectedCategoryId;
   String? _selectedLocation;
   String _selectedSortBy = 'Recent';
@@ -54,6 +55,21 @@ class _SearchScreenState extends State<SearchScreen> {
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
+
+      /*
+          Open on what the current mode is for.
+
+          This defaulted to 'Jobs' for everyone, so an employer opening Search
+          was handed a list of jobs to apply to and had to notice the toggle to
+          get the workers they came for. The toggle stays — a hybrid account
+          legitimately wants both — but it starts on the side the person is
+          actually acting as.
+      */
+      final mode = context.read<AppModeProvider>().effectiveMode;
+      if (mode == AppMode.employer) {
+        _searchType = 'Workers';
+      }
+
       context.read<WorkerProfileProvider>().fetchCategories();
       _runSearch();
     });
@@ -398,7 +414,6 @@ class _SearchScreenState extends State<SearchScreen> {
                 setState(() {
                   _searchType = type;
                   _selectedSortBy = 'Recent';
-                  _selectedCategory = null;
                   _selectedCategoryId = null;
                 });
                 _runSearch();
@@ -512,7 +527,6 @@ class _SearchScreenState extends State<SearchScreen> {
         selected: isSelected,
         onSelected: (selected) {
           setState(() {
-            _selectedCategory = selected ? name : null;
             _selectedCategoryId = selected ? id : null;
           });
           _runSearch();

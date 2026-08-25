@@ -47,7 +47,6 @@ class _VerificationScreenState extends State<VerificationScreen> {
   
   // ID Type dropdown
   String? _selectedIdType;
-  String? _customIdType;
   final _customIdCtrl = TextEditingController();
   
   bool _confirmed = false;
@@ -751,16 +750,6 @@ class _VerificationScreenState extends State<VerificationScreen> {
       );
     }
     return const SizedBox.shrink();
-  }
-
-  Future<void> _captureFromCamera() async {
-    final result = await context.read<VerificationProvider>().capturePhoto();
-    if (result != null) {
-      setState(() {
-        _docPath  = result['path'] as String?;
-        _docName  = result['name'] as String;
-      });
-    }
   }
 
   Future<void> _pickDocument() async {

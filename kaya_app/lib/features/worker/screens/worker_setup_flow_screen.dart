@@ -170,17 +170,6 @@ class _WorkerSetupFlowScreenState extends State<WorkerSetupFlowScreen> {
     }
   }
 
-  String _formatDate(String? dateStr) {
-    if (dateStr == null || dateStr.isEmpty) return '';
-    try {
-      final date = DateTime.parse(dateStr);
-      final months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-      return '${months[date.month - 1]} ${date.year}';
-    } catch (e) {
-      return dateStr;
-    }
-  }
-
   Future<void> _finishSetup() async {
     // Refresh auth to update completion flags. This drives the proxy provider,
     // so AppModeProvider learns the worker profile now exists and re-derives
@@ -1564,32 +1553,6 @@ class _WorkerSetupFlowScreenState extends State<WorkerSetupFlowScreen> {
             ),
           ],
         ],
-      ),
-    );
-  }
-
-  Widget _buildDraftCaptureButton({
-    required String label,
-    required String? value,
-    required ValueChanged<Map<String, dynamic>> onSelected,
-  }) {
-    return SizedBox(
-      width: double.infinity,
-      child: OutlinedButton.icon(
-        onPressed: () async {
-          final result = await context.read<VerificationProvider>().capturePhoto();
-          if (result != null && mounted) onSelected(result);
-        },
-        icon: Icon(value == null ? Icons.camera_alt : Icons.check_circle, size: 20),
-        label: Text(value == null ? label : '$label selected'),
-        style: OutlinedButton.styleFrom(
-          foregroundColor: AppColors.primary,
-          side: const BorderSide(color: AppColors.primary, width: 1.5),
-          padding: const EdgeInsets.symmetric(vertical: 16),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-          ),
-        ),
       ),
     );
   }

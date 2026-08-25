@@ -361,9 +361,16 @@ class _ViewApplicantsScreenState extends State<ViewApplicantsScreen>
                                         size: 11, color: AppColors.success),
                                     const SizedBox(width: 3),
                                     Text(
+                                      /*
+                                          "Hired 2x" sat next to the Accept
+                                          button and read as an instruction —
+                                          hire them twice — rather than as
+                                          history. The word "before" is what
+                                          makes it past tense at a glance.
+                                      */
                                       timesHiredBefore == 1
                                           ? 'Hired before'
-                                          : 'Hired ${timesHiredBefore}x',
+                                          : 'Hired ${timesHiredBefore}x before',
                                       style: const TextStyle(
                                           fontSize: 10,
                                           fontWeight: FontWeight.w700,

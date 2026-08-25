@@ -95,6 +95,7 @@ class _PostJobScreenState extends State<PostJobScreen> {
   final _titleController = TextEditingController();
   final _descriptionController = TextEditingController();
   final _budgetController = TextEditingController();
+  final _budgetMaxController = TextEditingController();
   final _locationController = TextEditingController();
   final _workersNeededController = TextEditingController(text: '1');
   
@@ -159,33 +160,12 @@ class _PostJobScreenState extends State<PostJobScreen> {
     {'name': 'Other', 'icon': Icons.build},
   ];
 
-  // Skills for each category
-  final Map<String, List<String>> _categorySkills = {
-    'Plumbing': ['Plumbing', 'Pipe Repair', 'Emergency Service', 'Installation', 'Leak Detection'],
-    'Electrical': ['Wiring', 'Circuit Repair', 'Panel Installation', 'Troubleshooting', 'Lighting'],
-    'Painting': ['Interior Painting', 'Exterior Painting', 'Surface Preparation', 'Color Matching'],
-    'Carpentry': ['Cabinet Making', 'Furniture Repair', 'Framing', 'Trim Work', 'Custom Woodwork'],
-    'Construction': ['Concrete Work', 'Masonry', 'Tile Work', 'Drywall', 'Framing'],
-    'HVAC': ['AC Repair', 'Heating Installation', 'Duct Cleaning', 'Maintenance'],
-    'Landscaping': ['Lawn Care', 'Garden Design', 'Tree Trimming', 'Irrigation'],
-    'Cleaning': ['Deep Cleaning', 'Window Cleaning', 'Floor Polishing', 'Sanitization'],
-    'Roofing': ['Roof Repair', 'Installation', 'Inspection', 'Waterproofing'],
-    'Flooring': ['Tile Installation', 'Hardwood', 'Laminate', 'Vinyl'],
-    'Automotive': ['Engine Repair', 'Oil Change', 'Brake Service', 'Diagnostics'],
-    'Appliance Repair': ['Refrigerator', 'Washing Machine', 'Oven', 'Dishwasher'],
-    'Security': ['CCTV Installation', 'Alarm Systems', 'Access Control', 'Monitoring'],
-    'Moving': ['Packing', 'Loading', 'Transportation', 'Unpacking'],
-    'Pest Control': ['Termite Treatment', 'Rodent Control', 'Fumigation', 'Prevention'],
-    'Pool Services': ['Pool Cleaning', 'Chemical Balance', 'Repair', 'Maintenance'],
-    'Delivery': ['Same Day', 'Express', 'Bulk', 'Fragile Items'],
-    'Other': ['General Labor', 'Handyman', 'Specialized Work'],
-  };
-
   @override
   void dispose() {
     _titleController.dispose();
     _descriptionController.dispose();
     _budgetController.dispose();
+    _budgetMaxController.dispose();
     _locationController.dispose();
     _workersNeededController.dispose();
     _customSkillController.dispose();
@@ -203,6 +183,30 @@ class _PostJobScreenState extends State<PostJobScreen> {
     if (amount == null) return 'Enter a valid amount';
     if (amount <= 0) return 'Salary must be greater than 0';
     if (amount > 1000000) return 'Amount looks too high';
+
+    return null;
+  }
+
+  /*
+      The top of the range. Optional - a single figure is a valid way to price
+      a job - but when given it has to sit above the minimum.
+
+      Checked here as well as on the server. The server has always refused an
+      inverted range, so the post simply failed at submit with the reason
+      arriving as a toast after the round trip; catching it on the field says
+      which box is wrong, before the request.
+  */
+  String? _validateSalaryMax(String? value) {
+    final raw = value?.trim() ?? '';
+    if (raw.isEmpty) return null;
+
+    final amount = double.tryParse(raw.replaceAll(',', ''));
+    if (amount == null) return 'Enter a valid amount';
+    if (amount <= 0) return 'Must be greater than 0';
+    if (amount > 1000000) return 'Amount looks too high';
+
+    final min = double.tryParse(_budgetController.text.replaceAll(',', ''));
+    if (min != null && amount < min) return 'Cannot be below the minimum';
 
     return null;
   }
@@ -544,7 +548,7 @@ class _PostJobScreenState extends State<PostJobScreen> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            _buildLabel('Salary'),
+                            _buildLabel('Salary from'),
                             const SizedBox(height: 8),
                             TextFormField(
                               controller: _budgetController,
@@ -557,6 +561,43 @@ class _PostJobScreenState extends State<PostJobScreen> {
                               // passed here and then silently became null at
                               // double.tryParse, posting a job with no salary.
                               validator: _validateSalary,
+                              // Re-run the maximum's check, so correcting the
+                              // minimum clears an error sitting on the other
+                              // box rather than leaving it stale.
+                              onChanged: (_) {
+                                if (_budgetMaxController.text.trim().isNotEmpty) {
+                                  _formKey.currentState?.validate();
+                                }
+                              },
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      /*
+                          The top of the range.
+
+                          The server has accepted budget_max from the start and
+                          the whole salary filter is built on a range, but no
+                          field ever collected one - so every job was posted
+                          with a single figure and "₱500-800/day" could not be
+                          expressed. Optional, because pricing a job at one
+                          number is legitimate.
+                      */
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            _buildLabel('to (optional)'),
+                            const SizedBox(height: 8),
+                            TextFormField(
+                              controller: _budgetMaxController,
+                              keyboardType: TextInputType.number,
+                              decoration: _inputDecoration(
+                                hint: '1,800',
+                                prefix: '₱ ',
+                              ),
+                              validator: _validateSalaryMax,
                             ),
                           ],
                         ),
@@ -1896,6 +1937,9 @@ class _PostJobScreenState extends State<PostJobScreen> {
         // skills workers picked during onboarding.
         skillIds:    _selectedSkillIds,
         budgetMin:   double.tryParse(_budgetController.text.replaceAll(',', '')),
+        // Optional upper bound. createJob has always accepted it; nothing ever
+        // sent one, so every job was filed with a single figure.
+        budgetMax:   double.tryParse(_budgetMaxController.text.replaceAll(',', '')),
         location:    _locationController.text.trim(),
         // Structured location from the picker: the id normalizes filtering and
         // the coordinates power proximity search.

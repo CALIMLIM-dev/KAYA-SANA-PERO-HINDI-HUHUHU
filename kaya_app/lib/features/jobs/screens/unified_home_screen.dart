@@ -1162,14 +1162,6 @@ class _UnifiedHomeScreenState extends State<UnifiedHomeScreen>
   }
 
   // Simple navigation methods - always go to screens
-  void _navigateToPostJob() {
-    AppRouter.toPostJob(context);
-  }
-
-  void _navigateToEditProfile() {
-    AppRouter.toEditWorkerProfile(context);
-  }
-
   void _navigateToActiveJobs() {
     Navigator.pushNamed(context, '/manage-jobs');
   }

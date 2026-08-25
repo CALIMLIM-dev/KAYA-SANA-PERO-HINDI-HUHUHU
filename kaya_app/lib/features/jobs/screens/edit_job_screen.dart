@@ -63,8 +63,26 @@ class _EditJobScreenState extends State<EditJobScreen> {
     final rows = context.read<WorkerProfileProvider>().categories;
     if (rows.isEmpty) return _fallbackCategories;
 
+    /*
+        The type argument is load-bearing, not decoration.
+
+        Without it Dart infers the literal's value type as the least upper
+        bound of int, String and IconData - which is Object - so this returned
+        a List<Map<String, Object>> at runtime while the signature promised
+        List<Map<String, dynamic>>. Map is covariant, so that compiles. It then
+        blew up on the first firstWhere below, because the compiler typed
+        orElse from the declared type and the real list demanded the other:
+
+          type '() => Map<String, dynamic>' is not a subtype of
+          type '(() => Map<String, Object>)?' of 'orElse'
+
+        Editing any job whose category had loaded from the API crashed on that
+        line. The fallback list is declared List<Map<String, dynamic>>, so its
+        literals infer correctly and that path never failed - which is what
+        made it look intermittent.
+    */
     return rows
-        .map((c) => {
+        .map<Map<String, dynamic>>((c) => {
               'id': c.id,
               'name': c.name,
               'icon': _iconFor(c.name),
@@ -423,15 +441,57 @@ class _EditJobScreenState extends State<EditJobScreen> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            _label('Salary'),
+                            _label('Salary from'),
                             const SizedBox(height: 8),
                             TextFormField(
                               controller: _budgetController,
+                              onChanged: (_) {
+                                if (_budgetMaxController.text.trim().isNotEmpty) {
+                                  _formKey.currentState?.validate();
+                                }
+                              },
                               keyboardType: TextInputType.number,
                               decoration: _inputDeco(
                                   hint: '1,200', prefix: '₱ '),
                               validator: (v) =>
                                   v?.isEmpty ?? true ? 'Required' : null,
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      /*
+                          _budgetMaxController was declared, prefilled from the
+                          job and read back on save - but no field was ever
+                          bound to it, so the maximum could be neither seen nor
+                          changed. Whatever the job was posted with was simply
+                          written back unchanged.
+                      */
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            _label('to (optional)'),
+                            const SizedBox(height: 8),
+                            TextFormField(
+                              controller: _budgetMaxController,
+                              keyboardType: TextInputType.number,
+                              decoration: _inputDeco(
+                                  hint: '1,800', prefix: '₱ '),
+                              validator: (v) {
+                                final raw = v?.trim() ?? '';
+                                if (raw.isEmpty) return null;
+                                final max =
+                                    double.tryParse(raw.replaceAll(',', ''));
+                                if (max == null) return 'Enter a valid amount';
+                                if (max <= 0) return 'Must be greater than 0';
+                                final min = double.tryParse(
+                                    _budgetController.text.replaceAll(',', ''));
+                                if (min != null && max < min) {
+                                  return 'Cannot be below the minimum';
+                                }
+                                return null;
+                              },
                             ),
                           ],
                         ),
