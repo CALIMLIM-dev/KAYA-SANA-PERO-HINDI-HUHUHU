@@ -44,7 +44,7 @@ class _UnifiedHomeScreenState extends State<UnifiedHomeScreen>
   String? _errorMessage;
   // (The old _isOpenToWork / _isOpenToHire booleans lived here. They were
   // hardcoded and never mutated, so the header badges were purely decorative.
-  // The badges are now driven by AppModeProvider — see _buildStatusBadges.)
+  // The badges are now driven by AppModeProvider — see _statusBadges.)
 
   // (The hardcoded _activeJobs = 3 / _pendingApplications = 1 stats lived here.
   // The activity cards now read real counts from JobProvider and
@@ -258,15 +258,23 @@ class _UnifiedHomeScreenState extends State<UnifiedHomeScreen>
   ///                  workers. Tapping one narrows the view to that side;
   ///                  tapping the lit one again returns to the unified view.
   /// No profile     → nothing; the dual setup card covers that case.
-  Widget _buildStatusBadges(AppModeProvider appMode) {
-    if (appMode.isNeutral) return const SizedBox.shrink();
+  /*
+      The badges, as a list rather than a Row.
+
+      They used to be a Row with its own spacing baked in, which meant putting
+      anything beside them nested a Row inside a Row with a second, different
+      gap — nothing lined up, and on a narrow screen it overflowed rather than
+      wrapping. Handing back the pieces lets the caller lay everything out in
+      one flow with one spacing.
+  */
+  List<Widget> _statusBadges(AppModeProvider appMode) {
+    if (appMode.isNeutral) return const [];
 
     // Unfocused hybrid: both sides are on screen, so light both badges.
     final workerLit = appMode.isUnfocused || appMode.isWorkerMode;
     final employerLit = appMode.isUnfocused || appMode.isEmployerMode;
 
-    return Row(
-      children: [
+    return [
         if (appMode.canActivate(AppMode.worker))
           _statusBadge(
             label: 'Open to work',
@@ -279,7 +287,6 @@ class _UnifiedHomeScreenState extends State<UnifiedHomeScreen>
                     : appMode.setMode(AppMode.worker)
                 : null,
           ),
-        if (appMode.isHybrid) const SizedBox(width: 8),
         if (appMode.canActivate(AppMode.employer))
           _statusBadge(
             label: 'Hiring now',
@@ -292,8 +299,7 @@ class _UnifiedHomeScreenState extends State<UnifiedHomeScreen>
                     : appMode.setMode(AppMode.employer)
                 : null,
           ),
-      ],
-    );
+    ];
   }
 
   Widget _statusBadge({
@@ -581,19 +587,23 @@ class _UnifiedHomeScreenState extends State<UnifiedHomeScreen>
                                   // they now reflect and control the active mode.
                                   /*
                                       The balance sits with the status badges
-                                      rather than up in the icon row.
+                                      rather than up in the icon row, which was
+                                      built for two buttons — a third element
+                                      there took width from the greeting and
+                                      squeezed the name.
 
-                                      That row was built for two buttons, and a
-                                      third element took width from the
-                                      greeting's Expanded, so a long name
-                                      squeezed or wrapped. Down here it reads
-                                      as one more thing that is true about you
-                                      right now, next to the mode badges.
+                                      Wrap rather than Row so everything shares
+                                      one spacing and one baseline, and so a
+                                      hybrid account with two badges and a
+                                      balance drops onto a second line instead
+                                      of overflowing.
                                   */
-                                  Row(
+                                  Wrap(
+                                    spacing: 8,
+                                    runSpacing: 6,
+                                    crossAxisAlignment: WrapCrossAlignment.center,
                                     children: [
-                                      Flexible(child: _buildStatusBadges(appMode)),
-                                      const SizedBox(width: 6),
+                                      ..._statusBadges(appMode),
                                       const _BalanceChip(),
                                     ],
                                   ),
