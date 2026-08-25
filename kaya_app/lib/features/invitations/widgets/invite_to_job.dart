@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../../core/constants/app_colors.dart';
+import '../../../core/constants/credits.dart';
 import '../../../core/widgets/app_toast.dart';
+import '../../../providers/credits_provider.dart';
 import '../../../providers/invitation_provider.dart';
 import '../../../providers/job_provider.dart';
 
@@ -38,6 +40,18 @@ Future<void> showInviteToJobSheet(
     return;
   }
 
+  final credits = context.read<CreditsProvider>();
+  await credits.load();
+  if (!context.mounted) return;
+
+  final cost = credits.costOf('invite');
+
+  // Short already: say so before showing a picker that cannot be acted on.
+  if (cost != null && !credits.canAfford('invite')) {
+    AppToast.error(context, 'You need ${Credits.amount(cost)} to invite someone.');
+    return;
+  }
+
   final jobId = await showDialog<int>(
     context: context,
     builder: (dialogContext) => AlertDialog(
@@ -50,6 +64,33 @@ Future<void> showInviteToJobSheet(
           children: [
             Text('Which job is $workerName being invited to?',
                 style: const TextStyle(fontSize: 13.5, color: AppColors.neutral600)),
+
+            /*
+                The cost, in the dialog that is already the confirmation.
+
+                Not a second dialog on top of this one: the job picker is the
+                moment the employer commits, so the price belongs here. Hidden
+                when the wallet has not loaded rather than guessed, since a
+                wrong number about money is worse than no number.
+            */
+            if (cost != null) ...[
+              const SizedBox(height: 10),
+              Row(
+                children: [
+                  Icon(Credits.icon, size: 15, color: AppColors.primary),
+                  const SizedBox(width: 5),
+                  Text(
+                    'Costs ${Credits.amount(cost)}',
+                    style: const TextStyle(
+                      fontSize: 12.5,
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.primary,
+                    ),
+                  ),
+                ],
+              ),
+            ],
+
             const SizedBox(height: 12),
             Flexible(
               child: ListView.builder(
@@ -87,6 +128,10 @@ Future<void> showInviteToJobSheet(
   if (!context.mounted) return;
 
   if (sent) {
+    // The balance just moved. Refetched rather than decremented locally.
+    await credits.refresh();
+    if (!context.mounted) return;
+
     AppToast.success(context, 'Invitation sent to $workerName.');
     return;
   }

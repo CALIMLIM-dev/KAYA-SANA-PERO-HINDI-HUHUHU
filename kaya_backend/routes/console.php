@@ -30,3 +30,13 @@ Schedule::command('kaya:lift-expired-suspensions')->hourly();
     which is the one deployment step that costs users money if it is missed.
 */
 Schedule::command('kaya:reconcile-credit-payments')->everyFifteenMinutes();
+
+/*
+    The free monthly credits, on the first of the month.
+
+    The wallet screen promises these, so a month where this does not run is a
+    month the app lied to everybody. Safe to run more often than needed — the
+    wallet records which month it last paid, and a unique index on the ledger
+    refuses a second payment for the same one regardless.
+*/
+Schedule::command('kaya:grant-monthly-credits')->monthlyOn(1, '02:00');
