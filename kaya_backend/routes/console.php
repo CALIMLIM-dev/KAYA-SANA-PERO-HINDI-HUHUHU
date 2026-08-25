@@ -17,3 +17,16 @@ Schedule::command('kaya:prune-location-pings')->dailyAt('03:00');
 // Hourly rather than daily: a suspension that says it ends on Tuesday should
 // not keep somebody locked out until Wednesday morning's run.
 Schedule::command('kaya:lift-expired-suspensions')->hourly();
+
+/*
+    Catches payments PayMongo took but never told us about.
+
+    Every fifteen minutes, because the failure it covers — a webhook that was
+    delayed, blocked or misrouted — ends with somebody having paid real money
+    and received nothing. Fifteen minutes is the worst case anyone waits, and
+    the webhook still makes the normal case instant.
+
+    Without a scheduler running in the deployed environment this never fires,
+    which is the one deployment step that costs users money if it is missed.
+*/
+Schedule::command('kaya:reconcile-credit-payments')->everyFifteenMinutes();

@@ -42,6 +42,24 @@ return [
 
     'credits' => [
 
+        /*
+            What the currency is called on screen. A placeholder.
+
+            Every identifier in the code — tables, columns, classes, routes —
+            uses the neutral word "credit" on purpose, so this is the only
+            place in the backend the display name appears, and the Flutter side
+            has exactly one matching constant. Renaming is a two line change
+            rather than a migration, which is why it was safe to pick one at
+            all before anybody had decided.
+
+            "Barya" is Filipino for loose change. It reads as a token rather
+            than as money, which is the position to hold: these are not
+            redeemable for cash and should never look like they are. Swap it
+            for anything — the plural and the icon live here too.
+        */
+        'currency_name'        => env('CREDIT_NAME', 'Barya'),
+        'currency_name_plural' => env('CREDIT_NAME_PLURAL', 'Barya'),
+
         // Applying to a job. Paid by the worker.
         'apply' => (int) env('CREDIT_COST_APPLY', 2),
 

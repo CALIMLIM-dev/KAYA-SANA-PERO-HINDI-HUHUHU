@@ -72,3 +72,12 @@ Route::prefix('admin')->name('admin.')->group(function () {
         Route::post('/settings', [SettingsController::class, 'update'])->name('settings.update');
     });
 });
+
+/*
+    Where PayMongo sends the browser after paying.
+
+    Grants nothing — see the note in the view. The credits arrive through the
+    webhook or the reconciler, so this page can be opened by anyone, at any
+    time, without effect.
+*/
+Route::view('/pay/return', 'pay.return');

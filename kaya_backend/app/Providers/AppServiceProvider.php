@@ -64,6 +64,20 @@ class AppServiceProvider extends ServiceProvider
         // Writes to tables every user sees. Abuse here is defacement.
         RateLimiter::for('taxonomy', fn (Request $r) => Limit::perHour(10)->by($byUser($r)));
 
+        /*
+            PayMongo's own retries, which must not be throttled.
+
+            The global API limit is sixty a minute, and a burst of redeliveries
+            would trip it. A throttled webhook looks like a provider outage
+            while quietly costing somebody credits they already paid for, so
+            this sits far above anything PayMongo would realistically send.
+        */
+        RateLimiter::for('paymongo-webhook', fn (Request $r) => Limit::perMinute(300)->by($r->ip()));
+
+        // Opening a checkout. Generous for a person, tight enough that nobody
+        // can sit there creating payment rows in a loop.
+        RateLimiter::for('credits-checkout', fn (Request $r) => Limit::perHour(20)->by($byUser($r)));
+
         // Filing is cheap; the queue is read by people.
         RateLimiter::for('reports', fn (Request $r) => Limit::perHour(10)->by($byUser($r)));
     }

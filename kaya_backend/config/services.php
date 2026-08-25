@@ -63,6 +63,26 @@ return [
      | no sender-ID paperwork to begin. A registered sender name is required
      | for custom branding; without one they send as SEMAPHORE.
      */
+    /*
+        PayMongo, for buying credits.
+
+        Sandbox keys during development. Live keys need business onboarding
+        whose approval time is outside this project's control, and that must
+        not sit on a defence date — so the whole integration is built and
+        tested against test keys and switches over by changing these.
+
+        The webhook secret is separate from the API keys and is issued when the
+        webhook is registered. Without it every incoming call is unverifiable
+        and must be refused rather than trusted.
+    */
+    'paymongo' => [
+        'secret_key'     => env('PAYMONGO_SECRET_KEY'),
+        'public_key'     => env('PAYMONGO_PUBLIC_KEY'),
+        'webhook_secret' => env('PAYMONGO_WEBHOOK_SECRET'),
+        // Where the browser lands after paying. Grants nothing on its own.
+        'return_url'     => env('PAYMONGO_RETURN_URL', env('APP_URL') . '/pay/return'),
+    ],
+
     'semaphore' => [
         'key'         => env('SEMAPHORE_API_KEY'),
         'sender_name' => env('SEMAPHORE_SENDER_NAME', 'SEMAPHORE'),
