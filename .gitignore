@@ -39,3 +39,13 @@ TRAP KEY - DO NOT SEND TO TESTER.txt
 # a commit — one report file had already slipped in.
 kaya_app/android/build/
 kaya_app/android/.gradle/
+
+# Platform scaffolding this project does not ship. Flutter regenerates these
+# whenever it builds, so deleting them once is not enough — without this they
+# reappear and get swept into the next `git add .`. This project ships an
+# Android app and a Blade admin panel served by Laravel.
+kaya_app/ios/
+kaya_app/macos/
+kaya_app/windows/
+kaya_app/linux/
+kaya_app/web/
