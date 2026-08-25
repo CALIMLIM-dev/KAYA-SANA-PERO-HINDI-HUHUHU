@@ -220,30 +220,39 @@ class _JobDetailsScreenState extends State<JobDetailsScreen> {
                     const Divider(height: 1, color: AppColors.neutral200),
                     const SizedBox(height: 14),
 
-                    Wrap(
-                      spacing: 8,
-                      runSpacing: 8,
-                      children: [
-                        if (job.category != null)
-                          _iconChip(Icons.category_outlined, job.category!),
-                        if ((job.location ?? '').isNotEmpty)
-                          _iconChip(Icons.location_on_outlined, job.location!),
-                        if (job.distance != null)
-                          _iconChip(
-                              Icons.near_me_outlined, formatDistance(job.distance!)),
-                        // When the work happens. Absent on jobs posted before
-                        // scheduling existed, which is why it is conditional
-                        // rather than showing a placeholder.
-                        if (job.scheduleLabel != null)
-                          _iconChip(Icons.event_outlined, job.scheduleLabel!),
-                        if (job.postedAt != null)
-                          _iconChip(Icons.schedule, _timeAgo(job.postedAt!)),
-                        _iconChip(
-                          Icons.people_outline,
-                          '${job.applicantCount} applicant'
-                          '${job.applicantCount == 1 ? '' : 's'}',
-                        ),
-                      ],
+                    /*
+                        A labelled list rather than a row of chips.
+
+                        This was six chips in a Wrap — category, place,
+                        distance, dates, age and applicant count — all the same
+                        size and shape, so nothing was more important than
+                        anything else and the distance in kilometres floated
+                        loose beside the place it belonged to. Six equal things
+                        is a soup; the eye has nothing to sort by.
+
+                        Labels on the left at a fixed width means the values
+                        line up in a column, which is what makes a list of
+                        facts scannable rather than merely present.
+                    */
+                    _detailRow(
+                      'Location',
+                      [
+                        if ((job.location ?? '').isNotEmpty) job.location!,
+                        // Merged into the place it describes. On its own it
+                        // read as a stray measurement of nothing in
+                        // particular.
+                        if (job.distance != null) formatDistance(job.distance!),
+                      ].join('  ·  '),
+                    ),
+                    if (job.scheduleLabel != null)
+                      _detailRow('Schedule', job.scheduleLabel!),
+                    if (job.category != null)
+                      _detailRow('Category', job.category!),
+                    if (job.postedAt != null)
+                      _detailRow('Posted', _timeAgo(job.postedAt!)),
+                    _detailRow(
+                      'Applicants',
+                      '${job.applicantCount}',
                     ),
                   ],
                 ),
@@ -482,6 +491,41 @@ class _JobDetailsScreenState extends State<JobDetailsScreen> {
     );
   }
 
+  /// One fact about the job: a muted label, then the value.
+  ///
+  /// The label column is a fixed width so every value starts at the same x,
+  /// which is the whole reason this reads as organised and a Wrap of chips
+  /// does not.
+  Widget _detailRow(String label, String value) {
+    if (value.trim().isEmpty) return const SizedBox.shrink();
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 92,
+            child: Text(
+              label,
+              style: const TextStyle(fontSize: 13, color: AppColors.neutral500),
+            ),
+          ),
+          Expanded(
+            child: Text(
+              value,
+              style: const TextStyle(
+                fontSize: 14,
+                color: AppColors.neutral900,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _section({String? title, required Widget child}) {
     return Container(
       width: double.infinity,
@@ -510,24 +554,6 @@ class _JobDetailsScreenState extends State<JobDetailsScreen> {
             const SizedBox(height: 12),
           ],
           child,
-        ],
-      ),
-    );
-  }
-
-  Widget _iconChip(IconData icon, String label) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-      decoration: BoxDecoration(
-        color: AppColors.neutral100,
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 14, color: AppColors.neutral600),
-          const SizedBox(width: 5),
-          Text(label, style: const TextStyle(fontSize: 12, color: AppColors.neutral700)),
         ],
       ),
     );

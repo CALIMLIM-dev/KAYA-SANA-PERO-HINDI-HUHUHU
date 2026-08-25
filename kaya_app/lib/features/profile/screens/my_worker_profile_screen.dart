@@ -888,33 +888,29 @@ class _MyWorkerProfileScreenState extends State<MyWorkerProfileScreen> with Sing
       builder: (context, vp, _) => ListView(
         padding: const EdgeInsets.all(16),
         children: [
-          const Text('Verifications',
+          const Text('Verification',
               style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppColors.neutral900)),
           const SizedBox(height: 8),
-          const Text('Profiles with verifications are more likely to be selected',
+          const Text('Verified workers get picked more often',
               style: TextStyle(fontSize: 14, color: AppColors.neutral600)),
           const SizedBox(height: 20),
 
+          /*
+              Identity only.
+
+              Phone and email used to sit here as two more verification cards,
+              which put three things of very different weight on one screen and
+              made the whole section read as paperwork. A government ID with a
+              selfie is what an employer is actually deciding on; a phone
+              number is a contact detail, and it belongs with the other contact
+              details rather than being dressed up as a credential.
+          */
           _buildVerificationCard(
             title: 'Valid Philippine ID',
             subtitle: 'Government-issued ID with selfie',
             icon: Icons.badge,
             type: 'government_id',
             status: vp.statusFor('government_id'),
-          ),
-          _buildVerificationCard(
-            title: 'Phone Number',
-            subtitle: 'Verify via SMS code',
-            icon: Icons.phone,
-            type: 'phone',
-            status: vp.statusFor('phone'),
-          ),
-          _buildVerificationCard(
-            title: 'Email',
-            subtitle: 'Verify via email link',
-            icon: Icons.email,
-            type: 'email',
-            status: vp.statusFor('email'),
           ),
         ],
       ),
