@@ -78,20 +78,22 @@ class CreditController extends Controller
      */
     public function claim(Request $request)
     {
-        $user = $request->user();
-        $claimed = $this->grants->claim($user);
+        // Which gift. Required rather than defaulted, because collecting the
+        // wrong one silently is worse than being asked.
+        $data = $request->validate([
+            'type' => ['required', 'in:welcome,monthly'],
+        ]);
 
-        if ($claimed['total'] === 0) {
-            return $this->ok([
-                'claimed' => $claimed,
-                'balance' => $this->ledger->balance($user),
-            ], 'Nothing to claim right now');
-        }
+        $user = $request->user();
+        $claimed = $this->grants->claim($user, $data['type']);
 
         return $this->ok([
             'claimed' => $claimed,
+            'claimable' => $this->grants->available($user),
             'balance' => $this->ledger->balance($user),
-        ], 'Claimed ' . $claimed['total']);
+        ], $claimed['total'] === 0
+            ? 'Nothing to claim right now'
+            : 'Claimed ' . $claimed['total']);
     }
 
     /**

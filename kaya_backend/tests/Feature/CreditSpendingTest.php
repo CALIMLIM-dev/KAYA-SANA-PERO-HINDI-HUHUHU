@@ -285,11 +285,29 @@ class CreditSpendingTest extends TestCase
             ->assertJsonPath('data.claimable.welcome', $welcome)
             ->assertJsonPath('data.claimable.monthly', $monthly);
 
+        /*
+            Two gifts, claimed separately.
+
+            They used to come from one button, which paid both and wrote two
+            lines of history for a single tap — one action, two rows, and it
+            read as a double payment to anyone who counted.
+        */
         $this->actingAs($user, 'sanctum')
-            ->postJson('/api/v1/credits/claim')
+            ->postJson('/api/v1/credits/claim', ['type' => 'welcome'])
             ->assertOk()
-            ->assertJsonPath('data.claimed.total', $welcome + $monthly)
+            ->assertJsonPath('data.claimed.total', $welcome)
+            ->assertJsonPath('data.balance', $welcome)
+            // The other gift is still there, and says so.
+            ->assertJsonPath('data.claimable.monthly', $monthly);
+
+        $this->actingAs($user, 'sanctum')
+            ->postJson('/api/v1/credits/claim', ['type' => 'monthly'])
+            ->assertOk()
+            ->assertJsonPath('data.claimed.total', $monthly)
             ->assertJsonPath('data.balance', $welcome + $monthly);
+
+        // One tap, one row. Two gifts, two rows.
+        $this->assertSame(2, CreditTransaction::where('user_id', $user->id)->count());
 
         // Every credit is explained by a ledger row, so summing the ledger
         // still equals the balance.
@@ -305,13 +323,16 @@ class CreditSpendingTest extends TestCase
         $user = User::factory()->create();
         WorkerProfile::create(['user_id' => $user->id]);
 
-        $this->actingAs($user, 'sanctum')->postJson('/api/v1/credits/claim')->assertOk();
+        $this->actingAs($user, 'sanctum')
+            ->postJson('/api/v1/credits/claim', ['type' => 'welcome'])
+            ->assertOk();
+
         $after = $this->balance($user);
 
         // The second tap honestly reports nothing rather than celebrating
         // credits it did not receive.
         $this->actingAs($user, 'sanctum')
-            ->postJson('/api/v1/credits/claim')
+            ->postJson('/api/v1/credits/claim', ['type' => 'welcome'])
             ->assertOk()
             ->assertJsonPath('data.claimed.total', 0);
 

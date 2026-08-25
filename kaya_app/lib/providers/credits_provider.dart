@@ -72,7 +72,8 @@ class CreditsProvider with ChangeNotifier {
   int _balance = 0;
   Map<String, int> _costs = const {};
   int _monthlyGrant = 0;
-  int _claimable = 0;
+  int _claimableWelcome = 0;
+  int _claimableMonthly = 0;
   List<CreditPackage> _packages = const [];
 
   bool _isLoading = false;
@@ -91,9 +92,19 @@ class CreditsProvider with ChangeNotifier {
   String? get error => _error;
   int get monthlyGrant => _monthlyGrant;
 
-  /// Free credits sitting there waiting to be collected.
-  int get claimable => _claimable;
-  bool get hasSomethingToClaim => _claimable > 0;
+  /*
+      The two free gifts, held apart.
+
+      A welcome and this month's are different things, so they are offered
+      separately and claimed separately — one tap, one gift, one line of
+      history. Collecting both from a single button wrote two rows for one
+      action, which reads as a bug to anyone who scrolls down and counts.
+  */
+  int get claimableWelcome => _claimableWelcome;
+  int get claimableMonthly => _claimableMonthly;
+
+  int get claimable => _claimableWelcome + _claimableMonthly;
+  bool get hasSomethingToClaim => claimable > 0;
 
   /// What an action costs, or null while the wallet has not loaded.
   ///
@@ -121,8 +132,7 @@ class CreditsProvider with ChangeNotifier {
       _balance = (data['balance'] as num?)?.toInt() ?? 0;
       _monthlyGrant = (data['monthly_grant'] as num?)?.toInt() ?? 0;
 
-      final claimable = (data['claimable'] as Map?) ?? const {};
-      _claimable = (claimable['total'] as num?)?.toInt() ?? 0;
+      _adoptClaimable(data['claimable']);
 
       final costs = (data['costs'] as Map?) ?? const {};
       _costs = {
@@ -194,13 +204,16 @@ class CreditsProvider with ChangeNotifier {
       offer — two taps arriving together means the second one gets nothing, and
       saying so is better than celebrating credits that never arrived.
   */
-  Future<int> claim() async {
+  Future<int> claim(String type) async {
     try {
-      final response = await _api.post('/credits/claim');
+      final response = await _api.post('/credits/claim', data: {'type': type});
       final data = response.data['data'] as Map<String, dynamic>;
 
       _balance = (data['balance'] as num?)?.toInt() ?? _balance;
-      _claimable = 0;
+
+      // What is still owed comes back with the answer, so the card can drop
+      // the gift just taken without guessing which one that was.
+      _adoptClaimable(data['claimable']);
       notifyListeners();
 
       return ((data['claimed'] as Map?)?['total'] as num?)?.toInt() ?? 0;
@@ -209,6 +222,12 @@ class CreditsProvider with ChangeNotifier {
       notifyListeners();
       return 0;
     }
+  }
+
+  void _adoptClaimable(dynamic raw) {
+    final claimable = (raw as Map?) ?? const {};
+    _claimableWelcome = (claimable['welcome'] as num?)?.toInt() ?? 0;
+    _claimableMonthly = (claimable['monthly'] as num?)?.toInt() ?? 0;
   }
 
   /// Adopts a balance the server reported alongside some other response.
@@ -223,7 +242,8 @@ class CreditsProvider with ChangeNotifier {
     _costs = const {};
     _packages = const [];
     _entries = const [];
-    _claimable = 0;
+    _claimableWelcome = 0;
+    _claimableMonthly = 0;
     _hasLoadedOnce = false;
     _error = null;
     notifyListeners();

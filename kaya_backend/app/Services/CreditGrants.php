@@ -93,16 +93,22 @@ class CreditGrants
     }
 
     /**
-     * Pays out everything owed, and reports what was actually given.
+     * Pays out one gift, and reports what was actually given.
+     *
+     * One kind at a time, on purpose. These are two different gifts — a
+     * welcome, and this month's — and paying both from a single tap wrote two
+     * lines of history for one action, which reads as a bug to anyone who
+     * scrolls down and counts. One tap, one row, one gift.
      *
      * The unique index on (user_id, grant_period) is what makes a double claim
      * impossible, so two taps arriving together cannot both pay — the second
      * loses at the database and is reported as nothing claimed, which is the
      * truthful answer.
      *
+     * @param  'welcome'|'monthly'  $type  Which gift to collect.
      * @return array{welcome: int, monthly: int, total: int}
      */
-    public function claim(User $user): array
+    public function claim(User $user, string $type): array
     {
         $claimed = ['welcome' => 0, 'monthly' => 0, 'total' => 0];
 
@@ -112,7 +118,7 @@ class CreditGrants
 
         $available = $this->available($user);
 
-        if ($available['welcome'] > 0) {
+        if ($type === 'welcome' && $available['welcome'] > 0) {
             try {
                 $this->ledger->credit(
                     user: $user,
@@ -126,7 +132,7 @@ class CreditGrants
             }
         }
 
-        if ($available['monthly'] > 0) {
+        if ($type === 'monthly' && $available['monthly'] > 0) {
             $period = $this->period();
 
             try {

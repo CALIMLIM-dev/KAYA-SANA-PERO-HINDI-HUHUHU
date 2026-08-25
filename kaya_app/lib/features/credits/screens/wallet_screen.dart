@@ -17,7 +17,9 @@ class WalletScreen extends StatefulWidget {
 
 class _WalletScreenState extends State<WalletScreen> with WidgetsBindingObserver {
   bool _buying = false;
-  bool _claiming = false;
+  /// Which gift is being claimed, or null. A single boolean spun both
+  /// buttons at once, which made it look as though both were being taken.
+  String? _claiming;
 
   @override
   void initState() {
@@ -52,15 +54,15 @@ class _WalletScreenState extends State<WalletScreen> with WidgetsBindingObserver
     }
   }
 
-  Future<void> _claim() async {
-    if (_claiming) return;
-    setState(() => _claiming = true);
+  Future<void> _claim(String type) async {
+    if (_claiming != null) return;
+    setState(() => _claiming = type);
 
     final credits = context.read<CreditsProvider>();
-    final claimed = await credits.claim();
+    final claimed = await credits.claim(type);
 
     if (!mounted) return;
-    setState(() => _claiming = false);
+    setState(() => _claiming = null);
 
     if (claimed > 0) {
       AppToast.success(context, 'You got $claimed ${Credits.plural}.');
@@ -135,9 +137,23 @@ class _WalletScreenState extends State<WalletScreen> with WidgetsBindingObserver
               padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
               children: [
                 _balanceCard(credits),
-                if (credits.hasSomethingToClaim) ...[
+                if (credits.claimableWelcome > 0) ...[
                   const SizedBox(height: 12),
-                  _claimCard(credits),
+                  _claimCard(
+                    type: 'welcome',
+                    amount: credits.claimableWelcome,
+                    title: 'Welcome gift',
+                    subtitle: 'For joining KAYA',
+                  ),
+                ],
+                if (credits.claimableMonthly > 0) ...[
+                  const SizedBox(height: 12),
+                  _claimCard(
+                    type: 'monthly',
+                    amount: credits.claimableMonthly,
+                    title: 'Free this month',
+                    subtitle: 'Yours every month',
+                  ),
                 ],
                 const SizedBox(height: 22),
                 Text('Top up', style: _sectionStyle),
@@ -232,7 +248,12 @@ class _WalletScreenState extends State<WalletScreen> with WidgetsBindingObserver
       Hidden completely when there is nothing owed, so it never becomes a dead
       button sitting there greyed out.
   */
-  Widget _claimCard(CreditsProvider credits) {
+  Widget _claimCard({
+    required String type,
+    required int amount,
+    required String title,
+    required String subtitle,
+  }) {
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.fromLTRB(18, 16, 18, 16),
@@ -250,29 +271,29 @@ class _WalletScreenState extends State<WalletScreen> with WidgetsBindingObserver
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  '${credits.claimable} free ${Credits.plural}',
+                  '$title  ·  $amount ${Credits.plural}',
                   style: const TextStyle(
-                    fontSize: 15.5,
+                    fontSize: 15,
                     fontWeight: FontWeight.w700,
                     color: AppColors.neutral900,
                   ),
                 ),
                 const SizedBox(height: 2),
-                const Text(
-                  'Waiting for you',
-                  style: TextStyle(fontSize: 12.5, color: AppColors.neutral600),
+                Text(
+                  subtitle,
+                  style: const TextStyle(fontSize: 12.5, color: AppColors.neutral600),
                 ),
               ],
             ),
           ),
           ElevatedButton(
-            onPressed: _claiming ? null : _claim,
+            onPressed: _claiming != null ? null : () => _claim(type),
             style: ElevatedButton.styleFrom(
               backgroundColor: AppColors.success,
               foregroundColor: Colors.white,
               padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 11),
             ),
-            child: _claiming
+            child: _claiming == type
                 ? const SizedBox(
                     width: 16,
                     height: 16,
