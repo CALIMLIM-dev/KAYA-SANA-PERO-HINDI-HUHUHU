@@ -20,6 +20,8 @@ class AppServiceProvider extends ServiceProvider
         $this->app->singleton(\App\Services\EmployerVerificationService::class);
         $this->app->singleton(\App\Services\NotificationService::class);
         $this->app->singleton(\App\Services\RealtimeBroadcaster::class);
+        // The only thing allowed to move a credit balance.
+        $this->app->singleton(\App\Services\CreditLedger::class);
     }
 
     /**
