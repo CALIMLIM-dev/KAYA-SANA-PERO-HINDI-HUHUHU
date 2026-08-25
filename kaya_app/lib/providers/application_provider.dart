@@ -111,7 +111,19 @@ class ApplicationProvider with ChangeNotifier {
     }
   }
 
+  /*
+      The last failure, kept as a type rather than flattened to a sentence.
+
+      Applying can fail because the wallet is empty, and that needs a different
+      answer from every other refusal — an offer to top up rather than an
+      apology. Matching on the message text would break the first time somebody
+      reworded it.
+  */
+  ApiException? lastApplyError;
+
   Future<bool> applyToJob(int jobId, {String? coverLetter}) async {
+    lastApplyError = null;
+
     try {
       final res = await _api.post('/jobs/$jobId/apply', data: {
         if (coverLetter != null) 'cover_letter': coverLetter,
@@ -120,6 +132,7 @@ class ApplicationProvider with ChangeNotifier {
       notifyListeners();
       return true;
     } catch (e) {
+      if (e is ApiException) lastApplyError = e;
       _errorMessage = e.toString().replaceFirst('Exception: ', '');
       notifyListeners();
       return false;

@@ -272,6 +272,13 @@ class ApiClient {
     final status = e.response?.statusCode;
     final message = e.response?.data?['message'] as String?;
 
+    // The machine readable code, when the server sends one. It is what lets
+    // the app tell "you need to top up" from every other refusal without
+    // matching on message text, which changes with the wording.
+    final code = e.response?.data is Map
+        ? e.response?.data['code'] as String?
+        : null;
+
     final path = e.requestOptions.path;
 
     switch (status) {
@@ -279,15 +286,32 @@ class ApiClient {
       // other 401 means the session died, and saying "Incorrect email or
       // password" while someone types into a location field is nonsense.
       case 401:
-        return Exception(message ??
+        return ApiException(status, code, message ??
             (_isAuthPath(path)
                 ? 'Incorrect email or password'
                 : 'Your session has expired. Please sign in again.'));
       case 403:
-        return Exception(message ?? 'Your account has been suspended. Contact support.');
+        return ApiException(status, code,
+            message ?? 'Your account has been suspended. Contact support.');
+      /*
+          Not enough credits.
+
+          Carried as a type rather than a string so a screen can offer to top
+          up. 422 already means dozens of things in this API and its handler
+          below reaches for a validation bag first, which is exactly why the
+          server answers 402 for this one case.
+      */
+      case 402:
+        return ApiException(
+          status,
+          code ?? 'insufficient_credits',
+          message ?? 'You do not have enough credits.',
+          required: _intFrom(e.response?.data, 'required'),
+          balance: _intFrom(e.response?.data, 'balance'),
+        );
       // Likewise: a 404 is only about an account on the auth paths.
       case 404:
-        return Exception(message ??
+        return ApiException(status, code, message ??
             (_isAuthPath(path)
                 ? 'No account found with that email.'
                 : 'Not found.'));
@@ -296,13 +320,43 @@ class ApiClient {
         final errors = e.response?.data?['errors'];
         if (errors is Map) {
           final firstError = (errors.values.first as List).first.toString();
-          return Exception(firstError);
+          return ApiException(status, code, firstError);
         }
-        return Exception(message ?? 'Validation error.');
+        return ApiException(status, code, message ?? 'Validation error.');
       case 500:
-        return Exception('Server error. Please try again later.');
+        return ApiException(status, code, 'Server error. Please try again later.');
       default:
-        return Exception(message ?? 'Something went wrong.');
+        return ApiException(status, code, message ?? 'Something went wrong.');
     }
   }
 }
+
+/// A pulled-apart HTTP failure, so a screen can act on *why* rather than on
+/// the words.
+///
+/// toString() deliberately returns the bare message. Sixteen providers already
+/// do `e.toString().replaceFirst('Exception: ', '')`, and keeping that working
+/// is what turned this from a sixteen file change into a one file change.
+class ApiException implements Exception {
+  const ApiException(this.status, this.code, this.message, {this.required, this.balance});
+
+  /// HTTP status, when there was a response at all.
+  final int? status;
+
+  /// The server's own machine readable reason, e.g. `insufficient_credits`.
+  final String? code;
+
+  final String message;
+
+  /// Only on 402: how many credits the action needed, and how many are held.
+  final int? required;
+  final int? balance;
+
+  bool get isInsufficientCredits => code == 'insufficient_credits';
+
+  @override
+  String toString() => message;
+}
+
+int? _intFrom(dynamic data, String key) =>
+    data is Map ? (data[key] as num?)?.toInt() : null;

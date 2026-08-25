@@ -17,6 +17,7 @@ import 'providers/job_tracking_provider.dart';
 import 'providers/review_provider.dart';
 import 'providers/location_provider.dart';
 import 'providers/worker_browse_provider.dart';
+import 'providers/credits_provider.dart';
 import 'providers/notification_provider.dart';
 import 'providers/profile_view_provider.dart';
 import 'providers/verification_provider.dart';
@@ -133,6 +134,7 @@ class KayaApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => LocationProvider()),
         ChangeNotifierProvider(create: (_) => WorkerBrowseProvider()),
         ChangeNotifierProvider(create: (_) => NotificationProvider()),
+        ChangeNotifierProvider(create: (_) => CreditsProvider()),
         ChangeNotifierProvider(create: (_) => ProfileViewProvider()),
       ],
       child: Builder(

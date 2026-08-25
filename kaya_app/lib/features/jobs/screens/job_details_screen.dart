@@ -6,7 +6,10 @@ import '../../../core/utils/format.dart';
 import '../../../data/models/job_model.dart';
 import '../../../providers/application_provider.dart';
 import '../../../providers/job_provider.dart';
+import '../../../core/constants/credits.dart';
+import '../../../core/navigation/app_router.dart';
 import '../../../core/widgets/app_toast.dart';
+import '../../../providers/credits_provider.dart';
 
 /// Job Details — a single real job, fetched via GET /jobs/{id}.
 ///
@@ -597,7 +600,28 @@ class _JobDetailsScreenState extends State<JobDetailsScreen> {
                 width: 20,
                 child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
               )
-            : const Text('Apply Now'),
+            : Builder(
+                builder: (context) {
+                  /*
+                      The price is on the button, not behind it.
+
+                      Somebody deciding whether to apply should know what it
+                      costs while they are deciding, and an app that only
+                      mentions a fee after taking it feels like a trick even
+                      when the fee is four pesos.
+                  */
+                  final credits = context.watch<CreditsProvider>();
+                  final cost = credits.costOf('apply');
+
+                  if (cost == null) return const Text('Apply Now');
+
+                  if (!credits.canAfford('apply')) {
+                    return Text('Top up to apply');
+                  }
+
+                  return Text('Apply Now  ·  ${Credits.amount(cost)}');
+                },
+              ),
       );
     }
 
@@ -634,6 +658,17 @@ class _JobDetailsScreenState extends State<JobDetailsScreen> {
   }
 
   Future<void> _apply(Job job) async {
+    final credits = context.read<CreditsProvider>();
+
+    // No point firing a request that is certain to come back 402. Send them
+    // where they can do something about it instead.
+    if (credits.hasLoadedOnce && !credits.canAfford('apply')) {
+      await Navigator.pushNamed(context, AppRouter.wallet);
+      if (!mounted) return;
+      await credits.refresh();
+      return;
+    }
+
     setState(() => _isApplying = true);
     final applications = context.read<ApplicationProvider>();
     final success = await applications.applyToJob(job.id);
@@ -644,10 +679,51 @@ class _JobDetailsScreenState extends State<JobDetailsScreen> {
     if (success) {
       await context.read<JobProvider>().fetchJobDetail(job.id);
       if (!mounted) return;
+
+      // The balance just changed. Refetched rather than decremented locally,
+      // because this is the one number that has to be right.
+      await credits.refresh();
+      if (!mounted) return;
+
       AppToast.success(context, 'Application submitted!');
-    } else {
-      AppToast.error(context, applications.errorMessage ?? 'Could not submit application');
+      return;
     }
+
+    // The wallet emptied between opening the screen and tapping, or the
+    // balance was never loaded. Either way, offer the fix rather than the
+    // failure.
+    final failure = applications.lastApplyError;
+
+    if (failure != null && failure.isInsufficientCredits) {
+      await credits.refresh();
+      if (!mounted) return;
+
+      final goToWallet = await showDialog<bool>(
+        context: context,
+        builder: (dialogContext) => AlertDialog(
+          title: Text('Not enough ${Credits.plural}'),
+          content: Text(failure.message),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext, false),
+              child: const Text('Not now'),
+            ),
+            ElevatedButton(
+              onPressed: () => Navigator.pop(dialogContext, true),
+              child: const Text('Top up'),
+            ),
+          ],
+        ),
+      );
+
+      if (goToWallet == true && mounted) {
+        await Navigator.pushNamed(context, AppRouter.wallet);
+        if (mounted) await credits.refresh();
+      }
+      return;
+    }
+
+    AppToast.error(context, applications.errorMessage ?? 'Could not submit application');
   }
 
   Future<void> _toggleSave(Job job) async {

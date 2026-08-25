@@ -4,7 +4,10 @@ import '../../../core/constants/app_colors.dart';
 import '../../../providers/app_mode_provider.dart';
 import '../../../providers/notification_provider.dart';
 import '../../../providers/profile_view_provider.dart';
+import '../../../core/constants/credits.dart';
+import '../../../core/navigation/app_router.dart';
 import '../../../providers/auth_provider.dart';
+import '../../../providers/credits_provider.dart';
 import '../../legal/screens/legal_screen.dart';
 
 /// Profile / Account Screen
@@ -174,6 +177,27 @@ class ProfileScreen extends StatelessWidget {
                         : const _AddChip(),
                     onTap: () =>
                         Navigator.pushNamed(context, '/my-employer-profile'),
+                  ),
+
+                  const SizedBox(height: 24),
+
+                  // ── Wallet ──
+                  _SectionHeader(title: 'Wallet'),
+                  /*
+                      The balance is shown on the row itself rather than made
+                      you tap to find out. It is the number people check most
+                      often and the one they are most likely to dispute, so
+                      hiding it a screen deeper buys nothing.
+                  */
+                  Consumer<CreditsProvider>(
+                    builder: (context, credits, _) => _MenuItem(
+                      icon: Credits.walletIcon,
+                      title: 'My Wallet',
+                      subtitle: credits.hasLoadedOnce
+                          ? '${credits.balance} ${Credits.plural}'
+                          : null,
+                      onTap: () => Navigator.pushNamed(context, AppRouter.wallet),
+                    ),
                   ),
 
                   const SizedBox(height: 24),
