@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../../core/constants/app_colors.dart';
+import '../../../providers/auth_provider.dart';
+import '../widgets/profile_completeness_header.dart';
+import '../widgets/profile_section_card.dart';
 import '../../../data/services/api_client.dart';
 import '../../../data/models/worker_skill_model.dart';
 import '../../../data/models/skill_model.dart';
@@ -497,15 +500,25 @@ class _MyWorkerProfileScreenState extends State<MyWorkerProfileScreen> with Sing
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 96),
       children: [
         _buildViewsBanner(),
-        const Text(
-          'Complete Your Profile',
-          style: TextStyle(
-            fontSize: 18,
-            fontWeight: FontWeight.bold,
-            color: AppColors.neutral900,
+        /*
+            The heading here used to be the words "Complete Your Profile" and
+            nothing else — no sense of how complete, or of what was missing.
+
+            The server has computed both since profile completeness was built,
+            and nothing read it. A ring that is visibly short of closing does
+            what a heading cannot: it gives somebody a reason to finish.
+        */
+        Consumer<AuthProvider>(
+          builder: (context, auth, _) => Padding(
+            padding: const EdgeInsets.only(bottom: 6),
+            child: ProfileCompletenessHeader(
+              percent: auth.workerCompletenessPercent,
+              next: auth.workerCompletenessNext,
+            ),
           ),
         ),
-        const SizedBox(height: 16),
+
+        ProfileSectionHeading('About you'),
 
         // Name Card
         _buildInfoCard(
@@ -587,6 +600,8 @@ class _MyWorkerProfileScreenState extends State<MyWorkerProfileScreen> with Sing
             }
           },
         ),
+
+        ProfileSectionHeading('Your work'),
 
         // Skills Card - Using Selector to prevent unnecessary rebuilds
         Selector<WorkerProfileProvider, List<WorkerSkillModel>>(
@@ -724,6 +739,8 @@ class _MyWorkerProfileScreenState extends State<MyWorkerProfileScreen> with Sing
               : const Text('None added', style: TextStyle(color: AppColors.neutral600)),
           onTap: () => Navigator.pushNamed(context, '/add-experience'),
         ),
+
+        ProfileSectionHeading('Credentials'),
 
         // Certifications Card
         _buildInfoCard(

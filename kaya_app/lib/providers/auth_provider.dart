@@ -62,6 +62,24 @@ class AuthProvider with ChangeNotifier {
   /// When false the app is in "neutral" mode and shows the dual setup card.
   bool get hasAnyProfile => workerProfileExists || employerProfileExists;
 
+  /*
+      How complete the worker profile is, computed server side.
+
+      /me has carried this since profile completeness was built and nothing in
+      the app ever read it, so the number existed and nobody saw it. Computed
+      in one place on purpose: two screens working it out separately is two
+      screens that will eventually disagree about the same profile.
+  */
+  Map<String, dynamic>? get workerCompleteness =>
+      _user?['worker_profile_completeness'] as Map<String, dynamic>?;
+
+  int get workerCompletenessPercent =>
+      (workerCompleteness?['percent'] as num?)?.toInt() ?? 0;
+
+  /// The single most valuable missing item, or null when nothing is missing.
+  String? get workerCompletenessNext =>
+      workerCompleteness?['next'] as String?;
+
   // ── Register ─────────────────────────────────────────────────────────────────
 
   Future<bool> register({
