@@ -135,6 +135,26 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
   void _open(AppNotification n) {
     context.read<NotificationProvider>().markRead(n.id);
 
+    /*
+        Two notifications can point at the same thing and still belong on
+        different screens, so type is checked before reference_type.
+
+        "Someone applied to your job" carries reference_type 'job', because the
+        job is what it is about. Following that literally sent the employer to
+        the public job page — their own listing, as a worker sees it, with no
+        applicant on it anywhere. The thing they actually want is one tap
+        further in, and the notification already carries the id needed to get
+        there.
+    */
+    if (n.type == 'application.received' && n.referenceId != null) {
+      Navigator.pushNamed(
+        context,
+        AppRouter.viewApplicants,
+        arguments: {'jobId': n.referenceId},
+      );
+      return;
+    }
+
     switch (n.referenceType) {
       case 'job':
         if (n.referenceId != null) {
@@ -148,8 +168,26 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
         Navigator.pushNamed(context, AppRouter.applications);
       case 'invitation':
         Navigator.pushNamed(context, '/my-invitations');
+      /*
+          Open the thread, not the inbox.
+
+          reference_id is the conversation the message arrived in, and the
+          banner has always used it to push straight into the chat. This branch
+          dropped it and pushed the list instead, so tapping "New message" left
+          the reader to find the conversation themselves — and on a busy inbox
+          that is worse than not linking at all, because it looks like the tap
+          failed.
+      */
       case 'conversation':
-        Navigator.pushNamed(context, AppRouter.messages);
+        if (n.referenceId != null) {
+          Navigator.pushNamed(
+            context,
+            AppRouter.chat,
+            arguments: {'conversationId': n.referenceId},
+          );
+        } else {
+          Navigator.pushNamed(context, AppRouter.messages);
+        }
       // Approved or rejected identity check. It carries no id — there is one
       // verification screen and it shows the current state, including the
       // admin's rejection reason.

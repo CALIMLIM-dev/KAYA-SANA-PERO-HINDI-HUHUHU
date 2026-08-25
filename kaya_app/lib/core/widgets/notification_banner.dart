@@ -40,6 +40,7 @@ class NotificationBannerHost extends StatefulWidget {
 class _NotificationBannerHostState extends State<NotificationBannerHost> {
   VoidCallback? _disposeListener;
   VoidCallback? _detachConnection;
+  VoidCallback? _detachArrived;
   OverlayEntry? _entry;
   Timer? _dismissTimer;
 
@@ -69,6 +70,61 @@ class _NotificationBannerHostState extends State<NotificationBannerHost> {
     realtime.connected.addListener(attach);
     _detachConnection = () => realtime.connected.removeListener(attach);
     attach();
+
+    /*
+        The socket is an accelerant, not the delivery mechanism.
+
+        Binding only to `notification.created` meant no banner ever appeared in
+        this deployment: there is no push provider by choice, and Reverb is not
+        running, so the event has nowhere to come from. Notifications arrived
+        silently in the list and the feature looked missing.
+
+        NotificationProvider now polls the same endpoint the background service
+        uses and republishes anything new through `arrived`, so the banner works
+        with or without a socket. Both paths de-duplicate on id, so a
+        notification delivered twice is still announced once.
+    */
+    // After the first frame: navigatorKey.currentContext is null during
+    // initState, because the navigator this host wraps has not been built yet.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+
+      final context = widget.navigatorKey.currentContext;
+      final notifications = context?.read<NotificationProvider>();
+      if (notifications == null) return;
+
+      void onArrived() {
+        final n = notifications.arrived.value;
+        if (n == null) return;
+        _onNotification({
+          'notification': {
+            'id': n.id,
+            'type': n.type,
+            'title': n.title,
+            'body': n.body,
+            'reference_type': n.referenceType,
+            'reference_id': n.referenceId,
+          },
+        });
+      }
+
+      notifications.arrived.addListener(onArrived);
+      _detachArrived = () => notifications.arrived.removeListener(onArrived);
+
+      /*
+          The listener is attached here, but the polling is not started here.
+
+          This host is built with the MaterialApp, so starting a poll from it
+          means the first request goes out on the welcome screen with no token.
+          A 401 from a non-auth path is read as an expired session and forces a
+          sign-out, so every cold start tripped one.
+
+          MainNavigation starts it instead: it mounts after login and again on
+          every subsequent sign-in, which is also what makes polling survive a
+          sign-out — clear() stops the timer, and only something that mounts
+          again can restart it.
+      */
+    });
   }
 
   void _onNotification(Map<String, dynamic> data) {
@@ -144,16 +200,56 @@ class _NotificationBannerHostState extends State<NotificationBannerHost> {
       context.read<NotificationProvider>().markRead(id);
     }
 
-    if (referenceType == 'conversation' && referenceId != null) {
+    /*
+        Same destinations as tapping the row in the notification centre.
+
+        These two used to disagree: the banner opened the chat, the list opened
+        the inbox, and everything that was not a message landed here on the
+        centre regardless. Tapping "You're hired" and arriving at a list of
+        notifications — including the one just tapped — reads as a dead link.
+    */
+    // Type before reference_type, matching the notification centre. "Someone
+    // applied to your job" points at the job but belongs on the applicant
+    // list — see the note there.
+    if ('${notification['type'] ?? ''}' == 'application.received' &&
+        referenceId != null) {
       navigator.pushNamed(
-        AppRouter.chat,
-        arguments: {'conversationId': referenceId},
+        AppRouter.viewApplicants,
+        arguments: {'jobId': referenceId},
       );
       return;
     }
 
-    // Everything else lands on the notification centre, which can explain
-    // itself better than a guess at the right screen would.
+    switch (referenceType) {
+      case 'conversation':
+        if (referenceId != null) {
+          navigator.pushNamed(
+            AppRouter.chat,
+            arguments: {'conversationId': referenceId},
+          );
+          return;
+        }
+      case 'job':
+        if (referenceId != null) {
+          navigator.pushNamed(
+            AppRouter.jobDetails,
+            arguments: {'jobId': referenceId},
+          );
+          return;
+        }
+      case 'application':
+        navigator.pushNamed(AppRouter.applications);
+        return;
+      case 'invitation':
+        navigator.pushNamed('/my-invitations');
+        return;
+      case 'verification':
+        navigator.pushNamed('/verification');
+        return;
+    }
+
+    // Anything without a usable reference falls back to the centre, which can
+    // explain itself better than a guess at the right screen would.
     navigator.pushNamed(AppRouter.notifications);
   }
 
@@ -162,6 +258,7 @@ class _NotificationBannerHostState extends State<NotificationBannerHost> {
     _remove();
     _disposeListener?.call();
     _detachConnection?.call();
+    _detachArrived?.call();
     super.dispose();
   }
 

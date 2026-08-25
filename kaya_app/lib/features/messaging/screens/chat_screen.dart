@@ -10,6 +10,8 @@ import '../../../providers/messaging_provider.dart';
 import '../../../core/widgets/app_toast.dart';
 import '../widgets/job_tracking_panel.dart';
 import '../../moderation/widgets/report_sheet.dart';
+import '../../invitations/widgets/invite_to_job.dart';
+import '../../../providers/app_mode_provider.dart';
 
 /// Chat Screen — message thread for a real conversation.
 /// Arguments: { conversationId, name, jobTitle, jobId, otherUserId,
@@ -77,6 +79,22 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   int? _conversationId;
   bool _requested = false;
 
+  /*
+      The thread's own details, when the caller did not supply them.
+
+      Opening a chat from the inbox hands over the name, the job, the other
+      person's id and the hire — the row on screen already knew all of it. A
+      notification knows only which conversation the message landed in, so
+      everything else arrived null and the screen fell back to the word User,
+      no job card, a dead View Profile button and a Report that could not name
+      anyone.
+
+      Rather than making every caller pass nine fields, the screen now looks up
+      what it was not told. Any future entry point can push a bare
+      conversationId and get a complete chat.
+  */
+  Map<String, dynamic>? _resolved;
+
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
@@ -94,10 +112,15 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     // before the server has confirmed it exists.
     _messaging?.selfId = context.read<AuthProvider>().user?['id'] as int?;
 
+    // Only the name is checked: the inbox always sends it, and a notification
+    // never does, so it tells the two callers apart without guessing.
+    final needsDetails = args is! Map || args['name'] == null;
+
     if (_conversationId != null) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) {
           context.read<MessagingProvider>().fetchMessages(_conversationId!);
+          if (needsDetails) _resolveDetails();
         }
       });
       WidgetsBinding.instance.addObserver(this);
@@ -146,6 +169,49 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   Timer? _pollTimer;
   DateTime _lastActivity = DateTime.now();
   bool _foreground = true;
+
+  /// Fills in what the caller left out, from the conversation list.
+  ///
+  /// Fetches the list only when it is not already loaded — coming from the
+  /// inbox it always is, and refetching would cost a request to learn what the
+  /// screen was just handed.
+  Future<void> _resolveDetails() async {
+    final messaging = context.read<MessagingProvider>();
+
+    if (messaging.conversations.isEmpty) {
+      await messaging.fetchConversations(silent: true);
+    }
+    if (!mounted) return;
+
+    Map<String, dynamic>? conv;
+    for (final c in messaging.conversations) {
+      if (c['id'] == _conversationId) {
+        conv = c;
+        break;
+      }
+    }
+    if (conv == null || !mounted) return;
+
+    final myId = context.read<AuthProvider>().user?['id'] as int?;
+    final iAmWorker = conv['worker_id'] == myId;
+    final other = (iAmWorker ? conv['employer'] : conv['worker']) as Map<String, dynamic>?;
+    final job = conv['job'] as Map<String, dynamic>?;
+
+    setState(() {
+      _resolved = {
+        'name': other?['name'] ?? (iAmWorker ? 'Employer' : 'Worker'),
+        'jobTitle': job?['title'],
+        'jobId': conv?['job_id'],
+        'otherUserId': other?['id'],
+        'isVerified': (other?['is_verified'] as bool?) ?? false,
+        'lastSeenAt': other?['last_seen_at'],
+        'applicationId': conv?['application_id'],
+        'jobStatus': job?['status'],
+        'myRole': iAmWorker ? 'worker' : 'employer',
+        'otherRole': iAmWorker ? 'employer' : 'worker',
+      };
+    });
+  }
 
   void _startPolling() {
     _pollTimer?.cancel();
@@ -264,20 +330,33 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
 
   @override
   Widget build(BuildContext context) {
-    final args =
+    final routeArgs =
         ModalRoute.of(context)?.settings.arguments as Map<String, dynamic>?;
-    final name        = args?['name']        as String? ?? 'User';
-    final jobTitle    = args?['jobTitle']    as String?;
-    final jobId       = args?['jobId']       as int?;
-    final otherUserId = args?['otherUserId'] as int?;
-    final isVerified  = args?['isVerified']  as bool? ?? false;
-    final otherRole   = args?['otherRole']   as String? ?? 'worker';
+
+    /*
+        What the caller passed, then what the screen looked up itself.
+
+        The inbox supplies everything and _resolved stays null. A notification
+        supplies only the conversation id, and every field below used to fall
+        through to a placeholder — the header read User, the job card vanished,
+        View Profile did nothing and Report had no one to report. The thread was
+        the one part that worked, which made it look like a rendering bug rather
+        than a screen missing three quarters of its input.
+    */
+    final args = <String, dynamic>{...?_resolved, ...?routeArgs};
+
+    final name        = args['name']        as String? ?? 'User';
+    final jobTitle    = args['jobTitle']    as String?;
+    final jobId       = args['jobId']       as int?;
+    final otherUserId = args['otherUserId'] as int?;
+    final isVerified  = args['isVerified']  as bool? ?? false;
+    final otherRole   = args['otherRole']   as String? ?? 'worker';
 
     // Location sharing: only on a hire that is actually in progress, and the
     // panel shows a different face to each party.
-    final applicationId = args?['applicationId'] as int?;
-    final jobStatus     = args?['jobStatus']     as String?;
-    final iAmWorker     = (args?['myRole'] as String?) == 'worker';
+    final applicationId = args['applicationId'] as int?;
+    final jobStatus     = args['jobStatus']     as String?;
+    final iAmWorker     = (args['myRole'] as String?) == 'worker';
     final canTrack      = applicationId != null && jobStatus == 'in_progress';
 
     if (_conversationId == null) {
@@ -292,7 +371,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     return Scaffold(
       backgroundColor: const Color(0xFFF0F2F5),
       appBar: _buildAppBar(context, name, isVerified, otherRole, jobId,
-          otherUserId, args?['lastSeenAt'] as String?),
+          otherUserId, args['lastSeenAt'] as String?),
       body: Column(
         children: [
           if (jobTitle != null)
@@ -507,6 +586,12 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
               case 'report':
                 _showReportDialog(context, otherUserId, name);
                 break;
+              case 'invite':
+                if (otherUserId != null) {
+                  showInviteToJobSheet(context,
+                      workerId: otherUserId, workerName: name);
+                }
+                break;
             }
           },
           // "View Job Details" used to live here as well as on the visible
@@ -514,6 +599,28 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
           // from one bar reads as a bug, and the button is the discoverable
           // one — so the menu keeps only what has nowhere else to go.
           itemBuilder: (_) => [
+            /*
+                Hiring someone you already know, without leaving the chat.
+
+                Every person you have ever hired has a thread here, so this is
+                already the list of people you would rehire — walking out to
+                Search and back into their profile to reach the same dialog was
+                the whole reason a repeat hire felt slower than a first one.
+
+                Only shown to an account that can actually post work. A worker
+                with no employer profile has nothing to invite anyone to.
+            */
+            if (context.read<AppModeProvider>().hasEmployerProfile)
+              const PopupMenuItem(
+                value: 'invite',
+                child: Row(
+                  children: [
+                    Icon(Icons.work_outline, size: 18, color: AppColors.primary),
+                    SizedBox(width: 10),
+                    Text('Invite to another job'),
+                  ],
+                ),
+              ),
             const PopupMenuItem(
               value: 'report',
               child: Row(

@@ -86,6 +86,28 @@ class _MainNavigationState extends State<MainNavigation>
     WidgetsBinding.instance.addObserver(this);
     MainNavigation.selectedTab.addListener(_onTabRequested);
 
+    /*
+        Notification polling starts here, where a session actually begins.
+
+        It used to start in the banner host, which is created once with the
+        MaterialApp — before anyone has logged in. That was wrong twice over.
+
+        The first poll went out with no token, and a 401 from a path that is
+        not an auth endpoint is treated as an expired session, so every cold
+        start fired a spurious forced logout.
+
+        Worse, logging out calls clear(), which stops the timer, and nothing
+        ever started it again — the banner host's initState had already run and
+        does not run a second time. So a single sign-out killed pop-up
+        notifications for the rest of the app's life, silently.
+
+        This shell is mounted after login and rebuilt on every sign-in, which
+        makes it the right owner. startPolling() is idempotent, so returning to
+        this screen does not stack timers.
+    */
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) context.read<NotificationProvider>().startPolling();
+    });
   }
 
   @override
