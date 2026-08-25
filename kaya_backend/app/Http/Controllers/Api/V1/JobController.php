@@ -31,6 +31,24 @@ class JobController extends Controller
         $query = JobPost::with(['employer:id,name,avatar,is_verified', 'category', 'skills', 'psgcLocation'])
             ->where('status', 'open');
 
+        /*
+            Your own jobs are not work you can take.
+
+            Only a hybrid account ever hits this -- someone who posts jobs and
+            also works. Applying to your own job is refused at
+            ApplicationController@apply, so leaving it in the feed meant showing
+            an Apply button that could only ever fail. The employer already has
+            their own posts on /jobs/my, so nothing is lost by keeping this list
+            to jobs the viewer could actually do.
+
+            Matches the exclusion the matches endpoint already applies in the
+            other direction, where a hybrid is not offered as a match for their
+            own job.
+        */
+        if ($viewer = $request->user()) {
+            $query->where('employer_id', '!=', $viewer->id);
+        }
+
         if ($search = $request->get('search')) {
             $query->where(function ($q) use ($search) {
                 $q->where('title', 'like', "%{$search}%")
