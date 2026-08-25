@@ -74,6 +74,71 @@ class ScheduleConflictService
     }
 
     /**
+     * A hire the worker already holds that overlaps this job, if there is one.
+     *
+     * cancelClashing() answers "what does this hire clear away", and it only
+     * ever touches applications still pending. This answers the other half:
+     * whether the worker has ALREADY committed that date to somebody else.
+     *
+     * The two have to be different operations, because the right response is
+     * different. A pending application is only an intention, so a hire may
+     * cancel it. An accepted one is a promise to another employer, and the
+     * system must not break that promise just because a second employer
+     * clicked accept -- that would quietly hand the worker to whoever acted
+     * last. So this reports the conflict and the caller refuses.
+     *
+     * Returns null when either job has no dates, matching clashingWith(): a
+     * job without a date cannot be shown to collide with anything, and
+     * refusing a hire on a guess is worse than allowing it.
+     */
+    public function existingCommitment(int $workerId, ?JobPost $job, ?int $exceptId = null): ?Application
+    {
+        if ($job === null || $job->start_date === null) {
+            return null;
+        }
+
+        $start = $job->start_date->toDateString();
+        $end = ($job->end_date ?? $job->start_date)->toDateString();
+
+        return Application::query()
+            ->where('applications.worker_id', $workerId)
+            // 'accepted' only. A completed job is in the past and occupies
+            // nothing; a pending one is handled by cancelClashing instead.
+            ->where('applications.status', 'accepted')
+            ->when($exceptId, fn ($q) => $q->where('applications.id', '!=', $exceptId))
+            ->join('jobs_posts', 'jobs_posts.id', '=', 'applications.job_id')
+            ->where('jobs_posts.id', '!=', $job->id)
+            ->whereNotNull('jobs_posts.start_date')
+            ->whereRaw('jobs_posts.start_date <= ?', [$end])
+            ->whereRaw('COALESCE(jobs_posts.end_date, jobs_posts.start_date) >= ?', [$start])
+            ->select('applications.*')
+            ->with('job:id,title,start_date,end_date')
+            ->first();
+    }
+
+    /**
+     * How to say "already booked" without naming the other employer.
+     *
+     * The dates are the employer's business -- they need them to reschedule.
+     * Who else hired this worker, and for what, is not: it would turn every
+     * accept button into a way to enumerate a worker's clients.
+     */
+    public function clashMessage(Application $commitment, bool $addressingWorker = false): string
+    {
+        $job = $commitment->job;
+        $start = $job?->start_date?->format('M j, Y');
+        $end = $job?->end_date?->format('M j, Y');
+
+        $when = $start === null
+            ? 'those dates'
+            : ($end !== null && $end !== $start ? "{$start} to {$end}" : $start);
+
+        return $addressingWorker
+            ? "You are already hired for another job on {$when}. Finish or cancel that job first."
+            : "This worker is already hired for another job on {$when}.";
+    }
+
+    /**
      * Cancels the clashing applications and tells everyone affected.
      *
      * Returns what it cancelled so the employer's screen can say what happened

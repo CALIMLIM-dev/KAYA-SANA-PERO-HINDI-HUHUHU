@@ -80,6 +80,22 @@ class InvitationController extends Controller
         $job = $invitation->job;
         if (!$job || $job->status !== 'open') return $this->fail('Job is no longer available', 422);
 
+        /*
+            Same double-booking guard as accepting an applicant, from the other
+            side of the handshake. Accepting an invitation creates an accepted
+            application, so without this a worker could take an invite for a day
+            they have already promised to somebody else.
+
+            Worded for the worker, who -- unlike the employer -- is entitled to
+            know it is their own prior job in the way.
+        */
+        $schedule = app(\App\Services\ScheduleConflictService::class);
+        $commitment = $schedule->existingCommitment($user->id, $job);
+
+        if ($commitment !== null) {
+            return $this->fail($schedule->clashMessage($commitment, addressingWorker: true), 422);
+        }
+
         $invitation->update(['status' => 'accepted']);
 
         // Create or update application
@@ -93,14 +109,26 @@ class InvitationController extends Controller
         }
 
         // Unlock or create conversation
+        // One thread per person — see the matching block in ApplicationController.
         $conversation = Conversation::firstOrCreate(
-            ['job_id' => $job->id, 'employer_id' => $invitation->employer_id, 'worker_id' => $user->id],
-            ['status' => 'unlocked']
+            [
+                'pair_low' => min($invitation->employer_id, $user->id),
+                'pair_high' => max($invitation->employer_id, $user->id),
+            ],
+            [
+                'job_id' => $job->id,
+                'employer_id' => $invitation->employer_id,
+                'worker_id' => $user->id,
+                'status' => 'unlocked',
+            ]
         );
 
-        if ($conversation->status === 'locked') {
-            $conversation->update(['status' => 'unlocked']);
-        }
+        $conversation->update([
+            'status' => 'unlocked',
+            'job_id' => $job->id,
+            'employer_id' => $invitation->employer_id,
+            'worker_id' => $user->id,
+        ]);
 
         InvitationAccepted::dispatch($invitation->load(['job', 'worker']));
 

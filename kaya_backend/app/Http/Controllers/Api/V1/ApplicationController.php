@@ -150,8 +150,14 @@ class ApplicationController extends Controller
             Keyed by worker_id: one conversation per job per pair is now
             guaranteed by a unique index, so this cannot collapse two threads.
         */
-        $conversations = Conversation::where('job_id', $job->id)
-            ->where('employer_id', $user->id)
+        /*
+            Keyed by worker alone now that a pair has one thread rather than one
+            per job. Filtering by job_id here would return nothing for an
+            applicant this employer has messaged about a different job, and the
+            Message button on their card would vanish for exactly the people
+            they have the longest history with.
+        */
+        $conversations = Conversation::where('employer_id', $user->id)
             ->pluck('id', 'worker_id');
 
         // Both halves of the review pair for this job, in one query — see the
@@ -278,20 +284,68 @@ class ApplicationController extends Controller
         if ($job->employer_id !== $user->id) return $this->fail('Forbidden', 403);
         if ($application->status !== 'pending') return $this->fail('Application status must be pending to accept', 422);
 
+        /*
+            Refuse rather than double-book.
+
+            cancelClashing() below clears the worker's other PENDING applications
+            for these dates, but it deliberately leaves accepted ones alone -- an
+            accepted application is a promise to another employer. Without this
+            check nothing else looks at those, so two employers could each accept
+            the same worker for the same day and neither would ever be told.
+
+            Refusing is the only honest option. Cancelling the earlier hire to
+            make room would give the worker to whoever pressed the button last,
+            and silently allowing both would send one employer to an empty site.
+        */
+        $schedule = app(ScheduleConflictService::class);
+        $commitment = $schedule->existingCommitment($application->worker_id, $job, $application->id);
+
+        if ($commitment !== null) {
+            return $this->fail($schedule->clashMessage($commitment), 422);
+        }
+
         $application->update(['status' => 'accepted']);
 
         // Mark job in_progress
         $job->update(['status' => 'in_progress']);
 
         // Unlock or create conversation
+        /*
+            One thread per pair, reused on every rehire.
+
+            Keyed on the two people rather than the job, so hiring someone a
+            second time continues the conversation you already have with them
+            instead of opening an empty one beside it. job_id follows the newest
+            hire so the chat's job card still says what the work is.
+        */
         $conversation = Conversation::firstOrCreate(
-            ['job_id' => $job->id, 'employer_id' => $user->id, 'worker_id' => $application->worker_id],
-            ['status' => 'unlocked']
+            [
+                'pair_low' => min($user->id, $application->worker_id),
+                'pair_high' => max($user->id, $application->worker_id),
+            ],
+            [
+                'job_id' => $job->id,
+                'employer_id' => $user->id,
+                'worker_id' => $application->worker_id,
+                'status' => 'unlocked',
+            ]
         );
 
-        if ($conversation->status === 'locked') {
-            $conversation->update(['status' => 'unlocked']);
-        }
+        /*
+            Roles follow the newest hire.
+
+            The pair identifies the thread; employer_id/worker_id describe who
+            is hiring whom *now*. They have to be rewritten because the two can
+            swap — the person who hired you last month may be applying to your
+            job today — and the chat's job card, the location-sharing offer and
+            the review prompt all read from them.
+        */
+        $conversation->update([
+            'status' => 'unlocked',
+            'job_id' => $job->id,
+            'employer_id' => $user->id,
+            'worker_id' => $application->worker_id,
+        ]);
 
         ApplicationAccepted::dispatch($application->load(['job', 'worker']));
 
@@ -306,7 +360,7 @@ class ApplicationController extends Controller
             Returned rather than done silently, so the employer's screen can say
             what changed instead of three other records quietly moving.
         */
-        $cancelled = app(ScheduleConflictService::class)->cancelClashing($application);
+        $cancelled = $schedule->cancelClashing($application);
 
         return $this->ok([
             'application'     => $application,
