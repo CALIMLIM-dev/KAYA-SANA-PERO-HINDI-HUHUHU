@@ -142,6 +142,18 @@ class _MyEmployerProfileScreenState extends State<MyEmployerProfileScreen>
 
   @override
   Widget build(BuildContext context) {
+    /*
+        How many lines past the first the name will take.
+
+        Decided here because the header's height is fixed before its contents
+        are laid out. Roughly 22 characters fit on a line beside the avatar, so
+        this counts them rather than guessing - and caps at two extra lines,
+        which is where the name itself starts being truncated anyway.
+    */
+    // The name wraps to at most two lines now, so this only ever adds room
+    // for the second one - no open-ended guessing about how long a name is.
+    final extraNameLines = (_name ?? '').length > 22 ? 1 : 0;
+
     return Scaffold(
       backgroundColor: AppColors.background,
       body: NestedScrollView(
@@ -151,8 +163,17 @@ class _MyEmployerProfileScreenState extends State<MyEmployerProfileScreen>
             // Scaled with the text for the reason described on the worker
             // profile: a fixed header height overflows the moment somebody
             // turns their font size up.
-            expandedHeight:
-                214 * MediaQuery.textScalerOf(context).scale(1.0),
+            /*
+                And tall enough for a name that wraps.
+
+                214 fits a short one on a single line. A registered business
+                name - "Santiago Construction and General Services
+                Incorporated" - runs to three, and the header had no room, so a
+                filled employer profile spilled out of its own header while an
+                empty one looked fine.
+            */
+            expandedHeight: (214 + (extraNameLines * 44)) *
+                MediaQuery.textScalerOf(context).scale(1.0),
             floating: false,
             pinned: true,
             backgroundColor: AppColors.primary,
@@ -311,9 +332,24 @@ class _MyEmployerProfileScreenState extends State<MyEmployerProfileScreen>
                             ),
                           ),
 
-                        // Name
+                        /*
+                            Two lines, then an ellipsis.
+
+                            A registered business name runs long - "Santiago
+                            Construction and General Services Incorporated" is
+                            four lines in a header this narrow - and an
+                            uncapped one pushed the header past its own height.
+
+                            Capping it is better than making the header taller
+                            to fit: the header has a fixed height, so anything
+                            that can grow without limit will eventually
+                            outgrow it, and the full name is on the row below
+                            where there is room for it.
+                        */
                         Text(
                           _name ?? 'Your Name',
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
                           style: TextStyle(
                             fontSize: 20,
                             fontWeight: FontWeight.bold,
@@ -333,13 +369,19 @@ class _MyEmployerProfileScreenState extends State<MyEmployerProfileScreen>
                                     ? Colors.white70
                                     : Colors.white30),
                             const SizedBox(width: 3),
-                            Text(
-                              _location ?? 'Location not set',
-                              style: TextStyle(
-                                  fontSize: 12,
-                                  color: _location != null
-                                      ? Colors.white70
-                                      : Colors.white30),
+                            // Barangay, city and province is a long line and a
+                            // Row will happily carry it off the screen.
+                            Expanded(
+                              child: Text(
+                                _location ?? 'Location not set',
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                    fontSize: 12,
+                                    color: _location != null
+                                        ? Colors.white70
+                                        : Colors.white30),
+                              ),
                             ),
                           ],
                         ),

@@ -45,6 +45,13 @@ class EmployerProfileProvider with ChangeNotifier {
   
   // Expose models, not individual fields
   EmployerProfile? get profile => _profile;
+
+  /// Lets a test render the employer profile filled in - see JobProvider.
+  @visibleForTesting
+  void seedProfile(EmployerProfile profile) {
+    _profile = profile;
+    notifyListeners();
+  }
   EmployerVerification? get verification => _verification;
   
   // Convenience getters

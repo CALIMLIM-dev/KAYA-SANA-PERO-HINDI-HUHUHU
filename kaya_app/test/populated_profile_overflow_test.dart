@@ -3,6 +3,9 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:provider/provider.dart';
 
 import 'package:kaya_app/data/services/api_client.dart';
+import 'package:kaya_app/core/constants/employer_type.dart';
+import 'package:kaya_app/data/models/employer_profile_model.dart';
+import 'package:kaya_app/features/profile/screens/my_employer_profile_screen.dart';
 import 'package:kaya_app/features/profile/screens/my_worker_profile_screen.dart';
 import 'package:kaya_app/providers/auth_provider.dart';
 import 'package:kaya_app/providers/credits_provider.dart';
@@ -64,8 +67,31 @@ void main() {
     return p;
   }
 
+  /// An employer profile with every field filled, same idea as the worker one.
+  EmployerProfileProvider populatedEmployer() {
+    final p = EmployerProfileProvider();
+    p.seedProfile(EmployerProfile(
+      id: 1,
+      userId: 1,
+      employerType: EmployerType.company,
+      companyName: 'Santiago Construction and General Services Incorporated',
+      industry: 'Construction and civil works',
+      website: 'facebook.com/santiagoconstructionservices',
+      description: 'Family run builders working across Pangasinan since 1998, '
+          'taking on residential builds, renovations and small commercial fit outs.',
+      location: 'Barangay Nancayasan, Urdaneta City, Pangasinan',
+      locationId: 1,
+      latitude: 15.976,
+      longitude: 120.571,
+      createdAt: DateTime(2024, 1, 1),
+      updatedAt: DateTime(2024, 1, 1),
+    ));
+    return p;
+  }
+
   Future<List<String>> overflowsIn(
-    WidgetTester tester, {
+    WidgetTester tester,
+    Widget screen, {
     required double textScale,
     required double width,
   }) async {
@@ -101,14 +127,16 @@ void main() {
               ChangeNotifierProvider<WorkerProfileProvider>.value(
                 value: populated(),
               ),
-              ChangeNotifierProvider(create: (_) => EmployerProfileProvider()),
+              ChangeNotifierProvider<EmployerProfileProvider>.value(
+                value: populatedEmployer(),
+              ),
               ChangeNotifierProvider(create: (_) => VerificationProvider()),
               ChangeNotifierProvider(create: (_) => ProfileViewProvider()),
               ChangeNotifierProvider(create: (_) => JobProvider()),
               ChangeNotifierProvider(create: (_) => LocationProvider()),
               ChangeNotifierProvider(create: (_) => CreditsProvider()),
             ],
-            child: const MaterialApp(home: MyWorkerProfileScreen()),
+            child: MaterialApp(home: screen),
           ),
         ),
       );
@@ -128,25 +156,33 @@ void main() {
     return complaints;
   }
 
-  for (final width in <double>[360, 320]) {
-    for (final scale in <double>[1.0, 1.3]) {
-      testWidgets(
-        'a filled worker profile fits ${width.toInt()}px at text scale $scale',
-        (tester) async {
-          final complaints = await overflowsIn(
-            tester,
-            textScale: scale,
-            width: width,
-          );
+  final screens = <String, Widget>{
+    'worker profile': const MyWorkerProfileScreen(),
+    'employer profile': const MyEmployerProfileScreen(),
+  };
 
-          expect(
-            complaints,
-            isEmpty,
-            reason: 'A filled profile overflowed at ${width.toInt()}px, '
-                'text scale $scale:\n  ${complaints.join('\n  ')}',
-          );
-        },
-      );
+  for (final entry in screens.entries) {
+    for (final width in <double>[360, 320]) {
+      for (final scale in <double>[1.0, 1.3]) {
+        testWidgets(
+          'a filled ${entry.key} fits ${width.toInt()}px at text scale $scale',
+          (tester) async {
+            final complaints = await overflowsIn(
+              tester,
+              entry.value,
+              textScale: scale,
+              width: width,
+            );
+
+            expect(
+              complaints,
+              isEmpty,
+              reason: 'A filled ${entry.key} overflowed at ${width.toInt()}px, '
+                  'text scale $scale:\n  ${complaints.join('\n  ')}',
+            );
+          },
+        );
+      }
     }
   }
 }

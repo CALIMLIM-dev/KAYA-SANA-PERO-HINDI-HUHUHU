@@ -28,6 +28,30 @@ class JobProvider with ChangeNotifier {
   String? get publicErrorMessage => _publicError;
   List<Job> get publicJobs => _publicJobs;
 
+  /*
+      Lets a test render this screen with something in it.
+
+      Overflow is a content bug - a layout breaks on the address that runs to
+      three lines, not on an empty field - so a test that renders against an
+      empty provider checks the one case that always fits. The profile header
+      overflowed for weeks with every screen test passing, because none of
+      them had a profile.
+
+      There is no other way in: the list is filled by a fetch, and a test has
+      no server. Marked visibleForTesting so nothing in the app calls it.
+  */
+  @visibleForTesting
+  void seedPublicJobs(List<Job> jobs) {
+    _publicJobs = jobs;
+    notifyListeners();
+  }
+
+  @visibleForTesting
+  void seedMyJobs(List<Map<String, dynamic>> jobs) {
+    _jobs = jobs;
+    notifyListeners();
+  }
+
   /// GET /jobs — the feed the mock _getMockJobs() in unified_home_screen and
   /// search_screen used to stand in for. Includes a per-job match_score when
   /// the signed-in account has a worker profile (see JobMatchService).
