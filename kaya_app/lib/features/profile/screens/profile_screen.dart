@@ -401,35 +401,40 @@ class _MenuItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 8),
-      decoration: BoxDecoration(
-          color: Colors.white, borderRadius: BorderRadius.circular(12)),
-      child: ListTile(
-        leading: Container(
-          width: 40,
-          height: 40,
-          decoration: BoxDecoration(
-            color: AppColors.primary.withValues(alpha: 0.08),
-            borderRadius: BorderRadius.circular(10),
+    // The white surface is the Material itself, so the tap ripple lands on the
+    // row rather than being hidden behind it. Same reason as the settings rows.
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Material(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        clipBehavior: Clip.antiAlias,
+        child: ListTile(
+          leading: Container(
+            width: 40,
+            height: 40,
+            decoration: BoxDecoration(
+              color: AppColors.primary.withValues(alpha: 0.08),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Icon(icon, color: AppColors.primary, size: 22),
           ),
-          child: Icon(icon, color: AppColors.primary, size: 22),
+          title: Text(title,
+              style: Theme.of(context)
+                  .textTheme
+                  .titleSmall
+                  ?.copyWith(fontWeight: FontWeight.w600)),
+          subtitle: subtitle == null
+              ? null
+              : Text(subtitle!,
+                  style: Theme.of(context)
+                      .textTheme
+                      .bodySmall
+                      ?.copyWith(color: AppColors.neutral600)),
+          trailing: trailing ??
+              const Icon(Icons.chevron_right, color: AppColors.neutral400),
+          onTap: onTap,
         ),
-        title: Text(title,
-            style: Theme.of(context)
-                .textTheme
-                .titleSmall
-                ?.copyWith(fontWeight: FontWeight.w600)),
-        subtitle: subtitle == null
-            ? null
-            : Text(subtitle!,
-                style: Theme.of(context)
-                    .textTheme
-                    .bodySmall
-                    ?.copyWith(color: AppColors.neutral600)),
-        trailing: trailing ??
-            const Icon(Icons.chevron_right, color: AppColors.neutral400),
-        onTap: onTap,
       ),
     );
   }

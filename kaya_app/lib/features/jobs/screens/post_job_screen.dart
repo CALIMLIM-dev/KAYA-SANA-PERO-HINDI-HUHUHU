@@ -1795,7 +1795,8 @@ class _PostJobScreenState extends State<PostJobScreen> {
       onTap: onTap,
       onLongPress: showWarning
           ? () {
-              AppToast.warning(context, '⚠️ Warning: Your account might get flagged for misleading information if job is not actually urgent');
+              AppToast.warning(context,
+                  'Only mark a job urgent if it really is. Accounts that misuse this get flagged.');
             }
           : null,
       child: Container(
@@ -1817,12 +1818,20 @@ class _PostJobScreenState extends State<PostJobScreen> {
               size: 18,
             ),
             const SizedBox(width: 8),
-            Text(
-              label,
-              style: TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.w600,
-                color: isActive ? Colors.white : AppColors.neutral600,
+            // Flexible, so the label gives way instead of the button growing
+            // past the half of the row it has been given. Two of these sit
+            // side by side, and on a narrow phone at a large font size the
+            // words alone were 1.5px wider than the space available.
+            Flexible(
+              child: Text(
+                label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                  color: isActive ? Colors.white : AppColors.neutral600,
+                ),
               ),
             ),
             if (showWarning) ...[

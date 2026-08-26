@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import '../../../core/constants/app_colors.dart';
 import 'compact_job_card.dart';
@@ -60,23 +62,42 @@ class JobsNearYouSection extends StatelessWidget {
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Available Jobs',
-                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                      fontWeight: FontWeight.bold,
-                      color: AppColors.neutral900,
+              /*
+                  Expanded, so the heading gives way instead of the button.
+
+                  A Row hands an unconstrained child every pixel it asks for,
+                  and a title plus a subtitle asks for as much as the longest
+                  line needs. On a narrow phone, or at a larger font, that is
+                  more than the row has, so the whole thing was pushed wide and
+                  "See All" — the only way into the full list — was carried off
+                  the right edge behind a striped overflow bar.
+
+                  Expanded caps the text at what is left after the button is
+                  laid out, and the ellipsis below decides what to drop.
+              */
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Available Jobs',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                        fontWeight: FontWeight.bold,
+                        color: AppColors.neutral900,
+                      ),
                     ),
-                  ),
-                  Text(
-                    _subtitle(),
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: AppColors.neutral600,
+                    Text(
+                      _subtitle(),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: AppColors.neutral600,
+                      ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
               if (jobs.isNotEmpty || !isLoading)
                 TextButton(
@@ -96,24 +117,26 @@ class JobsNearYouSection extends StatelessWidget {
         const SizedBox(height: 12),
         
         // Jobs Horizontal List
+        /*
+            Sized from the text, not from a number somebody measured once.
+
+            This was a literal height, and it had been raised three times —
+            140, then 150, then 168 — each time to fix an overflow that had
+            just been reported, and each raise bought one more line of slack
+            before the next one. The pattern is the bug: a fixed strip cannot
+            hold content that grows, and the content grows the moment somebody
+            turns their font size up, which Android lets everybody do.
+
+            Multiplying by the text scale gives the cards exactly the room the
+            text asked for, at every setting, without anybody having to
+            remember to raise it again.
+
+            The height stays uniform across the row on purpose. A horizontal
+            carousel of cards that each size themselves looks broken, so the
+            strip sets one height for all of them and the cards fill it.
+        */
         SizedBox(
-          /*
-              168, and this is the second time it has been raised.
-
-              It went 140 → 150 to "fix overflow", which bought 10px of slack
-              and left the card one line away from breaking again — which is
-              what the reported overflow on this widget was. Adding the schedule
-              row then overflowed it by exactly 3px, caught by the render test
-              rather than by a tester.
-
-              168 fits the current content with room for one more line. If
-              another row is ever added here, raise this in the same commit and
-              re-run `flutter test test/screens_render_test.dart` — the card is
-              a fixed height on purpose, because a horizontal carousel of
-              different-height cards looks broken, so the height and the content
-              have to be changed together.
-          */
-          height: 168,
+          height: 168 * MediaQuery.textScalerOf(context).scale(1.0),
           child: NotificationListener<ScrollNotification>(
             onNotification: (scrollNotification) {
               // Prevent parent scroll view from handling horizontal scroll
@@ -125,6 +148,22 @@ class JobsNearYouSection extends StatelessWidget {
       ],
     );
   }
+
+  /*
+      A card is 280 wide, unless the phone is not.
+
+      280 plus the 16px padding on each side needs a 312px screen, and the
+      narrowest Android still in use is 320 — so on those the card reached the
+      edge with nothing to spare and the peek of the next card, which is what
+      tells somebody the row scrolls, disappeared entirely.
+
+      Leaving 56px means the next card always shows an edge, on every phone.
+  */
+  static double _cardWidth(BuildContext context) =>
+      // The lower bound matters: a width can arrive as zero before the first
+      // real layout, and a negative box constraint is a crash rather than an
+      // ugly card.
+      math.max(200.0, math.min(280.0, MediaQuery.sizeOf(context).width - 56));
 
   Widget _buildJobsList() {
     if (isLoading) {
@@ -143,7 +182,7 @@ class JobsNearYouSection extends StatelessWidget {
       itemBuilder: (context, index) {
         final job = jobs[index];
         return Container(
-          width: 280,
+          width: _cardWidth(context),
           margin: EdgeInsets.only(right: index < jobs.length - 1 ? 12 : 0),
           child: CompactJobCard(
             job: job,
@@ -164,7 +203,7 @@ class JobsNearYouSection extends StatelessWidget {
       itemCount: 3,
       itemBuilder: (context, index) {
         return Container(
-          width: 280,
+          width: _cardWidth(context),
           margin: EdgeInsets.only(right: index < 2 ? 12 : 0),
           child: _SkeletonJobCard(),
         );

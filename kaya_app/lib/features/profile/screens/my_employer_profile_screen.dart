@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/widgets/app_toast.dart';
 import '../../../data/models/employer_profile_model.dart';
+import '../../../providers/auth_provider.dart';
 import '../../../providers/employer_profile_provider.dart';
 import '../../../providers/verification_provider.dart';
 
@@ -42,12 +43,34 @@ class _MyEmployerProfileScreenState extends State<MyEmployerProfileScreen>
   EmployerProfile? get _profile =>
       context.watch<EmployerProfileProvider>().profile;
 
-  String? get _name => _profile?.companyName;
+  /*
+      An individual employer has no company name.
+
+      This read company_name and nothing else, so anybody hiring as a person
+      rather than as a business saw an empty name on their own profile — the
+      field is genuinely null for them, and their identity is the name on
+      their account.
+
+      Which is also how the server decides an individual's setup is complete:
+      it checks the user's name, not the company field.
+  */
+  String? get _name {
+    final company = _profile?.companyName;
+    if (company != null && company.trim().isNotEmpty) return company;
+
+    final accountName = context.read<AuthProvider>().user?['name'] as String?;
+    return (accountName != null && accountName.trim().isNotEmpty)
+        ? accountName
+        : null;
+  }
   String? get _description => _profile?.description;
   String? get _location {
     final value = _profile?.location;
     return (value == null || value.isEmpty) ? null : value;
   }
+
+  /// Stops a pull landing on top of a reload that is already running.
+  bool _isReloading = false;
 
   bool get _hasPhoto => (_profile?.imageUrl ?? _profile?.imagePath) != null;
 
@@ -70,6 +93,31 @@ class _MyEmployerProfileScreenState extends State<MyEmployerProfileScreen>
     super.dispose();
   }
 
+  /// Pull down to reload, the way every other list in the app behaves.
+  ///
+  /// Note the unconditional fetch: initState deliberately skips the request
+  /// when a profile is already cached, which is right on open and wrong here —
+  /// somebody pulling the screen down is asking for fresh data, and returning
+  /// the cached copy would look like the gesture did nothing.
+  Future<void> _reload() async {
+    if (!mounted || _isReloading) return;
+    setState(() => _isReloading = true);
+
+    try {
+      await Future.wait([
+        context.read<EmployerProfileProvider>().fetchProfile(),
+        context.read<VerificationProvider>().fetchVerifications(),
+      ]);
+    } catch (e) {
+      debugPrint('[employer profile] reload failed: $e');
+      if (mounted) {
+        AppToast.info(context, 'Could not refresh your profile. Check your connection.');
+      }
+    } finally {
+      if (mounted) setState(() => _isReloading = false);
+    }
+  }
+
   // ─── helpers ────────────────────────────────────────────────────────────────
   // ─── build ──────────────────────────────────────────────────────────────────
 
@@ -80,7 +128,11 @@ class _MyEmployerProfileScreenState extends State<MyEmployerProfileScreen>
       body: NestedScrollView(
         headerSliverBuilder: (context, innerBoxIsScrolled) => [
           SliverAppBar(
-            expandedHeight: 214,
+            // Scaled with the text for the reason described on the worker
+            // profile: a fixed header height overflows the moment somebody
+            // turns their font size up.
+            expandedHeight:
+                214 * MediaQuery.textScalerOf(context).scale(1.0),
             floating: false,
             pinned: true,
             backgroundColor: AppColors.primary,
@@ -125,8 +177,8 @@ class _MyEmployerProfileScreenState extends State<MyEmployerProfileScreen>
         body: TabBarView(
           controller: _tabController,
           children: [
-            _buildProfileTab(),
-            _buildVerificationsTab(),
+            RefreshIndicator(onRefresh: _reload, child: _buildProfileTab()),
+            RefreshIndicator(onRefresh: _reload, child: _buildVerificationsTab()),
           ],
         ),
       ),

@@ -28,6 +28,7 @@ class _MyWorkerProfileScreenState extends State<MyWorkerProfileScreen> with Sing
   // These getters proxy to the provider for display
 
   /// True while a manual reload is in flight, so the button can show it.
+  /// Kept so a reload triggered on resume cannot overlap one the user pulled.
   bool _isReloading = false;
 
   @override
@@ -49,7 +50,7 @@ class _MyWorkerProfileScreenState extends State<MyWorkerProfileScreen> with Sing
   /// Failures are still not fatal: the providers keep whatever they already
   /// had. What changed is that the user can see it happening and retry.
   Future<void> _reload() async {
-    if (!mounted) return;
+    if (!mounted || _isReloading) return;
     setState(() => _isReloading = true);
 
     try {
@@ -102,7 +103,21 @@ class _MyWorkerProfileScreenState extends State<MyWorkerProfileScreen> with Sing
         headerSliverBuilder: (context, innerBoxIsScrolled) {
           return [
             SliverAppBar(
-              expandedHeight: 190,
+            /*
+                Scaled with the text, not fixed.
+
+                A hard number here is a promise that the content inside will
+                never need more room, and text scaling breaks that promise on
+                the first phone whose owner has turned the setting up: the
+                header keeps its height, the name and category inside grow, and
+                the bottom spills. It cost eighteen pixels of overflow at the
+                largest size this app allows.
+
+                Multiplying by the same factor the text grew by gives the
+                content exactly the extra room it asked for.
+            */
+              expandedHeight:
+                  190 * MediaQuery.textScalerOf(context).scale(1.0),
               floating: false,
               pinned: true,
               backgroundColor: AppColors.primary,
@@ -110,25 +125,18 @@ class _MyWorkerProfileScreenState extends State<MyWorkerProfileScreen> with Sing
                 icon: const Icon(Icons.arrow_back, color: Colors.white),
                 onPressed: () => Navigator.pop(context),
               ),
-              // A way back when the load fails. Errors here were swallowed into
-              // a print(), so a failed fetch showed an empty profile with no
-              // sign anything had gone wrong and no way to try again.
-              actions: [
-                IconButton(
-                  icon: _isReloading
-                      ? const SizedBox(
-                          width: 18,
-                          height: 18,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            valueColor: AlwaysStoppedAnimation(Colors.white),
-                          ),
-                        )
-                      : const Icon(Icons.refresh, color: Colors.white),
-                  tooltip: 'Reload profile',
-                  onPressed: _isReloading ? null : _reload,
-                ),
-              ],
+              /*
+                  No refresh button.
+
+                  There was one here, added so a failed load had a way back.
+                  It did the job and still had to go: a refresh icon in a
+                  toolbar is a desktop control, and on a phone it reads as
+                  something being wrong — people ask what it is for, because
+                  every other screen they use refreshes by pulling down.
+
+                  The gesture below replaces it and covers the same failure,
+                  with the advantage that nobody has to be told it exists.
+              */
               flexibleSpace: FlexibleSpaceBar(
                 background: Container(
                   decoration: BoxDecoration(
@@ -415,8 +423,8 @@ class _MyWorkerProfileScreenState extends State<MyWorkerProfileScreen> with Sing
         body: TabBarView(
           controller: _tabController,
           children: [
-            _buildSuggestedTab(),
-            _buildVerificationsTab(),
+            RefreshIndicator(onRefresh: _reload, child: _buildSuggestedTab()),
+            RefreshIndicator(onRefresh: _reload, child: _buildVerificationsTab()),
           ],
         ),
       ),

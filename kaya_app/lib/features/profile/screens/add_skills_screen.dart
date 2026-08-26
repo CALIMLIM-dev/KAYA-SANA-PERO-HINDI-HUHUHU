@@ -55,13 +55,9 @@ class _AddSkillsScreenState extends State<AddSkillsScreen> {
   }
 
   Future<void> _loadInitialSkills(WorkerProfileProvider provider) async {
-    // Load all skills from all categories to match with initial skills
-    final allSkills = <SkillModel>[];
-    
-    for (var category in provider.categories) {
-      await provider.fetchSkillsByCategory(category.id);
-      allSkills.addAll(provider.availableSkills);
-    }
+    // One request for the whole catalogue, rather than one per category run
+    // back to back — see fetchAllSkills for what that was costing.
+    final allSkills = await provider.fetchAllSkills();
     
     // Match initial skill names with actual SkillModel objects
     for (var skillName in widget.initialSkills) {
@@ -90,10 +86,25 @@ class _AddSkillsScreenState extends State<AddSkillsScreen> {
     setState(() => _isLoadingSkills = false);
   }
 
+  /// Compared by identity, which is not what selection means here.
+  ///
+  /// The same skill arrives as a different SkillModel instance every time the
+  /// list is refetched, and the model defines no equality, so contains() and
+  /// remove() both answer against object identity. Selecting a skill, changing
+  /// category, and coming back left a chip that looked selected and could not
+  /// be unselected. Matching on the id — or on the name, for a custom skill
+  /// that has no id yet — is what the user means by "the same skill".
+  bool _isSelected(SkillModel skill) => _selectedSkills.any((s) => _same(s, skill));
+
+  static bool _same(SkillModel a, SkillModel b) {
+    if (a.id > 0 && b.id > 0) return a.id == b.id;
+    return a.name.toLowerCase() == b.name.toLowerCase();
+  }
+
   void _toggleSkill(SkillModel skill) {
     setState(() {
-      if (_selectedSkills.contains(skill)) {
-        _selectedSkills.remove(skill);
+      if (_isSelected(skill)) {
+        _selectedSkills.removeWhere((s) => _same(s, skill));
       } else {
         _selectedSkills.add(skill);
       }
@@ -391,7 +402,7 @@ class _AddSkillsScreenState extends State<AddSkillsScreen> {
                         spacing: 8,
                         runSpacing: 8,
                         children: provider.availableSkills.map((skill) {
-                          final selected = _selectedSkills.any((s) => s.id == skill.id);
+                          final selected = _isSelected(skill);
                           return GestureDetector(
                             key: ValueKey(skill.id),
                             onTap: () => _toggleSkill(skill),

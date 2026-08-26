@@ -175,27 +175,41 @@ class _SettingsScreenState extends State<SettingsScreen> {
         ),
       );
 
+    /*
+        Material, not a decorated box.
+
+        A ListTile paints its tap ripple onto the nearest Material above it, so
+        a plain Container with a white background sits in between and hides the
+        splash completely: the row still works, it just gives no sign that it
+        was pressed. Flutter says so out loud in a debug assertion, which is how
+        this was found — every settings row in the app was a dead-feeling tap.
+
+        Making the white surface itself a Material puts the ink back on the
+        thing the finger is touching, and clipping it to the same radius keeps
+        the splash inside the rounded corners instead of squaring them off.
+    */
   Widget _menuItem({
     required IconData icon,
     required String title,
     required String subtitle,
     required VoidCallback onTap,
   }) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 8),
-      decoration: BoxDecoration(
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Material(
         color: Colors.white,
         borderRadius: BorderRadius.circular(12),
-      ),
-      child: ListTile(
-        leading: _iconBox(icon),
-        title: Text(title,
-            style: const TextStyle(
-                fontSize: 14, fontWeight: FontWeight.w600, color: AppColors.neutral900)),
-        subtitle: Text(subtitle,
-            style: const TextStyle(fontSize: 12, color: AppColors.neutral500)),
-        trailing: const Icon(Icons.chevron_right, color: AppColors.neutral400),
-        onTap: onTap,
+        clipBehavior: Clip.antiAlias,
+        child: ListTile(
+          leading: _iconBox(icon),
+          title: Text(title,
+              style: const TextStyle(
+                  fontSize: 14, fontWeight: FontWeight.w600, color: AppColors.neutral900)),
+          subtitle: Text(subtitle,
+              style: const TextStyle(fontSize: 12, color: AppColors.neutral500)),
+          trailing: const Icon(Icons.chevron_right, color: AppColors.neutral400),
+          onTap: onTap,
+        ),
       ),
     );
   }
@@ -206,21 +220,22 @@ class _SettingsScreenState extends State<SettingsScreen> {
     required bool value,
     required ValueChanged<bool>? onChanged,
   }) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 8),
-      decoration: BoxDecoration(
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Material(
         color: Colors.white,
         borderRadius: BorderRadius.circular(12),
-      ),
-      child: ListTile(
-        leading: _iconBox(icon),
-        title: Text(title,
-            style: const TextStyle(
-                fontSize: 14, fontWeight: FontWeight.w600, color: AppColors.neutral900)),
-        trailing: Switch(
-          value: value,
-          onChanged: onChanged,
-          activeThumbColor: AppColors.primary,
+        clipBehavior: Clip.antiAlias,
+        child: ListTile(
+          leading: _iconBox(icon),
+          title: Text(title,
+              style: const TextStyle(
+                  fontSize: 14, fontWeight: FontWeight.w600, color: AppColors.neutral900)),
+          trailing: Switch(
+            value: value,
+            onChanged: onChanged,
+            activeThumbColor: AppColors.primary,
+          ),
         ),
       ),
     );

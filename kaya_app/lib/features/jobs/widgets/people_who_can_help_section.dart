@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import '../../../core/constants/app_colors.dart';
 import 'compact_worker_card.dart';
@@ -38,31 +40,39 @@ class PeopleWhoCanHelpSection extends StatelessWidget {
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Available Workers',
-                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                      fontWeight: FontWeight.bold,
-                      color: AppColors.neutral900,
+              // Expanded for the reason spelled out on the jobs row: without
+              // it the heading pushes "See All" off the right edge.
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Available Workers',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                        fontWeight: FontWeight.bold,
+                        color: AppColors.neutral900,
+                      ),
                     ),
-                  ),
-                  Text(
-                    // "in {your city}" was wrong: this list is everyone within
-                    // a radius, which spans several towns. Naming the radius is
-                    // both honest and more useful than a city name that half
-                    // the results do not match.
-                    radiusKm == null
-                        ? 'Skilled professionals nearby'
-                        : userLocation != null
-                            ? 'Within ${radiusKm!.round()} km of $userLocation'
-                            : 'Within ${radiusKm!.round()} km of you',
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: AppColors.neutral600,
+                    Text(
+                      // "in {your city}" was wrong: this list is everyone within
+                      // a radius, which spans several towns. Naming the radius is
+                      // both honest and more useful than a city name that half
+                      // the results do not match.
+                      radiusKm == null
+                          ? 'Skilled professionals nearby'
+                          : userLocation != null
+                              ? 'Within ${radiusKm!.round()} km of $userLocation'
+                              : 'Within ${radiusKm!.round()} km of you',
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: AppColors.neutral600,
+                      ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
               if (workers.isNotEmpty || !isLoading)
                 TextButton(
@@ -82,8 +92,26 @@ class PeopleWhoCanHelpSection extends StatelessWidget {
         const SizedBox(height: 12),
         
         // Workers Horizontal List
+        /*
+            Sized from the text, not from a number somebody measured once.
+
+            This was a literal height, and it had been raised three times —
+            140, then 150, then 168 — each time to fix an overflow that had
+            just been reported, and each raise bought one more line of slack
+            before the next one. The pattern is the bug: a fixed strip cannot
+            hold content that grows, and the content grows the moment somebody
+            turns their font size up, which Android lets everybody do.
+
+            Multiplying by the text scale gives the cards exactly the room the
+            text asked for, at every setting, without anybody having to
+            remember to raise it again.
+
+            The height stays uniform across the row on purpose. A horizontal
+            carousel of cards that each size themselves looks broken, so the
+            strip sets one height for all of them and the cards fill it.
+        */
         SizedBox(
-          height: 170, // Increased from 140 to fix profile overflow (24px + extra margin)
+          height: 170 * MediaQuery.textScalerOf(context).scale(1.0),
           child: NotificationListener<ScrollNotification>(
             onNotification: (scrollNotification) {
               // Prevent parent scroll view from handling horizontal scroll
@@ -95,6 +123,13 @@ class PeopleWhoCanHelpSection extends StatelessWidget {
       ],
     );
   }
+
+  /// Never wider than the phone. Same reasoning as the jobs row.
+  static double _cardWidth(BuildContext context) =>
+      // The lower bound matters: a width can arrive as zero before the first
+      // real layout, and a negative box constraint is a crash rather than an
+      // ugly card.
+      math.max(200.0, math.min(280.0, MediaQuery.sizeOf(context).width - 56));
 
   Widget _buildWorkersList() {
     if (isLoading) {
@@ -113,7 +148,7 @@ class PeopleWhoCanHelpSection extends StatelessWidget {
       itemBuilder: (context, index) {
         final worker = workers[index];
         return Container(
-          width: 280,
+          width: _cardWidth(context),
           margin: EdgeInsets.only(right: index < workers.length - 1 ? 12 : 0),
           child: CompactWorkerCard(
             worker: worker,
@@ -133,7 +168,7 @@ class PeopleWhoCanHelpSection extends StatelessWidget {
       itemCount: 3,
       itemBuilder: (context, index) {
         return Container(
-          width: 280,
+          width: _cardWidth(context),
           margin: EdgeInsets.only(right: index < 2 ? 12 : 0),
           child: _SkeletonWorkerCard(),
         );

@@ -63,7 +63,7 @@ class WorkerProfileProvider with ChangeNotifier {
           Checked as a Map before it is indexed like one.
 
           `response.data['success']` assumed JSON. When the body is a String —
-          an ngrok interstitial, a 502 HTML page, a tunnel that died mid-request
+          a 502 HTML error page, a login redirect, a connection cut mid-request
           — indexing it throws "type 'String' is not a subtype of type 'int' of
           'index'", which is thrown from deep inside Dart and names neither the
           request nor the screen. That message has been appearing on every test
@@ -411,6 +411,41 @@ class WorkerProfileProvider with ChangeNotifier {
         _isLoading = false;
         notifyListeners();
       }
+    }
+  }
+
+  /*
+      Every skill, in one request.
+
+      The picker needs the whole catalogue once, to turn the names already on a
+      profile back into real skill rows. It used to get there by calling
+      fetchSkillsByCategory in a loop over every category: one HTTP round trip
+      per category, run one after another, each one notifying listeners twice
+      and rebuilding the entire screen. On a phone that is a visible stall
+      before the screen becomes usable, and it is the frame drop people notice
+      when they open their skills.
+
+      The endpoint already returns everything when no category is given, so the
+      loop was buying nothing.
+
+      This deliberately does not touch _availableSkills. That list is what the
+      category picker below shows, and filling it with every skill in the
+      database would mean picking Carpentry and being offered hairdressing. The
+      full catalogue is returned to the caller instead.
+  */
+  Future<List<SkillModel>> fetchAllSkills() async {
+    try {
+      final response = await _apiClient.get('/skills');
+      final data = response.data as Map<String, dynamic>;
+      if (data['success'] != true) return const [];
+
+      return (data['data'] as List)
+          .map((json) => SkillModel.fromJson(json))
+          .toList();
+    } catch (_) {
+      // A name with no match still becomes a chip below, so failing here costs
+      // the category grouping, not the user's skills.
+      return const [];
     }
   }
 

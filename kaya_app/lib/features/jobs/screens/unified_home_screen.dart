@@ -1037,12 +1037,16 @@ class _UnifiedHomeScreenState extends State<UnifiedHomeScreen>
     */
     final categories = context.watch<WorkerProfileProvider>().categories;
 
+    // The strip and the empty placeholder have to agree, or the row jumps
+    // height the moment the categories finish loading.
+    final rowHeight = 120 * MediaQuery.textScalerOf(context).scale(1.0);
+
     if (categories.isEmpty) {
-      return const SizedBox(height: 120);
+      return SizedBox(height: rowHeight);
     }
 
     return SizedBox(
-      height: 120,
+      height: rowHeight,
       child: ListView.separated(
         scrollDirection: Axis.horizontal,
         padding: const EdgeInsets.symmetric(horizontal: 4),
@@ -1290,10 +1294,19 @@ class _CategoryButton extends StatelessWidget {
               child: Icon(icon, color: color, size: 24),
             ),
             const SizedBox(height: 8),
-            // Fixed height so a one-word and a two-word label produce tiles of
-            // the same height, keeping every icon on the same baseline.
+            /*
+                Two lines of label, whatever size those lines are.
+
+                The height is what keeps a one-word tile and a two-word tile
+                the same size, so every icon in the row sits on one baseline —
+                that part was right. Writing it as a flat 30 was not: the box
+                stayed 30 while the text inside grew with the font setting, so
+                at a larger size "Appliance Repair" lost its second line and the
+                labels quietly went missing. Scaling it keeps the alignment and
+                keeps the words.
+            */
             SizedBox(
-              height: 30,
+              height: 30 * MediaQuery.textScalerOf(context).scale(1.0),
               child: Text(
                 label,
                 style: const TextStyle(

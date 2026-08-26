@@ -58,8 +58,26 @@ class _EmployerProfileRouterState extends State<EmployerProfileRouter> {
       );
     }
 
-    return exists
-        ? const MyEmployerProfileScreen()
-        : const SetupEmployerProfileScreen();
+    if (!exists) {
+      return const SetupEmployerProfileScreen();
+    }
+
+    /*
+        A row is not a profile.
+
+        This only asked whether an employer profile existed, and a row gets
+        created the moment somebody starts setting one up. So tapping Employer
+        Profile from the menu after an abandoned attempt opened the display
+        screen with nothing in it — no name, no location, and no way to fill
+        them in. It looked like a broken profile rather than an unfinished one.
+
+        The worker router has always had this branch. This is the same rule:
+        exists but not finished means go and finish it.
+    */
+    if (!auth.employerSetupCompleted) {
+      return const SetupEmployerProfileScreen();
+    }
+
+    return const MyEmployerProfileScreen();
   }
 }
