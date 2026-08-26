@@ -642,22 +642,35 @@ class _JobDetailsScreenState extends State<JobDetailsScreen> {
                   if (cost == null) return const Text('Apply Now');
 
                   /*
-                      Free credits waiting is not the same as being broke.
+                      Whether they can pay comes first.
+
+                      This used to check for an unclaimed gift before checking
+                      the balance, so anybody with credits in hand who simply
+                      had not collected this month's grant opened a job and was
+                      told to go and claim something. The button on a job post
+                      should say what the button does, and if applying is
+                      affordable then the button applies.
+
+                      Claiming only matters when it is the thing standing
+                      between them and applying.
+                  */
+                  if (credits.canAfford('apply')) {
+                    return Text('Apply Now  ·  ${Credits.amount(cost)}');
+                  }
+
+                  /*
+                      Short, but with a gift waiting.
 
                       Somebody who has never opened the wallet has an empty
-                      balance and a gift sitting there unclaimed, and telling
-                      them to buy something would be both wrong and the worst
+                      balance and free credits sitting there, and telling them
+                      to buy something would be both wrong and the worst
                       possible first impression.
                   */
                   if (credits.hasSomethingToClaim) {
                     return const Text('Claim your free Barya');
                   }
 
-                  if (!credits.canAfford('apply')) {
-                    return const Text('Top up to apply');
-                  }
-
-                  return Text('Apply Now  ·  ${Credits.amount(cost)}');
+                  return const Text('Top up to apply');
                 },
               ),
       );
@@ -699,10 +712,13 @@ class _JobDetailsScreenState extends State<JobDetailsScreen> {
     final credits = context.read<CreditsProvider>();
 
     // No point firing a request that is certain to come back 402. Send them
-    // where they can do something about it instead.
-    // Unclaimed credits go to the wallet too, but to claim rather than buy.
-    if (credits.hasLoadedOnce &&
-        (credits.hasSomethingToClaim || !credits.canAfford('apply'))) {
+    // where they can do something about it instead - to claim if there is
+    // something waiting, otherwise to buy.
+    //
+    // Only when they cannot afford it. This used to divert to the wallet on an
+    // unclaimed gift alone, so somebody with a full balance tapped Apply and
+    // landed on the wallet instead of applying.
+    if (credits.hasLoadedOnce && !credits.canAfford('apply')) {
       await Navigator.pushNamed(context, AppRouter.wallet);
       if (!mounted) return;
       await credits.refresh();

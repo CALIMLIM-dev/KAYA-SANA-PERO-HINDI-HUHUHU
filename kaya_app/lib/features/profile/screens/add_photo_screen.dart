@@ -52,11 +52,31 @@ class _AddPhotoScreenState extends State<AddPhotoScreen> {
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
           : SafeArea(
-              child: Padding(
-                padding: const EdgeInsets.all(20),
-                child: Column(
-                  children: [
-                    const SizedBox(height: 40),
+              /*
+                  Scrolls, because it has to.
+
+                  This was a plain Column with a Spacer in it, which means it
+                  demanded exactly the height of the screen and no more. At a
+                  larger font the text inside grew, the Spacer had nothing left
+                  to give, and it spilled 158 pixels off the bottom on a small
+                  phone - the bottom overflow that kept being reported.
+
+                  LayoutBuilder with a minimum height keeps the Spacer working
+                  on a tall screen, where the content genuinely should push the
+                  buttons to the bottom, while letting the whole thing scroll
+                  when it no longer fits.
+              */
+              child: LayoutBuilder(
+                builder: (context, constraints) => SingleChildScrollView(
+                  child: ConstrainedBox(
+                    constraints:
+                        BoxConstraints(minHeight: constraints.maxHeight),
+                    child: IntrinsicHeight(
+                      child: Padding(
+                        padding: const EdgeInsets.all(20),
+                        child: Column(
+                          children: [
+                            const SizedBox(height: 40),
 
                     const Text(
                       'Choose how to add your photo',
@@ -119,7 +139,11 @@ class _AddPhotoScreenState extends State<AddPhotoScreen> {
                         ],
                       ),
                     ),
-                  ],
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
                 ),
               ),
             ),

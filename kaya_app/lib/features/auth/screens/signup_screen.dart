@@ -441,8 +441,11 @@ class _SignupScreenState extends State<SignupScreen> {
               ]),
               const SizedBox(height: 48),
 
-              Center(child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
+              // Wrap for the reason given on the login screen: a Row here
+              // cannot break, so it runs off a narrow screen.
+              Center(child: Wrap(
+                alignment: WrapAlignment.center,
+                crossAxisAlignment: WrapCrossAlignment.center,
                 children: [
                   Text('Already have an account? ',
                       style: TextStyle(color: AppColors.neutral600, fontSize: 15)),

@@ -310,8 +310,21 @@ class _LoginScreenState extends State<LoginScreen> {
               ]),
               const SizedBox(height: 48),
 
-              Center(child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
+              /*
+                  Wrap, not Row.
+
+                  A Row cannot break a line, so "Don't have an account? Sign
+                  Up" was laid out on one line no matter how wide that line
+                  needed to be. On a narrow phone at a large font it needed
+                  more than the screen had, and the whole thing ran off the
+                  right edge behind a striped bar - including the link, which
+                  is the only way to reach the other screen.
+
+                  Wrap puts the second half on its own line instead.
+              */
+              Center(child: Wrap(
+                alignment: WrapAlignment.center,
+                crossAxisAlignment: WrapCrossAlignment.center,
                 children: [
                   Text("Don't have an account? ",
                       style: TextStyle(color: AppColors.neutral600, fontSize: 15)),

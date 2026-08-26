@@ -181,27 +181,6 @@ class _PinLocationScreenState extends State<PinLocationScreen> {
       ),
       body: Column(
         children: [
-          // One line, not three.
-          //
-          // The second line here used to read "Optional — your barangay is
-          // already used for distance." That stopped being true when pinning
-          // became required, so it was telling people they could skip a step
-          // the form then refused to let them skip.
-          Container(
-            width: double.infinity,
-            color: Colors.white,
-            padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
-            child: Text(
-              _label == null
-                  ? 'Move the map to your exact spot'
-                  : 'Move the map to your exact spot in $_label',
-              style: const TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w600,
-                  color: AppColors.neutral900),
-            ),
-          ),
-
           Expanded(
             child: Stack(
               children: [
@@ -343,17 +322,14 @@ class _PinLocationScreenState extends State<PinLocationScreen> {
                   Padding(
                     padding: const EdgeInsets.only(bottom: 10),
                     child: Text(
-                      _pin == null
-                          ? 'Tap the map to place your pin'
-                          : _userPlacedPin
-                              ? '${_pin!.latitude.toStringAsFixed(5)}, '
-                                  '${_pin!.longitude.toStringAsFixed(5)}'
-                              // Says what it is rather than refusing to
-                              // proceed: the centre of town is a real answer
-                              // for some people and a poor one for others,
-                              // and only they can tell which.
-                              : 'Centre of ${_label ?? 'your area'} - drag the pin '
-                                  'to where you actually are',
+                      // The coordinates once the map has been moved, and
+                      // before that the one thing the screen cannot show on
+                      // its own: that this is still the centre of town rather
+                      // than anywhere in particular.
+                      _userPlacedPin && _pin != null
+                          ? '${_pin!.latitude.toStringAsFixed(5)}, '
+                              '${_pin!.longitude.toStringAsFixed(5)}'
+                          : 'Centre of ${_label ?? 'your area'} - move the map',
                       style: TextStyle(
                         fontSize: 12,
                         color: _userPlacedPin

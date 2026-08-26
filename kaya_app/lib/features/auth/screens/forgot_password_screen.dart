@@ -171,9 +171,11 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
               const SizedBox(height: 24),
 
               // Back to login link
+              // Wrap for the reason given on the login screen.
               Center(
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
+                child: Wrap(
+                  alignment: WrapAlignment.center,
+                  crossAxisAlignment: WrapCrossAlignment.center,
                   children: [
                     Text(
                       'Remember your password? ',

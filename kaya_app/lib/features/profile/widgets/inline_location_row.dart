@@ -86,12 +86,21 @@ class _InlineLocationRowState extends State<InlineLocationRow> {
 
   void _onTyped(String term) {
     _debounce?.cancel();
+
+    // Rebuilds on every keystroke, which is not just cosmetic: the suggestion
+    // block below decides what to show from the current text, and without this
+    // the only rebuilds came from the provider - so the text it compared
+    // against stayed whatever it was when the field opened, which was empty.
+    // The result was a box that said "type at least two letters" no matter how
+    // much you typed.
+    setState(() {});
+
     // Two characters is where results stop being the whole country.
     if (term.trim().length < 2) {
       context.read<LocationProvider>().clear();
-      setState(() {});
       return;
     }
+
     _debounce = Timer(const Duration(milliseconds: 300), () {
       if (mounted) context.read<LocationProvider>().search(term.trim());
     });
@@ -250,10 +259,12 @@ class _InlineLocationRowState extends State<InlineLocationRow> {
   }
 
   Widget _suggestions() {
-    final typed = _controller.text.trim();
-
     return Consumer<LocationProvider>(
       builder: (context, locations, _) {
+        // Read here, not above: this builder also runs on its own when the
+        // provider notifies, and a value captured outside it would be stale.
+        final typed = _controller.text.trim();
+
         if (typed.length < 2) {
           return const Padding(
             padding: EdgeInsets.only(top: 8),
