@@ -8,6 +8,7 @@ import '../../../data/models/worker_certification_model.dart';
 import '../../../data/models/worker_license_model.dart';
 import '../../../providers/worker_profile_provider.dart';
 import 'inline_expandable_row.dart';
+import 'section_add_row.dart';
 
 /// Which kind of credential a section is showing.
 ///
@@ -354,47 +355,11 @@ class _CredentialsSectionState extends State<CredentialsSection> {
             children: _fields(),
           )
         else
-          Padding(
-            padding: const EdgeInsets.only(bottom: 8),
-            child: Material(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(12),
-              clipBehavior: Clip.antiAlias,
-              child: InkWell(
-                onTap: _openNew,
-                child: Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(
-                        color: AppColors.primary.withValues(alpha: 0.35)),
-                  ),
-                  child: Row(
-                    children: [
-                      const Icon(Icons.add, size: 20, color: AppColors.primary),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: Text(
-                          entries.isEmpty
-                              ? (_isLicence
-                                  ? 'Add a licence'
-                                  : 'Add a certificate')
-                              : 'Add another',
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w600,
-                            color: AppColors.primary,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ),
+          SectionAddRow(
+            label: entries.isEmpty
+                ? (_isLicence ? 'Add a licence' : 'Add a certificate')
+                : 'Add another',
+            onTap: _openNew,
           ),
       ],
     );

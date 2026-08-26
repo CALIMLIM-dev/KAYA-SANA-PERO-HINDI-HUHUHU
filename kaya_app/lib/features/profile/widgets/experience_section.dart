@@ -5,6 +5,7 @@ import '../../../core/constants/app_colors.dart';
 import '../../../core/widgets/app_toast.dart';
 import '../../../providers/worker_profile_provider.dart';
 import 'inline_expandable_row.dart';
+import 'section_add_row.dart';
 
 /*
     Work history, edited on the profile.
@@ -277,42 +278,11 @@ class _ExperienceSectionState extends State<ExperienceSection> {
             children: _fields(),
           )
         else
-          Padding(
-            padding: const EdgeInsets.only(bottom: 8),
-            child: Material(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(12),
-              clipBehavior: Clip.antiAlias,
-              child: InkWell(
-                onTap: _openNew,
-                child: Container(
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: 14, vertical: 14),
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(
-                      color: AppColors.primary.withValues(alpha: 0.35),
-                    ),
-                  ),
-                  child: Row(
-                    children: [
-                      const Icon(Icons.add, size: 20, color: AppColors.primary),
-                      const SizedBox(width: 10),
-                      Text(
-                        widget.experiences.isEmpty
-                            ? 'Add your work experience'
-                            : 'Add another',
-                        style: const TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w600,
-                          color: AppColors.primary,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ),
+          SectionAddRow(
+            label: widget.experiences.isEmpty
+                ? 'Add your work experience'
+                : 'Add another',
+            onTap: _openNew,
           ),
       ],
     );

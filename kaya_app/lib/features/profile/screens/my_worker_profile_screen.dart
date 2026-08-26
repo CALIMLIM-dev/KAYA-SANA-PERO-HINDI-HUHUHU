@@ -115,6 +115,20 @@ class _MyWorkerProfileScreenState extends State<MyWorkerProfileScreen> with Sing
 
   @override
   Widget build(BuildContext context) {
+    /*
+        How many contact rows the header is about to draw.
+
+        Read here rather than inside the header, because the height of the
+        SliverAppBar has to be decided before its contents are built - and it
+        was decided from a constant, which is how a filled-in profile ended up
+        taller than the space reserved for it.
+    */
+    final profile = context.watch<WorkerProfileProvider>();
+    final contactLines = [
+      (profile.phone ?? '').isNotEmpty,
+      (profile.email ?? '').isNotEmpty,
+    ].where((present) => present).length;
+
     return Scaffold(
       backgroundColor: AppColors.background,
       /*
@@ -153,8 +167,21 @@ class _MyWorkerProfileScreenState extends State<MyWorkerProfileScreen> with Sing
                 Multiplying by the same factor the text grew by gives the
                 content exactly the extra room it asked for.
             */
-              expandedHeight:
-                  190 * MediaQuery.textScalerOf(context).scale(1.0),
+              /*
+                  Tall enough for what is actually in it.
+
+                  190 fits a name and a location. It does not fit a name, a
+                  location, a phone number and an email address, so a profile
+                  filled in properly spilled out of its own header - which is
+                  why this only ever happened on some accounts and never on a
+                  fresh one.
+
+                  Each contact line adds its own height rather than padding the
+                  number and hoping, and the whole thing still scales with the
+                  text.
+              */
+              expandedHeight: (190 + (contactLines * 24)) *
+                  MediaQuery.textScalerOf(context).scale(1.0),
               floating: false,
               pinned: true,
               backgroundColor: AppColors.primary,
@@ -289,13 +316,20 @@ class _MyWorkerProfileScreenState extends State<MyWorkerProfileScreen> with Sing
                                               : Colors.white30,
                                         ),
                                         const SizedBox(width: 3),
-                                        Text(
-                                          context.watch<WorkerProfileProvider>().location ?? 'Add location',
-                                          style: TextStyle(
-                                            fontSize: 13.5,
-                                            color: context.watch<WorkerProfileProvider>().location != null
-                                                ? Colors.white70
-                                                : Colors.white30,
+                                        // A full address is barangay, city and
+                                        // province. Unconstrained it carried
+                                        // the row off the right of the header.
+                                        Expanded(
+                                          child: Text(
+                                            context.watch<WorkerProfileProvider>().location ?? 'Add location',
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
+                                            style: TextStyle(
+                                              fontSize: 13.5,
+                                              color: context.watch<WorkerProfileProvider>().location != null
+                                                  ? Colors.white70
+                                                  : Colors.white30,
+                                            ),
                                           ),
                                         ),
                                       ],
@@ -315,13 +349,22 @@ class _MyWorkerProfileScreenState extends State<MyWorkerProfileScreen> with Sing
                                       return Column(
                                         crossAxisAlignment: CrossAxisAlignment.start,
                                         children: [
+                                          // Both capped for the same reason as
+                                          // the address above: an email
+                                          // address is long and a Row will
+                                          // gladly run off the screen for it.
                                           if (hasPhone)
                                             Row(
                                               children: [
                                                 const Icon(Icons.phone, size: 12, color: Colors.white60),
                                                 const SizedBox(width: 4),
-                                                Text(p.phone!,
-                                                    style: const TextStyle(fontSize: 12, color: Colors.white60)),
+                                                Expanded(
+                                                  child: Text(p.phone!,
+                                                      maxLines: 1,
+                                                      overflow: TextOverflow.ellipsis,
+                                                      style: const TextStyle(
+                                                          fontSize: 12, color: Colors.white60)),
+                                                ),
                                               ],
                                             ),
                                           if (hasEmail)
@@ -329,8 +372,13 @@ class _MyWorkerProfileScreenState extends State<MyWorkerProfileScreen> with Sing
                                               children: [
                                                 const Icon(Icons.email, size: 12, color: Colors.white60),
                                                 const SizedBox(width: 4),
-                                                Text(p.email!,
-                                                    style: const TextStyle(fontSize: 12, color: Colors.white60)),
+                                                Expanded(
+                                                  child: Text(p.email!,
+                                                      maxLines: 1,
+                                                      overflow: TextOverflow.ellipsis,
+                                                      style: const TextStyle(
+                                                          fontSize: 12, color: Colors.white60)),
+                                                ),
                                               ],
                                             ),
                                         ],

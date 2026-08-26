@@ -8,6 +8,9 @@ import 'package:kaya_app/features/employer/screens/setup_employer_profile_screen
 import 'package:kaya_app/features/jobs/screens/post_job_screen.dart';
 import 'package:kaya_app/features/profile/screens/my_employer_profile_screen.dart';
 import 'package:kaya_app/features/applications/screens/applications_screen.dart';
+import 'package:kaya_app/features/auth/widgets/terms_modal.dart';
+import 'package:kaya_app/features/profile/widgets/change_password_sheet.dart';
+import 'package:kaya_app/features/worker/screens/worker_setup_flow_screen.dart';
 import 'package:kaya_app/features/auth/screens/forgot_password_screen.dart';
 import 'package:kaya_app/features/auth/screens/login_screen.dart';
 import 'package:kaya_app/features/auth/screens/signup_screen.dart';
@@ -188,6 +191,26 @@ void main() {
     'add experience': () => wrap(const AddExperienceScreen()),
     'add photo': () => wrap(const AddPhotoScreen()),
     'verification': () => wrap(const VerificationScreen()),
+
+    /*
+        Onboarding, which nothing here covered.
+
+        The longest screen in the app and the one every single account walks
+        through on its first minute, checked at every step rather than only
+        the first - each page has different content and they do not fail
+        together.
+    */
+    for (var step = 0; step < 7; step++)
+      'worker setup step $step': () => wrap(WorkerSetupFlowScreen(resumeStep: step)),
+
+    // Sheets and dialogs sit above a screen and size themselves, which is a
+    // different failure mode from a page and was never checked either.
+    'terms modal': () => wrap(
+          const Scaffold(body: Center(child: SingleChildScrollView(child: TermsModal()))),
+        ),
+    'change password sheet': () => wrap(
+          const Scaffold(body: ChangePasswordSheet()),
+        ),
   };
 
   for (final entry in screens.entries) {
