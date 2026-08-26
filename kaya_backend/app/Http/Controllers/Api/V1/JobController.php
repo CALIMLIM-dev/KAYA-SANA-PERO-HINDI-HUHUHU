@@ -111,13 +111,34 @@ class JobController extends Controller
             return $this->ok($jobs);
         }
 
-        // A radius is meaningless without somewhere to measure from. Rather
-        // than silently returning everything, say so.
+        /*
+            No location yet is not an error.
+
+            Somebody who signed up thirty seconds ago has no worker profile,
+            and the home feed asks for nearest-first on every load. That used
+            to refuse the whole request, so the first thing a new account saw
+            was an error telling them to set up something they were on their
+            way to set up - with no jobs behind it.
+
+            A sort is a preference. Without somewhere to measure from there is
+            nothing to sort by, so the feed comes back in its normal order and
+            the app carries on.
+
+            A radius is different and still refuses: "within 10 km" of nowhere
+            has no honest answer, and quietly returning the whole country
+            would be a worse lie than saying so.
+        */
         if (!$profile) {
-            return $this->fail(
-                'Set up your worker profile location before filtering jobs by distance.',
-                422
-            );
+            if ($radius !== null) {
+                return $this->fail(
+                    'Set up your worker profile location before filtering jobs by distance.',
+                    422
+                );
+            }
+
+            $jobs = $query->latest()->paginate(20);
+            $jobs->getCollection()->transform($decorate);
+            return $this->ok($jobs);
         }
 
         $scored = $query->latest()->get()->map($decorate);

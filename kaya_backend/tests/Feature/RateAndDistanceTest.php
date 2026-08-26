@@ -228,10 +228,49 @@ class RateAndDistanceTest extends TestCase
     #[Test]
     public function filtering_jobs_by_distance_without_a_location_says_so(): void
     {
-        // Someone with no worker profile has nowhere to measure from. Returning
-        // everything would recreate the bug this was built to fix.
+        // Someone with no worker profile has nowhere to measure from, and
+        // "within 25 km" of nowhere has no honest answer. Returning everything
+        // would recreate the bug this was built to fix.
         $this->actingAs($this->employer())
             ->getJson('/api/v1/jobs?radius_km=25')
             ->assertStatus(422);
+    }
+
+    /*
+        The first screen a new account sees.
+
+        The home feed asks for nearest-first on every load, and this used to be
+        refused outright when there was no location to sort from - so someone
+        who had just signed up was met with an error telling them to set up a
+        profile, on top of an empty feed, before they had touched anything.
+
+        A sort is a preference. Nothing to sort by means no sorting, not no
+        jobs.
+    */
+    #[Test]
+    public function a_brand_new_account_still_gets_the_job_feed(): void
+    {
+        $employer = $this->employer();
+
+        JobPost::create([
+            'employer_id' => $employer->id,
+            'category_id' => $this->categoryId,
+            'title'       => 'Rewire the shop lights',
+            'description' => 'x',
+            'location'    => 'Urdaneta City',
+            'latitude'    => 15.976,
+            'longitude'   => 120.571,
+            'status'      => 'open',
+        ]);
+
+        // A freshly registered user: no worker profile, no location, nothing.
+        $newcomer = User::factory()->create();
+
+        $response = $this->actingAs($newcomer)
+            ->getJson('/api/v1/jobs?sort=nearest');
+
+        $response->assertOk();
+        $this->assertCount(1, $response->json('data.data'),
+            'A new account was shown no jobs.');
     }
 }
