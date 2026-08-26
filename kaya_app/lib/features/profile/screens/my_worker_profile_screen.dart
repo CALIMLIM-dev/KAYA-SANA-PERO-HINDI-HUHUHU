@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../providers/auth_provider.dart';
+import '../widgets/inline_edit_row.dart';
 import '../widgets/profile_completeness_header.dart';
 import '../widgets/profile_section_card.dart';
 import '../../../data/services/api_client.dart';
@@ -31,14 +32,45 @@ class _MyWorkerProfileScreenState extends State<MyWorkerProfileScreen> with Sing
   /// Kept so a reload triggered on resume cannot overlap one the user pulled.
   bool _isReloading = false;
 
+  /// Drives the NestedScrollView, so a tab change can send it back to the top.
+  final ScrollController _scroll = ScrollController();
+
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
+    _tabController.addListener(_onTabChanged);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) _reload();
     });
   }
+
+  /*
+      Back to the top when the tab changes.
+
+      A NestedScrollView keeps one shared outer scroll position for every tab,
+      so scrolling to the bottom of the profile and then tapping Verifications
+      landed you at the bottom of a shorter list, with the header already
+      collapsed and no sign of where you were. Nothing was broken, but you had
+      to scroll up before you could read the tab you just asked for.
+
+      Every other tabbed screen on a phone starts a new tab at the top, so this
+      does too. Animated rather than jumped, so it reads as the page moving
+      rather than as content changing under you.
+  */
+  void _onTabChanged() {
+    if (!_scroll.hasClients) return;
+    // indexIsChanging is false on the settle, which would run this twice.
+    if (_tabController.indexIsChanging && _scroll.offset > 0) {
+      _scroll.animateTo(
+        0,
+        duration: const Duration(milliseconds: 250),
+        curve: Curves.easeOut,
+      );
+    }
+  }
+
+
 
   /// Loads the profile and its verifications.
   ///
@@ -74,6 +106,7 @@ class _MyWorkerProfileScreenState extends State<MyWorkerProfileScreen> with Sing
   @override
   void dispose() {
     _tabController.dispose();
+    _scroll.dispose();
     super.dispose();
   }
 
@@ -100,6 +133,7 @@ class _MyWorkerProfileScreenState extends State<MyWorkerProfileScreen> with Sing
         label: const Text('Done', style: TextStyle(fontWeight: FontWeight.w700)),
       ),
       body: NestedScrollView(
+        controller: _scroll,
         headerSliverBuilder: (context, innerBoxIsScrolled) {
           return [
             SliverAppBar(
@@ -431,6 +465,42 @@ class _MyWorkerProfileScreenState extends State<MyWorkerProfileScreen> with Sing
     );
   }
 
+  /// Asks before removing a job entry, because there is no undo for one.
+  Future<void> _confirmDeleteExperience(Map<String, dynamic> exp) async {
+    final title = (exp['title'] ?? exp['position'] ?? 'this entry').toString();
+
+    final sure = await showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text('Remove this experience?'),
+        content: Text('"$title" will be removed from your profile.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Remove', style: TextStyle(color: AppColors.error)),
+          ),
+        ],
+      ),
+    );
+
+    if (sure != true || !mounted) return;
+
+    final id = exp['id'];
+    if (id is! int) return;
+
+    final provider = context.read<WorkerProfileProvider>();
+    final ok = await provider.deleteExperience(id);
+    if (!mounted) return;
+
+    if (!ok) {
+      AppToast.error(context, provider.errorMessage ?? 'Could not remove it.');
+    }
+  }
+
   String _fmtDate(String? d) {
     if (d == null || d.isEmpty) return '';
     try {
@@ -528,23 +598,23 @@ class _MyWorkerProfileScreenState extends State<MyWorkerProfileScreen> with Sing
 
         ProfileSectionHeading('About you'),
 
-        // Name Card
-        _buildInfoCard(
-          title: 'Full Name',
-          icon: Icons.person,
-          iconColor: AppColors.primary,
-          content: p.name != null
-              ? Text(p.name!, style: const TextStyle(fontSize: 14, color: AppColors.neutral900))
-              : const Text('Not set', style: TextStyle(color: AppColors.neutral600)),
-          onTap: () async {
-            final result = await Navigator.pushNamed(context, '/add-name',
-                arguments: context.read<WorkerProfileProvider>().name);
-            if (result != null && result is String && mounted) {
-              final success = await context.read<WorkerProfileProvider>().updateName(result);
-              if (!success && mounted) {
-                AppToast.error(context, context.read<WorkerProfileProvider>().errorMessage ?? 'Failed to save');
-              }
-            }
+        /*
+            Edited here rather than on a screen of its own.
+
+            Changing a name was: tap the row, wait for a page to slide in, type
+            in the only field on it, tap save, wait for it to slide back. For
+            one line of text. Now the row itself takes the cursor.
+        */
+        InlineEditRow(
+          label: 'Full name',
+          value: p.name,
+          hint: 'Your full name',
+          maxLength: 100,
+          validator: (v) => v.isEmpty ? 'A name is required.' : null,
+          onSave: (v) async {
+            final provider = context.read<WorkerProfileProvider>();
+            final ok = await provider.updateName(v);
+            return ok ? null : (provider.errorMessage ?? 'Could not save.');
           },
         ),
 
@@ -574,39 +644,45 @@ class _MyWorkerProfileScreenState extends State<MyWorkerProfileScreen> with Sing
           },
         ),
 
-        // Personal Details Card
-        _buildInfoCard(
-          title: 'Personal Details',
-          icon: Icons.contact_page,
-          iconColor: AppColors.primary,
-          content: p.phone != null || p.email != null
-              ? Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    if (p.phone != null)
-                      Text('Phone: ${p.phone}', style: const TextStyle(fontSize: 14)),
-                    if (p.email != null)
-                      Text('Email: ${p.email}', style: const TextStyle(fontSize: 14)),
-                  ],
-                )
-              : const Text('Not set', style: TextStyle(color: AppColors.neutral600)),
-          onTap: () async {
-            final result = await Navigator.pushNamed(context, '/add-personal-details',
-                arguments: {
-                  'phone': context.read<WorkerProfileProvider>().phone,
-                  'email': context.read<WorkerProfileProvider>().email,
-                });
-            if (result != null && result is Map && mounted) {
-              final phone = result['phone'] as String?;
-              final email = result['email'] as String?;
-              final provider = context.read<WorkerProfileProvider>();
-              if (phone != null) await provider.updatePhone(phone);
-              if (email != null) {
-                provider.email = email;
-                provider.clearError(); // triggers rebuild
-              }
-            }
+        /*
+            Both details, both on screen, both editable.
+
+            These were collapsed into a single "Personal Details" row that
+            showed a summary and hid the actual fields behind another screen.
+            Two short pieces of text do not need to be hidden - showing them is
+            the whole point of a profile, and there is room.
+        */
+        InlineEditRow(
+          label: 'Phone number',
+          value: p.phone,
+          hint: '09XX XXX XXXX',
+          keyboardType: TextInputType.phone,
+          maxLength: 20,
+          validator: (v) {
+            if (v.isEmpty) return null; // clearing is handled by the row
+            // Deliberately loose. Landlines, +63, and spaces are all real, and
+            // a strict pattern here rejects more valid numbers than it catches
+            // bad ones.
+            final digits = v.replaceAll(RegExp(r'[^0-9]'), '');
+            return digits.length < 7 ? 'That does not look like a phone number.' : null;
           },
+          onSave: (v) async {
+            final provider = context.read<WorkerProfileProvider>();
+            final ok = await provider.updatePhone(v);
+            return ok ? null : (provider.errorMessage ?? 'Could not save.');
+          },
+        ),
+
+        // Shown because people expect to see it, locked because changing a
+        // sign-in address is an account operation with its own verification -
+        // not something to do by tapping a row on a profile.
+        InlineEditRow(
+          label: 'Email',
+          value: p.email,
+          enabled: false,
+          disabledNote: 'Your email is your sign-in. Change it in Settings.',
+          emptyLabel: 'Not set',
+          onSave: (_) async => null,
         ),
 
         ProfileSectionHeading('Your work'),
@@ -729,17 +805,62 @@ class _MyWorkerProfileScreenState extends State<MyWorkerProfileScreen> with Sing
           content: p.experiences.isNotEmpty
               ? Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
+                  /*
+                      Each entry carries its own actions.
+
+                      This was a read-only list, and the only way to correct a
+                      typo in a job title was to open a separate screen and
+                      find the entry again. Edit and delete belong next to the
+                      thing they act on.
+
+                      Delete asks first. It is one tap next to an edit button,
+                      the two are easy to confuse, and there is no undo for a
+                      job history somebody typed out by hand.
+                  */
                   children: p.experiences.map((exp) => Padding(
-                    padding: const EdgeInsets.only(bottom: 8),
-                    child: Column(
+                    padding: const EdgeInsets.only(bottom: 10),
+                    child: Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(
-                          exp['title'] ?? exp['position'] ?? '',
-                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                exp['title'] ?? exp['position'] ?? '',
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                    fontWeight: FontWeight.bold, fontSize: 14),
+                              ),
+                              Text(
+                                '${exp['company']} • ${_fmtDate(exp['start_date'])} – ${exp['end_date'] != null ? _fmtDate(exp['end_date']) : 'Present'}',
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(fontSize: 12),
+                              ),
+                            ],
+                          ),
                         ),
-                        Text('${exp['company']} • ${_fmtDate(exp['start_date'])} – ${exp['end_date'] != null ? _fmtDate(exp['end_date']) : 'Present'}',
-                            style: const TextStyle(fontSize: 12)),
+                        IconButton(
+                          onPressed: () => Navigator.pushNamed(
+                              context, '/add-experience', arguments: exp),
+                          icon: const Icon(Icons.edit_outlined, size: 18),
+                          color: AppColors.neutral500,
+                          tooltip: 'Edit',
+                          visualDensity: VisualDensity.compact,
+                          constraints: const BoxConstraints(),
+                          padding: const EdgeInsets.all(6),
+                        ),
+                        IconButton(
+                          onPressed: () => _confirmDeleteExperience(exp),
+                          icon: const Icon(Icons.delete_outline, size: 18),
+                          color: AppColors.error,
+                          tooltip: 'Delete',
+                          visualDensity: VisualDensity.compact,
+                          constraints: const BoxConstraints(),
+                          padding: const EdgeInsets.all(6),
+                        ),
                       ],
                     ),
                   )).toList(),

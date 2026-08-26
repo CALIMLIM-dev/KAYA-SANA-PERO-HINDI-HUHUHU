@@ -250,28 +250,67 @@ class WorkerProfileProvider with ChangeNotifier {
     }
   }
 
+  /*
+      Save only what actually changed.
+
+      This used to delete every skill and then add every skill back, one at a
+      time. Two things came of that. The visible one: deleteSkill and addSkill
+      each refetch the whole list and notify, so saving ten skills fired around
+      forty requests and forty repaints, and you watched your skills disappear
+      one by one and reappear one by one. The quiet one: it iterated _skills
+      while deleteSkill was replacing that same list underneath it.
+
+      A skill that is in both lists is now left completely alone - not deleted,
+      not re-added, not touched. Only the difference is sent, and the list is
+      fetched once at the end, so the UI changes exactly once.
+
+      Matching is by skill id where both sides have one, and by name otherwise,
+      because a custom skill typed in by hand has no id until the server gives
+      it one.
+  */
   Future<void> saveSkillsWithCategories(List<SkillModel> selectedSkills) async {
+    bool same(WorkerSkillModel mine, SkillModel wanted) {
+      if (mine.skillId != null && wanted.id > 0) return mine.skillId == wanted.id;
+      return mine.skillName.toLowerCase() == wanted.name.toLowerCase();
+    }
+
     try {
-      // Delete all existing skills
-      for (var skill in _skills) {
-        await deleteSkill(skill.id!);
+      // Copied, because the list underneath is replaced by the fetch below.
+      final existing = List<WorkerSkillModel>.from(_skills);
+
+      final removed = existing
+          .where((mine) => !selectedSkills.any((wanted) => same(mine, wanted)))
+          .toList();
+
+      final added = selectedSkills
+          .where((wanted) => !existing.any((mine) => same(mine, wanted)))
+          .toList();
+
+      if (removed.isEmpty && added.isEmpty) return;
+
+      // Called directly rather than through deleteSkill/addSkill so the list
+      // is not refetched and repainted between every single one.
+      for (final skill in removed) {
+        if (skill.id != null) {
+          await _apiClient.delete('/worker/skills/${skill.id}');
+        }
       }
-      
-      // Add new skills with category and skill IDs
-      for (var skillModel in selectedSkills) {
-        final skill = WorkerSkillModel(
+
+      for (final wanted in added) {
+        await _apiClient.post('/worker/skills', data: WorkerSkillModel(
           userId: 0, // Set by backend
-          skillName: skillModel.name,
-          categoryId: skillModel.categoryId,
-          skillId: skillModel.id,
-        );
-        await addSkill(skill);
+          skillName: wanted.name,
+          categoryId: wanted.categoryId,
+          skillId: wanted.id > 0 ? wanted.id : null,
+        ).toJson());
       }
-      
-      // Refresh the list
+
       await fetchSkills();
     } catch (e) {
       _errorMessage = _extractErrorMessage(e.toString());
+      // The screen would otherwise keep showing the pre-save list with no
+      // sign that anything went wrong.
+      notifyListeners();
     }
   }
 
@@ -630,7 +669,7 @@ class WorkerProfileProvider with ChangeNotifier {
       };
       
       if (filePath != null) {
-        formDataMap['document'] = await MultipartFile.fromFile(filePath, filename: 'certificate.jpg');
+        formDataMap['document'] = await _upload(filePath);
       }
       
       final formData = FormData.fromMap(formDataMap);
@@ -650,9 +689,23 @@ class WorkerProfileProvider with ChangeNotifier {
     }
   }
 
-  Future<bool> updateCertification(int id, WorkerCertificationModel certification) async {
+  /// Carries a replacement document, for the reason given on updateLicense.
+  Future<bool> updateCertification(int id, WorkerCertificationModel certification,
+      {String? filePath}) async {
     try {
-      final response = await _apiClient.put('/worker/certifications/$id', data: certification.toJson());
+      final Response response;
+
+      if (filePath != null) {
+        final form = FormData.fromMap({
+          ...certification.toJson(),
+          '_method': 'PUT',
+          'document': await _upload(filePath),
+        });
+        response = await _apiClient.postMultipart('/worker/certifications/$id', form);
+      } else {
+        response = await _apiClient.put('/worker/certifications/$id', data: certification.toJson());
+      }
+
       final data = response.data as Map<String, dynamic>;
       if (data['success']) {
         await fetchCertifications();
@@ -709,6 +762,20 @@ class WorkerProfileProvider with ChangeNotifier {
     }
   }
 
+  /*
+      The uploaded file keeps its own name.
+
+      Both upload paths used to hand Dio a hardcoded filename - 'license.jpg',
+      'certificate.jpg' - whatever the file actually was. Laravel derives the
+      stored extension from that name, so a PDF was written to disk as a .jpg,
+      and every screen that later tried to display it decoded a PDF as an image
+      and drew a broken picture icon. The file was fine; the name was a lie.
+  */
+  static Future<MultipartFile> _upload(String path) async {
+    final name = path.split(RegExp(r'[/\\]')).last;
+    return MultipartFile.fromFile(path, filename: name);
+  }
+
   Future<bool> addLicense(WorkerLicenseModel license, {String? filePath}) async {
     try {
       final Map<String, dynamic> formDataMap = {
@@ -722,7 +789,7 @@ class WorkerProfileProvider with ChangeNotifier {
       };
       
       if (filePath != null) {
-        formDataMap['document'] = await MultipartFile.fromFile(filePath, filename: 'license.jpg');
+        formDataMap['document'] = await _upload(filePath);
       }
       
       final formData = FormData.fromMap(formDataMap);
@@ -742,9 +809,33 @@ class WorkerProfileProvider with ChangeNotifier {
     }
   }
 
-  Future<bool> updateLicense(int id, WorkerLicenseModel license) async {
+  /*
+      A replacement document now actually replaces.
+
+      The edit screen has always let somebody pick a new file and has always
+      returned it. This method ignored it and sent JSON, so the pick appeared
+      to work, reported success, and left the original file in place with no
+      way to ever correct it.
+
+      Sent as multipart with _method=PUT because a real PUT cannot carry a file
+      upload through Laravel's request parsing; the framework reads the
+      override and routes it to the same controller method.
+  */
+  Future<bool> updateLicense(int id, WorkerLicenseModel license, {String? filePath}) async {
     try {
-      final response = await _apiClient.put('/worker/licenses/$id', data: license.toJson());
+      final Response response;
+
+      if (filePath != null) {
+        final form = FormData.fromMap({
+          ...license.toJson(),
+          '_method': 'PUT',
+          'document': await _upload(filePath),
+        });
+        response = await _apiClient.postMultipart('/worker/licenses/$id', form);
+      } else {
+        response = await _apiClient.put('/worker/licenses/$id', data: license.toJson());
+      }
+
       final data = response.data as Map<String, dynamic>;
       if (data['success']) {
         await fetchLicenses();

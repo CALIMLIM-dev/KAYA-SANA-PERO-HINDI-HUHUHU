@@ -473,7 +473,22 @@ class WorkerProfileController extends Controller
             ], 422);
         }
         
-        $certification->update($request->only(['certification_name', 'issuing_organization', 'issue_date', 'expiry_date', 'credential_id']));
+        // Same omission as licences above: the replacement file was sent and
+        // silently dropped.
+        $data = $request->only(['certification_name', 'issuing_organization', 'issue_date', 'expiry_date', 'credential_id']);
+        $previous = null;
+
+        if ($request->hasFile('document')) {
+            $previous = $certification->document_path;
+            $data['document_path'] = $request->file('document')
+                ->store('certifications', config('filesystems.media'));
+        }
+
+        $certification->update($data);
+
+        if ($previous !== null && $previous !== $certification->document_path) {
+            Storage::disk(config('filesystems.media'))->delete($previous);
+        }
         
         return response()->json([
             'success' => true,
@@ -581,6 +596,7 @@ class WorkerProfileController extends Controller
             'issuing_authority' => 'required|string|max:255',
             'issue_date' => 'nullable|date|before_or_equal:today',
             'expiry_date' => 'nullable|date|after:issue_date',
+            'document' => 'nullable|file|mimes:jpg,jpeg,png,pdf|max:5120',
         ]);
         
         if ($validator->fails()) {
@@ -590,8 +606,33 @@ class WorkerProfileController extends Controller
                 'data' => null
             ], 422);
         }
-        
-        $license->update($request->only(['license_name', 'license_number', 'issuing_authority', 'issue_date', 'expiry_date']));
+
+        /*
+            The document was not editable.
+
+            Adding a licence accepts a file; updating one never did, and the
+            client sent the replacement anyway. So somebody who noticed they
+            had uploaded the wrong scan could pick a new one, be told it saved,
+            and keep the old file forever with no way to correct it.
+
+            The old file is deleted after the row is updated rather than
+            before, so a failed write cannot leave a row pointing at a file
+            that is already gone.
+        */
+        $data = $request->only(['license_name', 'license_number', 'issuing_authority', 'issue_date', 'expiry_date']);
+        $previous = null;
+
+        if ($request->hasFile('document')) {
+            $previous = $license->document_path;
+            $data['document_path'] = $request->file('document')
+                ->store('licenses', config('filesystems.media'));
+        }
+
+        $license->update($data);
+
+        if ($previous !== null && $previous !== $license->document_path) {
+            Storage::disk(config('filesystems.media'))->delete($previous);
+        }
         
         return response()->json([
             'success' => true,

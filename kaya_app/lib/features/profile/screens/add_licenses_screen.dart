@@ -72,7 +72,13 @@ class _AddLicensesScreenState extends State<AddLicensesScreen> {
       issueDate: result['issue_date'] != null ? DateTime.parse(result['issue_date']) : null,
     );
     
-    final success = await provider.updateLicense(license.id!, updatedLicense);
+    // The form returns the replacement file and this used to drop it, which
+    // is why picking a new document changed nothing.
+    final success = await provider.updateLicense(
+      license.id!,
+      updatedLicense,
+      filePath: result['filePath'] as String?,
+    );
     if (!mounted) return;
 
     AppToast.info(context, success ? 'License updated' : (provider.errorMessage ?? 'Failed to update'));
@@ -251,6 +257,10 @@ class _LicenseFormScreenState extends State<_LicenseFormScreen> {
   String? _filePath;
   String? _fileName;
   String? _existingDocUrl; // For displaying existing photo in edit mode
+
+  /// Whether the stored document is a PDF rather than a picture.
+  bool get _existingDocIsPdf =>
+      (_existingDocUrl ?? '').toLowerCase().endsWith('.pdf');
   bool _confirmed = false;
 
   @override
@@ -448,11 +458,37 @@ class _LicenseFormScreenState extends State<_LicenseFormScreen> {
                     ),
                   ] else if (hasExisting && !hasNewFile) ...[
                     // Show existing document
-                    ClipRRect(
+                    // A PDF cannot be decoded as an image, so asking
+                    // Image.network to draw one produced a broken picture
+                    // icon and left somebody wondering whether their upload
+                    // had failed. It had not - it was a PDF being shown as a
+                    // photo. A freshly picked PDF already renders as an icon
+                    // and a filename above; an existing one now matches.
+                    if (_existingDocIsPdf) ...[
+                      Container(
+                        height: 200,
+                        width: double.infinity,
+                        alignment: Alignment.center,
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            const Icon(Icons.picture_as_pdf,
+                                size: 56, color: AppColors.error),
+                            const SizedBox(height: 8),
+                            Text(
+                              _existingDocUrl!.split('/').last,
+                              style: const TextStyle(
+                                  fontSize: 13.5, color: AppColors.neutral600),
+                              textAlign: TextAlign.center,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ],
+                        ),
+                      ),
+                    ] else ClipRRect(
                       borderRadius: const BorderRadius.vertical(top: Radius.circular(11)),
                       child: Image.network(
-                        // Was a hardcoded tunnel URL, so an existing document
-                        // stopped rendering the moment the tunnel changed.
                         ApiClient.fileUrl(_existingDocUrl),
                         height: 200,
                         width: double.infinity,

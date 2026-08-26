@@ -74,10 +74,14 @@ class _MyEmployerProfileScreenState extends State<MyEmployerProfileScreen>
 
   bool get _hasPhoto => (_profile?.imageUrl ?? _profile?.imagePath) != null;
 
+  /// Drives the NestedScrollView, so a tab change can send it back to the top.
+  final ScrollController _scroll = ScrollController();
+
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
+    _tabController.addListener(_onTabChanged);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       // Nothing loaded the profile this screen is supposed to display.
@@ -90,7 +94,20 @@ class _MyEmployerProfileScreenState extends State<MyEmployerProfileScreen>
   @override
   void dispose() {
     _tabController.dispose();
+    _scroll.dispose();
     super.dispose();
+  }
+
+  /// Back to the top on a tab change - see the worker profile for why.
+  void _onTabChanged() {
+    if (!_scroll.hasClients) return;
+    if (_tabController.indexIsChanging && _scroll.offset > 0) {
+      _scroll.animateTo(
+        0,
+        duration: const Duration(milliseconds: 250),
+        curve: Curves.easeOut,
+      );
+    }
   }
 
   /// Pull down to reload, the way every other list in the app behaves.
@@ -126,6 +143,7 @@ class _MyEmployerProfileScreenState extends State<MyEmployerProfileScreen>
     return Scaffold(
       backgroundColor: AppColors.background,
       body: NestedScrollView(
+        controller: _scroll,
         headerSliverBuilder: (context, innerBoxIsScrolled) => [
           SliverAppBar(
             // Scaled with the text for the reason described on the worker
