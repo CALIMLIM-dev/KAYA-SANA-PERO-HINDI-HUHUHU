@@ -13,7 +13,72 @@ minor release, and `feat!:` or a `BREAKING CHANGE:` footer for a major one.
 
 ## Unreleased
 
+Nothing yet.
+
+---
+
+## 1.2.0 - 2026-08-26
+
+Credits, profile editing in place, and a long pass over layouts that broke on
+small phones.
+
 ### Added
+
+- Credits, the app's currency. Applying to a job and inviting a worker both
+  cost credits; every account is owed a welcome grant and a monthly one, and
+  both are claimed rather than deposited so that receiving them is something
+  the user does. Top-up runs through PayMongo checkout. The ledger is
+  append-only and the balance is never computed on the client.
+- Profile editing in place. Tapping a field on either profile puts a cursor in
+  it and raises the keyboard, rather than pushing a screen to edit one line of
+  text. Experience, licences and certificates open into their own fields where
+  they sit, with delete beside save. Location types like a text field and
+  commits like a picker, so what is saved keeps its PSGC id and coordinates.
+- A three-way mode toggle for hybrid accounts: Worker, Employer, All. It
+  decides the feed and the activity cards together; before this the chips
+  filtered the feed while the mode drove the activity, so the two halves of the
+  screen could disagree about which side you were on.
+- Industry and website on the employer profile. Both had been on the model and
+  accepted by the update endpoint since it was built, and no screen ever showed
+  them, so they could not be filled in.
+
+### Fixed
+
+- Layouts that overflowed on small phones and at larger font sizes. Both
+  profile headers, the home header, the four category tiles, the job and
+  application cards, the home carousels, the add-photo screen, and the sign-in
+  screens. The category tiles were the clearest case: each sits in an Expanded
+  that hands it a quarter of the screen, and the tile then demanded a hardcoded
+  84 pixels regardless, so it ran off the right and its label wrapped into the
+  row below it.
+- Duplicate job posts. Not a double tap - the button already blocks that. The
+  upload outran the client's thirty-second timeout, so the app reported failure
+  for a post the server had already saved and the employer posted again.
+  Uploads get three minutes now, and the server returns the existing job when
+  the same post arrives twice.
+- Location search could not find a place by the name shown for it. The list
+  displays "San Carlos City" while the search matched a column holding "san
+  carlos", so half a name worked and the whole name never did.
+- A verification could be lost by submitting another one. The old record was
+  deleted before the new files were stored, so any failure while storing them
+  left the account with neither.
+- Google sign-in replaced an uploaded profile photo with the account's Gmail
+  picture, on every sign-in.
+- Credits survived a sign-out, so the next account on the same phone saw the
+  previous one's balance and it never corrected itself.
+- A new account was met with an error instead of a job feed, because the home
+  feed asks for nearest-first and there was no location to sort from.
+- Replacing the document on a licence or certificate did nothing. The app sent
+  the new file and both ends discarded it.
+- PDFs displayed as broken images throughout, in the app and in the admin
+  panel, because every document was rendered in an image tag whatever it was.
+- Skills saved by deleting every skill and adding them all back one at a time,
+  around forty requests for ten skills, each one refetching and repainting the
+  list. Only the difference is sent now.
+- Finishing worker setup flashed the finished profile for a frame and then
+  replaced it with the home screen.
+
+### Added earlier in this cycle
 
 - Realtime layer built on Laravel Reverb, with a Pusher-protocol client written
   directly against `web_socket_channel`. The obvious package,
@@ -111,9 +176,8 @@ minor release, and `feat!:` or a `BREAKING CHANGE:` footer for a major one.
 
 - The Google OAuth client secret remains present in repository history and
   requires rotation.
-- Credits, top-up and paid placement are not implemented.
+- Paid placement and boosts are not implemented. Credits and top-up are.
 - Report generation and data export are not implemented.
-- Search opens but does not search.
 - Push notifications are not implemented, so alerts arrive only while the
   application is open.
 
