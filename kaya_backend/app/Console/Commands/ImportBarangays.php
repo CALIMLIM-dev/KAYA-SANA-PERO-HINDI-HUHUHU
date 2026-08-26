@@ -41,7 +41,11 @@ class ImportBarangays extends Command
     {
         $dryRun = (bool) $this->option('dry-run');
 
-        $txt = storage_path('app/geonames/PH.txt');
+        // Either place the geocoder may have cached it - see cacheDir there.
+        $txt = collect([
+            storage_path('app/geonames/PH.txt'),
+            sys_get_temp_dir() . DIRECTORY_SEPARATOR . 'kaya-geonames' . DIRECTORY_SEPARATOR . 'PH.txt',
+        ])->first(fn (string $path) => is_file($path)) ?? storage_path('app/geonames/PH.txt');
         if (!is_file($txt)) {
             $this->error('storage/app/geonames/PH.txt is missing. Run kaya:geocode-locations first.');
             return self::FAILURE;

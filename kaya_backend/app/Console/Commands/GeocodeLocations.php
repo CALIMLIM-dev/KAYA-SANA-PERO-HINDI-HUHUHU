@@ -106,13 +106,51 @@ class GeocodeLocations extends Command
         'PPLQ'  => 10,  // abandoned
     ];
 
+    /*
+        Where the downloaded GeoNames files are kept.
+
+        storage/app first, because that is where they belong and where a
+        second run will find them again. But on a deployed box storage is
+        owned by the web server, and the person running an artisan command
+        usually is not that user - so creating a directory there fails, and
+        this command died on line one with a bare mkdir permission error
+        before it had downloaded anything.
+
+        These are a download cache. Nothing else reads them, they can be
+        fetched again at any time, and losing them costs one more download.
+        That is exactly what the system temp directory is for, so an
+        unwritable storage falls back to it rather than stopping.
+    */
+    private function cacheDir(): string
+    {
+        $preferred = storage_path('app/geonames');
+
+        if (is_dir($preferred) && is_writable($preferred)) {
+            return $preferred;
+        }
+
+        if (!is_dir($preferred) && @mkdir($preferred, 0775, true)) {
+            return $preferred;
+        }
+
+        $fallback = sys_get_temp_dir() . DIRECTORY_SEPARATOR . 'kaya-geonames';
+        if (!is_dir($fallback) && !@mkdir($fallback, 0775, true)) {
+            throw new \RuntimeException(
+                "Could not create a cache directory at {$preferred} or {$fallback}."
+            );
+        }
+
+        $this->warn("storage is not writable, caching downloads in {$fallback} instead.");
+
+        return $fallback;
+    }
+
     public function handle(): int
     {
         $dryRun = (bool) $this->option('dry-run');
         $force  = (bool) $this->option('force');
 
-        $dir = storage_path('app/geonames');
-        if (!is_dir($dir)) mkdir($dir, 0775, true);
+        $dir = $this->cacheDir();
 
         $provinces = $this->loadProvinceCodes($dir);
         if ($provinces === null) return self::FAILURE;
