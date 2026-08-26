@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../providers/auth_provider.dart';
 import '../widgets/inline_edit_row.dart';
+import '../widgets/inline_location_row.dart';
 import '../widgets/profile_completeness_header.dart';
 import '../widgets/profile_section_card.dart';
 import '../../../data/services/api_client.dart';
@@ -618,29 +619,26 @@ class _MyWorkerProfileScreenState extends State<MyWorkerProfileScreen> with Sing
           },
         ),
 
-        // Location Card
-        _buildInfoCard(
-          title: 'Location',
-          icon: Icons.location_on,
-          iconColor: AppColors.success,
-          content: p.location != null
-              ? Text(p.location!, style: const TextStyle(fontSize: 14, color: AppColors.neutral900))
-              : const Text('Not set', style: TextStyle(color: AppColors.neutral600)),
-          onTap: () async {
-            final result = await Navigator.pushNamed(context, '/add-location',
-                arguments: context.read<WorkerProfileProvider>().location);
-            if (result is Map && mounted) {
-              final success =
-                  await context.read<WorkerProfileProvider>().updateLocation(
-                        (result['label'] ?? '').toString(),
-                        locationId: result['location_id'] as int?,
-                        latitude: result['latitude'] as double?,
-                        longitude: result['longitude'] as double?,
-                      );
-              if (!success && mounted) {
-                AppToast.error(context, context.read<WorkerProfileProvider>().errorMessage ?? 'Failed to save');
-              }
-            }
+        /*
+            Typed here, but still a real place.
+
+            Same inline treatment as the fields above, with one difference that
+            matters: what gets saved is the chosen place, not the typed text. A
+            location carries a PSGC id and coordinates, and everything that
+            measures distance depends on them, so free text is never accepted
+            on its own.
+        */
+        InlineLocationRow(
+          value: p.location,
+          onSave: (place) async {
+            final provider = context.read<WorkerProfileProvider>();
+            final ok = await provider.updateLocation(
+              place.displayName,
+              locationId: place.id,
+              latitude: place.latitude,
+              longitude: place.longitude,
+            );
+            return ok ? null : (provider.errorMessage ?? 'Could not save.');
           },
         ),
 
