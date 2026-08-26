@@ -105,19 +105,41 @@ class Location extends Model
      * Type-ahead. Prefix matches rank above contains-matches so typing "urdan"
      * surfaces "Urdaneta City" before "Nueva Urdaneta".
      */
+    /*
+        Matches what people actually type.
+
+        search_name has the official wrapper stripped, so "City of San Carlos"
+        is stored as "san carlos". The list shows display_name, which is "San
+        Carlos City". So somebody reading a suggestion and typing it back in
+        full searched for "san carlos city" against a column holding "san
+        carlos" - and got nothing, while the half-typed "san carl" worked.
+        Every city in the country broke on the word "City".
+
+        Two matches now. The term is put through the same normalisation the
+        stored column went through, which handles "San Carlos City" and "City
+        of San Carlos" alike; and the raw term is matched against display_name
+        as well, so what is on screen is always searchable exactly as written.
+    */
     public function scopeSearch(Builder $query, string $term): Builder
     {
-        $term = trim(mb_strtolower($term));
-        if ($term === '') {
+        $raw = trim(mb_strtolower($term));
+        if ($raw === '') {
             return $query;
         }
 
-        // Matches on search_name, which has the official "City of ..." wrapper
-        // stripped — so "urdan" finds "City of Urdaneta".
+        // Falls back to the raw term when normalising empties it - somebody
+        // typing just "city" should still get the contains-match below rather
+        // than an unfiltered list of the whole country.
+        $term = self::toSearchName($raw);
+        if ($term === '') {
+            $term = $raw;
+        }
+
         return $query
-            ->where(function (Builder $q) use ($term) {
+            ->where(function (Builder $q) use ($term, $raw) {
                 $q->where('search_name', 'like', "{$term}%")
                     ->orWhere('search_name', 'like', "%{$term}%")
+                    ->orWhere('display_name', 'like', "%{$raw}%")
                     ->orWhere('province_name', 'like', "{$term}%");
             })
             // Exact match first — typing "urdaneta" in full should not be
