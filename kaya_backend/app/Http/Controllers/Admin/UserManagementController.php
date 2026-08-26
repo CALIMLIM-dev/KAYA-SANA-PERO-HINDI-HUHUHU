@@ -8,6 +8,7 @@ use App\Services\SuspensionService;
 use App\Support\ModerationReasons;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
 
 class UserManagementController extends Controller
@@ -72,6 +73,39 @@ class UserManagementController extends Controller
      * so rewording an option orphaned every account banned under the old text,
      * and a crafted request could store any sentence at all.
      */
+    /*
+        Serves a certificate or licence scan to an admin.
+
+        These were linked with asset('storage/...'), which only resolves if the
+        public symlink exists - a fresh deployment has no such link, so every
+        document in the admin was a broken image and the fault looked like a
+        missing file rather than a missing symlink.
+
+        Streaming it removes that dependency, and it closes something worse:
+        asset() produces a permanent public URL to somebody's PRC licence,
+        readable by anyone who ever sees the address. Behind this route it
+        needs an admin session.
+    */
+    public function document(User $user, string $kind, int $id)
+    {
+        $record = match ($kind) {
+            'certification' => $user->certifications()->find($id),
+            'licence' => $user->licenses()->find($id),
+            default => null,
+        };
+
+        abort_if($record === null, 404);
+
+        $path = $record->document_path;
+        $disk = Storage::disk(config('filesystems.media'));
+
+        abort_if(blank($path) || ! $disk->exists($path), 404);
+
+        // Inline, so a PDF opens in the browser's viewer and an image renders
+        // rather than downloading.
+        return $disk->response($path);
+    }
+
     public function suspend(Request $request, User $user, SuspensionService $suspensions)
     {
         $data = $request->validate([

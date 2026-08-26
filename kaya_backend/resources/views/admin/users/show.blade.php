@@ -193,23 +193,43 @@
                                         <p class="text-xs text-slate-400 mb-3">Issued: {{ $cert->issue_date->format('M Y') }}</p>
                                     @endif
                                     @if ($cert->document_path)
-                                        <div class="relative group cursor-pointer" onclick="showImageModal('{{ asset('storage/' . $cert->document_path) }}')">
-                                            <div class="border border-slate-200 rounded h-32 overflow-hidden hover:border-blue-400 transition-colors mb-2">
-                                                <img src="{{ asset('storage/' . $cert->document_path) }}" class="w-full h-full object-contain bg-slate-50">
-                                            </div>
-                                            <div class="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-10 transition-opacity rounded flex items-center justify-center">
-                                                <svg class="w-8 h-8 text-white opacity-0 group-hover:opacity-100 transition-opacity" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM10 7v3m0 0v3m0-3h3m-3 0H7"/>
+                                        @php
+                                            /*
+                                                A PDF is not an image.
+
+                                                Every document was rendered in an <img> whatever it
+                                                actually was, so a PDF certificate drew a broken
+                                                image icon and read as a failed upload. It had
+                                                uploaded fine.
+
+                                                The URL is a gated route now rather than
+                                                asset('storage/...'), which only resolves when the
+                                                public symlink exists - a fresh deployment has none,
+                                                so every document here was broken for a reason that
+                                                had nothing to do with the file. It also means a
+                                                PRC licence is no longer a permanent public URL.
+                                            */
+                                            $url = route('admin.users.document', [$user, 'certification', $cert->id]);
+                                            $isPdf = str_ends_with(strtolower($cert->document_path), '.pdf');
+                                        @endphp
+                                        @if ($isPdf)
+                                            <a href="{{ $url }}" target="_blank"
+                                               class="flex flex-col items-center justify-center border border-slate-200 rounded h-32 mb-2 hover:border-blue-400 transition-colors bg-slate-50">
+                                                <svg class="w-10 h-10 text-red-500" fill="currentColor" viewBox="0 0 20 20">
+                                                    <path fill-rule="evenodd" d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4z" clip-rule="evenodd"/>
                                                 </svg>
+                                                <span class="text-xs text-slate-500 mt-1">PDF document</span>
+                                            </a>
+                                        @else
+                                            <div class="relative group cursor-pointer" onclick="showImageModal('{{ $url }}')">
+                                                <div class="border border-slate-200 rounded h-32 overflow-hidden hover:border-blue-400 transition-colors mb-2">
+                                                    <img src="{{ $url }}" class="w-full h-full object-contain bg-slate-50">
+                                                </div>
                                             </div>
-                                        </div>
-                                        <a href="{{ asset('storage/' . $cert->document_path) }}" target="_blank" 
+                                        @endif
+                                        <a href="{{ $url }}" target="_blank"
                                            class="inline-flex items-center gap-1 text-xs text-blue-600 hover:underline">
-                                            <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
-                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
-                                            </svg>
-                                            View Full Document
+                                            View full document
                                         </a>
                                     @else
                                         <span class="text-xs text-slate-400">No document uploaded</span>
@@ -233,23 +253,43 @@
                                         <p class="text-xs text-slate-400 mb-3">Issued: {{ $license->issue_date->format('M Y') }}</p>
                                     @endif
                                     @if ($license->document_path)
-                                        <div class="relative group cursor-pointer" onclick="showImageModal('{{ asset('storage/' . $license->document_path) }}')">
-                                            <div class="border border-slate-200 rounded h-32 overflow-hidden hover:border-blue-400 transition-colors mb-2">
-                                                <img src="{{ asset('storage/' . $license->document_path) }}" class="w-full h-full object-contain bg-slate-50">
-                                            </div>
-                                            <div class="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-10 transition-opacity rounded flex items-center justify-center">
-                                                <svg class="w-8 h-8 text-white opacity-0 group-hover:opacity-100 transition-opacity" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM10 7v3m0 0v3m0-3h3m-3 0H7"/>
+                                        @php
+                                            /*
+                                                A PDF is not an image.
+
+                                                Every document was rendered in an <img> whatever it
+                                                actually was, so a PDF certificate drew a broken
+                                                image icon and read as a failed upload. It had
+                                                uploaded fine.
+
+                                                The URL is a gated route now rather than
+                                                asset('storage/...'), which only resolves when the
+                                                public symlink exists - a fresh deployment has none,
+                                                so every document here was broken for a reason that
+                                                had nothing to do with the file. It also means a
+                                                PRC licence is no longer a permanent public URL.
+                                            */
+                                            $url = route('admin.users.document', [$user, 'licence', $license->id]);
+                                            $isPdf = str_ends_with(strtolower($license->document_path), '.pdf');
+                                        @endphp
+                                        @if ($isPdf)
+                                            <a href="{{ $url }}" target="_blank"
+                                               class="flex flex-col items-center justify-center border border-slate-200 rounded h-32 mb-2 hover:border-blue-400 transition-colors bg-slate-50">
+                                                <svg class="w-10 h-10 text-red-500" fill="currentColor" viewBox="0 0 20 20">
+                                                    <path fill-rule="evenodd" d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4z" clip-rule="evenodd"/>
                                                 </svg>
+                                                <span class="text-xs text-slate-500 mt-1">PDF document</span>
+                                            </a>
+                                        @else
+                                            <div class="relative group cursor-pointer" onclick="showImageModal('{{ $url }}')">
+                                                <div class="border border-slate-200 rounded h-32 overflow-hidden hover:border-blue-400 transition-colors mb-2">
+                                                    <img src="{{ $url }}" class="w-full h-full object-contain bg-slate-50">
+                                                </div>
                                             </div>
-                                        </div>
-                                        <a href="{{ asset('storage/' . $license->document_path) }}" target="_blank" 
+                                        @endif
+                                        <a href="{{ $url }}" target="_blank"
                                            class="inline-flex items-center gap-1 text-xs text-blue-600 hover:underline">
-                                            <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
-                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
-                                            </svg>
-                                            View Full Document
+                                            View full document
                                         </a>
                                     @else
                                         <span class="text-xs text-slate-400">No document uploaded</span>

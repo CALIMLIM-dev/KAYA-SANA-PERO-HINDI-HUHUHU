@@ -31,6 +31,12 @@ Route::prefix('admin')->name('admin.')->group(function () {
 
         Route::get('/users', [UserManagementController::class, 'index'])->name('users.index');
         Route::get('/users/{user}', [UserManagementController::class, 'show'])->name('users.show');
+        // Certificate and licence scans, streamed rather than linked - see the
+        // controller for why asset('storage/...') was the wrong shape.
+        Route::get('/users/{user}/document/{kind}/{id}', [UserManagementController::class, 'document'])
+            ->whereIn('kind', ['certification', 'licence'])
+            ->whereNumber('id')
+            ->name('users.document');
         Route::post('/users/{user}/suspend', [UserManagementController::class, 'suspend'])->name('users.suspend');
         Route::post('/users/{user}/activate', [UserManagementController::class, 'activate'])->name('users.activate');
 
