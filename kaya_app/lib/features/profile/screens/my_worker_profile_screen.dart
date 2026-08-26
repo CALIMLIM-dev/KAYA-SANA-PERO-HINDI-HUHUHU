@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../providers/auth_provider.dart';
+import '../widgets/credentials_section.dart';
 import '../widgets/experience_section.dart';
 import '../widgets/inline_edit_row.dart';
 import '../widgets/inline_location_row.dart';
@@ -875,61 +876,18 @@ class _MyWorkerProfileScreenState extends State<MyWorkerProfileScreen> with Sing
 
         ProfileSectionHeading('Credentials'),
 
-        // Certifications Card
-        _buildInfoCard(
-          title: 'Certifications',
-          icon: Icons.workspace_premium,
-          iconColor: Colors.orange,
-          content: p.certifications.isNotEmpty
-              ? Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: p.certifications.map((cert) => Padding(
-                    padding: const EdgeInsets.only(bottom: 6),
-                    child: Row(
-                      children: [
-                        const Icon(Icons.verified, size: 16, color: Colors.orange),
-                        const SizedBox(width: 6),
-                        Expanded(
-                          child: Text(
-                            '${cert.certificationName} - ${cert.issuingOrganization}',
-                            style: const TextStyle(fontSize: 13.5),
-                          ),
-                        ),
-                      ],
-                    ),
-                  )).toList(),
-                )
-              : const Text('None added', style: TextStyle(color: AppColors.neutral600)),
-          onTap: () => Navigator.pushNamed(context, '/add-certifications'),
-        ),
+        /*
+            Both open into their own fields, like everything else here.
 
-        // Licenses Card
-        _buildInfoCard(
-          title: 'Licenses',
-          icon: Icons.badge,
-          iconColor: Colors.purple,
-          content: p.licenses.isNotEmpty
-              ? Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: p.licenses.map((lic) => Padding(
-                    padding: const EdgeInsets.only(bottom: 6),
-                    child: Row(
-                      children: [
-                        const Icon(Icons.badge, size: 16, color: Colors.purple),
-                        const SizedBox(width: 6),
-                        Expanded(
-                          child: Text(
-                            '${lic.licenseName} - ${lic.issuingAuthority}',
-                            style: const TextStyle(fontSize: 13.5),
-                          ),
-                        ),
-                      ],
-                    ),
-                  )).toList(),
-                )
-              : const Text('None added', style: TextStyle(color: AppColors.neutral600)),
-          onTap: () => Navigator.pushNamed(context, '/add-licenses'),
-        ),
+            These were the last two rows that pushed a separate screen, and
+            that screen is where the replacement document was being silently
+            dropped. One editor now, so there is one save path rather than
+            two that drifted.
+        */
+        CredentialsSection(kind: CredentialKind.certification),
+
+        const SizedBox(height: 4),
+        CredentialsSection(kind: CredentialKind.licence),
       ],
     );
   }
