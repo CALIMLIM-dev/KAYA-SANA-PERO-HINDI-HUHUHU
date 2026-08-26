@@ -324,6 +324,8 @@ class ProfileScreen extends StatelessWidget {
                   Provider.of<NotificationProvider>(context, listen: false);
               final profileViews =
                   Provider.of<ProfileViewProvider>(context, listen: false);
+              final credits =
+                  Provider.of<CreditsProvider>(context, listen: false);
               await auth.logout();
               // Drop the persisted Worker/Employer mode so the next account to
               // sign in on this device does not inherit it.
@@ -334,6 +336,17 @@ class ProfileScreen extends StatelessWidget {
               // And the previous account's view count, which would otherwise
               // greet the next person as if it were theirs.
               profileViews.clear();
+              /*
+                  And their balance, which was the worst of these.
+
+                  CreditsProvider has a clear() and nothing ever called it, so
+                  the next account to sign in on this phone inherited the last
+                  one's number. Worse than a stale badge: load() returns early
+                  once it has loaded, so the wrong balance never corrected
+                  itself on the home screen - it sat there until something else
+                  forced a refresh, showing one account somebody else's money.
+              */
+              credits.clear();
 
               // Navigate to login screen and clear navigation stack
               if (context.mounted) {

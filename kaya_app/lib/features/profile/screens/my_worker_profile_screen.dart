@@ -713,7 +713,6 @@ class _MyWorkerProfileScreenState extends State<MyWorkerProfileScreen> with Sing
         InlineEditRow(
           label: 'Full name',
           value: p.name,
-          hint: 'Your full name',
           maxLength: 100,
           validator: (v) => v.isEmpty ? 'A name is required.' : null,
           onSave: (v) async {

@@ -354,9 +354,9 @@ class _CertFormScreenState extends State<_CertFormScreen> {
               padding: const EdgeInsets.all(20),
               child: Column(
                 children: [
-                  _field(controller: _nameCtrl, label: 'Certification Name', hint: 'e.g. Safety Training Certificate'),
+                  _field(controller: _nameCtrl, label: 'Certification Name', hint: ''),
                   const SizedBox(height: 16),
-                  _field(controller: _orgCtrl, label: 'Issued By', hint: 'e.g. TESDA, Red Cross'),
+                  _field(controller: _orgCtrl, label: 'Issued By', hint: ''),
                   const SizedBox(height: 16),
                   _field(
                     controller: _dateCtrl,

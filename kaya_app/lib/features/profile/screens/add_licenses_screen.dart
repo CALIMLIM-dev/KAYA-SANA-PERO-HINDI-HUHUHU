@@ -360,9 +360,9 @@ class _LicenseFormScreenState extends State<_LicenseFormScreen> {
               padding: const EdgeInsets.all(20),
               child: Column(
                 children: [
-                  _field(_nameCtrl, 'License Name', 'e.g. Licensed Plumber'),
+                  _field(_nameCtrl, 'License Name', ''),
                   const SizedBox(height: 16),
-                  _field(_authorityCtrl, 'Issued By', 'e.g. DOLE, PRC'),
+                  _field(_authorityCtrl, 'Issued By', ''),
                   const SizedBox(height: 16),
                   _field(_dateCtrl, 'Date Issued', 'YYYY-MM-DD',
                       readOnly: true, onTap: _selectDate,

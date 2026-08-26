@@ -273,12 +273,10 @@ class _CredentialsSectionState extends State<CredentialsSection> {
         InlineField(
           controller: _name,
           label: _isLicence ? 'Licence name' : 'Certificate name',
-          hint: _isLicence ? 'Professional Driver\'s Licence' : 'NC II Welding',
         ),
         InlineField(
           controller: _issuer,
           label: _isLicence ? 'Issuing authority' : 'Issuing organisation',
-          hint: _isLicence ? 'LTO, PRC' : 'TESDA',
         ),
         InlineField(
           controller: _reference,

@@ -149,4 +149,46 @@ class GoogleLoginSecurityTest extends TestCase
         // The victim's account must be untouched.
         $this->assertNull($victim->fresh()->google_id);
     }
+    /*
+        Signing in with Google does not replace the photo you chose.
+
+        The avatar was assigned on every sign-in, so a worker who uploaded a
+        proper photo had it swapped for their Gmail picture the next time they
+        used Google to log in - and every time after that. On a hiring app the
+        profile photo is what an employer decides on.
+    */
+    #[Test]
+    public function google_login_does_not_overwrite_an_existing_photo(): void
+    {
+        $user = User::factory()->create([
+            'email' => 'victim@gmail.com',
+            'avatar' => 'worker_photos/the-one-they-chose.jpg',
+        ]);
+
+        $this->googleReturns($this->validClaims(['picture' => 'https://lh3.google.com/gmail-photo.jpg']));
+
+        $this->postJson('/api/v1/google-login', ['id_token' => 'x'])->assertOk();
+
+        $this->assertSame(
+            'worker_photos/the-one-they-chose.jpg',
+            $user->fresh()->avatar,
+            'Google sign-in replaced a photo the user had uploaded.',
+        );
+    }
+
+    /// But it still fills an empty one, which is the whole point of having it.
+    #[Test]
+    public function google_login_fills_a_missing_photo(): void
+    {
+        $user = User::factory()->create([
+            'email' => 'victim@gmail.com',
+            'avatar' => null,
+        ]);
+
+        $this->googleReturns($this->validClaims(['picture' => 'https://lh3.google.com/gmail-photo.jpg']));
+
+        $this->postJson('/api/v1/google-login', ['id_token' => 'x'])->assertOk();
+
+        $this->assertSame('https://lh3.google.com/gmail-photo.jpg', $user->fresh()->avatar);
+    }
 }

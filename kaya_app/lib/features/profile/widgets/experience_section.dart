@@ -195,12 +195,10 @@ class _ExperienceSectionState extends State<ExperienceSection> {
         InlineField(
           controller: _title,
           label: 'Job title',
-          hint: 'Mason, Electrician, Cashier',
         ),
         InlineField(
           controller: _company,
           label: 'Employer',
-          hint: 'Who you worked for',
         ),
         Row(
           children: [

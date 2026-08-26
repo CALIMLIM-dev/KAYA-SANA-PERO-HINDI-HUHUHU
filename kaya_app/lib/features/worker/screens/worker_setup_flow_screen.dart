@@ -16,6 +16,7 @@ import '../../../data/models/worker_certification_model.dart';
 import '../../../data/models/worker_license_model.dart';
 import '../../../data/services/api_client.dart';
 import '../../../core/navigation/app_router.dart';
+import '../../../core/navigation/main_navigation.dart';
 import '../../profile/screens/add_skills_screen.dart';
 import '../../profile/screens/onboarding_verification_screen.dart';
 import '../../../core/widgets/app_toast.dart';
@@ -171,6 +172,23 @@ class _WorkerSetupFlowScreenState extends State<WorkerSetupFlowScreen> {
   }
 
   Future<void> _finishSetup() async {
+    /*
+        Where to land, decided before anything is refreshed.
+
+        Finishing used to run fetchMe first and navigate after, and the order
+        was the whole problem. fetchMe drives the proxy provider, the router
+        sitting under this flow re-derives what to show, and for one frame it
+        swapped the setup screen for the finished profile - then the navigation
+        fired and threw that away for the home screen. That flash of a profile
+        you never asked to see, immediately replaced, is what the ending looked
+        like.
+
+        Asking for the profile tab up front means the shell is already on the
+        right tab when it appears, so there is nothing to swap and nothing to
+        flash. It is also the better destination: somebody who has just spent
+        several minutes filling in a profile should be shown the profile, not
+        dropped on a job feed with no acknowledgement that they finished.
+    */
     // Refresh auth to update completion flags. This drives the proxy provider,
     // so AppModeProvider learns the worker profile now exists and re-derives
     // the home view: worker-only accounts land on jobs, while an account that
@@ -185,11 +203,14 @@ class _WorkerSetupFlowScreenState extends State<WorkerSetupFlowScreen> {
     }
 
     if (mounted) {
-      // Navigate to home
+      // The shell, which the line above has already pointed at the profile
+      // tab. Everything below is removed so the back gesture cannot walk back
+      // into a setup flow that is finished.
       Navigator.pushNamedAndRemoveUntil(
         context,
         AppRouter.home,
         (route) => false,
+        arguments: MainNavigation.profileTab,
       );
     }
   }
@@ -364,7 +385,7 @@ class _WorkerSetupFlowScreenState extends State<WorkerSetupFlowScreen> {
             },
             decoration: InputDecoration(
               labelText: 'Full Name *',
-              hintText: 'Enter your full name',
+              hintText: '',
               filled: true,
               fillColor: Colors.white,
               border: OutlineInputBorder(
@@ -1111,7 +1132,7 @@ class _WorkerSetupFlowScreenState extends State<WorkerSetupFlowScreen> {
           ),
           const SizedBox(height: 8),
           const Text(
-            'Add professional licenses (PRC, drivers license, etc.). (Optional)',
+            'Add any professional licences you hold. (Optional)',
             style: TextStyle(
               fontSize: 14,
               color: AppColors.neutral600,
@@ -1925,9 +1946,9 @@ class _ExperienceFormScreenState extends State<_ExperienceFormScreen> {
               padding: const EdgeInsets.all(20),
               child: Column(
                 children: [
-                  _field(_titleCtrl, 'Job Title', 'e.g. Plumber'),
+                  _field(_titleCtrl, 'Job Title', ''),
                   const SizedBox(height: 16),
-                  _field(_companyCtrl, 'Company / Employer', 'e.g. ABC Construction'),
+                  _field(_companyCtrl, 'Company / Employer', ''),
                   const SizedBox(height: 16),
                   _datePicker(_startCtrl, 'Start Date', 'Select Start Date'),
                   const SizedBox(height: 16),
@@ -2131,9 +2152,9 @@ class _CertificationFormScreenState extends State<_CertificationFormScreen> {
               padding: const EdgeInsets.all(20),
               child: Column(
                 children: [
-                  _field(_nameCtrl, 'Certification Name', 'e.g. Safety Training Certificate'),
+                  _field(_nameCtrl, 'Certification Name', ''),
                   const SizedBox(height: 16),
-                  _field(_orgCtrl, 'Issued By', 'e.g. TESDA, Red Cross'),
+                  _field(_orgCtrl, 'Issued By', ''),
                   const SizedBox(height: 16),
                   _datePicker(_dateCtrl, 'Date Issued', 'Select Issue Date'),
                   const SizedBox(height: 24),
@@ -2455,9 +2476,9 @@ class _LicenseFormScreenState extends State<_LicenseFormScreen> {
               padding: const EdgeInsets.all(20),
               child: Column(
                 children: [
-                  _field(_nameCtrl, 'License Name', 'e.g. Licensed Plumber'),
+                  _field(_nameCtrl, 'License Name', ''),
                   const SizedBox(height: 16),
-                  _field(_authorityCtrl, 'Issued By', 'e.g. DOLE, PRC'),
+                  _field(_authorityCtrl, 'Issued By', ''),
                   const SizedBox(height: 16),
                   _datePicker(_dateCtrl, 'Date Issued', 'Select Issue Date'),
                   const SizedBox(height: 24),

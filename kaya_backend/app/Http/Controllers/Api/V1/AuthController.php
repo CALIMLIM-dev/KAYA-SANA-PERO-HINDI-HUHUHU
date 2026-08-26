@@ -411,7 +411,23 @@ class AuthController extends Controller
 
             // Existing user - just log them in (LOGIN flow)
             $existingUser->google_id = $googleId;
-            $existingUser->avatar    = $avatar;
+
+            /*
+                Google's picture fills a gap, it does not overwrite a choice.
+
+                This assigned the avatar unconditionally on every sign-in, so a
+                worker who uploaded a proper photo of themselves got it replaced
+                by their Gmail picture the next time they logged in with Google
+                - and again every time after. On a hiring app the profile photo
+                is what an employer decides on, and it is not the app's place to
+                keep swapping it for one taken from somewhere else.
+
+                Only filled when there is nothing there.
+            */
+            if (blank($existingUser->avatar)) {
+                $existingUser->avatar = $avatar;
+            }
+
             $existingUser->save();
 
             $token = $existingUser->createToken('kaya_app')->plainTextToken;

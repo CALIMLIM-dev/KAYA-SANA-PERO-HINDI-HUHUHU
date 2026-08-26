@@ -566,9 +566,6 @@ class _MyEmployerProfileScreenState extends State<MyEmployerProfileScreen>
           InlineEditRow(
             label: _role == 'Company' ? 'Company name' : 'Your name',
             value: _name,
-            hint: _role == 'Company'
-                ? 'Registered business name'
-                : 'Your full name',
             maxLength: 120,
             validator: (v) => v.isEmpty ? 'A name is required.' : null,
             onSave: (v) async {
@@ -581,9 +578,6 @@ class _MyEmployerProfileScreenState extends State<MyEmployerProfileScreen>
           InlineEditRow(
             label: _role == 'Company' ? 'About the company' : 'About you',
             value: _description,
-            hint: _role == 'Company'
-                ? 'What your business does'
-                : 'What kind of work you hire for',
             maxLines: 4,
             maxLength: 1000,
             emptyLabel: _role == 'Company'
@@ -608,7 +602,6 @@ class _MyEmployerProfileScreenState extends State<MyEmployerProfileScreen>
           InlineEditRow(
             label: 'Industry',
             value: _profile?.industry,
-            hint: 'Construction, Retail, Food service',
             maxLength: 100,
             onSave: (v) async {
               final p = context.read<EmployerProfileProvider>();
@@ -620,7 +613,6 @@ class _MyEmployerProfileScreenState extends State<MyEmployerProfileScreen>
           InlineEditRow(
             label: 'Website or page',
             value: _profile?.website,
-            hint: 'facebook.com/yourbusiness',
             keyboardType: TextInputType.url,
             maxLength: 255,
             validator: (v) {

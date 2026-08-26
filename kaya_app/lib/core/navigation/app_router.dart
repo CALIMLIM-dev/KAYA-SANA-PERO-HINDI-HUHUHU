@@ -156,7 +156,10 @@ class AppRouter {
         );
       
       case home:
-        return MaterialPageRoute(builder: (_) => const MainNavigation());
+        // An optional tab index, so a flow that ends somewhere specific can
+        // say where without the shell resetting it a frame later.
+        final tab = settings.arguments is int ? settings.arguments as int : null;
+        return MaterialPageRoute(builder: (_) => MainNavigation(initialTab: tab));
       
       case jobDetails:
         return MaterialPageRoute(

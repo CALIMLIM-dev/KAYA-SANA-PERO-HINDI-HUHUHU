@@ -152,6 +152,26 @@ class KayaApp extends StatelessWidget {
             if (navigator == null) return;
 
             context.read<AuthProvider>().logout();
+
+            /*
+                The same clearing the Log out button does.
+
+                A session can end two ways - the button, or a token the server
+                stops accepting - and only the button was tidying up after
+                itself. Everything one account left in memory was still there
+                when the next one signed in: their balance, their unread
+                counts, their mode, their profile view count.
+
+                The balance was the one that showed. CreditsProvider.load()
+                returns early once it has loaded, so an inherited number never
+                corrected itself and the home screen sat there displaying
+                somebody else's money.
+            */
+            context.read<CreditsProvider>().clear();
+            context.read<NotificationProvider>().clear();
+            context.read<ProfileViewProvider>().clear();
+            context.read<AppModeProvider>().clear();
+
             navigator.pushNamedAndRemoveUntil(AppRouter.login, (_) => false);
           };
 
