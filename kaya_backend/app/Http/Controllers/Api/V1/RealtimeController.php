@@ -53,8 +53,11 @@ class RealtimeController extends Controller
      * which is not the same as the address the server binds to. On a developer
      * machine that is a LAN address, and a LAN address only resolves on that
      * LAN — which is why realtime works on the office WiFi and dies the moment
-     * a phone is on mobile data, while the REST API keeps working through the
-     * tunnel. Reverb listens on its own port and nothing tunnels it.
+     * a phone leaves it.
+     *
+     * Deployed, this stops being a special case: the socket sits behind the
+     * same domain and certificate as the API, on 443, and both are reachable
+     * from anywhere.
      *
      * @return array{key: ?string, host: ?string, port: int, tls: bool}
      */

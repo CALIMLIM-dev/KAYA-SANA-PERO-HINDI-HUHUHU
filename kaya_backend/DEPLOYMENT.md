@@ -127,13 +127,17 @@ A green build proves the container started. It does not prove the app works.
 
    ```
    flutter build apk --release \
-     --dart-define=API_BASE_URL=https://<your-app>.up.railway.app \
+     --dart-define=API_BASE_URL=https://kayaadmin.ucucite.tech \
      --dart-define=GOOGLE_SERVER_CLIENT_ID=<web client id>
    ```
 
-   No ngrok anywhere. `ApiClient` only sends the `ngrok-skip-browser-warning`
-   header when the host looks like a tunnel, so this is the flag and nothing
-   else.
+   A domain, never a server IP. No certificate authority issues certificates
+   for bare IP addresses, and a release build has no cleartext exception, so
+   an IP means the app simply cannot connect.
+
+   Without the flag the build falls back to the development machine on the
+   local network, which is correct for a debug build and useless in a release
+   one. Pass it.
 
 ## Still outstanding
 

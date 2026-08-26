@@ -7,12 +7,11 @@
     government IDs and selfies, and those must never travel unencrypted off a
     real user's phone. A release APK stays HTTPS-only with no exception at all.
 
-    It exists because ngrok used to fill this role. The tunnel was never
-    wanted - it was a way to get an HTTPS address for a server running on a
-    laptop, because Android refuses plain HTTP by default and the phone could
-    not otherwise reach it. Permitting cleartext to the laptop directly does
-    the same job with no third party, no tunnel that dies overnight, and no
-    interstitial HTML arriving where JSON was expected.
+    It exists so the phone can reach a server running on a laptop during
+    development. Android refuses plain HTTP by default, and until the real
+    subdomain is serving over HTTPS there is nothing else for a debug build to
+    talk to. Permitting cleartext to the development machine, and only to it,
+    is the smallest exception that makes that work.
 -->
 <network-security-config>
     <domain-config cleartextTrafficPermitted="true">

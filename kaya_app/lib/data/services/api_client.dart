@@ -21,13 +21,9 @@ class ApiClient {
       the default is ignored entirely. There is exactly one address in this app
       and this is it.
 
-      The default is the development machine on the local network, not a public
-      tunnel. It used to be an ngrok URL, which meant every APK was welded to
-      one tunnel: restarting ngrok broke every copy already installed on a
-      tester's phone, and the only fix was building and handing out a new APK.
-      Pointing at the laptop directly removes the third party from the loop —
-      see android/app/src/debug/ for the one Android setting that makes plain
-      HTTP to that address legal in a debug build, and only in a debug build.
+      The default is the development machine on the local network. See
+      android/app/src/debug/ for the one Android setting that makes plain HTTP
+      to that address legal in a debug build, and only in a debug build.
 
       For the deployed app, pass a domain rather than a server IP. A
       certificate cannot be issued for a bare IP address, so an IP means no

@@ -55,7 +55,6 @@ Future<Map<String, dynamic>> _call(
     final req = await client.openUrl(
         method, Uri.parse('$_base/api/v1$path'));
     req.headers.set('Accept', 'application/json');
-    req.headers.set('ngrok-skip-browser-warning', '1');
     if (token != null) req.headers.set('Authorization', 'Bearer $token');
     if (body != null) {
       req.headers.contentType = ContentType.json;
