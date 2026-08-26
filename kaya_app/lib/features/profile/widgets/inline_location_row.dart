@@ -286,6 +286,34 @@ class _InlineLocationRowState extends State<InlineLocationRow> {
           );
         }
 
+        /*
+            A failed search is not an empty one.
+
+            The provider empties its results when a request throws, so a
+            connection that dropped, a token that expired and a genuinely
+            unknown place all rendered the same sentence: no place found. That
+            sends somebody off to check their spelling when the problem is the
+            network, and it hides real errors completely.
+        */
+        if (locations.errorMessage != null) {
+          return Padding(
+            padding: const EdgeInsets.only(top: 8),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Icon(Icons.error_outline, size: 14, color: AppColors.error),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: Text(
+                    locations.errorMessage!,
+                    style: const TextStyle(fontSize: 12, color: AppColors.error),
+                  ),
+                ),
+              ],
+            ),
+          );
+        }
+
         if (locations.results.isEmpty) {
           return const Padding(
             padding: EdgeInsets.only(top: 8),

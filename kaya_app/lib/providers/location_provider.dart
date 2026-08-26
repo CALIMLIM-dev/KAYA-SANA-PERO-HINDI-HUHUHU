@@ -22,8 +22,23 @@ class LocationProvider with ChangeNotifier {
   bool get isSearching => _isSearching;
   String? get errorMessage => _errorMessage;
 
+  /*
+      Guards against an older search overwriting a newer one.
+
+      Typing runs several of these at once and nothing orders the responses.
+      "urdanet" and "urdaneta" are both in flight, and if the shorter one
+      lands second it replaces the results for a word the field no longer
+      contains - so the list disagrees with what is typed, and after the last
+      keystroke it can end up showing the wrong set or none at all.
+
+      The same guard the worker profile uses for its skill lookups, and for
+      the same reason.
+  */
+  int _requestId = 0;
+
   Future<void> search(String term) async {
     final key = term.trim().toLowerCase();
+    final requestId = ++_requestId;
 
     if (_cache.containsKey(key)) {
       _results = _cache[key]!;
@@ -46,13 +61,19 @@ class LocationProvider with ChangeNotifier {
           .map((e) => LocationModel.fromJson(e as Map<String, dynamic>))
           .toList();
 
+      // Cached either way - a superseded response is still a correct answer
+      // for its own term, and the next search for it should be instant.
       _cache[key] = data;
+
+      if (requestId != _requestId) return;
       _results = data;
     } catch (e) {
+      if (requestId != _requestId) return;
       _errorMessage = e.toString().replaceFirst('Exception: ', '');
       _results = [];
     }
 
+    if (requestId != _requestId) return;
     _isSearching = false;
     notifyListeners();
   }
