@@ -39,10 +39,20 @@ class _PinLocationScreenState extends State<PinLocationScreen> {
   bool _locating = false;
   bool _initialised = false;
 
-  /// The map opens centred on the place already chosen, so a pin is visible
-  /// immediately — but that pin is just the centroid, not a decision. Without
-  /// this flag "Use this location" would be enabled before the user had done
-  /// anything, and "pinned" would only mean "opened the map".
+  /*
+      Whether the pin was moved, rather than just inherited.
+
+      The map opens centred on the chosen place, so a pin is on screen from
+      the first frame - but that one is the city centroid, not a decision.
+      This tracks the difference, and the hint under the button uses it to say
+      so.
+
+      It no longer disables the button. A greyed-out primary action with a pin
+      sitting visibly on the map reads as broken, and somebody whose city
+      centre genuinely is close enough had no way to say so without dragging
+      the pin somewhere and back. The wording carries the warning instead, and
+      the pin can always be moved again later.
+  */
   bool _userPlacedPin = false;
 
   bool _resolving = false;
@@ -125,7 +135,8 @@ class _PinLocationScreenState extends State<PinLocationScreen> {
   }
 
   Future<void> _confirm() async {
-    if (_pin == null || !_userPlacedPin) {
+    // Only the absence of a pin blocks this now - see _userPlacedPin.
+    if (_pin == null) {
       AppToast.info(context, 'Tap the map to place your pin first.');
       return;
     }
@@ -285,23 +296,30 @@ class _PinLocationScreenState extends State<PinLocationScreen> {
                   Padding(
                     padding: const EdgeInsets.only(bottom: 10),
                     child: Text(
-                      _userPlacedPin && _pin != null
-                          ? '${_pin!.latitude.toStringAsFixed(5)}, '
-                              '${_pin!.longitude.toStringAsFixed(5)}'
-                          : 'Tap the map to place your pin',
+                      _pin == null
+                          ? 'Tap the map to place your pin'
+                          : _userPlacedPin
+                              ? '${_pin!.latitude.toStringAsFixed(5)}, '
+                                  '${_pin!.longitude.toStringAsFixed(5)}'
+                              // Says what it is rather than refusing to
+                              // proceed: the centre of town is a real answer
+                              // for some people and a poor one for others,
+                              // and only they can tell which.
+                              : 'Centre of ${_label ?? 'your area'} - drag the pin '
+                                  'to where you actually are',
                       style: TextStyle(
                         fontSize: 12,
                         color: _userPlacedPin
                             ? AppColors.neutral500
                             : AppColors.warning,
+                        height: 1.3,
                       ),
                     ),
                   ),
                   SizedBox(
                     width: double.infinity,
                     child: ElevatedButton(
-                      onPressed:
-                          (!_userPlacedPin || _resolving) ? null : _confirm,
+                      onPressed: (_pin == null || _resolving) ? null : _confirm,
                       style: ElevatedButton.styleFrom(
                         backgroundColor: AppColors.primary,
                         foregroundColor: Colors.white,

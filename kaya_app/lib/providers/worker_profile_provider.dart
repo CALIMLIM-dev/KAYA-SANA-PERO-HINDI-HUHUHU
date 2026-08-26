@@ -32,6 +32,21 @@ class WorkerProfileProvider with ChangeNotifier {
   // Stub properties for compatibility with existing screens
   String? name;
   String? location;
+
+  /*
+      The pinned spot, kept rather than only sent.
+
+      These were write-only: updateLocation posted them and nothing ever read
+      them back, so the app had no way to tell an account that had pinned its
+      exact position from one sitting on a city centroid. The profile needs to
+      know, because pinning is what makes every distance on every job card
+      real rather than "somewhere in this city".
+  */
+  double? latitude;
+  double? longitude;
+
+  /// True once an exact position has been dropped, not just a city chosen.
+  bool get hasPinnedLocation => latitude != null && longitude != null;
   String? phone;
   String? email;
   String? profilePhotoPath;
@@ -78,6 +93,8 @@ class WorkerProfileProvider with ChangeNotifier {
         email = userData['email'] as String?;
         phone = userData['phone'] as String?;
         location = userData['city'] as String?; // Backend uses 'city' column
+        latitude = (userData['latitude'] as num?)?.toDouble();
+        longitude = (userData['longitude'] as num?)?.toDouble();
         profilePhotoPath = userData['avatar'] as String?;
       }
       
@@ -175,6 +192,10 @@ class WorkerProfileProvider with ChangeNotifier {
       
       if (data['success']) {
         location = newLocation;
+        // Kept in step with what was just sent, so the pin state on screen
+        // does not wait for the next fetch to catch up.
+        if (latitude != null) this.latitude = latitude;
+        if (longitude != null) this.longitude = longitude;
         notifyListeners();
         return true;
       } else {

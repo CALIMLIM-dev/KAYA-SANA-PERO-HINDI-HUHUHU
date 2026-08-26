@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../providers/auth_provider.dart';
+import '../widgets/experience_section.dart';
 import '../widgets/inline_edit_row.dart';
 import '../widgets/inline_location_row.dart';
 import '../widgets/profile_completeness_header.dart';
@@ -466,54 +467,108 @@ class _MyWorkerProfileScreenState extends State<MyWorkerProfileScreen> with Sing
     );
   }
 
-  /// Asks before removing a job entry, because there is no undo for one.
-  Future<void> _confirmDeleteExperience(Map<String, dynamic> exp) async {
-    final title = (exp['title'] ?? exp['position'] ?? 'this entry').toString();
+  /// Opens the map picker, and saves whatever spot comes back.
+  Widget _pinRow(WorkerProfileProvider p) {
+    final pinned = p.hasPinnedLocation;
+    final hasCity = (p.location ?? '').trim().isNotEmpty;
 
-    final sure = await showDialog<bool>(
-      context: context,
-      builder: (_) => AlertDialog(
-        title: const Text('Remove this experience?'),
-        content: Text('"$title" will be removed from your profile.'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancel'),
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Material(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          onTap: hasCity ? () => _openPinPicker(p) : null,
+          child: Container(
+            padding: const EdgeInsets.fromLTRB(14, 12, 10, 12),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: pinned
+                    ? AppColors.success.withValues(alpha: 0.4)
+                    : AppColors.neutral200,
+              ),
+            ),
+            child: Row(
+              children: [
+                Icon(
+                  pinned ? Icons.where_to_vote : Icons.add_location_alt_outlined,
+                  size: 20,
+                  color: !hasCity
+                      ? AppColors.neutral400
+                      : (pinned ? AppColors.success : AppColors.primary),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        pinned ? 'Exact location pinned' : 'Pin your exact location',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                          color: hasCity
+                              ? AppColors.neutral900
+                              : AppColors.neutral400,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        !hasCity
+                            ? 'Choose your location first'
+                            : pinned
+                                ? '${p.latitude!.toStringAsFixed(5)}, ${p.longitude!.toStringAsFixed(5)}'
+                                : 'So jobs show the real distance to you',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                            fontSize: 12, color: AppColors.neutral500),
+                      ),
+                    ],
+                  ),
+                ),
+                Icon(Icons.chevron_right,
+                    color: hasCity ? AppColors.neutral400 : AppColors.neutral300),
+              ],
+            ),
           ),
-          TextButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: const Text('Remove', style: TextStyle(color: AppColors.error)),
-          ),
-        ],
+        ),
       ),
     );
+  }
 
-    if (sure != true || !mounted) return;
+  Future<void> _openPinPicker(WorkerProfileProvider p) async {
+    final result = await Navigator.pushNamed(
+      context,
+      '/pin-location',
+      arguments: {
+        'latitude': p.latitude,
+        'longitude': p.longitude,
+        'label': p.location,
+      },
+    );
 
-    final id = exp['id'];
-    if (id is! int) return;
+    if (result is! Map || !mounted) return;
+
+    final lat = (result['latitude'] as num?)?.toDouble();
+    final lng = (result['longitude'] as num?)?.toDouble();
+    if (lat == null || lng == null) return;
 
     final provider = context.read<WorkerProfileProvider>();
-    final ok = await provider.deleteExperience(id);
+    final ok = await provider.updateLocation(
+      provider.location ?? '',
+      latitude: lat,
+      longitude: lng,
+    );
     if (!mounted) return;
 
     if (!ok) {
-      AppToast.error(context, provider.errorMessage ?? 'Could not remove it.');
+      AppToast.error(context, provider.errorMessage ?? 'Could not save the pin.');
     }
-  }
-
-  String _fmtDate(String? d) {
-    if (d == null || d.isEmpty) return '';
-    try {
-      if (d.contains('-')) {
-        final parts = d.split('-');
-        const months = ['', 'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-                        'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-        final m = int.tryParse(parts[1]) ?? 1;
-        return '${months[m]} ${parts[0]}';
-      }
-    } catch (_) {}
-    return d;
   }
 
   /// "8 employers viewed your profile this week."
@@ -632,6 +687,10 @@ class _MyWorkerProfileScreenState extends State<MyWorkerProfileScreen> with Sing
           value: p.location,
           onSave: (place) async {
             final provider = context.read<WorkerProfileProvider>();
+            // The place's own coordinates are its centroid - the middle of the
+            // city, not where anybody lives. Good enough to sort by until the
+            // exact spot is pinned below, and it replaces any previous pin
+            // because a pin in the old city is worse than none.
             final ok = await provider.updateLocation(
               place.displayName,
               locationId: place.id,
@@ -641,6 +700,16 @@ class _MyWorkerProfileScreenState extends State<MyWorkerProfileScreen> with Sing
             return ok ? null : (provider.errorMessage ?? 'Could not save.');
           },
         ),
+
+        /*
+            The exact spot, which the city alone cannot give.
+
+            Choosing a city saves its centroid, so every distance in the app
+            would be measured from the middle of town. This is what makes
+            "3.4 km away" mean anything, and it is the one part of a location
+            that genuinely needs a map rather than a text field.
+        */
+        _pinRow(p),
 
         /*
             Both details, both on screen, both editable.
@@ -795,77 +864,14 @@ class _MyWorkerProfileScreenState extends State<MyWorkerProfileScreen> with Sing
           },
         ),
 
-        // Experience Card
-        _buildInfoCard(
-          title: 'Experience',
-          icon: Icons.work,
-          iconColor: AppColors.success,
-          content: p.experiences.isNotEmpty
-              ? Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  /*
-                      Each entry carries its own actions.
+        /*
+            Work history, edited here rather than on another screen.
 
-                      This was a read-only list, and the only way to correct a
-                      typo in a job title was to open a separate screen and
-                      find the entry again. Edit and delete belong next to the
-                      thing they act on.
-
-                      Delete asks first. It is one tap next to an edit button,
-                      the two are easy to confuse, and there is no undo for a
-                      job history somebody typed out by hand.
-                  */
-                  children: p.experiences.map((exp) => Padding(
-                    padding: const EdgeInsets.only(bottom: 10),
-                    child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                exp['title'] ?? exp['position'] ?? '',
-                                maxLines: 2,
-                                overflow: TextOverflow.ellipsis,
-                                style: const TextStyle(
-                                    fontWeight: FontWeight.bold, fontSize: 14),
-                              ),
-                              Text(
-                                '${exp['company']} • ${_fmtDate(exp['start_date'])} – ${exp['end_date'] != null ? _fmtDate(exp['end_date']) : 'Present'}',
-                                maxLines: 2,
-                                overflow: TextOverflow.ellipsis,
-                                style: const TextStyle(fontSize: 12),
-                              ),
-                            ],
-                          ),
-                        ),
-                        IconButton(
-                          onPressed: () => Navigator.pushNamed(
-                              context, '/add-experience', arguments: exp),
-                          icon: const Icon(Icons.edit_outlined, size: 18),
-                          color: AppColors.neutral500,
-                          tooltip: 'Edit',
-                          visualDensity: VisualDensity.compact,
-                          constraints: const BoxConstraints(),
-                          padding: const EdgeInsets.all(6),
-                        ),
-                        IconButton(
-                          onPressed: () => _confirmDeleteExperience(exp),
-                          icon: const Icon(Icons.delete_outline, size: 18),
-                          color: AppColors.error,
-                          tooltip: 'Delete',
-                          visualDensity: VisualDensity.compact,
-                          constraints: const BoxConstraints(),
-                          padding: const EdgeInsets.all(6),
-                        ),
-                      ],
-                    ),
-                  )).toList(),
-                )
-              : const Text('None added', style: TextStyle(color: AppColors.neutral600)),
-          onTap: () => Navigator.pushNamed(context, '/add-experience'),
-        ),
+            This was a read-only list whose only action opened a separate
+            page. Each entry now opens into its own fields in place, with
+            delete beside save and a confirmation on it.
+        */
+        ExperienceSection(experiences: p.experiences),
 
         ProfileSectionHeading('Credentials'),
 
