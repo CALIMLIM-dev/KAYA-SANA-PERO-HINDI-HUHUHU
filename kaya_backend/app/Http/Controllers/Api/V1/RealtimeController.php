@@ -9,7 +9,8 @@ use Illuminate\Http\Request;
  * Tells the app where the WebSocket server is.
  *
  * Served rather than compiled into the client on purpose. The Reverb host and
- * port change between local XAMPP, ngrok and production, and baking them into
+ * port change between the development machine and the deployed server, and
+ * baking them into
  * the Flutter binary would mean a rebuild and a store release for what is a
  * deployment detail. The app fetches this once after login and connects.
  *

@@ -20,8 +20,9 @@ return Application::configure(basePath: dirname(__DIR__))
         attributes: ['prefix' => 'api', 'middleware' => ['api', 'auth:sanctum']],
     )
     ->withMiddleware(function (Middleware $middleware): void {
-        // CSRF applies to every web route, including admin/logout. The previous
-        // exemption was an ngrok workaround and is no longer needed.
+        // CSRF applies to every web route, including admin/logout. The
+        // exemption that used to sit here was a tunnelling workaround, and the
+        // tunnel is gone.
         $middleware->validateCsrfTokens();
 
         $middleware->alias([

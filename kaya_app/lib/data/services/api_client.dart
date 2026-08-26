@@ -14,19 +14,30 @@ class ApiClient {
   /*
       Where the backend lives, supplied at build time:
 
-        flutter build apk --dart-define=API_BASE_URL=https://your-host
+        flutter build apk \
+          --dart-define=API_BASE_URL=https://kayaadmin.ucucite.tech
 
-      This was a hardcoded ngrok URL, which meant every APK was welded to one
-      tunnel. Restarting ngrok — or moving to real hosting — broke every copy
-      already installed on a tester's phone, with no way to fix it except
-      building and distributing a new APK.
+      Change the default below and every debug build follows; pass the flag and
+      the default is ignored entirely. There is exactly one address in this app
+      and this is it.
 
-      The old tunnel stays as the default so existing build commands keep
-      working. Pass the flag and nothing else has to change.
+      The default is the development machine on the local network, not a public
+      tunnel. It used to be an ngrok URL, which meant every APK was welded to
+      one tunnel: restarting ngrok broke every copy already installed on a
+      tester's phone, and the only fix was building and handing out a new APK.
+      Pointing at the laptop directly removes the third party from the loop —
+      see android/app/src/debug/ for the one Android setting that makes plain
+      HTTP to that address legal in a debug build, and only in a debug build.
+
+      For the deployed app, pass a domain rather than a server IP. A
+      certificate cannot be issued for a bare IP address, so an IP means no
+      HTTPS, and without HTTPS Android refuses the connection outright — which
+      is the correct behaviour when the payload includes somebody's government
+      ID.
   */
   static const String _host = String.fromEnvironment(
     'API_BASE_URL',
-    defaultValue: 'https://bullring-glorified-observing.ngrok-free.dev',
+    defaultValue: 'http://192.168.100.4:8000',
   );
 
   /// Trailing slashes are easy to paste in and would produce `//api/v1`.
@@ -42,12 +53,6 @@ class ApiClient {
   /// it has no Dio instance and no access to the compile-time define, so the
   /// address has to be handed to it.
   static String get root => _root;
-
-  /// ngrok serves an interstitial warning page to unknown browsers, and that
-  /// HTML arrives where JSON is expected. Only needed while a tunnel is the
-  /// host — harmless elsewhere, so it is sent when the host looks like ngrok
-  /// rather than always.
-  static bool get _isTunnel => _root.contains('ngrok');
 
   /// Build full URL for a stored file path (e.g. "worker_photos/abc.jpg")
   static String fileUrl(String? path) {
@@ -77,7 +82,6 @@ class ApiClient {
     headers: {
       'Accept': 'application/json',
       'Content-Type': 'application/json',
-      if (_isTunnel) 'ngrok-skip-browser-warning': 'true',
     },
   ));
 
@@ -164,8 +168,8 @@ class ApiClient {
   /// Where the WebSocket server lives.
   ///
   /// Fetched rather than compiled in: the Reverb host and port differ between
-  /// local XAMPP, ngrok and production, and baking them into the binary would
-  /// make a deployment detail require a store release.
+  /// the development machine and the deployed server, and baking them into
+  /// the binary would make a deployment detail require a store release.
   Future<Map<String, dynamic>?> getRealtimeConfig() async {
     final response = await get('/realtime/config');
     final data = response.data;

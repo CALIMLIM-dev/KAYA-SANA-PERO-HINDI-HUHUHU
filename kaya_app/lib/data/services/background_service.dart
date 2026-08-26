@@ -250,7 +250,5 @@ class _KayaTaskHandler extends TaskHandler {
   void _decorate(HttpClientRequest request) {
     request.headers.set('Accept', 'application/json');
     request.headers.set('Authorization', 'Bearer $_token');
-    // The tunnel serves an interstitial to anything it thinks is a browser.
-    request.headers.set('ngrok-skip-browser-warning', '1');
   }
 }
