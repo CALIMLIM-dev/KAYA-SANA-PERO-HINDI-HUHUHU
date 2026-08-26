@@ -45,12 +45,13 @@ class JobScheduleTest extends TestCase
     {
         Storage::fake(config('filesystems.media'));
 
-        $category = Category::create(['name' => 'Electrical']);
+        // firstOrCreate, not create: a test that posts twice calls this twice,
+        // and a second insert collides on the unique code below.
+        $category = Category::firstOrCreate(['name' => 'Electrical']);
 
         // No factory for Location — it mirrors real PSGC rows, so tests build
         // one explicitly rather than inventing a fake code.
-        $location = Location::create([
-            'psgc_code'     => '015518000',
+        $location = Location::firstOrCreate(['psgc_code' => '015518000'], [
             'name'          => 'Urdaneta City',
             'type'          => 'city',
             'province_name' => 'Pangasinan',
@@ -70,6 +71,72 @@ class JobScheduleTest extends TestCase
         ], $overrides);
     }
 
+    /*
+        The same post arriving twice makes one job.
+
+        Reported from a real phone: a job showing up in duplicate. It is not a
+        double tap - the button disables itself while a post is in flight. It
+        is the upload outrunning the client's timeout, so the app reports a
+        failure for a request the server has already completed, and the
+        employer posts again.
+
+        The retry is indistinguishable from a first attempt at the HTTP level,
+        so the check has to be on what was posted rather than on how it
+        arrived.
+    */
+    public function test_posting_the_same_job_twice_creates_one(): void
+    {
+        $employer = $this->employer();
+        $payload = $this->payload();
+
+        $first = $this->actingAs($employer, 'sanctum')
+            ->post('/api/v1/jobs', $payload);
+        $first->assertCreated();
+
+        // Fresh fake files, because the first request consumed the uploads -
+        // exactly as a real retry would send a new copy of the same photos.
+        $retry = $this->payload([
+            'title'      => $payload['title'],
+            'start_date' => $payload['start_date'],
+        ]);
+
+        $second = $this->actingAs($employer, 'sanctum')
+            ->post('/api/v1/jobs', $retry);
+
+        // Reports success rather than an error: the employer wanted this job
+        // posted, and it is posted. Telling them it failed would invite a
+        // third attempt.
+        $second->assertCreated();
+
+        $this->assertSame(1, JobPost::count(), 'The retry created a second job.');
+        $this->assertSame(
+            $first->json('data.id'),
+            $second->json('data.id'),
+            'The retry did not return the job that already existed.',
+        );
+    }
+
+    /*
+        Two genuinely different jobs are still two jobs.
+
+        The guard above keys on the title and the start date, so this is the
+        case it must not swallow: an employer posting several jobs in one
+        sitting, which is normal and how a busy employer uses the app.
+    */
+    public function test_two_different_jobs_posted_together_both_save(): void
+    {
+        $employer = $this->employer();
+
+        $this->actingAs($employer, 'sanctum')
+            ->post('/api/v1/jobs', $this->payload(['title' => 'Rewire the shop lights']))
+            ->assertCreated();
+
+        $this->actingAs($employer, 'sanctum')
+            ->post('/api/v1/jobs', $this->payload(['title' => 'Repaint the storeroom']))
+            ->assertCreated();
+
+        $this->assertSame(2, JobPost::count());
+    }
     public function test_a_job_records_its_start_date(): void
     {
         $employer = $this->employer();

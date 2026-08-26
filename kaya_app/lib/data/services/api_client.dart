@@ -254,12 +254,30 @@ class ApiClient {
     }
   }
 
+  /*
+      Uploads get longer than the default half minute.
+
+      Everything here shares a 30 second receive timeout, which is right for a
+      JSON call and far too short for four job photos going up over mobile
+      data. When it fired, the app reported a failure for a request the server
+      had already finished - so the employer tapped Post again and got a second
+      copy of the job. That is the whole cause of the duplicate posts.
+
+      Three minutes is not generous, it is what a few megabytes takes on a
+      connection that is having a bad day. The server also refuses a repeat of
+      the same post now, so a retry is survivable either way, but the point is
+      not to make people retry something that already worked.
+  */
   Future<Response> postMultipart(String path, FormData formData) async {
     try {
       return await _dio.post(
         path,
         data: formData,
-        options: Options(contentType: 'multipart/form-data'),
+        options: Options(
+          contentType: 'multipart/form-data',
+          sendTimeout: const Duration(minutes: 3),
+          receiveTimeout: const Duration(minutes: 3),
+        ),
       );
     } on DioException catch (e) {
       throw _handleError(e);

@@ -199,6 +199,39 @@ class JobController extends Controller
             'end_date.after_or_equal' => 'The job cannot end before it starts.',
         ]);
 
+        /*
+            The same post arriving twice.
+
+            Reported as jobs appearing in duplicate. The cause is not a double
+            tap - the button disables itself - it is the upload taking longer
+            than the client waits. Photos are megabytes and mobile data here is
+            slow, so the app hits its receive timeout, reports a failure, and
+            the employer taps Post again. The first request was never
+            cancelled: it finished on the server and wrote a job nobody was
+            told about.
+
+            No amount of client-side care fixes that, because from the app's
+            side a slow success and a real failure look identical. The server
+            is the only side that knows, so the check belongs here.
+
+            Matched on the employer, the title and the start date within five
+            minutes. Two genuinely different jobs sharing all three that close
+            together does not happen; the same job posted twice by a retry
+            always does. The existing job is returned rather than an error, so
+            the app shows success and the employer sees exactly one post -
+            which is what they intended both times.
+        */
+        $duplicate = $user->postedJobs()
+            ->where('title', $data['title'])
+            ->where('start_date', $data['start_date'])
+            ->where('created_at', '>=', now()->subMinutes(5))
+            ->latest('id')
+            ->first();
+
+        if ($duplicate) {
+            return $this->ok($duplicate->load(['category', 'skills']), 'Job created', 201);
+        }
+
         $skillIds = $data['required_skill_ids'] ?? [];
         unset($data['required_skill_ids']);
 
