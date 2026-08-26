@@ -129,6 +129,24 @@ class _MyWorkerProfileScreenState extends State<MyWorkerProfileScreen> with Sing
       (profile.email ?? '').isNotEmpty,
     ].where((present) => present).length;
 
+    /*
+        And the skills preview, which is the rest of the header.
+
+        Below the contact rows the header prints each skill category in
+        capitals with a chip per skill under it. A profile with no skills draws
+        none of that, which is why an empty one always fitted and a real one
+        was eleven pixels over on the phone that reported it.
+
+        Counted by category rather than by skill, because the chips wrap into
+        rows within a category. Two rows of chips per category is the practical
+        ceiling before the header is too tall to be a header, and the section
+        is capped to three categories below for the same reason.
+    */
+    // The preview is capped at 80 logical pixels tall and scrolls inside that,
+    // so the header needs room for exactly that block, not for a guess at how
+    // many categories there are.
+    final skillsBlock = profile.skills.isEmpty ? 0 : 92;
+
     return Scaffold(
       backgroundColor: AppColors.background,
       /*
@@ -180,7 +198,7 @@ class _MyWorkerProfileScreenState extends State<MyWorkerProfileScreen> with Sing
                   number and hoping, and the whole thing still scales with the
                   text.
               */
-              expandedHeight: (190 + (contactLines * 24)) *
+              expandedHeight: (190 + (contactLines * 24) + skillsBlock) *
                   MediaQuery.textScalerOf(context).scale(1.0),
               floating: false,
               pinned: true,
@@ -436,12 +454,37 @@ class _MyWorkerProfileScreenState extends State<MyWorkerProfileScreen> with Sing
                                                     color: Colors.white.withValues(alpha: 0.2),
                                                     borderRadius: BorderRadius.circular(12),
                                                   ),
-                                                  child: Text(
-                                                    skill.skillName,
-                                                    style: const TextStyle(
-                                                      fontSize: 10,
-                                                      fontWeight: FontWeight.w600,
-                                                      color: Colors.white,
+                                                  /*
+                                                      Capped, because a Wrap
+                                                      cannot break one child.
+
+                                                      Wrap moves a chip to the
+                                                      next line when it does
+                                                      not fit, which is the
+                                                      right behaviour and was
+                                                      never the problem. A
+                                                      single chip wider than
+                                                      the screen has no next
+                                                      line to move to -
+                                                      "Refrigeration and aircon
+                                                      servicing" is one skill
+                                                      and it does not fit on a
+                                                      320px phone at any font
+                                                      size.
+                                                  */
+                                                  child: ConstrainedBox(
+                                                    constraints: BoxConstraints(
+                                                      maxWidth: MediaQuery.sizeOf(context).width - 170,
+                                                    ),
+                                                    child: Text(
+                                                      skill.skillName,
+                                                      maxLines: 1,
+                                                      overflow: TextOverflow.ellipsis,
+                                                      style: const TextStyle(
+                                                        fontSize: 10,
+                                                        fontWeight: FontWeight.w600,
+                                                        color: Colors.white,
+                                                      ),
                                                     ),
                                                   ),
                                                 )).toList(),
@@ -855,7 +898,35 @@ class _MyWorkerProfileScreenState extends State<MyWorkerProfileScreen> with Sing
                                   child: Row(
                                     mainAxisSize: MainAxisSize.min,
                                     children: [
-                                      Text(skill.skillName, style: const TextStyle(fontSize: 12)),
+                                      /*
+                                          Capped, because nothing above will
+                                          cap it.
+
+                                          The chip sits in a Wrap, which gives
+                                          each child unbounded width and moves
+                                          it to the next line if it does not
+                                          fit. A chip wider than the screen has
+                                          no next line to move to, and a real
+                                          skill name - "Refrigeration and
+                                          aircon servicing" - is exactly that
+                                          on a small phone.
+
+                                          Flexible cannot help here: it needs a
+                                          bounded parent and a Wrap child has
+                                          none. The width has to come from the
+                                          screen.
+                                      */
+                                      ConstrainedBox(
+                                        constraints: BoxConstraints(
+                                          maxWidth: MediaQuery.sizeOf(context).width - 170,
+                                        ),
+                                        child: Text(
+                                          skill.skillName,
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                          style: const TextStyle(fontSize: 12),
+                                        ),
+                                      ),
                                       const SizedBox(width: 4),
                                       GestureDetector(
                                         onTap: () async {

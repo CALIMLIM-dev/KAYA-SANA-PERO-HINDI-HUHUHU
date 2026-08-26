@@ -172,7 +172,7 @@ class _MyEmployerProfileScreenState extends State<MyEmployerProfileScreen>
                 filled employer profile spilled out of its own header while an
                 empty one looked fine.
             */
-            expandedHeight: (214 + (extraNameLines * 44)) *
+            expandedHeight: (214 + (extraNameLines * 44) + 6) *
                 MediaQuery.textScalerOf(context).scale(1.0),
             floating: false,
             pinned: true,

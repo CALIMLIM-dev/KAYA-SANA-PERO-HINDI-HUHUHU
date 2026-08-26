@@ -53,6 +53,17 @@ class WorkerProfileProvider with ChangeNotifier {
   List<Map<String, String>> experiences = [];
 
   List<WorkerSkillModel> get skills => _skills;
+
+  /// Lets a test render the profile with skills on it.
+  ///
+  /// The header groups these by category and draws a chip per skill, so a
+  /// profile with none renders a shorter header than any real one - which is
+  /// how a header that overflowed by eleven pixels passed every test.
+  @visibleForTesting
+  void seedSkills(List<WorkerSkillModel> skills) {
+    _skills = skills;
+    notifyListeners();
+  }
   List<WorkerCertificationModel> get certifications => _certifications;
   List<WorkerLicenseModel> get licenses => _licenses;
   List<WorkerExperienceModel> get experiencesNew => _experiences;

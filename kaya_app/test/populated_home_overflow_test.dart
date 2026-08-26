@@ -177,8 +177,8 @@ void main() {
   for (final workerMode in <bool>[true, false]) {
     final view = workerMode ? 'worker view' : 'hybrid view';
 
-    for (final width in <double>[360, 320]) {
-      for (final scale in <double>[1.0, 1.3]) {
+    for (final width in <double>[412, 390, 360, 320]) {
+      for (final scale in <double>[1.0, 1.15, 1.3]) {
         testWidgets(
           'a populated home in $view fits ${width.toInt()}px at text scale $scale',
           (tester) async {

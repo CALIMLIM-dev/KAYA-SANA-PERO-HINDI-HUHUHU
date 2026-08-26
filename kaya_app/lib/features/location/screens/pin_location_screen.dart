@@ -203,20 +203,35 @@ class _PinLocationScreenState extends State<PinLocationScreen> {
                         Tapping still works and re-centres there, because
                         people who have used the old version will try it.
                     */
-                    onPositionChanged: (camera, hasGesture) {
-                      if (!hasGesture) return;
+                    /*
+                        Updated when the map stops, not while it moves.
+
+                        onPositionChanged fires continuously through a drag,
+                        and calling setState from it rebuilds FlutterMap with a
+                        fresh MapOptions on every frame of the gesture. The
+                        camera constraint is then re-applied to a camera that
+                        is mid-flight, which trips an assertion inside
+                        flutter_map and takes the screen down - the red error
+                        box over a doubled map.
+
+                        A move event carries the same centre and arrives once,
+                        after the gesture settles, which is also the only
+                        moment the value is worth reading.
+                    */
+                    onMapEvent: (event) {
+                      final settled = event is MapEventMoveEnd ||
+                          event is MapEventFlingAnimationEnd ||
+                          event is MapEventDoubleTapZoomEnd;
+
+                      if (!settled) return;
+
                       setState(() {
-                        _pin = camera.center;
+                        _pin = event.camera.center;
                         _userPlacedPin = true;
                       });
                     },
-                    onTap: (_, latLng) {
-                      _map.move(latLng, _map.camera.zoom);
-                      setState(() {
-                        _pin = latLng;
-                        _userPlacedPin = true;
-                      });
-                    },
+                    // Recentres, and the move event above records where.
+                    onTap: (_, latLng) => _map.move(latLng, _map.camera.zoom),
                     // The Philippines only — panning to Norway helps nobody.
                     cameraConstraint: CameraConstraint.contain(
                       bounds: LatLngBounds(

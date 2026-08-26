@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:provider/provider.dart';
 
+import 'package:kaya_app/data/models/worker_skill_model.dart';
 import 'package:kaya_app/data/services/api_client.dart';
 import 'package:kaya_app/core/constants/employer_type.dart';
 import 'package:kaya_app/data/models/employer_profile_model.dart';
@@ -43,6 +44,38 @@ void main() {
     p.email = 'ricardo.delacruz.jr@example.com';
     p.latitude = 15.976;
     p.longitude = 120.571;
+
+    /*
+        Skills, which the header draws and no test had.
+
+        The header groups them by category and prints the category name in
+        capitals above a chip per skill, so a profile with no skills renders a
+        header several rows shorter than any real one. That is how it stayed
+        eleven pixels over on a real phone while passing here.
+
+        "Appliance Repair" is the longest real category name and the one that
+        was on screen when this was reported.
+    */
+    p.seedSkills([
+      WorkerSkillModel(
+        id: 1,
+        userId: 1,
+        skillName: 'Refrigeration and aircon servicing',
+        categoryName: 'Appliance Repair',
+      ),
+      WorkerSkillModel(
+        id: 2,
+        userId: 1,
+        skillName: 'Washing machine repair',
+        categoryName: 'Appliance Repair',
+      ),
+      WorkerSkillModel(
+        id: 3,
+        userId: 1,
+        skillName: 'Panel board wiring',
+        categoryName: 'Electrical',
+      ),
+    ]);
 
     p.experiences = [
       {
@@ -162,8 +195,8 @@ void main() {
   };
 
   for (final entry in screens.entries) {
-    for (final width in <double>[360, 320]) {
-      for (final scale in <double>[1.0, 1.3]) {
+    for (final width in <double>[412, 390, 360, 320]) {
+      for (final scale in <double>[1.0, 1.15, 1.3]) {
         testWidgets(
           'a filled ${entry.key} fits ${width.toInt()}px at text scale $scale',
           (tester) async {
