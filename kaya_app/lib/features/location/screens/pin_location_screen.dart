@@ -78,6 +78,15 @@ class _PinLocationScreenState extends State<PinLocationScreen> {
   LatLng get _initialCentre => _pin ?? _phCentre;
   double get _initialZoom => _pin != null ? 16 : 5.5;
 
+  /// Called once the map exists, so _pin is never null while a pin is drawn.
+  ///
+  /// Opening with no coordinates left _pin null with the centre pin visibly
+  /// on screen and the button greyed out beneath it - the map said one thing
+  /// and the button said another.
+  void _seedPinFromCentre() {
+    _pin ??= _initialCentre;
+  }
+
   Future<void> _useMyLocation() async {
     setState(() => _locating = true);
     try {
@@ -169,13 +178,6 @@ class _PinLocationScreenState extends State<PinLocationScreen> {
         elevation: 0,
         title: const Text('Pin exact location',
             style: TextStyle(fontWeight: FontWeight.w600)),
-        actions: [
-          if (_pin != null)
-            TextButton(
-              onPressed: () => setState(() => _pin = null),
-              child: const Text('Clear', style: TextStyle(color: Colors.white)),
-            ),
-        ],
       ),
       body: Column(
         children: [
@@ -191,8 +193,8 @@ class _PinLocationScreenState extends State<PinLocationScreen> {
             padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
             child: Text(
               _label == null
-                  ? 'Tap the map to drop your pin'
-                  : 'Tap the map to pin the exact spot in $_label',
+                  ? 'Move the map to your exact spot'
+                  : 'Move the map to your exact spot in $_label',
               style: const TextStyle(
                   fontSize: 14,
                   fontWeight: FontWeight.w600,
@@ -208,10 +210,34 @@ class _PinLocationScreenState extends State<PinLocationScreen> {
                   options: MapOptions(
                     initialCenter: _initialCentre,
                     initialZoom: _initialZoom,
-                    onTap: (_, latLng) => setState(() {
-                      _pin = latLng;
-                      _userPlacedPin = true;
-                    }),
+                    onMapReady: _seedPinFromCentre,
+                    /*
+                        The pin is the centre of the screen.
+
+                        This used to work by tapping the map to drop a marker,
+                        which means aiming at a spot with a fingertip covering
+                        it. Every maps app solved that the same way years ago:
+                        the pin is fixed in the middle and the map moves
+                        underneath, so what you are choosing is never hidden by
+                        your own hand.
+
+                        Tapping still works and re-centres there, because
+                        people who have used the old version will try it.
+                    */
+                    onPositionChanged: (camera, hasGesture) {
+                      if (!hasGesture) return;
+                      setState(() {
+                        _pin = camera.center;
+                        _userPlacedPin = true;
+                      });
+                    },
+                    onTap: (_, latLng) {
+                      _map.move(latLng, _map.camera.zoom);
+                      setState(() {
+                        _pin = latLng;
+                        _userPlacedPin = true;
+                      });
+                    },
                     // The Philippines only — panning to Norway helps nobody.
                     cameraConstraint: CameraConstraint.contain(
                       bounds: LatLngBounds(
@@ -233,19 +259,6 @@ class _PinLocationScreenState extends State<PinLocationScreen> {
                       maxNativeZoom: 19,
                       maxZoom: 21,
                     ),
-                    if (_pin != null)
-                      MarkerLayer(
-                        markers: [
-                          Marker(
-                            point: _pin!,
-                            width: 44,
-                            height: 44,
-                            alignment: Alignment.topCenter,
-                            child: const Icon(Icons.location_pin,
-                                size: 44, color: AppColors.error),
-                          ),
-                        ],
-                      ),
                     // OSM's licence requires visible attribution.
                     const RichAttributionWidget(
                       attributions: [
@@ -253,6 +266,40 @@ class _PinLocationScreenState extends State<PinLocationScreen> {
                       ],
                     ),
                   ],
+                ),
+
+                /*
+                    Drawn over the map rather than in it.
+
+                    A marker inside the map is anchored to a coordinate and
+                    moves when the map does. This one has to stay put while the
+                    map slides underneath, so it lives in the Stack above it.
+
+                    IgnorePointer matters: without it the pin swallows the drag
+                    that is meant to move the map, and the one gesture the
+                    screen exists for stops working in the middle of the
+                    screen.
+                */
+                IgnorePointer(
+                  child: Center(
+                    child: Padding(
+                      // Lifts the icon so its point, not its middle, sits on
+                      // the centre of the map.
+                      padding: const EdgeInsets.only(bottom: 40),
+                      child: Icon(
+                        Icons.location_pin,
+                        size: 44,
+                        color: AppColors.error,
+                        shadows: [
+                          Shadow(
+                            color: Colors.black.withValues(alpha: 0.35),
+                            blurRadius: 6,
+                            offset: const Offset(0, 2),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
                 ),
 
                 Positioned(
@@ -338,7 +385,7 @@ class _PinLocationScreenState extends State<PinLocationScreen> {
                               child: CircularProgressIndicator(
                                   strokeWidth: 2, color: Colors.white),
                             )
-                          : const Text('Use this location'),
+                          : const Text('Set this location'),
                     ),
                   ),
                 ],
