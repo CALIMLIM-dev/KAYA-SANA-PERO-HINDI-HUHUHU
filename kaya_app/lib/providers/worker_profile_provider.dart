@@ -58,6 +58,17 @@ class WorkerProfileProvider with ChangeNotifier {
   List<WorkerExperienceModel> get experiencesNew => _experiences;
   List<Map<String, dynamic>> get licenseExaminations => _licenseExaminations;
   List<CategoryModel> get categories => _categories;
+
+  /// Lets a test render the home screen with real category tiles in it.
+  ///
+  /// The tiles are fixed-width and their labels are not, so they only break on
+  /// a long category name - which an empty provider never produces.
+  @visibleForTesting
+  void seedCategories(List<CategoryModel> categories) {
+    _categories = categories;
+    _categoriesLoaded = true;
+    notifyListeners();
+  }
   List<SkillModel> get availableSkills => _availableSkills;
   bool get isLoading => _isLoading;
   String? get errorMessage => _errorMessage;

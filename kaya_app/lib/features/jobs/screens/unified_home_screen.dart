@@ -566,7 +566,16 @@ class _UnifiedHomeScreenState extends State<UnifiedHomeScreen>
             SliverAppBar(
               floating: true,
               snap: true,
-              expandedHeight: 160,
+              /*
+                  Scaled, and roomier than it was.
+
+                  A flat 160 for a header holding a greeting, a name, status
+                  badges and a balance chip - all of which grow with the font
+                  setting, and none of which the number knew about. It fitted
+                  on the phone it was measured on and spilled on a narrower
+                  one, where the same text needs another line.
+              */
+              expandedHeight: 184 * MediaQuery.textScalerOf(context).scale(1.0),
               backgroundColor: Colors.transparent,
               elevation: 0,
               automaticallyImplyLeading: false, // Remove back button
@@ -1101,6 +1110,9 @@ class _UnifiedHomeScreenState extends State<UnifiedHomeScreen>
             icon: _iconForCategory(category.name),
             label: category.name,
             color: AppColors.categoryIcon,
+            // Fixed here on purpose: in a horizontal list nothing else is
+            // deciding, and equal widths are what keep the icons aligned.
+            width: 84,
             onTap: () => _onCategoryTap(category.name),
           );
         },
@@ -1283,11 +1295,28 @@ class _CategoryButton extends StatelessWidget {
   final Color color;
   final VoidCallback? onTap;
 
+  /*
+      Null when the parent is already deciding.
+
+      This used to be a hardcoded 84 in every case, including the four tiles
+      below that sit in a Row of Expandeds. Expanded hands each of them a
+      quarter of the screen - about 74 pixels on a small phone - and the tile
+      then demanded 84 regardless, so it ran off the right and its label,
+      squeezed into less width than it was laid out for, wrapped to a third
+      line and spilled out of the bottom. Both of the overflows reported on
+      the home screen, from one number.
+
+      The horizontal list still passes a width, because there the tile has to
+      choose its own.
+  */
+  final double? width;
+
   const _CategoryButton({
     required this.icon,
     required this.label,
     required this.color,
     this.onTap,
+    this.width,
   });
 
   @override
@@ -1307,7 +1336,7 @@ class _CategoryButton extends StatelessWidget {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        width: 84,
+        width: width,
         padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 12),
         decoration: BoxDecoration(
           color: Colors.white,
@@ -1349,7 +1378,7 @@ class _CategoryButton extends StatelessWidget {
                 keeps the words.
             */
             SizedBox(
-              height: 30 * MediaQuery.textScalerOf(context).scale(1.0),
+              height: 34 * MediaQuery.textScalerOf(context).scale(1.0),
               child: Text(
                 label,
                 style: const TextStyle(
