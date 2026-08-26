@@ -21,19 +21,24 @@ class ApiClient {
       the default is ignored entirely. There is exactly one address in this app
       and this is it.
 
-      The default is the development machine on the local network. See
-      android/app/src/debug/ for the one Android setting that makes plain HTTP
-      to that address legal in a debug build, and only in a debug build.
+      The default is the live server, so a build with no flag still works.
 
-      For the deployed app, pass a domain rather than a server IP. A
-      certificate cannot be issued for a bare IP address, so an IP means no
-      HTTPS, and without HTTPS Android refuses the connection outright — which
-      is the correct behaviour when the payload includes somebody's government
-      ID.
+      To point at a machine on the local network instead, pass the flag:
+
+        flutter run --dart-define=API_BASE_URL=http://192.168.100.4:8000
+
+      Plain HTTP only reaches that far in a debug build - see
+      android/app/src/debug/ for the exception that allows it, which a release
+      build does not get. Anything shipped talks HTTPS or does not connect.
+
+      A domain, never a server IP. No certificate authority issues
+      certificates for bare IP addresses, so an IP means no HTTPS, and without
+      HTTPS Android refuses the connection - which is correct when the payload
+      includes somebody's government ID.
   */
   static const String _host = String.fromEnvironment(
     'API_BASE_URL',
-    defaultValue: 'http://192.168.100.4:8000',
+    defaultValue: 'https://kayaadmin.ucucite.tech',
   );
 
   /// Trailing slashes are easy to paste in and would produce `//api/v1`.
