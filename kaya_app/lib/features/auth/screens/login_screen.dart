@@ -4,7 +4,6 @@ import '../../../core/constants/app_colors.dart';
 import '../../../providers/auth_provider.dart';
 import '../../../shared/widgets/ph_phone_field.dart';
 import '../../../shared/widgets/suspension_dialog.dart';
-import '../../../core/widgets/app_toast.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -308,10 +307,6 @@ class _LoginScreenState extends State<LoginScreen> {
                     if (mounted) setState(() => _googleBusy = false);
                   }
                 }, busy: _googleBusy)),
-                const SizedBox(width: 16),
-                Expanded(child: _socialBtn(Icons.facebook, 'Facebook', () {
-                  AppToast.info(context, 'Facebook Sign-In coming soon');
-                })),
               ]),
               const SizedBox(height: 48),
 

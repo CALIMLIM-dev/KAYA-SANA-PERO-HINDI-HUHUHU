@@ -4,7 +4,6 @@ import '../../../core/constants/app_colors.dart';
 import '../../../providers/auth_provider.dart';
 import '../../../shared/widgets/ph_phone_field.dart';
 import '../widgets/terms_modal.dart';
-import '../../../core/widgets/app_toast.dart';
 
 class SignupScreen extends StatefulWidget {
   const SignupScreen({super.key});
@@ -439,10 +438,6 @@ class _SignupScreenState extends State<SignupScreen> {
                     }
                   }
                 }, busy: _googleBusy)),
-                const SizedBox(width: 16),
-                Expanded(child: _socialBtn(Icons.facebook, 'Facebook', () {
-                  AppToast.info(context, 'Facebook Sign-In coming soon');
-                })),
               ]),
               const SizedBox(height: 48),
 

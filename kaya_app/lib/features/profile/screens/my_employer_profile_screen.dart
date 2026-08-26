@@ -6,6 +6,8 @@ import '../../../data/models/employer_profile_model.dart';
 import '../../../providers/auth_provider.dart';
 import '../../../providers/employer_profile_provider.dart';
 import '../../../providers/verification_provider.dart';
+import '../widgets/inline_edit_row.dart';
+import '../widgets/inline_location_row.dart';
 
 /// My Employer Profile - JobStreet-inspired layout
 /// Toggle (Company / Individual) is visible directly on the profile tab
@@ -510,137 +512,105 @@ class _MyEmployerProfileScreenState extends State<MyEmployerProfileScreen>
             ),
           )
         else ...[
-          // Name card — label changes based on role
-          _buildInfoCard(
-            title: _role == 'Company' ? 'Company Name' : 'Your Name',
-            icon: _role == 'Company' ? Icons.business : Icons.person,
-            iconColor: AppColors.primary,
-            content: _name != null
-                ? Text(_name!,
-                    style: const TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w600,
-                        color: AppColors.neutral900))
-                : Text(
-                    _role == 'Company'
-                        ? 'Add your company name'
-                        : 'Add your full name',
-                    style: const TextStyle(color: AppColors.neutral600)),
-            onTap: () async {
-              final result = await Navigator.pushNamed(
-                context,
-                '/add-employer-details',
-                arguments: _name,
-              );
-              if (result is! String || !mounted) return;
+          /*
+              Edited here, the same way the worker profile does it.
 
-              // This only set local state, so the name rendered in the card,
-              // looked saved, and was gone on the next rebuild. The Location
-              // card below already did it correctly.
-              final saved = await context
-                  .read<EmployerProfileProvider>()
-                  .updateProfile(companyName: result);
-
-              if (!mounted) return;
-              if (saved) {
-                AppToast.success(context, 'Name updated');
-              } else {
-                AppToast.error(
-                  context,
-                  context.read<EmployerProfileProvider>().errorMessage ??
-                      'Could not save your name',
-                );
-              }
+              These were the last rows in the app that pushed a screen to
+              change one field, and two of them used to write only to local
+              state - the name and the description looked saved and were gone
+              on the next rebuild. Doing it in place removes both the
+              navigation and the chance to forget the save call.
+          */
+          InlineEditRow(
+            label: _role == 'Company' ? 'Company name' : 'Your name',
+            value: _name,
+            hint: _role == 'Company'
+                ? 'Registered business name'
+                : 'Your full name',
+            maxLength: 120,
+            validator: (v) => v.isEmpty ? 'A name is required.' : null,
+            onSave: (v) async {
+              final p = context.read<EmployerProfileProvider>();
+              final ok = await p.updateProfile(companyName: v);
+              return ok ? null : (p.errorMessage ?? 'Could not save.');
             },
           ),
 
-          // Description card — label changes based on role
-          _buildInfoCard(
-            title: _role == 'Company' ? 'About the Company' : 'About You',
-            icon: Icons.info_outline,
-            iconColor: AppColors.accent,
-            content: _description != null
-                ? Text(_description!,
-                    style: const TextStyle(
-                        fontSize: 14, color: AppColors.neutral900),
-                    maxLines: 3,
-                    overflow: TextOverflow.ellipsis)
-                : Text(
-                    _role == 'Company'
-                        ? 'Tell workers about your company'
-                        : 'Tell workers about yourself',
-                    style: const TextStyle(color: AppColors.neutral600)),
-            onTap: () async {
-              final result = await Navigator.pushNamed(
-                context,
-                '/add-employer-about',
-              );
-              if (result is! String || !mounted) return;
-
-              // Same bug as the name card: written to a local field and never
-              // sent, so what a worker reads on the public profile stayed empty.
-              final saved = await context
-                  .read<EmployerProfileProvider>()
-                  .updateProfile(description: result);
-
-              if (!mounted) return;
-              if (saved) {
-                AppToast.success(context, 'About updated');
-              } else {
-                AppToast.error(
-                  context,
-                  context.read<EmployerProfileProvider>().errorMessage ??
-                      'Could not save your description',
-                );
-              }
+          InlineEditRow(
+            label: _role == 'Company' ? 'About the company' : 'About you',
+            value: _description,
+            hint: _role == 'Company'
+                ? 'What your business does'
+                : 'What kind of work you hire for',
+            maxLines: 4,
+            maxLength: 1000,
+            emptyLabel: _role == 'Company'
+                ? 'Tell workers about your company'
+                : 'Tell workers about yourself',
+            onSave: (v) async {
+              final p = context.read<EmployerProfileProvider>();
+              final ok = await p.updateProfile(description: v);
+              return ok ? null : (p.errorMessage ?? 'Could not save.');
             },
           ),
 
-          // Location
-          _buildInfoCard(
-            title: 'Location',
-            icon: Icons.location_on,
-            iconColor: AppColors.success,
-            content: _location != null
-                ? Row(children: [
-                    const Icon(Icons.location_on,
-                        size: 14, color: AppColors.neutral600),
-                    const SizedBox(width: 6),
-                    Text(_location!,
-                        style: const TextStyle(
-                            fontSize: 14, color: AppColors.neutral900)),
-                  ])
-                : const Text('Add your location',
-                    style: TextStyle(color: AppColors.neutral600)),
-            onTap: () async {
-              final result = await Navigator.pushNamed(
-                context,
-                '/add-employer-location',
+          /*
+              Industry and website, which nothing could set before.
+
+              Both have been on the model and accepted by updateProfile since
+              the profile was built, and no screen ever showed them - so the
+              columns existed, the endpoint took them, and they stayed empty
+              forever. They are worth showing: an employer with a named trade
+              and a real page reads as a business rather than an empty shell.
+          */
+          InlineEditRow(
+            label: 'Industry',
+            value: _profile?.industry,
+            hint: 'Construction, Retail, Food service',
+            maxLength: 100,
+            onSave: (v) async {
+              final p = context.read<EmployerProfileProvider>();
+              final ok = await p.updateProfile(industry: v);
+              return ok ? null : (p.errorMessage ?? 'Could not save.');
+            },
+          ),
+
+          InlineEditRow(
+            label: 'Website or page',
+            value: _profile?.website,
+            hint: 'facebook.com/yourbusiness',
+            keyboardType: TextInputType.url,
+            maxLength: 255,
+            validator: (v) {
+              if (v.isEmpty) return null;
+              // Deliberately loose. Most small businesses here have a Facebook
+              // page and no domain of their own, and a strict URL check would
+              // leave this permanently empty for the people most likely to
+              // fill it in.
+              return v.contains(' ')
+                  ? 'A web address has no spaces in it.'
+                  : null;
+            },
+            onSave: (v) async {
+              final p = context.read<EmployerProfileProvider>();
+              final ok = await p.updateProfile(website: v);
+              return ok ? null : (p.errorMessage ?? 'Could not save.');
+            },
+          ),
+
+          // The same picker the worker side uses: typed, but committed as a
+          // real place, so the coordinates behind it stay correct.
+          InlineLocationRow(
+            value: _location,
+            onSave: (place) async {
+              final p = context.read<EmployerProfileProvider>();
+              final ok = await p.updateProfile(
+                location: place.displayName,
+                locationId: place.id,
+                latitude: place.latitude,
+                longitude: place.longitude,
               );
-              if (result is! Map || !mounted) return;
-
-              // This only set local state before, so the new location was
-              // never sent anywhere and vanished on the next reload.
-              final saved =
-                  await context.read<EmployerProfileProvider>().updateProfile(
-                        location: (result['label'] ?? '').toString(),
-                        locationId: result['location_id'] as int?,
-                        latitude: result['latitude'] as double?,
-                        longitude: result['longitude'] as double?,
-                      );
-
-              if (!mounted) return;
-              if (saved) {
-                // No setState needed: _location reads the provider, which
-                // updateProfile has already refreshed.
-                AppToast.success(context, 'Location updated');
-              } else {
-                AppToast.error(
-                  context,
-                  context.read<EmployerProfileProvider>().errorMessage ??
-                      'Could not save your location',
-                );
-              }
+              return ok ? null : (p.errorMessage ?? 'Could not save.');
             },
           ),
         ],
@@ -738,85 +708,6 @@ class _MyEmployerProfileScreenState extends State<MyEmployerProfileScreen>
   // ─── reusable widgets ────────────────────────────────────────────────────────
 
 
-  /// The same row the worker profile uses, character for character.
-  ///
-  /// This screen kept the older anatomy: a bold 15px title, the value below it,
-  /// and a 44×44 tinted icon box on the right. The worker profile was rebuilt
-  /// away from that — a quiet 13px label with the value beneath it and a plain
-  /// chevron — so the two halves of one account described themselves in two
-  /// different visual languages, which is what "the design isn't consistent"
-  /// meant.
-  ///
-  /// The icon box goes for the same reason it went there: ten stacked rows each
-  /// carrying a tinted square reads as a wall of small logos, and none of these
-  /// icons distinguishes anything the label does not already say.
-  ///
-  /// [icon] and [iconColor] are kept in the signature so the call sites stay
-  /// untouched, matching how the worker screen retired them.
-  Widget _buildInfoCard({
-    required String title,
-    // ignore: avoid_unused_constructor_parameters
-    required IconData icon,
-    // ignore: avoid_unused_constructor_parameters
-    required Color iconColor,
-    required Widget content,
-    required VoidCallback onTap,
-  }) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 10),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.neutral200),
-      ),
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          onTap: onTap,
-          borderRadius: BorderRadius.circular(12),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 13),
-            child: Row(
-              children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        title,
-                        style: const TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w500,
-                          color: AppColors.neutral600,
-                        ),
-                      ),
-                      const SizedBox(height: 2),
-                      // Re-styled from here so one change reaches every row
-                      // rather than each call site.
-                      DefaultTextStyle.merge(
-                        style: const TextStyle(
-                          fontSize: 15,
-                          fontWeight: FontWeight.w600,
-                          color: AppColors.neutral900,
-                        ),
-                        overflow: TextOverflow.ellipsis,
-                        maxLines: 2,
-                        child: content,
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(width: 12),
-                const Icon(Icons.chevron_right,
-                    size: 22, color: AppColors.neutral400),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
 
   Widget _buildVerificationCard({
     required String title,
