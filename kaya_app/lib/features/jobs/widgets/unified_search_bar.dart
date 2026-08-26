@@ -102,18 +102,18 @@ class _UnifiedSearchBarState extends State<UnifiedSearchBar> {
             ),
             child: Row(
               children: [
-                if (_isFilterVisible(SearchFilter.all))
-                  Expanded(
-                    child: _FilterButton(
-                      label: 'All',
-                      isSelected: widget.currentFilter == SearchFilter.all,
-                      onTap: () => widget.onFilterChanged(SearchFilter.all),
-                    ),
-                  ),
+                /*
+                    Worker, Employer, All - in that order.
+
+                    Named after the side of the marketplace rather than what is
+                    listed, because this is not a list filter any more: it
+                    decides what the whole screen is about, activity included.
+                    "Jobs" described half of what picking it does.
+                */
                 if (_isFilterVisible(SearchFilter.showJobs))
                   Expanded(
                     child: _FilterButton(
-                      label: 'Jobs',
+                      label: 'Worker',
                       isSelected: widget.currentFilter == SearchFilter.showJobs,
                       onTap: () => widget.onFilterChanged(SearchFilter.showJobs),
                     ),
@@ -121,9 +121,17 @@ class _UnifiedSearchBarState extends State<UnifiedSearchBar> {
                 if (_isFilterVisible(SearchFilter.showWorkers))
                   Expanded(
                     child: _FilterButton(
-                      label: 'Workers',
+                      label: 'Employer',
                       isSelected: widget.currentFilter == SearchFilter.showWorkers,
                       onTap: () => widget.onFilterChanged(SearchFilter.showWorkers),
+                    ),
+                  ),
+                if (_isFilterVisible(SearchFilter.all))
+                  Expanded(
+                    child: _FilterButton(
+                      label: 'All',
+                      isSelected: widget.currentFilter == SearchFilter.all,
+                      onTap: () => widget.onFilterChanged(SearchFilter.all),
                     ),
                   ),
               ],

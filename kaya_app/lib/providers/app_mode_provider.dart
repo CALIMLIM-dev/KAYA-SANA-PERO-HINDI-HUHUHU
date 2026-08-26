@@ -47,11 +47,26 @@ class AppModeProvider with ChangeNotifier {
   bool get isHybrid => _hasWorker && _hasEmployer;
 
   /// Hybrid account that has not focused on one side — the default state.
-  bool get isUnfocused => isHybrid && _mode == null;
+  /// On the unified view rather than focused on one side.
+  ///
+  /// That state is AppMode.all now. It used to be null, which also meant "no
+  /// profiles yet" - two very different situations sharing one value.
+  bool get isUnfocused => isHybrid && _mode == AppMode.all;
 
   /// Mode to use when something needs a concrete answer. Prefer [isNeutral]
   /// checks over this when the neutral state should render differently.
+  /// The mode to act on, for callers that cannot handle "nothing set up yet".
+  ///
+  /// Falls back to worker rather than all: an account with no profiles has
+  /// nothing to show on the employer side, so the unified view would be the
+  /// jobs feed with an empty half beside it.
   AppMode get effectiveMode => _mode ?? AppMode.worker;
+
+  /// The options this account can choose between. Empty means no toggle.
+  List<AppMode> get availableModes => AppMode.availableTo(
+        hasWorker: _hasWorker,
+        hasEmployer: _hasEmployer,
+      );
 
   bool get isWorkerMode => _mode == AppMode.worker;
   bool get isEmployerMode => _mode == AppMode.employer;
@@ -165,19 +180,30 @@ class AppModeProvider with ChangeNotifier {
     // effect while a focus is set, and clearing it means tapping the badge that
     // already looks active.
     //
-    // A mode nobody picked is not a focus, so it is dropped here and the
-    // account opens on the unified view.
+    /*
+        A mode nobody picked is not a focus, so the account opens on the
+        unified view.
+
+        That view is AppMode.all now rather than null. It used to be null,
+        which made "a hybrid seeing both sides" and "an account with no
+        profiles at all" the same value - so every reader had to know that
+        null meant two completely different things depending on which profiles
+        existed, and the toggle had no state to mark as selected while it was
+        showing exactly what All means.
+
+        null now means only what it says: nothing set up yet.
+    */
     if (!_modeWasChosen) {
-      _mode = null;
+      _mode = AppMode.all;
     }
   }
 
   /// Drops an explicit focus and returns a hybrid account to the unified view.
   /// No-op for single-profile accounts, whose mode is structural.
   Future<void> clearFocus() async {
-    if (!isHybrid || _mode == null) return;
+    if (!isHybrid || _mode == AppMode.all) return;
 
-    _mode = null;
+    _mode = AppMode.all;
     _modeWasChosen = false;
     notifyListeners();
 

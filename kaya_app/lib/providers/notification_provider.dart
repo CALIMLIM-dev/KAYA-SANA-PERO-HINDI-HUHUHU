@@ -108,9 +108,13 @@ class NotificationProvider with ChangeNotifier {
 
   /// The badge for the mode the user is currently in. A neutral account (no
   /// profiles yet) sees everything, which matches what the list shows them.
+  /// `all` and a neutral account both show everything, for the same reason:
+  /// the badge has to agree with the list underneath it, and both of those
+  /// show the lot.
   int unreadFor(AppMode? mode) => switch (mode) {
         AppMode.worker => _unreadWorker,
         AppMode.employer => _unreadEmployer,
+        AppMode.all => unreadTotal,
         null => unreadTotal,
       };
 
@@ -118,7 +122,8 @@ class NotificationProvider with ChangeNotifier {
   /// list is already loaded — refetching on every mode toggle would make the
   /// switch feel slow for no gain.
   List<AppNotification> itemsFor(AppMode? mode) {
-    if (mode == null) return items;
+    // Both of these show everything, so neither filters.
+    if (mode == null || mode == AppMode.all) return items;
     final wanted = mode == AppMode.worker ? 'worker' : 'employer';
     // 'both' belongs to whichever mode is showing. Messages use it, because the
     // inbox is not filtered by mode either — hiding the alert for a thread the
@@ -195,9 +200,12 @@ class NotificationProvider with ChangeNotifier {
   /// employer notifications the user has never seen. The server enforces the
   /// same scoping — this is not client-side politeness.
   Future<void> markAllRead(AppMode? mode) async {
+    // A null audience means every notification, which is what `all` asks for
+    // and what a profileless account already got.
     final audience = switch (mode) {
       AppMode.worker => 'worker',
       AppMode.employer => 'employer',
+      AppMode.all => null,
       null => null,
     };
 

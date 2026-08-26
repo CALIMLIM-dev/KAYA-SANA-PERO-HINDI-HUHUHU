@@ -15,6 +15,7 @@ void main() {
         ..reconcile(hasWorker: false, hasEmployer: false);
 
       expect(provider.isNeutral, isTrue);
+      // Still null: no profiles is not the same as seeing both sides.
       expect(provider.mode, isNull);
       expect(provider.canSwitch, isFalse);
     });
@@ -46,7 +47,9 @@ void main() {
 
         expect(provider.isHybrid, isTrue);
         expect(provider.isUnfocused, isTrue);
-        expect(provider.mode, isNull, reason: 'no side should be forced');
+        // AppMode.all, not null: null is reserved for an account with no
+        // profiles at all, which is a different thing entirely.
+        expect(provider.mode, AppMode.all, reason: 'no side should be forced');
         expect(provider.canSwitch, isTrue);
       },
     );
@@ -77,7 +80,7 @@ void main() {
 
       await provider.clearFocus();
 
-      expect(provider.mode, isNull);
+      expect(provider.mode, AppMode.all);
       expect(provider.isUnfocused, isTrue);
     });
 
@@ -123,7 +126,7 @@ void main() {
           reason: 'the forced worker mode was never a deliberate focus, so the '
               'home should open showing jobs AND workers',
         );
-        expect(provider.mode, isNull);
+        expect(provider.mode, AppMode.all);
       },
     );
 
@@ -154,7 +157,7 @@ void main() {
         provider.reconcile(hasWorker: true, hasEmployer: true);
 
         expect(provider.isUnfocused, isTrue);
-        expect(provider.mode, isNull);
+        expect(provider.mode, AppMode.all);
       },
     );
 
@@ -221,7 +224,7 @@ void main() {
 
       await provider.restore();
 
-      expect(provider.mode, isNull);
+      expect(provider.mode, AppMode.all);
       expect(provider.isUnfocused, isTrue);
     });
   });
@@ -270,6 +273,7 @@ void main() {
 
       await provider.clear();
 
+      // Logged out is neutral, not unified.
       expect(provider.mode, isNull);
       expect(provider.isNeutral, isTrue);
 

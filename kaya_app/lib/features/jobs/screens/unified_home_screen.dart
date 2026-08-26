@@ -203,7 +203,35 @@ class _UnifiedHomeScreenState extends State<UnifiedHomeScreen>
     });
   }
 
+  /*
+      The chips are the mode switch.
+
+      They used to set a private filter that only the feed read, while the mode
+      lived somewhere else and drove the activity cards - so picking Jobs
+      narrowed the feed and left both sets of activity on screen underneath it,
+      saying two different things about which side you were on.
+
+      One control now. Choosing a side changes what the whole screen is about.
+  */
   void _updateSearchFilter(SearchFilter filter) {
+    final appMode = context.read<AppModeProvider>();
+
+    final wanted = switch (filter) {
+      SearchFilter.showJobs => AppMode.worker,
+      SearchFilter.showWorkers => AppMode.employer,
+      SearchFilter.all => AppMode.all,
+    };
+
+    // Only a hybrid has a choice; for anyone else the mode is structural and
+    // the chips are not shown.
+    if (appMode.isHybrid) {
+      if (wanted == AppMode.all) {
+        appMode.clearFocus();
+      } else {
+        appMode.setMode(wanted);
+      }
+    }
+
     setState(() {
       _searchFilter = filter;
       _applyFilters();
@@ -396,7 +424,9 @@ class _UnifiedHomeScreenState extends State<UnifiedHomeScreen>
     if (appMode.mode == AppMode.worker) return SearchFilter.showJobs;
     if (appMode.mode == AppMode.employer) return SearchFilter.showWorkers;
 
-    // Hybrid (unfocused) or neutral: honour a chip choice, else show both.
+    // All, or a neutral account: both halves.
+    if (appMode.mode == AppMode.all) return SearchFilter.all;
+
     return _searchFilter;
   }
 
@@ -768,7 +798,18 @@ class _UnifiedHomeScreenState extends State<UnifiedHomeScreen>
                       // everyone regardless of role.
                       Row(
                         children: [
-                          if (appMode.hasEmployerProfile) ...[
+                          /*
+                              Both conditions, not just the profile.
+
+                              These were gated on having the profile alone, so
+                              a hybrid saw both cards no matter which side they
+                              had selected - the feed narrowed and the activity
+                              did not. Now Worker shows what you applied to,
+                              Employer shows what you posted, and All shows
+                              both.
+                          */
+                          if (appMode.hasEmployerProfile &&
+                              appMode.effectiveMode.showsEmployerSide) ...[
                             Expanded(
                               child: _ActivityCard(
                                 icon: Icons.work,
@@ -782,10 +823,12 @@ class _UnifiedHomeScreenState extends State<UnifiedHomeScreen>
                                 onTap: _navigateToActiveJobs,
                               ),
                             ),
-                            if (appMode.hasWorkerProfile)
+                            if (appMode.hasWorkerProfile &&
+                                appMode.effectiveMode.showsWorkerSide)
                               const SizedBox(width: 12),
                           ],
-                          if (appMode.hasWorkerProfile)
+                          if (appMode.hasWorkerProfile &&
+                              appMode.effectiveMode.showsWorkerSide)
                             Expanded(
                               child: _ActivityCard(
                                 icon: Icons.description,
