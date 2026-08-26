@@ -72,10 +72,16 @@ class ApplicationCard extends StatelessWidget {
                       const SizedBox(height: 4),
                       Row(
                         children: [
-                          Text(
-                            company,
-                            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                              color: AppColors.neutral700,
+                          // Capped for the reason described on the job card:
+                          // a bare Text in a Row takes the width it wants.
+                          Expanded(
+                            child: Text(
+                              company,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                                color: AppColors.neutral700,
+                              ),
                             ),
                           ),
                           if (isVerified) ...[
@@ -95,10 +101,16 @@ class ApplicationCard extends StatelessWidget {
               children: [
                 Icon(Icons.location_on, size: 14, color: AppColors.neutral600),
                 const SizedBox(width: 4),
-                Text(
-                  location,
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: AppColors.neutral600,
+                // The address is the longest thing on this row and the pay
+                // beside it must stay visible, so the address is what yields.
+                Flexible(
+                  child: Text(
+                    location,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: AppColors.neutral600,
+                    ),
                   ),
                 ),
                 const SizedBox(width: 16),

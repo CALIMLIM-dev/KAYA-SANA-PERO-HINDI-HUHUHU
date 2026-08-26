@@ -78,10 +78,20 @@ class JobCardV2 extends StatelessWidget {
                           const SizedBox(height: 2),
                           Row(
                             children: [
-                              Text(
-                                company,
-                                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                  color: AppTheme.neutral600,
+                          // A Row gives a bare Text every pixel it asks for,
+                          // and a company name asks for its full width. Real
+                          // ones run past fifty characters, so the row grew
+                          // wider than the phone and painted a striped bar
+                          // down the side of the card. Expanded caps it and
+                          // the ellipsis decides what to drop.
+                              Expanded(
+                                child: Text(
+                                  company,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                    color: AppTheme.neutral600,
+                                  ),
                                 ),
                               ),
                               if (isVerified) ...[

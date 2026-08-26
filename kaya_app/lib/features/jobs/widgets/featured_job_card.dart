@@ -152,13 +152,20 @@ class FeaturedJobCard extends StatelessWidget {
                           const Icon(Icons.location_on_outlined,
                               size: 12, color: AppColors.neutral400),
                           const SizedBox(width: 2),
-                          Text(
-                            distance != null
-                                ? '$location · $distance'
-                                : location,
-                            style: const TextStyle(
-                              fontSize: 12,
-                              color: AppColors.neutral400,
+                          // Barangay plus city plus province plus a distance
+                          // is a long line, and it is the only thing on this
+                          // row that can give way.
+                          Expanded(
+                            child: Text(
+                              distance != null
+                                  ? '$location · $distance'
+                                  : location,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                fontSize: 12,
+                                color: AppColors.neutral400,
+                              ),
                             ),
                           ),
                         ],

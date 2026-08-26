@@ -49,3 +49,9 @@ kaya_app/macos/
 kaya_app/windows/
 kaya_app/linux/
 kaya_app/web/
+
+# Database dumps. These carry every user's email and password hash, plus
+# whatever else is in the tables, so they must never reach the repo.
+kaya_db.sql
+*.dump.sql
+*_backup.sql
