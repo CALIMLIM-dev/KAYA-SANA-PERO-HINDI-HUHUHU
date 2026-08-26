@@ -134,17 +134,14 @@ class _MyWorkerProfileScreenState extends State<MyWorkerProfileScreen> with Sing
 
         Below the contact rows the header prints each skill category in
         capitals with a chip per skill under it. A profile with no skills draws
-        none of that, which is why an empty one always fitted and a real one
+        none of that, which is why an empty one always fitted while a real one
         was eleven pixels over on the phone that reported it.
 
-        Counted by category rather than by skill, because the chips wrap into
-        rows within a category. Two rows of chips per category is the practical
-        ceiling before the header is too tall to be a header, and the section
-        is capped to three categories below for the same reason.
+        A flat number rather than one per category, because the preview is
+        capped at 80 logical pixels and scrolls inside that - so however many
+        skills there are, the block is the same height. 92 is that cap plus the
+        gap above it.
     */
-    // The preview is capped at 80 logical pixels tall and scrolls inside that,
-    // so the header needs room for exactly that block, not for a guess at how
-    // many categories there are.
     final skillsBlock = profile.skills.isEmpty ? 0 : 92;
 
     return Scaffold(

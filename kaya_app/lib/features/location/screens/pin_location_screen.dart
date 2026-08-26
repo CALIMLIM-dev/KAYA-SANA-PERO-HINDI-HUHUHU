@@ -78,14 +78,22 @@ class _PinLocationScreenState extends State<PinLocationScreen> {
   LatLng get _initialCentre => _pin ?? _phCentre;
   double get _initialZoom => _pin != null ? 16 : 5.5;
 
-  /// Called once the map exists, so _pin is never null while a pin is drawn.
-  ///
-  /// Opening with no coordinates left _pin null with the centre pin visibly
-  /// on screen and the button greyed out beneath it - the map said one thing
-  /// and the button said another.
-  void _seedPinFromCentre() {
-    _pin ??= _initialCentre;
-  }
+  /*
+      No seeding when there is nowhere to seed from.
+
+      This used to fill _pin with whatever the map opened on, which is right
+      when a city was chosen - the map opens on its centroid and confirming
+      that is a real answer - and wrong when nothing was. With no location the
+      map opens on the middle of the country, which is the Sibuyan Sea, and
+      seeding it made the button offer to save that.
+
+      It also assigned without setState, so the button never re-rendered and
+      sat disabled over a value it already had.
+
+      _pin now comes only from the arguments, which carry a centroid whenever
+      a city has been picked, or from moving the map. With neither, the button
+      stays disabled, which is the honest state.
+  */
 
   Future<void> _useMyLocation() async {
     setState(() => _locating = true);
@@ -189,7 +197,6 @@ class _PinLocationScreenState extends State<PinLocationScreen> {
                   options: MapOptions(
                     initialCenter: _initialCentre,
                     initialZoom: _initialZoom,
-                    onMapReady: _seedPinFromCentre,
                     /*
                         The pin is the centre of the screen.
 

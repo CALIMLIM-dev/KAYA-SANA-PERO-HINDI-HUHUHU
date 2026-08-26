@@ -16,7 +16,6 @@ import '../../../data/models/worker_certification_model.dart';
 import '../../../data/models/worker_license_model.dart';
 import '../../../data/services/api_client.dart';
 import '../../../core/navigation/app_router.dart';
-import '../../../core/navigation/main_navigation.dart';
 import '../../profile/screens/add_skills_screen.dart';
 import '../../profile/screens/onboarding_verification_screen.dart';
 import '../../../core/widgets/app_toast.dart';
@@ -173,44 +172,51 @@ class _WorkerSetupFlowScreenState extends State<WorkerSetupFlowScreen> {
 
   Future<void> _finishSetup() async {
     /*
-        Where to land, decided before anything is refreshed.
+        Navigate first, refresh after.
 
-        Finishing used to run fetchMe first and navigate after, and the order
-        was the whole problem. fetchMe drives the proxy provider, the router
-        sitting under this flow re-derives what to show, and for one frame it
-        swapped the setup screen for the finished profile - then the navigation
-        fired and threw that away for the home screen. That flash of a profile
-        you never asked to see, immediately replaced, is what the ending looked
-        like.
+        The order was the whole bug. This used to call fetchMe and navigate
+        afterwards - but fetchMe drives the proxy provider, the router sitting
+        under this flow immediately re-derives what it should be showing, and
+        for one frame it swapped the setup screen for the finished profile.
+        Then the navigation fired and threw that away. The flash was a real
+        screen being built and discarded.
 
-        Asking for the profile tab up front means the shell is already on the
-        right tab when it appears, so there is nothing to swap and nothing to
-        flash. It is also the better destination: somebody who has just spent
-        several minutes filling in a profile should be shown the profile, not
-        dropped on a job feed with no acknowledgement that they finished.
+        Going to the shell first means the setup route and the router beneath
+        it are gone before anything can refresh, so there is nothing left to
+        rebuild and nothing to see.
+
+        Everything below is removed so the back gesture cannot walk into a
+        setup flow that is finished.
     */
-    // Refresh auth to update completion flags. This drives the proxy provider,
-    // so AppModeProvider learns the worker profile now exists and re-derives
-    // the home view: worker-only accounts land on jobs, while an account that
-    // now holds both profiles becomes hybrid and sees jobs AND workers. No
-    // focus is forced here — that would defeat the unified home.
+    if (!mounted) return;
+
+    Navigator.pushNamedAndRemoveUntil(
+      context,
+      AppRouter.home,
+      (route) => false,
+    );
+
+    /*
+        Now the flags.
+
+        AppModeProvider learns the worker profile exists and re-derives the
+        home view: worker-only accounts land on jobs, an account that now holds
+        both becomes hybrid and sees both. No focus is forced - that would
+        defeat the unified home.
+
+        Not awaited before navigating, and it does not need to be: the home
+        screen loads its own data on mount, and this only has to land before
+        the first frame that depends on it.
+    */
     await context.read<AuthProvider>().fetchMe();
 
     if (mounted && _verificationUploadFailed) {
-      // ScaffoldMessenger is app-scoped, so this survives the route change.
-      AppToast.warning(context, 'Your profile is set up, but your ID could not be uploaded. '
-            'You can retry it from Verification.');
-    }
-
-    if (mounted) {
-      // The shell, which the line above has already pointed at the profile
-      // tab. Everything below is removed so the back gesture cannot walk back
-      // into a setup flow that is finished.
-      Navigator.pushNamedAndRemoveUntil(
+      // ScaffoldMessenger is app-scoped, so this survives the route change and
+      // arrives over the home screen rather than over a screen being disposed.
+      AppToast.warning(
         context,
-        AppRouter.home,
-        (route) => false,
-        arguments: MainNavigation.profileTab,
+        'Your profile is set up, but your ID could not be uploaded. '
+        'You can retry it from Verification.',
       );
     }
   }

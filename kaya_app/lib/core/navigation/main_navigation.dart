@@ -27,10 +27,7 @@ import '../widgets/bottom_nav_bar.dart';
 /// the phone. Data correctness cannot depend on a socket being up, so the tabs
 /// refresh when you open them and when the app returns to the foreground.
 class MainNavigation extends StatefulWidget {
-  const MainNavigation({super.key, this.initialTab});
-
-  /// Which tab to open on. Null means home, which is every ordinary sign-in.
-  final int? initialTab;
+  const MainNavigation({super.key});
 
   static const int homeTab = 0;
   static const int searchTab = 1;
@@ -100,19 +97,8 @@ class _MainNavigationState extends State<MainNavigation>
         rebuilt for every session however it started, so there is no sign-out
         path that can miss it.
     */
-    /*
-        Unless the route asked for a different one.
-
-        A flow that ends somewhere specific - finishing profile setup ends on
-        the profile - has to be able to say so, and setting the notifier before
-        navigating does not work: this runs afterwards and would overwrite it.
-        Passing it as an argument means the shell is on the right tab from its
-        first frame, so nothing swaps and nothing flashes.
-    */
-    final opening = widget.initialTab ?? MainNavigation.homeTab;
-
-    MainNavigation.selectedTab.value = opening;
-    _currentIndex = opening;
+    MainNavigation.selectedTab.value = MainNavigation.homeTab;
+    _currentIndex = MainNavigation.homeTab;
 
     WidgetsBinding.instance.addObserver(this);
     MainNavigation.selectedTab.addListener(_onTabRequested);
