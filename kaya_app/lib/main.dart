@@ -11,7 +11,6 @@ import 'providers/app_mode_provider.dart';
 import 'providers/worker_profile_provider.dart';
 import 'providers/employer_profile_provider.dart';
 import 'providers/job_provider.dart';
-import 'providers/unified_home_provider.dart';
 import 'providers/application_provider.dart';
 import 'providers/invitation_provider.dart';
 import 'providers/messaging_provider.dart';
@@ -145,7 +144,6 @@ class KayaApp extends StatelessWidget {
         ),
         
         ChangeNotifierProvider(create: (_) => JobProvider()),
-        ChangeNotifierProvider(create: (_) => UnifiedHomeProvider()),
         ChangeNotifierProvider(create: (_) => ApplicationProvider()),
         ChangeNotifierProvider(create: (_) => InvitationProvider()),
         ChangeNotifierProvider(create: (_) => MessagingProvider()),

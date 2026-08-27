@@ -22,7 +22,6 @@ import 'package:kaya_app/features/profile/screens/add_experience_screen.dart';
 import 'package:kaya_app/features/profile/screens/add_licenses_screen.dart';
 import 'package:kaya_app/features/profile/screens/add_photo_screen.dart';
 import 'package:kaya_app/features/profile/screens/verification_screen.dart';
-import 'package:kaya_app/providers/unified_home_provider.dart';
 import 'package:kaya_app/features/credits/screens/wallet_screen.dart';
 import 'package:kaya_app/features/employer/screens/manage_jobs_screen.dart';
 import 'package:kaya_app/features/invitations/screens/my_invitations_screen.dart';
@@ -157,7 +156,6 @@ void main() {
         ChangeNotifierProvider(create: (_) => MessagingProvider()),
         ChangeNotifierProvider(create: (_) => NotificationProvider()),
         ChangeNotifierProvider(create: (_) => WorkerBrowseProvider()),
-        ChangeNotifierProvider(create: (_) => UnifiedHomeProvider()),
       ],
       child: MaterialApp(home: screen),
     );

@@ -17,7 +17,6 @@ import 'package:kaya_app/providers/location_provider.dart';
 import 'package:kaya_app/providers/messaging_provider.dart';
 import 'package:kaya_app/providers/notification_provider.dart';
 import 'package:kaya_app/providers/profile_view_provider.dart';
-import 'package:kaya_app/providers/unified_home_provider.dart';
 import 'package:kaya_app/providers/verification_provider.dart';
 import 'package:kaya_app/providers/worker_browse_provider.dart';
 import 'package:kaya_app/providers/worker_profile_provider.dart';
@@ -133,7 +132,6 @@ void main() {
               ChangeNotifierProvider(create: (_) => MessagingProvider()),
               ChangeNotifierProvider(create: (_) => NotificationProvider()),
               ChangeNotifierProvider(create: (_) => WorkerBrowseProvider()),
-              ChangeNotifierProvider(create: (_) => UnifiedHomeProvider()),
             ],
             child: const MaterialApp(home: UnifiedHomeScreen()),
           ),
