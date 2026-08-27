@@ -987,7 +987,29 @@ class WorkerProfileController extends Controller
             return $p;
         });
 
-        if (!empty($data['radius_km'])) {
+        /*
+            A radius needs a centre.
+
+            The filter above reads "drop anyone whose distance is unknown",
+            which is right when the viewer has a position and a particular
+            worker cannot be placed. It is catastrophic when the viewer has no
+            position: workerDistance() then returns null for everybody, every
+            row fails the test, and the endpoint answers with an empty list.
+
+            The app always sends radius_km, so any employer whose profile
+            carries no coordinates - one who has not finished setting up, or
+            picked a place with no centroid - saw "People who can help" empty
+            forever, with nothing to say why. Widening the search could not
+            help either, because there was no point to widen around.
+
+            So the radius only applies when there is somewhere to measure
+            from. Without one the list is unfiltered and unsorted, which is
+            honest: these are workers, just not ordered by a distance nobody
+            can compute.
+        */
+        $viewerHasPosition = $viewerLat !== null && $viewerLng !== null;
+
+        if (!empty($data['radius_km']) && $viewerHasPosition) {
             $withDistance = $withDistance->filter(
                 fn (WorkerProfile $p) => $p->computed_distance_km !== null
                     && $p->computed_distance_km <= $data['radius_km']
