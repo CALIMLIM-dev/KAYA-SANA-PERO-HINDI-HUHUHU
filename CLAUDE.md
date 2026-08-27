@@ -20,11 +20,13 @@ admin panel in `kaya_backend/`. Capstone project, deployed and in testing.
 
 ## Environment
 
-Flutter is not on PATH. Run it through PowerShell with the path set, because the
-Bash tool strips it and `flutter.bat` fails with "WHERE is not recognized":
+Flutter is not on PATH. Run it through PowerShell with the path set. **The
+`WindowsPowerShell\v1.0` entry is required** - `flutter.bat` shells out to
+PowerShell internally and dies with "PowerShell executable not found" without
+it, which looks nothing like a PATH problem:
 
 ```powershell
-$env:PATH = "C:\Windows\System32;C:\Windows;C:\Program Files\Git\cmd;C:\Program Files\Git\bin;$env:PATH"
+$env:PATH = "C:\Windows\System32;C:\Windows;C:\Windows\System32\WindowsPowerShell\v1.0;C:\Program Files\Git\cmd;C:\Program Files\Git\bin;$env:PATH"
 & "C:\Users\CALIMLIM\Downloads\flutter_windows_3.44.0-stable\flutter\bin\flutter.bat" test
 ```
 
