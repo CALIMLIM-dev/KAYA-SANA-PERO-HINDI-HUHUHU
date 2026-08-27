@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:image_picker_android/image_picker_android.dart';
+import 'package:image_picker_platform_interface/image_picker_platform_interface.dart';
 import 'package:provider/provider.dart';
 import 'core/theme/app_theme.dart';
 import 'core/navigation/app_router.dart';
@@ -26,6 +28,25 @@ import 'data/services/background_controller.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  /*
+      Use Android's own photo picker.
+
+      image_picker defaults this to false, which routes gallery picking
+      through the legacy ACTION_GET_CONTENT intent. That intent takes
+      EXTRA_ALLOW_MULTIPLE but has no concept of a maximum, so the selection
+      limit passed to pickMultiImage was accepted by the Dart API and then
+      quietly dropped on the way to Android — you could tick a hundred photos
+      for a job that accepts four, and only find out afterwards.
+
+      With this on, the limit reaches PickMultipleVisualMedia and the system
+      picker itself stops offering a fifth. It is also the picker that does
+      not need read-storage permission, so the app asks for one less thing.
+  */
+  final picker = ImagePickerPlatform.instance;
+  if (picker is ImagePickerAndroid) {
+    picker.useAndroidPhotoPicker = true;
+  }
 
   // Declares the notification channel the foreground service posts into.
   // Android drops a notification aimed at a channel that does not exist yet,

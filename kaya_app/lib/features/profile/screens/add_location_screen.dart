@@ -159,77 +159,56 @@ class _AddLocationScreenState extends State<AddLocationScreen> {
     );
   }
 
+  /// The same small pin control used on the profile, the setup flow and the
+  /// job form. One action, one look, wherever it appears.
   Widget _buildPinRow() {
     final hasPin = _pinnedLat != null && _pinnedLng != null;
     final canPin = _selectedLocation != null;
 
-    return InkWell(
-      onTap: canPin ? _openPinPicker : null,
-      borderRadius: BorderRadius.circular(12),
-      child: Container(
-        padding: const EdgeInsets.all(14),
-        decoration: BoxDecoration(
-          color: hasPin
-              ? AppColors.success.withValues(alpha: 0.06)
-              : Colors.white,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(
-            color: hasPin
-                ? AppColors.success.withValues(alpha: 0.4)
-                : AppColors.neutral300,
-          ),
-        ),
-        child: Row(
-          children: [
-            Icon(
+    final tint = !canPin
+        ? AppColors.neutral400
+        : (hasPin ? AppColors.success : AppColors.primary);
+
+    return Align(
+      alignment: Alignment.centerLeft,
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          OutlinedButton.icon(
+            onPressed: canPin ? _openPinPicker : null,
+            icon: Icon(
               hasPin ? Icons.where_to_vote : Icons.add_location_alt_outlined,
-              size: 22,
-              color: canPin
-                  ? (hasPin ? AppColors.success : AppColors.primary)
-                  : AppColors.neutral400,
+              size: 18,
             ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    hasPin
-                        ? 'Exact location pinned'
-                        : 'Pin your exact location *',
-                    style: TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w600,
-                      color:
-                          canPin ? AppColors.neutral900 : AppColors.neutral400,
-                    ),
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    !canPin
-                        ? 'Choose your location first'
-                        : hasPin
-                            ? '${_pinnedLat!.toStringAsFixed(5)}, ${_pinnedLng!.toStringAsFixed(5)}'
-                            : 'Required — so jobs show the real distance to you',
-                    style: const TextStyle(
-                        fontSize: 12, color: AppColors.neutral500),
-                  ),
-                ],
+            label: Text(hasPin ? 'Pinned' : 'Pin location'),
+            style: OutlinedButton.styleFrom(
+              foregroundColor: tint,
+              side: BorderSide(color: tint.withValues(alpha: 0.5)),
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+              visualDensity: VisualDensity.compact,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(20),
+              ),
+              textStyle: const TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
               ),
             ),
-            if (hasPin)
-              IconButton(
-                icon: const Icon(Icons.close,
-                    size: 18, color: AppColors.neutral500),
-                onPressed: () => setState(() {
-                  _pinnedLat = null;
-                  _pinnedLng = null;
-                }),
-              )
-            else if (canPin)
-              const Icon(Icons.chevron_right, color: AppColors.neutral400),
-          ],
-        ),
+          ),
+          if (hasPin)
+            IconButton(
+              icon: const Icon(Icons.close, size: 16),
+              color: AppColors.neutral500,
+              visualDensity: VisualDensity.compact,
+              constraints: const BoxConstraints(),
+              padding: const EdgeInsets.only(left: 8),
+              tooltip: 'Remove pin',
+              onPressed: () => setState(() {
+                _pinnedLat = null;
+                _pinnedLng = null;
+              }),
+            ),
+        ],
       ),
     );
   }

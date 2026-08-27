@@ -23,11 +23,6 @@ class PostJobScreen extends StatefulWidget {
 }
 
 class _PostJobScreenState extends State<PostJobScreen> {
-  /// True while the location is the employer's own, untouched. Drives the
-  /// "using your profile location" note — a silent prefill would quietly file
-  /// jobs at the office instead of the site, and nothing would look wrong.
-  bool _locationIsProfileDefault = false;
-
   @override
   void initState() {
     super.initState();
@@ -87,7 +82,6 @@ class _PostJobScreenState extends State<PostJobScreen> {
         latitude: lat,
         longitude: lng,
       );
-      _locationIsProfileDefault = true;
     });
   }
 
@@ -164,7 +158,6 @@ class _PostJobScreenState extends State<PostJobScreen> {
   DateTime? _startDate;
   DateTime? _endDate;
   TimeOfDay? _startTime;
-  bool _isMultiDay = false;
   bool _showScheduleError = false;
   bool _isLoadingSkills = false;
   bool _showPinError = false;
@@ -366,7 +359,47 @@ class _PostJobScreenState extends State<PostJobScreen> {
   */
   Future<void> _pickImages() async {
     final ImagePicker picker = ImagePicker();
-    final List<XFile> images = await picker.pickMultiImage();
+
+    /*
+        The gallery does the limiting, not us.
+
+        This called pickMultiImage() bare, so you could select a hundred
+        photos, watch the picker accept all of them, and then find four on the
+        form. Filtering after the fact is the wrong place: the cap belongs
+        where the choosing happens, and `limit` makes the gallery itself stop
+        offering a fifth once four are ticked.
+
+        The size arguments matter just as much and were also missing. Every
+        other picker in this app compresses — the verification one carries the
+        comment "Reduced from 1920 to prevent large files" — and job photos
+        were the only place still sending whatever the camera produced. Four
+        full-resolution photos is tens of megabytes in one multipart POST,
+        which the server refuses outright, and the refusal is an HTML page the
+        app can only report as "something went wrong".
+
+        1600px at quality 85 is still sharp enough to judge a job by, and
+        turns those tens of megabytes into a couple.
+    */
+    final int room = _maxPhotos - _selectedImages.length;
+    if (room <= 0) {
+      AppToast.info(context, 'You can add up to $_maxPhotos photos.');
+      return;
+    }
+
+    /*
+        `limit` throws below 2.
+
+        image_picker_android asserts limit >= 2 and raises an ArgumentError
+        otherwise, so passing the literal room left — 1, when three photos are
+        already chosen — would crash on opening the gallery rather than
+        capping it. Ask for 2 in that case and drop the extra afterwards,
+        which is the one place trimming is still correct.
+    */
+    final List<XFile> images = await picker.pickMultiImage(
+      limit: room < 2 ? 2 : room,
+      maxWidth: 1600,
+      imageQuality: 85,
+    );
     if (images.isEmpty || !mounted) return;
 
     final accepted = <File>[];
@@ -389,26 +422,24 @@ class _PostJobScreenState extends State<PostJobScreen> {
 
     if (!mounted) return;
 
-    final room = _maxPhotos - _selectedImages.length;
-    final overflowed = accepted.length > room;
-    final fitting = overflowed ? accepted.take(room).toList() : accepted;
-
     setState(() {
-      _selectedImages.addAll(fitting);
+      // The picker caps the selection, so this only ever trims the single
+      // extra the `limit >= 2` floor above can let through.
+      _selectedImages.addAll(accepted.take(room));
       if (_selectedImages.isNotEmpty) _showPhotoError = false;
     });
 
-    // One message, naming every reason, so picking eight mixed files does not
-    // produce a queue of toasts.
+    // Type and size are still worth checking. Resizing makes an oversized
+    // file unlikely rather than impossible, and a gallery can hold formats
+    // the server will not take.
     final problems = <String>[
       if (wrongType > 0) '$wrongType not a JPG or PNG',
-      if (tooBig > 0) '$tooBig over 5MB',
-      if (overflowed) '${accepted.length - room} over the $_maxPhotos photo limit',
+      if (tooBig > 0) '$tooBig still over 5MB',
     ];
 
     if (problems.isEmpty) return;
 
-    final skipped = wrongType + tooBig + (overflowed ? accepted.length - room : 0);
+    final skipped = wrongType + tooBig;
     AppToast.warning(
       context,
       '$skipped photo${skipped == 1 ? '' : 's'} not added: '
@@ -694,22 +725,27 @@ class _PostJobScreenState extends State<PostJobScreen> {
                           ],
                         ),
                       ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            _buildLabel('Payment'),
-                            const SizedBox(height: 8),
-                            _buildDropdown(
-                              value: _salaryType,
-                              items: ['Daily', 'Hourly', 'Project'],
-                              onChanged: (value) => setState(() => _salaryType = value!),
-                            ),
-                          ],
-                        ),
-                      ),
                     ],
+                  ),
+                  /*
+                      Payment on its own line.
+
+                      This shared a row with the two salary fields, so on a
+                      360px phone each of the three had about 88 pixels: a
+                      money field with a peso prefix showed roughly "1,2..."
+                      and the dropdown had no room for its own value. Three
+                      inputs across a phone is the cramping, and no amount of
+                      vertical spacing was going to fix it.
+
+                      The range belongs together and the period does not, so
+                      the split follows the meaning as well as the width.
+                  */
+                  _buildLabel('Payment'),
+                  const SizedBox(height: 8),
+                  _buildDropdown(
+                    value: _salaryType,
+                    items: const ['Daily', 'Hourly', 'Project'],
+                    onChanged: (value) => setState(() => _salaryType = value!),
                   ),
                   const SizedBox(height: 16),
                   
@@ -732,7 +768,6 @@ class _PostJobScreenState extends State<PostJobScreen> {
                       // A new place invalidates any pin dropped for the old one.
                       _pinnedLat = null;
                       _pinnedLng = null;
-                      _locationIsProfileDefault = false;
                     }),
                     // Text edited after choosing — drop the stale id and pin
                     // rather than saving them against a different label.
@@ -740,28 +775,19 @@ class _PostJobScreenState extends State<PostJobScreen> {
                       _selectedLocation = null;
                       _pinnedLat = null;
                       _pinnedLng = null;
-                      _locationIsProfileDefault = false;
                     }),
                     validator: (value) =>
                         value?.isEmpty ?? true ? 'Required' : null,
                   ),
-                  if (_locationIsProfileDefault) ...[
-                    const SizedBox(height: 8),
-                    Row(
-                      children: [
-                        const Icon(Icons.info_outline,
-                            size: 15, color: AppColors.primary),
-                        const SizedBox(width: 6),
-                        const Expanded(
-                          child: Text(
-                            'Using your profile location — change it if the job is elsewhere.',
-                            style: TextStyle(
-                                fontSize: 12, color: AppColors.neutral600),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
+                  /*
+                      The "using your profile location" note is gone.
+
+                      It explained why the field was already filled in, which
+                      is not a question anyone was asking: a field with a
+                      value in it and a cursor you can put in it needs no note
+                      saying it can be changed. It was a sentence and an icon
+                      spent on the least surprising thing on the screen.
+                  */
                   const SizedBox(height: 12),
                   _buildPinRow(),
                 ],
@@ -838,7 +864,7 @@ class _PostJobScreenState extends State<PostJobScreen> {
         _buildDateField(
           label: 'Start date *',
           value: _startDate,
-          hint: 'When does the work begin?',
+          hint: 'Select date',
           onTap: _pickStartDate,
           isError: _showScheduleError,
         ),
@@ -849,79 +875,36 @@ class _PostJobScreenState extends State<PostJobScreen> {
             style: TextStyle(fontSize: 12, color: AppColors.error),
           ),
         ],
-        const SizedBox(height: 12),
         /*
-            A switch label has to say what turning it ON does.
+            No toggle, just an optional second date.
 
-            This one mutated: off it read "Single day job", on it read "Runs
-            over several days". So the label described the state you were
-            already in, and gave no clue what the switch was for — you had to
-            flip it to find out, which is the whole of the "schedule is very
-            confusing" complaint in one control.
+            There used to be a switch labelled "Runs over several days" with a
+            line under it explaining which way it was currently set, and the
+            end date only appeared once it was on. That is three things to
+            read and one thing to operate in order to answer a question the
+            end date field asks by itself: leave it empty and the job is one
+            day, fill it in and it is not.
 
-            Fixed label, with the current state spelled out underneath.
+            The switch also had to be kept in step with the date - turning it
+            off had to clear a date that was already chosen - which is state
+            that now cannot disagree because there is only one piece of it.
         */
-        Row(
-          children: [
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text(
-                    'Runs over several days',
-                    style: TextStyle(
-                        fontSize: 13.5,
-                        fontWeight: FontWeight.w600,
-                        color: AppColors.neutral800),
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    _isMultiDay
-                        ? 'Set the last day below'
-                        : 'Off — this is a one-day job',
-                    style: const TextStyle(
-                        fontSize: 12, color: AppColors.neutral500),
-                  ),
-                ],
-              ),
-            ),
-            Switch(
-              value: _isMultiDay,
-              activeThumbColor: AppColors.primary,
-              onChanged: (on) => setState(() {
-                _isMultiDay = on;
-                // Clearing on the way out matters: a stale end date left behind
-                // by a toggle would be sent with a job the employer had since
-                // decided was one day long.
-                if (!on) _endDate = null;
-              }),
-            ),
-          ],
+        const SizedBox(height: 12),
+        _buildDateField(
+          label: 'End date (optional)',
+          value: _endDate,
+          hint: 'Same day',
+          onTap: _startDate == null ? null : _pickEndDate,
+          onClear: _endDate == null
+              ? null
+              : () => setState(() => _endDate = null),
         ),
-        if (_isMultiDay) ...[
-          const SizedBox(height: 4),
-          _buildDateField(
-            label: 'End date',
-            value: _endDate,
-            hint: 'Last day of work',
-            onTap: _startDate == null ? null : _pickEndDate,
-          ),
-          if (_startDate == null) ...[
-            const SizedBox(height: 6),
-            const Text(
-              'Pick the start date first.',
-              style: TextStyle(fontSize: 12, color: AppColors.neutral600),
-            ),
-          ],
-        ],
         const SizedBox(height: 12),
         _buildDateField(
           label: 'Start time (optional)',
           value: null,
           display: _startTime?.format(context),
-          // "Agree in chat" alone read as an instruction rather than as what
-          // happens if you skip the field.
-          hint: 'Not set — agree in chat',
+          hint: 'Select time',
           icon: Icons.schedule_outlined,
           onTap: _pickStartTime,
           onClear: _startTime == null
@@ -1214,86 +1197,47 @@ class _PostJobScreenState extends State<PostJobScreen> {
   /// Required: a barangay centroid puts every job in that barangay on the same
   /// point, so workers can't tell which end of it a site is on. The pin is
   /// what makes the distance reflect the actual job.
+  /*
+      The same small pin control the profile and setup flow use.
+
+      This was a full width card - fill, border, icon, title, a sentence and
+      a chevron - to offer one action. All four pin controls in the app now
+      look the same, because they do the same thing to the same kind of data
+      and looking different was only ever going to make someone wonder
+      whether they did.
+  */
   Widget _buildPinRow() {
     final hasPin = _pinnedLat != null && _pinnedLng != null;
     final canPin = _selectedLocation != null;
 
     if (hasPin) return _buildPinPreview();
 
-    return InkWell(
-      onTap: canPin ? _openPinPicker : null,
-      borderRadius: BorderRadius.circular(10),
-      child: Container(
-        padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(
-          color: hasPin
-              ? AppColors.success.withValues(alpha: 0.06)
-              : AppColors.neutral50,
-          borderRadius: BorderRadius.circular(10),
-          border: Border.all(
-            color: hasPin ? AppColors.success.withValues(alpha: 0.4) : AppColors.neutral300,
+    final tint = !canPin
+        ? AppColors.neutral400
+        : (_showPinError ? AppColors.error : AppColors.primary);
+
+    return Align(
+      alignment: Alignment.centerLeft,
+      child: OutlinedButton.icon(
+        onPressed: canPin ? _openPinPicker : null,
+        icon: const Icon(Icons.add_location_alt_outlined, size: 18),
+        label: const Text('Pin location'),
+        style: OutlinedButton.styleFrom(
+          foregroundColor: tint,
+          side: BorderSide(color: tint.withValues(alpha: 0.5)),
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+          visualDensity: VisualDensity.compact,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
           ),
-        ),
-        child: Row(
-          children: [
-            Icon(
-              hasPin ? Icons.where_to_vote : Icons.add_location_alt_outlined,
-              size: 20,
-              color: canPin
-                  ? (hasPin ? AppColors.success : AppColors.primary)
-                  : AppColors.neutral400,
-            ),
-            const SizedBox(width: 10),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    hasPin ? 'Exact location pinned' : 'Pin exact location',
-                    style: TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w600,
-                      color: canPin ? AppColors.neutral900 : AppColors.neutral400,
-                    ),
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    !canPin
-                        ? 'Choose a location first'
-                        : hasPin
-                            // Raw coordinates used to be shown here. They tell
-                            // someone posting a job nothing they can act on —
-                            // the map above already shows where the pin is.
-                            ? 'Tap to move the pin'
-                            : 'Required — tap to mark the exact spot',
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: _showPinError
-                          ? AppColors.error
-                          : AppColors.neutral500,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            if (hasPin)
-              IconButton(
-                icon: const Icon(Icons.close, size: 18, color: AppColors.neutral500),
-                onPressed: () => setState(() {
-                  _pinnedLat = null;
-                  _pinnedLng = null;
-                }),
-              )
-            else if (canPin)
-              const Icon(Icons.chevron_right, color: AppColors.neutral400),
-          ],
+          textStyle: const TextStyle(
+            fontSize: 13,
+            fontWeight: FontWeight.w600,
+          ),
         ),
       ),
     );
   }
-
-  /// A pinned location shown as a map rather than "15.97611, 120.57111" —
-  /// coordinates are unreadable, and the whole point of pinning is visual.
   Widget _buildPinPreview() {
     final point = LatLng(_pinnedLat!, _pinnedLng!);
 
@@ -1430,7 +1374,6 @@ class _PostJobScreenState extends State<PostJobScreen> {
           // Setting controller.text here fired the field's listener before it
           // could see the new selection, which wiped it straight back out.
           _selectedLocation = resolved;
-          _locationIsProfileDefault = false;
           _pinnedLat = lat;
           _pinnedLng = lng;
           _showPinError = false;
@@ -1479,19 +1422,24 @@ class _PostJobScreenState extends State<PostJobScreen> {
   /*
       Air above every label, in one place.
 
-      The form ran label, 8, field, 16, label, 8, field — all the way down.
-      Sixteen against eight is not enough of a difference to read as a gap
-      between one question and the next, so the whole section came across as
-      a single dense column rather than a list of separate things to fill in.
+      The form was built almost entirely out of one number. Section to
+      section, header to first field, field to next field — all 16, against
+      the 8 that ties a label to its own input. Nothing in that is a bigger
+      break than anything else, so seven cards of inputs read as a single
+      unbroken vertical column with no grouping to follow.
 
-      Six more pixels above each label makes the break between fields roughly
-      three times the gap that ties a label to its own input, which is what
-      makes them look grouped. Done here rather than at fourteen call sites,
-      so the rhythm cannot drift apart again field by field.
+      This was 6 first, which is what a form looks like when someone is
+      nervous about changing it: 8 against 22 is a real ratio on paper and
+      invisible on a phone. 16 makes the break between one question and the
+      next 30 pixels against the 8 inside a pair — about four to one, and
+      actually legible as grouping.
+
+      One place rather than fourteen call sites, so the rhythm cannot drift
+      apart again field by field.
   */
   Widget _buildLabel(String text) {
     return Padding(
-      padding: const EdgeInsets.only(top: 6),
+      padding: const EdgeInsets.only(top: 16),
       child: Text(
         text,
         style: TextStyle(
@@ -2108,7 +2056,7 @@ class _PostJobScreenState extends State<PostJobScreen> {
         startDate:   _startDate!,
         // Only sent when the employer said the job runs over several days, so
         // turning the toggle off cannot leave a stale end date on the record.
-        endDate:     _isMultiDay ? _endDate : null,
+        endDate:     _endDate,
         startTime:   _startTimeForApi,
       );
 

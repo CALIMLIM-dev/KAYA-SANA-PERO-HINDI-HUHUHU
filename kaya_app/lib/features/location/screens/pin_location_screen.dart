@@ -287,17 +287,15 @@ class _PinLocationScreenState extends State<PinLocationScreen> {
                       // Lifts the icon so its point, not its middle, sits on
                       // the centre of the map.
                       padding: const EdgeInsets.only(bottom: 40),
+                      // No drop shadow. Offset down and blurred over a map of
+                      // roads and labels, it did not read as depth — it read
+                      // as a second, blurrier pin sitting behind this one,
+                      // which is the last thing a screen for placing exactly
+                      // one pin should show.
                       child: Icon(
                         Icons.location_pin,
                         size: 44,
                         color: AppColors.error,
-                        shadows: [
-                          Shadow(
-                            color: Colors.black.withValues(alpha: 0.35),
-                            blurRadius: 6,
-                            offset: const Offset(0, 2),
-                          ),
-                        ],
                       ),
                     ),
                   ),

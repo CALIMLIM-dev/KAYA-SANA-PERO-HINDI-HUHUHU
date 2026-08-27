@@ -9,6 +9,7 @@ import '../widgets/inline_location_row.dart';
 import '../widgets/profile_completeness_header.dart';
 import '../widgets/profile_section_card.dart';
 import '../../../data/services/api_client.dart';
+import '../../../data/models/location_model.dart';
 import '../../../data/models/worker_skill_model.dart';
 import '../../../data/models/skill_model.dart';
 import '../../../providers/worker_profile_provider.dart';
@@ -776,11 +777,47 @@ class _MyWorkerProfileScreenState extends State<MyWorkerProfileScreen> with Sing
 
     final lat = (result['latitude'] as num?)?.toDouble();
     final lng = (result['longitude'] as num?)?.toDouble();
+    final resolved = result['resolved'] as LocationModel?;
     if (lat == null || lng == null) return;
 
     final provider = context.read<WorkerProfileProvider>();
+
+    /*
+        The label follows the pin.
+
+        This sent the profile's existing location text back with the new
+        coordinates and dropped location_id entirely, so moving the pin to the
+        next town over saved the new spot under the old name — the profile
+        still said Urdaneta while its coordinates sat in Binalonan, and every
+        distance was measured from a place the profile never showed. It also
+        looked like the pin had not saved at all, because the only thing on
+        screen that could have shown a change was the text, and the text never
+        moved.
+
+        The pin screen already reverse-geocodes and hands back `resolved`;
+        this was the one caller throwing it away. The setup flow asks before
+        overwriting a name the user typed, so this asks too.
+    */
+    final movedElsewhere = resolved != null &&
+        (provider.location ?? '').trim().isNotEmpty &&
+        resolved.displayName.trim().toLowerCase() !=
+            (provider.location ?? '').trim().toLowerCase();
+
+    var label = provider.location ?? '';
+    int? locationId;
+
+    if (resolved != null) {
+      final adopt = !movedElsewhere || await _confirmLocationChange(resolved);
+      if (!mounted) return;
+      if (adopt) {
+        label = resolved.displayName;
+        locationId = resolved.id;
+      }
+    }
+
     final ok = await provider.updateLocation(
-      provider.location ?? '',
+      label,
+      locationId: locationId,
       latitude: lat,
       longitude: lng,
     );
@@ -789,6 +826,32 @@ class _MyWorkerProfileScreenState extends State<MyWorkerProfileScreen> with Sing
     if (!ok) {
       AppToast.error(context, provider.errorMessage ?? 'Could not save the pin.');
     }
+  }
+
+  /// Asked before a dropped pin renames the profile's location.
+  Future<bool> _confirmLocationChange(LocationModel resolved) async {
+    final yes = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Update your location?'),
+        content: Text(
+          'That pin is in ${resolved.displayName}.\n\n'
+          'Update your profile location to match, so jobs show the right '
+          'distance to you?',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('Keep current name'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: const Text('Update'),
+          ),
+        ],
+      ),
+    );
+    return yes ?? false;
   }
 
   /// "8 employers viewed your profile this week."

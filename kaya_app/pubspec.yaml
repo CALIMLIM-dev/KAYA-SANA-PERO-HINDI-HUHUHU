@@ -78,6 +78,11 @@ dependencies:
   flutter_svg: ^2.0.10
   cached_network_image: ^3.3.1
   image_picker: ^1.0.7
+  # Needed directly so the Android photo picker can be switched on. Without
+  # it image_picker falls back to the legacy ACTION_GET_CONTENT intent, which
+  # ignores the selection limit entirely - you could tick a hundred photos.
+  image_picker_android: ^0.8.12
+  image_picker_platform_interface: ^2.10.0
   
   # UI Components
   shimmer: ^3.0.0

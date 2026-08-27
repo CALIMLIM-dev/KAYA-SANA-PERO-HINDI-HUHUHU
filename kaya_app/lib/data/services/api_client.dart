@@ -418,6 +418,20 @@ class ApiClient {
           return ApiException(status, code, firstError);
         }
         return ApiException(status, code, message ?? 'Validation error.');
+      /*
+          The server refused the upload before reading it.
+
+          nginx answers an over-sized body with 413 and an HTML page, so there
+          is no JSON message to show and this fell through to the default arm
+          as "Something went wrong" — which is what posting a job with photos
+          reported for as long as the photos went up uncompressed.
+
+          Named here because the user can actually act on it, and because the
+          generic wording sent people looking for a problem in the form.
+      */
+      case 413:
+        return ApiException(status, code,
+            'Those photos are too large to upload. Try fewer, or smaller ones.');
       case 500:
         return ApiException(status, code,
             fallback ?? 'Server error. Please try again later.');
