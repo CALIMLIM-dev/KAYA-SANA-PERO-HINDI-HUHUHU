@@ -434,7 +434,23 @@ class _UnifiedHomeScreenState extends State<UnifiedHomeScreen>
   /// "All") are not offered at all. Only a hybrid account gets the full set.
   List<SearchFilter>? _allowedFilters(AppModeProvider appMode) {
     if (appMode.isHybrid) return null; // null = show every chip
-    if (appMode.isNeutral) return null; // no profile yet: browsing is fine
+
+    /*
+        A new account gets no chips at all.
+
+        This used to return null here too, which means "show everything" — so
+        somebody who had just signed up and owned neither profile was met with
+        Worker / Employer / All before they had chosen to be either. The words
+        name roles they have not got yet, so the row asked them to filter by
+        something that does not apply to them.
+
+        Empty rather than a single entry: the search bar hides the whole row
+        when fewer than two chips are offered, and there is no honest chip to
+        leave behind. They still see both halves of the marketplace — see
+        _getFilterForMode, which answers that separately — and the setup card
+        above is what actually asks them to pick a side.
+    */
+    if (appMode.isNeutral) return const [];
 
     return appMode.isWorkerMode
         ? const [SearchFilter.showJobs]
@@ -448,9 +464,20 @@ class _UnifiedHomeScreenState extends State<UnifiedHomeScreen>
   /// short-circuited this method, which let an employer select "Jobs" or "All"
   /// and see the worker-side content.
   SearchFilter _getFilterForMode(AppModeProvider appMode) {
+    /*
+        A new account sees both halves, with nothing to filter by.
+
+        This has to be answered before the allowed-chips list is consulted,
+        because that list is now empty for a neutral account and `.first`
+        would throw on it. Which is the right shape: "no chips to offer" and
+        "nothing to look at" are different statements, and only the first one
+        is true here.
+    */
+    if (appMode.isNeutral) return SearchFilter.all;
+
     // Single-profile account: the profile decides, full stop.
     final allowed = _allowedFilters(appMode);
-    if (allowed != null) return allowed.first;
+    if (allowed != null && allowed.isNotEmpty) return allowed.first;
 
     // Hybrid that focused one side via the header badges.
     if (appMode.mode == AppMode.worker) return SearchFilter.showJobs;

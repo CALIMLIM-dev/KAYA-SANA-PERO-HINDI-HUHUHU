@@ -91,10 +91,13 @@ class _UnifiedSearchBarState extends State<UnifiedSearchBar> {
           ),
         ),
         
-        const SizedBox(height: 12),
-        
         // Filter Toggle Buttons - conditionally show based on visibleFilters
+        //
+        // The spacer belongs inside the branch. Left outside it, an account
+        // that gets no chips — a new one with neither profile — still got the
+        // gap where the row would have been.
         if (_shouldShowFilterButtons()) ...[
+          const SizedBox(height: 12),
           Container(
             decoration: BoxDecoration(
               color: AppColors.neutral100,
