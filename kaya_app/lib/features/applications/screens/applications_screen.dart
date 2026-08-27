@@ -189,8 +189,26 @@ class _ApplicationsScreenState extends State<ApplicationsScreen>
                   'withdrawn',
                   'cancelled',
                 }.contains(statusOf(a))),
+          /*
+              Everything that is not active and not completed.
+
+              Named 'closed' alone, which left a hole: the jobs_posts enum
+              also has 'flagged', and a flagged job then belonged to no tab at
+              all — an employer whose post was pulled for moderation would
+              find it simply gone from their own list, with nothing to say
+              where it went or why.
+
+              Nothing sets 'flagged' today, so this is a hole waiting rather
+              than one anyone has fallen in. Written as "not shown elsewhere"
+              so a new terminal status lands here on its own instead of
+              vanishing.
+          */
           if (hasEmployer)
-            ...myJobs.where((j) => statusOf(j) == 'closed'),
+            ...myJobs.where((j) => !const {
+                  'open',
+                  'in_progress',
+                  'completed',
+                }.contains(statusOf(j))),
         ],
       ),
     ];
