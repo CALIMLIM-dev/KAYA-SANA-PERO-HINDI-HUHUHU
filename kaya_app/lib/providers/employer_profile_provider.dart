@@ -191,10 +191,23 @@ class EmployerProfileProvider with ChangeNotifier {
       _verification = EmployerVerification.fromJson(verificationData);
       
       _error = null;
-      _hasFetchedOnce = true;
     } catch (e) {
       _error = _parseError(e);
     } finally {
+      /*
+          Asked, whatever came back.
+
+          This used to be set only on success, which read as "we have a good
+          answer" but is used as "we have asked" — EmployerProfileRouter shows
+          a spinner until it turns true. So a failed request left an employer
+          with no profile spinning forever, unable to reach setup at all, and
+          the only way out was to kill the app. On a flaky connection that is
+          not an edge case.
+
+          The failure is still recorded in _error for anything that wants to
+          show it; this flag only answers whether the question was put.
+      */
+      _hasFetchedOnce = true;
       _setLoading(false);
     }
   }

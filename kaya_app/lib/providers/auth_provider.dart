@@ -38,11 +38,35 @@ class AuthProvider with ChangeNotifier {
   bool _isLoading = false;
   String? _errorMessage;
   Map<String, dynamic>? _user;
+  bool _hasFetchedMe = false;
 
   bool get isLoading => _isLoading;
   String? get errorMessage => _errorMessage;
   Map<String, dynamic>? get user => _user;
   bool get isLoggedIn => _user != null;
+
+  /*
+      Whether the server has answered yet.
+
+      Every profile flag below reads `_user?[...] ?? false`, so before /me
+      lands they all say "no profile" — which is indistinguishable from an
+      account that genuinely has none. A screen that branches on those flags
+      without checking this first shows the setup flow to someone who finished
+      setting up months ago.
+
+      False is the honest answer to "does this account have a worker profile"
+      only once we have actually asked.
+  */
+  bool get hasFetchedMe => _hasFetchedMe;
+
+  /// Seed the /me payload directly, for tests that need to stand a screen up
+  /// in a specific account state without a server.
+  @visibleForTesting
+  void seedUser(Map<String, dynamic>? user, {bool fetched = true}) {
+    _user = user;
+    _hasFetchedMe = fetched;
+    notifyListeners();
+  }
 
   // NOTE: there is deliberately no `userType` getter. KAYA is hybrid — one
   // account can be both worker and employer — so the single `user_type` column
@@ -340,6 +364,9 @@ class AuthProvider with ChangeNotifier {
     unawaited(_googleSignIn.signOut().catchError((_) => null));
 
     _user = null;
+    // The next account gets asked fresh. Leaving this true would let the first
+    // frame after a sign-in answer "no profile" with authority.
+    _hasFetchedMe = false;
     notifyListeners();
   }
 
@@ -367,6 +394,7 @@ class AuthProvider with ChangeNotifier {
     try {
       final response = await _api.get('/me');
       _user = response.data['data'] as Map<String, dynamic>;
+      _hasFetchedMe = true;
     } catch (_) {
       // Keep the raw auth-response user — a transient failure here shouldn't
       // undo a login/register that just succeeded.
@@ -396,6 +424,7 @@ class AuthProvider with ChangeNotifier {
     try {
       final response = await _api.get('/me');
       _user = response.data['data'] as Map<String, dynamic>;
+      _hasFetchedMe = true;
       _lastFetchWasNetworkError = false;
 
       // Cold start with a stored token never touches the login path, so the

@@ -69,6 +69,27 @@ class WorkerProfileRouter extends StatelessWidget {
         final workerProfileExists = authProvider.workerProfileExists;
         final workerSetupCompleted = authProvider.workerSetupCompleted;
 
+        /*
+            Nothing may be decided before /me answers.
+
+            Every flag below reads `_user?['...'] ?? false`, so while the
+            request is in flight they all say "no profile" — the same answer
+            an account with genuinely no profile gives. Branching on that sent
+            an established worker into the setup flow for as long as the
+            request took, which on a good connection reads as a flash and on
+            mobile data reads as having lost your profile.
+
+            EmployerProfileRouter has always waited here. This is that rule,
+            and the pair of them is asserted in navigation_flash_test.dart so
+            the two sides cannot drift apart again.
+        */
+        if (!authProvider.hasFetchedMe) {
+          return const Scaffold(
+            backgroundColor: AppColors.background,
+            body: Center(child: CircularProgressIndicator()),
+          );
+        }
+
         // No worker profile exists → Show setup flow
         if (!workerProfileExists) {
           return const WorkerSetupFlowScreen();

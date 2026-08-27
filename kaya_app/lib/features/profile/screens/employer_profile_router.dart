@@ -51,6 +51,21 @@ class _EmployerProfileRouterState extends State<EmployerProfileRouter> {
     final exists = auth.employerProfileExists ||
         (provider.hasFetchedOnce && provider.hasProfile);
 
+    /*
+        Same rule as WorkerProfileRouter, keyed on the same signal.
+
+        This used to infer "have we heard anything yet" from the employer
+        provider's own fetch flag, which happened to work because that fetch
+        is kicked off here. AuthProvider now says it directly, so both routers
+        ask the same question and neither can quietly grow a different answer.
+    */
+    if (!auth.hasFetchedMe) {
+      return const Scaffold(
+        backgroundColor: AppColors.background,
+        body: Center(child: CircularProgressIndicator()),
+      );
+    }
+
     if (!provider.hasFetchedOnce && !auth.employerProfileExists) {
       return const Scaffold(
         backgroundColor: AppColors.background,

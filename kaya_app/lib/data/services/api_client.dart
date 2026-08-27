@@ -1,4 +1,5 @@
 import 'package:dio/dio.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 
@@ -75,6 +76,24 @@ class ApiClient {
   
   
   
+  /*
+      Somewhere for tests to intercept the network.
+
+      Widget tests mount screens that fetch in initState. With nothing behind
+      them Dio arms a 30-second connect timeout and a 30-second receive
+      timeout, and those timers outlive the widget — so the test binding
+      reports "a timer is still pending" against whichever test happens to be
+      running when it notices, which is rarely the one that started it. One
+      unfinished request surfaces as several unrelated failures in other
+      files.
+
+      Winding the clock forward in each test is guesswork against numbers that
+      can change. Handing Dio an adapter that answers immediately means no
+      timer is ever armed. Null in production, so the real adapter is used.
+  */
+  @visibleForTesting
+  static HttpClientAdapter? testAdapter;
+
   ApiClient() {
   _dio = Dio(BaseOptions(
     baseUrl: _baseUrl,
@@ -85,6 +104,8 @@ class ApiClient {
       'Content-Type': 'application/json',
     },
   ));
+
+    if (testAdapter != null) _dio.httpClientAdapter = testAdapter!;
 
     // Inject auth token on every request
     _dio.interceptors.add(InterceptorsWrapper(
