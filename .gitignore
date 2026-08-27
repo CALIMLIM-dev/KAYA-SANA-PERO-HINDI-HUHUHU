@@ -58,3 +58,7 @@ kaya_db.sql
 
 # Claude Code personal settings. Machine-specific paths, not for the repo.
 .claude/settings.local.json
+
+# Claude Code config - local only, not for the public repo
+CLAUDE.md
+.claude/
