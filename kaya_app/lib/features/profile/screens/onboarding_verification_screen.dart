@@ -72,6 +72,22 @@ class _OnboardingVerificationScreenState extends State<OnboardingVerificationScr
     final image = await picker.pickImage(
       source: ImageSource.camera,
       preferredCameraDevice: CameraDevice.rear,
+      /*
+          Sized down, or the upload never lands.
+
+          A raw camera capture is several megabytes, and this sends two of
+          them - the ID and the selfie - in one request. The server sits
+          behind a 1MB body limit, so an uncompressed pair was refused before
+          it was read, and the failure was swallowed as "verification is
+          optional" - which is why submitting appeared to do nothing at all.
+
+          Every other picker in the app already caps its output. The standalone
+          verification screen uses these exact numbers; a 1024px ID photo at
+          quality 70 is still perfectly readable and lands around 150KB.
+      */
+      maxWidth: 1024,
+      maxHeight: 1024,
+      imageQuality: 70,
     );
     
     if (image != null) {
