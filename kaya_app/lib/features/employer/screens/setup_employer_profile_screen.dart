@@ -700,10 +700,47 @@ class _SetupEmployerProfileScreenState extends State<SetupEmployerProfileScreen>
                 const SizedBox(height: 20),
                 OutlinedButton.icon(
                   onPressed: () async {
-                    // Pick image and store path in memory - DON'T upload
+                    /*
+                        Camera as well as gallery.
+
+                        This offered the gallery only, so an employer setting
+                        up on the spot could not just take a photo - they had
+                        to have one saved already. Every other photo step in
+                        the app asks which, so this one does too.
+
+                        maxWidth was also missing here, so a full-resolution
+                        gallery image went up uncompressed. Capped now, the
+                        same as the worker photo, to stay under the upload
+                        limit.
+                    */
+                    final fromCamera = await showModalBottomSheet<bool>(
+                      context: context,
+                      builder: (sheet) => SafeArea(
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            ListTile(
+                              leading: const Icon(Icons.photo_camera_outlined),
+                              title: const Text('Take a photo'),
+                              onTap: () => Navigator.pop(sheet, true),
+                            ),
+                            ListTile(
+                              leading: const Icon(Icons.photo_library_outlined),
+                              title: const Text('Choose from gallery'),
+                              onTap: () => Navigator.pop(sheet, false),
+                            ),
+                          ],
+                        ),
+                      ),
+                    );
+                    if (fromCamera == null || !mounted) return;
+
                     final ImagePicker picker = ImagePicker();
                     final XFile? image = await picker.pickImage(
-                      source: ImageSource.gallery,
+                      source:
+                          fromCamera ? ImageSource.camera : ImageSource.gallery,
+                      maxWidth: 1024,
+                      maxHeight: 1024,
                       imageQuality: 80,
                     );
                     if (image != null && mounted) {
