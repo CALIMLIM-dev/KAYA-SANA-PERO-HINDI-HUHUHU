@@ -1476,13 +1476,29 @@ class _PostJobScreenState extends State<PostJobScreen> {
         false;
   }
 
+  /*
+      Air above every label, in one place.
+
+      The form ran label, 8, field, 16, label, 8, field — all the way down.
+      Sixteen against eight is not enough of a difference to read as a gap
+      between one question and the next, so the whole section came across as
+      a single dense column rather than a list of separate things to fill in.
+
+      Six more pixels above each label makes the break between fields roughly
+      three times the gap that ties a label to its own input, which is what
+      makes them look grouped. Done here rather than at fourteen call sites,
+      so the rhythm cannot drift apart again field by field.
+  */
   Widget _buildLabel(String text) {
-    return Text(
-      text,
-      style: TextStyle(
-        fontSize: 14,
-        fontWeight: FontWeight.w600,
-        color: AppColors.neutral900,
+    return Padding(
+      padding: const EdgeInsets.only(top: 6),
+      child: Text(
+        text,
+        style: TextStyle(
+          fontSize: 14,
+          fontWeight: FontWeight.w600,
+          color: AppColors.neutral900,
+        ),
       ),
     );
   }
@@ -1513,7 +1529,10 @@ class _PostJobScreenState extends State<PostJobScreen> {
       prefixIcon: icon != null ? Icon(icon, color: AppColors.neutral500, size: 20) : null,
       filled: true,
       fillColor: AppColors.neutral50,
-      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      // 14 put the text almost against the top and bottom of its own box on a
+      // form this long, which is most of what made it feel packed. 16 is also
+      // closer to a comfortable touch target on a small phone.
+      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
       border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(10),
         borderSide: BorderSide(color: AppColors.neutral300),
@@ -1914,14 +1933,24 @@ class _PostJobScreenState extends State<PostJobScreen> {
               size: 18,
             ),
             const SizedBox(width: 8),
-            // Flexible, so the label gives way instead of the button growing
-            // past the half of the row it has been given. Two of these sit
-            // side by side, and on a narrow phone at a large font size the
-            // words alone were 1.5px wider than the space available.
+            /*
+                Wrapped, not truncated.
+
+                Two of these share a row, so each gets half the width, and on
+                a narrow phone at a large font size "Negotiable" was about a
+                pixel wider than its half. It was ellipsised to fit, which
+                turned the label into "Negoti…" — a control that no longer
+                says what it does.
+
+                Losing the end of a two-word label is worse than the button
+                being a line taller, so it wraps now. Ellipsis stays as the
+                last resort for a second line that still does not fit.
+            */
             Flexible(
               child: Text(
                 label,
-                maxLines: 1,
+                maxLines: 2,
+                textAlign: TextAlign.center,
                 overflow: TextOverflow.ellipsis,
                 style: TextStyle(
                   fontSize: 14,
