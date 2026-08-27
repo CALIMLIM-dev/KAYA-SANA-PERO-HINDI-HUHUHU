@@ -50,6 +50,18 @@ class WorkerProfileProvider with ChangeNotifier {
   String? phone;
   String? email;
   String? profilePhotoPath;
+
+  /*
+      The resume on file, if any.
+
+      Only the name and the date. The path is never sent to the client: a
+      resume carries a phone number, a home address and an employment history,
+      and the server hands it out through a gated download rather than as a
+      URL anyone who sees it can keep.
+  */
+  bool hasResume = false;
+  String? resumeFileName;
+  DateTime? resumeUploadedAt;
   List<Map<String, String>> experiences = [];
 
   List<WorkerSkillModel> get skills => _skills;
@@ -118,6 +130,9 @@ class WorkerProfileProvider with ChangeNotifier {
         latitude = (userData['latitude'] as num?)?.toDouble();
         longitude = (userData['longitude'] as num?)?.toDouble();
         profilePhotoPath = userData['avatar'] as String?;
+
+        // Name and date only - the path never leaves the server.
+        _adoptResume(userData['resume']);
       }
       
       // Fetch all the profile data types (don't fail if one fails)
@@ -130,7 +145,7 @@ class WorkerProfileProvider with ChangeNotifier {
     } catch (e) {
       _errorMessage = e.toString();
       // Don't rethrow - just log the error
-      print('Error fetching profile: $e');
+      debugPrint('[worker profile] fetch failed: $e');
     } finally {
       _isLoading = false;
       notifyListeners();
@@ -529,6 +544,67 @@ class WorkerProfileProvider with ChangeNotifier {
       // the category grouping, not the user's skills.
       return const [];
     }
+  }
+
+  /*
+      Upload a resume, replacing any existing one.
+
+      The endpoints for this have existed since the feature was built and the
+      app never called them, so a worker could not attach a CV at all - the
+      one screen for it was an unreachable stub with an unimplemented file
+      picker.
+
+      pdf, doc and docx only, which is the server's rule too. A photo of a CV
+      defeats the point for an employer trying to read it.
+  */
+  Future<bool> uploadResume(String filePath) async {
+    try {
+      final form = FormData.fromMap({
+        'resume': await _upload(filePath),
+      });
+
+      final response = await _apiClient.postMultipart('/worker/profile/resume', form);
+      final data = response.data as Map<String, dynamic>;
+
+      if (data['success'] != true) {
+        _errorMessage = _extractErrorMessage(data['message']);
+        return false;
+      }
+
+      _adoptResume(data['data']);
+      notifyListeners();
+      return true;
+    } catch (e) {
+      _errorMessage = _extractErrorMessage(e.toString());
+      return false;
+    }
+  }
+
+  Future<bool> deleteResume() async {
+    try {
+      final response = await _apiClient.delete('/worker/profile/resume');
+      final data = response.data as Map<String, dynamic>;
+
+      if (data['success'] != true) {
+        _errorMessage = _extractErrorMessage(data['message']);
+        return false;
+      }
+
+      _adoptResume(data['data']);
+      notifyListeners();
+      return true;
+    } catch (e) {
+      _errorMessage = _extractErrorMessage(e.toString());
+      return false;
+    }
+  }
+
+  /// Takes the server's answer rather than assuming the change worked.
+  void _adoptResume(dynamic payload) {
+    if (payload is! Map) return;
+    hasResume = payload['has_resume'] == true;
+    resumeFileName = payload['file_name'] as String?;
+    resumeUploadedAt = DateTime.tryParse(payload['uploaded_at'] as String? ?? '');
   }
 
   Future<SkillModel?> createCustomSkill(String skillName, int categoryId) async {

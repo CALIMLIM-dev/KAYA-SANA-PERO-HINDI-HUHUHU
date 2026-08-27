@@ -51,6 +51,12 @@ class _SetupEmployerProfileScreenState extends State<SetupEmployerProfileScreen>
 
   int _currentStep = 0;
   bool _isSaving = false;
+
+  /// Set when a document upload fails, so the end of the flow can say so.
+  ///
+  /// The profile itself still saves - verification is a separate record and
+  /// can be retried - so this warns rather than aborting.
+  bool _verificationUploadFailed = false;
   String? _tempImagePath; // Store image path in memory until Finish
   String _identityIdType = 'Philippine National ID';
   String? _identityIdPhotoPath;
@@ -240,8 +246,20 @@ class _SetupEmployerProfileScreenState extends State<SetupEmployerProfileScreen>
           );
           // If verification upload fails, just continue - it's optional
         } catch (e) {
-          print('Verification upload failed (optional): $e');
-          // Don't stop the flow
+          /*
+              Told, not swallowed.
+
+              This printed to the console and carried on, so an employer whose
+              ID upload failed finished setup believing it had gone through and
+              found out only when a worker asked why they were not verified.
+              The worker side of this flow already warns; this did not.
+
+              Still not fatal - the profile itself saved, and verification can
+              be retried from the profile - so the flow continues and the
+              warning is raised at the end.
+          */
+          debugPrint('[employer setup] ID verification upload failed: $e');
+          _verificationUploadFailed = true;
         }
       }
 
@@ -258,8 +276,9 @@ class _SetupEmployerProfileScreenState extends State<SetupEmployerProfileScreen>
           );
           // If verification upload fails, just continue - it's optional
         } catch (e) {
-          print('Business verification upload failed (optional): $e');
-          // Don't stop the flow
+          // Same as the ID above: reported at the end rather than swallowed.
+          debugPrint('[employer setup] business document upload failed: $e');
+          _verificationUploadFailed = true;
         }
       }
 
@@ -276,10 +295,31 @@ class _SetupEmployerProfileScreenState extends State<SetupEmployerProfileScreen>
       // Refreshing auth re-derives the home view: employer-only accounts land
       // on workers, while an account that now holds both profiles becomes
       // hybrid and sees jobs AND workers. No focus is forced here.
-      await context.read<AuthProvider>().fetchMe();
-      await context.read<EmployerProfileProvider>().fetchProfile();
+      /*
+          Both providers taken before either await.
+
+          These were read one after the other with an await in between, so the
+          second read happened against a context that may already have been
+          disposed - reading a provider off a defunct element throws rather
+          than returning null.
+      */
+      final auth = context.read<AuthProvider>();
+      final employerProfile = context.read<EmployerProfileProvider>();
+
+      await auth.fetchMe();
+      await employerProfile.fetchProfile();
 
       if (!mounted) return;
+
+      // ScaffoldMessenger is app-scoped, so this survives the route change and
+      // lands over the home screen rather than over a screen being disposed.
+      if (_verificationUploadFailed) {
+        AppToast.warning(
+          context,
+          'Your profile is set up, but your document could not be uploaded. '
+          'You can retry it from Verification.',
+        );
+      }
 
       // Navigate to home using Navigator directly, not AppRouter
       Navigator.pushNamedAndRemoveUntil(

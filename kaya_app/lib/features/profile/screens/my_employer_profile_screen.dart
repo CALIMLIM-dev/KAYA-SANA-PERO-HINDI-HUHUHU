@@ -251,13 +251,52 @@ class _MyEmployerProfileScreenState extends State<MyEmployerProfileScreen>
                 children: [
                   // Profile photo — tappable to upload
                   GestureDetector(
-                    // The picker is not built yet. This used to flip a local
-                    // flag, swapping the camera icon for a business icon —
-                    // which looked exactly like an upload had succeeded.
-                    onTap: () => AppToast.info(
-                      context,
-                      'Adding a company photo is coming soon.',
-                    ),
+                    /*
+                        Wired to the upload that was already written.
+
+                        This said the picker was not built yet. It was:
+                        EmployerProfileProvider.uploadImage picks from camera or
+                        gallery, compresses, posts, and refreshes the profile -
+                        the whole path, finished, called by nothing. So an
+                        employer could not have a photo at all, which on a
+                        hiring app is the first thing a worker looks at when
+                        deciding whether the job is real.
+
+                        Same two-button dialog the worker profile uses, so both
+                        sides of one account behave the same way.
+                    */
+                    onTap: () async {
+                      final provider = context.read<EmployerProfileProvider>();
+
+                      final fromCamera = await showDialog<bool>(
+                        context: context,
+                        builder: (_) => AlertDialog(
+                          title: const Text('Profile Photo'),
+                          actions: [
+                            TextButton(
+                              onPressed: () => Navigator.pop(context, false),
+                              child: const Text('Gallery'),
+                            ),
+                            TextButton(
+                              onPressed: () => Navigator.pop(context, true),
+                              child: const Text('Camera'),
+                            ),
+                          ],
+                        ),
+                      );
+
+                      if (fromCamera == null || !mounted) return;
+
+                      final ok = await provider.uploadImage(fromCamera: fromCamera);
+                      if (!mounted) return;
+
+                      if (!ok) {
+                        AppToast.error(
+                          context,
+                          provider.errorMessage ?? 'Could not upload that photo.',
+                        );
+                      }
+                    },
                     child: Stack(
                       children: [
                         Container(

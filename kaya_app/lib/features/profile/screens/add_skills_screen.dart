@@ -135,7 +135,18 @@ class _AddSkillsScreenState extends State<AddSkillsScreen> {
     setState(() => _isLoadingSkills = true);
     final provider = context.read<WorkerProfileProvider>();
     final newSkill = await provider.createCustomSkill(val, _selectedCategory!.id);
-    
+
+    /*
+        Nothing below this line is safe without it.
+
+        Creating a skill is a network round trip, and backing out of the screen
+        during one is normal. Every line after this used the screen's context
+        and called setState on a State that could already be gone - which
+        throws, and the exception surfaces as a red screen rather than as the
+        harmless cancellation it is.
+    */
+    if (!mounted) return;
+
     if (newSkill != null) {
       setState(() {
         _selectedSkills.add(newSkill);
@@ -184,7 +195,10 @@ class _AddSkillsScreenState extends State<AddSkillsScreen> {
       setState(() => _isLoadingCategories = true);
       final provider = context.read<WorkerProfileProvider>();
       final newCategory = await provider.createCustomCategory(result);
-      
+
+      // Same as above: this awaited, and the screen may have gone.
+      if (!mounted) return;
+
       if (newCategory != null) {
         await _loadSkillsForCategory(newCategory);
       } else {

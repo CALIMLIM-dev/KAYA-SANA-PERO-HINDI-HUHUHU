@@ -189,6 +189,25 @@ class AuthController extends Controller
             // single next thing worth doing. Served from /me so every screen
             // shows the same number — see WorkerProfile::completeness().
             'worker_profile_completeness' => $workerProfile?->completeness(),
+
+            /*
+                Whether a resume is on file.
+
+                The upload and delete endpoints returned this and nothing else
+                did, so the app had no way to know a resume existed and no way
+                to show one - the whole feature was reachable only by an
+                account that had just uploaded, and then only until the screen
+                rebuilt.
+
+                The path is deliberately absent. A resume carries a phone
+                number, a home address and an employment history, and it is
+                served through a gated download rather than by URL.
+            */
+            'resume' => $workerProfile === null ? null : [
+                'has_resume'  => $workerProfile->hasResume(),
+                'file_name'   => $workerProfile->resume_original_name,
+                'uploaded_at' => $workerProfile->resume_uploaded_at?->toIso8601String(),
+            ],
         ]);
     }
     
