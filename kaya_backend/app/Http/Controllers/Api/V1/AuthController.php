@@ -370,6 +370,17 @@ class AuthController extends Controller
             'id_token'  => ['required', 'string'],
             'password'  => ['nullable', 'string', 'min:8'],
             'is_signup' => ['nullable', 'boolean'],
+            /*
+                Consent, same as the email form asks for.
+
+                Email registration requires terms_accepted to be true; Google
+                signup validated none of it, so an account made with Google was
+                created having agreed to nothing — no record of consent at all,
+                which the Data Privacy Act does not allow. Required only when
+                this call actually creates an account, so an existing user
+                signing back in is not asked to agree again.
+            */
+            'terms_accepted' => [Rule::excludeIf(! $request->boolean('is_signup')), 'required', 'accepted'],
         ]);
 
         /*
@@ -485,6 +496,11 @@ class AuthController extends Controller
             */
             'password'  => $request->password,
             'is_verified' => false, // User must complete verification (phone + gmail + valid ID)
+            // Recorded because it was required above. Same two columns the
+            // email form fills, so consent is stored the same way however the
+            // account was made.
+            'terms_accepted'    => true,
+            'terms_accepted_at' => now(),
         ]);
 
         $token = $user->createToken('kaya_app')->plainTextToken;

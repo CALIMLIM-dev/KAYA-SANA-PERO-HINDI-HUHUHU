@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../providers/auth_provider.dart';
+import '../widgets/terms_modal.dart';
 
 class GooglePasswordScreen extends StatefulWidget {
   const GooglePasswordScreen({super.key});
@@ -18,6 +19,17 @@ class _GooglePasswordScreenState extends State<GooglePasswordScreen> {
 
   String? _passwordError;
   String? _confirmPasswordError;
+
+  /*
+      Consent, which this screen was creating an account without.
+
+      Signing up with email gates on the terms; the Google path landed here to
+      set a password and then created the account having agreed to nothing.
+      This is the last step before the account exists, so it is where the same
+      gate belongs.
+  */
+  bool _agreeToTerms = false;
+  String? _termsError;
 
   @override
   void dispose() {
@@ -51,12 +63,21 @@ class _GooglePasswordScreenState extends State<GooglePasswordScreen> {
   }
 
   Future<void> _handleComplete(Map<String, dynamic> googleData, AuthProvider auth) async {
-    if (!_validate()) return;
+    final passwordOk = _validate();
+
+    // Both checks run before returning, so the terms error shows on the same
+    // tap as a password error rather than only after the password is fixed.
+    if (!_agreeToTerms) {
+      setState(() => _termsError =
+          'You must agree to the Terms & Conditions to continue.');
+    }
+    if (!passwordOk || !_agreeToTerms) return;
 
     final success = await auth.completeGoogleSignIn(
       idToken: googleData['id_token'],
       password: _passwordController.text,
       isSignup: true, // This is a new account signup
+      termsAccepted: _agreeToTerms,
     );
 
     if (!mounted) return;
@@ -212,7 +233,79 @@ class _GooglePasswordScreenState extends State<GooglePasswordScreen> {
                   ),
                 ),
               ),
-              const SizedBox(height: 32),
+              const SizedBox(height: 24),
+
+              // Terms gate — the same consent the email signup asks for.
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  SizedBox(
+                    width: 24,
+                    height: 24,
+                    child: Checkbox(
+                      value: _agreeToTerms,
+                      onChanged: (v) => setState(() {
+                        _agreeToTerms = v ?? false;
+                        if (_agreeToTerms) _termsError = null;
+                      }),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: GestureDetector(
+                      onTap: () async {
+                        final accepted = await showModalBottomSheet<bool>(
+                          context: context,
+                          isScrollControlled: true,
+                          backgroundColor: Colors.transparent,
+                          builder: (_) => const TermsModal(),
+                        );
+                        if (accepted == true && mounted) {
+                          setState(() {
+                            _agreeToTerms = true;
+                            _termsError = null;
+                          });
+                        }
+                      },
+                      child: Text.rich(
+                        TextSpan(
+                          text: 'I have read and agree to the ',
+                          style: TextStyle(
+                              color: AppColors.neutral600, fontSize: 14),
+                          children: [
+                            TextSpan(
+                              text: 'Terms and Conditions',
+                              style: TextStyle(
+                                color: AppColors.primary,
+                                fontWeight: FontWeight.w600,
+                                decoration: TextDecoration.underline,
+                              ),
+                            ),
+                            const TextSpan(text: ' and '),
+                            TextSpan(
+                              text: 'Privacy Policy',
+                              style: TextStyle(
+                                color: AppColors.primary,
+                                fontWeight: FontWeight.w600,
+                                decoration: TextDecoration.underline,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              if (_termsError != null) ...[
+                const SizedBox(height: 8),
+                Text(
+                  _termsError!,
+                  style: const TextStyle(color: AppColors.error, fontSize: 12),
+                ),
+              ],
+
+              const SizedBox(height: 24),
 
               // Complete button
               Consumer<AuthProvider>(

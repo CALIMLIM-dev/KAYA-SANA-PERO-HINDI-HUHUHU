@@ -293,6 +293,7 @@ class AuthProvider with ChangeNotifier {
     required String idToken,
     String? password,
     bool isSignup = false,
+    bool termsAccepted = false,
   }) async {
     _isLoading = true;
     _errorMessage = null;
@@ -303,6 +304,9 @@ class AuthProvider with ChangeNotifier {
         'id_token': idToken,
         'is_signup': isSignup,
         if (password != null) 'password': password,
+        // The server requires this on a signup, the same as the email form.
+        // Sent only when signing up, so a returning user is not re-asked.
+        if (isSignup) 'terms_accepted': termsAccepted,
       });
 
       final data = response.data['data'];

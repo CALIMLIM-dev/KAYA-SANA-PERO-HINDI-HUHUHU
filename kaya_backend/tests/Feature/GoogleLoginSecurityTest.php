@@ -218,14 +218,56 @@ class GoogleLoginSecurityTest extends TestCase
         ]));
 
         $this->postJson('/api/v1/google-login', [
-            'id_token'  => 'x',
-            'is_signup' => true,
-            'password'  => 'Str0ng!Passw0rd',
+            'id_token'       => 'x',
+            'is_signup'      => true,
+            'password'       => 'Str0ng!Passw0rd',
+            'terms_accepted' => true,
         ])->assertCreated();
 
         $this->assertNull(
             User::where('email', 'newcomer@gmail.com')->first()?->avatar,
             'A new Google account was created with a Gmail picture already on it.',
         );
+    }
+
+    /*
+        Google signup carries consent, like the email form.
+
+        A Google signup used to validate none of the terms, so the account was
+        created having agreed to nothing - no consent recorded, which the Data
+        Privacy Act does not allow. Signing up without agreeing is now refused,
+        and agreeing records the same two columns the email form fills.
+    */
+    #[Test]
+    public function google_signup_is_refused_without_agreeing_to_terms(): void
+    {
+        $this->googleReturns($this->validClaims(["email" => "newcomer@gmail.com"]));
+
+        $this->postJson("/api/v1/google-login", [
+            "id_token"  => "x",
+            "is_signup" => true,
+            "password"  => "Str0ng!Passw0rd",
+            // terms_accepted omitted
+        ])->assertStatus(422);
+
+        $this->assertDatabaseMissing("users", ["email" => "newcomer@gmail.com"]);
+    }
+
+    #[Test]
+    public function google_signup_records_consent_when_agreed(): void
+    {
+        $this->googleReturns($this->validClaims(["email" => "newcomer@gmail.com"]));
+
+        $this->postJson("/api/v1/google-login", [
+            "id_token"       => "x",
+            "is_signup"      => true,
+            "password"       => "Str0ng!Passw0rd",
+            "terms_accepted" => true,
+        ])->assertCreated();
+
+        $user = User::where("email", "newcomer@gmail.com")->first();
+        $this->assertNotNull($user);
+        $this->assertTrue((bool) $user->terms_accepted);
+        $this->assertNotNull($user->terms_accepted_at);
     }
 }
