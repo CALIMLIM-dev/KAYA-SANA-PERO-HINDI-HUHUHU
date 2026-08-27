@@ -1281,57 +1281,10 @@ class _PostJobScreenState extends State<PostJobScreen> {
             height: 150,
             child: Stack(
               children: [
-                FlutterMap(
-                  /*
-                      Rebuilt when the pin moves.
-
-                      Everything below is `initial` — initialCenter is read
-                      once, when the map's state is created, and never again.
-                      Flutter reuses that state across rebuilds because the
-                      widget has the same type in the same place, so dropping
-                      a new pin updated the coordinates, updated the marker,
-                      and left the map itself sitting on the old location.
-
-                      It looked like the pin had not saved: you moved it,
-                      came back, and the preview showed where it used to be.
-
-                      A key that changes with the coordinates makes this a
-                      different map as far as Flutter is concerned, so the
-                      state is rebuilt and initialCenter is read again.
-                  */
-                  key: ValueKey('pin-preview-$_pinnedLat-$_pinnedLng'),
-                  options: MapOptions(
-                    initialCenter: point,
-                    initialZoom: 16,
-                    // Preview only — panning happens in the picker.
-                    interactionOptions: const InteractionOptions(
-                      flags: InteractiveFlag.none,
-                    ),
-                  ),
-                  children: [
-                    TileLayer(
-                      urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-                      userAgentPackageName: 'ph.kaya.app',
-                      // See pin_location_screen: maxZoom alone blanks the map
-                      // past z19 because the camera keeps going after the tiles
-                      // stop. maxNativeZoom upscales instead.
-                      maxNativeZoom: 19,
-                      maxZoom: 21,
-                    ),
-                    MarkerLayer(
-                      markers: [
-                        Marker(
-                          point: point,
-                          width: 40,
-                          height: 40,
-                          alignment: Alignment.topCenter,
-                          child: const Icon(Icons.location_pin,
-                              size: 40, color: AppColors.error),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
+                // Its camera follows the pin — see _PinPreviewMap. The old
+                // inline map read its centre once and then ignored every later
+                // change, which is the "preview stuck on the old spot" bug.
+                _PinPreviewMap(point: point),
                 // Whole-surface tap target to reopen the picker.
                 Positioned.fill(
                   child: Material(
@@ -2146,5 +2099,75 @@ class _PostJobScreenState extends State<PostJobScreen> {
         AppToast.error(context, jobProvider.errorMessage ?? 'Failed to post job');
       }
     }
+  }
+}
+
+/// A non-interactive map preview whose camera actually follows the pin.
+///
+/// The pin preview used to be a FlutterMap built inline with initialCenter set
+/// from the coordinates. initialCenter is read once, when the map's state is
+/// created, so after the pin moved the marker jumped but the map underneath
+/// stayed on the old spot — you had to remove the pin and drop a new one to
+/// see the change. A key that changes with the coordinates was supposed to
+/// force a fresh state, but flutter_map does not reliably re-read the camera
+/// from it, so the preview still stuck.
+///
+/// This holds a MapController and moves it in didUpdateWidget whenever the
+/// coordinates change. The camera is told where to go rather than being asked
+/// to notice on its own, which is the difference between "usually" and
+/// "always".
+class _PinPreviewMap extends StatefulWidget {
+  const _PinPreviewMap({required this.point});
+
+  final LatLng point;
+
+  @override
+  State<_PinPreviewMap> createState() => _PinPreviewMapState();
+}
+
+class _PinPreviewMapState extends State<_PinPreviewMap> {
+  final MapController _controller = MapController();
+
+  @override
+  void didUpdateWidget(_PinPreviewMap old) {
+    super.didUpdateWidget(old);
+    // A new pin: drive the camera to it. Guarded so an unchanged rebuild does
+    // not move a map that is already in the right place.
+    if (old.point != widget.point) {
+      _controller.move(widget.point, _controller.camera.zoom);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return FlutterMap(
+      mapController: _controller,
+      options: MapOptions(
+        initialCenter: widget.point,
+        initialZoom: 16,
+        interactionOptions:
+            const InteractionOptions(flags: InteractiveFlag.none),
+      ),
+      children: [
+        TileLayer(
+          urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+          userAgentPackageName: 'ph.kaya.app',
+          maxNativeZoom: 19,
+          maxZoom: 21,
+        ),
+        MarkerLayer(
+          markers: [
+            Marker(
+              point: widget.point,
+              width: 40,
+              height: 40,
+              alignment: Alignment.topCenter,
+              child: const Icon(Icons.location_pin,
+                  size: 40, color: AppColors.error),
+            ),
+          ],
+        ),
+      ],
+    );
   }
 }
