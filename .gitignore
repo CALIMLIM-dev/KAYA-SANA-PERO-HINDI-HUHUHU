@@ -55,3 +55,6 @@ kaya_app/web/
 kaya_db.sql
 *.dump.sql
 *_backup.sql
+
+# Claude Code personal settings. Machine-specific paths, not for the repo.
+.claude/settings.local.json
