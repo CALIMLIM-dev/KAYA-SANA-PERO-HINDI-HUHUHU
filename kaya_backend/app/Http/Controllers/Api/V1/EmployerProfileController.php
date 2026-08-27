@@ -285,6 +285,18 @@ class EmployerProfileController extends Controller
             // mean of someone's most recent 20 as their overall rating.
             'rating_avg'     => $profile->rating_count > 0 ? (float) $profile->rating_avg : null,
             'rating_count'   => (int) $profile->rating_count,
+            /*
+                Counted, not measured off the list.
+
+                The app printed the length of the array below under the label
+                "Open Jobs", and the query behind it stops at 20 - so an
+                employer with 25 open jobs advertised 20 of them. The same
+                mistake the rating average above was already fixed for: a list
+                capped for display is not a number about the account.
+            */
+            'open_jobs_count' => \App\Models\JobPost::where('employer_id', $user->id)
+                ->where('status', 'open')
+                ->count(),
             'jobs'           => $jobs->map(fn ($j) => [
                 'id'         => $j->id,
                 'title'      => $j->title,

@@ -225,7 +225,13 @@ class _EmployerProfileScreenState extends State<EmployerProfileScreen> {
                             _divider(),
                             _headerStat('$reviewCount', 'Reviews'),
                             _divider(),
-                            _headerStat('${jobs.length}', 'Open Jobs'),
+                            // The server's own count, not the length of the
+                            // list beside it — that list stops at 20, so an
+                            // employer with more than 20 open jobs was
+                            // advertising 20 of them.
+                            _headerStat(
+                                '${e['open_jobs_count'] ?? jobs.length}',
+                                'Open Jobs'),
                           ],
                         ),
                       ],
