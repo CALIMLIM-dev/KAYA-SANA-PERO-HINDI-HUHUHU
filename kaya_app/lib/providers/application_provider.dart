@@ -12,6 +12,14 @@ class ApplicationProvider with ChangeNotifier {
   String? get errorMessage => _errorMessage;
   List<Map<String, dynamic>> get applications => _applications;
 
+  /// Seed the list directly, so the active/completed/history split can be
+  /// tested against known statuses without a server.
+  @visibleForTesting
+  void seedApplications(List<Map<String, dynamic>> rows) {
+    _applications = rows;
+    notifyListeners();
+  }
+
   List<Map<String, dynamic>> get active => _applications
       .where((a) => ['pending', 'accepted'].contains(a['status']))
       .toList();

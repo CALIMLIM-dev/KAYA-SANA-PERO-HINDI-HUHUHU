@@ -18,6 +18,19 @@ class JobProvider with ChangeNotifier {
   String? get errorMessage => _errorMessage;
   List<Map<String, dynamic>> get jobs => _jobs;
 
+  /*
+      The jobs still being worked on.
+
+      Kept here rather than at each call site for the reason the applications
+      count went wrong: the home card and the manage-jobs screen each carried
+      their own copy of "active", the screen's grew to include a status the
+      card's did not, and the card then showed a number the list disagreed
+      with. One definition cannot drift from itself.
+  */
+  List<Map<String, dynamic>> get activeJobs => _jobs
+      .where((j) => ['open', 'in_progress'].contains(j['status']))
+      .toList();
+
   // ── Public job feed (worker-mode home + search) ─────────────────────────────
 
   bool _isPublicLoading = false;

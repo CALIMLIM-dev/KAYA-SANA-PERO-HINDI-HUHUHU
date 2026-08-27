@@ -882,11 +882,10 @@ class _UnifiedHomeScreenState extends State<UnifiedHomeScreen>
                               child: _ActivityCard(
                                 icon: Icons.work,
                                 iconColor: AppColors.accent,
-                                count: jobProvider.jobs
-                                    .where((j) =>
-                                        j['status'] == 'open' ||
-                                        j['status'] == 'in_progress')
-                                    .length,
+                                // Same rule the manage-jobs screen filters by,
+                                // held in one place so the two cannot part
+                                // company the way the applications pair did.
+                                count: jobProvider.activeJobs.length,
                                 label: 'Active Jobs',
                                 onTap: _navigateToActiveJobs,
                               ),
@@ -901,9 +900,22 @@ class _UnifiedHomeScreenState extends State<UnifiedHomeScreen>
                               child: _ActivityCard(
                                 icon: Icons.description,
                                 iconColor: AppColors.primary,
-                                count: applicationProvider.applications
-                                    .where((a) => a['status'] == 'pending')
-                                    .length,
+                                /*
+                                    The provider's own definition of active.
+
+                                    This counted 'pending' alone while the
+                                    screen it opens lists pending and
+                                    accepted, so getting hired moved an
+                                    application out of the count and left it
+                                    in the list: the card read 0 over a screen
+                                    with something on it.
+
+                                    ApplicationProvider.active already had the
+                                    rule, and the screen already used it. Only
+                                    this card kept its own copy, which is why
+                                    the two could disagree at all.
+                                */
+                                count: applicationProvider.active.length,
                                 label: 'My Applications',
                                 onTap: _navigateToPendingApplications,
                               ),
