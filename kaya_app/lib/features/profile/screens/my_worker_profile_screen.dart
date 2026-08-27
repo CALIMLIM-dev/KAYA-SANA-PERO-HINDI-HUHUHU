@@ -38,6 +38,49 @@ class _MyWorkerProfileScreenState extends State<MyWorkerProfileScreen> with Sing
   /// Drives the NestedScrollView, so a tab change can send it back to the top.
   final ScrollController _scroll = ScrollController();
 
+  /*
+      The header's height, measured rather than predicted.
+
+      It used to be arithmetic — a base number plus a bit per contact row plus
+      a block if there were any skills, all multiplied by the text scale. That
+      is a guess about content nobody has laid out yet, and it was wrong in
+      both directions: too short for a filled-in profile, which overflowed,
+      then too tall once padded to cover that, which left a band of empty
+      purple between the skill chips and the tabs.
+
+      A SliverAppBar does need its height before its contents exist, so the
+      first frame still uses the estimate. After that frame the marker at the
+      bottom of the header says where the content really ended, and the header
+      adopts it. One frame at the wrong size, then correct for every profile,
+      every text scale and every number of skills.
+  */
+  final GlobalKey _headerEndKey = GlobalKey();
+  double? _headerHeight;
+
+  void _measureHeader() {
+    final box = _headerEndKey.currentContext?.findRenderObject() as RenderBox?;
+    if (box == null || !box.attached) return;
+
+    // Distance from the top of the screen to the end of the header's content.
+    // Only meaningful while the header is fully expanded, which is why this
+    // bails out once the list has been scrolled.
+    if (_scroll.hasClients && _scroll.offset > 1) return;
+
+    final bottom = box.localToGlobal(Offset.zero).dy + _headerBottomPadding;
+    if (bottom <= 0) return;
+    if (_headerHeight != null && (_headerHeight! - bottom).abs() < 0.5) return;
+
+    setState(() => _headerHeight = bottom);
+  }
+
+  /// The padding that sits below the marker, which the marker cannot see.
+  ///
+  /// Must match the bottom of the header's own EdgeInsets.fromLTRB(16, 16,
+  /// 16, 24). It was 16 here against 24 there, and the profile overflowed by
+  /// exactly the eight pixels of difference — measuring to the wrong place is
+  /// no better than guessing, it just fails more precisely.
+  static const double _headerBottomPadding = 24;
+
   @override
   void initState() {
     super.initState();
@@ -123,6 +166,13 @@ class _MyWorkerProfileScreenState extends State<MyWorkerProfileScreen> with Sing
         was decided from a constant, which is how a filled-in profile ended up
         taller than the space reserved for it.
     */
+    // Re-measure after every build: the skills, the contact rows and the text
+    // scale can all change while the screen is open, and each of them moves
+    // where the header ends.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _measureHeader();
+    });
+
     final profile = context.watch<WorkerProfileProvider>();
     final contactLines = [
       (profile.phone ?? '').isNotEmpty,
@@ -195,8 +245,23 @@ class _MyWorkerProfileScreenState extends State<MyWorkerProfileScreen> with Sing
                   number and hoping, and the whole thing still scales with the
                   text.
               */
-              expandedHeight: (190 + (contactLines * 24) + skillsBlock) *
-                  MediaQuery.textScalerOf(context).scale(1.0),
+              /*
+                  The measured height once there is one.
+
+                  The estimate is only used for the first frame, and it stays
+                  generous on purpose. Trimming it to sit closer to the real
+                  height overflowed that frame on a narrow phone at the larger
+                  text sizes — the populated-profile tests catch exactly that,
+                  since they render before any measurement can have happened.
+
+                  So the estimate only ever errs tall, and the measurement is
+                  what brings it down. Overshooting costs one frame of extra
+                  purple; undershooting costs a frame of clipped content, and
+                  those are not equally cheap.
+              */
+              expandedHeight: _headerHeight ??
+                  ((190 + (contactLines * 24) + skillsBlock) *
+                      MediaQuery.textScalerOf(context).scale(1.0)),
               floating: false,
               pinned: true,
               backgroundColor: AppColors.primary,
@@ -519,6 +584,21 @@ class _MyWorkerProfileScreenState extends State<MyWorkerProfileScreen> with Sing
                               }
                             },
                           ),
+                          /*
+                              Where the header's content actually ends.
+
+                              Zero height and invisible; it exists to be
+                              measured. The Column is top-packed, so this sits
+                              directly under the last thing drawn, and its
+                              distance from the top of the screen is the real
+                              height of the header — including whatever the
+                              text scale and the number of skills did to it.
+
+                              _measureHeader reads it after the frame and
+                              adopts it, which is what stops the arithmetic
+                              above from having to be right.
+                          */
+                          SizedBox(key: _headerEndKey, height: 0),
                         ],
                       ),
                     ),
@@ -526,7 +606,7 @@ class _MyWorkerProfileScreenState extends State<MyWorkerProfileScreen> with Sing
                 ),
               ),
             ),
-            
+
             SliverPersistentHeader(
               pinned: true,
               delegate: _StickyTabBarDelegate(
