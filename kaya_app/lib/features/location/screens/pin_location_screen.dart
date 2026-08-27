@@ -229,47 +229,23 @@ class _PinLocationScreenState extends State<PinLocationScreen> {
                     initialCenter: _initialCentre,
                     initialZoom: _initialZoom,
                     /*
-                        The pin is the centre of the screen.
+                        Tap to drop the pin, and it stays on that spot.
 
-                        This used to work by tapping the map to drop a marker,
-                        which means aiming at a spot with a fingertip covering
-                        it. Every maps app solved that the same way years ago:
-                        the pin is fixed in the middle and the map moves
-                        underneath, so what you are choosing is never hidden by
-                        your own hand.
+                        Tapping the map places the pin at the exact point
+                        touched, and it is drawn in the map's own marker layer -
+                        anchored to that coordinate - so dragging the map slides
+                        the pin along with the ground under it. It marks a real
+                        place, not the middle of the screen, which is what a
+                        person expects when they tap somewhere to say "here".
 
-                        Tapping still works and re-centres there, because
-                        people who have used the old version will try it.
+                        The pin no longer follows the camera, so there is no
+                        per-frame setState and none of the mid-gesture rebuild
+                        trouble the old centre pin had to work around.
                     */
-                    /*
-                        Updated when the map stops, not while it moves.
-
-                        onPositionChanged fires continuously through a drag,
-                        and calling setState from it rebuilds FlutterMap with a
-                        fresh MapOptions on every frame of the gesture. The
-                        camera constraint is then re-applied to a camera that
-                        is mid-flight, which trips an assertion inside
-                        flutter_map and takes the screen down - the red error
-                        box over a doubled map.
-
-                        A move event carries the same centre and arrives once,
-                        after the gesture settles, which is also the only
-                        moment the value is worth reading.
-                    */
-                    onMapEvent: (event) {
-                      final settled = event is MapEventMoveEnd ||
-                          event is MapEventFlingAnimationEnd ||
-                          event is MapEventDoubleTapZoomEnd;
-
-                      if (!settled) return;
-
-                      setState(() {
-                        _pin = event.camera.center;
-                        _userPlacedPin = true;
-                      });
-                    },
-                    // Recentres, and the move event above records where.
-                    onTap: (_, latLng) => _map.move(latLng, _map.camera.zoom),
+                    onTap: (_, latLng) => setState(() {
+                      _pin = latLng;
+                      _userPlacedPin = true;
+                    }),
                     // The Philippines only — panning to Norway helps nobody.
                     cameraConstraint: CameraConstraint.contain(
                       bounds: LatLngBounds(
@@ -291,6 +267,33 @@ class _PinLocationScreenState extends State<PinLocationScreen> {
                       maxNativeZoom: 19,
                       maxZoom: 21,
                     ),
+                    /*
+                        The pin, anchored to its coordinate.
+
+                        Drawn inside the map rather than over it, so it stays on
+                        the spot it was dropped while the map moves under it -
+                        the whole point of a tap-to-place pin. alignment top so
+                        the tip of the icon, not its middle, sits on the point.
+
+                        Nothing until the user places one; an empty map should
+                        not look like it has already answered.
+                    */
+                    if (_pin != null)
+                      MarkerLayer(
+                        markers: [
+                          Marker(
+                            point: _pin!,
+                            width: 44,
+                            height: 44,
+                            alignment: Alignment.topCenter,
+                            child: const Icon(
+                              Icons.location_pin,
+                              size: 44,
+                              color: AppColors.error,
+                            ),
+                          ),
+                        ],
+                      ),
                     // OSM's licence requires visible attribution.
                     const RichAttributionWidget(
                       attributions: [
@@ -298,38 +301,6 @@ class _PinLocationScreenState extends State<PinLocationScreen> {
                       ],
                     ),
                   ],
-                ),
-
-                /*
-                    Drawn over the map rather than in it.
-
-                    A marker inside the map is anchored to a coordinate and
-                    moves when the map does. This one has to stay put while the
-                    map slides underneath, so it lives in the Stack above it.
-
-                    IgnorePointer matters: without it the pin swallows the drag
-                    that is meant to move the map, and the one gesture the
-                    screen exists for stops working in the middle of the
-                    screen.
-                */
-                IgnorePointer(
-                  child: Center(
-                    child: Padding(
-                      // Lifts the icon so its point, not its middle, sits on
-                      // the centre of the map.
-                      padding: const EdgeInsets.only(bottom: 40),
-                      // No drop shadow. Offset down and blurred over a map of
-                      // roads and labels, it did not read as depth — it read
-                      // as a second, blurrier pin sitting behind this one,
-                      // which is the last thing a screen for placing exactly
-                      // one pin should show.
-                      child: Icon(
-                        Icons.location_pin,
-                        size: 44,
-                        color: AppColors.error,
-                      ),
-                    ),
-                  ),
                 ),
 
                 Positioned(
