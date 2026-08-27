@@ -8,6 +8,7 @@ import '../data/models/worker_experience_model.dart';
 import '../data/models/category_model.dart';
 import '../data/models/skill_model.dart';
 import '../data/services/api_client.dart';
+import '../core/utils/json_parse.dart';
 
 class WorkerProfileProvider with ChangeNotifier {
   final ApiClient _apiClient;
@@ -127,8 +128,25 @@ class WorkerProfileProvider with ChangeNotifier {
         email = userData['email'] as String?;
         phone = userData['phone'] as String?;
         location = userData['city'] as String?; // Backend uses 'city' column
-        latitude = (userData['latitude'] as num?)?.toDouble();
-        longitude = (userData['longitude'] as num?)?.toDouble();
+        /*
+            Coordinates arrive as strings, and casting them threw.
+
+            users.latitude is decimal(10,7) with no cast on the model, so
+            Laravel serialises it as "15.9760000". `as num?` on a String does
+            not return null, it throws — and the throw landed in the catch
+            below, which meant latitude, longitude, the avatar and the resume
+            were all silently dropped every time a pinned profile loaded.
+
+            What it looked like: the profile kept its city, so nothing seemed
+            broken, but the pin was gone. Reopening the map showed the whole
+            country instead of the pinned spot, and the pin never appeared to
+            save no matter how many times it was set.
+
+            asDoubleOrNull is in the codebase for exactly this and its own
+            docblock names latitude as a victim. This read just never used it.
+        */
+        latitude = asDoubleOrNull(userData['latitude']);
+        longitude = asDoubleOrNull(userData['longitude']);
         profilePhotoPath = userData['avatar'] as String?;
 
         // Name and date only - the path never leaves the server.

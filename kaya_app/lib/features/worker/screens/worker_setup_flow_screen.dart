@@ -486,15 +486,29 @@ class _WorkerSetupFlowScreenState extends State<WorkerSetupFlowScreen> {
                     ),
                   ),
                   const SizedBox(height: 2),
-                  Text(
-                    !canPin
-                        ? 'Choose your location first'
-                        : hasPin
-                            ? '${_pinnedLat!.toStringAsFixed(5)}, ${_pinnedLng!.toStringAsFixed(5)}'
-                            : 'Required — so jobs show the real distance to you',
-                    style: const TextStyle(
-                        fontSize: 12, color: AppColors.neutral500),
-                  ),
+                  /*
+                      No raw coordinates.
+
+                      This printed "15.97600, 120.57100" once a pin was set,
+                      which tells nobody anything - a person cannot check
+                      their own house against seven decimal places, so the one
+                      thing they might want to verify is the one thing it
+                      cannot show. The place name is already on the row above
+                      it, and the map is where you confirm the spot.
+
+                      Only the prompt survives, and only while it is still
+                      asking for something.
+                  */
+                  if (!hasPin) ...[
+                    const SizedBox(height: 2),
+                    Text(
+                      canPin
+                          ? 'So jobs can show the real distance to you'
+                          : 'Choose your location first',
+                      style: const TextStyle(
+                          fontSize: 12, color: AppColors.neutral500),
+                    ),
+                  ],
                 ],
               ),
             ),

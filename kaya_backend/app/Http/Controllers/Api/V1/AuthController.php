@@ -391,7 +391,8 @@ class AuthController extends Controller
 
         $googleId = $claims['sub'];
         $email     = $claims['email'];
-        $avatar    = $claims['picture'];
+        // $claims['picture'] is deliberately not read. The profile photo is
+        // the worker's own choice, never one taken from their Gmail account.
 
         $existingUser = User::where('email', $email)->first();
 
@@ -443,9 +444,9 @@ class AuthController extends Controller
 
                 Only filled when there is nothing there.
             */
-            if (blank($existingUser->avatar)) {
-                $existingUser->avatar = $avatar;
-            }
+            // Not even to fill a gap. An empty photo is the profile asking
+            // for one, and filling it silently answers a question the worker
+            // never got to hear.
 
             $existingUser->save();
 
@@ -470,7 +471,18 @@ class AuthController extends Controller
             'name'      => null,
             'email'     => $email,
             'google_id' => $googleId,
-            'avatar'    => $avatar,
+            /*
+                No avatar from Google.
+
+                A new account used to open with whatever picture happened to be
+                on the Gmail address - a group shot, a cartoon, a photo taken
+                years ago - already in place as their profile picture, and
+                nothing told them it had happened.
+
+                On a hiring app the photo is what an employer decides on, so it
+                has to be a picture the worker chose and knows about. Left null
+                and the profile asks them to add one.
+            */
             'password'  => $request->password,
             'is_verified' => false, // User must complete verification (phone + gmail + valid ID)
         ]);

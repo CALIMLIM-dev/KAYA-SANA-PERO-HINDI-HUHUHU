@@ -605,18 +605,21 @@ class _MyWorkerProfileScreenState extends State<MyWorkerProfileScreen> with Sing
                               : AppColors.neutral400,
                         ),
                       ),
-                      const SizedBox(height: 2),
-                      Text(
-                        !hasCity
-                            ? 'Choose your location first'
-                            : pinned
-                                ? '${p.latitude!.toStringAsFixed(5)}, ${p.longitude!.toStringAsFixed(5)}'
-                                : 'So jobs show the real distance to you',
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                            fontSize: 12, color: AppColors.neutral500),
-                      ),
+                      // Raw coordinates told nobody anything — you cannot
+                      // check your own house against seven decimal places.
+                      // The map is where a pin gets confirmed.
+                      if (!pinned) ...[
+                        const SizedBox(height: 2),
+                        Text(
+                          hasCity
+                              ? 'So jobs show the real distance to you'
+                              : 'Choose your location first',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                              fontSize: 12, color: AppColors.neutral500),
+                        ),
+                      ],
                     ],
                   ),
                 ),

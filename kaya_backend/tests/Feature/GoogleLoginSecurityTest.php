@@ -176,9 +176,21 @@ class GoogleLoginSecurityTest extends TestCase
         );
     }
 
-    /// But it still fills an empty one, which is the whole point of having it.
+    /*
+        And it does not fill an empty one either.
+
+        This asserted the opposite until the photo was reported as unwanted:
+        signing in with Google put whatever picture was on the Gmail address
+        onto the profile, and the worker was never asked. On a hiring app the
+        photo is what an employer decides on, so it has to be one the worker
+        chose and knows is there.
+
+        An empty avatar is the profile asking for a picture. Answering that
+        quietly, out of the account they happened to sign in with, is what
+        this test now forbids.
+    */
     #[Test]
-    public function google_login_fills_a_missing_photo(): void
+    public function google_login_does_not_supply_a_photo_at_all(): void
     {
         $user = User::factory()->create([
             'email' => 'victim@gmail.com',
@@ -189,6 +201,31 @@ class GoogleLoginSecurityTest extends TestCase
 
         $this->postJson('/api/v1/google-login', ['id_token' => 'x'])->assertOk();
 
-        $this->assertSame('https://lh3.google.com/gmail-photo.jpg', $user->fresh()->avatar);
+        $this->assertNull(
+            $user->fresh()->avatar,
+            'Google sign-in put a Gmail picture on a profile that had none.',
+        );
+    }
+
+    /// Same rule for a brand new account, which is where it was most visible:
+    /// the very first look at your own profile already had a photo on it.
+    #[Test]
+    public function google_signup_starts_with_no_photo(): void
+    {
+        $this->googleReturns($this->validClaims([
+            'email'   => 'newcomer@gmail.com',
+            'picture' => 'https://lh3.google.com/gmail-photo.jpg',
+        ]));
+
+        $this->postJson('/api/v1/google-login', [
+            'id_token'  => 'x',
+            'is_signup' => true,
+            'password'  => 'Str0ng!Passw0rd',
+        ])->assertCreated();
+
+        $this->assertNull(
+            User::where('email', 'newcomer@gmail.com')->first()?->avatar,
+            'A new Google account was created with a Gmail picture already on it.',
+        );
     }
 }

@@ -82,6 +82,23 @@ class User extends Authenticatable
         'last_seen_at'              => 'datetime',
         'email_verification_expires_at' => 'datetime',
         'phone_verification_expires_at' => 'datetime',
+
+        /*
+            Coordinates as numbers, not strings.
+
+            These are decimal(10,7) columns with no cast, and an uncast
+            decimal serialises to JSON as a string - "15.9760000". The app
+            read them with a plain num cast, which throws on a string rather
+            than returning null, so a pinned worker profile lost its
+            coordinates on every load and the map reopened on the whole
+            country.
+
+            'float' rather than 'decimal:7': decimal casts back to a string
+            and reintroduces the same problem. The client is defensive about
+            both now, but the payload should be honest on its own.
+        */
+        'latitude'  => 'float',
+        'longitude' => 'float',
     ];
 
     /**
