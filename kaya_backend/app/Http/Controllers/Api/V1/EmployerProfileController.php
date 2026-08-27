@@ -55,33 +55,47 @@ class EmployerProfileController extends Controller
     {
         $user = $request->user();
 
-        // Check if profile already exists
-        if ($user->employerProfile) {
-            return $this->fail('Employer profile already exists. Use PUT to update.', 422);
-        }
-
         $validated = $request->validated();
 
-        // NOTE: user_type is deliberately NOT touched here. KAYA is hybrid — the
-        // existence of this profile is what makes the user an employer (see
-        // User::isEmployer()). Flipping user_type used to permanently revoke the
-        // same account's worker abilities.
+        /*
+            Idempotent, because setup is not atomic.
+
+            This used to 422 with "already exists" if a profile was here, which
+            turned a normal retry into a dead end. Finish creates this row and
+            then does more — a photo, a verification, complete-setup — and any
+            of those failing (or the user backing out) left the row behind with
+            setup unfinished. Coming back and tapping Finish again hit the
+            "already exists" wall, and hard-refreshing showed a half-made
+            account that could never be completed.
+
+            An account is the user's own, and creating their profile is
+            something only they can do to themselves, so re-running it should
+            land on the same profile rather than be refused. updateOrCreate
+            makes a second Finish overwrite the half-made row instead of
+            colliding with it. setup_completed is intentionally not set here —
+            that is completeSetup's job, at the very end.
+
+            user_type is still deliberately untouched: profile existence is
+            what makes the user an employer (User::isEmployer()), and flipping
+            the column used to revoke the same account's worker side.
+        */
         $profile = DB::transaction(function () use ($user, $validated) {
-            return EmployerProfile::create([
-                'user_id' => $user->id,
-                'employer_type' => $validated['employer_type'],
-                'company_name' => $validated['company_name'] ?? null,
-                'industry' => $validated['industry'] ?? null,
-                'website' => $validated['website'] ?? null,
-                'description' => $validated['description'] ?? null,
-                'location' => $validated['location'],
-                // Structured location from the PSGC picker — nullable so a
-                // profile created before the picker existed still saves.
-                'location_id' => $validated['location_id'] ?? null,
-                'latitude' => $validated['latitude'] ?? null,
-                'longitude' => $validated['longitude'] ?? null,
-                'setup_completed' => false,
-            ]);
+            return EmployerProfile::updateOrCreate(
+                ['user_id' => $user->id],
+                [
+                    'employer_type' => $validated['employer_type'],
+                    'company_name' => $validated['company_name'] ?? null,
+                    'industry' => $validated['industry'] ?? null,
+                    'website' => $validated['website'] ?? null,
+                    'description' => $validated['description'] ?? null,
+                    'location' => $validated['location'],
+                    // Structured location from the PSGC picker — nullable so a
+                    // profile created before the picker existed still saves.
+                    'location_id' => $validated['location_id'] ?? null,
+                    'latitude' => $validated['latitude'] ?? null,
+                    'longitude' => $validated['longitude'] ?? null,
+                ],
+            );
         });
 
         // Get verification status

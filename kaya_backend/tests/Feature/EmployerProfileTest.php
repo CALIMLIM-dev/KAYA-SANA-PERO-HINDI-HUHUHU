@@ -126,28 +126,41 @@ class EmployerProfileTest extends TestCase
             ->assertJsonValidationErrors(['company_name', 'industry']);
     }
 
+    /*
+        Posting again overwrites, it does not fail.
+
+        This used to assert a 422 "already exists". Setup is not atomic — the
+        row is created and then a photo, a verification and complete-setup
+        follow — so any of those failing left the profile behind with setup
+        unfinished, and tapping Finish again hit that 422 and could never get
+        past it. A retry now updates the same row, so finishing a second time
+        works instead of dead-ending, and no second profile is made.
+    */
     /** @test */
-    public function post_fails_when_profile_exists()
+    public function post_again_updates_the_existing_profile()
     {
         $user = User::factory()->create(['user_type' => 'employer']);
         EmployerProfile::factory()->create([
             'user_id' => $user->id,
             'employer_type' => EmployerType::COMPANY,
+            'company_name' => 'Half Done',
         ]);
 
-        $response = $this->actingAs($user, 'sanctum')
+        $this->actingAs($user, 'sanctum')
             ->postJson('/api/v1/employer-profile', [
                 'employer_type' => 'company',
-                'company_name' => 'Test Corp',
+                'company_name' => 'Finished Corp',
                 'industry' => 'Technology',
                 'location' => 'Manila',
-            ]);
+            ])
+            ->assertSuccessful();
 
-        $response->assertUnprocessable()
-            ->assertJson([
-                'success' => false,
-                'message' => 'Employer profile already exists. Use PUT to update.',
-            ]);
+        // Still exactly one profile, now carrying the retried values.
+        $this->assertSame(1, EmployerProfile::where('user_id', $user->id)->count());
+        $this->assertDatabaseHas('employer_profiles', [
+            'user_id' => $user->id,
+            'company_name' => 'Finished Corp',
+        ]);
     }
 
     /** @test */
