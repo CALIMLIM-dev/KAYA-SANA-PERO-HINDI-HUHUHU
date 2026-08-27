@@ -70,6 +70,37 @@ class _PinLocationScreenState extends State<PinLocationScreen> {
       _label = args['label'] as String?;
       if (lat != null && lng != null) _pin = LatLng(lat, lng);
     }
+
+    /*
+        Open on the named place, even when no coordinates came with it.
+
+        A caller that has a location label but no coordinates - a profile
+        whose saved place never carried a centroid - used to land the map on
+        the middle of the country at zoom 5.5, so the user was staring at the
+        whole of the Philippines and had to pan and zoom to their own town
+        before they could drop a pin.
+
+        With a label and no pin, look the label up and move the camera to its
+        centroid once the map is ready. The pin is not pre-set - the settle
+        from the move records it - so the behaviour matches a caller that did
+        pass coordinates.
+    */
+    if (_pin == null && (_label ?? '').trim().isNotEmpty) {
+      WidgetsBinding.instance.addPostFrameCallback((_) => _seekLabel(_label!));
+    }
+  }
+
+  Future<void> _seekLabel(String label) async {
+    final locations = context.read<LocationProvider>();
+    await locations.search(label);
+    if (!mounted) return;
+
+    final match = locations.results
+        .where((r) => r.latitude != null && r.longitude != null)
+        .firstOrNull;
+    if (match == null) return;
+
+    _map.move(LatLng(match.latitude!, match.longitude!), 15);
   }
 
   double? _toDouble(Object? v) =>

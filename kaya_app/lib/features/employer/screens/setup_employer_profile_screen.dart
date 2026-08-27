@@ -41,7 +41,6 @@ class _SetupEmployerProfileScreenState extends State<SetupEmployerProfileScreen>
   final _companyNameController = TextEditingController();
   final _industryController = TextEditingController();
   final _websiteController = TextEditingController();
-  final _descriptionController = TextEditingController();
   final _locationController = TextEditingController();
 
   EmployerType? _selectedType;
@@ -100,7 +99,6 @@ class _SetupEmployerProfileScreenState extends State<SetupEmployerProfileScreen>
     _companyNameController.dispose();
     _industryController.dispose();
     _websiteController.dispose();
-    _descriptionController.dispose();
     _locationController.dispose();
     super.dispose();
   }
@@ -213,9 +211,7 @@ class _SetupEmployerProfileScreenState extends State<SetupEmployerProfileScreen>
         website: _isCompany && _websiteController.text.trim().isNotEmpty
             ? _websiteController.text.trim()
             : null,
-        description: _descriptionController.text.trim().isEmpty
-            ? null
-            : _descriptionController.text.trim(),
+        description: null,
         location: _locationController.text.trim(),
         locationId: _selectedLocation?.id,
         latitude: _selectedLocation?.latitude,
@@ -623,16 +619,9 @@ class _SetupEmployerProfileScreenState extends State<SetupEmployerProfileScreen>
               validator: (_) =>
                   _selectedLocation == null ? 'Pick a location from the list' : null,
             ),
-            const SizedBox(height: 16),
-            _textField(
-              controller: _descriptionController,
-              label: _isCompany ? 'About the Business' : 'About You',
-              hint: _isCompany
-                  ? 'Tell workers about your business...'
-                  : 'Tell workers what kind of help you usually need...',
-              icon: Icons.info_outline,
-              maxLines: 4,
-            ),
+            // The About field was removed from setup. It is optional and can
+            // be added later from the profile, so it does not belong in the
+            // shortest path to a working account.
           ],
         ),
       ),

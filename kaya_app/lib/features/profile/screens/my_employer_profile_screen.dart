@@ -341,35 +341,10 @@ class _MyEmployerProfileScreenState extends State<MyEmployerProfileScreen>
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        // Role chip
-                        if (_role != null)
-                          Container(
-                            margin: const EdgeInsets.only(bottom: 6),
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 10, vertical: 3),
-                            decoration: BoxDecoration(
-                              color: Colors.white.withValues(alpha: 0.15),
-                              borderRadius: BorderRadius.circular(20),
-                            ),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Icon(
-                                  _role == 'Company'
-                                      ? Icons.business_center
-                                      : Icons.person,
-                                  size: 11,
-                                  color: Colors.white70,
-                                ),
-                                const SizedBox(width: 4),
-                                Text(_role!,
-                                    style: const TextStyle(
-                                        fontSize: 11,
-                                        fontWeight: FontWeight.w600,
-                                        color: Colors.white70)),
-                              ],
-                            ),
-                          ),
+                        // The Company/Individual badge was removed from the
+                        // header. It restated a choice the account cannot
+                        // change here anyway, so on the profile it read as a
+                        // locked label rather than information.
 
                         /*
                             Two lines, then an ellipsis.
