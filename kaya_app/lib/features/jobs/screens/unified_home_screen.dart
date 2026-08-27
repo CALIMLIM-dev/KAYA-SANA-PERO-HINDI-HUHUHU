@@ -21,6 +21,7 @@ import '../widgets/jobs_near_you_section.dart';
 import '../widgets/people_who_can_help_section.dart';
 import '../../notifications/widgets/notification_bell.dart';
 import '../../../core/utils/realtime_refresh.dart';
+import '../../../core/widgets/app_toast.dart';
 import '../../../data/services/realtime_service.dart';
 
 /// Home screen for both sides of the marketplace.
@@ -67,6 +68,37 @@ class _UnifiedHomeScreenState extends State<UnifiedHomeScreen>
   /// The server drops anyone whose position cannot be worked out, so this is a
   /// real bound rather than a hint.
   static const double _nearbyRadiusKm = 50;
+
+  /*
+      How far out the worker search currently reaches.
+
+      Starts at the default above and widens when someone asks for it from the
+      empty state. Two hundred is the ceiling: past that "people who can help"
+      stops meaning anything for a job someone has to physically travel to.
+
+      Only workers are bounded by this. Jobs come back sorted nearest-first
+      with no cut-off, which is why the jobs section offers a different way
+      out of an empty list rather than this one.
+  */
+  static const double _maxRadiusKm = 200;
+  double _radiusKm = _nearbyRadiusKm;
+
+  bool get _canWidenSearch => _radiusKm < _maxRadiusKm;
+
+  /// Widen the worker search and reload. Doubles rather than stepping, so it
+  /// takes two taps to reach the ceiling instead of six.
+  Future<void> _widenWorkerSearch() async {
+    if (!_canWidenSearch) return;
+
+    setState(() {
+      _radiusKm = (_radiusKm * 2).clamp(_nearbyRadiusKm, _maxRadiusKm);
+    });
+
+    await _initializeData();
+
+    if (!mounted) return;
+    AppToast.info(context, 'Now showing workers within ${_radiusKm.round()} km');
+  }
 
   @override
   void initState() {
@@ -179,7 +211,7 @@ class _UnifiedHomeScreenState extends State<UnifiedHomeScreen>
     */
     await Future.wait([
       if (!employerOnly) jobProvider.fetchPublicJobs(nearestFirst: true),
-      if (!workerOnly) workerBrowse.fetchWorkers(radiusKm: _nearbyRadiusKm),
+      if (!workerOnly) workerBrowse.fetchWorkers(radiusKm: _radiusKm),
     ]);
 
     if (!mounted) return;
@@ -886,10 +918,13 @@ class _UnifiedHomeScreenState extends State<UnifiedHomeScreen>
                     userLocation: authProvider.user?['city'] as String?,
                     // Same bound the fetch used, so the heading cannot drift
                     // away from what was actually asked for.
-                    radiusKm: _nearbyRadiusKm,
+                    radiusKm: _radiusKm,
                     onSeeAll: () => AppRouter.toSearchJobs(context),
                     onWorkerTap: _onWorkerTap,
                     onWorkerInvite: _inviteWorker,
+                    // Null at the ceiling, which hides the button instead of
+                    // offering a wider search that cannot return anything.
+                    onWidenSearch: _canWidenSearch ? _widenWorkerSearch : null,
                   ),
                 ),
               ],

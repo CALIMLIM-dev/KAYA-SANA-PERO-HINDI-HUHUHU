@@ -238,27 +238,38 @@ class JobsNearYouSection extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 4),
+            /*
+                Not a radius problem, so not radius advice.
+
+                This used to read "try expanding your search radius" above a
+                button labelled "Adjust Location" that did nothing at all.
+                Jobs are never cut off by distance — they come back sorted
+                nearest-first — so there is no radius to expand and widening
+                one would not add a single row. An empty list here means the
+                current filter matched nothing, and search is the way out.
+            */
             Text(
-              'Try expanding your search radius',
+              'Nothing matches this filter right now',
               style: TextStyle(
                 color: AppColors.neutral500,
                 fontSize: 12,
               ),
+              textAlign: TextAlign.center,
             ),
-            const SizedBox(height: 12),
-            TextButton(
-              onPressed: () {
-                // TODO: Expand search radius or adjust location
-              },
-              child: Text(
-                'Adjust Location',
-                style: TextStyle(
-                  color: AppColors.primary,
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
+            if (onSeeAll != null) ...[
+              const SizedBox(height: 12),
+              TextButton(
+                onPressed: onSeeAll,
+                child: Text(
+                  'Browse all jobs',
+                  style: TextStyle(
+                    color: AppColors.primary,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
               ),
-            ),
+            ],
           ],
         ),
       ),

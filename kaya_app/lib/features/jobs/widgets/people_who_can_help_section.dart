@@ -18,6 +18,10 @@ class PeopleWhoCanHelpSection extends StatelessWidget {
   final Function(WorkerProfile)? onWorkerTap;
   final Function(WorkerProfile)? onWorkerInvite;
 
+  /// Widen the search and reload. Null once the radius is at its ceiling,
+  /// which hides the button rather than offering something that cannot help.
+  final VoidCallback? onWidenSearch;
+
   const PeopleWhoCanHelpSection({
     super.key,
     required this.workers,
@@ -27,6 +31,7 @@ class PeopleWhoCanHelpSection extends StatelessWidget {
     this.onSeeAll,
     this.onWorkerTap,
     this.onWorkerInvite,
+    this.onWidenSearch,
   });
 
   @override
@@ -204,26 +209,40 @@ class PeopleWhoCanHelpSection extends StatelessWidget {
             ),
             const SizedBox(height: 4),
             Text(
-              'Try expanding your search radius',
+              onWidenSearch != null
+                  ? 'Nobody within ${(radiusKm ?? 50).round()} km yet'
+                  : 'Nobody found even across the whole region',
               style: TextStyle(
                 color: AppColors.neutral500,
                 fontSize: 12,
               ),
+              textAlign: TextAlign.center,
             ),
-            const SizedBox(height: 12),
-            TextButton(
-              onPressed: () {
-                // TODO: Expand search radius or adjust location
-              },
-              child: Text(
-                'Adjust Location',
-                style: TextStyle(
-                  color: AppColors.primary,
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
+            /*
+                The only way out of an empty list, so it has to work.
+
+                This offered "Adjust Location" against an empty handler. It
+                shows precisely when someone has nothing to look at, which is
+                the one moment a dead control is certain to be pressed.
+
+                The button disappears at the maximum radius rather than going
+                grey, because a worker search wider than a couple of hundred
+                kilometres is not a search anyone can act on.
+            */
+            if (onWidenSearch != null) ...[
+              const SizedBox(height: 12),
+              TextButton(
+                onPressed: onWidenSearch,
+                child: Text(
+                  'Search a wider area',
+                  style: TextStyle(
+                    color: AppColors.primary,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
               ),
-            ),
+            ],
           ],
         ),
       ),
