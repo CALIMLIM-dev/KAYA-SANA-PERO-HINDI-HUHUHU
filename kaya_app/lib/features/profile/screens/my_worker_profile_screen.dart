@@ -636,83 +636,54 @@ class _MyWorkerProfileScreenState extends State<MyWorkerProfileScreen> with Sing
     );
   }
 
-  /// Opens the map picker, and saves whatever spot comes back.
+  /*
+      The same small pin control as the setup flow.
+
+      This was a full-width card with a border, an icon, a title, a sentence
+      and a chevron, all of it saying what the pin icon says on its own. A
+      maps app uses one small button for this because there is nothing to
+      explain.
+
+      Kept identical to the setup flow version deliberately - it is the same
+      action on the same data, and two different-looking controls for it is
+      how someone ends up unsure whether they are the same thing.
+  */
   Widget _pinRow(WorkerProfileProvider p) {
     final pinned = p.hasPinnedLocation;
     final hasCity = (p.location ?? '').trim().isNotEmpty;
 
+    final tint = !hasCity
+        ? AppColors.neutral400
+        : (pinned ? AppColors.success : AppColors.primary);
+
     return Padding(
       padding: const EdgeInsets.only(bottom: 8),
-      child: Material(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        clipBehavior: Clip.antiAlias,
-        child: InkWell(
-          onTap: hasCity ? () => _openPinPicker(p) : null,
-          child: Container(
-            padding: const EdgeInsets.fromLTRB(14, 12, 10, 12),
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(
-                color: pinned
-                    ? AppColors.success.withValues(alpha: 0.4)
-                    : AppColors.neutral200,
-              ),
+      child: Align(
+        alignment: Alignment.centerLeft,
+        child: OutlinedButton.icon(
+          onPressed: hasCity ? () => _openPinPicker(p) : null,
+          icon: Icon(
+            pinned ? Icons.where_to_vote : Icons.add_location_alt_outlined,
+            size: 18,
+          ),
+          label: Text(pinned ? 'Pinned' : 'Pin location'),
+          style: OutlinedButton.styleFrom(
+            foregroundColor: tint,
+            side: BorderSide(color: tint.withValues(alpha: 0.5)),
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+            visualDensity: VisualDensity.compact,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(20),
             ),
-            child: Row(
-              children: [
-                Icon(
-                  pinned ? Icons.where_to_vote : Icons.add_location_alt_outlined,
-                  size: 20,
-                  color: !hasCity
-                      ? AppColors.neutral400
-                      : (pinned ? AppColors.success : AppColors.primary),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        pinned ? 'Exact location pinned' : 'Pin your exact location',
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w600,
-                          color: hasCity
-                              ? AppColors.neutral900
-                              : AppColors.neutral400,
-                        ),
-                      ),
-                      // Raw coordinates told nobody anything — you cannot
-                      // check your own house against seven decimal places.
-                      // The map is where a pin gets confirmed.
-                      if (!pinned) ...[
-                        const SizedBox(height: 2),
-                        Text(
-                          hasCity
-                              ? 'So jobs show the real distance to you'
-                              : 'Choose your location first',
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                              fontSize: 12, color: AppColors.neutral500),
-                        ),
-                      ],
-                    ],
-                  ),
-                ),
-                Icon(Icons.chevron_right,
-                    color: hasCity ? AppColors.neutral400 : AppColors.neutral300),
-              ],
+            textStyle: const TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
             ),
           ),
         ),
       ),
     );
   }
-
   Future<void> _openPinPicker(WorkerProfileProvider p) async {
     final result = await Navigator.pushNamed(
       context,

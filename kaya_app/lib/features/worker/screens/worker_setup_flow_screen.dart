@@ -441,90 +441,68 @@ class _WorkerSetupFlowScreenState extends State<WorkerSetupFlowScreen> {
   /// Without it every worker in a town sits on that town's single centroid, so
   /// a job in the same town reads the same distance for all of them — which
   /// takes the location component of matching out of play entirely.
+  /*
+      A pin button, the size of a button.
+
+      This was a full-width card: tinted background, border, an icon in a box,
+      a title, a sentence underneath it and a chevron - all to say "pin your
+      location", which is what the pin icon already says. Every maps app on
+      the phone does this with one small control, because there is nothing to
+      explain.
+
+      So it is a pill now. Pin icon, two words, no fill and no highlight; it
+      only picks up a colour once a pin exists, which is the single piece of
+      state worth showing. Clearing it is the small x beside it rather than a
+      full-height IconButton that set the row's height.
+  */
   Widget _buildWorkerPinRow() {
     final hasPin = _pinnedLat != null && _pinnedLng != null;
     final canPin = _selectedLocation != null;
 
-    return InkWell(
-      onTap: canPin ? _openWorkerPinPicker : null,
-      borderRadius: BorderRadius.circular(12),
-      child: Container(
-        padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(
-          color: hasPin
-              ? AppColors.success.withValues(alpha: 0.06)
-              : Colors.white,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(
-            color: hasPin
-                ? AppColors.success.withValues(alpha: 0.4)
-                : Colors.transparent,
-          ),
-        ),
-        child: Row(
-          children: [
-            Icon(
+    final tint = !canPin
+        ? AppColors.neutral400
+        : (hasPin ? AppColors.success : AppColors.primary);
+
+    return Align(
+      alignment: Alignment.centerLeft,
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          OutlinedButton.icon(
+            onPressed: canPin ? _openWorkerPinPicker : null,
+            icon: Icon(
               hasPin ? Icons.where_to_vote : Icons.add_location_alt_outlined,
-              size: 20,
-              color: canPin
-                  ? (hasPin ? AppColors.success : AppColors.primary)
-                  : AppColors.neutral400,
+              size: 18,
             ),
-            const SizedBox(width: 10),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    hasPin
-                        ? 'Exact location pinned'
-                        : 'Pin your exact location *',
-                    style: TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w600,
-                      color: canPin ? AppColors.neutral900 : AppColors.neutral400,
-                    ),
-                  ),
-                  const SizedBox(height: 2),
-                  /*
-                      No raw coordinates.
-
-                      This printed "15.97600, 120.57100" once a pin was set,
-                      which tells nobody anything - a person cannot check
-                      their own house against seven decimal places, so the one
-                      thing they might want to verify is the one thing it
-                      cannot show. The place name is already on the row above
-                      it, and the map is where you confirm the spot.
-
-                      Only the prompt survives, and only while it is still
-                      asking for something.
-                  */
-                  if (!hasPin) ...[
-                    const SizedBox(height: 2),
-                    Text(
-                      canPin
-                          ? 'So jobs can show the real distance to you'
-                          : 'Choose your location first',
-                      style: const TextStyle(
-                          fontSize: 12, color: AppColors.neutral500),
-                    ),
-                  ],
-                ],
+            label: Text(hasPin ? 'Pinned' : 'Pin location'),
+            style: OutlinedButton.styleFrom(
+              foregroundColor: tint,
+              side: BorderSide(color: tint.withValues(alpha: 0.5)),
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+              visualDensity: VisualDensity.compact,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(20),
+              ),
+              textStyle: const TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
               ),
             ),
-            if (hasPin)
-              IconButton(
-                icon: const Icon(Icons.close,
-                    size: 18, color: AppColors.neutral500),
-                onPressed: () => setState(() {
-                  _pinnedLat = null;
-                  _pinnedLng = null;
-                }),
-              )
-            else if (canPin)
-              const Icon(Icons.chevron_right, color: AppColors.neutral400),
-          ],
-        ),
+          ),
+          if (hasPin)
+            IconButton(
+              icon: const Icon(Icons.close, size: 16),
+              color: AppColors.neutral500,
+              visualDensity: VisualDensity.compact,
+              constraints: const BoxConstraints(),
+              padding: const EdgeInsets.only(left: 8),
+              tooltip: 'Remove pin',
+              onPressed: () => setState(() {
+                _pinnedLat = null;
+                _pinnedLng = null;
+              }),
+            ),
+        ],
       ),
     );
   }
