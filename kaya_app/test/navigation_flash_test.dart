@@ -278,7 +278,20 @@ void main() {
       await pumpRouter(tester, const WorkerProfileRouter(), auth: auth);
       expect(find.byType(MyWorkerProfileScreen), findsOneWidget);
 
-      await auth.logout();
+      /*
+          The state logout leaves behind, set directly.
+
+          Calling the real logout() here hangs the test for the full ten
+          minute timeout: it clears secure storage, closes the websocket,
+          stops the background service and clears the sqflite message cache,
+          none of which have a backing implementation under flutter_test.
+
+          What this test is actually about is what the router draws once the
+          account is gone, and that is exactly the pair of values logout
+          leaves. The unit test above is the one that proves logout really
+          sets them, and it runs in milliseconds.
+      */
+      auth.seedUser(null, fetched: false);
       await tester.pump();
 
       expect(
