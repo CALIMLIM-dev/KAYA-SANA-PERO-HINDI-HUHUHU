@@ -5,7 +5,6 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/utils/json_parse.dart';
 import '../../../providers/worker_browse_provider.dart';
-import '../../../core/navigation/main_navigation.dart';
 import '../../../core/widgets/app_toast.dart';
 import '../../invitations/widgets/invite_to_job.dart';
 
@@ -326,43 +325,32 @@ class _WorkerProfileScreenState extends State<WorkerProfileScreen> {
           SliverToBoxAdapter(
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 20),
-              child: Row(
-                children: [
-                  Expanded(
-                    flex: 2,
-                    child: ElevatedButton.icon(
-                      onPressed: () => _showInviteDialog(context, name),
-                      icon: const Icon(Icons.person_add_outlined, size: 20),
-                      label: const Text('Invite to Apply'),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppColors.primary,
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(vertical: 14),
-                        shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(10)),
-                        elevation: 0,
-                      ),
-                    ),
+              /*
+                  The Message button was removed.
+
+                  It could not do what it said: a conversation only exists once
+                  an application or invitation is accepted, so on a worker you
+                  have not hired there is nothing to open, and it just dropped
+                  you in the inbox. Inviting them to a job is the real way to
+                  reach a worker, and once they are accepted the conversation
+                  appears in Messages on its own - so that is the only action
+                  left here.
+              */
+              child: SizedBox(
+                width: double.infinity,
+                child: ElevatedButton.icon(
+                  onPressed: () => _showInviteDialog(context, name),
+                  icon: const Icon(Icons.person_add_outlined, size: 20),
+                  label: const Text('Invite to Apply'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.primary,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10)),
+                    elevation: 0,
                   ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: OutlinedButton.icon(
-                      // No conversation exists until an application/invitation
-                      // is accepted (see ConversationController) — send them to
-                      // the real inbox rather than a chat with nothing behind it.
-                      onPressed: () => MainNavigation.openMessages(context),
-                      icon: const Icon(Icons.message_outlined, size: 20),
-                      label: const Text('Message'),
-                      style: OutlinedButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(vertical: 14),
-                        side: const BorderSide(color: AppColors.primary),
-                        foregroundColor: AppColors.primary,
-                        shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(10)),
-                      ),
-                    ),
-                  ),
-                ],
+                ),
               ),
             ),
           ),

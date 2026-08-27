@@ -5,6 +5,7 @@ import '../../../core/utils/realtime_refresh.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../providers/app_mode_provider.dart';
 import '../../../providers/application_provider.dart';
+import '../../../providers/invitation_provider.dart';
 import '../../../providers/job_provider.dart';
 import '../widgets/completion_action.dart';
 
@@ -53,6 +54,11 @@ class _ApplicationsScreenState extends State<ApplicationsScreen>
     final futures = <Future<void>>[
       if (appMode.hasWorkerProfile)
         context.read<ApplicationProvider>().fetchMyApplications(),
+      // Invitations were only reachable by tapping a notification, so a worker
+      // who missed it had no way back to them. They belong on the worker's
+      // activity beside their applications.
+      if (appMode.hasWorkerProfile)
+        context.read<InvitationProvider>().fetchMyInvitations(),
       if (appMode.hasEmployerProfile) context.read<JobProvider>().fetchMyJobs(),
     ];
 
@@ -61,9 +67,10 @@ class _ApplicationsScreenState extends State<ApplicationsScreen>
 
   @override
   Widget build(BuildContext context) {
-    return Consumer3<AppModeProvider, ApplicationProvider, JobProvider>(
-      builder: (context, appMode, applications, jobs, _) {
-        final tabs = _buildTabs(appMode, applications, jobs);
+    return Consumer4<AppModeProvider, ApplicationProvider, JobProvider,
+        InvitationProvider>(
+      builder: (context, appMode, applications, jobs, invitations, _) {
+        final tabs = _buildTabs(appMode, applications, jobs, invitations);
 
         if (tabs.isEmpty) return _noProfileState();
 
@@ -100,8 +107,16 @@ class _ApplicationsScreenState extends State<ApplicationsScreen>
                 for (final t in tabs)
                   _TabBody(
                     tab: t,
-                    isLoading: t.isJobTab ? jobs.isLoading : applications.isLoading,
-                    error: t.isJobTab ? jobs.errorMessage : applications.errorMessage,
+                    isLoading: t.isInvitationTab
+                        ? invitations.isLoading
+                        : t.isJobTab
+                            ? jobs.isLoading
+                            : applications.isLoading,
+                    error: t.isInvitationTab
+                        ? invitations.errorMessage
+                        : t.isJobTab
+                            ? jobs.errorMessage
+                            : applications.errorMessage,
                     onRefresh: _load,
                   ),
               ],
@@ -116,6 +131,7 @@ class _ApplicationsScreenState extends State<ApplicationsScreen>
     AppModeProvider appMode,
     ApplicationProvider applications,
     JobProvider jobs,
+    InvitationProvider invitations,
   ) {
     final hasWorker = appMode.hasWorkerProfile;
     final hasEmployer = appMode.hasEmployerProfile;
@@ -126,6 +142,20 @@ class _ApplicationsScreenState extends State<ApplicationsScreen>
     String statusOf(Map<String, dynamic> m) => (m['status'] ?? '').toString();
 
     return [
+      // Worker side: invitations an employer sent, still waiting on you. First,
+      // because an invitation is someone asking for you by name and is the one
+      // thing here with a deadline on the other person's patience.
+      if (hasWorker)
+        _ActivityTab(
+          label: 'Invitations',
+          isInvitationTab: true,
+          emptyTitle: 'No invitations yet',
+          emptyBody: 'Employers who invite you to a job will show up here',
+          items: invitations.invitations
+              .where((i) => statusOf(i) == 'pending')
+              .toList(),
+        ),
+
       // Worker side: applications you sent that have no answer yet.
       if (hasWorker)
         _ActivityTab(
@@ -258,7 +288,8 @@ class _ActivityTab {
   const _ActivityTab({
     required this.label,
     required this.items,
-    required this.isJobTab,
+    this.isJobTab = false,
+    this.isInvitationTab = false,
     required this.emptyTitle,
     required this.emptyBody,
   });
@@ -269,6 +300,10 @@ class _ActivityTab {
   /// Job posts render differently from applications (applicant count vs status
   /// against an employer).
   final bool isJobTab;
+
+  /// Invitations render differently again — an employer inviting the worker,
+  /// with the accept/decline flow living on the invitations screen.
+  final bool isInvitationTab;
 
   final String emptyTitle;
   final String emptyBody;
@@ -320,9 +355,12 @@ class _TabBody extends StatelessWidget {
       child: ListView.builder(
         padding: const EdgeInsets.all(16),
         itemCount: tab.items.length,
-        itemBuilder: (_, i) => tab.isJobTab
-            ? _JobPostCard(job: tab.items[i], onChanged: onRefresh)
-            : _ApplicationCard(application: tab.items[i], onChanged: onRefresh),
+        itemBuilder: (_, i) => tab.isInvitationTab
+            ? _InvitationCard(invitation: tab.items[i])
+            : tab.isJobTab
+                ? _JobPostCard(job: tab.items[i], onChanged: onRefresh)
+                : _ApplicationCard(
+                    application: tab.items[i], onChanged: onRefresh),
       ),
     );
   }
@@ -508,6 +546,36 @@ class _ApplicationCard extends StatelessWidget {
 }
 
 /// Employer side — a job you posted.
+/// A pending invitation on the worker's activity.
+///
+/// The accept and decline flow, with its confirmations and the message button
+/// that appears after accepting, already lives in full on the invitations
+/// screen. Rather than build a second copy of it here, this card carries the
+/// job and employer and opens that screen on tap - so the invitation is
+/// discoverable from activity, which is the whole point, and acted on where
+/// the logic already is.
+class _InvitationCard extends StatelessWidget {
+  const _InvitationCard({required this.invitation});
+
+  final Map<String, dynamic> invitation;
+
+  @override
+  Widget build(BuildContext context) {
+    final job = invitation['job'] as Map<String, dynamic>?;
+    final employer = invitation['employer'] as Map<String, dynamic>?;
+    final jobTitle = (job?['title'] ?? 'Job').toString();
+    final employerName = (employer?['name'] ?? 'An employer').toString();
+
+    return _cardShell(
+      title: jobTitle,
+      subtitle: '$employerName invited you to apply',
+      status: 'pending',
+      trailing: 'Tap to accept or decline',
+      onTap: () => Navigator.pushNamed(context, '/my-invitations'),
+    );
+  }
+}
+
 class _JobPostCard extends StatelessWidget {
   const _JobPostCard({required this.job, required this.onChanged});
 
@@ -739,6 +807,25 @@ Widget _cardShell({
                   Text(trailing,
                       style: const TextStyle(
                           fontSize: 12, color: AppColors.neutral600)),
+                  /*
+                      Says the row opens the applicants.
+
+                      The whole card has always been tappable to the applicant
+                      list, but nothing showed it, so the only place people
+                      found their applicants was the separate manage-jobs
+                      screen. A label and a chevron make the tap target look
+                      like one.
+                  */
+                  if (onTap != null) ...[
+                    const Spacer(),
+                    const Text('View',
+                        style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                            color: AppColors.primary)),
+                    const Icon(Icons.chevron_right,
+                        size: 18, color: AppColors.primary),
+                  ],
                 ],
               ),
             ],
