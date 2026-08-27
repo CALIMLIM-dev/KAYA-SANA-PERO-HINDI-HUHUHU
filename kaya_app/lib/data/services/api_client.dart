@@ -436,10 +436,28 @@ class ApiClient {
         return ApiException(status, code,
             fallback ?? 'Server error. Please try again later.');
       default:
-        // fallback carries the interceptor's explanation for a body that was
-        // not JSON at all, which is more use than "Something went wrong."
-        return ApiException(
-            status, code, message ?? fallback ?? 'Something went wrong.');
+        /*
+            Say which failure it was.
+
+            "Something went wrong" is what this returned for every status the
+            cases above do not name, and for a request that never got a reply
+            at all. Those are completely different problems — a refused
+            upload, a dropped connection, a route that has moved — and they
+            were indistinguishable to the person reporting them and to anyone
+            trying to fix it from a description.
+
+            The status is appended when there is nothing better to say, so a
+            report carries the one detail that identifies the cause. `e.type`
+            covers the case where the request never reached the server, which
+            has no status to print.
+        */
+        if (message != null) return ApiException(status, code, message);
+        if (fallback != null) return ApiException(status, code, fallback);
+
+        final detail = status != null
+            ? 'error $status'
+            : 'no reply from the server (${e.type.name})';
+        return ApiException(status, code, 'Something went wrong — $detail.');
     }
   }
 }

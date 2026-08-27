@@ -343,6 +343,19 @@ class _PostJobScreenState extends State<PostJobScreen> {
   static const int _maxPhotos = 4;
 
   /*
+      What the whole request may weigh.
+
+      nginx refuses a body over 1MB on this server — 1024KB answers, 1100KB
+      returns 413 — and that ceiling applies to the request, not to each
+      photo. Laravel's own rule is a generous 5MB per file, so validation
+      would happily pass a set the server never reads.
+
+      Leaving 100KB for the form fields and the multipart boundaries, which
+      is far more than they need.
+  */
+  static const int _maxTotalUploadBytes = 900 * 1024;
+
+  /*
       Checked here, because the alternative is a failed upload.
 
       The picker took anything the gallery offered and silently dropped
@@ -395,10 +408,28 @@ class _PostJobScreenState extends State<PostJobScreen> {
         capping it. Ask for 2 in that case and drop the extra afterwards,
         which is the one place trimming is still correct.
     */
+    /*
+        Sized to what the server will actually accept.
+
+        Measured rather than assumed: posting a 1024KB body to /api/v1/jobs
+        returns 401, and 1100KB returns 413, so nginx is sitting on its
+        default client_max_body_size of 1MB. That is the whole multipart
+        body — four photos, every form field and the boundaries — not a
+        per-file limit.
+
+        1600px at quality 85 is roughly 250-450KB a photo, so four of them
+        cleared a megabyte on their own and the post failed with the server
+        refusing to read it. 1200px at 75 lands around 120-180KB, which keeps
+        four inside the budget with room for the rest of the form.
+
+        Still plenty for a job photo on a phone. The real fix is
+        client_max_body_size on the server; until that changes this is what
+        fits.
+    */
     final List<XFile> images = await picker.pickMultiImage(
       limit: room < 2 ? 2 : room,
-      maxWidth: 1600,
-      imageQuality: 85,
+      maxWidth: 1200,
+      imageQuality: 75,
     );
     if (images.isEmpty || !mounted) return;
 
@@ -2018,6 +2049,33 @@ class _PostJobScreenState extends State<PostJobScreen> {
     if (_startDate == null) {
       setState(() => _showScheduleError = true);
       await _pointAt(_scheduleKey, 'Please choose when the work starts');
+      return;
+    }
+
+    /*
+        Weighed before it is sent.
+
+        Without this the only thing that notices an over-sized set is nginx,
+        which answers 413 after the whole upload has gone over a phone
+        connection — so the employer waits through it and is told it failed
+        at the end. Resizing on pick makes this unlikely rather than
+        impossible: four detailed photos can still add up.
+
+        Checked here rather than at pick time because it is the total that
+        matters, and the total is only known once they have finished choosing.
+    */
+    var totalBytes = 0;
+    for (final photo in _selectedImages) {
+      totalBytes += await photo.length();
+    }
+    if (!mounted) return;
+
+    if (totalBytes > _maxTotalUploadBytes) {
+      await _pointAt(
+        _photosKey,
+        'Those photos add up to ${(totalBytes / 1024 / 1024).toStringAsFixed(1)}MB, '
+        'which is more than the server accepts. Remove one and try again.',
+      );
       return;
     }
 
