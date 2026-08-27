@@ -116,6 +116,39 @@ class ApiClient {
         }
         return handler.next(options);
       },
+      /*
+          A body that is not JSON is a failure, however it arrives.
+
+          Every caller in the app reads the result as `res.data['data']`. When
+          the server answers with an HTML page instead — nginx's 413 on a
+          multipart upload that is over the size limit, a 502 while PHP is
+          restarting, a login redirect — `res.data` is a String, and indexing
+          a String throws:
+
+              type 'String' is not a subtype of type 'int' of 'index'
+
+          That message names neither the request nor the screen, and it is
+          what a user saw when posting a job with photos failed. There are
+          forty-odd places that index a response this way; guarding them one
+          at a time would mean forty chances to miss one, so the check belongs
+          here, where every response passes through exactly once.
+      */
+      onResponse: (response, handler) {
+        final body = response.data;
+        if (body is String && body.trim().isNotEmpty) {
+          return handler.reject(
+            DioException(
+              requestOptions: response.requestOptions,
+              response: response,
+              type: DioExceptionType.badResponse,
+              error: 'The server returned a page instead of data. '
+                  'It may be restarting, or the upload may be too large.',
+            ),
+            true,
+          );
+        }
+        return handler.next(response);
+      },
       onError: (error, handler) {
         if (error.response?.statusCode == 401 &&
             !_isAuthPath(error.requestOptions.path)) {
@@ -314,7 +347,23 @@ class ApiClient {
     }
 
     final status = e.response?.statusCode;
-    final message = e.response?.data?['message'] as String?;
+
+    /*
+        The error handler must not throw while handling an error.
+
+        This read `e.response?.data?['message']` with no check on the shape.
+        A String body — an HTML error page — throws on that index, so the one
+        code path whose job is to explain the failure crashed with
+
+            type 'String' is not a subtype of type 'int' of 'index'
+
+        replacing the real problem with a message about types. Anything the
+        interceptor above rejected arrives here carrying its explanation in
+        `e.error`, so use that when the body cannot be read.
+    */
+    final data = e.response?.data;
+    final message = data is Map ? data['message'] as String? : null;
+    final fallback = e.error is String ? e.error as String : null;
 
     // The machine readable code, when the server sends one. It is what lets
     // the app tell "you need to top up" from every other refusal without
@@ -360,17 +409,23 @@ class ApiClient {
                 ? 'No account found with that email.'
                 : 'Not found.'));
       case 422:
-        // Validation errors — extract first error message
-        final errors = e.response?.data?['errors'];
-        if (errors is Map) {
+        // Validation errors — extract first error message. Shape-checked for
+        // the same reason as `message` above: a non-JSON body must not turn a
+        // reportable failure into a type error.
+        final errors = data is Map ? data['errors'] : null;
+        if (errors is Map && errors.isNotEmpty) {
           final firstError = (errors.values.first as List).first.toString();
           return ApiException(status, code, firstError);
         }
         return ApiException(status, code, message ?? 'Validation error.');
       case 500:
-        return ApiException(status, code, 'Server error. Please try again later.');
+        return ApiException(status, code,
+            fallback ?? 'Server error. Please try again later.');
       default:
-        return ApiException(status, code, message ?? 'Something went wrong.');
+        // fallback carries the interceptor's explanation for a body that was
+        // not JSON at all, which is more use than "Something went wrong."
+        return ApiException(
+            status, code, message ?? fallback ?? 'Something went wrong.');
     }
   }
 }

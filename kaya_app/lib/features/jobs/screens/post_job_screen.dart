@@ -92,6 +92,37 @@ class _PostJobScreenState extends State<PostJobScreen> {
   }
 
   final _formKey = GlobalKey<FormState>();
+
+  /*
+      Anchors, so a refusal can point at what it is refusing.
+
+      Posting a job used to fail with a toast naming the problem and nothing
+      else. On a form this long the field it meant was usually off-screen, so
+      the employer read "please pick the job location", saw no location field,
+      and had to scroll looking for the red one. The toast is fine; it just
+      needs to arrive with the field it is talking about.
+  */
+  final _basicsKey = GlobalKey();
+  final _photosKey = GlobalKey();
+  final _locationKey = GlobalKey();
+  final _scheduleKey = GlobalKey();
+
+  /// Bring a section into view, then say what is wrong with it.
+  ///
+  /// Awaited so the message lands once the field is actually on screen —
+  /// a toast over a form still scrolling reads as being about something else.
+  Future<void> _pointAt(GlobalKey key, String message) async {
+    final target = key.currentContext;
+    if (target != null) {
+      await Scrollable.ensureVisible(
+        target,
+        duration: const Duration(milliseconds: 300),
+        curve: Curves.easeOut,
+        alignment: 0.1, // just below the top, not jammed against it
+      );
+    }
+    if (mounted) AppToast.info(context, message);
+  }
   final _titleController = TextEditingController();
   final _descriptionController = TextEditingController();
   final _budgetController = TextEditingController();
@@ -312,19 +343,77 @@ class _PostJobScreenState extends State<PostJobScreen> {
     }
   }
 
+  /// What the server accepts — mirrored here so a photo is refused while the
+  /// gallery is still open, rather than after a long upload.
+  static const _allowedPhotoTypes = {'jpg', 'jpeg', 'png'};
+  static const int _maxPhotoBytes = 5 * 1024 * 1024; // matches max:5120
+  static const int _maxPhotos = 4;
+
+  /*
+      Checked here, because the alternative is a failed upload.
+
+      The picker took anything the gallery offered and silently dropped
+      whatever went past four. Two ways that went wrong:
+
+      A screenshot or a photo straight off an iPhone is not a jpg — it is a
+      png at 12MB, or an heic. The server takes jpg, jpeg and png at 5MB, so
+      those were refused only after the whole file had been uploaded, and a
+      file large enough to trip nginx's own limit came back as an HTML error
+      page rather than a message the app could read.
+
+      And silently discarding the fifth photo meant someone picked six, saw
+      four, and had no idea which two were missing or why.
+  */
   Future<void> _pickImages() async {
     final ImagePicker picker = ImagePicker();
     final List<XFile> images = await picker.pickMultiImage();
-    
-    if (images.isNotEmpty) {
-      setState(() {
-        _selectedImages.addAll(images.map((xfile) => File(xfile.path)));
-        if (_selectedImages.length > 4) {
-          _selectedImages.removeRange(4, _selectedImages.length);
-        }
-        _showPhotoError = false;
-      });
+    if (images.isEmpty || !mounted) return;
+
+    final accepted = <File>[];
+    var wrongType = 0;
+    var tooBig = 0;
+
+    for (final xfile in images) {
+      final ext = xfile.path.split('.').last.toLowerCase();
+      if (!_allowedPhotoTypes.contains(ext)) {
+        wrongType++;
+        continue;
+      }
+      final file = File(xfile.path);
+      if (await file.length() > _maxPhotoBytes) {
+        tooBig++;
+        continue;
+      }
+      accepted.add(file);
     }
+
+    if (!mounted) return;
+
+    final room = _maxPhotos - _selectedImages.length;
+    final overflowed = accepted.length > room;
+    final fitting = overflowed ? accepted.take(room).toList() : accepted;
+
+    setState(() {
+      _selectedImages.addAll(fitting);
+      if (_selectedImages.isNotEmpty) _showPhotoError = false;
+    });
+
+    // One message, naming every reason, so picking eight mixed files does not
+    // produce a queue of toasts.
+    final problems = <String>[
+      if (wrongType > 0) '$wrongType not a JPG or PNG',
+      if (tooBig > 0) '$tooBig over 5MB',
+      if (overflowed) '${accepted.length - room} over the $_maxPhotos photo limit',
+    ];
+
+    if (problems.isEmpty) return;
+
+    final skipped = wrongType + tooBig + (overflowed ? accepted.length - room : 0);
+    AppToast.warning(
+      context,
+      '$skipped photo${skipped == 1 ? '' : 's'} not added: '
+      '${problems.join(', ')}.',
+    );
   }
 
   void _removeImage(int index) {
@@ -412,6 +501,7 @@ class _PostJobScreenState extends State<PostJobScreen> {
               // Basic Information
               _buildSection(
                 title: 'Basic Information',
+                anchor: _basicsKey,
                 icon: Icons.work_outline,
                 children: [
                   _buildLabel('Job Title'),
@@ -501,6 +591,7 @@ class _PostJobScreenState extends State<PostJobScreen> {
               // Job Photos
               _buildSection(
                 title: 'Job Photos',
+                anchor: _photosKey,
                 subtitle: 'Add at least 1 photo (up to 4)',
                 icon: Icons.photo_camera_outlined,
                 children: [
@@ -540,6 +631,7 @@ class _PostJobScreenState extends State<PostJobScreen> {
               // Salary & Location
               _buildSection(
                 title: 'Salary & Location',
+                anchor: _locationKey,
                 icon: Icons.payments_outlined,
                 children: [
                   Row(
@@ -679,6 +771,7 @@ class _PostJobScreenState extends State<PostJobScreen> {
               // Schedule
               _buildSection(
                 title: 'Schedule',
+                anchor: _scheduleKey,
                 icon: Icons.event_outlined,
                 children: [_buildScheduleFields()],
               ),
@@ -1048,8 +1141,11 @@ class _PostJobScreenState extends State<PostJobScreen> {
     String? subtitle,
     IconData? icon,
     required List<Widget> children,
+    // Set on the sections _submitJob can refuse, so it can scroll to them.
+    Key? anchor,
   }) {
     return Container(
+      key: anchor,
       width: double.infinity,
       margin: const EdgeInsets.symmetric(horizontal: 16),
       padding: const EdgeInsets.all(20),
@@ -1895,44 +1991,60 @@ class _PostJobScreenState extends State<PostJobScreen> {
   }
 
   Future<void> _submitJob() async {
-    if (_formKey.currentState!.validate()) {
-      if (_selectedCategory == null) {
-        AppToast.info(context, 'Please select a category');
-        return;
-      }
+    /*
+        A refusal now arrives with the field it is refusing.
 
-      if (_selectedCategoryId == null) {
-        AppToast.info(context, 'Please select a category');
-        return;
-      }
+        Every branch below used to fire a toast and stop, leaving the employer
+        on whatever part of the form they happened to be looking at. On a form
+        this long the field being complained about was usually somewhere off
+        screen, so the toast named a problem they then had to go hunting for.
 
-      if (_selectedImages.isEmpty) {
-        setState(() => _showPhotoError = true);
-        AppToast.info(context, 'Please add at least one photo of the job');
-        return;
-      }
+        The form's own validate() runs first and marks its fields red, but it
+        does not move to them either — so when it fails, go to the top, where
+        the title and category live, rather than leaving them staring at the
+        bottom of the page.
+    */
+    if (!_formKey.currentState!.validate()) {
+      await _pointAt(_basicsKey, 'Please fill in the highlighted fields');
+      return;
+    }
 
-      // The picker's own validator covers this, but a job with no location_id
-      // saves with no coordinates — invisible in "jobs near you", no distance,
-      // no proximity score. Worth a second gate rather than a silent bad row.
-      if (_selectedLocation == null) {
-        AppToast.info(context, 'Please pick the job location from the suggestions');
-        return;
-      }
+    if (_selectedCategory == null || _selectedCategoryId == null) {
+      await _pointAt(_basicsKey, 'Please select a category');
+      return;
+    }
 
-      if (_pinnedLat == null || _pinnedLng == null) {
-        setState(() => _showPinError = true);
-        AppToast.info(context, 'Please pin the exact job location on the map');
-        return;
-      }
+    if (_selectedImages.isEmpty) {
+      setState(() => _showPhotoError = true);
+      await _pointAt(_photosKey, 'Please add at least one photo of the job');
+      return;
+    }
 
-      // Caught here as well as server-side so the employer sees the field turn
-      // red rather than a toast about a form they have already scrolled past.
-      if (_startDate == null) {
-        setState(() => _showScheduleError = true);
-        AppToast.info(context, 'Please choose when the work starts');
-        return;
-      }
+    // The picker's own validator covers this, but a job with no location_id
+    // saves with no coordinates — invisible in "jobs near you", no distance,
+    // no proximity score. Worth a second gate rather than a silent bad row.
+    if (_selectedLocation == null) {
+      await _pointAt(
+          _locationKey, 'Please pick the job location from the suggestions');
+      return;
+    }
+
+    if (_pinnedLat == null || _pinnedLng == null) {
+      setState(() => _showPinError = true);
+      await _pointAt(
+          _locationKey, 'Please pin the exact job location on the map');
+      return;
+    }
+
+    // Caught here as well as server-side so the employer sees the field turn
+    // red rather than a toast about a form they have already scrolled past.
+    if (_startDate == null) {
+      setState(() => _showScheduleError = true);
+      await _pointAt(_scheduleKey, 'Please choose when the work starts');
+      return;
+    }
+
+    {
 
       setState(() => _isLoading = true);
 
