@@ -335,6 +335,25 @@ class _JobTrackingPanelState extends State<JobTrackingPanel> {
               // a readable zoom.
               height: destination == null ? 140 : 180,
               child: FlutterMap(
+                /*
+                    Rebuilt as the worker moves.
+
+                    initialCenter and initialCameraFit are read once, when the
+                    map's state is created, and Flutter keeps that state across
+                    rebuilds. With no controller moving the camera, this map
+                    framed wherever the worker happened to be on the first
+                    frame and then stayed there for the whole journey — while
+                    the marker moved off the edge and the gap this panel exists
+                    to show could not be seen closing at all.
+
+                    Keying on both ends makes each new position a new map, so
+                    the framing is recomputed. The same mistake as the job
+                    form's pin preview, which sat on the old location after
+                    the pin was moved.
+                */
+                key: ValueKey(
+                    '${point.latitude},${point.longitude},'
+                    '${destination?.latitude},${destination?.longitude}'),
                 options: MapOptions(
                   initialCenter: point,
                   initialZoom: 15,

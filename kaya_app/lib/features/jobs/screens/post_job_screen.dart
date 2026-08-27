@@ -1282,6 +1282,24 @@ class _PostJobScreenState extends State<PostJobScreen> {
             child: Stack(
               children: [
                 FlutterMap(
+                  /*
+                      Rebuilt when the pin moves.
+
+                      Everything below is `initial` — initialCenter is read
+                      once, when the map's state is created, and never again.
+                      Flutter reuses that state across rebuilds because the
+                      widget has the same type in the same place, so dropping
+                      a new pin updated the coordinates, updated the marker,
+                      and left the map itself sitting on the old location.
+
+                      It looked like the pin had not saved: you moved it,
+                      came back, and the preview showed where it used to be.
+
+                      A key that changes with the coordinates makes this a
+                      different map as far as Flutter is concerned, so the
+                      state is rebuilt and initialCenter is read again.
+                  */
+                  key: ValueKey('pin-preview-$_pinnedLat-$_pinnedLng'),
                   options: MapOptions(
                     initialCenter: point,
                     initialZoom: 16,

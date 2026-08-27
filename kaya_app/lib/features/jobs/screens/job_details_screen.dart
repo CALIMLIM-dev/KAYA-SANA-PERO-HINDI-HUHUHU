@@ -642,35 +642,23 @@ class _JobDetailsScreenState extends State<JobDetailsScreen> {
                   if (cost == null) return const Text('Apply Now');
 
                   /*
-                      Whether they can pay comes first.
+                      The button says what it does. Always.
 
-                      This used to check for an unclaimed gift before checking
-                      the balance, so anybody with credits in hand who simply
-                      had not collected this month's grant opened a job and was
-                      told to go and claim something. The button on a job post
-                      should say what the button does, and if applying is
-                      affordable then the button applies.
+                      It used to rename itself from the wallet: an empty
+                      balance with an uncollected grant turned the main action
+                      on a job post into "Claim your free Barya", and a job
+                      advertising free money is not what anyone opened it to
+                      find. "Top up to apply" was the same mistake in a
+                      quieter voice — the screen is a job, and the action on
+                      it is applying for the job.
 
-                      Claiming only matters when it is the thing standing
-                      between them and applying.
+                      Nothing is lost by saying so: _apply already sends
+                      anyone who cannot afford it to the wallet, where
+                      claiming and topping up both live and both make sense.
+                      The wallet is the right place to talk about money; a job
+                      post is not.
                   */
-                  if (credits.canAfford('apply')) {
-                    return Text('Apply Now  ·  ${Credits.amount(cost)}');
-                  }
-
-                  /*
-                      Short, but with a gift waiting.
-
-                      Somebody who has never opened the wallet has an empty
-                      balance and free credits sitting there, and telling them
-                      to buy something would be both wrong and the worst
-                      possible first impression.
-                  */
-                  if (credits.hasSomethingToClaim) {
-                    return const Text('Claim your free Barya');
-                  }
-
-                  return const Text('Top up to apply');
+                  return Text('Apply Now  ·  ${Credits.amount(cost)}');
                 },
               ),
       );
