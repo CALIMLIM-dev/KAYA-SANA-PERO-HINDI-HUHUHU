@@ -380,7 +380,25 @@ class AuthController extends Controller
                 this call actually creates an account, so an existing user
                 signing back in is not asked to agree again.
             */
-            'terms_accepted' => [Rule::excludeIf(! $request->boolean('is_signup')), 'required', 'accepted'],
+            /*
+                Required only on the call that actually creates the account.
+
+                Google signup is two calls: a first probe with is_signup but no
+                password, which the app uses to find out the account is new, and
+                then the real call with a password once the user has set one and
+                agreed to the terms. Requiring terms on any is_signup call made
+                the probe fail on terms before it could return "password
+                required", so the app never reached the screen where the terms
+                are shown - a new Google user could not sign up at all.
+
+                Account creation only happens on the call that carries a
+                password (see below), so terms are required exactly there.
+            */
+            'terms_accepted' => [
+                Rule::excludeIf(! ($request->boolean('is_signup') && $request->filled('password'))),
+                'required',
+                'accepted',
+            ],
         ]);
 
         /*

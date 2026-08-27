@@ -270,4 +270,30 @@ class GoogleLoginSecurityTest extends TestCase
         $this->assertTrue((bool) $user->terms_accepted);
         $this->assertNotNull($user->terms_accepted_at);
     }
+
+    /*
+        The new-account probe still gets through.
+
+        The app taps Google, then calls this once with is_signup and no
+        password to learn the account is new - it expects "password required"
+        so it can send the user to set one and agree to the terms. Requiring
+        terms on that probe broke it: the probe failed on terms first and the
+        user never reached the terms screen. Terms belong on the call that
+        actually creates the account, the one with a password.
+    */
+    #[Test]
+    public function google_signup_probe_without_password_asks_for_a_password_not_terms(): void
+    {
+        $this->googleReturns($this->validClaims(["email" => "newcomer@gmail.com"]));
+
+        $this->postJson("/api/v1/google-login", [
+            "id_token"  => "x",
+            "is_signup" => true,
+            // no password, no terms - this is the probe
+        ])
+            ->assertStatus(422)
+            ->assertJsonFragment(["message" => "Password is required for new accounts"]);
+
+        $this->assertDatabaseMissing("users", ["email" => "newcomer@gmail.com"]);
+    }
 }
