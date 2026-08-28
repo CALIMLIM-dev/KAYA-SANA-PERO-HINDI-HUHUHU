@@ -148,6 +148,20 @@ class InvitationController extends Controller
             $application->update(['status' => 'accepted']);
         }
 
+        /*
+            The job starts, same as accepting an application.
+
+            Accepting an invitation is a hire - the employer offered, the
+            worker took it - so the job moves to in_progress, exactly as it does
+            when an employer accepts an application. Without this the job stayed
+            open, and location sharing refused to start ("only while the job is
+            in progress"), so the tracker never appeared for a worker who came
+            in through an invitation while it worked for one who applied.
+        */
+        if ($job->status === 'open') {
+            $job->update(['status' => 'in_progress']);
+        }
+
         // Unlock or create conversation
         // One thread per person — see the matching block in ApplicationController.
         $conversation = Conversation::firstOrCreate(

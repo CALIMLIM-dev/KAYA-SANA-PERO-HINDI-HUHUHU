@@ -145,4 +145,37 @@ class InvitationGuardTest extends TestCase
 
         $this->assertSame(2, Invitation::count());
     }
+
+    /*
+        Accepting an invitation starts the job.
+
+        Location sharing only runs while a job is in progress. Accepting an
+        application moved the job there, but accepting an invitation did not -
+        so a worker invited to a job could not start the tracker, while one who
+        applied could. Both are hires; both must start the job.
+    */
+    #[\PHPUnit\Framework\Attributes\Test]
+    public function accepting_an_invitation_puts_the_job_in_progress(): void
+    {
+        $employer = $this->employer();
+        $worker   = $this->worker();
+        $job      = $this->job($employer);
+
+        $this->invite($employer, $job, $worker)->assertSuccessful();
+
+        $invitation = Invitation::where("job_id", $job->id)
+            ->where("worker_id", $worker->id)->firstOrFail();
+
+        $this->actingAs($worker, "sanctum")
+            ->patchJson("/api/v1/invitations/{$invitation->id}/accept")
+            ->assertSuccessful();
+
+        $this->assertSame("in_progress", $job->fresh()->status,
+            "The job stayed open after the invitation was accepted, so location "
+            . "sharing would refuse to start and the tracker never appears.");
+
+        $this->assertDatabaseHas("applications", [
+            "job_id" => $job->id, "worker_id" => $worker->id, "status" => "accepted",
+        ]);
+    }
 }
