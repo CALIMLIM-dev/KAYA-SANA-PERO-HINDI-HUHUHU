@@ -74,44 +74,58 @@ class _ApplicationsScreenState extends State<ApplicationsScreen>
     return s == 'pending' || s == 'accepted';
   }
 
-  /// The worker's applications, in a sheet rather than a tab.
+  /*
+      The worker's applications, in a sheet that stays live.
+
+      This used to build the card list once, from the provider's state at the
+      moment the button was tapped, and hand that fixed list to the sheet.
+      Marking a job complete or reviewing an employer from inside the sheet
+      changed the provider - the count on the button behind it would even be
+      right the next time it opened - but the sheet on screen kept showing the
+      card exactly as it was, because nothing inside it was listening. The
+      action looked like it silently failed.
+
+      Passing a builder instead of a built list means the sheet reads the
+      provider itself, on every rebuild, so it reflects a change immediately
+      rather than only after being closed and reopened.
+  */
   void _openApplications(BuildContext context, ApplicationProvider provider) {
-    final items =
-        provider.applications.where(_isActiveApplication).toList();
     _showListSheet(
       context,
       title: 'My Applications',
       emptyTitle: 'No active applications',
       emptyBody: 'Jobs you apply to appear here until they finish.',
-      children: [
-        for (final a in items) _ApplicationCard(application: a, onChanged: _load),
-      ],
+      itemsBuilder: (context) => context
+          .watch<ApplicationProvider>()
+          .applications
+          .where(_isActiveApplication)
+          .toList(),
+      cardBuilder: (a) => _ApplicationCard(application: a, onChanged: _load),
     );
   }
 
-  /// The worker's pending invitations, in a sheet.
-  void _openInvitations(BuildContext context, InvitationProvider provider) {
-    final items = provider.invitations
-        .where((i) => (i['status'] ?? '') == 'pending')
-        .toList();
-    _showListSheet(
-      context,
-      title: 'Invitations',
-      emptyTitle: 'No invitations',
-      emptyBody: 'Employers who invite you to a job will show up here.',
-      children: [
-        for (final i in items) _InvitationCard(invitation: i),
-      ],
-    );
+  /*
+      Straight to the real screen. No sheet in between.
+
+      This used to open a sheet whose cards did nothing but navigate to
+      /my-invitations - the same list again, on a different screen, where
+      accept and decline actually live. So accepting an invitation was: open
+      the button, see the list, tap a card, see the list again, then finally
+      act. The button goes straight there now, which is one hop instead of
+      two and never shows the same list twice.
+  */
+  void _openInvitations(BuildContext context) {
+    Navigator.pushNamed(context, '/my-invitations');
   }
 
   /// One sheet shape for both, so they read as the same kind of thing.
-  void _showListSheet(
+  void _showListSheet<T>(
     BuildContext context, {
     required String title,
     required String emptyTitle,
     required String emptyBody,
-    required List<Widget> children,
+    required List<T> Function(BuildContext) itemsBuilder,
+    required Widget Function(T) cardBuilder,
   }) {
     showModalBottomSheet<void>(
       context: context,
@@ -153,14 +167,29 @@ class _ApplicationsScreenState extends State<ApplicationsScreen>
                   ],
                 ),
               ),
+              /*
+                  Builder, not a fixed widget.
+
+                  This re-runs itemsBuilder on every rebuild of the sheet's own
+                  subtree, and Provider schedules that rebuild whenever the
+                  watched provider calls notifyListeners — which is exactly
+                  what happens right after an action inside a card completes.
+                  A plain `children: [...]` computed once, above, could not do
+                  that; it was a snapshot rather than a view.
+              */
               Expanded(
-                child: children.isEmpty
-                    ? _EmptyState(title: emptyTitle, body: emptyBody)
-                    : ListView(
-                        controller: controller,
-                        padding: const EdgeInsets.fromLTRB(16, 4, 16, 24),
-                        children: children,
-                      ),
+                child: Builder(
+                  builder: (context) {
+                    final items = itemsBuilder(context);
+                    return items.isEmpty
+                        ? _EmptyState(title: emptyTitle, body: emptyBody)
+                        : ListView(
+                            controller: controller,
+                            padding: const EdgeInsets.fromLTRB(16, 4, 16, 24),
+                            children: [for (final i in items) cardBuilder(i)],
+                          );
+                  },
+                ),
               ),
             ],
           ),
@@ -219,7 +248,7 @@ class _ApplicationsScreenState extends State<ApplicationsScreen>
                         .where((i) => (i['status'] ?? '') == 'pending')
                         .length,
                     onApplications: () => _openApplications(context, applications),
-                    onInvitations: () => _openInvitations(context, invitations),
+                    onInvitations: () => _openInvitations(context),
                   ),
                 Expanded(
                   child: TabBarView(
@@ -628,36 +657,6 @@ class _ApplicationCard extends StatelessWidget {
 }
 
 /// Employer side — a job you posted.
-/// A pending invitation on the worker's activity.
-///
-/// The accept and decline flow, with its confirmations and the message button
-/// that appears after accepting, already lives in full on the invitations
-/// screen. Rather than build a second copy of it here, this card carries the
-/// job and employer and opens that screen on tap - so the invitation is
-/// discoverable from activity, which is the whole point, and acted on where
-/// the logic already is.
-class _InvitationCard extends StatelessWidget {
-  const _InvitationCard({required this.invitation});
-
-  final Map<String, dynamic> invitation;
-
-  @override
-  Widget build(BuildContext context) {
-    final job = invitation['job'] as Map<String, dynamic>?;
-    final employer = invitation['employer'] as Map<String, dynamic>?;
-    final jobTitle = (job?['title'] ?? 'Job').toString();
-    final employerName = (employer?['name'] ?? 'An employer').toString();
-
-    return _cardShell(
-      title: jobTitle,
-      subtitle: '$employerName invited you to apply',
-      status: 'pending',
-      trailing: 'Tap to accept or decline',
-      onTap: () => Navigator.pushNamed(context, '/my-invitations'),
-    );
-  }
-}
-
 class _JobPostCard extends StatelessWidget {
   const _JobPostCard({required this.job, required this.onChanged});
 
