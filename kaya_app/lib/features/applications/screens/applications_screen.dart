@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import '../../../core/utils/realtime_refresh.dart';
 
 import '../../../core/constants/app_colors.dart';
+import '../../../core/widgets/app_toast.dart';
 import '../../../providers/app_mode_provider.dart';
 import '../../../providers/application_provider.dart';
 import '../../../providers/invitation_provider.dart';
@@ -105,17 +106,29 @@ class _ApplicationsScreenState extends State<ApplicationsScreen>
   }
 
   /*
-      Straight to the real screen. No sheet in between.
+      A popup, matching Applications — not a redirect.
 
-      This used to open a sheet whose cards did nothing but navigate to
-      /my-invitations - the same list again, on a different screen, where
-      accept and decline actually live. So accepting an invitation was: open
-      the button, see the list, tap a card, see the list again, then finally
-      act. The button goes straight there now, which is one hop instead of
-      two and never shows the same list twice.
+      This briefly skipped the sheet and sent the button straight to
+      /my-invitations, on the reasoning that the sheet's cards did nothing but
+      point at that screen anyway. That solved the wrong problem: the fix
+      needed was to give the card real actions, not to remove the popup the
+      Applications button already has. Both buttons open the same kind of
+      sheet now, and this one accepts or declines right there — see
+      _InvitationCard.
   */
-  void _openInvitations(BuildContext context) {
-    Navigator.pushNamed(context, '/my-invitations');
+  void _openInvitations(BuildContext context, InvitationProvider provider) {
+    _showListSheet(
+      context,
+      title: 'Invitations',
+      emptyTitle: 'No invitations',
+      emptyBody: 'Employers who invite you to a job will show up here.',
+      itemsBuilder: (context) => context
+          .watch<InvitationProvider>()
+          .invitations
+          .where((i) => (i['status'] ?? '') == 'pending')
+          .toList(),
+      cardBuilder: (i) => _InvitationCard(invitation: i),
+    );
   }
 
   /// One sheet shape for both, so they read as the same kind of thing.
@@ -248,7 +261,7 @@ class _ApplicationsScreenState extends State<ApplicationsScreen>
                         .where((i) => (i['status'] ?? '') == 'pending')
                         .length,
                     onApplications: () => _openApplications(context, applications),
-                    onInvitations: () => _openInvitations(context),
+                    onInvitations: () => _openInvitations(context, invitations),
                   ),
                 Expanded(
                   child: TabBarView(
@@ -256,11 +269,19 @@ class _ApplicationsScreenState extends State<ApplicationsScreen>
                       for (final t in tabs)
                         _TabBody(
                           tab: t,
-                          isLoading: t.isJobTab
-                              ? jobs.isLoading
-                              : applications.isLoading,
-                          error: t.isJobTab
-                              ? jobs.errorMessage
+                          /*
+                              Whichever providers this tab actually draws from.
+
+                              History can hold a hybrid account's applications
+                              and jobs together, so checking only one provider
+                              left it reporting "loaded" while the other half
+                              of its own list was still in flight, or hiding a
+                              real error on the half it wasn't looking at.
+                          */
+                          isLoading: (t.includesJobs && jobs.isLoading) ||
+                              (t.includesApplications && applications.isLoading),
+                          error: t.includesJobs
+                              ? (jobs.errorMessage ?? applications.errorMessage)
                               : applications.errorMessage,
                           onRefresh: _load,
                         ),
@@ -305,6 +326,7 @@ class _ApplicationsScreenState extends State<ApplicationsScreen>
         _ActivityTab(
           label: 'Active Jobs',
           isJobTab: true,
+          includesJobs: true,
           emptyTitle: 'No active job posts',
           emptyBody: 'Post a job to start receiving applicants',
           items: myJobs
@@ -313,50 +335,54 @@ class _ApplicationsScreenState extends State<ApplicationsScreen>
               .toList(),
         ),
 
-      _ActivityTab(
-        label: 'Completed',
-        isJobTab: !hasWorker,
-        emptyTitle: 'Nothing completed yet',
-        emptyBody: 'Finished work will appear here',
-        items: [
-          if (hasWorker)
-            ...myApplications.where((a) => statusOf(a) == 'completed'),
-          if (hasEmployer) ...myJobs.where((j) => statusOf(j) == 'completed'),
-        ],
-      ),
+      /*
+          Completed folded into History, rather than sitting beside it.
 
+          Finishing successfully and not going anywhere were two different
+          "past" tabs, when both answer the same question - "what am I not
+          still waiting on?" - and Active (the applications popup, and Active
+          Jobs here) already covers what is still live. Splitting the rest in
+          two just meant checking a second, usually-empty tab for the one
+          thing that mattered: whether a job actually finished.
+
+          Each row is tagged _isJob explicitly, because this tab is the one
+          place a hybrid account's applications and jobs sit in the same
+          list — see the itemBuilder note on why a single per-tab flag cannot
+          answer that.
+      */
       _ActivityTab(
         label: 'History',
-        isJobTab: !hasWorker,
+        includesApplications: hasWorker,
+        includesJobs: hasEmployer,
         emptyTitle: 'No history yet',
-        emptyBody: 'Past activity will appear here',
+        emptyBody: 'Finished and past work will appear here',
         items: [
           if (hasWorker)
-            ...myApplications.where((a) => const {
-                  'rejected',
-                  'withdrawn',
-                  'cancelled',
-                }.contains(statusOf(a))),
+            ...myApplications
+                .where((a) => const {
+                      'completed',
+                      'rejected',
+                      'withdrawn',
+                      'cancelled',
+                    }.contains(statusOf(a)))
+                .map((a) => {...a, '_isJob': false}),
           /*
-              Everything that is not active and not completed.
-
-              Named 'closed' alone, which left a hole: the jobs_posts enum
-              also has 'flagged', and a flagged job then belonged to no tab at
-              all — an employer whose post was pulled for moderation would
-              find it simply gone from their own list, with nothing to say
-              where it went or why.
+              Everything that is not active. Named 'closed' alone once, which
+              left a hole: the jobs_posts enum also has 'flagged', and a
+              flagged job then belonged to no tab at all — an employer whose
+              post was pulled for moderation would find it simply gone from
+              their own list, with nothing to say where it went or why.
 
               Nothing sets 'flagged' today, so this is a hole waiting rather
-              than one anyone has fallen in. Written as "not shown elsewhere"
+              than one anyone has fallen in. Written as "not open or running"
               so a new terminal status lands here on its own instead of
-              vanishing.
+              vanishing, and completed jobs are included on purpose now
+              rather than living in their own tab.
           */
           if (hasEmployer)
-            ...myJobs.where((j) => !const {
-                  'open',
-                  'in_progress',
-                  'completed',
-                }.contains(statusOf(j))),
+            ...myJobs
+                .where((j) => !const {'open', 'in_progress'}.contains(statusOf(j)))
+                .map((j) => {...j, '_isJob': true}),
         ],
       ),
     ];
@@ -407,6 +433,8 @@ class _ActivityTab {
     required this.label,
     required this.items,
     this.isJobTab = false,
+    this.includesApplications = false,
+    this.includesJobs = false,
     required this.emptyTitle,
     required this.emptyBody,
   });
@@ -414,9 +442,20 @@ class _ActivityTab {
   final String label;
   final List<Map<String, dynamic>> items;
 
-  /// Job posts render differently from applications (applicant count vs status
-  /// against an employer).
+  /// Whether every item in this tab is a job post, so a plain tab can size
+  /// its card without a per-item check. History carries both kinds for a
+  /// hybrid account, so it marks each row instead — see the `_isJob` key
+  /// added where History's items are built, and the itemBuilder that reads
+  /// it in preference to this flag.
   final bool isJobTab;
+
+  /// Whether this tab draws from the applications / jobs provider, so
+  /// _TabBody knows which loading and error states apply to it. A pure job
+  /// tab only needs the jobs provider; History needs both once it holds a
+  /// hybrid account's applications and jobs together, or its loading state
+  /// would only ever reflect one of the two providers underneath it.
+  final bool includesApplications;
+  final bool includesJobs;
 
   final String emptyTitle;
   final String emptyBody;
@@ -468,10 +507,24 @@ class _TabBody extends StatelessWidget {
       child: ListView.builder(
         padding: const EdgeInsets.all(16),
         itemCount: tab.items.length,
-        itemBuilder: (_, i) => tab.isJobTab
-            ? _JobPostCard(job: tab.items[i], onChanged: onRefresh)
-            : _ApplicationCard(
-                application: tab.items[i], onChanged: onRefresh),
+        /*
+            Typed per row, not per tab.
+
+            tab.isJobTab alone answers "is every item here a job post", which
+            was true for Active Jobs and false for a worker's own tabs — but
+            History can hold a hybrid account's applications and jobs in the
+            same list, and one flag for the whole tab cannot say which each
+            row is. `_isJob` is stamped onto each row where History's items
+            are assembled; a tab that is purely one kind never sets it, so
+            this falls back to the tab-level flag exactly as before.
+        */
+        itemBuilder: (_, i) {
+          final row = tab.items[i];
+          final isJob = row['_isJob'] as bool? ?? tab.isJobTab;
+          return isJob
+              ? _JobPostCard(job: row, onChanged: onRefresh)
+              : _ApplicationCard(application: row, onChanged: onRefresh);
+        },
       ),
     );
   }
@@ -636,7 +689,19 @@ class _ApplicationCard extends StatelessWidget {
                 context, application['id'] as int, 'employer', onChanged)
           : !canReview
               ? null
-              : () => Navigator.pushNamed(
+              /*
+                  Awaited, and refreshed on success.
+
+                  This pushed the review screen and forgot about it, so the
+                  Review button was still sitting there when the user came
+                  back - the submit had gone through, but nothing here knew to
+                  ask the provider again. It could be tapped a second time,
+                  and only the server's own "already reviewed" refusal stopped
+                  a real duplicate. leave_review_screen pops true on success;
+                  this is the one place that was not reading it.
+              */
+              : () async {
+                  final done = await Navigator.pushNamed(
                     context,
                     '/leave-review',
                     arguments: {
@@ -647,7 +712,9 @@ class _ApplicationCard extends StatelessWidget {
                       'jobId': job!['id'],
                       'jobTitle': (job['title'] ?? 'this job').toString(),
                     },
-                  ),
+                  );
+                  if (done == true) await onChanged();
+                },
       onTap: job == null
           ? null
           : () => Navigator.pushNamed(context, '/job-details',
@@ -731,7 +798,10 @@ class _JobPostCard extends StatelessWidget {
                 context, hire['application_id'] as int, 'worker', onChanged)
           : !canReview
               ? null
-              : () => Navigator.pushNamed(
+              // Same fix as the worker's card above: awaited, and refreshed
+              // on a successful submit so the button does not linger.
+              : () async {
+                  final done = await Navigator.pushNamed(
                     context,
                     '/leave-review',
                     arguments: {
@@ -741,7 +811,9 @@ class _JobPostCard extends StatelessWidget {
                       'jobId': job['id'],
                       'jobTitle': (job['title'] ?? 'this job').toString(),
                     },
-                  ),
+                  );
+                  if (done == true) await onChanged();
+                },
       onTap: () => Navigator.pushNamed(context, '/view-applicants',
           arguments: {'jobId': job['id']}),
     );
@@ -1102,6 +1174,203 @@ class _EmptyState extends StatelessWidget {
                     fontSize: 14, color: AppColors.neutral400)),
           ],
         ),
+      ),
+    );
+  }
+}
+
+/*
+    A pending invitation, with real accept and decline.
+
+    This used to just navigate to /my-invitations - the same list again, on a
+    different screen, where accept and decline actually lived - so opening the
+    Invitations button and then acting on one was two hops through one list.
+    The actions live here now, matching what /my-invitations already does:
+    same confirm dialogs, same wording, same "Message" action on the success
+    toast once accepted.
+
+    The sheet is reactive (see itemsBuilder in _showListSheet), so a
+    successful accept or decline needs nothing extra to make this card
+    disappear — the item's status changes, it stops matching "pending", and
+    the next rebuild simply does not include it.
+*/
+class _InvitationCard extends StatefulWidget {
+  const _InvitationCard({required this.invitation});
+
+  final Map<String, dynamic> invitation;
+
+  @override
+  State<_InvitationCard> createState() => _InvitationCardState();
+}
+
+class _InvitationCardState extends State<_InvitationCard> {
+  bool _busy = false;
+
+  Map<String, dynamic>? get _job =>
+      widget.invitation['job'] as Map<String, dynamic>?;
+  Map<String, dynamic>? get _employer =>
+      widget.invitation['employer'] as Map<String, dynamic>?;
+  String get _jobTitle => (_job?['title'] ?? 'this job').toString();
+
+  Future<void> _confirmAccept() async {
+    final accept = await showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text('Accept Invitation?'),
+        content: Text(
+            'Accept the invitation for "$_jobTitle"? You\'ll be able to message the employer after accepting.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: ElevatedButton.styleFrom(backgroundColor: AppColors.success),
+            child: const Text('Accept', style: TextStyle(color: Colors.white)),
+          ),
+        ],
+      ),
+    );
+    if (accept != true || !mounted) return;
+
+    setState(() => _busy = true);
+    final conversationId = await context
+        .read<InvitationProvider>()
+        .accept(widget.invitation['id'] as int);
+    if (!mounted) return;
+    setState(() => _busy = false);
+
+    if (conversationId == null) {
+      AppToast.error(
+        context,
+        context.read<InvitationProvider>().errorMessage ??
+            'Failed to accept invitation',
+      );
+      return;
+    }
+
+    final employer = _employer;
+    final job = _job;
+    AppToast.show(
+      context,
+      'Invitation accepted!',
+      type: ToastType.success,
+      duration: const Duration(seconds: 4),
+      actionLabel: 'Message',
+      onAction: () => Navigator.pushNamed(
+        context,
+        '/chat',
+        arguments: {
+          'conversationId': conversationId,
+          'name': employer?['name'] ?? 'Employer',
+          'jobTitle': _jobTitle,
+          'jobId': job?['id'],
+          'otherUserId': employer?['id'],
+          'isVerified': employer?['is_verified'] ?? false,
+          'otherRole': 'employer',
+        },
+      ),
+    );
+  }
+
+  Future<void> _confirmDecline() async {
+    final decline = await showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text('Decline Invitation?'),
+        content: Text('Decline the invitation for "$_jobTitle"?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, true),
+            style:
+                ElevatedButton.styleFrom(backgroundColor: AppColors.neutral600),
+            child: const Text('Decline', style: TextStyle(color: Colors.white)),
+          ),
+        ],
+      ),
+    );
+    if (decline != true || !mounted) return;
+
+    setState(() => _busy = true);
+    final success = await context
+        .read<InvitationProvider>()
+        .decline(widget.invitation['id'] as int);
+    if (!mounted) return;
+    setState(() => _busy = false);
+
+    AppToast.info(
+      context,
+      success
+          ? 'Invitation declined'
+          : (context.read<InvitationProvider>().errorMessage ??
+              'Failed to decline invitation'),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final employerName = (_employer?['name'] ?? 'An employer').toString();
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppColors.neutral200),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(_jobTitle,
+              style:
+                  const TextStyle(fontSize: 14.5, fontWeight: FontWeight.w700)),
+          const SizedBox(height: 4),
+          Text('$employerName invited you to apply',
+              style:
+                  const TextStyle(fontSize: 13, color: AppColors.neutral600)),
+          const SizedBox(height: 12),
+          if (_busy)
+            const Center(
+                child: SizedBox(
+                    height: 20,
+                    width: 20,
+                    child: CircularProgressIndicator(strokeWidth: 2)))
+          else
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton(
+                    onPressed: _confirmDecline,
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: AppColors.neutral600,
+                      side: const BorderSide(color: AppColors.neutral300),
+                      padding: const EdgeInsets.symmetric(vertical: 10),
+                    ),
+                    child: const Text('Decline'),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: ElevatedButton(
+                    onPressed: _confirmAccept,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppColors.success,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 10),
+                      elevation: 0,
+                    ),
+                    child: const Text('Accept'),
+                  ),
+                ),
+              ],
+            ),
+        ],
       ),
     );
   }

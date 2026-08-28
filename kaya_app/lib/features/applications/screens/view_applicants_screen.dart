@@ -531,7 +531,13 @@ class _ViewApplicantsScreenState extends State<ViewApplicantsScreen>
                                   'worker', () => context
                                       .read<ApplicationProvider>()
                                       .fetchApplicants(_jobId!))
-                              : () => Navigator.pushNamed(
+                              // Awaited and refreshed on success, same reason
+                              // as the two review sites in My Activity: this
+                              // pushed and forgot, so a submitted review left
+                              // the button live until the list was reloaded by
+                              // some other means.
+                              : () async {
+                                  final done = await Navigator.pushNamed(
                                     context,
                                     '/leave-review',
                                     arguments: {
@@ -541,7 +547,13 @@ class _ViewApplicantsScreenState extends State<ViewApplicantsScreen>
                                       'jobId': _jobId,
                                       'jobTitle': _jobTitle,
                                     },
-                                  ),
+                                  );
+                                  if (done == true && mounted) {
+                                    await context
+                                        .read<ApplicationProvider>()
+                                        .fetchApplicants(_jobId!);
+                                  }
+                                },
                           icon: Icon(
                               canConfirm
                                   ? Icons.check_circle_outline
