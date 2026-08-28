@@ -472,55 +472,6 @@ class _MyEmployerProfileScreenState extends State<MyEmployerProfileScreen>
 
   // ─── profile tab ────────────────────────────────────────────────────────────
 
-  /// The account type, stated rather than offered.
-  ///
-  /// Says plainly that it cannot be changed. Leaving that unsaid invites the
-  /// user to hunt for a setting that does not exist — and the reason it does
-  /// not exist is real: a company profile carries business verification and
-  /// document requirements an individual one does not, so switching would
-  /// invalidate whatever has already been approved.
-  Widget _buildAccountTypeRow() {
-    final role = _role;
-
-    // Same anatomy as every other row — label above value — so the one
-    // read-only row does not announce itself as a different kind of thing. The
-    // padlock replaces the chevron, which is the only difference that carries
-    // meaning here: this row is the one you cannot open.
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 13),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.neutral200),
-      ),
-      child: Row(
-        children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Text('Account type',
-                    style: TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w500,
-                        color: AppColors.neutral600)),
-                const SizedBox(height: 2),
-                Text(role ?? 'Not set',
-                    style: const TextStyle(
-                        fontSize: 15,
-                        fontWeight: FontWeight.w600,
-                        color: AppColors.neutral900)),
-              ],
-            ),
-          ),
-          const SizedBox(width: 12),
-          const Icon(Icons.lock_outline, size: 18, color: AppColors.neutral400),
-        ],
-      ),
-    );
-  }
-
   Widget _buildProfileTab() {
     return ListView(
       padding: const EdgeInsets.fromLTRB(16, 20, 16, 32),
@@ -537,18 +488,12 @@ class _MyEmployerProfileScreenState extends State<MyEmployerProfileScreen>
         ),
         const SizedBox(height: 16),
 
-        // ── ACCOUNT TYPE ── read-only.
-        //
-        // This was a live Company/Individual toggle the user could flip at
-        // will. It changed nothing: the server keys its validation off the
-        // stored employer_type and never accepts a new one, so flipping it
-        // only made the screen disagree with the account. Worse, it implied
-        // the choice was reversible when it is decided once, during setup, and
-        // fixed after — a company profile carries business verification an
-        // individual one does not.
-        _buildAccountTypeRow(),
+        // The Account Type row was removed. It was a lock icon on a fact the
+        // profile already states elsewhere on this screen, and it read as a
+        // restriction being announced rather than as information — the same
+        // complaint that took the header badge off the profile earlier.
 
-        const SizedBox(height: 24),
+        const SizedBox(height: 8),
 
         // ── CARDS — only show after role is chosen ──
         if (_role == null)
