@@ -231,15 +231,17 @@ class GoogleLoginSecurityTest extends TestCase
     }
 
     /*
-        Google signup carries consent, like the email form.
+        Google signup records consent, without a terms field.
 
-        A Google signup used to validate none of the terms, so the account was
-        created having agreed to nothing - no consent recorded, which the Data
-        Privacy Act does not allow. Signing up without agreeing is now refused,
-        and agreeing records the same two columns the email form fills.
+        Consent for Google sign-up is shown on Google's own consent screen,
+        which links to KAYA's terms and privacy pages - so the app does not
+        send a terms flag and the endpoint does not ask for one. The account
+        is still recorded as having consented at creation, so the DB carries
+        the same two columns the email form fills and no account exists having
+        agreed to nothing.
     */
     #[Test]
-    public function google_signup_is_refused_without_agreeing_to_terms(): void
+    public function google_signup_succeeds_and_records_consent(): void
     {
         $this->googleReturns($this->validClaims(["email" => "newcomer@gmail.com"]));
 
@@ -247,22 +249,7 @@ class GoogleLoginSecurityTest extends TestCase
             "id_token"  => "x",
             "is_signup" => true,
             "password"  => "Str0ng!Passw0rd",
-            // terms_accepted omitted
-        ])->assertStatus(422);
-
-        $this->assertDatabaseMissing("users", ["email" => "newcomer@gmail.com"]);
-    }
-
-    #[Test]
-    public function google_signup_records_consent_when_agreed(): void
-    {
-        $this->googleReturns($this->validClaims(["email" => "newcomer@gmail.com"]));
-
-        $this->postJson("/api/v1/google-login", [
-            "id_token"       => "x",
-            "is_signup"      => true,
-            "password"       => "Str0ng!Passw0rd",
-            "terms_accepted" => true,
+            // no terms_accepted field - Google's consent screen handled it
         ])->assertCreated();
 
         $user = User::where("email", "newcomer@gmail.com")->first();

@@ -8,10 +8,16 @@ use App\Http\Controllers\Admin\ReportExportController;
 use App\Http\Controllers\Admin\SettingsController;
 use App\Http\Controllers\Admin\UserManagementController;
 use App\Http\Controllers\Admin\VerificationController;
+use App\Http\Controllers\LegalController;
 use Illuminate\Support\Facades\Route;
 
 // Redirect root to admin login
 Route::get('/', fn () => redirect()->route('admin.login'));
+
+// Public legal pages. These have to resolve for the Google sign-in consent
+// screen, which links to them by URL — see LegalController.
+Route::get('/terms', [LegalController::class, 'terms'])->name('legal.terms');
+Route::get('/privacy', [LegalController::class, 'privacy'])->name('legal.privacy');
 
 // Fallback login route (Laravel's default redirect)
 Route::get('/login', fn () => redirect()->route('admin.login'))->name('login');
