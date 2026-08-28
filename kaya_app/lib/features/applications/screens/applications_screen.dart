@@ -11,14 +11,16 @@ import '../widgets/completion_action.dart';
 
 /// My Activity.
 ///
-/// The tab set follows which profiles the account holds:
-///   worker only   → Applications | Completed | History
-///   employer only → Active Jobs  | Completed | History
-///   both          → Applications | Active Jobs | Completed | History
+/// A worker's two incoming lists — Applications (jobs you applied to) and
+/// Invitations (offers sent to you) — are buttons at the top, each opening its
+/// own sheet. They used to be tabs, where "Applications" sat beside the
+/// employer's "Active Jobs" and read as the same thing though they are opposite
+/// sides of the marketplace.
 ///
-/// "Applications" are jobs you applied to (worker side). "Active Jobs" are jobs
-/// you posted (employer side). They are different records from different
-/// endpoints and were previously conflated into one "Active" tab.
+/// The tabs are the job lifecycle everyone shares:
+///   worker only   → Completed | History
+///   employer only → Active Jobs | Completed | History
+///   both          → Active Jobs | Completed | History
 class ApplicationsScreen extends StatefulWidget {
   const ApplicationsScreen({super.key});
 
@@ -65,12 +67,114 @@ class _ApplicationsScreenState extends State<ApplicationsScreen>
     await Future.wait(futures);
   }
 
+  /// Pending or accepted — the applications a worker is still living with,
+  /// which is what the Applications button counts and lists.
+  static bool _isActiveApplication(Map<String, dynamic> a) {
+    final s = (a['status'] ?? '').toString();
+    return s == 'pending' || s == 'accepted';
+  }
+
+  /// The worker's applications, in a sheet rather than a tab.
+  void _openApplications(BuildContext context, ApplicationProvider provider) {
+    final items =
+        provider.applications.where(_isActiveApplication).toList();
+    _showListSheet(
+      context,
+      title: 'My Applications',
+      emptyTitle: 'No active applications',
+      emptyBody: 'Jobs you apply to appear here until they finish.',
+      children: [
+        for (final a in items) _ApplicationCard(application: a, onChanged: _load),
+      ],
+    );
+  }
+
+  /// The worker's pending invitations, in a sheet.
+  void _openInvitations(BuildContext context, InvitationProvider provider) {
+    final items = provider.invitations
+        .where((i) => (i['status'] ?? '') == 'pending')
+        .toList();
+    _showListSheet(
+      context,
+      title: 'Invitations',
+      emptyTitle: 'No invitations',
+      emptyBody: 'Employers who invite you to a job will show up here.',
+      children: [
+        for (final i in items) _InvitationCard(invitation: i),
+      ],
+    );
+  }
+
+  /// One sheet shape for both, so they read as the same kind of thing.
+  void _showListSheet(
+    BuildContext context, {
+    required String title,
+    required String emptyTitle,
+    required String emptyBody,
+    required List<Widget> children,
+  }) {
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => DraggableScrollableSheet(
+        initialChildSize: 0.7,
+        minChildSize: 0.4,
+        maxChildSize: 0.95,
+        expand: false,
+        builder: (_, controller) => Container(
+          decoration: const BoxDecoration(
+            color: AppColors.background,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+          ),
+          child: Column(
+            children: [
+              const SizedBox(height: 10),
+              Container(
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: AppColors.neutral300,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 14, 20, 6),
+                child: Row(
+                  children: [
+                    Text(title,
+                        style: const TextStyle(
+                            fontSize: 18, fontWeight: FontWeight.w700)),
+                    const Spacer(),
+                    IconButton(
+                      icon: const Icon(Icons.close),
+                      onPressed: () => Navigator.pop(context),
+                    ),
+                  ],
+                ),
+              ),
+              Expanded(
+                child: children.isEmpty
+                    ? _EmptyState(title: emptyTitle, body: emptyBody)
+                    : ListView(
+                        controller: controller,
+                        padding: const EdgeInsets.fromLTRB(16, 4, 16, 24),
+                        children: children,
+                      ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Consumer4<AppModeProvider, ApplicationProvider, JobProvider,
         InvitationProvider>(
       builder: (context, appMode, applications, jobs, invitations, _) {
-        final tabs = _buildTabs(appMode, applications, jobs, invitations);
+        final tabs = _buildTabs(appMode, applications, jobs);
 
         if (tabs.isEmpty) return _noProfileState();
 
@@ -102,23 +206,38 @@ class _ApplicationsScreenState extends State<ApplicationsScreen>
                 ],
               ),
             ),
-            body: TabBarView(
+            body: Column(
               children: [
-                for (final t in tabs)
-                  _TabBody(
-                    tab: t,
-                    isLoading: t.isInvitationTab
-                        ? invitations.isLoading
-                        : t.isJobTab
-                            ? jobs.isLoading
-                            : applications.isLoading,
-                    error: t.isInvitationTab
-                        ? invitations.errorMessage
-                        : t.isJobTab
-                            ? jobs.errorMessage
-                            : applications.errorMessage,
-                    onRefresh: _load,
+                // Worker's incoming lists, as buttons that open their own
+                // sheet — see the note in _buildTabs for why they are not tabs.
+                if (appMode.hasWorkerProfile)
+                  _WorkerInboxButtons(
+                    applicationCount: applications.applications
+                        .where((a) => _isActiveApplication(a))
+                        .length,
+                    invitationCount: invitations.invitations
+                        .where((i) => (i['status'] ?? '') == 'pending')
+                        .length,
+                    onApplications: () => _openApplications(context, applications),
+                    onInvitations: () => _openInvitations(context, invitations),
                   ),
+                Expanded(
+                  child: TabBarView(
+                    children: [
+                      for (final t in tabs)
+                        _TabBody(
+                          tab: t,
+                          isLoading: t.isJobTab
+                              ? jobs.isLoading
+                              : applications.isLoading,
+                          error: t.isJobTab
+                              ? jobs.errorMessage
+                              : applications.errorMessage,
+                          onRefresh: _load,
+                        ),
+                    ],
+                  ),
+                ),
               ],
             ),
           ),
@@ -131,7 +250,6 @@ class _ApplicationsScreenState extends State<ApplicationsScreen>
     AppModeProvider appMode,
     ApplicationProvider applications,
     JobProvider jobs,
-    InvitationProvider invitations,
   ) {
     final hasWorker = appMode.hasWorkerProfile;
     final hasEmployer = appMode.hasEmployerProfile;
@@ -141,47 +259,18 @@ class _ApplicationsScreenState extends State<ApplicationsScreen>
 
     String statusOf(Map<String, dynamic> m) => (m['status'] ?? '').toString();
 
+    /*
+        Applications and Invitations are not tabs any more.
+
+        A hybrid account had five tabs across the top — Invitations,
+        Applications, Active Jobs, Completed, History — and "Applications" (the
+        jobs you applied to) sat one along from "Active Jobs" (the jobs you
+        posted), which read as the same thing and were opposite sides of the
+        marketplace. Both of the worker's incoming lists are buttons above the
+        tabs now, each opening its own sheet, so the tabs are left to the job
+        lifecycle everyone shares.
+    */
     return [
-      // Worker side: invitations an employer sent, still waiting on you. First,
-      // because an invitation is someone asking for you by name and is the one
-      // thing here with a deadline on the other person's patience.
-      if (hasWorker)
-        _ActivityTab(
-          label: 'Invitations',
-          isInvitationTab: true,
-          emptyTitle: 'No invitations yet',
-          emptyBody: 'Employers who invite you to a job will show up here',
-          items: invitations.invitations
-              .where((i) => statusOf(i) == 'pending')
-              .toList(),
-        ),
-
-      // Worker side: applications you sent that have no answer yet.
-      if (hasWorker)
-        _ActivityTab(
-          label: 'Applications',
-          isJobTab: false,
-          emptyTitle: 'No applications yet',
-          emptyBody: 'Browse jobs and start applying',
-          /*
-              Pending AND accepted.
-
-              This listed pending only, and 'accepted' appears in no other tab
-              either — Completed wants 'completed' and History wants rejected,
-              withdrawn or cancelled. So the moment a worker was hired, the job
-              disappeared from My Activity entirely, taking the Message button
-              and Mark as complete with it. The one state where a worker has
-              actual work to do was the one state with nowhere to show it.
-
-              Found by mounting this screen against a real hire rather than by
-              reading the filters.
-          */
-          items: myApplications
-              .where((a) =>
-                  statusOf(a) == 'pending' || statusOf(a) == 'accepted')
-              .toList(),
-        ),
-
       // Employer side: jobs you posted that are still running.
       if (hasEmployer)
         _ActivityTab(
@@ -289,7 +378,6 @@ class _ActivityTab {
     required this.label,
     required this.items,
     this.isJobTab = false,
-    this.isInvitationTab = false,
     required this.emptyTitle,
     required this.emptyBody,
   });
@@ -300,10 +388,6 @@ class _ActivityTab {
   /// Job posts render differently from applications (applicant count vs status
   /// against an employer).
   final bool isJobTab;
-
-  /// Invitations render differently again — an employer inviting the worker,
-  /// with the accept/decline flow living on the invitations screen.
-  final bool isInvitationTab;
 
   final String emptyTitle;
   final String emptyBody;
@@ -355,12 +439,10 @@ class _TabBody extends StatelessWidget {
       child: ListView.builder(
         padding: const EdgeInsets.all(16),
         itemCount: tab.items.length,
-        itemBuilder: (_, i) => tab.isInvitationTab
-            ? _InvitationCard(invitation: tab.items[i])
-            : tab.isJobTab
-                ? _JobPostCard(job: tab.items[i], onChanged: onRefresh)
-                : _ApplicationCard(
-                    application: tab.items[i], onChanged: onRefresh),
+        itemBuilder: (_, i) => tab.isJobTab
+            ? _JobPostCard(job: tab.items[i], onChanged: onRefresh)
+            : _ApplicationCard(
+                application: tab.items[i], onChanged: onRefresh),
       ),
     );
   }
@@ -880,3 +962,148 @@ Widget _cardShell({
       'closed' => (AppColors.neutral200, AppColors.neutral600, 'Closed'),
       _ => (AppColors.neutral200, AppColors.neutral600, status),
     };
+
+/// The two worker inbox buttons above the activity tabs.
+///
+/// Applications and Invitations were tabs, sitting next to the employer's
+/// "Active Jobs" tab where they read as the same thing. They are the worker's
+/// own incoming lists, so they are buttons here, each opening its own sheet,
+/// with the count on the face so there is a reason to open it.
+class _WorkerInboxButtons extends StatelessWidget {
+  const _WorkerInboxButtons({
+    required this.applicationCount,
+    required this.invitationCount,
+    required this.onApplications,
+    required this.onInvitations,
+  });
+
+  final int applicationCount;
+  final int invitationCount;
+  final VoidCallback onApplications;
+  final VoidCallback onInvitations;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+      child: Row(
+        children: [
+          Expanded(
+            child: _InboxButton(
+              icon: Icons.description_outlined,
+              label: 'Applications',
+              count: applicationCount,
+              onTap: onApplications,
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: _InboxButton(
+              icon: Icons.mail_outline,
+              label: 'Invitations',
+              count: invitationCount,
+              onTap: onInvitations,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _InboxButton extends StatelessWidget {
+  const _InboxButton({
+    required this.icon,
+    required this.label,
+    required this.count,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final String label;
+  final int count;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(12),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(12),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: AppColors.neutral200),
+          ),
+          child: Row(
+            children: [
+              Icon(icon, size: 20, color: AppColors.primary),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(label,
+                    style: const TextStyle(
+                        fontSize: 14, fontWeight: FontWeight.w600)),
+              ),
+              // A count badge, and only when there is something to count, so an
+              // empty inbox does not wear a "0".
+              if (count > 0)
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: AppColors.accent,
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Text('$count',
+                      style: const TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w700,
+                          color: Colors.white)),
+                )
+              else
+                const Icon(Icons.chevron_right,
+                    size: 18, color: AppColors.neutral400),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _EmptyState extends StatelessWidget {
+  const _EmptyState({required this.title, required this.body});
+
+  final String title;
+  final String body;
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(32),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.inbox_outlined,
+                size: 48, color: AppColors.neutral300),
+            const SizedBox(height: 14),
+            Text(title,
+                style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.neutral600)),
+            const SizedBox(height: 6),
+            Text(body,
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                    fontSize: 14, color: AppColors.neutral400)),
+          ],
+        ),
+      ),
+    );
+  }
+}
