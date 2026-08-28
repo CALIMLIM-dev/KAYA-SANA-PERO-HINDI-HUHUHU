@@ -380,10 +380,22 @@ class AuthController extends Controller
                 this call actually creates an account, so an existing user
                 signing back in is not asked to agree again.
             */
-            // No terms field. Consent for Google sign-up is shown on Google's
-            // own consent screen, which links to KAYA's /terms and /privacy
-            // (set in the Google Cloud OAuth consent screen). The account is
-            // recorded as having consented at creation, below.
+            /*
+                Terms required on the account-creating call only.
+
+                Google's native Android sign-in does not reliably show its own
+                consent screen for basic scopes, so KAYA gates the terms on its
+                password screen instead. That screen sends terms_accepted with
+                the password, which is the call that actually creates the
+                account - the probe (is_signup, no password) is excluded, or it
+                would fail on terms before it could return "password required"
+                and the app would never reach the terms screen.
+            */
+            'terms_accepted' => [
+                Rule::excludeIf(! ($request->boolean('is_signup') && $request->filled('password'))),
+                'required',
+                'accepted',
+            ],
         ]);
 
         /*

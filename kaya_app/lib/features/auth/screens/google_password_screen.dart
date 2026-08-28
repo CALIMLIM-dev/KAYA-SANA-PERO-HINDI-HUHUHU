@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../providers/auth_provider.dart';
+import '../widgets/terms_modal.dart';
 
 class GooglePasswordScreen extends StatefulWidget {
   const GooglePasswordScreen({super.key});
@@ -20,14 +21,17 @@ class _GooglePasswordScreenState extends State<GooglePasswordScreen> {
   String? _confirmPasswordError;
 
   /*
-      Terms are not gated here.
+      Terms are gated here, in the app.
 
-      They belong on Google's own consent screen, which links to KAYA's
-      privacy policy and terms (configured in the Google Cloud OAuth consent
-      screen, pointing at /privacy and /terms). Putting a second terms gate on
-      this password step duplicated that, so it was removed. This screen just
-      sets the password for the new account.
+      Google's native Android sign-in does not reliably show its consent
+      screen with the terms and privacy links - for basic email/profile scopes
+      it just returns the account, so a signup would agree to nothing. This is
+      the last step before a Google account exists, so KAYA's own terms are
+      shown and required here, the same as the email signup form, with the
+      links opening the same scroll-through documents.
   */
+  bool _agreeToTerms = false;
+  String? _termsError;
 
   @override
   void dispose() {
@@ -61,12 +65,20 @@ class _GooglePasswordScreenState extends State<GooglePasswordScreen> {
   }
 
   Future<void> _handleComplete(Map<String, dynamic> googleData, AuthProvider auth) async {
-    if (!_validate()) return;
+    final passwordOk = _validate();
+
+    // Checked alongside the password so both errors show on the same tap.
+    if (!_agreeToTerms) {
+      setState(() => _termsError =
+          'You must agree to the Terms & Conditions to continue.');
+    }
+    if (!passwordOk || !_agreeToTerms) return;
 
     final success = await auth.completeGoogleSignIn(
       idToken: googleData['id_token'],
       password: _passwordController.text,
       isSignup: true, // This is a new account signup
+      termsAccepted: _agreeToTerms,
     );
 
     if (!mounted) return;
@@ -222,8 +234,76 @@ class _GooglePasswordScreenState extends State<GooglePasswordScreen> {
                   ),
                 ),
               ),
-              // No terms gate here — Google's consent screen already links to
-              // KAYA's terms and privacy. See the class comment.
+              // Terms gate — Google's native sign-in does not reliably show
+              // its own, so KAYA asks here. Same as the email signup form.
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  SizedBox(
+                    width: 24,
+                    height: 24,
+                    child: Checkbox(
+                      value: _agreeToTerms,
+                      onChanged: (v) => setState(() {
+                        _agreeToTerms = v ?? false;
+                        if (_agreeToTerms) _termsError = null;
+                      }),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: GestureDetector(
+                      onTap: () async {
+                        final accepted = await showModalBottomSheet<bool>(
+                          context: context,
+                          isScrollControlled: true,
+                          backgroundColor: Colors.transparent,
+                          builder: (_) => const TermsModal(),
+                        );
+                        if (accepted == true && mounted) {
+                          setState(() {
+                            _agreeToTerms = true;
+                            _termsError = null;
+                          });
+                        }
+                      },
+                      child: Text.rich(
+                        TextSpan(
+                          text: 'I have read and agree to the ',
+                          style: TextStyle(
+                              color: AppColors.neutral600, fontSize: 14),
+                          children: [
+                            TextSpan(
+                              text: 'Terms and Conditions',
+                              style: TextStyle(
+                                color: AppColors.primary,
+                                fontWeight: FontWeight.w600,
+                                decoration: TextDecoration.underline,
+                              ),
+                            ),
+                            const TextSpan(text: ' and '),
+                            TextSpan(
+                              text: 'Privacy Policy',
+                              style: TextStyle(
+                                color: AppColors.primary,
+                                fontWeight: FontWeight.w600,
+                                decoration: TextDecoration.underline,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              if (_termsError != null) ...[
+                const SizedBox(height: 8),
+                Text(
+                  _termsError!,
+                  style: const TextStyle(color: AppColors.error, fontSize: 12),
+                ),
+              ],
               const SizedBox(height: 24),
 
               // Complete button

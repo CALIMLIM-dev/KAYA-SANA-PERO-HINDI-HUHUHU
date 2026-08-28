@@ -293,6 +293,7 @@ class AuthProvider with ChangeNotifier {
     required String idToken,
     String? password,
     bool isSignup = false,
+    bool termsAccepted = false,
   }) async {
     _isLoading = true;
     _errorMessage = null;
@@ -303,8 +304,10 @@ class AuthProvider with ChangeNotifier {
         'id_token': idToken,
         'is_signup': isSignup,
         if (password != null) 'password': password,
-        // No terms flag: consent for Google sign-up is handled on Google's
-        // own consent screen, which links to KAYA's /terms and /privacy.
+        // Terms are gated on the Google password screen, since Google's native
+        // sign-in does not reliably show its own. Sent with the account-
+        // creating call (which carries the password), not the probe.
+        if (isSignup && password != null) 'terms_accepted': termsAccepted,
       });
 
       final data = response.data['data'];
