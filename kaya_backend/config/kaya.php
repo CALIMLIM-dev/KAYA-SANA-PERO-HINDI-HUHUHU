@@ -40,6 +40,28 @@ return [
     | workers leave, and then the employers leave. Only advantage is charged.
     */
 
+    /*
+        Completion and reviewing, in days.
+
+        Neither had a limit. A hire sat in 'accepted' forever if one side
+        never confirmed - the worker could not be reviewed, the employer's
+        card never cleared, and nothing on screen said why. And a review
+        could be left at any point in the future, which is both untrue to
+        the work and a way to hold somebody's rating hostage.
+
+        Seven days to confirm: long enough for a job that ran over or a
+        person who was off the app for a week, short enough that the other
+        side is not stuck for a month. Thirty to review, counted from
+        completion, which is the window most marketplaces settle on.
+    */
+    'completion' => [
+        'auto_confirm_after_days' => (int) env('COMPLETION_AUTO_CONFIRM_DAYS', 7),
+    ],
+
+    'reviews' => [
+        'window_days' => (int) env('REVIEW_WINDOW_DAYS', 30),
+    ],
+
     'credits' => [
 
         /*

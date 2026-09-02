@@ -82,6 +82,28 @@ class ReviewController extends Controller
             );
         }
 
+        /*
+            Reviewing closes a month after the work finished.
+
+            There was no window at all, so a review could be left a year on.
+            That is not a review of the work any more, and an open-ended
+            window lets one side sit on a rating and hold it over the other.
+
+            Counted from completed_at, the moment the second side confirmed,
+            not from the job being posted. Falls back to open if the
+            timestamp is somehow missing - refusing on absent data would
+            block a legitimate review for a reason nobody can act on.
+        */
+        $windowDays = (int) config('kaya.reviews.window_days');
+
+        if ($windowDays > 0 && $hire->completed_at !== null
+            && $hire->completed_at->addDays($windowDays)->isPast()) {
+            return $this->fail(
+                "Reviews close {$windowDays} days after a job is completed.",
+                422
+            );
+        }
+
         // Kept as a friendly message even though a unique index now enforces it
         // underneath — a 500 from a constraint violation is not an answer.
         if (Review::where('reviewer_id', $user->id)

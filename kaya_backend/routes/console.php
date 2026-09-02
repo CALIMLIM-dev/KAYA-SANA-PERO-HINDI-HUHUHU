@@ -19,6 +19,16 @@ Schedule::command('kaya:prune-location-pings')->dailyAt('03:00');
 Schedule::command('kaya:lift-expired-suspensions')->hourly();
 
 /*
+    Closes hires the second side never confirmed.
+
+    Daily rather than hourly: the window is measured in days, so an hourly
+    run would do the same work twenty-four times to move a deadline by an
+    hour. Early morning, when a confirmation arriving in the meantime has
+    had the whole evening to land first.
+*/
+Schedule::command('kaya:auto-confirm-completions')->dailyAt('04:00');
+
+/*
     Catches payments PayMongo took but never told us about.
 
     Every fifteen minutes, because the failure it covers — a webhook that was

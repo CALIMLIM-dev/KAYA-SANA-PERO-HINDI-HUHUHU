@@ -47,6 +47,16 @@ class JobCompletionService
      * Idempotent: confirming twice keeps the first timestamp rather than moving
      * it, so "who finished first" stays true and a double tap changes nothing.
      */
+    /*
+        Whether the last confirm() call recorded a new confirmation.
+
+        confirm() is idempotent, which is right, but it returned the same
+        success either way — so a repeat tap produced "Marked complete" over
+        a job nothing had happened to. The caller needs to be able to tell
+        the two apart to say something honest.
+    */
+    public bool $lastConfirmationWasNew = false;
+
     public function confirm(Application $application, string $side): Application
     {
         // Whether this call is the one that actually records a confirmation,
@@ -79,6 +89,8 @@ class JobCompletionService
         });
 
         $application->refresh();
+
+        $this->lastConfirmationWasNew = $wasFirstConfirmation;
 
         /*
             Tell the other side they are being waited on.

@@ -192,6 +192,25 @@ class _ManageJobsScreenState extends State<ManageJobsScreen>
     // those keep going through the applicant list.
     final hire = job['hire'] as Map<String, dynamic>?;
     final conversationId = hire?['conversation_id'] as int?;
+
+    /*
+        Whether this employer still has a confirmation to give.
+
+        The Mark Complete button was rendered unconditionally and only the
+        note above it was gated, so after confirming you got "waiting for
+        them" and the button together. Tapping again looked like it worked:
+        the server is idempotent - JobCompletionService::confirm only writes
+        the timestamp when it is null - but it returned the same 200 and the
+        same message either way, so the app said "Marked complete" over a
+        job it had not changed.
+
+        My Activity's job card has always computed this correctly. Two
+        screens, one card, and only one of them fixed - the same drift that
+        lost the Message button and the button colours here.
+    */
+    final canConfirmCompletion = hire != null &&
+        hire['status'] != 'completed' &&
+        hire['employer_completed_at'] == null;
     final category = (job['category'] as Map<String, dynamic>?)?['name']?.toString();
     final location = (job['city'] ?? job['location'] ?? '').toString();
     final applicants = (job['application_count'] as num?)?.toInt() ?? 0;
@@ -394,6 +413,7 @@ class _ManageJobsScreenState extends State<ManageJobsScreen>
                         ),
                       ),
                     ),
+                    if (canConfirmCompletion) ...[
                     const SizedBox(width: 10),
                     ElevatedButton(
                       onPressed: () => _confirmMarkComplete(jobId, title),
@@ -410,6 +430,7 @@ class _ManageJobsScreenState extends State<ManageJobsScreen>
                           style: TextStyle(
                               fontSize: 13.5, fontWeight: FontWeight.w600)),
                     ),
+                    ],
                   ],
                 ),
               ] else if (status == 'completed') ...[

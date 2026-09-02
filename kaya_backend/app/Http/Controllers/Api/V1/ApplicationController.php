@@ -357,14 +357,30 @@ class ApplicationController extends Controller
         }
 
         $application = $service->confirm($application, $side);
+        $recorded = $service->lastConfirmationWasNew;
+
+        /*
+            Say which of the three things happened.
+
+            This returned the same "Marked complete" whether it had recorded
+            anything or not, so tapping a button that should not have been
+            there reported success over a job it left untouched. `recorded`
+            lets the app tell the difference; the message says it in words.
+        */
+        $message = $application->status === 'completed'
+            ? ($recorded
+                ? 'Both sides confirmed — this job is complete'
+                : 'This job is already complete')
+            : ($recorded
+                ? 'Marked complete. Waiting for the other side to confirm.'
+                : 'You already marked this done. Waiting for the other side.');
 
         return $this->ok([
             'application' => $application,
             'completion'  => $service->state($application, $side),
             'job_status'  => $application->job?->fresh()?->status,
-        ], $application->status === 'completed'
-            ? 'Both sides confirmed — this job is complete'
-            : 'Marked complete. Waiting for the other side to confirm.');
+            'recorded'    => $recorded,
+        ], $message);
     }
 
     public function accept(Request $request, Application $application)
