@@ -5,6 +5,7 @@ import '../../../core/constants/app_colors.dart';
 import '../../../core/widgets/app_toast.dart';
 import '../../../providers/worker_profile_provider.dart';
 import 'inline_expandable_row.dart';
+import 'credentials_section.dart';
 import 'section_add_row.dart';
 
 /*
@@ -31,9 +32,9 @@ class ExperienceSection extends StatefulWidget {
 
 class _ExperienceSectionState extends State<ExperienceSection> {
   /// The entry currently open, by id. 'new' is the add form.
-  String? _open;
+  // Which entry is open is the sheet's business now, not a flag here.
 
-  bool _saving = false;
+  // Busy state lives in the editor sheet now — it is what shows the spinner.
   String? _error;
 
   final _title = TextEditingController();
@@ -63,7 +64,6 @@ class _ExperienceSectionState extends State<ExperienceSection> {
 
   void _openEntry(Map<String, String> exp) {
     setState(() {
-      _open = exp['id'];
       _error = null;
       _title.text = exp['title'] ?? '';
       _company.text = exp['company'] ?? '';
@@ -75,7 +75,6 @@ class _ExperienceSectionState extends State<ExperienceSection> {
 
   void _openNew() {
     setState(() {
-      _open = 'new';
       _error = null;
       _title.clear();
       _company.clear();
@@ -83,14 +82,6 @@ class _ExperienceSectionState extends State<ExperienceSection> {
       _end.clear();
       _description.clear();
     });
-  }
-
-  void _close() {
-    setState(() {
-      _open = null;
-      _error = null;
-    });
-    FocusScope.of(context).unfocus();
   }
 
   Future<void> _pickDate(TextEditingController target) async {
@@ -106,22 +97,22 @@ class _ExperienceSectionState extends State<ExperienceSection> {
     setState(() => target.text = '${picked.month}/${picked.year}');
   }
 
-  Future<void> _save(String? existingId) async {
+  /// Returns whether it saved, so the editor sheet knows to close.
+  Future<bool> _save(String? existingId) async {
     final title = _title.text.trim();
     final company = _company.text.trim();
     final start = _start.text.trim();
 
     if (title.isEmpty || company.isEmpty) {
       setState(() => _error = 'A job title and an employer are both needed.');
-      return;
+      return false;
     }
     if (start.isEmpty) {
       setState(() => _error = 'When did you start?');
-      return;
+      return false;
     }
 
     setState(() {
-      _saving = true;
       _error = null;
     });
 
@@ -140,15 +131,15 @@ class _ExperienceSectionState extends State<ExperienceSection> {
         ? await provider.createExperience(payload)
         : await provider.updateExperience(int.parse(existingId), payload);
 
-    if (!mounted) return;
+    if (!mounted) return false;
 
     setState(() {
-      _saving = false;
       _error = ok ? null : (provider.errorMessage ?? 'Could not save it.');
-      if (ok) _open = null;
     });
 
     if (ok) FocusScope.of(context).unfocus();
+
+    return ok;
   }
 
   Future<void> _delete(Map<String, String> exp) async {
@@ -176,14 +167,11 @@ class _ExperienceSectionState extends State<ExperienceSection> {
     final id = int.tryParse(exp['id'] ?? '');
     if (id == null) return;
 
-    setState(() => _saving = true);
     final provider = context.read<WorkerProfileProvider>();
     final ok = await provider.deleteExperience(id);
     if (!mounted) return;
 
     setState(() {
-      _saving = false;
-      if (ok) _open = null;
     });
 
     if (!ok) {
@@ -239,13 +227,123 @@ class _ExperienceSectionState extends State<ExperienceSection> {
         ),
       ];
 
+  /*
+      The editor is a sheet over the profile, not a row that grows.
+
+      Same reason as the credentials section beside it: expanding in place
+      put the form halfway down a long scrolling profile and pushed the rest
+      out of view, so the save button ended up wherever the expansion
+      happened to finish.
+  */
+  Future<void> _showEditor({String? id, required String heading}) async {
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (sheetContext) {
+        var busy = false;
+        String? error;
+
+        return StatefulBuilder(
+          builder: (sheetContext, setSheet) => Padding(
+            padding: EdgeInsets.only(
+                bottom: MediaQuery.viewInsetsOf(sheetContext).bottom),
+            child: Container(
+              decoration: const BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+              ),
+              child: SafeArea(
+                top: false,
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.fromLTRB(20, 10, 20, 20),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Center(
+                        child: Container(
+                          width: 40,
+                          height: 4,
+                          decoration: BoxDecoration(
+                            color: AppColors.neutral300,
+                            borderRadius: BorderRadius.circular(2),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      Text(heading,
+                          style: const TextStyle(
+                              fontSize: 17,
+                              fontWeight: FontWeight.w700,
+                              color: AppColors.neutral900)),
+                      const SizedBox(height: 16),
+                      ..._fields(),
+                      if (error != null) ...[
+                        const SizedBox(height: 10),
+                        Text(error!,
+                            style: const TextStyle(
+                                fontSize: 13, color: AppColors.error)),
+                      ],
+                      const SizedBox(height: 18),
+                      SizedBox(
+                        width: double.infinity,
+                        height: 48,
+                        child: ElevatedButton(
+                          onPressed: busy
+                              ? null
+                              : () async {
+                                  setSheet(() => busy = true);
+                                  final ok = await _save(id);
+                                  if (!sheetContext.mounted) return;
+                                  if (ok) {
+                                    Navigator.pop(sheetContext);
+                                  } else {
+                                    setSheet(() {
+                                      busy = false;
+                                      error = _error;
+                                    });
+                                  }
+                                },
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: AppColors.primary,
+                            foregroundColor: Colors.white,
+                            elevation: 0,
+                            shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12)),
+                          ),
+                          child: busy
+                              ? const SizedBox(
+                                  height: 20,
+                                  width: 20,
+                                  child: CircularProgressIndicator(
+                                      strokeWidth: 2, color: Colors.white))
+                              : Text(id == null ? 'Add' : 'Save',
+                                  style: const TextStyle(
+                                      fontSize: 15,
+                                      fontWeight: FontWeight.w600)),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+        );
+      },
+    );
+
+    if (mounted) setState(() {});
+  }
+
   @override
   Widget build(BuildContext context) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         for (final exp in widget.experiences)
-          InlineExpandableRow(
+          CredentialRow(
             title: exp['title'] ?? '',
             subtitle: [
               exp['company'] ?? '',
@@ -253,35 +351,22 @@ class _ExperienceSectionState extends State<ExperienceSection> {
                 '${_toFormDate(exp['start_date'])} - '
                     '${(exp['end_date'] ?? '').isEmpty ? 'Present' : _toFormDate(exp['end_date'])}',
             ].where((s) => s.isNotEmpty).join('  ·  '),
-            expanded: _open == exp['id'],
-            saving: _saving && _open == exp['id'],
-            error: _open == exp['id'] ? _error : null,
-            onToggle: () => _open == exp['id'] ? _close() : _openEntry(exp),
-            onSave: () => _save(exp['id']),
+            hasDocument: false,
+            onTap: () {
+              _openEntry(exp);
+              _showEditor(id: exp['id'], heading: 'Edit experience');
+            },
             onDelete: () => _delete(exp),
-            children: _fields(),
           ),
-
-        // The add row, which is the same form with nothing in it.
-        if (_open == 'new')
-          InlineExpandableRow(
-            title: 'New experience',
-            subtitle: null,
-            expanded: true,
-            saving: _saving,
-            error: _error,
-            saveLabel: 'Add',
-            onToggle: _close,
-            onSave: () => _save(null),
-            children: _fields(),
-          )
-        else
-          SectionAddRow(
-            label: widget.experiences.isEmpty
-                ? 'Add your work experience'
-                : 'Add another',
-            onTap: _openNew,
-          ),
+        SectionAddRow(
+          label: widget.experiences.isEmpty
+              ? 'Add your work experience'
+              : 'Add another',
+          onTap: () {
+            _openNew();
+            _showEditor(heading: 'New experience');
+          },
+        ),
       ],
     );
   }

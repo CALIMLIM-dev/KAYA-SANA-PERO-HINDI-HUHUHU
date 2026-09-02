@@ -40,8 +40,8 @@ class CredentialsSection extends StatefulWidget {
 }
 
 class _CredentialsSectionState extends State<CredentialsSection> {
-  int? _open;
-  bool _addingNew = false;
+  // _open / _addingNew are gone: which entry is being edited is the sheet's
+  // own business now, not a flag the section has to hold and keep in step.
   bool _saving = false;
   String? _error;
 
@@ -73,23 +73,6 @@ class _CredentialsSectionState extends State<CredentialsSection> {
     _error = null;
   }
 
-  void _close() {
-    setState(() {
-      _open = null;
-      _addingNew = false;
-      _reset();
-    });
-    FocusScope.of(context).unfocus();
-  }
-
-  void _openNew() {
-    setState(() {
-      _reset();
-      _open = null;
-      _addingNew = true;
-    });
-  }
-
   Future<void> _pickFile() async {
     final result = await FilePicker.platform.pickFiles(
       type: FileType.custom,
@@ -102,7 +85,8 @@ class _CredentialsSectionState extends State<CredentialsSection> {
     });
   }
 
-  Future<void> _save({int? id}) async {
+  /// Returns whether it saved, so the editor sheet knows to close.
+  Future<bool> _save({int? id}) async {
     final name = _name.text.trim();
     final issuer = _issuer.text.trim();
 
@@ -110,7 +94,7 @@ class _CredentialsSectionState extends State<CredentialsSection> {
       setState(() => _error = _isLicence
           ? 'A licence name and issuing authority are both needed.'
           : 'A certificate name and issuing organisation are both needed.');
-      return;
+      return false;
     }
 
     setState(() {
@@ -145,19 +129,17 @@ class _CredentialsSectionState extends State<CredentialsSection> {
           : await provider.updateCertification(id, model, filePath: _filePath);
     }
 
-    if (!mounted) return;
+    if (!mounted) return false;
 
     setState(() {
       _saving = false;
       _error = ok ? null : (provider.errorMessage ?? 'Could not save it.');
-      if (ok) {
-        _open = null;
-        _addingNew = false;
-        _reset();
-      }
+      if (ok) _reset();
     });
 
     if (ok) FocusScope.of(context).unfocus();
+
+    return ok;
   }
 
   Future<void> _delete(int id, String label) async {
@@ -189,7 +171,8 @@ class _CredentialsSectionState extends State<CredentialsSection> {
 
     setState(() {
       _saving = false;
-      if (ok) _close();
+      // Nothing to collapse any more — just clear the form state.
+      if (ok) _reset();
     });
 
     if (!ok) {
@@ -269,6 +252,124 @@ class _CredentialsSectionState extends State<CredentialsSection> {
     );
   }
 
+  /*
+      The editor is a sheet over the profile, not a row that grows.
+
+      Adding a certificate used to expand the row in place, so the form
+      appeared halfway down a long scrolling profile, pushed everything
+      below it out of view, and left the save button wherever the expansion
+      happened to end. On a filled-in profile you had to hunt for the thing
+      you had just opened.
+
+      A sheet puts the form in one predictable place with the profile still
+      behind it, which is what makes it read as "adding a row here" rather
+      than as a new screen. Same treatment the credential pages already got.
+  */
+  Future<void> _showEditor({int? id, required String heading}) async {
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (sheetContext) {
+        var busy = false;
+        String? error;
+
+        return StatefulBuilder(
+          builder: (sheetContext, setSheet) => Padding(
+            // Lifts with the keyboard: this form is all text fields, and a
+            // sheet that does not lift hides the one being typed into.
+            padding: EdgeInsets.only(
+                bottom: MediaQuery.viewInsetsOf(sheetContext).bottom),
+            child: Container(
+              decoration: const BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+              ),
+              child: SafeArea(
+                top: false,
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.fromLTRB(20, 10, 20, 20),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Center(
+                        child: Container(
+                          width: 40,
+                          height: 4,
+                          decoration: BoxDecoration(
+                            color: AppColors.neutral300,
+                            borderRadius: BorderRadius.circular(2),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      Text(heading,
+                          style: const TextStyle(
+                              fontSize: 17,
+                              fontWeight: FontWeight.w700,
+                              color: AppColors.neutral900)),
+                      const SizedBox(height: 16),
+                      ..._fields(),
+                      if (error != null) ...[
+                        const SizedBox(height: 10),
+                        Text(error!,
+                            style: const TextStyle(
+                                fontSize: 13, color: AppColors.error)),
+                      ],
+                      const SizedBox(height: 18),
+                      SizedBox(
+                        width: double.infinity,
+                        height: 48,
+                        child: ElevatedButton(
+                          onPressed: busy
+                              ? null
+                              : () async {
+                                  setSheet(() => busy = true);
+                                  final ok = await _save(id: id);
+                                  if (!sheetContext.mounted) return;
+                                  if (ok) {
+                                    Navigator.pop(sheetContext);
+                                  } else {
+                                    setSheet(() {
+                                      busy = false;
+                                      error = _error;
+                                    });
+                                  }
+                                },
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: AppColors.primary,
+                            foregroundColor: Colors.white,
+                            elevation: 0,
+                            shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12)),
+                          ),
+                          child: busy
+                              ? const SizedBox(
+                                  height: 20,
+                                  width: 20,
+                                  child: CircularProgressIndicator(
+                                      strokeWidth: 2, color: Colors.white))
+                              : Text(id == null ? 'Add' : 'Save',
+                                  style: const TextStyle(
+                                      fontSize: 15,
+                                      fontWeight: FontWeight.w600)),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+        );
+      },
+    );
+
+    // Whether it saved or was dismissed, the next open starts clean.
+    if (mounted) setState(_reset);
+  }
+
   List<Widget> _fields() => [
         InlineField(
           controller: _name,
@@ -314,52 +415,110 @@ class _CredentialsSectionState extends State<CredentialsSection> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         for (final e in entries)
-          InlineExpandableRow(
+          CredentialRow(
             title: e.title,
             subtitle: e.issuer,
-            expanded: _open == e.id,
-            saving: _saving && _open == e.id,
-            error: _open == e.id ? _error : null,
-            onToggle: () {
-              if (_open == e.id) {
-                _close();
-              } else {
-                setState(() {
-                  _reset();
-                  _addingNew = false;
-                  _open = e.id;
-                  _name.text = e.title;
-                  _issuer.text = e.issuer;
-                  _reference.text = e.reference == 'N/A' ? '' : e.reference;
-                  _existingDoc = e.doc;
-                });
-              }
+            hasDocument: (e.doc ?? '').isNotEmpty,
+            onTap: () {
+              _reset();
+              _name.text = e.title;
+              _issuer.text = e.issuer;
+              _reference.text = e.reference == 'N/A' ? '' : e.reference;
+              _existingDoc = e.doc;
+              _showEditor(
+                id: e.id,
+                heading: _isLicence ? 'Edit licence' : 'Edit certificate',
+              );
             },
-            onSave: () => _save(id: e.id),
             onDelete: e.id == null ? null : () => _delete(e.id!, e.title),
-            children: _fields(),
           ),
-
-        if (_addingNew)
-          InlineExpandableRow(
-            title: _isLicence ? 'New licence' : 'New certificate',
-            subtitle: null,
-            expanded: true,
-            saving: _saving,
-            error: _error,
-            saveLabel: 'Add',
-            onToggle: _close,
-            onSave: () => _save(),
-            children: _fields(),
-          )
-        else
-          SectionAddRow(
-            label: entries.isEmpty
-                ? (_isLicence ? 'Add a licence' : 'Add a certificate')
-                : 'Add another',
-            onTap: _openNew,
-          ),
+        SectionAddRow(
+          label: entries.isEmpty
+              ? (_isLicence ? 'Add a licence' : 'Add a certificate')
+              : 'Add another',
+          onTap: () {
+            _reset();
+            _showEditor(
+              heading: _isLicence ? 'New licence' : 'New certificate',
+            );
+          },
+        ),
       ],
+    );
+  }
+}
+
+/*
+    One saved credential on the profile.
+
+    Replaces InlineExpandableRow here: the row no longer holds a form, so it
+    only has to say what it is and open the editor. Delete stays on the row
+    because it acts on this entry and needs no form to do it.
+*/
+class CredentialRow extends StatelessWidget {
+  const CredentialRow({
+    super.key,
+    required this.title,
+    required this.subtitle,
+    required this.hasDocument,
+    required this.onTap,
+    this.onDelete,
+  });
+
+  final String title;
+  final String subtitle;
+  final bool hasDocument;
+  final VoidCallback onTap;
+  final VoidCallback? onDelete;
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(12),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 4),
+        child: Row(
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(title,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                          color: AppColors.neutral900)),
+                  if (subtitle.isNotEmpty) ...[
+                    const SizedBox(height: 2),
+                    Text(subtitle,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                            fontSize: 12.5, color: AppColors.neutral600)),
+                  ],
+                ],
+              ),
+            ),
+            if (hasDocument)
+              const Padding(
+                padding: EdgeInsets.only(left: 8),
+                child: Icon(Icons.attach_file,
+                    size: 16, color: AppColors.neutral400),
+              ),
+            if (onDelete != null)
+              IconButton(
+                icon: const Icon(Icons.delete_outline,
+                    size: 20, color: AppColors.neutral400),
+                onPressed: onDelete,
+              ),
+            const Icon(Icons.chevron_right,
+                size: 20, color: AppColors.neutral400),
+          ],
+        ),
+      ),
     );
   }
 }

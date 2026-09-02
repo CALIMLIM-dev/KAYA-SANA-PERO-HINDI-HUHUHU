@@ -817,6 +817,7 @@ class _ApplicationCard extends StatelessWidget {
       // Completion comes before reviewing, and they never both apply — you
       // cannot review work that is not finished — so one slot serves both.
       actionIcon: canConfirm ? Icons.check_circle_outline : Icons.star_outline,
+      actionIsCompletion: canConfirm,
       onMessage: !canMessage
           ? null
           : () => Navigator.pushNamed(
@@ -981,6 +982,7 @@ class _JobPostCard extends StatelessWidget {
                 },
               ),
       actionIcon: canConfirm ? Icons.check_circle_outline : Icons.star_outline,
+      actionIsCompletion: canConfirm,
       actionLabel: canConfirm
           ? 'Mark as complete'
           : canReview
@@ -1041,6 +1043,16 @@ Widget _cardShell({
   /// Icon on the action button. Defaults to the review star; completion uses a
   /// tick, because a star on "Mark as complete" reads like a rating.
   IconData actionIcon = Icons.star_outline,
+  /*
+      Which action this is, so it can wear the colour My Jobs gives it.
+
+      Both actions were filled primary blue here while the employer's own
+      screen used green for Mark Complete and a yellow outline for Review —
+      two screens over the same jobs, painting the same two actions three
+      different ways. Finishing a job and rating one are different kinds of
+      act, and the employer side already said so in colour.
+  */
+  bool actionIsCompletion = false,
   /// Optional "Message" button, shown once a conversation exists. Sits beside
   /// the action when both are present rather than stacking, so an accepted and
   /// completed job does not grow two full-width buttons.
@@ -1215,41 +1227,47 @@ Widget _cardShell({
                     const SizedBox(width: 8),
                   if (actionLabel != null && onAction != null)
                     Expanded(
-                      child: ElevatedButton.icon(
-                        onPressed: onAction,
-                        icon: Icon(actionIcon, size: 16),
-                        label: FittedBox(
-                          fit: BoxFit.scaleDown,
-                          child: Text(actionLabel, maxLines: 1),
-                        ),
-                        /*
-                            Primary blue, not the brand yellow.
-
-                            AppColors.accent is #FFD600 at full strength, and
-                            filling a half-width button with it put the
-                            loudest colour in the palette on the busiest
-                            element of the screen — next to the outlined
-                            Message button it read as a warning rather than as
-                            the main action, and black-on-yellow is the only
-                            place in the app that pairing appears.
-
-                            Filled blue against the outlined blue beside it
-                            gives the pair an actual hierarchy: same hue,
-                            primary is solid, secondary is outlined. The
-                            yellow stays where a brand accent belongs — the
-                            tab indicator above.
-                        */
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: AppColors.primary,
-                          foregroundColor: Colors.white,
-                          elevation: 0,
-                          padding: const EdgeInsets.symmetric(vertical: 10),
-                          shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(8)),
-                          textStyle: const TextStyle(
-                              fontSize: 13.5, fontWeight: FontWeight.w600),
-                        ),
-                      ),
+                      child: actionIsCompletion
+                          ? ElevatedButton.icon(
+                              onPressed: onAction,
+                              icon: Icon(actionIcon, size: 16),
+                              label: FittedBox(
+                                fit: BoxFit.scaleDown,
+                                child: Text(actionLabel, maxLines: 1),
+                              ),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: AppColors.success,
+                                foregroundColor: Colors.white,
+                                elevation: 0,
+                                padding:
+                                    const EdgeInsets.symmetric(vertical: 10),
+                                shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(8)),
+                                textStyle: const TextStyle(
+                                    fontSize: 13.5,
+                                    fontWeight: FontWeight.w600),
+                              ),
+                            )
+                          : OutlinedButton.icon(
+                              onPressed: onAction,
+                              icon: Icon(actionIcon, size: 16),
+                              label: FittedBox(
+                                fit: BoxFit.scaleDown,
+                                child: Text(actionLabel, maxLines: 1),
+                              ),
+                              style: OutlinedButton.styleFrom(
+                                foregroundColor: AppColors.accentDark,
+                                side: const BorderSide(
+                                    color: AppColors.accentDark),
+                                padding:
+                                    const EdgeInsets.symmetric(vertical: 10),
+                                shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(8)),
+                                textStyle: const TextStyle(
+                                    fontSize: 13.5,
+                                    fontWeight: FontWeight.w600),
+                              ),
+                            ),
                     ),
                   ],
                 ),
