@@ -155,8 +155,7 @@ class _ApplicationsScreenState extends State<ApplicationsScreen>
   void _openApplications(BuildContext context) {
     _showListSheet(
       context,
-      title: 'Awaiting a reply',
-      subtitle: 'Applications you have sent that the employer has not answered.',
+      title: 'Applied',
       emptyTitle: 'Nothing waiting',
       emptyBody: 'Applications you send appear here until an employer answers. '
           'Once you are hired, the job moves to Active.',
@@ -185,8 +184,7 @@ class _ApplicationsScreenState extends State<ApplicationsScreen>
   void _openApplicants(BuildContext context) {
     _showListSheet(
       context,
-      title: 'Applicants',
-      subtitle: 'People waiting on your decision.',
+      title: 'Pending',
       emptyTitle: 'No one waiting',
       emptyBody: 'When someone applies to a job you posted, they appear here '
           'until you accept or decline them.',
@@ -210,8 +208,7 @@ class _ApplicationsScreenState extends State<ApplicationsScreen>
   void _openInvitations(BuildContext context) {
     _showListSheet(
       context,
-      title: 'Invitations',
-      subtitle: 'Employers who asked for you by name.',
+      title: 'Invited',
       emptyTitle: 'No invitations',
       emptyBody: 'Employers who invite you to a job will show up here.',
       itemsBuilder: (context) => context
@@ -225,7 +222,6 @@ class _ApplicationsScreenState extends State<ApplicationsScreen>
   void _showListSheet<T>(
     BuildContext context, {
     required String title,
-    required String subtitle,
     required String emptyTitle,
     required String emptyBody,
     required List<T> Function(BuildContext) itemsBuilder,
@@ -268,15 +264,14 @@ class _ApplicationsScreenState extends State<ApplicationsScreen>
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
+                          // The sheet is named after the button that opened
+                          // it and nothing else. An explanatory line under
+                          // every title is a manual, not a screen.
                           Text(title,
                               style: const TextStyle(
                                   fontSize: 18,
                                   fontWeight: FontWeight.w700,
                                   color: AppColors.neutral900)),
-                          const SizedBox(height: 3),
-                          Text(subtitle,
-                              style: const TextStyle(
-                                  fontSize: 12.5, color: AppColors.neutral600)),
                         ],
                       ),
                     ),
@@ -877,6 +872,7 @@ class _ApplicationCard extends StatelessWidget {
       status: status,
       trailing: null,
       note: reviewNote,
+      noteIsCompletion: isHired && !workDone,
       // Completion comes before reviewing, and they never both apply — you
       // cannot review work that is not finished — so one slot serves both.
       actionIcon: canConfirm ? Icons.check_circle_outline : Icons.star_outline,
@@ -1000,12 +996,42 @@ class _JobPostCard extends StatelessWidget {
                 ? 'You reviewed $workerName'
                 : null;
 
+    /*
+        The employer's way into the thread, matching the worker's.
+
+        myJobs has returned conversation_id on the hire all along and this
+        card never read it, so the worker's card offered Message on a hire
+        and the employer's did not — the same conversation, reachable from
+        one end only. It also left the two cards visibly different: one row
+        with an outlined button beside a filled one, the other with a lone
+        filled button stretched across the card.
+    */
+    final conversationId = hire?['conversation_id'] as int?;
+
     return _cardShell(
       title: (job['title'] ?? 'Job').toString(),
       subtitle: (job['location'] ?? '').toString(),
       status: status,
       trailing: '$applicants applicant${applicants == 1 ? '' : 's'}',
       note: note,
+      noteIsCompletion: hire != null && !workDone,
+      onMessage: conversationId == null
+          ? null
+          : () => Navigator.pushNamed(
+                context,
+                '/chat',
+                arguments: {
+                  'conversationId': conversationId,
+                  'name': workerName,
+                  'jobTitle': (job['title'] ?? 'Job').toString(),
+                  'jobId': job['id'],
+                  'otherUserId': hire?['worker_id'],
+                  'applicationId': hire?['application_id'],
+                  'jobStatus': job['status'],
+                  'myRole': 'employer',
+                  'otherRole': 'worker',
+                },
+              ),
       actionIcon: canConfirm ? Icons.check_circle_outline : Icons.star_outline,
       actionLabel: canConfirm
           ? 'Mark as complete'
@@ -1056,9 +1082,15 @@ Widget _cardShell({
   /// the action when both are present rather than stacking, so an accepted and
   /// completed job does not grow two full-width buttons.
   VoidCallback? onMessage,
-  /// Optional one-line state under the buttons — currently where the mutual
-  /// review stands. A sentence, because a badge cannot say "waiting for theirs".
+  /// Optional one-line state under the buttons — where the completion or the
+  /// mutual review stands. A sentence, because a badge cannot say "waiting
+  /// for theirs".
   String? note,
+  /// Whether that line is about finishing the job rather than reviewing it.
+  /// Both used the review icon, so "waiting for the employer to confirm"
+  /// was announced with a pencil-and-paper mark — the icon said review while
+  /// the sentence said completion.
+  bool noteIsCompletion = false,
 }) {
   final (bg, fg, label) = _statusStyle(status);
 
@@ -1212,8 +1244,12 @@ Widget _cardShell({
               const SizedBox(height: 10),
               Row(
                 children: [
-                  const Icon(Icons.rate_review_outlined,
-                      size: 14, color: AppColors.neutral400),
+                  Icon(
+                      noteIsCompletion
+                          ? Icons.hourglass_bottom
+                          : Icons.rate_review_outlined,
+                      size: 14,
+                      color: AppColors.neutral400),
                   const SizedBox(width: 6),
                   Expanded(
                     child: Text(note,

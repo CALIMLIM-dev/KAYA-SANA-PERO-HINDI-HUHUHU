@@ -185,11 +185,30 @@ class _ViewApplicantsScreenState extends State<ViewApplicantsScreen>
           children: [
             Icon(Icons.people_outline, size: 56, color: AppColors.neutral300),
             const SizedBox(height: 16),
-            const Text('No applicants here',
+            const Text('No one is waiting here',
                 style: TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.w600,
                     color: AppColors.neutral600)),
+            const SizedBox(height: 8),
+            /*
+                Says why it is empty.
+
+                A notification about an applicant stays in the list after the
+                applicant is gone — withdrawn, or already accepted or
+                declined — so tapping an old one lands here. "No applicants
+                here" over a job the employer knows had applicants reads as
+                the screen having failed to load them.
+            */
+            const Padding(
+              padding: EdgeInsets.symmetric(horizontal: 40),
+              child: Text(
+                'Anyone who applied has either been answered already or '
+                'withdrawn their application.',
+                textAlign: TextAlign.center,
+                style: TextStyle(fontSize: 14, color: AppColors.neutral400),
+              ),
+            ),
           ],
         ),
       );

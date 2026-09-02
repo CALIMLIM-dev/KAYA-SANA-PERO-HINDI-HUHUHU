@@ -203,10 +203,23 @@ class ApplicationProvider with ChangeNotifier {
       final res = await _api.patch('/applications/$applicationId/complete');
       lastCompletionMessage = res.data['message'] as String?;
 
+      /*
+          Merged into the row, not swapped for it.
+
+          This replaced the whole map with the server's application, and
+          that payload is the bare model - it carries the new completion
+          timestamps but not conversation_id, i_reviewed_them or
+          they_reviewed_me, which myApplications attaches afterwards. So
+          confirming a job made the Message button vanish and the review
+          state reset, until the next fetch put them back. Merging keeps
+          everything the row already knew and takes only what changed.
+      */
       final application = res.data['data']?['application'];
       if (application is Map<String, dynamic>) {
         final idx = _applications.indexWhere((a) => a['id'] == applicationId);
-        if (idx != -1) _applications[idx] = application;
+        if (idx != -1) {
+          _applications[idx] = {..._applications[idx], ...application};
+        }
       }
 
       notifyListeners();

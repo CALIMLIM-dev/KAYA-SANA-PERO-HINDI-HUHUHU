@@ -6,6 +6,7 @@ import '../../../core/constants/app_mode.dart';
 import '../../../core/widgets/app_toast.dart';
 import '../../../core/navigation/app_router.dart';
 import '../../../providers/app_mode_provider.dart';
+import '../../../providers/job_provider.dart';
 import '../../../providers/notification_provider.dart';
 import '../widgets/notification_item.dart';
 
@@ -194,6 +195,29 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     */
     if (n.type == 'application.received' && n.referenceId != null) {
       if (!_allow(employerSide: true)) return;
+
+      /*
+          A notification outlives the applicant it announced.
+
+          It stays in the list after the person withdraws, or after the
+          employer accepts or declines them, and tapping it then opened an
+          applicant list with nobody on it — which reads as the screen
+          failing to load rather than as nothing being there.
+
+          Only refused when the jobs list is actually loaded and says this
+          job has nobody pending. With no data the tap goes through, because
+          guessing 'empty' from a list that was never fetched would block a
+          real applicant.
+      */
+      final jobs = context.read<JobProvider>().jobs;
+      final job = jobs.where((j) => j['id'] == n.referenceId).firstOrNull;
+      final pending = job?['pending_application_count'];
+
+      if (job != null && pending is int && pending == 0) {
+        AppToast.info(context,
+            'Nobody is waiting on that job any more — they withdrew, or you already answered them.');
+        return;
+      }
       Navigator.pushNamed(
         context,
         AppRouter.viewApplicants,

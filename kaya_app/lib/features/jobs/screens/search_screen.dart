@@ -65,10 +65,27 @@ class _SearchScreenState extends State<SearchScreen> {
           legitimately wants both — but it starts on the side the person is
           actually acting as.
       */
-      final mode = context.read<AppModeProvider>().effectiveMode;
-      if (mode == AppMode.employer) {
-        _searchType = 'Workers';
-      }
+      /*
+          Open on what this account can actually search for.
+
+          This only nudged the default and left the Jobs/Workers control on
+          screen for everyone, so a worker-only account was offered
+          "Workers" - browsing workers is an employer action - and an
+          employer-only account was offered "Jobs". Tapping either handed
+          back a list the account has no use for.
+
+          A single-role account has no choice to make, so the scope is
+          fixed and the control is not drawn (see _canSwitchSearchType).
+          A hybrid keeps it, seeded from the mode they are in.
+      */
+      final appMode = context.read<AppModeProvider>();
+      _searchType = appMode.hasEmployerProfile && !appMode.hasWorkerProfile
+          ? 'Workers'
+          : appMode.hasWorkerProfile && !appMode.hasEmployerProfile
+              ? 'Jobs'
+              : appMode.effectiveMode == AppMode.employer
+                  ? 'Workers'
+                  : 'Jobs';
 
       context.read<WorkerProfileProvider>().fetchCategories();
       _runSearch();
@@ -226,22 +243,29 @@ class _SearchScreenState extends State<SearchScreen> {
                   padding: const EdgeInsets.fromLTRB(16, 12, 16, 10),
                   child: Row(
                     children: [
-                      Expanded(
-                        child: Container(
-                          padding: const EdgeInsets.all(3),
-                          decoration: BoxDecoration(
-                            color: AppColors.neutral100,
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                          child: Row(
-                            children: [
-                              _segment('Jobs'),
-                              _segment('Workers'),
-                            ],
+                      // Only an account holding both profiles has a choice
+                      // to make here. For everyone else the scope is fixed,
+                      // and a control that switches to a list they cannot
+                      // use is not a control, it is a trap.
+                      if (context.watch<AppModeProvider>().isHybrid) ...[
+                        Expanded(
+                          child: Container(
+                            padding: const EdgeInsets.all(3),
+                            decoration: BoxDecoration(
+                              color: AppColors.neutral100,
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            child: Row(
+                              children: [
+                                _segment('Jobs'),
+                                _segment('Workers'),
+                              ],
+                            ),
                           ),
                         ),
-                      ),
-                      const SizedBox(width: 12),
+                        const SizedBox(width: 12),
+                      ] else
+                        const Spacer(),
                       Text(
                         '$resultCount ${_searchType == 'Jobs' ? 'jobs' : 'workers'}',
                         style: const TextStyle(

@@ -30,6 +30,13 @@ void main() {
         // because messaging genuinely unlocks on hire.
         'conversation_id':
             status == 'accepted' || status == 'completed' ? 12 : null,
+        // The accepted job has this side already confirmed, so the render
+        // shows what a half-finished completion actually looks like — the
+        // state the button is supposed to disappear in.
+        'worker_completed_at': status == 'accepted' ? '2026-09-01T10:00:00Z' : null,
+        'employer_completed_at': null,
+        'i_reviewed_them': false,
+        'they_reviewed_me': status == 'completed',
         'job': {
           'id': title.hashCode,
           'title': title,
@@ -58,6 +65,33 @@ void main() {
         'location': 'Barangay Nancayasan, Urdaneta City, Pangasinan',
         'application_count': total,
         'pending_application_count': pending,
+        // A single hire, which is what puts the completion and review
+        // buttons on an employer's card. Without one seeded here the
+        // employer's card renders with no actions at all, and the whole
+        // completion UI on that side goes unreviewed.
+        'hire': status == 'in_progress'
+            ? {
+                'application_id': 501,
+                'conversation_id': 21,
+                'worker_id': 7,
+                'worker_name': 'Juan Dela Cruz',
+                'status': 'accepted',
+                'employer_completed_at': null,
+                'worker_completed_at': '2026-09-01T10:00:00Z',
+                'i_reviewed_them': false,
+              }
+            : status == 'completed'
+                ? {
+                    'application_id': 502,
+                    'conversation_id': 22,
+                    'worker_id': 8,
+                    'worker_name': 'Maria Santos',
+                    'status': 'completed',
+                    'employer_completed_at': '2026-09-01T12:00:00Z',
+                    'worker_completed_at': '2026-09-01T11:00:00Z',
+                    'i_reviewed_them': false,
+                  }
+                : null,
       };
 
   Widget screen({required bool worker, required bool employer}) {
@@ -119,6 +153,24 @@ void main() {
       name: 'activity_employer',
       size: const Size(1080, 1800),
     );
+  });
+
+  testWidgets('my activity, employer history', (tester) async {
+    await RenderHarness.loadFonts(tester);
+    RenderHarness.stubPlatformChannels(tester);
+    tester.view.physicalSize = const Size(1080, 1800);
+    tester.view.devicePixelRatio = 3.0;
+    addTearDown(tester.view.reset);
+
+    await tester.pumpWidget(screen(worker: false, employer: true));
+    await tester.pump(const Duration(milliseconds: 300));
+    await tester.tap(find.byType(Tab).last);
+    for (var i = 0; i < 6; i++) {
+      await tester.pump(const Duration(milliseconds: 150));
+    }
+
+    await expectLater(find.byType(MaterialApp),
+        matchesGoldenFile('goldens/activity_employer_history.png'));
   });
 
   /// The tight case: a small phone with the system font turned up, which is
