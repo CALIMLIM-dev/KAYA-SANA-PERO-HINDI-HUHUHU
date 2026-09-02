@@ -18,6 +18,21 @@ class InvitationProvider with ChangeNotifier {
   String? get errorMessage => _errorMessage;
   List<Map<String, dynamic>> get invitations => _invitations;
 
+  /// Still waiting on the worker's answer — the only ones worth counting or
+  /// listing, since an accepted or declined invitation needs nothing further.
+  /// Defined here rather than at each call site for the same reason as
+  /// ApplicationProvider's buckets: two copies of a filter drift.
+  List<Map<String, dynamic>> get pending =>
+      _invitations.where((i) => i['status'] == 'pending').toList();
+
+  /// Seed the list directly, so the pending filter and the screens that read
+  /// it can be tested against known statuses without a server.
+  @visibleForTesting
+  void seedInvitations(List<Map<String, dynamic>> rows) {
+    _invitations = rows;
+    notifyListeners();
+  }
+
   void _setLoading(bool v) {
     _isLoading = v;
     notifyListeners();
@@ -31,8 +46,19 @@ class InvitationProvider with ChangeNotifier {
       _invitations = (page['data'] as List).cast<Map<String, dynamic>>();
       _errorMessage = null;
     } catch (e) {
+      /*
+          The last known list survives a failed refresh.
+
+          This emptied it, which made a dropped request indistinguishable from
+          having no invitations — and My Activity's shortcut would then show a
+          confident "0" over a worker who actually had two people waiting on
+          them. ApplicationProvider has always kept its list on error and only
+          recorded the message; this was the odd one out, and the strip's
+          "could not load" state relies on the two behaving the same way: an
+          empty list plus an error means we genuinely could not ask, and is
+          drawn as a dash rather than a zero.
+      */
       _errorMessage = e.toString().replaceFirst('Exception: ', '');
-      _invitations = [];
     } finally {
       _setLoading(false);
     }

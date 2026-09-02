@@ -160,8 +160,29 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       Each poll asks only for messages after the newest one already held, which
       is a ~50 byte answer when nothing has changed.
   */
+  /*
+      Three tiers, because the felt delay and the request budget pull apart.
+
+      Three seconds was the fastest tier, and in a live back-and-forth that is
+      exactly the pause that gets noticed — you watch the other person's reply
+      not arrive. Dropping the floor to one second flat is not available: at 60
+      requests per minute per token that is the entire budget spent on one open
+      chat, and the badge, the feed and the send itself would start taking
+      429s.
+
+      So the fast tier is short instead of permanent. For twelve seconds after
+      a message either way — the window a reply actually lands in — it polls
+      every 1.5s, then falls back. A minute of real conversation costs roughly
+      eight fast reads plus sixteen at three seconds, which sits inside the
+      budget alongside the 8-second notification poll; a minute of silence
+      still costs five.
+  */
+  static const Duration _hotPoll = Duration(milliseconds: 1500);
   static const Duration _activePoll = Duration(seconds: 3);
   static const Duration _idlePoll = Duration(seconds: 12);
+
+  /// How long the fast tier lasts after the last message either way.
+  static const Duration _hotWindow = Duration(seconds: 12);
 
   /// How long a thread stays "active" after the last message either way.
   static const Duration _activeWindow = Duration(minutes: 2);
@@ -215,16 +236,23 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
 
   void _startPolling() {
     _pollTimer?.cancel();
-    _pollTimer = Timer.periodic(const Duration(seconds: 1), (_) {
+    // Ticks faster than the shortest interval, so a 1.5s tier is not rounded
+    // up to 2s by the tick itself. The tick only compares clocks; the request
+    // is still gated by the interval below.
+    _pollTimer = Timer.periodic(const Duration(milliseconds: 500), (_) {
       if (!mounted || _conversationId == null) return;
 
       // Nothing polls while the app is off-screen. The thread refreshes on
       // resume, and the alternative is spending someone's data in their pocket.
       if (!_foreground) return;
 
-      final since = DateTime.now().difference(_lastPoll);
-      final interval =
-          DateTime.now().difference(_lastActivity) < _activeWindow
+      final now = DateTime.now();
+      final since = now.difference(_lastPoll);
+      final quiet = now.difference(_lastActivity);
+
+      final interval = quiet < _hotWindow
+          ? _hotPoll
+          : quiet < _activeWindow
               ? _activePoll
               : _idlePoll;
 
@@ -607,10 +635,19 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                 Search and back into their profile to reach the same dialog was
                 the whole reason a repeat hire felt slower than a first one.
 
-                Only shown to an account that can actually post work. A worker
-                with no employer profile has nothing to invite anyone to.
+                Only shown to an account that can actually post work, and
+                only in a thread with a worker.
+
+                Having an employer profile was the whole test, which is right
+                for a one-sided account and wrong for a hybrid: holding both
+                profiles, they saw "Invite to another job" in the thread with
+                their own employer — an offer to hire the person who hired
+                them. otherRole already says which side of this conversation
+                the other person is on, and it is the half the check was
+                missing.
             */
-            if (context.read<AppModeProvider>().hasEmployerProfile)
+            if (otherRole == 'worker' &&
+                context.read<AppModeProvider>().hasEmployerProfile)
               const PopupMenuItem(
                 value: 'invite',
                 child: Row(

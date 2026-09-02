@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../providers/worker_profile_provider.dart';
 import '../../../core/widgets/app_toast.dart';
+import '../../../core/widgets/form_sheet.dart';
 
 class AddExperienceScreen extends StatefulWidget {
   const AddExperienceScreen({super.key});
@@ -48,9 +49,9 @@ class _AddExperienceScreenState extends State<AddExperienceScreen> {
   }
 
   Future<void> _addExperience() async {
-    final result = await Navigator.push<Map<String, String>>(
+    final result = await showFormSheet<Map<String, String>>(
       context,
-      MaterialPageRoute(builder: (_) => const _ExperienceFormScreen()),
+      const _ExperienceFormScreen(),
     );
     if (result == null || !mounted) return;
 
@@ -85,9 +86,9 @@ class _AddExperienceScreenState extends State<AddExperienceScreen> {
       'description': exp['description'] as String? ?? '',
     };
 
-    final result = await Navigator.push<Map<String, String>>(
+    final result = await showFormSheet<Map<String, String>>(
       context,
-      MaterialPageRoute(builder: (_) => _ExperienceFormScreen(existingExp: formData)),
+      _ExperienceFormScreen(existingExp: formData),
     );
     if (result == null || !mounted) return;
 

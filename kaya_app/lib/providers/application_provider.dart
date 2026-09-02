@@ -20,9 +20,33 @@ class ApplicationProvider with ChangeNotifier {
     notifyListeners();
   }
 
-  List<Map<String, dynamic>> get active => _applications
-      .where((a) => ['pending', 'accepted'].contains(a['status']))
-      .toList();
+  /*
+      Active, split by whose move it is.
+
+      My Activity shows these on two different surfaces — sent-and-unanswered
+      is a shortcut you check, hired-and-working is a tab you act on — and it
+      was about to do that split with its own private predicates. That is the
+      duplicated rule this provider's whole comment history is about, and it
+      would have shown up as the home card reading 3 over a screen whose two
+      halves said 2 and 1 with nothing to connect them.
+
+      So the split lives here, once. `active` is composed from the two rather
+      than filtering the list a third time, which makes
+      `active.length == awaitingReply.length + liveWork.length` true by
+      construction instead of by everyone remembering.
+  */
+
+  /// Sent, and the employer has not answered. Nothing for the worker to do
+  /// but wait — so it is a count to check, not work to get on with.
+  List<Map<String, dynamic>> get awaitingReply =>
+      _applications.where((a) => a['status'] == 'pending').toList();
+
+  /// Hired and not finished: the job the worker is actually doing.
+  List<Map<String, dynamic>> get liveWork =>
+      _applications.where((a) => a['status'] == 'accepted').toList();
+
+  /// Everything in flight, either way — what the home card summarises.
+  List<Map<String, dynamic>> get active => [...awaitingReply, ...liveWork];
 
   List<Map<String, dynamic>> get completed => _applications
       .where((a) => a['status'] == 'completed')

@@ -7,6 +7,7 @@ import '../../../data/services/api_client.dart';
 import '../../../providers/worker_profile_provider.dart';
 import '../../../data/models/worker_certification_model.dart';
 import '../../../core/widgets/app_toast.dart';
+import '../../../core/widgets/form_sheet.dart';
 
 /// Certifications screen — directly saves each cert to DB on Save
 class AddCertificationsScreen extends StatefulWidget {
@@ -26,9 +27,9 @@ class _AddCertificationsScreenState extends State<AddCertificationsScreen> {
   }
 
   Future<void> _addCert() async {
-    final result = await Navigator.push<Map<String, dynamic>>(
+    final result = await showFormSheet<Map<String, dynamic>>(
       context,
-      MaterialPageRoute(builder: (_) => const _CertFormScreen()),
+      const _CertFormScreen(),
     );
     if (result == null || !mounted) return;
 
@@ -52,9 +53,9 @@ class _AddCertificationsScreenState extends State<AddCertificationsScreen> {
   }
 
   Future<void> _editCert(WorkerCertificationModel cert) async {
-    final result = await Navigator.push<Map<String, dynamic>>(
+    final result = await showFormSheet<Map<String, dynamic>>(
       context,
-      MaterialPageRoute(builder: (_) => _CertFormScreen(existingCert: cert)),
+      _CertFormScreen(existingCert: cert),
     );
     if (result == null || !mounted) return;
 

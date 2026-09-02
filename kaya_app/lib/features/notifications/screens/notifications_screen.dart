@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../../core/constants/app_colors.dart';
+import '../../../core/constants/app_mode.dart';
+import '../../../core/widgets/app_toast.dart';
 import '../../../core/navigation/app_router.dart';
 import '../../../providers/app_mode_provider.dart';
 import '../../../providers/notification_provider.dart';
@@ -128,6 +130,50 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     );
   }
 
+  /*
+      A notification is a route only if this account can actually open it.
+
+      _open read the notification's own fields and pushed, full stop. Nothing
+      asked whether the person tapping had the profile the destination belongs
+      to — so "someone applied to your job" sent whoever tapped it to
+      /view-applicants, an employer screen, and an account with no employer
+      profile landed on a screen the server answers with 403. It looked like
+      the app was throwing people at a random screen, which is what it was
+      doing.
+
+      The list on this screen is filtered by the active mode, and that filter
+      was doing just enough work to hide the problem: it is a display filter,
+      and a notification that arrives while the mode is elsewhere, or an
+      account whose profiles changed since, walks straight past it. The guard
+      belongs on the tap, where the destination is actually known.
+
+      For a hybrid the answer is not to refuse but to follow: they hold both
+      profiles, so switch to the side the notification belongs to and then go.
+      Landing on the employer's applicant list while the rest of the app still
+      says "worker" is the other half of what made hybrid accounts feel broken.
+  */
+  bool _allow({required bool employerSide}) {
+    final mode = context.read<AppModeProvider>();
+
+    if (employerSide ? !mode.hasEmployerProfile : !mode.hasWorkerProfile) {
+      AppToast.info(
+        context,
+        employerSide
+            ? 'That is about a job post. Set up an employer profile to see applicants.'
+            : 'That is about applying for work. Set up a worker profile to open it.',
+      );
+      return false;
+    }
+
+    final target = employerSide ? AppMode.employer : AppMode.worker;
+    final showing = employerSide
+        ? mode.effectiveMode.showsEmployerSide
+        : mode.effectiveMode.showsWorkerSide;
+
+    if (!showing && mode.canActivate(target)) mode.setMode(target);
+
+    return true;
+  }
   /// Marks read, then jumps to whatever the notification is about.
   ///
   /// `reference_type`/`reference_id` are set by the server precisely so the app
@@ -147,6 +193,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
         there.
     */
     if (n.type == 'application.received' && n.referenceId != null) {
+      if (!_allow(employerSide: true)) return;
       Navigator.pushNamed(
         context,
         AppRouter.viewApplicants,
@@ -165,8 +212,10 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
           );
         }
       case 'application':
+        if (!_allow(employerSide: false)) return;
         Navigator.pushNamed(context, AppRouter.applications);
       case 'invitation':
+        if (!_allow(employerSide: false)) return;
         Navigator.pushNamed(context, '/my-invitations');
       /*
           Open the thread, not the inbox.

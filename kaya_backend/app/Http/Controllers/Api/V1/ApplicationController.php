@@ -108,12 +108,26 @@ class ApplicationController extends Controller
             from the applicant list. One direction of a two-way conversation
             being harder than the other is not a defensible asymmetry.
 
-            One query for the whole list, keyed by job: a worker has at most one
-            conversation per job.
+            Keyed by employer, not by job.
+
+            This was keyed by job, on the stated reasoning that "a worker has
+            at most one conversation per job". The opposite is true: threads
+            are one per *pair* — see the 2026_08_24 one_conversation_per_pair
+            migration — and `conversations.job_id` merely records the most
+            recent hire the pair worked on. So looking a thread up by job_id
+            found it for exactly one job and returned null for every other one
+            the same two people had ever done together.
+
+            The visible symptom was on the worker's History tab: a finished job
+            showed a lone "Review employer" button where the accepted job on
+            Active showed Message beside it, so the Message button appeared to
+            come and go at random. It was not random — it was every job but the
+            latest, losing a thread that exists and is reachable from the
+            employer's side of the same conversation.
         */
         $conversations = Conversation::where('worker_id', $user->id)
-            ->whereIn('job_id', $applications->pluck('job_id')->unique())
-            ->pluck('id', 'job_id');
+            ->whereIn('employer_id', $applications->pluck('job.employer_id')->filter()->unique())
+            ->pluck('id', 'employer_id');
 
         /*
             Where the mutual review stands, for the whole page in one query.
@@ -133,7 +147,8 @@ class ApplicationController extends Controller
             ->get(['job_id', 'reviewer_id', 'reviewee_id']);
 
         $applications->each(function ($application) use ($conversations, $reviews, $user) {
-            $application->conversation_id = $conversations[$application->job_id] ?? null;
+            $application->conversation_id =
+                $conversations[$application->job->employer_id ?? null] ?? null;
 
             $forJob = $reviews->where('job_id', $application->job_id);
 

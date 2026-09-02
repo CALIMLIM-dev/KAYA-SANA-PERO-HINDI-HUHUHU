@@ -311,103 +311,6 @@ class _UnifiedHomeScreenState extends State<UnifiedHomeScreen>
     return appMode.isNeutral && _isEmptyStateVisible;
   }
 
-  /// The "Open to work" / "Hiring now" badges in the header.
-  ///
-  /// Single profile → one badge, plain status, not tappable (nothing to focus).
-  /// Both profiles  → both badges lit, because the home is showing jobs AND
-  ///                  workers. Tapping one narrows the view to that side;
-  ///                  tapping the lit one again returns to the unified view.
-  /// No profile     → nothing; the dual setup card covers that case.
-  /*
-      The badges, as a list rather than a Row.
-
-      They used to be a Row with its own spacing baked in, which meant putting
-      anything beside them nested a Row inside a Row with a second, different
-      gap — nothing lined up, and on a narrow screen it overflowed rather than
-      wrapping. Handing back the pieces lets the caller lay everything out in
-      one flow with one spacing.
-  */
-  List<Widget> _statusBadges(AppModeProvider appMode) {
-    if (appMode.isNeutral) return const [];
-
-    // Unfocused hybrid: both sides are on screen, so light both badges.
-    final workerLit = appMode.isUnfocused || appMode.isWorkerMode;
-    final employerLit = appMode.isUnfocused || appMode.isEmployerMode;
-
-    return [
-        if (appMode.canActivate(AppMode.worker))
-          _statusBadge(
-            label: 'Open to work',
-            icon: Icons.check_circle,
-            color: AppColors.success,
-            isActive: workerLit,
-            onTap: appMode.isHybrid
-                ? () => appMode.isWorkerMode
-                    ? appMode.clearFocus()
-                    : appMode.setMode(AppMode.worker)
-                : null,
-          ),
-        if (appMode.canActivate(AppMode.employer))
-          _statusBadge(
-            label: 'Hiring now',
-            icon: Icons.business_center,
-            color: AppColors.primary,
-            isActive: employerLit,
-            onTap: appMode.isHybrid
-                ? () => appMode.isEmployerMode
-                    ? appMode.clearFocus()
-                    : appMode.setMode(AppMode.employer)
-                : null,
-          ),
-    ];
-  }
-
-  Widget _statusBadge({
-    required String label,
-    required IconData icon,
-    required Color color,
-    required bool isActive,
-    VoidCallback? onTap,
-  }) {
-    // Inactive side is desaturated so the active mode is unambiguous at a glance.
-    final foreground = isActive ? color : AppColors.neutral400;
-
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(12),
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 180),
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-        decoration: BoxDecoration(
-          color: isActive
-              ? color.withValues(alpha: 0.1)
-              : Colors.transparent,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(
-            color: isActive
-                ? color.withValues(alpha: 0.3)
-                : AppColors.neutral300,
-          ),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(icon, size: 14, color: foreground),
-            const SizedBox(width: 4),
-            Text(
-              label,
-              style: TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.w600,
-                color: foreground,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
   /// Extract first name from full name
   String _getFirstName(String? fullName) {
     if (fullName == null || fullName.isEmpty) return 'User';
@@ -696,15 +599,15 @@ class _UnifiedHomeScreenState extends State<UnifiedHomeScreen>
                                       balance drops onto a second line instead
                                       of overflowing.
                                   */
-                                  Wrap(
-                                    spacing: 8,
-                                    runSpacing: 6,
-                                    crossAxisAlignment: WrapCrossAlignment.center,
-                                    children: [
-                                      ..._statusBadges(appMode),
-                                      const _BalanceChip(),
-                                    ],
-                                  ),
+                                  // The "Open to work" / "Hiring now"
+                                  // badges used to sit here beside this.
+                                  // They were removed: for a single-role
+                                  // account they were a label that could
+                                  // not be acted on, and the hybrid's mode
+                                  // switch they doubled as is the filter
+                                  // chip row below, which says the same
+                                  // thing in words. One control, one place.
+                                  const _BalanceChip(),
                                 ],
                               ),
                             ),

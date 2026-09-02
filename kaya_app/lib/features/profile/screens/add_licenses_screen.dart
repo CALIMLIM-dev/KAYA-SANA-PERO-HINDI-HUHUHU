@@ -7,6 +7,7 @@ import '../../../data/services/api_client.dart';
 import '../../../providers/worker_profile_provider.dart';
 import '../../../data/models/worker_license_model.dart';
 import '../../../core/widgets/app_toast.dart';
+import '../../../core/widgets/form_sheet.dart';
 
 /// Licenses screen — stored as certifications on the backend with a 'license' type flag
 class AddLicensesScreen extends StatefulWidget {
@@ -29,9 +30,9 @@ class _AddLicensesScreenState extends State<AddLicensesScreen> {
   }
 
   Future<void> _addLicense() async {
-    final result = await Navigator.push<Map<String, dynamic>>(
+    final result = await showFormSheet<Map<String, dynamic>>(
       context,
-      MaterialPageRoute(builder: (_) => const _LicenseFormScreen()),
+      const _LicenseFormScreen(),
     );
     if (result == null || !mounted) return;
 
@@ -56,9 +57,9 @@ class _AddLicensesScreenState extends State<AddLicensesScreen> {
   }
 
   Future<void> _editLicense(WorkerLicenseModel license) async {
-    final result = await Navigator.push<Map<String, dynamic>>(
+    final result = await showFormSheet<Map<String, dynamic>>(
       context,
-      MaterialPageRoute(builder: (_) => _LicenseFormScreen(existingLicense: license)),
+      _LicenseFormScreen(existingLicense: license),
     );
     if (result == null || !mounted) return;
 

@@ -23,10 +23,68 @@ class User extends Authenticatable
      */
     protected $fillable = [
         'name', 'email', 'password',
+        'first_name', 'middle_name', 'last_name', 'suffix',
         'profile_picture', 'phone', 'city',
         'google_id', 'avatar',
         'terms_accepted', 'terms_accepted_at',
     ];
+
+    /*
+        `name` is derived from the parts whenever the parts are set.
+
+        The split migration keeps `name` rather than dropping it, because every
+        reader in the app and the whole admin panel still use it. That only
+        stays honest if it cannot drift: editing a surname and leaving a stale
+        display name behind is worse than not having split the column at all,
+        since the two would disagree with no sign of which is current.
+
+        So the parts are the source of truth and this recomputes `name` on
+        every save that touches them. An account with no parts yet - anything
+        created before the migration, or a Google sign-in that only ever
+        supplied a display name - keeps whatever `name` it has, so nothing is
+        blanked by the mere act of saving something else.
+    */
+    protected static function booted(): void
+    {
+        static::saving(function (self $user) {
+            if (blank($user->first_name) && blank($user->last_name)) {
+                return;
+            }
+
+            $user->name = self::composeName(
+                $user->first_name,
+                $user->middle_name,
+                $user->last_name,
+                $user->suffix,
+            );
+        });
+    }
+
+    /*
+        "Juan P. Dela Cruz Jr." - given name first, middle as an initial.
+
+        The middle name here is the mother's maiden surname and is rarely
+        spelled out in conversation, so it appears as an initial; the full
+        value stays in its own column for the places that need to match a
+        government ID. Surname-first ("Dela Cruz, Juan P.") is the other
+        convention and is deliberately not used, because this string is a
+        display name shown next to avatars in chat and job cards, not an index.
+    */
+    public static function composeName(
+        ?string $first,
+        ?string $middle,
+        ?string $last,
+        ?string $suffix,
+    ): string {
+        $middleInitial = filled($middle) ? mb_strtoupper(mb_substr(trim($middle), 0, 1)) . '.' : null;
+
+        return trim(implode(' ', array_filter([
+            trim((string) $first),
+            $middleInitial,
+            trim((string) $last),
+            trim((string) $suffix),
+        ], fn ($part) => filled($part))));
+    }
 
     /*
         Anything not listed here ships to whoever loads the relation.

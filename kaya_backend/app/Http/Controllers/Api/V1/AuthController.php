@@ -29,6 +29,20 @@ class AuthController extends Controller
     {
         $request->validate([
             'name'     => ['nullable', 'string', 'max:255'],
+            /*
+                The name, as four fields.
+
+                `name` stays accepted so an older build keeps working, but
+                when the parts arrive they win: User::booted recomputes the
+                display name from them on save. first and last are what a
+                person is addressed by; middle (the mother's maiden surname
+                here) and suffix are genuinely optional and must never be
+                required, or anyone without one cannot finish signing up.
+            */
+            'first_name'  => ['nullable', 'string', 'max:100'],
+            'middle_name' => ['nullable', 'string', 'max:100'],
+            'last_name'   => ['nullable', 'string', 'max:100'],
+            'suffix'      => ['nullable', 'string', 'max:20'],
             'email'    => ['required', 'string'],
             'password' => ['required', 'string', 'min:8', 'confirmed'],
             'phone'    => ['nullable', 'string', 'max:20'],
@@ -46,6 +60,12 @@ class AuthController extends Controller
             }
             $userData = [
                 'name'     => $request->input('name') ?: null,
+                // The parts are the source of truth; User::booted rebuilds
+                // `name` from them, so a caller sending both cannot disagree.
+                'first_name'  => $request->input('first_name') ?: null,
+                'middle_name' => $request->input('middle_name') ?: null,
+                'last_name'   => $request->input('last_name') ?: null,
+                'suffix'      => $request->input('suffix') ?: null,
                 'email'    => null,
                 'phone'    => $input,
                 'password' => $request->input('password'),
@@ -62,6 +82,12 @@ class AuthController extends Controller
             }
             $userData = [
                 'name'     => $request->input('name') ?: null,
+                // The parts are the source of truth; User::booted rebuilds
+                // `name` from them, so a caller sending both cannot disagree.
+                'first_name'  => $request->input('first_name') ?: null,
+                'middle_name' => $request->input('middle_name') ?: null,
+                'last_name'   => $request->input('last_name') ?: null,
+                'suffix'      => $request->input('suffix') ?: null,
                 'email'    => $input,
                 'password' => $request->input('password'),
                 'terms_accepted' => true,
@@ -320,6 +346,10 @@ class AuthController extends Controller
     {
         $data = $request->validate([
             'name'  => ['nullable', 'string', 'max:255'],
+            'first_name'  => ['nullable', 'string', 'max:100'],
+            'middle_name' => ['nullable', 'string', 'max:100'],
+            'last_name'   => ['nullable', 'string', 'max:100'],
+            'suffix'      => ['nullable', 'string', 'max:20'],
             'phone' => ['nullable', 'string', 'max:20'],
         ]);
 
@@ -350,6 +380,42 @@ class AuthController extends Controller
             }
 
             $user->name = $data['name'];
+        }
+
+        /*
+            The parts run through the same verification lock.
+
+            The check above guards `name`, and `name` is now derived from
+            these — so writing the parts without this would walk straight
+            around it: a verified account could rename itself by sending
+            first_name instead of name, and keep the badge that vouched
+            for the old one. The composed result is compared rather than
+            each field, so correcting a spelling to the same display name
+            is not treated as a rename.
+        */
+        $partKeys = ['first_name', 'middle_name', 'last_name', 'suffix'];
+
+        if ($request->hasAny($partKeys)) {
+            $proposed = \App\Models\User::composeName(
+                $data['first_name']  ?? $user->first_name,
+                $data['middle_name'] ?? $user->middle_name,
+                $data['last_name']   ?? $user->last_name,
+                $data['suffix']      ?? $user->suffix,
+            );
+
+            if ($user->is_verified && $proposed !== $user->name) {
+                return $this->fail(
+                    'Your name is locked because your ID has been verified. '
+                    . 'Contact support if you need to change it.',
+                    422
+                );
+            }
+
+            foreach ($partKeys as $key) {
+                if (array_key_exists($key, $data)) {
+                    $user->{$key} = $data[$key] ?: null;
+                }
+            }
         }
 
         if (array_key_exists('phone', $data) && !empty($data['phone'])) {

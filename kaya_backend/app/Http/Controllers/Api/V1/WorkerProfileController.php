@@ -74,6 +74,10 @@ class WorkerProfileController extends Controller
     {
         $validator = Validator::make($request->all(), [
             'name' => 'nullable|string|max:255',
+            'first_name'  => 'nullable|string|max:100',
+            'middle_name' => 'nullable|string|max:100',
+            'last_name'   => 'nullable|string|max:100',
+            'suffix'      => 'nullable|string|max:20',
             'city' => 'nullable|string|max:255',
             'phone' => 'nullable|string|max:20',
             // Structured location from the PSGC picker. Without these the
@@ -101,7 +105,24 @@ class WorkerProfileController extends Controller
         
         $user = $request->user();
         
-        if ($request->filled('name')) {
+        /*
+            The parts first, then `name` only as a fallback.
+
+            An older build still sends a single `name`, and a current one
+            sends the four fields. Applying the parts and letting
+            User::booted recompose the display name means the two can never
+            disagree - and the plain `name` write is skipped when parts are
+            present, or it would be overwritten a moment later anyway.
+        */
+        foreach (['first_name', 'middle_name', 'last_name', 'suffix'] as $part) {
+            if ($request->has($part)) {
+                $user->{$part} = $request->input($part) ?: null;
+            }
+        }
+
+        $sentParts = $request->hasAny(['first_name', 'middle_name', 'last_name', 'suffix']);
+
+        if (!$sentParts && $request->filled('name')) {
             $user->name = $request->name;
         }
         

@@ -460,17 +460,47 @@ class AuthProvider with ChangeNotifier {
 
   // ── Update current user (name, phone) ────────────────────────────────────────
 
-  Future<bool> updateMe({String? name, String? phone}) async {
+  /// Sends whichever of these were given. The four name parts are the
+  /// source of truth server-side — `name` is recomputed from them on save —
+  /// so a caller sends the parts and reads the composed name back.
+  Future<bool> updateMe({
+    String? name,
+    String? firstName,
+    String? middleName,
+    String? lastName,
+    String? suffix,
+    String? phone,
+  }) async {
     try {
       final Map<String, dynamic> data = {};
       if (name != null) data['name'] = name;
+      if (firstName != null) data['first_name'] = firstName;
+      if (middleName != null) data['middle_name'] = middleName;
+      if (lastName != null) data['last_name'] = lastName;
+      if (suffix != null) data['suffix'] = suffix;
       if (phone != null) data['phone'] = phone;
       
       final response = await _api.patch('/me', data: data);
       if (response.data['success']) {
         // Update local user data
         if (_user != null) {
-          _user!['name'] = name ?? _user!['name'];
+          /*
+              The server's composed name wins.
+
+              This assigned the `name` argument back, which is null when a
+              caller sends the four parts instead — so the display name in
+              memory kept the old value until the next /me, and the profile
+              header showed the previous name over freshly saved fields.
+          */
+          final returned = response.data['data'];
+          if (returned is Map && returned['name'] != null) {
+            _user!['name'] = returned['name'];
+            for (final k in const ['first_name', 'middle_name', 'last_name', 'suffix']) {
+              if (returned.containsKey(k)) _user![k] = returned[k];
+            }
+          } else {
+            _user!['name'] = name ?? _user!['name'];
+          }
           _user!['phone'] = phone ?? _user!['phone'];
         }
         notifyListeners();

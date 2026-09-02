@@ -84,14 +84,38 @@ class _NotificationBannerHostState extends State<NotificationBannerHost> {
         with or without a socket. Both paths de-duplicate on id, so a
         notification delivered twice is still announced once.
     */
-    // After the first frame: navigatorKey.currentContext is null during
-    // initState, because the navigator this host wraps has not been built yet.
+    /*
+        Attached on the first frame that actually has a navigator — retried
+        until then, rather than attempted once.
+
+        navigatorKey.currentContext is null during initState, because the
+        navigator this host wraps has not been built yet, so the attach was
+        deferred to the first post-frame callback. On a cold start that frame
+        is not reliably late enough: whether the navigator exists by then
+        depends on what else ran first, and when it did not, this returned
+        without attaching and never tried again. The provider then published
+        arrivals to nobody for the rest of the session.
+
+        That is the "banners are hit and miss" report. It was never about
+        which notification arrived — it was decided once, at startup, by a
+        race, and then held for the whole session either way.
+
+        Retrying costs one closure per frame until the navigator exists, which
+        in practice is the very next one.
+    */
+    _attachWhenReady();
+  }
+
+  void _attachWhenReady() {
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted) return;
+      if (!mounted || _detachArrived != null) return;
 
       final context = widget.navigatorKey.currentContext;
       final notifications = context?.read<NotificationProvider>();
-      if (notifications == null) return;
+      if (notifications == null) {
+        _attachWhenReady();
+        return;
+      }
 
       void onArrived() {
         final n = notifications.arrived.value;

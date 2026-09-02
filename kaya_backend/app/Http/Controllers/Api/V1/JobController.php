@@ -366,9 +366,28 @@ class JobController extends Controller
             disagree. The column stays for now — other screens still read it —
             but this response no longer depends on it being right.
         */
+        /*
+            Two counts, because the card and the shortcut ask different
+            questions.
+
+            `application_count` is everyone who ever applied, in any state, and
+            that is the right number on a job card - "this post drew 12 people"
+            is true whatever became of them.
+
+            My Activity's Applicants shortcut means something narrower: people
+            waiting on a decision from this employer. A job whose three
+            applicants were all declined still has an application_count of 3,
+            so using it there would badge the shortcut with a 3 and then open
+            onto an empty list. Counted separately rather than derived on the
+            client, which cannot see the statuses at all - myJobs returns the
+            job, never its applications.
+        */
         $jobs = $user->postedJobs()
             ->with(['category', 'skills'])
-            ->withCount('applications')
+            ->withCount([
+                'applications',
+                'applications as pending_application_count' => fn ($q) => $q->where('status', 'pending'),
+            ])
             ->latest()
             ->get()
             ->map(function ($job) {

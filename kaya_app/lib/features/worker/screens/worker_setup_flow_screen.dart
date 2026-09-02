@@ -42,11 +42,40 @@ class _WorkerSetupFlowScreenState extends State<WorkerSetupFlowScreen> {
   late PageController _pageController;
   late int _currentStep;
   late TextEditingController _locationController;
-  late TextEditingController _nameController;
+  late TextEditingController _firstNameController;
+  late TextEditingController _middleNameController;
+  late TextEditingController _lastNameController;
+  late TextEditingController _suffixController;
+
+  /// One name box. Same shape as the rest of the form's inputs, with the
+  /// label doing all the work — no hint line, so every field is exactly one
+  /// row tall and the four line up whatever is typed into them.
+  Widget _nameField(
+    TextEditingController ctrl,
+    String label, {
+    TextCapitalization capitalization = TextCapitalization.words,
+  }) =>
+      TextField(
+        controller: ctrl,
+        textCapitalization: capitalization,
+        onChanged: (_) => setState(() {}),
+        decoration: InputDecoration(
+          labelText: label,
+          filled: true,
+          fillColor: Colors.white,
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12),
+            borderSide: BorderSide.none,
+          ),
+          focusedBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12),
+            borderSide: const BorderSide(color: AppColors.primary, width: 2),
+          ),
+        ),
+      );
   
   // Form data - ALL stored in memory until Finish
   String? _location;
-  String? _userName;
   List<SkillModel> _selectedSkills = [];
   List<Map<String, dynamic>> _tempExperiences = [];
   List<Map<String, dynamic>> _tempCertifications = [];
@@ -89,7 +118,10 @@ class _WorkerSetupFlowScreenState extends State<WorkerSetupFlowScreen> {
     
     // Initialize controllers FIRST to avoid red error
     _locationController = TextEditingController();
-    _nameController = TextEditingController();
+    _firstNameController = TextEditingController();
+    _middleNameController = TextEditingController();
+    _lastNameController = TextEditingController();
+    _suffixController = TextEditingController();
     
     // Load existing data
     WidgetsBinding.instance.addPostFrameCallback((_) async {
@@ -110,9 +142,18 @@ class _WorkerSetupFlowScreenState extends State<WorkerSetupFlowScreen> {
       // These four awaits take a second or two, and the user can type during
       // that time. Assigning unconditionally overwrote their input with the
       // server value — usually empty — so a name typed straight away vanished.
-      if (_nameController.text.isEmpty) {
-        _userName = authProvider.user?['name'] as String?;
-        _nameController.text = _userName ?? '';
+      // Same guard as before, now over the parts: whichever the account
+      // already has is filled in, and anything typed while these awaits
+      // ran is left alone.
+      if (_firstNameController.text.isEmpty) {
+        _firstNameController.text =
+            (authProvider.user?['first_name'] as String?) ?? '';
+        _middleNameController.text =
+            (authProvider.user?['middle_name'] as String?) ?? '';
+        _lastNameController.text =
+            (authProvider.user?['last_name'] as String?) ?? '';
+        _suffixController.text =
+            (authProvider.user?['suffix'] as String?) ?? '';
       }
 
       if (_locationController.text.isEmpty) {
@@ -128,7 +169,10 @@ class _WorkerSetupFlowScreenState extends State<WorkerSetupFlowScreen> {
   void dispose() {
     _pageController.dispose();
     _locationController.dispose();
-    _nameController.dispose();
+    _firstNameController.dispose();
+    _middleNameController.dispose();
+    _lastNameController.dispose();
+    _suffixController.dispose();
     super.dispose();
   }
 
@@ -228,7 +272,10 @@ class _WorkerSetupFlowScreenState extends State<WorkerSetupFlowScreen> {
         // never picked from the suggestions has no location_id, so the profile
         // saves with no coordinates and the worker is invisible to every
         // distance and proximity calculation.
-        return _nameController.text.trim().isNotEmpty &&
+        // First and last are the required pair; middle and suffix are
+        // genuinely optional and must not block the Next button.
+        return _firstNameController.text.trim().isNotEmpty &&
+            _lastNameController.text.trim().isNotEmpty &&
             _selectedLocation != null &&
             _pinnedLat != null &&
             _pinnedLng != null;
@@ -381,28 +428,43 @@ class _WorkerSetupFlowScreenState extends State<WorkerSetupFlowScreen> {
           ),
           const SizedBox(height: 32),
           
-          // Name (EDITABLE)
-          TextField(
-            controller: _nameController,
-            textCapitalization: TextCapitalization.words,
-            onChanged: (value) {
-              _userName = value;
-              setState(() {}); // Need setState to update button state
-            },
-            decoration: InputDecoration(
-              labelText: 'Full Name *',
-              hintText: '',
-              filled: true,
-              fillColor: Colors.white,
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
-                borderSide: BorderSide.none,
+          /*
+              Four fields, because a Philippine name is four fields.
+
+              This was one "Full Name *" box, so a middle name — the mother's
+              maiden surname, which appears on every government ID uploaded for
+              verification — had nowhere to go, and neither did a suffix. An
+              employer comparing a profile against the ID beside it was making
+              a judgement call rather than a comparison.
+
+              Laid out so the column stays a column: the two required fields
+              are full width, and only the last row splits, with the surname
+              taking twice the width of the suffix. A suffix box the same size
+              as a surname box reads as though four characters were expected in
+              both. Middle name and suffix say "optional" on the label rather
+              than carrying a hint underneath, so every field is exactly one
+              line tall and the labels line up down the left edge.
+          */
+          _nameField(_firstNameController, 'First Name *'),
+          const SizedBox(height: 12),
+          _nameField(_middleNameController, 'Middle Name (optional)'),
+          const SizedBox(height: 12),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                flex: 2,
+                child: _nameField(_lastNameController, 'Last Name *'),
               ),
-              focusedBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
-                borderSide: const BorderSide(color: AppColors.primary, width: 2),
+              const SizedBox(width: 12),
+              Expanded(
+                child: _nameField(
+                  _suffixController,
+                  'Suffix',
+                  capitalization: TextCapitalization.characters,
+                ),
               ),
-            ),
+            ],
           ),
           const SizedBox(height: 16),
           
@@ -1728,10 +1790,17 @@ class _WorkerSetupFlowScreenState extends State<WorkerSetupFlowScreen> {
       final hasCompleteVerification =
           _tempIdPhotoPath != null && _tempSelfiePhotoPath != null;
 
-      // 1. Save name to users table
-      final name = _nameController.text.trim();
-      if (name.isNotEmpty) {
-        await authProvider.updateMe(name: name);
+      // 1. Save the name parts. The server composes the display name from
+      // them, so nothing here has to build it.
+      final first = _firstNameController.text.trim();
+      final last = _lastNameController.text.trim();
+      if (first.isNotEmpty || last.isNotEmpty) {
+        await authProvider.updateMe(
+          firstName: first,
+          middleName: _middleNameController.text.trim(),
+          lastName: last,
+          suffix: _suffixController.text.trim(),
+        );
       }
       
       // 2. Save location (this creates profile with setup_completed=false)
