@@ -68,4 +68,57 @@ void main() {
   test('a barangay does not match an unrelated city', () {
     expect(isSamePlace(bued, urdaneta), isFalse);
   });
+
+  /*
+      The label has to follow the pin when the pin is more specific.
+
+      isSamePlace stops the app asking "are you sure?" for a pin dropped
+      inside the city you chose. That is right, but the caller took "same
+      place" to mean "nothing to update": it stored the coordinates and left
+      the field reading "Urdaneta City" after the user pinned a barangay of
+      it. The pin had registered and nothing on screen said so, so pinning
+      looked like it did nothing — the text only ever changed through the
+      "Use pinned" dialog, which fires just for pins in another city.
+  */
+  test('a barangay inside the chosen city is a sharper answer', () {
+    expect(
+      isSharperThan(nancamaliran, urdaneta),
+      isTrue,
+      reason: 'Pinning a barangay after choosing the city should upgrade '
+          'the label, not be discarded as "same place".',
+    );
+  });
+
+  test('a different barangay of the same city is a sharper answer', () {
+    expect(isSharperThan(poblacion, nancamaliran), isTrue);
+  });
+
+  /*
+      The direction that must not apply.
+
+      /locations/nearest can answer with the city when it has no barangay
+      for that spot. Adopting it over a barangay the user picked themselves
+      would throw away detail they chose — the pin would make their address
+      vaguer, which is the opposite of what dropping one is for.
+  */
+  test('a chosen barangay survives a pin that resolves to the city', () {
+    expect(isSharperThan(urdaneta, nancamaliran), isFalse);
+  });
+
+  test('the same place is not an upgrade', () {
+    expect(isSharperThan(urdaneta, urdaneta), isFalse);
+  });
+
+  test('another city entirely is not an upgrade', () {
+    expect(
+      isSharperThan(binalonan, urdaneta),
+      isFalse,
+      reason: 'That is a genuine conflict and belongs in the confirm '
+          'dialog, not adopted silently.',
+    );
+  });
+
+  test('a barangay of another city is not an upgrade', () {
+    expect(isSharperThan(bued, urdaneta), isFalse);
+  });
 }

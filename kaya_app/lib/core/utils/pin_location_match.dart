@@ -30,3 +30,33 @@ bool isSamePlace(LocationModel a, LocationModel b) {
 
   return false;
 }
+
+/*
+    Whether the pin's answer is a sharper version of the same place.
+
+    isSamePlace exists to stop the app nagging someone for pinning inside
+    the city they chose, and it does that correctly. But "do not nag" got
+    implemented as "ignore the pin's label", so pinning Barangay Mabanogbog
+    after choosing Urdaneta City stored the coordinates and left the field
+    reading "Urdaneta City" — the more precise answer was thrown away, and
+    the only thing on screen that could show the pin had registered never
+    moved. The label appeared to change only via the "Use pinned" dialog,
+    because that branch was the one place the selection was ever reassigned.
+
+    Sharper means: a barangay inside the chosen city, or a different
+    barangay of it. Deliberately NOT the reverse — a pin that resolves to
+    the city while the user picked a barangay is a blunter answer, and
+    overwriting their barangay with it would lose detail they chose.
+*/
+bool isSharperThan(LocationModel resolved, LocationModel selected) {
+  if (resolved.id == selected.id) return false;
+
+  if (resolved.parentId != null && resolved.parentId == selected.id) {
+    return true;
+  }
+
+  return resolved.type == 'barangay' &&
+      selected.type == 'barangay' &&
+      resolved.parentId != null &&
+      resolved.parentId == selected.parentId;
+}

@@ -1388,6 +1388,15 @@ class _PostJobScreenState extends State<PostJobScreen> {
     setState(() {
       _pinnedLat = lat;
       _pinnedLng = lng;
+
+      // Same city, sharper answer: take the barangay the pin landed on.
+      // No dialog — nothing is in conflict, the label is just getting more
+      // specific. The field writes its own text from the selection.
+      if (resolved != null &&
+          _selectedLocation != null &&
+          isSharperThan(resolved, _selectedLocation!)) {
+        _selectedLocation = resolved;
+      }
     });
   }
 
