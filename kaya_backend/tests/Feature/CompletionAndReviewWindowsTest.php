@@ -121,31 +121,35 @@ class CompletionAndReviewWindowsTest extends TestCase
     /*
         The stuck hire, which is what the command exists for.
     */
-    public function test_a_hire_waiting_past_the_window_is_confirmed_for_the_silent_side(): void
+    public function test_a_hire_waiting_past_the_window_is_closed_as_unsuccessful(): void
     {
         $hire = $this->hire([
+            'started_at'          => now()->subDays(10),
             'worker_completed_at' => now()->subDays(10),
         ]);
 
-        $this->artisan('kaya:auto-confirm-completions')->assertSuccessful();
+        $this->artisan('kaya:close-unconfirmed-hires')->assertSuccessful();
 
         $hire->refresh();
 
-        $this->assertNotNull(
-            $hire->employer_completed_at,
-            'The employer never confirmed and never will; without this the '
-            . 'worker can never be reviewed and the job never finishes.'
+        $this->assertSame(
+            'unsuccessful',
+            $hire->status,
+            'The job did not complete. Confirming for the silent side would '
+            . 'assert work nobody vouched for, and would make pressing the '
+            . 'button pointless.'
         );
-        $this->assertSame('completed', $hire->status);
+        $this->assertNull($hire->employer_completed_at);
     }
 
     public function test_a_hire_still_inside_the_window_is_left_alone(): void
     {
         $hire = $this->hire([
+            'started_at'          => now()->subDays(2),
             'worker_completed_at' => now()->subDays(2),
         ]);
 
-        $this->artisan('kaya:auto-confirm-completions')->assertSuccessful();
+        $this->artisan('kaya:close-unconfirmed-hires')->assertSuccessful();
 
         $this->assertNull($hire->fresh()->employer_completed_at);
         $this->assertSame('accepted', $hire->fresh()->status);
@@ -158,26 +162,32 @@ class CompletionAndReviewWindowsTest extends TestCase
         party has touched is not waiting on anyone, and closing it would be
         the app deciding work happened.
     */
-    public function test_a_hire_nobody_confirmed_is_never_auto_completed(): void
+    /*
+        Neither side confirmed, which is still a job that did not complete.
+
+        The earlier version of this command left these alone because it had
+        nothing to confirm from. Closing is the honest outcome: two people
+        agreed to work, the window passed, and nobody says it happened.
+    */
+    public function test_a_hire_nobody_confirmed_is_closed_too(): void
     {
-        $hire = $this->hire();
+        $hire = $this->hire(['started_at' => now()->subDays(30)]);
 
-        $this->travel(30)->days();
-        $this->artisan('kaya:auto-confirm-completions')->assertSuccessful();
+        $this->artisan('kaya:close-unconfirmed-hires')->assertSuccessful();
 
-        $hire->refresh();
-        $this->assertNull($hire->employer_completed_at);
-        $this->assertNull($hire->worker_completed_at);
-        $this->assertSame('accepted', $hire->status);
+        $this->assertSame('unsuccessful', $hire->fresh()->status);
     }
 
     public function test_dry_run_changes_nothing(): void
     {
-        $hire = $this->hire(['worker_completed_at' => now()->subDays(10)]);
+        $hire = $this->hire([
+            'started_at'          => now()->subDays(10),
+            'worker_completed_at' => now()->subDays(10),
+        ]);
 
-        $this->artisan('kaya:auto-confirm-completions --dry-run')->assertSuccessful();
+        $this->artisan('kaya:close-unconfirmed-hires --dry-run')->assertSuccessful();
 
-        $this->assertNull($hire->fresh()->employer_completed_at);
+        $this->assertSame('accepted', $hire->fresh()->status);
     }
 
     public function test_a_review_inside_the_window_is_accepted(): void
@@ -203,9 +213,9 @@ class CompletionAndReviewWindowsTest extends TestCase
     {
         $this->hire([
             'status'                => 'completed',
-            'worker_completed_at'   => now()->subDays(60),
-            'employer_completed_at' => now()->subDays(60),
-            'completed_at'          => now()->subDays(60),
+            'worker_completed_at'   => now()->subDays(20),
+            'employer_completed_at' => now()->subDays(20),
+            'completed_at'          => now()->subDays(20),
         ]);
 
         $this->actingAs($this->employer, 'sanctum')
@@ -213,7 +223,7 @@ class CompletionAndReviewWindowsTest extends TestCase
                 'job_id'      => $this->job->id,
                 'reviewee_id' => $this->worker->id,
                 'rating'      => 1,
-                'comment'     => 'Two months later.',
+                'comment'     => 'Three weeks later.',
             ])
             ->assertStatus(422);
     }

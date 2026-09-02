@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../../core/constants/app_colors.dart';
+import '../../../core/widgets/work_record.dart';
 import '../../../core/utils/json_parse.dart';
 import '../../../providers/worker_browse_provider.dart';
 import '../../../core/widgets/app_toast.dart';
@@ -372,6 +373,36 @@ class _WorkerProfileScreenState extends State<WorkerProfileScreen> {
           // ── Trade + skills ──
           // The trade (category) is what the worker actually does; listing
           // bare skill chips without it left an employer guessing.
+          /*
+              What their finished work says, above the sections about what
+              they claim. Ratings are opinions; this is the record.
+          */
+          SliverToBoxAdapter(
+            child: _section(
+              title: 'Completion record',
+              child: CompletionRecord(
+                completed: asInt(w['jobs_completed']),
+                unsuccessful: asInt(w['jobs_unsuccessful']),
+                successRate: w['success_rate'] as int?,
+              ),
+            ),
+          ),
+
+          /*
+              Jobs finished through KAYA, which is the part the app can
+              vouch for — as opposed to work experience, which is typed in.
+          */
+          SliverToBoxAdapter(
+            child: _section(
+              title: 'Work history on KAYA',
+              child: WorkHistoryList(
+                history: ((w['history'] as List?) ?? [])
+                    .map((h) => Map<String, dynamic>.from(h as Map))
+                    .toList(),
+              ),
+            ),
+          ),
+
           SliverToBoxAdapter(
             child: _section(
               // "Trade" is industry jargon a Filipino jobseeker browsing on a

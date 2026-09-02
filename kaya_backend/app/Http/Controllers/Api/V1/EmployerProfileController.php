@@ -311,6 +311,17 @@ class EmployerProfileController extends Controller
             'open_jobs_count' => \App\Models\JobPost::where('employer_id', $user->id)
                 ->where('status', 'open')
                 ->count(),
+            /*
+                The same completion record the worker profile now carries.
+
+                A worker deciding whether to take a job is asking exactly
+                what an employer asks when picking an applicant, and only
+                one of them had anything to look at. An employer who keeps
+                not confirming completion is a real risk to a worker, and
+                until now nothing on the profile could show it.
+            */
+            ...app(\App\Services\WorkRecord::class)->forEmployer($user),
+
             'jobs'           => $jobs->map(fn ($j) => [
                 'id'         => $j->id,
                 'title'      => $j->title,

@@ -1316,6 +1316,17 @@ class WorkerProfileController extends Controller
                 'rating_avg'          => (float) $profile->rating_avg,
                 'rating_count'        => $profile->rating_count,
 
+                /*
+                    What their finished work says, not just what people
+                    scored it.
+
+                    A rating is an opinion; a completion record is a fact,
+                    and until now neither profile carried one. success_rate
+                    is null rather than 0 for somebody with nothing finished
+                    yet — see WorkRecord.
+                */
+                ...app(\App\Services\WorkRecord::class)->forWorker($user),
+
                 // What they charge. rate_label is the phrasing every surface
                 // shows; the raw numbers are for the edit form and filtering.
                 'rate_min'            => $profile->rate_min,

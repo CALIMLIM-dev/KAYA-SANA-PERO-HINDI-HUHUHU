@@ -51,15 +51,23 @@ return [
 
         Seven days to confirm: long enough for a job that ran over or a
         person who was off the app for a week, short enough that the other
-        side is not stuck for a month. Thirty to review, counted from
-        completion, which is the window most marketplaces settle on.
+        side is not stuck for a month. Past it the hire is closed as
+        unsuccessful rather than assumed done - see CloseUnconfirmedHires.
+
+        Seven to review as well, counted from completion. Thirty was picked
+        off the top of my head and is out of step with what people actually
+        use: Shopee gives seven days from delivery, Grab and foodpanda want
+        it in the moment, Upwork and Airbnb allow fourteen for engagements
+        that run for weeks. A KAYA job is one visit that ends the same day,
+        so it belongs at the short end - and a rating written a month later
+        is memory, not observation.
     */
     'completion' => [
         'auto_confirm_after_days' => (int) env('COMPLETION_AUTO_CONFIRM_DAYS', 7),
     ],
 
     'reviews' => [
-        'window_days' => (int) env('REVIEW_WINDOW_DAYS', 30),
+        'window_days' => (int) env('REVIEW_WINDOW_DAYS', 7),
     ],
 
     'credits' => [

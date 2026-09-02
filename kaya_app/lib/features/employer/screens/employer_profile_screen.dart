@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../../core/constants/app_colors.dart';
+import '../../../core/widgets/work_record.dart';
 import '../../../providers/employer_profile_provider.dart';
 
 /// Public Employer Profile View — shown to workers when they tap "Posted by"
@@ -299,6 +300,36 @@ class _EmployerProfileScreenState extends State<EmployerProfileScreen> {
                         ],
                       ],
                     ),
+            ),
+          ),
+
+          /*
+              What their finished work says, above the sections about what
+              they claim. Ratings are opinions; this is the record.
+          */
+          SliverToBoxAdapter(
+            child: _section(
+              title: 'Completion record',
+              child: CompletionRecord(
+                completed: (e['jobs_completed'] as num?)?.toInt() ?? 0,
+                unsuccessful: (e['jobs_unsuccessful'] as num?)?.toInt() ?? 0,
+                successRate: e['success_rate'] as int?,
+              ),
+            ),
+          ),
+
+          /*
+              Jobs finished through KAYA, which is the part the app can
+              vouch for — as opposed to work experience, which is typed in.
+          */
+          SliverToBoxAdapter(
+            child: _section(
+              title: 'Work history on KAYA',
+              child: WorkHistoryList(
+                history: ((e['history'] as List?) ?? [])
+                    .map((h) => Map<String, dynamic>.from(h as Map))
+                    .toList(),
+              ),
             ),
           ),
 
