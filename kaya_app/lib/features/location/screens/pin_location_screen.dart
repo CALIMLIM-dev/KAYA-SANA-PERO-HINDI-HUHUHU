@@ -1,8 +1,12 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:provider/provider.dart';
+
+import '../../../data/models/location_model.dart';
 
 import '../../../core/constants/app_colors.dart';
 import '../../../core/widgets/app_toast.dart';
@@ -36,6 +40,45 @@ class _PinLocationScreenState extends State<PinLocationScreen> {
 
   LatLng? _pin;
   String? _label;
+
+  /*
+      What the pin will actually be called, shown while you move it.
+
+      The pin was only resolved on confirm, and the answer went straight
+      into the caller's location field — so the first time anyone saw the
+      name was after it had been written, and a pin dropped in St. Domingo
+      came back labelled Palina East with nothing on screen to question.
+
+      The reason it can be wrong is worth stating: /locations/nearest picks
+      the location whose *centroid* is closest, because barangay rows carry
+      one point and no boundary. Near a border, the nearest centre point is
+      frequently not the barangay you are standing in, and no amount of
+      matching logic fixes that without polygons.
+
+      So the fix is to stop it being invisible: resolve as the pin moves and
+      put the name under it, where it can be read and corrected before it is
+      committed to anything.
+  */
+  LocationModel? _resolvedPreview;
+  Timer? _resolveDebounce;
+
+  void _previewResolve() {
+    _resolveDebounce?.cancel();
+    // Long enough that dragging the map does not fire a request per frame.
+    _resolveDebounce = Timer(const Duration(milliseconds: 600), () async {
+      final pin = _pin;
+      if (!mounted || pin == null) return;
+
+      final resolved = await context
+          .read<LocationProvider>()
+          .nearest(pin.latitude, pin.longitude);
+
+      // The pin may have moved again while that was in flight; a stale
+      // name under a new pin is worse than none.
+      if (!mounted || _pin != pin) return;
+      setState(() => _resolvedPreview = resolved);
+    });
+  }
   bool _locating = false;
   bool _initialised = false;
 
@@ -56,6 +99,14 @@ class _PinLocationScreenState extends State<PinLocationScreen> {
   bool _userPlacedPin = false;
 
   bool _resolving = false;
+
+  /// The debounce can outlive the screen — a resolve in flight when you back
+  /// out would otherwise land on a disposed State.
+  @override
+  void dispose() {
+    _resolveDebounce?.cancel();
+    super.dispose();
+  }
 
   @override
   void didChangeDependencies() {
@@ -167,7 +218,9 @@ class _PinLocationScreenState extends State<PinLocationScreen> {
       setState(() {
         _pin = here;
         _userPlacedPin = true;
+        _resolvedPreview = null;
       });
+      _previewResolve();
       _map.move(here, 17);
     } catch (e) {
       // The exception text used to be shown to the user. A geolocator stack
@@ -192,10 +245,13 @@ class _PinLocationScreenState extends State<PinLocationScreen> {
     // Resolve the pin to a real place so the caller can reconcile it with the
     // label. Otherwise you get a job labelled "Urdaneta City" whose pin sits
     // in Binalonan, and nothing notices.
+    // Already resolved while the pin sat still — reuse it rather than
+    // asking again and risking a different answer from the one just read.
     setState(() => _resolving = true);
-    final resolved = await context
-        .read<LocationProvider>()
-        .nearest(_pin!.latitude, _pin!.longitude);
+    final resolved = _resolvedPreview ??
+        await context
+            .read<LocationProvider>()
+            .nearest(_pin!.latitude, _pin!.longitude);
 
     if (!mounted) return;
     setState(() => _resolving = false);
@@ -242,10 +298,14 @@ class _PinLocationScreenState extends State<PinLocationScreen> {
                         per-frame setState and none of the mid-gesture rebuild
                         trouble the old centre pin had to work around.
                     */
-                    onTap: (_, latLng) => setState(() {
-                      _pin = latLng;
-                      _userPlacedPin = true;
-                    }),
+                    onTap: (_, latLng) {
+                      setState(() {
+                        _pin = latLng;
+                        _userPlacedPin = true;
+                        _resolvedPreview = null;
+                      });
+                      _previewResolve();
+                    },
                     // The Philippines only — panning to Norway helps nobody.
                     cameraConstraint: CameraConstraint.contain(
                       bounds: LatLngBounds(
@@ -348,10 +408,16 @@ class _PinLocationScreenState extends State<PinLocationScreen> {
                       // before that the one thing the screen cannot show on
                       // its own: that this is still the centre of town rather
                       // than anywhere in particular.
-                      _userPlacedPin && _pin != null
-                          ? '${_pin!.latitude.toStringAsFixed(5)}, '
-                              '${_pin!.longitude.toStringAsFixed(5)}'
-                          : 'Centre of ${_label ?? 'your area'} - move the map',
+                      !_userPlacedPin || _pin == null
+                          ? 'Centre of ${_label ?? 'your area'} - move the map'
+                          // The name it will be saved under, once known.
+                          // Coordinates while that is still resolving —
+                          // five decimal places is about a metre, which is
+                          // precise and says nothing a person can check.
+                          : _resolvedPreview != null
+                              ? 'This pin is in ${_resolvedPreview!.displayName}'
+                              : '${_pin!.latitude.toStringAsFixed(5)}, '
+                                  '${_pin!.longitude.toStringAsFixed(5)}',
                       style: TextStyle(
                         fontSize: 12,
                         color: _userPlacedPin

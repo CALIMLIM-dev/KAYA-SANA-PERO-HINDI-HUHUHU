@@ -40,6 +40,11 @@ void main() {
         'job': {
           'id': title.hashCode,
           'title': title,
+          'category': {'id': 3, 'name': 'Appliance Repair'},
+          'city': 'Urdaneta City, Pangasinan',
+          'budget_min': 800,
+          'budget_max': 1200,
+          'created_at': '2026-09-01T08:00:00Z',
           'status': status == 'accepted' ? 'in_progress' : 'open',
           'employer': {
             'id': 9,
@@ -63,6 +68,11 @@ void main() {
         'status': status,
         'title': title,
         'location': 'Barangay Nancayasan, Urdaneta City, Pangasinan',
+        'category': {'id': 3, 'name': 'Appliance Repair'},
+        'city': 'Urdaneta City, Pangasinan',
+        'budget_min': 1200,
+        'budget_max': 1200,
+        'created_at': '2026-08-28T08:00:00Z',
         'application_count': total,
         'pending_application_count': pending,
         // A single hire, which is what puts the completion and review

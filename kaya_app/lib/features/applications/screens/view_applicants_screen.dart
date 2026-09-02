@@ -106,6 +106,25 @@ class _ViewApplicantsScreenState extends State<ViewApplicantsScreen>
         final accepted = _byStatus(all, 'accepted');
         final rejected = _byStatus(all, 'rejected');
 
+        /*
+            Message and Mark complete belong on the job, not on each row.
+
+            The job card in My Jobs already carries both for a hire, so
+            every accepted applicant here repeated the two buttons the
+            employer had just used one screen back — two places to finish
+            the same job, and no way to tell which one was the real one.
+
+            They stay for the one case the card genuinely cannot express:
+            more than one person hired on a single job. The server sends
+            `hire` as null then, precisely because the card cannot say who
+            you mean, so this list is the only place those actions exist.
+        */
+        final hiredCount = all
+            .where((a) => const {'accepted', 'completed'}
+                .contains((a['application_status'] ?? '').toString()))
+            .length;
+        final perWorkerActions = hiredCount > 1;
+
         return Scaffold(
           backgroundColor: AppColors.background,
           appBar: AppBar(
@@ -136,9 +155,15 @@ class _ViewApplicantsScreenState extends State<ViewApplicantsScreen>
                   : TabBarView(
                       controller: _tabController,
                       children: [
-                        _buildList(pending, showActions: true),
-                        _buildList(accepted, showActions: false),
-                        _buildList(rejected, showActions: false),
+                        _buildList(pending,
+                            showActions: true,
+                            perWorkerActions: perWorkerActions),
+                        _buildList(accepted,
+                            showActions: false,
+                            perWorkerActions: perWorkerActions),
+                        _buildList(rejected,
+                            showActions: false,
+                            perWorkerActions: perWorkerActions),
                       ],
                     ),
         );
@@ -177,7 +202,7 @@ class _ViewApplicantsScreenState extends State<ViewApplicantsScreen>
   }
 
   Widget _buildList(List<Map<String, dynamic>> applicants,
-      {required bool showActions}) {
+      {required bool showActions, required bool perWorkerActions}) {
     if (applicants.isEmpty) {
       return Center(
         child: Column(
@@ -221,13 +246,15 @@ class _ViewApplicantsScreenState extends State<ViewApplicantsScreen>
         padding: const EdgeInsets.all(16),
         itemCount: applicants.length,
         itemBuilder: (context, index) =>
-            _buildApplicantCard(applicants[index], showActions: showActions),
+            _buildApplicantCard(applicants[index],
+                showActions: showActions,
+                perWorkerActions: perWorkerActions),
       ),
     );
   }
 
   Widget _buildApplicantCard(Map<String, dynamic> applicant,
-      {required bool showActions}) {
+      {required bool showActions, required bool perWorkerActions}) {
     final status = (applicant['application_status'] ?? 'pending').toString();
     final name = (applicant['worker_name'] ?? 'Worker').toString();
     // worker_rating comes from WorkerProfile.rating_avg, a Laravel decimal
@@ -475,7 +502,7 @@ class _ViewApplicantsScreenState extends State<ViewApplicantsScreen>
                 ],
               ),
             ],
-            if (status == 'accepted') ...[
+            if (status == 'accepted' && perWorkerActions) ...[
                 const SizedBox(height: 8),
                 Row(
                   children: [

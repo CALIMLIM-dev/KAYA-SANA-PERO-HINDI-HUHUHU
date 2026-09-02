@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import '../../../core/utils/realtime_refresh.dart';
 
 import '../../../core/constants/app_colors.dart';
+import '../../../core/utils/job_summary.dart';
 import '../../../core/widgets/app_toast.dart';
 import '../../../providers/app_mode_provider.dart';
 import '../../../providers/application_provider.dart';
@@ -110,34 +111,6 @@ class _ApplicationsScreenState extends State<ApplicationsScreen>
   }
 
   /*
-      Applicants waiting on this employer, per job.
-
-      `application_count` is every application the job ever received, in any
-      state — it is what the job card shows, and it is the right number there.
-      It is the wrong number for a shortcut that means "people waiting on you":
-      a job whose three applicants were all turned down would still wear a 3
-      and open onto a list with nobody in it.
-
-      `pending_application_count` is the filtered figure, added to myJobs for
-      this. It falls back to the total when the field is absent so the app
-      stays correct against a server that has not been updated yet — an
-      overcount on an old build, never a phantom badge on a current one.
-  */
-  static int _pendingApplicants(Map<String, dynamic> job) {
-    final pending = job['pending_application_count'];
-    if (pending is int) return pending;
-    final total = job['application_count'];
-    return total is int ? total : 0;
-  }
-
-  /// Jobs with someone actually waiting — what the Applicants sheet lists.
-  static List<Map<String, dynamic>> _jobsAwaitingReview(List<Map<String, dynamic>> jobs) =>
-      jobs
-          .where((j) => const {'open', 'in_progress'}.contains((j['status'] ?? '').toString()))
-          .where((j) => _pendingApplicants(j) > 0)
-          .toList();
-
-  /*
       The worker's applications, in a sheet that stays live.
 
       This used to build the card list once, from the provider's state at the
@@ -166,45 +139,6 @@ class _ApplicationsScreenState extends State<ApplicationsScreen>
     );
   }
 
-  /*
-      The employer's missing route in.
-
-      A notification saying "3 people applied to your job" deep-linked to the
-      applicant list, and that was the only door: miss the notification and
-      there was no way to reach your own applicants from anywhere in the app.
-      The employer's half of this screen was a job list; the people waiting on
-      it were not on it.
-
-      Listed by job rather than as one flat roll of applicants, because
-      accepting somebody is a decision about a job — who else applied to *that*
-      post is the context you need, and it is what /view-applicants already
-      shows. This sheet is the index; that screen is still where the yes or no
-      happens.
-  */
-  void _openApplicants(BuildContext context) {
-    _showListSheet(
-      context,
-      title: 'Pending',
-      emptyTitle: 'No one waiting',
-      emptyBody: 'When someone applies to a job you posted, they appear here '
-          'until you accept or decline them.',
-      itemsBuilder: (context) =>
-          _jobsAwaitingReview(context.watch<JobProvider>().jobs),
-      cardBuilder: (j) => _ApplicantsJobCard(job: j),
-    );
-  }
-
-  /*
-      A popup, matching Applications — not a redirect.
-
-      This briefly skipped the sheet and sent the button straight to
-      /my-invitations, on the reasoning that the sheet's cards did nothing but
-      point at that screen anyway. That solved the wrong problem: the fix
-      needed was to give the card real actions, not to remove the popup the
-      Applications button already has. Both buttons open the same kind of
-      sheet now, and this one accepts or declines right there — see
-      _InvitationCard.
-  */
   void _openInvitations(BuildContext context) {
     _showListSheet(
       context,
@@ -356,8 +290,6 @@ class _ApplicationsScreenState extends State<ApplicationsScreen>
         */
         final showWorker =
             appMode.hasWorkerProfile && appMode.effectiveMode.showsWorkerSide;
-        final showEmployer =
-            appMode.hasEmployerProfile && appMode.effectiveMode.showsEmployerSide;
 
         /*
             One shortcut per side, and the mode toggle decides the side.
@@ -394,17 +326,19 @@ class _ApplicationsScreenState extends State<ApplicationsScreen>
               yourMove: false,
               onTap: () => _openApplications(context),
             ),
-          if (showEmployer)
-            _Shortcut(
-              icon: Icons.how_to_reg_outlined,
-              label: 'Pending',
-              count: jobs.errorMessage != null && jobs.jobs.isEmpty
-                  ? null
-                  : _jobsAwaitingReview(jobs.jobs).fold<int>(
-                      0, (sum, j) => sum + _pendingApplicants(j)),
-              yourMove: true,
-              onTap: () => _openApplicants(context),
-            ),
+          /*
+              No employer shortcut here.
+
+              There was an "Applicants" tile beside the worker's two, and it
+              duplicated a screen that already does the job better: My Jobs
+              lists every post with its category, location, budget, applicant
+              count and age, and opens the applicant list from each. A
+              shortcut to a worse version of that is clutter, and on a hybrid
+              account it put three controls on a strip with room for two.
+
+              The employer's route in is the job card. This screen is the
+              worker's inbox.
+          */
         ];
 
         return DefaultTabController(
@@ -866,11 +800,18 @@ class _ApplicationCard extends StatelessWidget {
     final conversationId = application['conversation_id'] as int?;
     final canMessage = conversationId != null && employer != null;
 
+    final category = (job?['category'] as Map<String, dynamic>?)?['name']?.toString();
+    final place = (job?['city'] ?? job?['location'] ?? '').toString();
+
     return _cardShell(
       title: (job?['title'] ?? 'Job').toString(),
       subtitle: (employer?['name'] ?? 'Employer').toString(),
       status: status,
       trailing: null,
+      category: category,
+      place: place.isEmpty ? null : place,
+      budget: job == null ? null : formatBudget(job),
+      age: timeAgo(job?['created_at'] as String?),
       note: reviewNote,
       noteIsCompletion: isHired && !workDone,
       // Completion comes before reviewing, and they never both apply — you
@@ -1010,9 +951,16 @@ class _JobPostCard extends StatelessWidget {
 
     return _cardShell(
       title: (job['title'] ?? 'Job').toString(),
-      subtitle: (job['location'] ?? '').toString(),
+      // Location moved into the meta row below, beside the category.
+      subtitle: '',
       status: status,
       trailing: '$applicants applicant${applicants == 1 ? '' : 's'}',
+      category: (job['category'] as Map<String, dynamic>?)?['name']?.toString(),
+      place: (job['city'] ?? job['location'] ?? '').toString().isEmpty
+          ? null
+          : (job['city'] ?? job['location']).toString(),
+      budget: formatBudget(job),
+      age: timeAgo(job['created_at'] as String?),
       note: note,
       noteIsCompletion: hire != null && !workDone,
       onMessage: conversationId == null
@@ -1070,6 +1018,21 @@ Widget _cardShell({
   required String subtitle,
   required String status,
   required String? trailing,
+  /*
+      The facts My Jobs has always shown, now shown here too.
+
+      The employer's card carried category, location, budget and age; the
+      worker's carried a title and a company name. Same jobs, same app, and
+      the worker got the thinner half — you could not tell what a job paid
+      from the screen that tracks the job you took.
+
+      Each is optional and its row is dropped when absent, so a card with
+      nothing to add is exactly as tall as it was.
+  */
+  String? category,
+  String? place,
+  String? budget,
+  String? age,
   VoidCallback? onTap,
   /// Optional call to action shown under the card — currently "Review
   /// employer", offered only once a job is completed.
@@ -1152,7 +1115,59 @@ Widget _cardShell({
                   style: const TextStyle(
                       fontSize: 13.5, color: AppColors.neutral600)),
             ],
+            if (category != null || place != null) ...[
+              const SizedBox(height: 8),
+              // Wrap, not Row: a long category beside a barangay-city-
+              // province address overflows a 320dp card, and these two are
+              // exactly the fields that get long in Philippine data.
+              Wrap(
+                spacing: 14,
+                runSpacing: 4,
+                children: [
+                  if (category != null) _metaBit(Icons.category_outlined, category),
+                  if (place != null) _metaBit(Icons.location_on_outlined, place),
+                ],
+              ),
+            ],
+            if (budget != null || age != null) ...[
+              const SizedBox(height: 8),
+              /*
+                  Both sides give way, because both grow with the text size.
+
+                  This was a bare Row of two Texts with a Spacer between, and
+                  "₱800 - ₱1200" beside "1d ago" overflowed by 55px on a
+                  390dp phone at text scale 1.3 — the budget is the longest
+                  string on the card and the one most likely to be a range.
+                  Flexible on the budget lets it ellipsise before the row
+                  breaks; the age is short and fixed, so it keeps its place
+                  on the right.
+              */
+              Row(
+                children: [
+                  if (budget != null)
+                    Flexible(
+                      child: Text(budget,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                              fontSize: 15,
+                              fontWeight: FontWeight.w700,
+                              color: AppColors.primary)),
+                    ),
+                  const SizedBox(width: 10),
+                  const Spacer(),
+                  if (age != null)
+                    Text(age,
+                        maxLines: 1,
+                        style: const TextStyle(
+                            fontSize: 12, color: AppColors.neutral400)),
+                ],
+              ),
+            ],
             if (onMessage != null || (actionLabel != null && onAction != null)) ...[
+              // The rule My Jobs draws between the facts and the actions.
+              const SizedBox(height: 12),
+              const Divider(height: 1, color: AppColors.neutral200),
               const SizedBox(height: 12),
               /*
                   The two buttons match heights, and their labels never wrap.
@@ -1266,9 +1281,13 @@ Widget _cardShell({
                   const Icon(Icons.people_outline,
                       size: 15, color: AppColors.neutral400),
                   const SizedBox(width: 6),
-                  Text(trailing,
-                      style: const TextStyle(
-                          fontSize: 12, color: AppColors.neutral600)),
+                  Flexible(
+                    child: Text(trailing,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                            fontSize: 12, color: AppColors.neutral600)),
+                  ),
                   /*
                       Says the row opens the applicants.
 
@@ -1297,6 +1316,29 @@ Widget _cardShell({
     ),
   );
 }
+
+/// One icon-and-label fact on a card. Sized to sit quietly under the title —
+/// these are context, not the thing you came to read.
+/// Bounded on purpose: a Wrap gives each child the full line width, and a
+/// Row of unshrinkable Text inside one overflows rather than wrapping when a
+/// barangay-city-province address meets a raised text scale.
+Widget _metaBit(IconData icon, String text) => ConstrainedBox(
+      constraints: const BoxConstraints(maxWidth: 260),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 14, color: AppColors.neutral400),
+          const SizedBox(width: 4),
+          Flexible(
+            child: Text(text,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                    fontSize: 12.5, color: AppColors.neutral600)),
+          ),
+        ],
+      ),
+    );
 
 (Color, Color, String) _statusStyle(String status) => switch (status) {
       'pending' => (
@@ -1552,89 +1594,6 @@ class _ShortcutButton extends StatelessWidget {
 }
 
 
-
-class _ApplicantsJobCard extends StatelessWidget {
-  const _ApplicantsJobCard({required this.job});
-
-  final Map<String, dynamic> job;
-
-  @override
-  Widget build(BuildContext context) {
-    final waiting = _ApplicationsScreenState._pendingApplicants(job);
-    final location = (job['location'] ?? '').toString();
-
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.neutral200),
-      ),
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          borderRadius: BorderRadius.circular(12),
-          onTap: () => Navigator.pushNamed(context, '/view-applicants',
-              arguments: {'jobId': job['id']}),
-          child: Padding(
-            padding: const EdgeInsets.all(14),
-            child: Row(
-              children: [
-                Container(
-                  width: 42,
-                  height: 42,
-                  decoration: BoxDecoration(
-                    color: AppColors.primary.withValues(alpha: 0.10),
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  alignment: Alignment.center,
-                  child: Text('$waiting',
-                      style: const TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w700,
-                          color: AppColors.primary)),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text((job['title'] ?? 'Job').toString(),
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                              fontSize: 14.5,
-                              fontWeight: FontWeight.w700,
-                              color: AppColors.neutral900)),
-                      const SizedBox(height: 3),
-                      Text(
-                        waiting == 1
-                            ? '1 person waiting on you'
-                            : '$waiting people waiting on you',
-                        style: const TextStyle(
-                            fontSize: 12.5, color: AppColors.neutral600),
-                      ),
-                      if (location.isNotEmpty) ...[
-                        const SizedBox(height: 2),
-                        Text(location,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
-                                fontSize: 12, color: AppColors.neutral400)),
-                      ],
-                    ],
-                  ),
-                ),
-                const Icon(Icons.chevron_right,
-                    size: 20, color: AppColors.neutral400),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
 
 class _EmptyState extends StatelessWidget {
   const _EmptyState({required this.title, required this.body});

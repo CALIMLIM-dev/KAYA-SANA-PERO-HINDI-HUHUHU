@@ -247,7 +247,8 @@ void main() {
           );
         });
 
-        testWidgets('employer: the button fits ${width.toInt()}px at scale $scale',
+        testWidgets(
+            'employer: no shortcut strip at ${width.toInt()}px, scale $scale',
             (tester) async {
           final overflows = await render(tester,
               width: width,
@@ -255,10 +256,13 @@ void main() {
               worker: false,
               employer: true);
 
-          expect(find.text('Pending'), findsOneWidget);
+          // My Jobs already lists every post with its category, budget,
+          // applicant count and age. A shortcut here reached a worse
+          // version of that screen, so the employer has none.
+          expect(find.text('Pending'), findsNothing);
 
           expect(overflows, isEmpty,
-              reason: 'Employer shortcut at ${width.toInt()}px, scale $scale: '
+              reason: 'Employer activity at ${width.toInt()}px, scale $scale: '
                   '${overflows.join(" | ")}');
         });
       }
@@ -291,7 +295,7 @@ void main() {
       expect(find.text('Pending'), findsNothing);
     });
 
-    testWidgets('a hybrid focused on employer shows the employer one only',
+    testWidgets('a hybrid focused on employer shows no shortcuts',
         (tester) async {
       await render(tester,
           width: 412,
@@ -300,9 +304,9 @@ void main() {
           employer: true,
           mode: AppMode.employer);
 
-      expect(find.text('Pending'), findsOneWidget);
       expect(find.text('Invited'), findsNothing);
       expect(find.text('Applied'), findsNothing);
+      expect(find.text('Pending'), findsNothing);
     });
 
     testWidgets('worker: each button carries the count of the list it opens',
@@ -315,17 +319,6 @@ void main() {
       expect(find.text('1'), findsNWidgets(2));
     });
 
-    testWidgets('employer: the badge counts people, not jobs', (tester) async {
-      await render(tester,
-          width: 412, textScale: 1.0, worker: false, employer: true);
-
-      expect(
-        find.text('4'),
-        findsOneWidget,
-        reason: 'One job with four applicants waiting reads 4, not 1. The '
-            'sheet lists jobs, but the badge counts the people.',
-      );
-    });
 
     /*
         The hole this rebuild was for.

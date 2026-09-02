@@ -31,6 +31,10 @@ class _SetupEmployerProfileScreenState extends State<SetupEmployerProfileScreen>
   final _formKey = GlobalKey<FormState>();
 
   final _nameController = TextEditingController();
+  final _firstNameController = TextEditingController();
+  final _middleNameController = TextEditingController();
+  final _lastNameController = TextEditingController();
+  final _suffixController = TextEditingController();
 
   /// Whether the account name may still be edited from this screen.
   ///
@@ -84,8 +88,12 @@ class _SetupEmployerProfileScreenState extends State<SetupEmployerProfileScreen>
 
       // Only prefill if the user hasn't started typing — these awaits take a
       // moment, and overwriting mid-typing made the entered name disappear.
-      if (_nameController.text.isEmpty) {
+      if (_firstNameController.text.isEmpty) {
         _nameController.text = auth.user?['name'] as String? ?? '';
+        _firstNameController.text = auth.user?['first_name'] as String? ?? '';
+        _middleNameController.text = auth.user?['middle_name'] as String? ?? '';
+        _lastNameController.text = auth.user?['last_name'] as String? ?? '';
+        _suffixController.text = auth.user?['suffix'] as String? ?? '';
       }
 
       setState(() {});
@@ -96,6 +104,10 @@ class _SetupEmployerProfileScreenState extends State<SetupEmployerProfileScreen>
   void dispose() {
     _pageController.dispose();
     _nameController.dispose();
+    _firstNameController.dispose();
+    _middleNameController.dispose();
+    _lastNameController.dispose();
+    _suffixController.dispose();
     _companyNameController.dispose();
     _industryController.dispose();
     _websiteController.dispose();
@@ -196,7 +208,14 @@ class _SetupEmployerProfileScreenState extends State<SetupEmployerProfileScreen>
 
       // 1. Save name if individual
       if (_selectedType == EmployerType.individual) {
-        final nameSaved = await auth.updateMe(name: _nameController.text.trim());
+        // The parts, same as worker setup. The server composes the display
+        // name from them, so this screen never builds one.
+        final nameSaved = await auth.updateMe(
+          firstName: _firstNameController.text.trim(),
+          middleName: _middleNameController.text.trim(),
+          lastName: _lastNameController.text.trim(),
+          suffix: _suffixController.text.trim(),
+        );
         if (!nameSaved) {
           _showError(auth.errorMessage ?? 'Failed to save your name');
           return false;
@@ -567,13 +586,52 @@ class _SetupEmployerProfileScreenState extends State<SetupEmployerProfileScreen>
               // review — letting the employer step rewrite it would mean a
               // worker could verify as one person, build up reviews, then
               // rename the account and keep the verified badge.
+              // Four fields, matching worker setup. Only the last row splits,
+              // surname at twice the suffix width — a suffix box the size of
+              // a surname box reads as though four characters were expected
+              // in both.
               _textField(
-                controller: _nameController,
-                label: 'Full Name *',
+                controller: _firstNameController,
+                label: 'First Name *',
                 icon: Icons.person,
-                requiredMessage: 'Full name is required',
+                requiredMessage: 'First name is required',
                 textCapitalization: TextCapitalization.words,
                 readOnly: _nameIsLocked,
+              ),
+              const SizedBox(height: 12),
+              _textField(
+                controller: _middleNameController,
+                label: 'Middle Name (optional)',
+                icon: Icons.person_outline,
+                textCapitalization: TextCapitalization.words,
+                readOnly: _nameIsLocked,
+              ),
+              const SizedBox(height: 12),
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
+                    flex: 2,
+                    child: _textField(
+                      controller: _lastNameController,
+                      label: 'Last Name *',
+                      icon: Icons.badge_outlined,
+                      requiredMessage: 'Last name is required',
+                      textCapitalization: TextCapitalization.words,
+                      readOnly: _nameIsLocked,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: _textField(
+                      controller: _suffixController,
+                      label: 'Suffix',
+                      icon: Icons.more_horiz,
+                      textCapitalization: TextCapitalization.characters,
+                      readOnly: _nameIsLocked,
+                    ),
+                  ),
+                ],
               ),
               const SizedBox(height: 6),
               Row(

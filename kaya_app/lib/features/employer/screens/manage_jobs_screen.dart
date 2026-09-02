@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import '../../../core/utils/realtime_refresh.dart';
 
 import '../../../core/constants/app_colors.dart';
+import '../../../core/utils/job_summary.dart';
 import '../../../providers/job_provider.dart';
 import '../../../core/widgets/app_toast.dart';
 
@@ -194,8 +195,8 @@ class _ManageJobsScreenState extends State<ManageJobsScreen>
     final category = (job['category'] as Map<String, dynamic>?)?['name']?.toString();
     final location = (job['city'] ?? job['location'] ?? '').toString();
     final applicants = (job['application_count'] as num?)?.toInt() ?? 0;
-    final budget = _formatBudget(job);
-    final postedAgo = _timeAgo(job['created_at'] as String?);
+    final budget = formatBudget(job);
+    final postedAgo = timeAgo(job['created_at'] as String?);
 
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
@@ -482,37 +483,6 @@ class _ManageJobsScreenState extends State<ManageJobsScreen>
 
   /// "₱1,500 - ₱2,500/day" or "₱1,500/day" when there is no max, or null when
   /// nothing was set. Fields come back from the API as numeric strings.
-  String? _formatBudget(Map<String, dynamic> job) {
-    double? asDouble(Object? v) =>
-        v == null ? null : (v is num ? v.toDouble() : double.tryParse('$v'));
-
-    final min = asDouble(job['budget_min']);
-    final max = asDouble(job['budget_max']);
-
-    if (min == null && max == null) return null;
-
-    String fmt(double v) =>
-        v == v.roundToDouble() ? v.toInt().toString() : v.toStringAsFixed(2);
-
-    if (min != null && max != null && max != min) {
-      return '₱${fmt(min)} - ₱${fmt(max)}';
-    }
-    return '₱${fmt(min ?? max!)}';
-  }
-
-  String? _timeAgo(String? isoDate) {
-    if (isoDate == null) return null;
-    final date = DateTime.tryParse(isoDate);
-    if (date == null) return null;
-
-    final diff = DateTime.now().difference(date);
-    if (diff.inDays >= 30) return '${(diff.inDays / 30).floor()}mo ago';
-    if (diff.inDays >= 1) return '${diff.inDays}d ago';
-    if (diff.inHours >= 1) return '${diff.inHours}h ago';
-    if (diff.inMinutes >= 1) return '${diff.inMinutes}m ago';
-    return 'just now';
-  }
-
   Widget _statusBadge(String status) {
     Color color;
     String label;

@@ -5,6 +5,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:dio/dio.dart';
 import '../../../core/constants/app_colors.dart';
+import '../../../core/widgets/form_sheet.dart';
 import '../../../core/utils/pin_location_match.dart';
 import '../../../data/models/location_model.dart';
 import '../../../providers/auth_provider.dart';
@@ -936,11 +937,9 @@ class _WorkerSetupFlowScreenState extends State<WorkerSetupFlowScreen> {
                             IconButton(
                               icon: const Icon(Icons.edit, size: 18, color: AppColors.primary),
                               onPressed: () async {
-                                final result = await Navigator.push<Map<String, dynamic>>(
-                                  context,
-                                  MaterialPageRoute(
-                                    builder: (_) => _ExperienceFormScreen(existing: exp),
-                                  ),
+                                final result = await showFormSheet<Map<String, dynamic>>(
+                  context,
+                  _ExperienceFormScreen(existing: exp),
                                 );
                                 if (result != null && mounted) {
                                   setState(() => _tempExperiences[index] = result);
@@ -974,11 +973,9 @@ class _WorkerSetupFlowScreenState extends State<WorkerSetupFlowScreen> {
             child: OutlinedButton.icon(
               onPressed: () async {
                 // Go directly to form
-                final result = await Navigator.push<Map<String, dynamic>>(
+                final result = await showFormSheet<Map<String, dynamic>>(
                   context,
-                  MaterialPageRoute(
-                    builder: (_) => const _ExperienceFormScreen(),
-                  ),
+                  const _ExperienceFormScreen(),
                 );
                 if (result != null && mounted) {
                   setState(() => _tempExperiences.add(result));
@@ -1116,11 +1113,9 @@ class _WorkerSetupFlowScreenState extends State<WorkerSetupFlowScreen> {
                             IconButton(
                               icon: const Icon(Icons.edit, size: 18, color: AppColors.primary),
                               onPressed: () async {
-                                final result = await Navigator.push<Map<String, dynamic>>(
-                                  context,
-                                  MaterialPageRoute(
-                                    builder: (_) => _CertificationFormScreen(existing: cert),
-                                  ),
+                                final result = await showFormSheet<Map<String, dynamic>>(
+                  context,
+                  _CertificationFormScreen(existing: cert),
                                 );
                                 if (result != null && mounted) {
                                   setState(() => _tempCertifications[index] = result);
@@ -1154,11 +1149,9 @@ class _WorkerSetupFlowScreenState extends State<WorkerSetupFlowScreen> {
             child: OutlinedButton.icon(
               onPressed: () async {
                 // Go directly to form
-                final result = await Navigator.push<Map<String, dynamic>>(
+                final result = await showFormSheet<Map<String, dynamic>>(
                   context,
-                  MaterialPageRoute(
-                    builder: (_) => const _CertificationFormScreen(),
-                  ),
+                  const _CertificationFormScreen(),
                 );
                 if (result != null && mounted) {
                   setState(() => _tempCertifications.add(result));
@@ -1296,11 +1289,9 @@ class _WorkerSetupFlowScreenState extends State<WorkerSetupFlowScreen> {
                             IconButton(
                               icon: const Icon(Icons.edit, size: 18, color: AppColors.primary),
                               onPressed: () async {
-                                final result = await Navigator.push<Map<String, dynamic>>(
-                                  context,
-                                  MaterialPageRoute(
-                                    builder: (_) => _LicenseFormScreen(existing: license),
-                                  ),
+                                final result = await showFormSheet<Map<String, dynamic>>(
+                  context,
+                  _LicenseFormScreen(existing: license),
                                 );
                                 if (result != null && mounted) {
                                   setState(() => _tempLicenses[index] = result);
@@ -1334,11 +1325,9 @@ class _WorkerSetupFlowScreenState extends State<WorkerSetupFlowScreen> {
             child: OutlinedButton.icon(
               onPressed: () async {
                 // Go directly to form
-                final result = await Navigator.push<Map<String, dynamic>>(
+                final result = await showFormSheet<Map<String, dynamic>>(
                   context,
-                  MaterialPageRoute(
-                    builder: (_) => const _LicenseFormScreen(),
-                  ),
+                  const _LicenseFormScreen(),
                 );
                 if (result != null && mounted) {
                   setState(() => _tempLicenses.add(result));

@@ -219,11 +219,23 @@ class _SearchScreenState extends State<SearchScreen> {
                   that is doing something should look different from one that
                   is not.
               */
+              /*
+                  The app's blue header, not a white one.
+
+                  Every other screen in KAYA opens with a primary-blue bar and
+                  white type — My Activity, My Jobs, Applicants, the profile
+                  screens. Search was the one white header in the app, so
+                  arriving here looked like leaving it.
+
+                  The field inside stays a pale filled box, which reads on
+                  blue exactly as it did on white and needs no change.
+              */
               SliverAppBar(
                 floating: true,
                 snap: true,
-                backgroundColor: Colors.white,
-                surfaceTintColor: Colors.white,
+                backgroundColor: AppColors.primary,
+                surfaceTintColor: AppColors.primary,
+                foregroundColor: Colors.white,
                 elevation: 0,
                 titleSpacing: 16,
                 title: Row(
@@ -253,7 +265,7 @@ class _SearchScreenState extends State<SearchScreen> {
                             padding: const EdgeInsets.all(3),
                             decoration: BoxDecoration(
                               color: AppColors.neutral100,
-                              borderRadius: BorderRadius.circular(10),
+                              borderRadius: BorderRadius.circular(12),
                             ),
                             child: Row(
                               children: [
@@ -371,19 +383,21 @@ class _SearchScreenState extends State<SearchScreen> {
                 },
               ),
         filled: true,
-        fillColor: AppColors.neutral100,
+        // White on the blue bar; neutral100 was chosen to sit on a white
+        // header and disappears against the primary colour.
+        fillColor: Colors.white,
         isDense: true,
         contentPadding: const EdgeInsets.symmetric(vertical: 12),
         border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(11),
+          borderRadius: BorderRadius.circular(12),
           borderSide: BorderSide.none,
         ),
         enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(11),
+          borderRadius: BorderRadius.circular(12),
           borderSide: BorderSide.none,
         ),
         focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(11),
+          borderRadius: BorderRadius.circular(12),
           borderSide: const BorderSide(color: AppColors.primary, width: 1.5),
         ),
       ),
@@ -406,7 +420,7 @@ class _SearchScreenState extends State<SearchScreen> {
         padding: const EdgeInsets.symmetric(horizontal: 12),
         decoration: BoxDecoration(
           color: active ? AppColors.primary : AppColors.neutral100,
-          borderRadius: BorderRadius.circular(11),
+          borderRadius: BorderRadius.circular(12),
         ),
         child: Row(
           children: [
@@ -743,7 +757,7 @@ class _SearchScreenState extends State<SearchScreen> {
                               color: selected
                                   ? AppColors.primary.withValues(alpha: 0.1)
                                   : AppColors.neutral100,
-                              borderRadius: BorderRadius.circular(9),
+                              borderRadius: BorderRadius.circular(8),
                               border: Border.all(
                                 color: selected ? AppColors.primary : Colors.transparent,
                                 width: 1.5,
