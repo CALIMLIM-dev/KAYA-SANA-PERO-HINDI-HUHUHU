@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Enums\EmployerType;
 use App\Models\Category;
+use App\Models\CreditWallet;
 use App\Models\EmployerProfile;
 use App\Models\JobPost;
 use App\Models\User;
@@ -197,5 +198,63 @@ class VerificationGateTest extends TestCase
         $this->actingAs($this->employer(true), 'sanctum')
             ->postJson('/api/v1/jobs', $this->jobPayload())
             ->assertStatus(422);
+    }
+
+    /*
+        Free barya is not free to an unverified account.
+
+        Claiming used to be open, so a throwaway signup was worth twenty barya
+        the moment anybody verified it later and spent the balance. The payout
+        now waits for verification.
+    */
+    public function test_an_unverified_account_cannot_claim_its_welcome_barya(): void
+    {
+        $worker = $this->worker(false);
+
+        $this->actingAs($worker, 'sanctum')
+            ->postJson('/api/v1/credits/claim', ['type' => 'welcome'])
+            ->assertStatus(403)
+            ->assertJsonPath('data.needs_verification', true);
+
+        $this->assertSame(
+            0,
+            (int) CreditWallet::where('user_id', $worker->id)->value('balance'),
+            'A refused claim must not have paid out anyway.'
+        );
+    }
+
+    /*
+        Refused, but not hidden.
+
+        The amount keeps being reported so the wallet can say "20 waiting,
+        verify to claim". Zeroing it would tell somebody they are owed nothing,
+        which is untrue and throws away the best reason to finish verifying.
+    */
+    public function test_the_waiting_barya_is_still_shown_to_an_unverified_account(): void
+    {
+        $this->actingAs($this->worker(false), 'sanctum')
+            ->getJson('/api/v1/credits/wallet')
+            ->assertOk()
+            ->assertJsonPath('data.claim_requires_verification', true)
+            ->assertJsonPath(
+                'data.claimable.welcome',
+                (int) config('kaya.credits.signup_grant')
+            );
+    }
+
+    public function test_a_verified_account_can_still_claim(): void
+    {
+        $worker = $this->worker(true);
+        $grant = (int) config('kaya.credits.signup_grant');
+
+        $this->actingAs($worker, 'sanctum')
+            ->postJson('/api/v1/credits/claim', ['type' => 'welcome'])
+            ->assertOk()
+            ->assertJsonPath('data.claimed.welcome', $grant);
+
+        $this->assertSame(
+            $grant,
+            (int) CreditWallet::where('user_id', $worker->id)->value('balance')
+        );
     }
 }

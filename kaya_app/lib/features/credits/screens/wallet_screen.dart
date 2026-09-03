@@ -144,6 +144,7 @@ class _WalletScreenState extends State<WalletScreen> with WidgetsBindingObserver
                     amount: credits.claimableWelcome,
                     title: 'Welcome gift',
                     subtitle: 'For joining KAYA',
+                    needsVerification: credits.claimNeedsVerification,
                   ),
                 ],
                 if (credits.claimableMonthly > 0) ...[
@@ -153,6 +154,7 @@ class _WalletScreenState extends State<WalletScreen> with WidgetsBindingObserver
                     amount: credits.claimableMonthly,
                     title: 'Free this month',
                     subtitle: 'Yours every month',
+                    needsVerification: credits.claimNeedsVerification,
                   ),
                 ],
                 const SizedBox(height: 22),
@@ -247,12 +249,20 @@ class _WalletScreenState extends State<WalletScreen> with WidgetsBindingObserver
 
       Hidden completely when there is nothing owed, so it never becomes a dead
       button sitting there greyed out.
+
+      An unverified account keeps the card and loses the Claim button, which
+      becomes Verify and opens the verification screen. It is deliberately not
+      a disabled Claim: a greyed button that refuses to say why is the inert
+      control this project does not allow, and the gift is the best reason
+      anybody has to finish verifying — so the card names the amount and then
+      offers the one action that unlocks it.
   */
   Widget _claimCard({
     required String type,
     required int amount,
     required String title,
     required String subtitle,
+    bool needsVerification = false,
   }) {
     return Container(
       width: double.infinity,
@@ -280,14 +290,16 @@ class _WalletScreenState extends State<WalletScreen> with WidgetsBindingObserver
                 ),
                 const SizedBox(height: 2),
                 Text(
-                  subtitle,
+                  needsVerification ? 'Verify your account to claim it' : subtitle,
                   style: const TextStyle(fontSize: 12.5, color: AppColors.neutral600),
                 ),
               ],
             ),
           ),
           ElevatedButton(
-            onPressed: _claiming != null ? null : () => _claim(type),
+            onPressed: needsVerification
+                ? () => Navigator.of(context).pushNamed('/verification')
+                : (_claiming != null ? null : () => _claim(type)),
             style: ElevatedButton.styleFrom(
               backgroundColor: AppColors.success,
               foregroundColor: Colors.white,
@@ -299,7 +311,10 @@ class _WalletScreenState extends State<WalletScreen> with WidgetsBindingObserver
                     height: 16,
                     child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
                   )
-                : const Text('Claim', style: TextStyle(fontWeight: FontWeight.w700)),
+                : Text(
+                    needsVerification ? 'Verify' : 'Claim',
+                    style: const TextStyle(fontWeight: FontWeight.w700),
+                  ),
           ),
         ],
       ),

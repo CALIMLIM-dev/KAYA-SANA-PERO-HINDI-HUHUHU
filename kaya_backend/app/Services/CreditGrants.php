@@ -67,6 +67,26 @@ class CreditGrants
     }
 
     /**
+     * Whether the gift is waiting on verification rather than on anything else.
+     *
+     * Separate from eligible() on purpose, and this is the whole design of the
+     * unverified case: the grant still accrues, it is still reported by
+     * available(), and it simply cannot be collected yet. Folding this into
+     * eligible() would zero the figure instead, and an account that is owed
+     * twenty credits would be told it is owed nothing — which is a lie, and
+     * also throws away the best reason anybody has to finish verifying.
+     *
+     * Verification is what makes an account a person rather than an email
+     * address. Paying out before that point means a hundred throwaway signups
+     * are worth two thousand barya, which is real money the moment any of them
+     * is verified later and spends the balance.
+     */
+    public function requiresVerification(User $user): bool
+    {
+        return ! $user->is_verified;
+    }
+
+    /**
      * What is waiting to be collected, and what it is worth.
      *
      * @return array{welcome: int, monthly: int, total: int}
@@ -113,6 +133,15 @@ class CreditGrants
         $claimed = ['welcome' => 0, 'monthly' => 0, 'total' => 0];
 
         if (! $this->eligible($user)) {
+            return $claimed;
+        }
+
+        /*
+            Checked here as well as in middleware, for the reason eligible()
+            already gives: a claim is money, and a money rule that lives in one
+            layer is a money rule that stops existing the day a route is moved.
+        */
+        if ($this->requiresVerification($user)) {
             return $claimed;
         }
 

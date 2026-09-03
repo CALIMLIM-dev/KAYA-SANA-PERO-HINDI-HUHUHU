@@ -74,6 +74,7 @@ class CreditsProvider with ChangeNotifier {
   int _monthlyGrant = 0;
   int _claimableWelcome = 0;
   int _claimableMonthly = 0;
+  bool _claimNeedsVerification = false;
   List<CreditPackage> _packages = const [];
 
   bool _isLoading = false;
@@ -106,6 +107,20 @@ class CreditsProvider with ChangeNotifier {
   int get claimable => _claimableWelcome + _claimableMonthly;
   bool get hasSomethingToClaim => claimable > 0;
 
+  /*
+      The gift is waiting, but this account cannot collect it yet.
+
+      Free barya to an unverified account is free barya to an email address,
+      so the server holds the payout until identity is approved. The amount is
+      still reported, deliberately — telling somebody they have nothing when
+      twenty is sitting there would be untrue, and the gift is the strongest
+      reason anyone has to finish verifying.
+
+      Read from the server rather than from the auth profile's is_verified, so
+      the app is not re-deriving a money rule the server owns.
+  */
+  bool get claimNeedsVerification => _claimNeedsVerification;
+
   /// What an action costs, or null while the wallet has not loaded.
   ///
   /// Read from the server rather than written into the app, so a price change
@@ -131,6 +146,8 @@ class CreditsProvider with ChangeNotifier {
 
       _balance = (data['balance'] as num?)?.toInt() ?? 0;
       _monthlyGrant = (data['monthly_grant'] as num?)?.toInt() ?? 0;
+      _claimNeedsVerification =
+          data['claim_requires_verification'] == true;
 
       _adoptClaimable(data['claimable']);
 
@@ -244,6 +261,7 @@ class CreditsProvider with ChangeNotifier {
     _entries = const [];
     _claimableWelcome = 0;
     _claimableMonthly = 0;
+    _claimNeedsVerification = false;
     _hasLoadedOnce = false;
     _error = null;
     notifyListeners();

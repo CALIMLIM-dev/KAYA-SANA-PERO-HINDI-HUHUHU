@@ -237,12 +237,27 @@ Route::prefix('v1')->group(function () {
         */
         Route::get('/credits/wallet',       [CreditController::class, 'wallet']);
         Route::get('/credits/transactions', [CreditController::class, 'transactions']);
-        Route::post('/credits/claim',       [CreditController::class, 'claim']);
+        /*
+            Claiming needs verification, but the figure stays visible.
+
+            An earlier version of this left claiming open, on the reasoning
+            that a balance should keep accruing while documents sit in the
+            admin queue. The accruing part was right and still holds - the
+            grant is calculated from the ledger, so it is waiting whenever
+            verification finishes, however long that takes. Paying it out
+            early was the mistake: free barya to an unverified account is
+            free barya to an email address, and a batch of throwaway signups
+            is worth twenty each the moment any one of them is verified and
+            spends it.
+
+            available() deliberately keeps reporting the amount, so the wallet
+            shows "20 waiting, verify to claim" rather than a zero. The gift
+            is the strongest reason anyone has to finish verifying, and hiding
+            it would waste that.
+        */
+        Route::post('/credits/claim',       [CreditController::class, 'claim'])
+            ->middleware('verified:any');
         Route::post('/credits/checkout',    [CreditCheckoutController::class, 'checkout'])
-            // Topping up is spending. Claiming a grant is not - that route
-            // stays open so a balance still accrues while documents are
-            // being reviewed, and a newly verified user is not starting
-            // from zero because an admin took three days.
             ->middleware(['throttle:credits-checkout', 'verified:any']);
 
         /*

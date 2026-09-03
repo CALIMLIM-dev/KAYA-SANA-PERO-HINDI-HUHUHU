@@ -53,6 +53,7 @@ class ResetTestData extends Command
         'profile_views',
         'user_notifications',
         'verifications',
+        'boosts',
         'credit_transactions',
         'credit_payments',
         'credit_unlocks',

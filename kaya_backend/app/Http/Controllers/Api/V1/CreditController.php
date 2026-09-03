@@ -78,6 +78,16 @@ class CreditController extends Controller
             */
             'claimable' => $this->grants->available($user),
             /*
+                Why the claim button is disabled, when it is.
+
+                Sent as a flag rather than left for the app to infer from
+                is_verified, because the app should not be re-deriving a money
+                rule the server owns - that is how the two drift apart. The
+                amount above stays truthful either way: it is waiting, it is
+                just not collectable yet.
+            */
+            'claim_requires_verification' => $this->grants->requiresVerification($user),
+            /*
                 Only the bundles this account can actually buy.
 
                 A verified company sees the business tiers; everyone else sees
