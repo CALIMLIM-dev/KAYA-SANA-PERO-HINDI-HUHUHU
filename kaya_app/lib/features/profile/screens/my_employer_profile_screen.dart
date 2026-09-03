@@ -550,46 +550,49 @@ class _MyEmployerProfileScreenState extends State<MyEmployerProfileScreen>
           ),
 
           /*
-              Industry and website, which nothing could set before.
+              Industry and website, for companies only.
 
-              Both have been on the model and accepted by updateProfile since
-              the profile was built, and no screen ever showed them - so the
-              columns existed, the endpoint took them, and they stayed empty
-              forever. They are worth showing: an employer with a named trade
-              and a real page reads as a business rather than an empty shell.
+              Both were shown to every employer, and the setup flow already
+              knew better - it asks for them behind an is-company check and
+              sends null otherwise. A householder hiring a plumber has no
+              industry and no page, so the rows sat there permanently empty,
+              inviting them to invent something for a profile that reads worse
+              with a made-up trade on it than without one.
           */
-          InlineEditRow(
-            label: 'Industry',
-            value: _profile?.industry,
-            maxLength: 100,
-            onSave: (v) async {
-              final p = context.read<EmployerProfileProvider>();
-              final ok = await p.updateProfile(industry: v);
-              return ok ? null : (p.errorMessage ?? 'Could not save.');
-            },
-          ),
+          if (_role == 'Company') ...[
+            InlineEditRow(
+              label: 'Industry',
+              value: _profile?.industry,
+              maxLength: 100,
+              onSave: (v) async {
+                final p = context.read<EmployerProfileProvider>();
+                final ok = await p.updateProfile(industry: v);
+                return ok ? null : (p.errorMessage ?? 'Could not save.');
+              },
+            ),
 
-          InlineEditRow(
-            label: 'Website or page',
-            value: _profile?.website,
-            keyboardType: TextInputType.url,
-            maxLength: 255,
-            validator: (v) {
-              if (v.isEmpty) return null;
-              // Deliberately loose. Most small businesses here have a Facebook
-              // page and no domain of their own, and a strict URL check would
-              // leave this permanently empty for the people most likely to
-              // fill it in.
-              return v.contains(' ')
-                  ? 'A web address has no spaces in it.'
-                  : null;
-            },
-            onSave: (v) async {
-              final p = context.read<EmployerProfileProvider>();
-              final ok = await p.updateProfile(website: v);
-              return ok ? null : (p.errorMessage ?? 'Could not save.');
-            },
-          ),
+            InlineEditRow(
+              label: 'Website or page',
+              value: _profile?.website,
+              keyboardType: TextInputType.url,
+              maxLength: 255,
+              validator: (v) {
+                if (v.isEmpty) return null;
+                // Deliberately loose. Most small businesses here have a
+                // Facebook page and no domain of their own, and a strict URL
+                // check would leave this permanently empty for the people
+                // most likely to fill it in.
+                return v.contains(' ')
+                    ? 'A web address has no spaces in it.'
+                    : null;
+              },
+              onSave: (v) async {
+                final p = context.read<EmployerProfileProvider>();
+                final ok = await p.updateProfile(website: v);
+                return ok ? null : (p.errorMessage ?? 'Could not save.');
+              },
+            ),
+          ],
 
           // The same picker the worker side uses: typed, but committed as a
           // real place, so the coordinates behind it stay correct.

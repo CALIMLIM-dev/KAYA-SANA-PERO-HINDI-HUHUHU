@@ -9,6 +9,7 @@ import '../../../providers/job_provider.dart';
 import '../../../core/constants/credits.dart';
 import '../../../core/navigation/app_router.dart';
 import '../../../core/widgets/app_toast.dart';
+import '../../../core/widgets/verify_gate.dart';
 import '../../../providers/credits_provider.dart';
 
 /// Job Details — a single real job, fetched via GET /jobs/{id}.
@@ -695,6 +696,17 @@ class _JobDetailsScreenState extends State<JobDetailsScreen> {
   }
 
   Future<void> _apply(Job job) async {
+    /*
+        Verification before the charge, and before the request.
+
+        Applying is gated server side, and without this the worker spends the
+        tap, waits, and gets a toast telling them to verify with no way there.
+        Checked ahead of the balance check on purpose: being told to top up
+        and then told to verify is two dead ends in a row.
+    */
+    if (!await ensureVerified(context, action: 'apply for work')) return;
+    if (!mounted) return;
+
     final credits = context.read<CreditsProvider>();
 
     // No point firing a request that is certain to come back 402. Send them

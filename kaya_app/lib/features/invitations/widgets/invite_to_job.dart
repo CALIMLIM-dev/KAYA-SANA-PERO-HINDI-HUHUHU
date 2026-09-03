@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/credits.dart';
 import '../../../core/widgets/app_toast.dart';
+import '../../../core/widgets/verify_gate.dart';
 import '../../../providers/credits_provider.dart';
 import '../../../providers/invitation_provider.dart';
 import '../../../providers/job_provider.dart';
@@ -37,6 +38,11 @@ Future<void> showInviteToJobSheet(
   */
   int? costOverride,
 }) async {
+  // Inviting is gated too. Asked before the job picker, so nobody chooses
+  // a job and then finds out they cannot invite anyone to it.
+  if (!await ensureVerified(context, action: 'invite a worker')) return;
+  if (!context.mounted) return;
+
   final jobProvider = context.read<JobProvider>();
   await jobProvider.fetchMyJobs();
   if (!context.mounted) return;

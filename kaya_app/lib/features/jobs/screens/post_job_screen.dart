@@ -14,6 +14,7 @@ import '../../../providers/location_provider.dart';
 import '../../../providers/worker_profile_provider.dart';
 import '../../../shared/widgets/location_picker_field.dart';
 import '../../../core/widgets/app_toast.dart';
+import '../../../core/widgets/verify_gate.dart';
 
 /// Post Job Screen - Clean, professional design following industry best practices
 class PostJobScreen extends StatefulWidget {
@@ -27,7 +28,22 @@ class _PostJobScreenState extends State<PostJobScreen> {
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      if (!mounted) return;
+
+      /*
+          Asked before the form, not after it.
+
+          Posting needs a verified account. Without this the whole form was
+          fillable and the refusal arrived on the Post button, which wastes
+          everything typed and leaves the user to go and find the verification
+          screen on their own.
+      */
+      if (!await ensureVerified(context, action: 'post a job')) {
+        if (mounted) Navigator.pop(context);
+        return;
+      }
+
       if (!mounted) return;
       // Load the real category list before the picker can be opened.
       context.read<WorkerProfileProvider>().fetchCategories();
