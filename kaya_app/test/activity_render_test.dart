@@ -21,6 +21,25 @@ import 'support/render_harness.dart';
     and hoping.
 */
 void main() {
+  /*
+      A timestamp the golden can survive, rather than a date on the calendar.
+
+      These were absolute — '2026-08-28T08:00:00Z' — and the cards render a
+      relative label from them, so the blessed PNG said "5d ago" on the day it
+      was taken and "6d ago" the day after. Six goldens failed every morning
+      for a reason that was never a code change, which is the worst thing a
+      test can do: it trains you to re-bless without looking, and the day one
+      of them breaks for real it gets waved through with the rest.
+
+      Offset from now instead, with the hours padded so the value sits well
+      inside its bucket. The formatter truncates with inDays, so 6 days and 2
+      hours is "6d ago" whatever time the suite runs at.
+  */
+  String daysAgo(int days) => DateTime.now()
+      .toUtc()
+      .subtract(Duration(days: days, hours: 2))
+      .toIso8601String();
+
   Map<String, dynamic> application(String status, String title) => {
         'id': '$status$title'.hashCode,
         'status': status,
@@ -33,7 +52,7 @@ void main() {
         // The accepted job has this side already confirmed, so the render
         // shows what a half-finished completion actually looks like — the
         // state the button is supposed to disappear in.
-        'worker_completed_at': status == 'accepted' ? '2026-09-01T10:00:00Z' : null,
+        'worker_completed_at': status == 'accepted' ? daysAgo(2) : null,
         'employer_completed_at': null,
         'i_reviewed_them': false,
         'they_reviewed_me': status == 'completed',
@@ -44,7 +63,7 @@ void main() {
           'city': 'Urdaneta City, Pangasinan',
           'budget_min': 800,
           'budget_max': 1200,
-          'created_at': '2026-09-01T08:00:00Z',
+          'created_at': daysAgo(3),
           'status': status == 'accepted' ? 'in_progress' : 'open',
           'employer': {
             'id': 9,
@@ -72,7 +91,7 @@ void main() {
         'city': 'Urdaneta City, Pangasinan',
         'budget_min': 1200,
         'budget_max': 1200,
-        'created_at': '2026-08-28T08:00:00Z',
+        'created_at': daysAgo(6),
         'application_count': total,
         'pending_application_count': pending,
         // A single hire, which is what puts the completion and review
@@ -87,7 +106,7 @@ void main() {
                 'worker_name': 'Juan Dela Cruz',
                 'status': 'accepted',
                 'employer_completed_at': null,
-                'worker_completed_at': '2026-09-01T10:00:00Z',
+                'worker_completed_at': daysAgo(2),
                 'i_reviewed_them': false,
               }
             : status == 'completed'
@@ -97,8 +116,8 @@ void main() {
                     'worker_id': 8,
                     'worker_name': 'Maria Santos',
                     'status': 'completed',
-                    'employer_completed_at': '2026-09-01T12:00:00Z',
-                    'worker_completed_at': '2026-09-01T11:00:00Z',
+                    'employer_completed_at': daysAgo(2),
+                    'worker_completed_at': daysAgo(2),
                     'i_reviewed_them': false,
                   }
                 : null,
