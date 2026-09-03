@@ -487,4 +487,13 @@ class MessagingProvider with ChangeNotifier {
     _disposeConnectionListener?.call();
     super.dispose();
   }
+
+  /// Drops everything tied to the signed-in account, so the next
+  /// person on this device does not inherit it.
+  void clear() {
+    _conversations = [];
+    _isLoading = false;
+    _errorMessage = null;
+    notifyListeners();
+  }
 }

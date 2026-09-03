@@ -413,4 +413,20 @@ class EmployerProfileProvider with ChangeNotifier {
     _error = null;
     notifyListeners();
   }
+
+  /*
+      Drops everything tied to the signed-in account.
+
+      The reference data - categories and the skill catalog - is deliberately
+      kept, because it is the same for everyone and refetching it on every
+      sign-in is a slower first screen for no benefit.
+  */
+  void clear() {
+    _profile = null;
+    _publicEmployer = null;
+    _publicEmployerId = null;
+    _hasFetchedOnce = false;
+    _isLoading = false;
+    notifyListeners();
+  }
 }

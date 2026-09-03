@@ -439,4 +439,16 @@ class JobProvider with ChangeNotifier {
   }
 
   void clearError() { _errorMessage = null; notifyListeners(); }
+
+  /// Drops everything tied to the signed-in account, so the next
+  /// person on this device does not inherit it.
+  void clear() {
+    _jobs = [];
+    _publicJobs = [];
+    _isLoading = false;
+    _isPublicLoading = false;
+    _errorMessage = null;
+    _publicError = null;
+    notifyListeners();
+  }
 }

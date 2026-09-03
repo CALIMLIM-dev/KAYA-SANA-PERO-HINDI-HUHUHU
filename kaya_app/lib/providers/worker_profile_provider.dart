@@ -1201,4 +1201,23 @@ class WorkerProfileProvider with ChangeNotifier {
       return false;
     }
   }
+
+  /*
+      Drops everything tied to the signed-in account.
+
+      The reference data - categories and the skill catalog - is deliberately
+      kept, because it is the same for everyone and refetching it on every
+      sign-in is a slower first screen for no benefit.
+  */
+  void clear() {
+    _skills = [];
+    _certifications = [];
+    _licenses = [];
+    _experiences = [];
+    _licenseExaminations = [];
+    _hasFetchedOnce = false;
+    _isLoading = false;
+    _errorMessage = null;
+    notifyListeners();
+  }
 }

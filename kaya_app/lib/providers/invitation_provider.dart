@@ -174,4 +174,23 @@ class InvitationProvider with ChangeNotifier {
       return false;
     }
   }
-}
+
+  /*
+      Everything this provider holds belongs to one account.
+
+      Nothing called clear() on this class because it did not have one, so the
+      next person to sign in on the same phone inherited the previous
+      account's invitations - and, once the rehire list landed, the names,
+      photos and ratings of everyone they had hired. Same failure the credits
+      balance had, with worse contents.
+  */
+  void clear() {
+    _invitations = [];
+    _pastWorkers = [];
+    _rehireCost = null;
+    _hasLoadedPastWorkers = false;
+    _isLoading = false;
+    _isPastWorkersLoading = false;
+    _errorMessage = null;
+    notifyListeners();
+  }}

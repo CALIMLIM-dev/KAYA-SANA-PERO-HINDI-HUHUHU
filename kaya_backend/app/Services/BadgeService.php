@@ -100,6 +100,18 @@ class BadgeService
             ->selectRaw('jobs_posts.employer_id, COUNT(*) as hires')
             ->groupBy('jobs_posts.employer_id')
             ->havingRaw('COUNT(*) >= 2')
+            /*
+                get()->count(), not ->count().
+
+                Laravel's count() rewrites the select as an aggregate, and on
+                a query that is already grouped that means counting rows
+                within groups rather than the groups themselves - what it
+                returns then depends on the driver. It happens to answer
+                correctly here because only "more than zero" is asked, but a
+                query whose result is right by luck is one edit away from
+                being wrong, and this decides a badge.
+            */
+            ->get()
             ->count();
 
         if ($repeatEmployers > 0) {

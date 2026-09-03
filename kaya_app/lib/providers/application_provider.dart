@@ -277,4 +277,17 @@ class ApplicationProvider with ChangeNotifier {
   }
 
   void clearError() { _errorMessage = null; notifyListeners(); }
+
+  /// Drops everything tied to the signed-in account, so the next
+  /// person on this device does not inherit it.
+  void clear() {
+    _applications = [];
+    _applicants = [];
+    _applicantsJobId = null;
+    _isLoading = false;
+    _isApplicantsLoading = false;
+    _errorMessage = null;
+    _applicantsError = null;
+    notifyListeners();
+  }
 }
