@@ -16,6 +16,7 @@ import '../../../providers/worker_profile_provider.dart';
 import '../../../providers/verification_provider.dart';
 import '../../../providers/profile_view_provider.dart';
 import '../../../core/widgets/app_toast.dart';
+import '../../../core/widgets/verification_card.dart';
 
 /// My Worker Profile - JobStreet-inspired card layout
 /// Shows filled data in cards, NOT empty clickable placeholders
@@ -1291,7 +1292,9 @@ class _MyWorkerProfileScreenState extends State<MyWorkerProfileScreen> with Sing
           const Text('Verification',
               style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppColors.neutral900)),
           const SizedBox(height: 8),
-          const Text('Verified workers get picked more often',
+          // What it unlocks, not what it might get you. The old line sold a
+          // benefit nobody promised; this one states the rule.
+          const Text('Required before you can apply for work.',
               style: TextStyle(fontSize: 14, color: AppColors.neutral600)),
           const SizedBox(height: 20),
 
@@ -1305,7 +1308,7 @@ class _MyWorkerProfileScreenState extends State<MyWorkerProfileScreen> with Sing
               number is a contact detail, and it belongs with the other contact
               details rather than being dressed up as a credential.
           */
-          _buildVerificationCard(
+          VerificationCard(
             title: 'Valid Philippine ID',
             subtitle: 'Government-issued ID with selfie',
             icon: Icons.badge,
@@ -1317,139 +1320,6 @@ class _MyWorkerProfileScreenState extends State<MyWorkerProfileScreen> with Sing
     );
   }
 
-  Widget _buildVerificationCard({
-    required String title,
-    required String subtitle,
-    required IconData icon,
-    required String type,
-    required String status,
-  }) {
-    final isVerified = status == 'verified';
-    final isPending  = status == 'pending';
-    final isRejected = status == 'rejected';
-    final hasSubmitted = isPending || isVerified || isRejected;
-
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      child: Material(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        elevation: 1,
-        child: InkWell(
-          onTap: () async {
-            // If already verified, don't allow navigation
-            if (isVerified) return;
-            
-            // If pending or rejected, show retake confirmation dialog
-            if (hasSubmitted) {
-              final shouldRetake = await showDialog<bool>(
-                context: context,
-                builder: (_) => AlertDialog(
-                  title: const Text('Retake Verification?'),
-                  content: Text(
-                    isRejected 
-                      ? 'Your previous submission was rejected. Would you like to submit new documents?'
-                      : 'You have already submitted verification documents. Would you like to retake and resubmit?'
-                  ),
-                  actions: [
-                    TextButton(
-                      onPressed: () => Navigator.pop(context, false),
-                      child: const Text('Cancel'),
-                    ),
-                    TextButton(
-                      onPressed: () => Navigator.pop(context, true),
-                      style: TextButton.styleFrom(
-                        foregroundColor: AppColors.primary,
-                      ),
-                      child: const Text('Retake'),
-                    ),
-                  ],
-                ),
-              );
-              
-              if (shouldRetake != true) return;
-            }
-            
-            // Navigate to verification screen
-            await Navigator.pushNamed(context, '/verification',
-                arguments: {'type': type, 'title': title, 'subtitle': subtitle});
-            if (mounted) context.read<VerificationProvider>().fetchVerifications();
-          },
-          borderRadius: BorderRadius.circular(12),
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Row(
-              children: [
-                Container(
-                  width: 40, height: 40,
-                  decoration: BoxDecoration(
-                    color: isVerified
-                        ? AppColors.success.withValues(alpha: 0.1)
-                        : isPending
-                            ? AppColors.warning.withValues(alpha: 0.1)
-                            : isRejected
-                                ? AppColors.error.withValues(alpha: 0.1)
-                                : AppColors.neutral100,
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: Icon(
-                    isVerified ? Icons.check_circle : isPending ? Icons.hourglass_top : isRejected ? Icons.error_outline : icon,
-                    color: isVerified ? AppColors.success : isPending ? AppColors.warning : isRejected ? AppColors.error : AppColors.neutral600,
-                    size: 20,
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(title, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: AppColors.neutral900)),
-                      Text(
-                        isVerified ? 'Verified' : isPending ? 'Under review' : isRejected ? 'Rejected - Tap to retake' : subtitle,
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: isVerified ? AppColors.success : isPending ? AppColors.warning : isRejected ? AppColors.error : AppColors.neutral600,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                if (isVerified)
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: AppColors.success.withValues(alpha: 0.1),
-                      borderRadius: BorderRadius.circular(4),
-                    ),
-                    child: const Text('Verified', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppColors.success)),
-                  )
-                else if (isPending)
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: AppColors.warning.withValues(alpha: 0.1),
-                      borderRadius: BorderRadius.circular(4),
-                    ),
-                    child: const Text('Pending', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppColors.warning)),
-                  )
-                else if (isRejected)
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: AppColors.error.withValues(alpha: 0.1),
-                      borderRadius: BorderRadius.circular(4),
-                    ),
-                    child: const Text('Retake', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppColors.error)),
-                  )
-                else
-                  const Icon(Icons.arrow_forward_ios, size: 16, color: AppColors.neutral400),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
 }
 
 class _StickyTabBarDelegate extends SliverPersistentHeaderDelegate {

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/widgets/app_toast.dart';
+import '../../../core/widgets/verification_card.dart';
 import '../../../data/models/employer_profile_model.dart';
 import '../../../providers/auth_provider.dart';
 import '../../../providers/employer_profile_provider.dart';
@@ -616,88 +617,72 @@ class _MyEmployerProfileScreenState extends State<MyEmployerProfileScreen>
 
   // ─── verifications tab ───────────────────────────────────────────────────────
 
+  /*
+      Identity, and business papers for a company.
+
+      Phone and email used to sit here as two more cards. The worker profile
+      dropped them for a reason worth repeating: a government ID with a selfie
+      is what somebody is actually deciding on, a phone number is a contact
+      detail, and dressing one up as the other made the whole tab read as
+      paperwork. This side kept them and drifted; it now matches.
+
+      Every card reads its real status. They were called with isVerified:
+      false hard-coded at every site, so an approved employer still saw an
+      upload prompt and a chevron as though nothing had been sent.
+  */
   Widget _buildVerificationsTab() {
-    return ListView(
+    return Consumer<VerificationProvider>(
+      builder: (context, vp, _) => ListView(
       padding: const EdgeInsets.all(16),
       children: [
-        const Text('Verifications',
+        const Text('Verification',
             style: TextStyle(
                 fontSize: 18,
                 fontWeight: FontWeight.bold,
                 color: AppColors.neutral900)),
         const SizedBox(height: 8),
-        const Text('Verified profiles attract more quality workers',
+        const Text('Required before you can post a job or hire anyone.',
             style: TextStyle(fontSize: 14, color: AppColors.neutral600)),
         const SizedBox(height: 20),
 
-        // Company verifications
-        if (_role == 'Company') ...[
-          _buildVerificationCard(
-            title: 'Business Registration',
-            subtitle: 'Upload DTI, SEC, or Mayor\'s permit',
-            icon: Icons.business_center,
-            type: 'business_reg',
-            isVerified: false,
-          ),
-          _buildVerificationCard(
-            title: 'Phone Number',
-            subtitle: 'Verify via SMS code',
-            icon: Icons.phone,
-            type: 'phone',
-            isVerified: false,
-          ),
-          _buildVerificationCard(
-            title: 'Email Address',
-            subtitle: 'Verify via email link',
-            icon: Icons.email,
-            type: 'email',
-            isVerified: false,
-          ),
-        ]
-
-        // Individual verifications
-        else if (_role == 'Individual') ...[
-          _buildVerificationCard(
-            title: 'Government ID',
-            subtitle: 'Upload a valid government-issued ID',
-            icon: Icons.badge,
-            type: 'government_id',
-            isVerified: false,
-          ),
-          _buildVerificationCard(
-            title: 'Phone Number',
-            subtitle: 'Verify via SMS code',
-            icon: Icons.phone,
-            type: 'phone',
-            isVerified: false,
-          ),
-          _buildVerificationCard(
-            title: 'Email Address',
-            subtitle: 'Verify via email link',
-            icon: Icons.email,
-            type: 'email',
-            isVerified: false,
-          ),
-        ]
-
-        // No role chosen yet
-        else
+        if (_role == null)
           Container(
             padding: const EdgeInsets.all(20),
             decoration: BoxDecoration(
               color: Colors.white,
               borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: AppColors.neutral300),
+              border: Border.all(color: AppColors.neutral200),
             ),
             child: const Center(
               child: Text(
-                'Select your role in the Profile tab first',
+                'Choose individual or company in the Profile tab first.',
                 style: TextStyle(fontSize: 14, color: AppColors.neutral600),
                 textAlign: TextAlign.center,
               ),
             ),
+          )
+        else ...[
+          VerificationCard(
+            title: 'Government ID',
+            subtitle: 'A valid government-issued ID with a selfie',
+            icon: Icons.badge,
+            type: 'government_id',
+            status: vp.statusFor('government_id'),
           ),
+
+          // A registered business is held to its papers. An individual
+          // householder was never asked for any.
+          if (_role == 'Company')
+            VerificationCard(
+              title: 'Business Registration',
+              subtitle: 'DTI, SEC, or Mayor permit',
+              icon: Icons.business_center,
+              type: 'business_reg',
+              status: vp.statusFor('business_reg'),
+            ),
+        ],
       ],
+      ),
     );
   }
 
@@ -705,93 +690,6 @@ class _MyEmployerProfileScreenState extends State<MyEmployerProfileScreen>
 
 
 
-  Widget _buildVerificationCard({
-    required String title,
-    required String subtitle,
-    required IconData icon,
-    required String type,
-    required bool isVerified,
-  }) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      child: Material(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        elevation: 1,
-        child: InkWell(
-          onTap: isVerified ? null : () {
-            Navigator.pushNamed(
-              context,
-              '/verification',
-              arguments: {
-                'type': type,
-                'title': title,
-                'subtitle': subtitle,
-              },
-            );
-          },
-          borderRadius: BorderRadius.circular(12),
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Row(
-              children: [
-                Container(
-                  width: 40,
-                  height: 40,
-                  decoration: BoxDecoration(
-                    color: isVerified
-                        ? AppColors.success.withValues(alpha: 0.1)
-                        : AppColors.neutral200,
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: Icon(
-                    isVerified ? Icons.check_circle : icon,
-                    color:
-                        isVerified ? AppColors.success : AppColors.neutral600,
-                    size: 20,
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(title,
-                          style: const TextStyle(
-                              fontSize: 15,
-                              fontWeight: FontWeight.w600,
-                              color: AppColors.neutral900)),
-                      if (!isVerified)
-                        Text(subtitle,
-                            style: const TextStyle(
-                                fontSize: 12, color: AppColors.neutral600)),
-                    ],
-                  ),
-                ),
-                if (isVerified)
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 8, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: AppColors.success.withValues(alpha: 0.1),
-                      borderRadius: BorderRadius.circular(4),
-                    ),
-                    child: const Text('Verified',
-                        style: TextStyle(
-                            fontSize: 11,
-                            fontWeight: FontWeight.bold,
-                            color: AppColors.success)),
-                  )
-                else
-                  const Icon(Icons.arrow_forward_ios,
-                      size: 16, color: AppColors.neutral400),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
 }
 
 // ─── sticky tab delegate ──────────────────────────────────────────────────────
