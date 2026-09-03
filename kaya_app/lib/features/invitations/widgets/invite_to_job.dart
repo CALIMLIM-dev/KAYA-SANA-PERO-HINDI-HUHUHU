@@ -47,8 +47,43 @@ Future<void> showInviteToJobSheet(
       .where((j) => (j['status'] ?? '').toString() == 'open')
       .toList();
 
+  /*
+      No open job to invite them to.
+
+      An invitation is always an invitation to something, so there is nothing
+      to send until a post exists. This used to be a toast saying "post an open
+      job first" and then nothing - a message that names the next action and
+      leaves you to go and find it, which is worst of all on the rehire path:
+      the employer arrived already knowing who they want, and the one thing
+      standing in the way is the post.
+
+      So it offers to go there instead of describing the destination.
+  */
   if (openJobs.isEmpty) {
-    AppToast.info(context, 'Post an open job first, then you can invite $workerName.');
+    final postNow = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('No open jobs'),
+        content: Text(
+          'You need an open job to invite $workerName to. '
+          'Post one and you can invite them from the job.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('Not now'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: const Text('Post a job'),
+          ),
+        ],
+      ),
+    );
+
+    if (postNow == true && context.mounted) {
+      await Navigator.pushNamed(context, '/post-job');
+    }
     return;
   }
 
