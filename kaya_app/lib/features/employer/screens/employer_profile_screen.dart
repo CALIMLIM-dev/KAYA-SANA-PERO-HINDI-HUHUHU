@@ -101,6 +101,9 @@ class _EmployerProfileScreenState extends State<EmployerProfileScreen> {
     final website = (e['website'] as String?) ?? '';
     final ratingAvg = (e['rating_avg'] as num?)?.toDouble();
     final reviewCount = (e['rating_count'] as num?)?.toInt() ?? 0;
+    // Logo if the employer set one, otherwise their account picture. Both
+    // have always been sent; neither was ever drawn.
+    final employerImage = ((e['image_url'] ?? e['avatar']) ?? '').toString();
     final badges = ((e['badges'] as List?) ?? []).cast<Map<String, dynamic>>();
     final jobs = ((e['jobs'] as List?) ?? []).cast<Map<String, dynamic>>();
     final reviews = ((e['reviews'] as List?) ?? []).cast<Map<String, dynamic>>();
@@ -146,8 +149,36 @@ class _EmployerProfileScreenState extends State<EmployerProfileScreen> {
                                     color: Colors.white.withValues(alpha: 0.3),
                                     width: 2),
                               ),
-                              child: const Icon(Icons.business,
-                                  color: Colors.white, size: 32),
+                              /*
+                                  The picture, which was never drawn.
+
+                                  This was a hardcoded business icon, so an
+                                  employer who uploaded a logo saw a generic
+                                  square on their own public profile and had
+                                  no way to tell the upload had worked. The
+                                  server has been sending both the logo and
+                                  the account picture all along.
+
+                                  Logo first, account picture second, icon
+                                  last: a company that set a logo means it,
+                                  and an individual householder who never
+                                  uploaded one still gets their own face
+                                  rather than a building.
+                              */
+                              clipBehavior: Clip.antiAlias,
+                              child: employerImage.isEmpty
+                                  ? const Icon(Icons.business,
+                                      color: Colors.white, size: 32)
+                                  : Image.network(
+                                      employerImage,
+                                      fit: BoxFit.cover,
+                                      // A broken or slow URL must not leave a
+                                      // hole where the identity should be.
+                                      errorBuilder: (_, _, _) => const Icon(
+                                          Icons.business,
+                                          color: Colors.white,
+                                          size: 32),
+                                    ),
                             ),
                             const SizedBox(width: 14),
                             Expanded(
