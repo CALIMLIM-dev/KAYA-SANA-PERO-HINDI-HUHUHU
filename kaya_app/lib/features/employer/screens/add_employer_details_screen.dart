@@ -95,7 +95,6 @@ class _AddEmployerDetailsScreenState extends State<AddEmployerDetailsScreen> {
                     textCapitalization: TextCapitalization.words,
                     decoration: InputDecoration(
                       labelText: 'Company / Business Name',
-                      hintText: 'e.g. ABC Construction Corp',
                       prefixIcon: const Icon(Icons.business),
                       border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(12)),

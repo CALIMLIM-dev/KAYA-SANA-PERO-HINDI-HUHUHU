@@ -30,7 +30,6 @@ class _SetupEmployerProfileScreenState extends State<SetupEmployerProfileScreen>
   final _pageController = PageController();
   final _formKey = GlobalKey<FormState>();
 
-  final _nameController = TextEditingController();
   final _firstNameController = TextEditingController();
   final _middleNameController = TextEditingController();
   final _lastNameController = TextEditingController();
@@ -89,7 +88,6 @@ class _SetupEmployerProfileScreenState extends State<SetupEmployerProfileScreen>
       // Only prefill if the user hasn't started typing — these awaits take a
       // moment, and overwriting mid-typing made the entered name disappear.
       if (_firstNameController.text.isEmpty) {
-        _nameController.text = auth.user?['name'] as String? ?? '';
         _firstNameController.text = auth.user?['first_name'] as String? ?? '';
         _middleNameController.text = auth.user?['middle_name'] as String? ?? '';
         _lastNameController.text = auth.user?['last_name'] as String? ?? '';
@@ -103,7 +101,6 @@ class _SetupEmployerProfileScreenState extends State<SetupEmployerProfileScreen>
   @override
   void dispose() {
     _pageController.dispose();
-    _nameController.dispose();
     _firstNameController.dispose();
     _middleNameController.dispose();
     _lastNameController.dispose();

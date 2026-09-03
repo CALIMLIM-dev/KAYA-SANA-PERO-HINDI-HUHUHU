@@ -139,7 +139,6 @@ class _AddCompanyInfoScreenState extends State<AddCompanyInfoScreen> {
                       textCapitalization: TextCapitalization.words,
                       decoration: InputDecoration(
                         labelText: 'Contact Person Name',
-                        hintText: 'e.g. Maria Santos',
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(12),
                         ),

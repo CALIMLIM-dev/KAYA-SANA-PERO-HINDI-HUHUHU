@@ -180,7 +180,9 @@ class _AddSkillsScreenState extends State<AddSkillsScreen> {
           autofocus: true,
           textCapitalization: TextCapitalization.words,
           decoration: const InputDecoration(
-            hintText: 'e.g., Solar Panel Maintenance',
+            // No example. The dialog title already says what to type, and a
+            // worker adding their own trade knows what it is called.
+            hintText: 'Job category',
             border: OutlineInputBorder(),
           ),
         ),
