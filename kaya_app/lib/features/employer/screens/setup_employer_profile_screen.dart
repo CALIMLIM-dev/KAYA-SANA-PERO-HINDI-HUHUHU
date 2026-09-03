@@ -480,14 +480,9 @@ class _SetupEmployerProfileScreenState extends State<SetupEmployerProfileScreen>
             ),
           ),
           if (_selectedType != null) ...[
-            const SizedBox(height: 24),
-            _buildInfoPanel(
-              icon: _selectedType!.icon,
-              title: _selectedType!.label,
-              text: _selectedType == EmployerType.company
-                  ? 'Businesses will submit company information and can upload a business permit, DTI certificate, or SEC registration.'
-                  : 'Individuals will use their account name, location, photo, and government ID verification.',
-            ),
+            // The panel that used to sit here restated the choice just made
+            // and then listed the fields the next screen asks for anyway.
+            const SizedBox(height: 12),
 
             // Said here because this is the last moment it can be changed.
             // The two types require different verification documents, so
@@ -604,52 +599,64 @@ class _SetupEmployerProfileScreenState extends State<SetupEmployerProfileScreen>
                 readOnly: _nameIsLocked,
               ),
               const SizedBox(height: 12),
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Expanded(
-                    flex: 2,
-                    child: _textField(
-                      controller: _lastNameController,
-                      label: 'Last Name *',
-                      icon: Icons.badge_outlined,
-                      requiredMessage: 'Last name is required',
-                      textCapitalization: TextCapitalization.words,
-                      readOnly: _nameIsLocked,
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: _textField(
-                      controller: _suffixController,
-                      label: 'Suffix',
-                      icon: Icons.more_horiz,
-                      textCapitalization: TextCapitalization.characters,
-                      readOnly: _nameIsLocked,
-                    ),
-                  ),
-                ],
+              /*
+                  Last name on its own line, suffix under it.
+
+                  Sharing a row, "Last Name *" had two thirds of the width
+                  minus a prefix icon, and the label ellipsised to "Last Na..."
+                  on a normal phone - the one field where a truncated label is
+                  actively confusing, because a surname box that says "Last
+                  Na..." looks like it wants something else. A suffix is three
+                  characters and does not need a row of its own to itself, but
+                  it does need to stop squeezing the field beside it.
+              */
+              _textField(
+                controller: _lastNameController,
+                label: 'Last Name *',
+                icon: Icons.badge_outlined,
+                requiredMessage: 'Last name is required',
+                textCapitalization: TextCapitalization.words,
+                readOnly: _nameIsLocked,
               ),
-              const SizedBox(height: 6),
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Icon(_nameIsLocked ? Icons.lock_outline : Icons.info_outline,
-                      size: 14, color: AppColors.neutral500),
-                  const SizedBox(width: 6),
-                  Expanded(
-                    child: Text(
-                      _nameIsLocked
-                          ? 'Locked because your ID is verified. This is the name '
-                              'shown everywhere on your account.'
-                          : 'This is your account name and is shown everywhere, '
-                              'including on your worker profile.',
-                      style: const TextStyle(
-                          fontSize: 12, height: 1.35, color: AppColors.neutral600),
-                    ),
-                  ),
-                ],
+              const SizedBox(height: 12),
+              _textField(
+                controller: _suffixController,
+                label: 'Suffix (optional)',
+                icon: Icons.more_horiz,
+                textCapitalization: TextCapitalization.characters,
+                readOnly: _nameIsLocked,
               ),
+              /*
+                  Only when the field will not accept a change.
+
+                  The unlocked case used to carry a sentence explaining that
+                  this is the account name and appears on the worker profile
+                  too. Nobody needs telling that their own name is their name,
+                  and the field is editable anyway - the note said nothing the
+                  user could act on. When it is locked they do need the reason,
+                  because a field that ignores typing with no explanation reads
+                  as broken.
+              */
+              if (_nameIsLocked) ...[
+                const SizedBox(height: 6),
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Icon(Icons.lock_outline,
+                        size: 14, color: AppColors.neutral500),
+                    const SizedBox(width: 6),
+                    const Expanded(
+                      child: Text(
+                        'Locked — your ID is verified. Change it from your profile.',
+                        style: TextStyle(
+                            fontSize: 12,
+                            height: 1.35,
+                            color: AppColors.neutral600),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
             ],
             const SizedBox(height: 16),
             // Picker, not free text — keeps employer locations normalized so
@@ -1196,52 +1203,4 @@ class _SetupEmployerProfileScreenState extends State<SetupEmployerProfileScreen>
             },
     );
   }
-
-  Widget _buildInfoPanel({
-    required IconData icon,
-    required String title,
-    required String text,
-  }) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.neutral300),
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Icon(icon, color: AppColors.primary, size: 24),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  title,
-                  style: const TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                    color: AppColors.neutral900,
-                  ),
-                ),
-                const SizedBox(height: 6),
-                Text(
-                  text,
-                  style: const TextStyle(
-                    fontSize: 13.5,
-                    color: AppColors.neutral600,
-                    height: 1.5,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
 }
