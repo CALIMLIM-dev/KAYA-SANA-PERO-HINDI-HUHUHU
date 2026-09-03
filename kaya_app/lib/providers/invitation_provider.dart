@@ -14,9 +14,63 @@ class InvitationProvider with ChangeNotifier {
   String? _errorMessage;
   List<Map<String, dynamic>> _invitations = [];
 
+  List<Map<String, dynamic>> _pastWorkers = [];
+  bool _isPastWorkersLoading = false;
+  bool _hasLoadedPastWorkers = false;
+  int? _rehireCost;
+
   bool get isLoading => _isLoading;
   String? get errorMessage => _errorMessage;
   List<Map<String, dynamic>> get invitations => _invitations;
+
+  /*
+      People this employer has finished a job with.
+
+      Derived on the server from completed applications, so there is nothing
+      cached here that can go stale against the real history.
+  */
+  List<Map<String, dynamic>> get pastWorkers => _pastWorkers;
+  bool get isPastWorkersLoading => _isPastWorkersLoading;
+
+  /// Whether the list has arrived at least once. The spinner is gated on
+  /// this rather than on loading alone, so a pull-to-refresh does not blank
+  /// out rows that are already on screen.
+  bool get hasLoadedPastWorkers => _hasLoadedPastWorkers;
+
+  /// What re-inviting one of them costs. Null until the list has loaded, so
+  /// the screen shows no price rather than a guessed one.
+  int? get rehireCost => _rehireCost;
+
+  @visibleForTesting
+  void seedPastWorkers(List<Map<String, dynamic>> rows, {int? cost}) {
+    _pastWorkers = rows;
+    _rehireCost = cost;
+    _hasLoadedPastWorkers = true;
+    notifyListeners();
+  }
+
+  Future<void> fetchPastWorkers() async {
+    _isPastWorkersLoading = true;
+    notifyListeners();
+
+    try {
+      final response = await _api.get('/past-workers');
+      final data = response.data['data'] as Map<String, dynamic>;
+
+      _pastWorkers = ((data['workers'] as List?) ?? const [])
+          .whereType<Map>()
+          .map((r) => Map<String, dynamic>.from(r))
+          .toList();
+      _rehireCost = (data['invite_cost'] as num?)?.toInt();
+      _hasLoadedPastWorkers = true;
+    } catch (e) {
+      _errorMessage = e.toString().replaceFirst('Exception: ', '');
+      debugPrint('[invitations] past workers failed: $e');
+    } finally {
+      _isPastWorkersLoading = false;
+      notifyListeners();
+    }
+  }
 
   /// Still waiting on the worker's answer — the only ones worth counting or
   /// listing, since an accepted or declined invitation needs nothing further.

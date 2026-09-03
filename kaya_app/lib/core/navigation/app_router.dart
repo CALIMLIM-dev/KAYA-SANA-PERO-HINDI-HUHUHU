@@ -61,6 +61,7 @@ import '../../features/employer/screens/employer_profile_screen.dart';
 import '../../features/applications/screens/view_applicants_screen.dart';
 import '../../features/applications/screens/applicant_review_screen.dart';
 import '../../features/reviews/screens/leave_review_screen.dart';
+import '../../features/invitations/screens/past_workers_screen.dart';
 import '../../features/profile/screens/verification_screen.dart';
 import '../../features/profile/screens/settings_screen.dart';
 import '../../features/invitations/screens/my_invitations_screen.dart';
@@ -94,6 +95,7 @@ class AppRouter {
   static const String chat = '/chat';
   static const String notifications = '/notifications';
   static const String wallet = '/wallet';
+  static const String pastWorkers = '/past-workers';
   static const String profile = '/profile';
   static const String editWorkerProfile = '/edit-worker-profile';
   static const String myWorkerProfile = '/my-worker-profile';
@@ -199,6 +201,9 @@ class AppRouter {
 
       case wallet:
         return MaterialPageRoute(builder: (_) => const WalletScreen());
+
+      case pastWorkers:
+        return MaterialPageRoute(builder: (_) => const PastWorkersScreen());
       
       case profile:
         return MaterialPageRoute(builder: (_) => const ProfileScreen());

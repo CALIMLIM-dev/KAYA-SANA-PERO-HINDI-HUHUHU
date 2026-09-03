@@ -68,11 +68,22 @@ class InvitationController extends Controller
             }, 422);
         }
 
+        /*
+            A proven pairing costs less to repeat.
+
+            Both the price and the reason come from RehireService, which is
+            also what the applicant card's "Hired 3x" badge counts. One source
+            for the fact, because an employer told "Hired before" and charged
+            full price is a bug report, and charged half with no badge showing
+            is a mystery discount.
+        */
+        $rehire = app(\App\Services\RehireService::class);
+
         try {
             $invitation = app(CreditLedger::class)->charge(
                 user: $user,
-                amount: (int) config('kaya.credits.invite'),
-                reason: CreditTransaction::REASON_INVITATION,
+                amount: $rehire->inviteCost($user, $worker),
+                reason: $rehire->inviteReason($user, $worker),
                 referenceType: 'job',
                 referenceId: $job->id,
                 using: fn (CreditTransaction $charge) => Invitation::create([
@@ -96,6 +107,34 @@ class InvitationController extends Controller
         InvitationSent::dispatch($invitation->load(['job', 'employer']));
 
         return $this->ok($invitation, 'Invitation sent successfully', 201);
+    }
+
+    /**
+     * Everyone this employer has finished a job with.
+     *
+     * Derived from completed applications - the completed application is the
+     * record of having worked together, so there is nothing to store. Each
+     * row carries what it costs to invite that person again, because the
+     * discount is the whole point of the screen and a price the app has to
+     * work out for itself is a price the two sides can disagree about.
+     */
+    public function pastWorkers(Request $request)
+    {
+        $user = $request->user();
+
+        if (! $user->isEmployer()) {
+            return $this->fail('Forbidden', 403);
+        }
+
+        $rehire = app(\App\Services\RehireService::class);
+
+        return $this->ok([
+            'workers'      => $rehire->pastWorkers($user),
+            // Flat, because every worker on this list is by definition a
+            // rehire. Sent anyway so the app never hardcodes the number.
+            'invite_cost'  => (int) config('kaya.credits.rehire_invite'),
+            'normal_cost'  => (int) config('kaya.credits.invite'),
+        ]);
     }
 
     public function myInvitations(Request $request)

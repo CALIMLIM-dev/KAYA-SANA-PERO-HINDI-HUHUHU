@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../../core/utils/realtime_refresh.dart';
 
+import '../../../core/navigation/app_router.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/utils/job_summary.dart';
 import '../../../providers/job_provider.dart';
@@ -81,6 +82,23 @@ class _ManageJobsScreenState extends State<ManageJobsScreen>
             elevation: 0,
             title: const Text('My Jobs',
                 style: TextStyle(fontWeight: FontWeight.w600)),
+            /*
+                Where an employer reaches people they have hired before.
+
+                Here rather than on the activity strip: that strip has room
+                for two tiles and a third broke it on a hybrid account. This
+                screen is already the employer's home, and re-inviting is a
+                hiring action, so it belongs beside the jobs rather than in
+                the worker's inbox.
+            */
+            actions: [
+              IconButton(
+                tooltip: 'Worked with before',
+                icon: const Icon(Icons.history),
+                onPressed: () =>
+                    Navigator.pushNamed(context, AppRouter.pastWorkers),
+              ),
+            ],
             bottom: TabBar(
               controller: _tabController,
               indicatorColor: AppColors.accent,

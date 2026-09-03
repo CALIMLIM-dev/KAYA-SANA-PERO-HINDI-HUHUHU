@@ -24,6 +24,18 @@ Future<void> showInviteToJobSheet(
   BuildContext context, {
   required int workerId,
   required String workerName,
+  /*
+      What this particular invitation costs, when it is not the standard one.
+
+      Re-inviting somebody already worked with is charged at the rehire rate,
+      and the server works that out from the completed jobs between the two
+      accounts. Passing it in keeps the number the employer reads and the
+      number the ledger takes the same - showing 2 and charging 1 is the
+      mismatch that makes people distrust a balance, even in their favour.
+
+      Null means the ordinary price, read from the wallet as before.
+  */
+  int? costOverride,
 }) async {
   final jobProvider = context.read<JobProvider>();
   await jobProvider.fetchMyJobs();
@@ -44,10 +56,13 @@ Future<void> showInviteToJobSheet(
   await credits.load();
   if (!context.mounted) return;
 
-  final cost = credits.costOf('invite');
+  final cost = costOverride ?? credits.costOf('invite');
 
   // Short already: say so before showing a picker that cannot be acted on.
-  if (cost != null && !credits.canAfford('invite')) {
+  // Compared against the balance directly rather than through canAfford,
+  // which only knows the standard prices and would refuse a rehire the
+  // employer can actually afford.
+  if (cost != null && credits.balance < cost) {
     AppToast.error(context, 'You need ${Credits.amount(cost)} to invite someone.');
     return;
   }

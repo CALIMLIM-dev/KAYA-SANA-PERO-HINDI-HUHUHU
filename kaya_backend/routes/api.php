@@ -218,6 +218,9 @@ Route::prefix('v1')->group(function () {
 
         // Invitations
         Route::get('/my-invitations',                       [InvitationController::class, 'myInvitations']);
+        // Reading who you have worked with is not spending, so it is not
+        // gated - the invite itself already is.
+        Route::get('/past-workers',                         [InvitationController::class, 'pastWorkers']);
         Route::patch('/invitations/{invitation}/accept',    [InvitationController::class, 'accept'])
             ->middleware('verified:worker');
         Route::patch('/invitations/{invitation}/decline',   [InvitationController::class, 'decline']);
