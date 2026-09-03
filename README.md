@@ -4,7 +4,7 @@ A digital marketplace for skilled workforce services with a location-based match
 
 KAYA connects Filipino skilled workers such as carpenters, plumbers, electricians and masons with employers hiring for short-term, on-site work in the same area. Hiring in this sector still runs largely on word of mouth, which leaves capable workers invisible outside their personal network and gives employers no way to check who they are letting into their home or business. KAYA matches both sides by real geographic distance using Philippine Standard Geographic Code data down to barangay level, and backs it with administrator-verified identity documents.
 
-A single account can act as both worker and employer. That is the default rather than an edge case, because tradespeople in practice both hire and are hired.
+A single account can act as both worker and employer. That is the default rather than an edge case, because tradespeople in practice both hire and are hired. The exception is a registered business: a company account hires only, since a verified business badge would mean little on a profile that is sometimes a company and sometimes a person.
 
 ## Status
 
@@ -86,7 +86,7 @@ cd kaya_backend && php artisan test
 cd kaya_app && flutter test
 ```
 
-Coverage is weighted towards the parts that fail silently rather than loudly: channel authorisation, resume access control, account identity, hybrid role resolution and profile completeness scoring. A permission bug in those areas produces plausible-looking output rather than an error, so they are tested at the API rather than through the interface.
+Coverage is weighted towards the parts that fail silently rather than loudly: channel authorisation, resume access control, account identity, hybrid role resolution, the company/worker exclusion and profile completeness scoring. A permission bug in those areas produces plausible-looking output rather than an error, so they are tested at the API rather than through the interface.
 
 ## Project structure
 

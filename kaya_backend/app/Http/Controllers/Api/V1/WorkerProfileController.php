@@ -136,6 +136,31 @@ class WorkerProfileController extends Controller
         
         $user->save();
 
+        /*
+            A company account cannot also be a worker.
+
+            The rule everywhere else in this app is that roles come from
+            profile existence and one account may hold both. This is the
+            single exception, and it is deliberate: a registered business
+            hiring through KAYA is not also a tradesperson looking for
+            work, and a verified-business badge on an account that is
+            sometimes a company and sometimes a person vouches for nothing.
+
+            Going forward only. Accounts that already hold both are left
+            alone rather than migrated - this is a live system in testing,
+            and taking a profile away from somebody mid-demo is a worse
+            outcome than a few grandfathered accounts. kaya:audit-company-
+            hybrids lists them without changing anything.
+        */
+        if ($user->isCompanyEmployer()) {
+            return $this->fail(
+                'This is a business account, so it cannot also have a worker '
+                . 'profile. Switch the employer profile to Individual first if '
+                . 'you also want to look for work.',
+                422
+            );
+        }
+
         $profile = WorkerProfile::firstOrCreate(
             ['user_id' => $user->id],
             [
@@ -319,6 +344,31 @@ class WorkerProfileController extends Controller
             'category_id' => $request->category_id,
             'skill_id' => $request->skill_id,
         ]);
+
+        /*
+            A company account cannot also be a worker.
+
+            The rule everywhere else in this app is that roles come from
+            profile existence and one account may hold both. This is the
+            single exception, and it is deliberate: a registered business
+            hiring through KAYA is not also a tradesperson looking for
+            work, and a verified-business badge on an account that is
+            sometimes a company and sometimes a person vouches for nothing.
+
+            Going forward only. Accounts that already hold both are left
+            alone rather than migrated - this is a live system in testing,
+            and taking a profile away from somebody mid-demo is a worse
+            outcome than a few grandfathered accounts. kaya:audit-company-
+            hybrids lists them without changing anything.
+        */
+        if ($request->user()->isCompanyEmployer()) {
+            return $this->fail(
+                'This is a business account, so it cannot also have a worker '
+                . 'profile. Switch the employer profile to Individual first if '
+                . 'you also want to look for work.',
+                422
+            );
+        }
 
         $profile = WorkerProfile::firstOrCreate(
             ['user_id' => $request->user()->id],

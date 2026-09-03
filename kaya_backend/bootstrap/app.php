@@ -28,6 +28,7 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->alias([
             'admin.web'      => \App\Http\Middleware\EnsureUserIsAdminWeb::class,
             'not.suspended'  => \App\Http\Middleware\EnsureNotSuspended::class,
+            'verified'       => \App\Http\Middleware\EnsureVerified::class,
         ]);
 
         /*

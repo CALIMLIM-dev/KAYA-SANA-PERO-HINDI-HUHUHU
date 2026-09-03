@@ -238,6 +238,33 @@ class User extends Authenticatable
         return !$this->isAdmin() && $this->hasProfile('employerProfile');
     }
 
+    /*
+        A company employer, as opposed to an individual one.
+
+        Derived rather than stored. A column would be a second source of
+        truth for something employer_type already answers, and it would
+        drift the first time somebody switched type without updating it.
+
+        This is the one place the "one account can hold both profiles"
+        rule has an exception: a registered business hiring through KAYA
+        is not also a tradesperson looking for work, and letting one
+        account be both makes the business verification meaningless -
+        the badge would sit on a profile that is sometimes a company and
+        sometimes a person.
+    */
+    public function isCompanyEmployer(): bool
+    {
+        if ($this->isAdmin()) {
+            return false;
+        }
+
+        $profile = $this->relationLoaded('employerProfile')
+            ? $this->getRelation('employerProfile')
+            : $this->employerProfile()->first();
+
+        return $profile?->employer_type === \App\Enums\EmployerType::COMPANY;
+    }
+
     /**
      * Use the already-loaded relation when present so callers that eager-load
      * (applicant lists, job feeds) don't fire a COUNT per row.

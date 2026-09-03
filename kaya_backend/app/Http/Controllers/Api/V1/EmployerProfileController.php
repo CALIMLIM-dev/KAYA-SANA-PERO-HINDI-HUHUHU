@@ -58,6 +58,29 @@ class EmployerProfileController extends Controller
         $validated = $request->validated();
 
         /*
+            A worker account cannot become a company.
+
+            The mirror of the guard in WorkerProfileController. Without
+            it the exclusivity rule is one-directional and trivially
+            avoidable: make the worker profile first, then declare the
+            employer side a company, and the account ends up in exactly
+            the state the other guard refuses to create.
+
+            Individual is not blocked. That is the ordinary hybrid case
+            the app is built around - a tradesperson who also hires - and
+            nothing about it is being changed.
+        */
+        if ($user->isWorker()
+            && ($validated['employer_type'] ?? null) === EmployerType::COMPANY->value) {
+            return $this->fail(
+                'This account has a worker profile, so the employer side has '
+                . 'to stay Individual. Business accounts cannot also look for '
+                . 'work.',
+                422
+            );
+        }
+
+        /*
             Idempotent, because setup is not atomic.
 
             This used to 422 with "already exists" if a profile was here, which

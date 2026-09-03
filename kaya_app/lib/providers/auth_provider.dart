@@ -87,6 +87,25 @@ class AuthProvider with ChangeNotifier {
   bool get hasAnyProfile => workerProfileExists || employerProfileExists;
 
   /*
+      A registered business hires only; it cannot also look for work.
+
+      The one exception to "an account can hold both profiles". The server
+      refuses a worker profile on a company account in both directions, so
+      the app has to stop offering the flow rather than let somebody fill in
+      seven pages of worker setup and meet a 422 on the last screen.
+
+      Read from employer_type on /me, which already returns it. Individual
+      employers are unaffected and stay hybrid.
+  */
+  bool get isCompanyEmployer => _user?['employer_type'] == 'company';
+
+  bool get canCreateWorkerProfile => !isCompanyEmployer;
+
+  /// Set by admin review of submitted documents. Gates posting, applying,
+  /// inviting and topping up — see EnsureVerified on the server.
+  bool get isVerified => _user?['is_verified'] as bool? ?? false;
+
+  /*
       How complete the worker profile is, computed server side.
 
       /me has carried this since profile completeness was built and nothing in

@@ -454,9 +454,18 @@ class _UnifiedHomeScreenState extends State<UnifiedHomeScreen>
           
           const SizedBox(height: 20),
           
-          // Two Action Buttons
+          /*
+              The worker half is hidden on a company account.
+
+              A registered business hires only, and the server refuses a
+              worker profile on one. Leaving the button here would let
+              somebody fill in seven pages of worker setup and meet a 422
+              on the final save, which is the worst place to learn a rule.
+              Individual employers are unaffected.
+          */
           Row(
             children: [
+              if (context.watch<AuthProvider>().canCreateWorkerProfile) ...[
               Expanded(
                 child: OutlinedButton(
                   onPressed: () => Navigator.pushNamed(context, AppRouter.setupWorkerProfile),
@@ -478,6 +487,7 @@ class _UnifiedHomeScreenState extends State<UnifiedHomeScreen>
                 ),
               ),
               const SizedBox(width: 12),
+              ],
               Expanded(
                 child: OutlinedButton(
                   onPressed: () => Navigator.pushNamed(context, AppRouter.setupEmployerProfile),

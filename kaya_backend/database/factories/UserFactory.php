@@ -30,6 +30,23 @@ class UserFactory extends Factory
             'email_verified_at' => now(),
             'password' => static::$password ??= Hash::make('password'),
             'remember_token' => Str::random(10),
+
+            /*
+                Identity-verified by default.
+
+                Verification gates posting, applying, inviting and topping up
+                (EnsureVerified). Before that gate existed this column meant
+                nothing, so no fixture ever set it — and the day it started
+                meaning something, twenty-nine tests about credits, schedules
+                and invitations began failing on a rule none of them are about.
+
+                A factory user represents the ordinary case, and the ordinary
+                case is somebody who got through the door. The cost is that
+                this default hides the gate from tests that do not think about
+                it, which is why VerificationGateTest sets the flag explicitly
+                in both directions and owns proving the gate works at all.
+            */
+            'is_verified' => true,
         ];
     }
 

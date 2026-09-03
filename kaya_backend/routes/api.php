@@ -168,7 +168,8 @@ Route::prefix('v1')->group(function () {
 
         // Jobs
         Route::get('/jobs',                     [JobController::class, 'index']);
-        Route::post('/jobs',                    [JobController::class, 'store']);
+        Route::post('/jobs',                    [JobController::class, 'store'])
+            ->middleware('verified:employer');
         Route::get('/jobs/my',                  [JobController::class, 'myJobs']);
         Route::get('/jobs/{job}',               [JobController::class, 'show']);
         Route::put('/jobs/{job}',               [JobController::class, 'update']);
@@ -178,8 +179,10 @@ Route::prefix('v1')->group(function () {
         Route::delete('/jobs/{job}/save',       [JobController::class, 'unsave']);
         Route::get('/jobs/{job}/matches',       [JobController::class, 'matches']);
         Route::get('/jobs/{job}/applicants',    [ApplicationController::class, 'jobApplicants']);
-        Route::post('/jobs/{job}/apply',        [ApplicationController::class, 'apply']);
-        Route::post('/jobs/{job}/invite',       [InvitationController::class, 'send']);
+        Route::post('/jobs/{job}/apply',        [ApplicationController::class, 'apply'])
+            ->middleware('verified:worker');
+        Route::post('/jobs/{job}/invite',       [InvitationController::class, 'send'])
+            ->middleware('verified:employer');
 
         // Saved Jobs
         Route::get('/saved-jobs', [JobController::class, 'savedJobs']);
@@ -203,7 +206,8 @@ Route::prefix('v1')->group(function () {
 
         // Invitations
         Route::get('/my-invitations',                       [InvitationController::class, 'myInvitations']);
-        Route::patch('/invitations/{invitation}/accept',    [InvitationController::class, 'accept']);
+        Route::patch('/invitations/{invitation}/accept',    [InvitationController::class, 'accept'])
+            ->middleware('verified:worker');
         Route::patch('/invitations/{invitation}/decline',   [InvitationController::class, 'decline']);
 
         // Messaging
@@ -223,7 +227,11 @@ Route::prefix('v1')->group(function () {
         Route::get('/credits/transactions', [CreditController::class, 'transactions']);
         Route::post('/credits/claim',       [CreditController::class, 'claim']);
         Route::post('/credits/checkout',    [CreditCheckoutController::class, 'checkout'])
-            ->middleware('throttle:credits-checkout');
+            // Topping up is spending. Claiming a grant is not - that route
+            // stays open so a balance still accrues while documents are
+            // being reviewed, and a newly verified user is not starting
+            // from zero because an admin took three days.
+            ->middleware(['throttle:credits-checkout', 'verified:any']);
 
         /*
             There is deliberately no /credits/confirm.

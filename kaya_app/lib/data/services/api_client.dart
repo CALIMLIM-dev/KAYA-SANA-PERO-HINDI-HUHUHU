@@ -383,9 +383,32 @@ class ApiClient {
             (_isAuthPath(path)
                 ? 'Incorrect email or password'
                 : 'Your session has expired. Please sign in again.'));
+      /*
+          403 now means two different things.
+
+          It was only ever suspension, so the fallback said so. The
+          verification gate answers 403 as well, and a user who has simply
+          not sent their ID in yet being told their account is suspended is
+          worse than no message at all.
+
+          The two are told apart by `needs_verification` in the body, not by
+          reading the sentence — the same rule the suspension check already
+          follows, after string matching broke there the first time anyone
+          reworded it. Screens route on the code.
+      */
       case 403:
-        return ApiException(status, code,
-            message ?? 'Your account has been suspended. Contact support.');
+        final needsVerification =
+            data is Map && data['data'] is Map &&
+                (data['data']['needs_verification'] == true);
+
+        return ApiException(
+          status,
+          code ?? (needsVerification ? 'needs_verification' : null),
+          message ??
+              (needsVerification
+                  ? 'Verify your account to do that.'
+                  : 'Your account has been suspended. Contact support.'),
+        );
       /*
           Not enough credits.
 
