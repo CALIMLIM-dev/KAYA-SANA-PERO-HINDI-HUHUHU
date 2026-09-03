@@ -505,9 +505,11 @@ class _WorkerProfileScreenState extends State<WorkerProfileScreen> {
                     labelled "0 years" — the server decides that, since it is
                     the same rule everywhere the figure appears.
                 */
-                title: (experienceLabel == null || experienceLabel.isEmpty)
-                    ? 'Work Experience'
-                    : 'Work Experience  ·  $experienceLabel',
+                title: 'Work Experience',
+                // On its own line rather than appended to the title: that
+                // Row also holds See all, and the combined string overflowed
+                // a 320dp card at text scale 1.3.
+                subtitle: experienceLabel,
                 child: Column(
                   children: experiences
                       .map((exp) => _experienceItem(
@@ -682,6 +684,7 @@ class _WorkerProfileScreenState extends State<WorkerProfileScreen> {
     bool showSeeAll = false,
     String seeAllLabel = 'See all',
     VoidCallback? onSeeAll,
+    String? subtitle,
   }) {
     return Container(
       width: double.infinity,
@@ -698,11 +701,17 @@ class _WorkerProfileScreenState extends State<WorkerProfileScreen> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(title,
-                  style: const TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                      color: AppColors.neutral900)),
+              // Flexible: an 18px bold title and a See all button in one Row
+              // overflows a 320dp card at text scale 1.3 without it.
+              Flexible(
+                child: Text(title,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                        color: AppColors.neutral900)),
+              ),
               // Rendered only when it can act. A label that looks like a
               // button and ignores taps is worse than no label.
               if (showSeeAll && onSeeAll != null)
@@ -720,6 +729,14 @@ class _WorkerProfileScreenState extends State<WorkerProfileScreen> {
                 ),
             ],
           ),
+          // Its own line, so it cannot compete with the title for width and
+          // is free to wrap at any text scale.
+          if (subtitle != null && subtitle.isNotEmpty) ...[
+            const SizedBox(height: 2),
+            Text(subtitle,
+                style: const TextStyle(
+                    fontSize: 13, color: AppColors.neutral600)),
+          ],
           const SizedBox(height: 16),
           child,
         ],
