@@ -133,6 +133,16 @@ class _WorkerProfileScreenState extends State<WorkerProfileScreen> {
         .toList();
 
     final experiences = ((w['experiences'] as List?) ?? []).cast<Map<String, dynamic>>();
+
+    /*
+        Computed on the server, never here.
+
+        The merge that stops two concurrent jobs counting as four years lives
+        in ExperienceTotal, and duplicating it in Dart would give two answers
+        to the same question the first time one side was edited. A build older
+        than the server simply shows no label, which is the safe direction.
+    */
+    final experienceLabel = (w['experience_label'] as String?)?.trim();
     final certifications = ((w['certifications'] as List?) ?? []).cast<Map<String, dynamic>>();
     final licenses = ((w['licenses'] as List?) ?? []).cast<Map<String, dynamic>>();
     final exams = ((w['license_examinations'] as List?) ?? []).cast<Map<String, dynamic>>();
@@ -465,7 +475,21 @@ class _WorkerProfileScreenState extends State<WorkerProfileScreen> {
           if (experiences.isNotEmpty)
             SliverToBoxAdapter(
               child: _section(
-                title: 'Work Experience',
+                /*
+                    The total sits on the section it is computed from.
+
+                    Not a fourth stat card: three already run tight at 320dp,
+                    and a headline figure an employer cannot immediately check
+                    invites doubt. Here the dates it was derived from are the
+                    next thing on screen.
+
+                    Null under a year, so a new worker's profile is not
+                    labelled "0 years" — the server decides that, since it is
+                    the same rule everywhere the figure appears.
+                */
+                title: (experienceLabel == null || experienceLabel.isEmpty)
+                    ? 'Work Experience'
+                    : 'Work Experience  ·  $experienceLabel',
                 child: Column(
                   children: experiences
                       .map((exp) => _experienceItem(

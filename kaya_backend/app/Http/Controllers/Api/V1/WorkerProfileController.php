@@ -1383,6 +1383,18 @@ class WorkerProfileController extends Controller
                     'years_of_experience' => $s->years_of_experience,
                 ])->values(),
 
+                /*
+                    Computed, never stored, and overlapping jobs count once.
+
+                    Summing the rows would tell an employer four years for a
+                    mason who spent 2020-2022 on two sites at once, and the
+                    dates it contradicts are listed directly underneath.
+                */
+                'years_experience'    => app(\App\Services\ExperienceTotal::class)
+                    ->years($profile->experiences),
+                'experience_label'    => app(\App\Services\ExperienceTotal::class)
+                    ->label($profile->experiences),
+
                 'experiences'         => $profile->experiences->map(fn ($e) => [
                     'title'       => $e->job_title,
                     'company'     => $e->company_name,
