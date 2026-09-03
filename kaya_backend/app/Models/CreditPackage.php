@@ -12,7 +12,29 @@ use Illuminate\Database\Eloquent\Model;
  */
 class CreditPackage extends Model
 {
-    protected $fillable = ['name', 'credits', 'amount_centavos', 'is_active', 'sort_order'];
+    protected $fillable = ['name', 'credits', 'amount_centavos', 'audience', 'is_active', 'sort_order'];
+
+    public const AUDIENCE_ALL = 'all';
+    public const AUDIENCE_INDIVIDUAL = 'individual';
+    public const AUDIENCE_BUSINESS = 'business';
+
+    /*
+        The bundles one account may buy.
+
+        Business tiers are larger and cheaper per credit, and are shown only
+        to a verified company. Offering them to everyone would make the
+        individual tiers pointless, since nothing would stop a single worker
+        buying 3,500 credits at ₱0.80 instead of 25 at ₱2.00 — and the
+        discount exists for volume, not for whoever scrolls furthest.
+
+        Unverified and individual accounts see the same list they see today.
+    */
+    public function scopeForAudience($query, bool $isVerifiedBusiness)
+    {
+        return $isVerifiedBusiness
+            ? $query->whereIn('audience', [self::AUDIENCE_ALL, self::AUDIENCE_BUSINESS])
+            : $query->whereIn('audience', [self::AUDIENCE_ALL, self::AUDIENCE_INDIVIDUAL]);
+    }
 
     protected $casts = [
         'credits' => 'integer',

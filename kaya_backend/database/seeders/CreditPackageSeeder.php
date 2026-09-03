@@ -62,6 +62,37 @@ class CreditPackageSeeder extends Seeder
                 'amount_centavos' => 50000,     // 500.00 -> 1.25 a credit
                 'sort_order' => 4,
             ],
+
+            /*
+                Business tiers, shown only to a verified company.
+
+                The individual curve runs 2.00 down to 1.25 a credit; these
+                continue it to 1.00, 0.90 and 0.80. A business posting
+                steadily and boosting spends at a rate that would mean buying
+                the 400 bundle over and over, which is a worse deal for them
+                and more PayMongo fees for us.
+            */
+            [
+                'name' => 'Business Starter',
+                'credits' => 600,
+                'amount_centavos' => 60000,     // 600.00 -> 1.00 a credit
+                'audience' => 'business',
+                'sort_order' => 5,
+            ],
+            [
+                'name' => 'Business Growth',
+                'credits' => 1500,
+                'amount_centavos' => 135000,    // 1,350.00 -> 0.90 a credit
+                'audience' => 'business',
+                'sort_order' => 6,
+            ],
+            [
+                'name' => 'Business Scale',
+                'credits' => 3500,
+                'amount_centavos' => 280000,    // 2,800.00 -> 0.80 a credit
+                'audience' => 'business',
+                'sort_order' => 7,
+            ],
         ];
 
         foreach ($packages as $package) {

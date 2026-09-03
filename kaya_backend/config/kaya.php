@@ -107,6 +107,57 @@ return [
         'unlock' => (int) env('CREDIT_COST_UNLOCK', 10),
 
         /*
+            The rest of the ladder.
+
+            One unit is an application: 2 credits, about 4 pesos at the entry
+            tier. The three prices above already sit on that scale - unlock is
+            five applications - and everything below is placed on the same
+            one rather than picked per feature.
+
+            What keeps them honest is the share of a day's pay. Against the
+            400 to 650 pesos a worker prices a day at, these run from 0.3% for
+            a rehire to 7.5% for a business advert, with the actions that
+            should stay frictionless at the bottom and real advantage at the
+            top. A fee that costs more than a fraction of the job stops being
+            a fee and starts being a reason not to bother.
+        */
+
+        /*
+            Re-inviting somebody already worked with. Half of a normal invite.
+
+            A repeat hire is the outcome the marketplace exists to produce and
+            carries none of the risk of a first one, so charging full price for
+            it taxes the thing worth encouraging.
+        */
+        'rehire_invite' => (int) env('CREDIT_COST_REHIRE_INVITE', 1),
+
+        /*
+            Three days at the top of the feed, for a job post or a worker
+            profile. Four applications' worth.
+
+            Attention is the one thing here genuinely worth paying for, and it
+            is zero sum in a way nothing else is: being seen first never stops
+            anyone else being seen at all.
+        */
+        'boost'      => (int) env('CREDIT_COST_BOOST', 8),
+        'boost_days' => (int) env('CREDIT_BOOST_DAYS', 3),
+
+        /*
+            Keeping a job post up past its free thirty days.
+
+            Sold in fixed blocks rather than per day: the picker offers two
+            choices, and the longer block costs less per day, so nobody is
+            punished for committing further ahead.
+        */
+        'duration_14' => (int) env('CREDIT_COST_DURATION_14', 3),
+        'duration_30' => (int) env('CREDIT_COST_DURATION_30', 5),
+
+        // A week in the community threads. A business pays three times what a
+        // worker does - commercial reach on a commercial surface.
+        'thread_ad_worker'   => (int) env('CREDIT_COST_THREAD_AD_WORKER', 5),
+        'thread_ad_business' => (int) env('CREDIT_COST_THREAD_AD_BUSINESS', 15),
+
+        /*
             The free monthly grant, and the floor under the whole design.
 
             Twenty credits is ten applications a month at no cost. A worker who

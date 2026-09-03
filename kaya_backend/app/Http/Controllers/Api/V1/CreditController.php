@@ -35,6 +35,26 @@ class CreditController extends Controller
      * "Apply · 2 credits" on a button before anyone taps it, and a client that
      * hard-codes the price will disagree with the server the day it changes.
      */
+    /*
+        A company whose documents have been approved.
+
+        Both halves are required. Employer type alone would let anyone
+        declare themselves a business and buy at the volume rate without ever
+        proving they are one, which is the discount going to whoever reads the
+        form most carefully rather than to actual volume.
+    */
+    private function isVerifiedBusiness($user): bool
+    {
+        if (! $user->isCompanyEmployer()) {
+            return false;
+        }
+
+        $status = app(\App\Services\EmployerVerificationService::class)
+            ->getEmployerVerification($user, $user->employerProfile()->first());
+
+        return (bool) ($status['business_verified'] ?? false);
+    }
+
     public function wallet(Request $request)
     {
         $user = $request->user();
@@ -57,7 +77,16 @@ class CreditController extends Controller
                 whole point of claiming is that somebody notices.
             */
             'claimable' => $this->grants->available($user),
-            'packages' => CreditPackage::active()->get()->map(fn (CreditPackage $p) => [
+            /*
+                Only the bundles this account can actually buy.
+
+                A verified company sees the business tiers; everyone else sees
+                what they see today. Listing a bundle somebody is not allowed
+                to purchase would be a price tag on a button that refuses.
+            */
+            'packages' => CreditPackage::active()
+                ->forAudience($this->isVerifiedBusiness($user))
+                ->get()->map(fn (CreditPackage $p) => [
                 'id' => $p->id,
                 'name' => $p->name,
                 'credits' => $p->credits,

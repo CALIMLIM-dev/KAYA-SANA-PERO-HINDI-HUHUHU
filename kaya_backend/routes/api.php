@@ -5,6 +5,7 @@ use App\Http\Controllers\Api\V1\AuthController;
 use App\Http\Controllers\Api\V1\WorkerProfileController;
 use App\Http\Controllers\Api\V1\EmployerProfileController;
 use App\Http\Controllers\Api\V1\JobController;
+use App\Http\Controllers\Api\V1\BoostController;
 use App\Http\Controllers\Api\V1\ApplicationController;
 use App\Http\Controllers\Api\V1\InvitationController;
 use App\Http\Controllers\Api\V1\JobTrackingController;
@@ -183,6 +184,17 @@ Route::prefix('v1')->group(function () {
             ->middleware('verified:worker');
         Route::post('/jobs/{job}/invite',       [InvitationController::class, 'send'])
             ->middleware('verified:employer');
+
+        /*
+            Paid placement. Gated like every other spend.
+
+            The employer one takes a job; the worker one takes no argument
+            because you can only boost your own profile.
+        */
+        Route::post('/jobs/{job}/boost',        [BoostController::class, 'boostJob'])
+            ->middleware('verified:employer');
+        Route::post('/worker-profile/boost',    [BoostController::class, 'boostProfile'])
+            ->middleware('verified:worker');
 
         // Saved Jobs
         Route::get('/saved-jobs', [JobController::class, 'savedJobs']);

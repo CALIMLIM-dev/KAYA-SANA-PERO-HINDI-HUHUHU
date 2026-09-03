@@ -22,6 +22,13 @@ class CreditTransaction extends Model
     public const REASON_INVITATION = 'invitation';
     public const REASON_UNLOCK = 'unlock';
 
+    // The B2 sinks. Boost covers both a job post and a worker profile: it is
+    // one purchase in two directions, and the reference type says which.
+    public const REASON_BOOST = 'boost';
+    public const REASON_JOB_DURATION = 'job_duration';
+    public const REASON_THREAD_AD = 'thread_ad';
+    public const REASON_REHIRE_INVITE = 'rehire_invite';
+
     /** Receiving. */
     public const REASON_TOPUP = 'topup';
     public const REASON_MONTHLY_GRANT = 'monthly_grant';

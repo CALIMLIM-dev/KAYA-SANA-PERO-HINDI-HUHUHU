@@ -68,6 +68,32 @@ class JobController extends Controller
             $query->whereHas('skills', fn ($q) => $q->whereIn('skills.id', (array)$skillIds));
         }
 
+        /*
+            Boosted posts first, then the usual order.
+
+            is_urgent has been on this model since July and appeared in no
+            orderBy anywhere - every feed was ordered by recency alone, while
+            the post-job screen told employers that urgent jobs "appear at
+            the top of search results". This is the query that finally makes
+            that sentence true, and it reads from a paid boost rather than a
+            flag anyone could set for nothing.
+
+            A correlated subquery rather than a join: a job can have several
+            boosts over its life and a join would return it once per row,
+            quietly duplicating posts in the feed. This asks a yes or no
+            question and the index on boosts answers it directly.
+
+            Selected as well as ordered on, so the card can show a badge
+            without a second request.
+        */
+        $query->addSelect(['is_boosted' => \App\Models\Boost::selectRaw('1')
+            ->whereColumn('boosts.boostable_id', 'jobs_posts.id')
+            ->where('boosts.boostable_type', \App\Models\Boost::TYPE_JOB)
+            ->where('boosts.starts_at', '<=', now())
+            ->where('boosts.ends_at', '>', now())
+            ->limit(1),
+        ]);
+
         $radius = $request->get('radius_km');
         $nearestFirst = $request->get('sort') === 'nearest';
 
@@ -106,7 +132,7 @@ class JobController extends Controller
         };
 
         if (!$needsDistancePass) {
-            $jobs = $query->latest()->paginate(20);
+            $jobs = $query->orderByDesc('is_boosted')->latest()->paginate(20);
             $jobs->getCollection()->transform($decorate);
             return $this->ok($jobs);
         }
@@ -136,12 +162,12 @@ class JobController extends Controller
                 );
             }
 
-            $jobs = $query->latest()->paginate(20);
+            $jobs = $query->orderByDesc('is_boosted')->latest()->paginate(20);
             $jobs->getCollection()->transform($decorate);
             return $this->ok($jobs);
         }
 
-        $scored = $query->latest()->get()->map($decorate);
+        $scored = $query->orderByDesc('is_boosted')->latest()->get()->map($decorate);
 
         if ($radius !== null) {
             // A job with no computable position is dropped: "within 10 km"
@@ -152,7 +178,19 @@ class JobController extends Controller
         }
 
         if ($nearestFirst) {
-            $scored = $scored->sortBy(fn (JobPost $j) => $j->distance_km ?? PHP_FLOAT_MAX);
+            /*
+                Boosted first, then nearest.
+
+                This sorted on distance alone, which would undo the boost
+                ordering the query just applied - a paid post would drop back
+                down the moment somebody asked for nearest-first, which is the
+                default the home feed uses. Sorting on the pair keeps what was
+                paid for while still answering the question that was asked.
+            */
+            $scored = $scored->sortBy(fn (JobPost $j) => [
+                $j->is_boosted ? 0 : 1,
+                $j->distance_km ?? PHP_FLOAT_MAX,
+            ]);
         }
 
         $scored = $scored->values();
