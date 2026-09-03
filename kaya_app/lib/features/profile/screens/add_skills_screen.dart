@@ -6,14 +6,30 @@ import '../../../data/models/category_model.dart';
 import '../../../data/models/skill_model.dart';
 import '../../../core/widgets/app_toast.dart';
 
+/*
+    Picking skills, during setup and afterwards alike.
+
+    There used to be a `draftOnly` flag that setup passed in, and its whole
+    effect was to make the two "add your own" controls refuse: tapping them
+    toasted "can be added after profile setup" and did nothing. That was the
+    inert control this project does not allow, and it landed on exactly the
+    person least able to work around it — a new worker in a trade the seeded
+    list of 17 categories does not name, at the one moment they are being
+    asked what they do.
+
+    Nothing needed it. /categories and /skills are taxonomy endpoints that
+    require only a logged-in account, not a saved worker profile, so they
+    already worked mid-setup; the rows they create are global and outlive the
+    draft either way. Abuse is bounded where it should be, by the five-custom-
+    categories-per-account cap in CategoryController, not by hiding the button
+    from new users.
+*/
 class AddSkillsScreen extends StatefulWidget {
   final List<String> initialSkills;
-  final bool draftOnly;
 
   const AddSkillsScreen({
     super.key,
     this.initialSkills = const [],
-    this.draftOnly = false,
   });
 
   @override
@@ -112,11 +128,6 @@ class _AddSkillsScreenState extends State<AddSkillsScreen> {
   }
 
   Future<void> _addCustomSkill() async {
-    if (widget.draftOnly) {
-      AppToast.info(context, 'Custom skills can be added after profile setup.');
-      return;
-    }
-
     final val = _customSkillCtrl.text.trim();
     if (val.isEmpty) return;
     
@@ -159,11 +170,6 @@ class _AddSkillsScreenState extends State<AddSkillsScreen> {
   }
 
   Future<void> _showAddCustomCategoryDialog() async {
-    if (widget.draftOnly) {
-      AppToast.info(context, 'Custom job categories can be added after profile setup.');
-      return;
-    }
-
     final controller = TextEditingController();
     final result = await showDialog<String>(
       context: context,

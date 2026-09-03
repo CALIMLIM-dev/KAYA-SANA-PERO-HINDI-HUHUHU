@@ -799,7 +799,6 @@ class _WorkerSetupFlowScreenState extends State<WorkerSetupFlowScreen> {
                   MaterialPageRoute(
                     builder: (_) => AddSkillsScreen(
                       initialSkills: skillNames,
-                      draftOnly: true,
                     ),
                   ),
                 );
