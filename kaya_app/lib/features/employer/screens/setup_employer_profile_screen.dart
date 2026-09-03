@@ -315,30 +315,47 @@ class _SetupEmployerProfileScreenState extends State<SetupEmployerProfileScreen>
           disposed - reading a provider off a defunct element throws rather
           than returning null.
       */
+      /*
+          Navigate first, refresh after. The order was the whole bug.
+
+          This refreshed and then navigated. But fetchMe drives
+          EmployerProfileRouter, which sits directly under this flow and
+          re-derives what it should show the moment the answer changes - so
+          the await handed it a finished profile, it swapped this screen for
+          MyEmployerProfileScreen, and this State was disposed. The very next
+          line is `if (!mounted) return`, so the navigation never ran at all
+          and the user was left standing on their own profile wondering why
+          finishing setup had put them there.
+
+          The worker flow hit this exact bug and fixed it by going to the
+          shell first. This is that fix, applied to the side that kept the old
+          order. Everything below is removed so the back gesture cannot walk
+          into a setup flow that is finished.
+      */
+      if (!mounted) return;
+
+      Navigator.pushNamedAndRemoveUntil(
+        context,
+        AppRouter.home,
+        (route) => false,
+      );
+
+      // Now the flags, with nothing left underneath to rebuild.
       final auth = context.read<AuthProvider>();
       final employerProfile = context.read<EmployerProfileProvider>();
 
       await auth.fetchMe();
       await employerProfile.fetchProfile();
 
-      if (!mounted) return;
-
       // ScaffoldMessenger is app-scoped, so this survives the route change and
       // lands over the home screen rather than over a screen being disposed.
-      if (_verificationUploadFailed) {
+      if (mounted && _verificationUploadFailed) {
         AppToast.warning(
           context,
           'Your profile is set up, but your document could not be uploaded. '
           'You can retry it from Verification.',
         );
       }
-
-      // Navigate to home using Navigator directly, not AppRouter
-      Navigator.pushNamedAndRemoveUntil(
-        context,
-        AppRouter.home,
-        (route) => false,
-      );
     } finally {
       if (mounted) setState(() => _isSaving = false);
     }

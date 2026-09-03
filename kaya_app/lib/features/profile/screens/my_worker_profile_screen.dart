@@ -1284,6 +1284,13 @@ class _MyWorkerProfileScreenState extends State<MyWorkerProfileScreen> with Sing
     );
   }
 
+  /// Phone and email verification, which live on the account rather than in
+  /// the verifications table. Same helper on the employer profile.
+  String _contactStatus(String key) =>
+      context.watch<AuthProvider>().user?[key] == true
+          ? 'verified'
+          : 'unverified';
+
   Widget _buildVerificationsTab() {
     return Consumer<VerificationProvider>(
       builder: (context, vp, _) => ListView(
@@ -1299,14 +1306,16 @@ class _MyWorkerProfileScreenState extends State<MyWorkerProfileScreen> with Sing
           const SizedBox(height: 20),
 
           /*
-              Identity only.
+              Identity first, then the two contact checks.
 
-              Phone and email used to sit here as two more verification cards,
-              which put three things of very different weight on one screen and
-              made the whole section read as paperwork. A government ID with a
-              selfie is what an employer is actually deciding on; a phone
-              number is a contact detail, and it belongs with the other contact
-              details rather than being dressed up as a credential.
+              These were split for a while - ID here, phone and email with the
+              contact details - on the reasoning that a phone number is not a
+              credential. It reads better together: all three are things KAYA
+              confirms about an account, and someone who opens a tab called
+              Verification is asking what is left to confirm, not being sold a
+              distinction between kinds of proof.
+
+              The ID stays first because it is the one that unlocks working.
           */
           VerificationCard(
             title: 'Valid Philippine ID',
@@ -1314,6 +1323,30 @@ class _MyWorkerProfileScreenState extends State<MyWorkerProfileScreen> with Sing
             icon: Icons.badge,
             type: 'government_id',
             status: vp.statusFor('government_id'),
+          ),
+
+          /*
+              Read from the account, not from statusFor().
+
+              Phone and email are stamped as columns on the user by the contact
+              controller rather than written as `verifications` rows, so
+              statusFor('phone') answers "unverified" forever - which is
+              exactly why the cards that used to show them were hard-coded to
+              false and never turned green.
+          */
+          VerificationCard(
+            title: 'Phone Number',
+            subtitle: 'Confirm with a code sent by SMS',
+            icon: Icons.phone_outlined,
+            type: 'phone',
+            status: _contactStatus('phone_verified'),
+          ),
+          VerificationCard(
+            title: 'Email Address',
+            subtitle: 'Confirm with a code sent to your inbox',
+            icon: Icons.mail_outline,
+            type: 'email',
+            status: _contactStatus('email_verified'),
           ),
         ],
       ),

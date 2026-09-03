@@ -200,6 +200,17 @@ class AuthController extends Controller
             'city' => $user->city,
             'avatar' => $user->avatar,
             'is_verified' => $user->is_verified,
+            /*
+                Contact verification, which the app could not see.
+
+                Unlike a government ID these are not rows in `verifications` -
+                ContactVerificationController stamps a column on the user - so
+                statusFor('phone') always answered "unverified" and every card
+                that tried to show it was hard-coded to false. Sent here as
+                plain booleans so the profile can draw the real state.
+            */
+            'email_verified' => $user->email_verified_at !== null,
+            'phone_verified' => $user->phone_verified_at !== null,
             'user_type' => $user->user_type,
             
             // Employer profile flags

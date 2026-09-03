@@ -72,6 +72,13 @@ class _MyEmployerProfileScreenState extends State<MyEmployerProfileScreen>
     return (value == null || value.isEmpty) ? null : value;
   }
 
+  /// Phone and email verification, which live on the account rather than in
+  /// the verifications table. Same helper on the worker profile.
+  String _contactStatus(String key) =>
+      context.watch<AuthProvider>().user?[key] == true
+          ? 'verified'
+          : 'unverified';
+
   /// Stops a pull landing on top of a reload that is already running.
   bool _isReloading = false;
 
@@ -680,6 +687,30 @@ class _MyEmployerProfileScreenState extends State<MyEmployerProfileScreen>
               type: 'business_reg',
               status: vp.statusFor('business_reg'),
             ),
+
+          /*
+              Phone and email, from the account rather than the documents.
+
+              These are not rows in `verifications` - the contact controller
+              stamps a column on the user - so statusFor() answers "unverified"
+              for them forever, which is why every card that showed them was
+              hard-coded to false and never turned green however many codes
+              somebody entered. Read from /me instead.
+          */
+          VerificationCard(
+            title: 'Phone Number',
+            subtitle: 'Confirm with a code sent by SMS',
+            icon: Icons.phone_outlined,
+            type: 'phone',
+            status: _contactStatus('phone_verified'),
+          ),
+          VerificationCard(
+            title: 'Email Address',
+            subtitle: 'Confirm with a code sent to your inbox',
+            icon: Icons.mail_outline,
+            type: 'email',
+            status: _contactStatus('email_verified'),
+          ),
         ],
       ],
       ),
