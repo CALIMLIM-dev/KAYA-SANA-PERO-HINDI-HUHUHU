@@ -14,7 +14,7 @@ class JobPost extends Model
         // Structured location from the PSGC picker. `location` is kept as the
         // display string; these are what filtering and proximity search use.
         'location_id', 'latitude', 'longitude', 'address_line',
-        'status', 'application_count', 'is_urgent', 'is_negotiable', 'photos',
+        'status', 'application_count', 'is_urgent', 'photos',
         'budget_period',
         // When the work happens. end_date null means a single day.
         'start_date', 'end_date', 'start_time',
@@ -24,7 +24,6 @@ class JobPost extends Model
         'latitude'      => 'decimal:7',
         'longitude'     => 'decimal:7',
         'is_urgent'     => 'boolean',
-        'is_negotiable' => 'boolean',
         'photos'        => 'array',
         // date:, not datetime: — these are calendar days, and casting them to
         // datetime would attach a midnight that the app would then render as a

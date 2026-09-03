@@ -33,7 +33,6 @@ class WorkerProfile {
   final double? rateMin;
   final double? rateMax;
   final String? rateUnit;
-  final bool isRateNegotiable;
   final String? rateLabel;
 
   const WorkerProfile({
@@ -61,7 +60,6 @@ class WorkerProfile {
     this.rateMin,
     this.rateMax,
     this.rateUnit,
-    this.isRateNegotiable = false,
     this.rateLabel,
   });
 
@@ -96,7 +94,6 @@ class WorkerProfile {
       rateMin: asDoubleOrNull(json['rate_min']),
       rateMax: asDoubleOrNull(json['rate_max']),
       rateUnit: json['rate_unit'] as String?,
-      isRateNegotiable: json['is_rate_negotiable'] as bool? ?? false,
       rateLabel: json['rate_label'] as String?,
     );
   }

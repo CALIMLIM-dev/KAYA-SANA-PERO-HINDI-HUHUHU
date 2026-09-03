@@ -10,7 +10,7 @@ import '../../../core/widgets/app_toast.dart';
 
 /// Edit Job Screen — pre-filled form for editing an existing job post
 /// Arguments: { id, title, category, category_id, description, budget,
-///              salaryType, location, workersNeeded, isUrgent, isNegotiable,
+///              salaryType, location, workersNeeded, isUrgent,
 ///              selectedSkills }
 /// `id` is required — without it the job cannot be updated.
 /// Only allowed if job status = 'open'
@@ -51,7 +51,6 @@ class _EditJobScreenState extends State<EditJobScreen> {
   DateTime? _endDate;
 
   bool _isUrgent = false;
-  bool _isNegotiable = false;
   bool _initialized = false;
 
   /// Categories from the server, each carrying its real id.
@@ -171,7 +170,6 @@ class _EditJobScreenState extends State<EditJobScreen> {
         */
         _salaryType = _periodToLabel(args['budget_period'] as String?);
         _isUrgent     = args['is_urgent'] == true || args['isUrgent'] == true;
-        _isNegotiable = args['is_negotiable'] == true || args['isNegotiable'] == true;
         _selectedSkillIds = List<int>.from(args['skill_ids'] ?? const <int>[]);
 
         /*
@@ -577,17 +575,6 @@ class _EditJobScreenState extends State<EditJobScreen> {
                           color: AppColors.accent,
                         ),
                       ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: _toggleButton(
-                          label: 'Negotiable',
-                          icon: Icons.handshake,
-                          isActive: _isNegotiable,
-                          onTap: () => setState(
-                              () => _isNegotiable = !_isNegotiable),
-                          color: AppColors.success,
-                        ),
-                      ),
                     ],
                   ),
                 ],
@@ -962,7 +949,6 @@ class _EditJobScreenState extends State<EditJobScreen> {
       if (budgetMax != null) 'budget_max': budgetMax,
       'budget_period': _salaryType.toLowerCase(),
       'is_urgent': _isUrgent,
-      'is_negotiable': _isNegotiable,
       'required_skill_ids': _selectedSkillIds,
       'location': _locationController.text.trim(),
       // Only sent when the user re-picked; otherwise the stored value stands.

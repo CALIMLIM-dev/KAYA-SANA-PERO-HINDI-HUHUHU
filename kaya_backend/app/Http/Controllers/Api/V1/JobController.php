@@ -192,7 +192,6 @@ class JobController extends Controller
             'latitude'           => ['nullable', 'numeric', 'between:-90,90'],
             'longitude'          => ['nullable', 'numeric', 'between:-180,180'],
             'is_urgent'          => ['nullable', 'boolean'],
-            'is_negotiable'      => ['nullable', 'boolean'],
             // At least one job photo, up to 4 — matches the picker's own cap.
             'photos'             => ['required', 'array', 'min:1', 'max:4'],
             'photos.*'           => ['image', 'mimes:jpg,jpeg,png', 'max:5120'],
@@ -533,7 +532,6 @@ class JobController extends Controller
             'latitude'           => ['nullable', 'numeric', 'between:-90,90'],
             'longitude'          => ['nullable', 'numeric', 'between:-180,180'],
             'is_urgent'          => ['nullable', 'boolean'],
-            'is_negotiable'      => ['nullable', 'boolean'],
             // Optional here — editing a job doesn't force re-uploading photos.
             'photos'             => ['nullable', 'array', 'max:4'],
             'photos.*'           => ['image', 'mimes:jpg,jpeg,png', 'max:5120'],

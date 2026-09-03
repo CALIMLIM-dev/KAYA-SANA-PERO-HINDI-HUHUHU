@@ -105,7 +105,6 @@ void main() {
       salaryMax: 1500,
       salaryPeriod: 'day',
       isUrgent: true,
-      isNegotiable: true,
       distance: 3.4,
       matchScore: 92,
       applicantCount: 12,

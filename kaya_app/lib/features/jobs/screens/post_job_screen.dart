@@ -150,7 +150,6 @@ class _PostJobScreenState extends State<PostJobScreen> {
   final List<File> _selectedImages = [];
   bool _isLoading = false;
   bool _isUrgent = false;
-  bool _isNegotiable = false;
   bool _showPhotoError = false;
 
   // Schedule. _endDate stays null for a single-day job rather than being set
@@ -834,6 +833,18 @@ class _PostJobScreenState extends State<PostJobScreen> {
               ),
               const SizedBox(height: 16),
 
+              /*
+                  Negotiable is gone.
+
+                  It was a toggle that set a flag and changed nothing about
+                  how the job was ranked, matched or filtered - the badge was
+                  the whole feature. And the word itself does the opposite of
+                  what it promises here: in Philippine online selling
+                  "negotiable" has come to mean the price was never really
+                  set, so it reads as vagueness rather than flexibility. The
+                  budget range already says what the job pays, and a worker
+                  who wants to discuss it has a message button.
+              */
               // Job Priority
               _buildSection(
                 title: 'Job Priority (Optional)',
@@ -849,17 +860,6 @@ class _PostJobScreenState extends State<PostJobScreen> {
                           onTap: _handleUrgentToggle,
                           color: AppColors.accent,
                           showWarning: true,
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: _buildToggleButton(
-                          label: 'Negotiable',
-                          icon: Icons.handshake,
-                          isActive: _isNegotiable,
-                          onTap: () => setState(() => _isNegotiable = !_isNegotiable),
-                          color: AppColors.success,
-                          showWarning: false,
                         ),
                       ),
                     ],
@@ -2086,7 +2086,6 @@ class _PostJobScreenState extends State<PostJobScreen> {
         longitude:   _pinnedLng ?? _selectedLocation?.longitude,
         city:        _selectedLocation?.displayName,
         isUrgent:    _isUrgent,
-        isNegotiable: _isNegotiable,
         // The Daily/Hourly/Project picker used to be decorative — nothing
         // stored it and job details hardcoded "/ project".
         budgetPeriod: _salaryType.toLowerCase(),

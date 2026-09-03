@@ -210,8 +210,6 @@ class _JobDetailsScreenState extends State<JobDetailsScreen> {
                             ),
                           ],
                         ),
-                        if (job.isNegotiable)
-                          _badge('Open to offers', AppColors.warning),
                         if (job.matchScore != null) _matchPill(job.matchScore!),
                       ],
                     ),
@@ -793,7 +791,9 @@ class _JobDetailsScreenState extends State<JobDetailsScreen> {
 
   String _formatSalary(double? min, double? max) {
     String fmt(double v) => v == v.roundToDouble() ? v.toInt().toString() : v.toStringAsFixed(2);
-    if (min == null && max == null) return 'Negotiable';
+    // No budget on the post at all. "Negotiable" used to stand in here and
+    // said nothing - the employer simply never entered a figure.
+    if (min == null && max == null) return 'Not specified';
     if (min != null && max != null && max != min) {
       return '₱${fmt(min)} - ₱${fmt(max)}';
     }

@@ -14,9 +14,9 @@ class WorkerProfile extends Model
         // Resume. The path is never serialised to clients — see
         // WorkerProfileController::downloadResume for why.
         'resume_path', 'resume_original_name', 'resume_uploaded_at',
-        // What the worker charges. Shown as "Open to offers" when negotiable —
-        // never as the word "negotiable", and never in place of the number.
-        'rate_min', 'rate_max', 'rate_unit', 'is_rate_negotiable',
+        // What the worker charges. Always a number or a range, never a word
+        // standing in for one.
+        'rate_min', 'rate_max', 'rate_unit',
     ];
 
     protected $casts = [
@@ -25,16 +25,19 @@ class WorkerProfile extends Model
         'resume_uploaded_at' => 'datetime',
         'rate_min'           => 'decimal:2',
         'rate_max'           => 'decimal:2',
-        'is_rate_negotiable' => 'boolean',
     ];
 
     /**
      * The rate as it should be read, or null when none is set.
      *
      * Assembled here so the card, the public profile and the search result all
-     * phrase it identically. "Open to offers" rather than "negotiable": in
-     * Philippine online selling that word usually replaces the number, and a
-     * listing with no number cannot be filtered by pay.
+     * phrase it identically.
+     *
+     * It used to append "Open to offers" for a negotiable rate. That is gone
+     * along with the flag behind it: the phrase changed nothing about how a
+     * worker was ranked, matched or filtered, and a rate that is already a
+     * range says everything it needs to. Anyone wanting to discuss the figure
+     * has a message button.
      */
     public function rateLabel(): ?string
     {
@@ -49,7 +52,7 @@ class WorkerProfile extends Model
             ? $peso($this->rate_min) . '–' . $peso($this->rate_max)
             : $peso($this->rate_min ?? $this->rate_max);
 
-        return $range . $unit . ($this->is_rate_negotiable ? ' · Open to offers' : '');
+        return $range . $unit;
     }
 
     /**

@@ -77,14 +77,12 @@ class RateAndDistanceTest extends TestCase
             'rate_min'           => 500,
             'rate_max'           => 800,
             'rate_unit'          => 'day',
-            'is_rate_negotiable' => true,
         ])->assertOk();
 
         $p = $user->fresh()->workerProfile;
         $this->assertEquals(500, $p->rate_min);
         $this->assertEquals(800, $p->rate_max);
         $this->assertSame('day', $p->rate_unit);
-        $this->assertTrue($p->is_rate_negotiable);
     }
 
     #[Test]
@@ -101,18 +99,31 @@ class RateAndDistanceTest extends TestCase
         $this->assertNull($user->fresh()->workerProfile->rate_min);
     }
 
+    /*
+        A rate is a number, never a word standing in for one.
+
+        This used to assert the label ended in "Open to offers" for a
+        negotiable rate. Both that phrase and the flag behind it are gone:
+        neither changed how a worker was ranked, matched or filtered, so it
+        was decoration on the one field an employer actually compares.
+
+        What the test still guards is the part that mattered — the label is
+        a figure, and neither "negotiable" nor a substitute for it appears.
+    */
     #[Test]
-    public function the_rate_reads_as_open_to_offers_never_as_negotiable(): void
+    public function the_rate_reads_as_a_figure_and_nothing_else(): void
     {
-        $p = $this->worker(['rate_min' => 500, 'rate_max' => 800, 'rate_unit' => 'day',
-            'is_rate_negotiable' => true])->workerProfile;
+        $p = $this->worker([
+            'rate_min'  => 500,
+            'rate_max'  => 800,
+            'rate_unit' => 'day',
+        ])->workerProfile;
 
         $label = $p->rateLabel();
 
-        $this->assertStringContainsString('₱500–₱800/day', $label);
-        $this->assertStringContainsString('Open to offers', $label);
-        // The word itself is avoided on purpose — see the migration comment.
+        $this->assertSame('₱500–₱800/day', $label);
         $this->assertStringNotContainsStringIgnoringCase('negotiable', $label);
+        $this->assertStringNotContainsStringIgnoringCase('offers', $label);
     }
 
     #[Test]

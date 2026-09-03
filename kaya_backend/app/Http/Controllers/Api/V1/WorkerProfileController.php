@@ -92,7 +92,6 @@ class WorkerProfileController extends Controller
             'rate_min'           => 'nullable|numeric|min:0',
             'rate_max'           => 'nullable|numeric|min:0|gte:rate_min',
             'rate_unit'          => 'nullable|in:hour,day,project',
-            'is_rate_negotiable' => 'nullable|boolean',
         ]);
         
         if ($validator->fails()) {
@@ -182,13 +181,6 @@ class WorkerProfileController extends Controller
                 $profile->{$field} = $request->input($field);
                 $profileDirty = true;
             }
-        }
-
-        // has() not filled(): `false` is a real value here, and filled() would
-        // treat turning the flag off as "not sent" and silently keep it on.
-        if ($request->has('is_rate_negotiable')) {
-            $profile->is_rate_negotiable = $request->boolean('is_rate_negotiable');
-            $profileDirty = true;
         }
 
         if ($profileDirty) {
@@ -1130,7 +1122,6 @@ class WorkerProfileController extends Controller
                     'rate_min'           => $p->rate_min,
                     'rate_max'           => $p->rate_max,
                     'rate_unit'          => $p->rate_unit,
-                    'is_rate_negotiable' => $p->is_rate_negotiable,
                     'rate_label'         => $p->rateLabel(),
                     'name'         => $p->user?->name,
                     // Same resolver the profile screen uses — these two
@@ -1382,7 +1373,6 @@ class WorkerProfileController extends Controller
                 'rate_min'            => $profile->rate_min,
                 'rate_max'            => $profile->rate_max,
                 'rate_unit'           => $profile->rate_unit,
-                'is_rate_negotiable'  => $profile->is_rate_negotiable,
                 'rate_label'          => $profile->rateLabel(),
 
                 // Skills carry proficiency and years — an employer choosing

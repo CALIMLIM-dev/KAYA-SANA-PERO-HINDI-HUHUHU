@@ -580,7 +580,6 @@ class _ManageJobsScreenState extends State<ManageJobsScreen>
                 'budget_max': job['budget_max'],
                 'budget_period': job['budget_period'],
                 'is_urgent': job['is_urgent'],
-                'is_negotiable': job['is_negotiable'],
                 // Same reason as the fields above: the edit form sends these
                 // back, so omitting them here would hand it nulls and wipe the
                 // job's schedule on the first save.

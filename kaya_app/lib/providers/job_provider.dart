@@ -151,7 +151,6 @@ class JobProvider with ChangeNotifier {
     double? latitude,
     double? longitude,
     bool isUrgent = false,
-    bool isNegotiable = false,
     required List<File> photos,
     // Required by the server on new posts: a job with no date cannot be checked
     // against a worker's other commitments, so auto-withdraw-on-hire would
@@ -182,7 +181,6 @@ class JobProvider with ChangeNotifier {
         // (it only accepts 1/0/"1"/"0"), failing with "The urgent field must
         // be true or false." Send the numeric form instead.
         'is_urgent':     isUrgent ? '1' : '0',
-        'is_negotiable': isNegotiable ? '1' : '0',
         // Y-m-d only. Sending an ISO timestamp would make Laravel's
         // `after_or_equal:today` compare against midnight in the server's
         // timezone, so a job legitimately starting today would be rejected as

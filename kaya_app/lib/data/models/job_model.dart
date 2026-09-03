@@ -11,7 +11,6 @@ class Job {
   final double? salaryMax;
   final String salaryPeriod; // 'hour', 'day', 'month'
   final bool isUrgent;
-  final bool isNegotiable;
   final bool requiresVerification;
   final double? distance; // in kilometers
   final DateTime? postedAt;
@@ -100,7 +99,6 @@ class Job {
     this.salaryMax,
     this.salaryPeriod = 'project',
     this.isUrgent = false,
-    this.isNegotiable = false,
     this.requiresVerification = false,
     this.distance,
     this.postedAt,
@@ -152,7 +150,6 @@ class Job {
       salaryMax: asDouble(json['budget_max']),
       salaryPeriod: (json['budget_period'] as String?) ?? 'project',
       isUrgent: json['is_urgent'] as bool? ?? false,
-      isNegotiable: json['is_negotiable'] as bool? ?? false,
       requiresVerification: (employer?['is_verified'] as bool?) ??
           (employerInfo?['verification_status'] as bool?) ??
           false,
