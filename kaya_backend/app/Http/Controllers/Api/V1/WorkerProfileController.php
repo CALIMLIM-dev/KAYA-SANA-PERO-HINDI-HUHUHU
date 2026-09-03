@@ -1390,6 +1390,11 @@ class WorkerProfileController extends Controller
                     mason who spent 2020-2022 on two sites at once, and the
                     dates it contradicts are listed directly underneath.
                 */
+                // Read from the record on every request rather than stored -
+                // see the note in BadgeService for why there is no table.
+                'badges'              => app(\App\Services\BadgeService::class)
+                    ->forWorker($user),
+
                 'years_experience'    => app(\App\Services\ExperienceTotal::class)
                     ->years($profile->experiences),
                 'experience_label'    => app(\App\Services\ExperienceTotal::class)

@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../../core/constants/app_colors.dart';
+import '../../../core/widgets/badge_strip.dart';
 import '../../../core/widgets/work_record.dart';
 import '../../../core/utils/json_parse.dart';
 import '../../../providers/worker_browse_provider.dart';
@@ -132,6 +133,7 @@ class _WorkerProfileScreenState extends State<WorkerProfileScreen> {
         .where((s) => (s['name']?.toString() ?? '').isNotEmpty)
         .toList();
 
+    final badges = ((w['badges'] as List?) ?? []).cast<Map<String, dynamic>>();
     final experiences = ((w['experiences'] as List?) ?? []).cast<Map<String, dynamic>>();
 
     /*
@@ -294,6 +296,22 @@ class _WorkerProfileScreenState extends State<WorkerProfileScreen> {
               ),
             ),
           ),
+
+          /*
+              Badges, above the stat cards.
+
+              They are the summary of everything further down the page - what
+              the record already says, said in one line - so they belong before
+              the detail rather than buried under it. Renders nothing at all
+              when none are earned, so a new profile has no empty heading.
+          */
+          if (badges.isNotEmpty)
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
+                child: BadgeStrip(badges: badges),
+              ),
+            ),
 
           // ── Stats ──
           SliverToBoxAdapter(

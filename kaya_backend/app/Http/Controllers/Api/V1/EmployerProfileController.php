@@ -322,6 +322,8 @@ class EmployerProfileController extends Controller
             // mean of someone's most recent 20 as their overall rating.
             'rating_avg'     => $profile->rating_count > 0 ? (float) $profile->rating_avg : null,
             'rating_count'   => (int) $profile->rating_count,
+            // Derived per request; see BadgeService for why there is no table.
+            'badges'         => app(\App\Services\BadgeService::class)->forEmployer($user),
             /*
                 Counted, not measured off the list.
 

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../../core/constants/app_colors.dart';
+import '../../../core/widgets/badge_strip.dart';
 import '../../../core/widgets/work_record.dart';
 import '../../../providers/employer_profile_provider.dart';
 
@@ -100,6 +101,7 @@ class _EmployerProfileScreenState extends State<EmployerProfileScreen> {
     final website = (e['website'] as String?) ?? '';
     final ratingAvg = (e['rating_avg'] as num?)?.toDouble();
     final reviewCount = (e['rating_count'] as num?)?.toInt() ?? 0;
+    final badges = ((e['badges'] as List?) ?? []).cast<Map<String, dynamic>>();
     final jobs = ((e['jobs'] as List?) ?? []).cast<Map<String, dynamic>>();
     final reviews = ((e['reviews'] as List?) ?? []).cast<Map<String, dynamic>>();
 
@@ -274,6 +276,21 @@ class _EmployerProfileScreenState extends State<EmployerProfileScreen> {
                       _contactRow(Icons.location_on_outlined, location),
                   ],
                 ),
+              ),
+            ),
+
+          /*
+              Badges, before the job list.
+
+              Same widget and same shape as the worker side - the server picks
+              which apply, so an employer's set differs in content, not in how
+              it is drawn. Nothing renders when none are earned.
+          */
+          if (badges.isNotEmpty)
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
+                child: BadgeStrip(badges: badges),
               ),
             ),
 
