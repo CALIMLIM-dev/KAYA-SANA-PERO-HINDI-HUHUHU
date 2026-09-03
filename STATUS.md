@@ -146,6 +146,11 @@ done
 2. active mode. the worker and employer toggle
 3. real data end to end
 4. session, notifications, resume, profile completeness
+5. credits and wallet. wallets, ledger, packages, paymongo top up and
+   webhook, contact unlocks, monthly and signup grants, the reconciler.
+   an earlier version of this file said "not started, no schema at all",
+   which was wrong. the migration is create_credit_tables, not
+   create_credit_wallets, and a filename grep missed it.
 11. deployment. live at kayaadmin.ucucite.tech
 
 partly done
@@ -157,29 +162,63 @@ partly done
 
 not started
 
-5. credits and wallet. no schema at all. blocks 6 and 10
-6. monetized surfaces. blocked on 5
 9. skill assessments
-10. revenue reporting. blocked on 5
-13. multi worker jobs and the crew roster
-14. rehire as a real module
+10. revenue reporting. reads from the credit ledger, which now exists
+13. multi worker jobs and the crew roster. workers_needed, a limit on
+    accepting, the roster screen, bulk complete, broadcast into each
+    thread. NOT part of the barya overhaul below and not superseded by
+    it. this is about how one job is staffed, not about the economy.
 
 
-## notes on the two newest phases
+## barya economy and business overhaul
 
-13. multi worker jobs
+replaces old phase 6 (monetized surfaces) and old phase 14 (rehire).
+subscriptions from phase 6 are dropped, not deferred. full plan with
+pricing, sources and the reversals it makes is in PLAN-barya-overhaul.md.
 
-there is no workers_needed column and accept has no limit, so an employer can
-accept unlimited people onto one job. add the column, default one, cap ten.
-above ten this stops being a marketplace and becomes labour contracting, which
-brings in do 174 rules and crew payroll, and kaya holds no money by design.
-managing many hires needs a roster screen per job rather than one card per
-person, with bulk complete and a broadcast into each existing thread. group
-chat is not the answer because it would show every worker the others.
+b1. business and individual accounts, and verification gated access.
+    a company account can no longer also be a worker. existing hybrid
+    accounts are left alone. unverified accounts can browse but cannot
+    post, apply, invite or spend. grants still accrue while unverified.
+    its own milestone, reviewed before b2 opens.
 
-14. rehire
+b2. the barya table. one list of every source and every sink with a
+    price, so nothing is priced per feature. adds business top up tiers
+    at a better rate. one boost mechanism for job posts and worker
+    profiles, which also fixes is_urgent, a flag that is stored today
+    and changes no ordering at all.
 
-what exists is a badge reading hired 6x before. the module is a flow: a worked
-with before list, direct rehire without posting again, the repeat count on the
-worker profile, and the connect fee waived on a rehire. the fee waiver depends
-on phase 5, the rest does not.
+b3. job post duration. thirty days free, paid extension in fixed blocks,
+    a daily sweep, and a warning to the employer and to every open
+    applicant before a post expires. applications on an expired post are
+    refunded.
+
+b4. worker scheduling. an availability pattern the worker sets, and a
+    booked jobs view derived from accepted applications rather than
+    stored twice.
+
+b5. experience, rehire and badges. years of experience computed from the
+    existing entries. rehire built on invitations at half cost. a badge
+    catalogue awarded by listeners on events that already fire. 5a and
+    5c are the least coupled and can ship first.
+
+b6. community threads. one post model with a type, text and image and
+    category, reusing the existing report queue, on its own tab.
+
+order: b1, then b2, then b3. b4 and b5 in parallel. b6 last.
+
+
+## notes on phase 13
+
+the only phase below the overhaul that is still open and unabsorbed.
+
+there is no workers_needed column and accept has no limit, so an employer
+can accept unlimited people onto one job. add the column, default one, cap
+ten. above ten this stops being a marketplace and becomes labour
+contracting, which brings in do 174 rules and crew payroll, and kaya holds
+no money by design. managing many hires needs a roster screen per job
+rather than one card per person, with bulk complete and a broadcast into
+each existing thread. group chat is not the answer because it would show
+every worker the others.
+
+rehire, which used to sit beside this as phase 14, is now b5b.
