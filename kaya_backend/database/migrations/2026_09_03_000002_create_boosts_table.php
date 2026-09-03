@@ -46,8 +46,23 @@ return new class extends Migration
 
             $table->foreignId('user_id')->constrained()->onDelete('cascade');
 
-            $table->timestamp('starts_at');
-            $table->timestamp('ends_at');
+            /*
+                dateTime, not timestamp.
+
+                Two TIMESTAMP NOT NULL columns in one table is a MySQL trap:
+                with explicit_defaults_for_timestamp off, the first column
+                silently gets DEFAULT CURRENT_TIMESTAMP and the second is
+                left with the zero date, which strict mode then refuses -
+                "Invalid default value for 'ends_at'", and the table is never
+                created.
+
+                SQLite has no such rule, so the whole test suite passed and
+                this only appeared on the live MySQL server. DATETIME carries
+                no implicit default at all, which is what these columns want:
+                both values are always written explicitly by BoostService.
+            */
+            $table->dateTime('starts_at');
+            $table->dateTime('ends_at');
 
             // No foreign key, matching credit_transactions' own reference
             // columns: the ledger is append-only and must outlive anything it
