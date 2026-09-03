@@ -50,6 +50,31 @@ class BadgeService
     private const RELIABLE_MIN_FINISHED = 5;
     private const RELIABLE_MIN_RATE = 90;
 
+    /*
+        How many different, identity-verified people must be involved before a
+        reputation badge is awarded.
+
+        This is the one number that decides what a fake reputation costs.
+
+        Counting jobs alone, two accounts can manufacture the whole set: A
+        posts, B applies, A hires, both mark complete, repeat five times. Ten
+        barya and an afternoon buys "Reliable", and no rule inside a
+        marketplace that never touches the money can prove those jobs happened.
+
+        Counting distinct verified counterparties changes the price. The pair
+        can still complete as many jobs as they like, but the badges do not
+        move until three separately verified people have each finished work
+        with this account - and verification means uploading a government ID
+        that a human approves. The attack goes from two throwaway signups to
+        three real identities, which is the difference between cheating being
+        free and cheating being worth someone's while.
+
+        It cannot be reduced to zero without holding the money, which KAYA
+        deliberately does not do. It can be made expensive, and that is worth
+        doing.
+    */
+    private const MIN_DISTINCT_COUNTERPARTIES = 3;
+
     public function __construct(
         private WorkRecord $record,
         private EmployerVerificationService $employerVerification,
@@ -82,6 +107,7 @@ class BadgeService
             ratingCount: (int) $profile->rating_count,
             successRate: $record['success_rate'],
             finished: (int) $record['jobs_completed'] + (int) $record['jobs_unsuccessful'],
+            distinctCounterparties: $this->distinctEmployersFor($user),
         ));
 
         /*
@@ -179,6 +205,7 @@ class BadgeService
             ratingCount: (int) $profile->rating_count,
             successRate: $record['success_rate'],
             finished: (int) $record['jobs_completed'] + (int) $record['jobs_unsuccessful'],
+            distinctCounterparties: $this->distinctWorkersFor($user),
         ));
 
         return array_merge($badges, $this->veteran($user));
@@ -229,8 +256,22 @@ class BadgeService
         int $ratingCount,
         ?int $successRate,
         int $finished,
+        int $distinctCounterparties = 0,
     ): array {
         $badges = [];
+
+        /*
+            No reputation badge from a closed circle.
+
+            Both badges below describe how this account is regarded by the
+            market, and a rating from one person repeated five times is not
+            that - it is one opinion counted five times, and it is what makes
+            a two-account farm work. Neither is awarded until enough separate
+            verified people have finished work here.
+        */
+        if ($distinctCounterparties < self::MIN_DISTINCT_COUNTERPARTIES) {
+            return $badges;
+        }
 
         if ($ratingCount >= self::RATING_MIN_REVIEWS && $ratingAverage >= self::RATING_MIN_AVERAGE) {
             $badges[] = $this->badge(
@@ -267,6 +308,42 @@ class BadgeService
             $years === 1 ? '1 Year on KAYA' : "{$years} Years on KAYA",
             'Member since ' . $user->created_at->format('F Y')
         )];
+    }
+
+    /**
+     * How many different verified people this worker has finished work for.
+     *
+     * Verified, because an unverified account is an email address - free to
+     * create and free to throw away, which is exactly what makes a farm cheap.
+     * Distinct, because ten jobs for one employer is one working relationship
+     * however many rows it leaves behind.
+     */
+    public function distinctEmployersFor(User $worker): int
+    {
+        return Application::query()
+            ->join('jobs_posts', 'jobs_posts.id', '=', 'applications.job_id')
+            ->join('users', 'users.id', '=', 'jobs_posts.employer_id')
+            ->where('applications.worker_id', $worker->id)
+            ->where('applications.status', 'completed')
+            ->where('users.is_verified', true)
+            ->distinct()
+            ->count('jobs_posts.employer_id');
+    }
+
+    /**
+     * The mirror: how many different verified workers this employer has
+     * finished a job with.
+     */
+    public function distinctWorkersFor(User $employer): int
+    {
+        return Application::query()
+            ->join('jobs_posts', 'jobs_posts.id', '=', 'applications.job_id')
+            ->join('users', 'users.id', '=', 'applications.worker_id')
+            ->where('jobs_posts.employer_id', $employer->id)
+            ->where('applications.status', 'completed')
+            ->where('users.is_verified', true)
+            ->distinct()
+            ->count('applications.worker_id');
     }
 
     private function badge(string $code, string $label, string $description): array

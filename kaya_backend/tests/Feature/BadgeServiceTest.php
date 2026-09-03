@@ -46,9 +46,18 @@ class BadgeServiceTest extends TestCase
         return $u;
     }
 
-    private function employerAccount(EmployerType $type = EmployerType::INDIVIDUAL): User
-    {
-        $u = User::factory()->create(['is_verified' => false]);
+    /**
+     * A counterparty employer.
+     *
+     * Verified by default, because that is what the reputation floor counts
+     * and an unverified one is the exception a couple of tests below set up
+     * deliberately.
+     */
+    private function employerAccount(
+        EmployerType $type = EmployerType::INDIVIDUAL,
+        bool $verified = true,
+    ): User {
+        $u = User::factory()->create(['is_verified' => $verified]);
 
         EmployerProfile::create([
             'user_id'       => $u->id,
@@ -144,6 +153,12 @@ class BadgeServiceTest extends TestCase
     {
         $worker = $this->worker(['rating_avg' => 4.6, 'rating_count' => 5]);
 
+        // Reviews alone are not enough any more: the ratings have to come
+        // from work finished with separate verified employers.
+        $this->finish($worker, 1, 'completed', $this->employerAccount());
+        $this->finish($worker, 1, 'completed', $this->employerAccount());
+        $this->finish($worker, 1, 'completed', $this->employerAccount());
+
         $this->assertContains('highly_rated', $this->codes($this->badges->forWorker($worker)));
     }
 
@@ -171,9 +186,78 @@ class BadgeServiceTest extends TestCase
     public function test_reliable_is_earned_at_a_high_rate_over_enough_jobs(): void
     {
         $worker = $this->worker();
-        $this->finish($worker, 5);
+
+        // Spread across three verified employers, which is what the badge
+        // now means: five finished jobs for one person is one relationship.
+        $this->finish($worker, 2, 'completed', $this->employerAccount());
+        $this->finish($worker, 2, 'completed', $this->employerAccount());
+        $this->finish($worker, 1, 'completed', $this->employerAccount());
 
         $this->assertContains('reliable', $this->codes($this->badges->forWorker($worker)));
+    }
+
+    /*
+        The two-account farm, which is the attack this floor exists to price.
+
+        A posts, B applies, A hires, both mark complete, repeat. Ten finished
+        jobs and a perfect record between the same pair, and neither
+        reputation badge is awarded - because one employer is one opinion
+        however many times it is repeated.
+
+        The milestone badge is still earned, deliberately. "10 Jobs" is a
+        count of platform activity and those jobs did happen on the platform;
+        it is the badges that claim other people rate this account well that
+        must not be buyable.
+    */
+    public function test_ten_jobs_with_one_employer_earns_no_reputation_badge(): void
+    {
+        $worker = $this->worker(['rating_avg' => 5.0, 'rating_count' => 10]);
+        $this->finish($worker, 10, 'completed', $this->employerAccount());
+
+        $codes = $this->codes($this->badges->forWorker($worker));
+
+        $this->assertNotContains('reliable', $codes);
+        $this->assertNotContains('highly_rated', $codes);
+        $this->assertContains('jobs_10', $codes);
+    }
+
+    /*
+        Unverified counterparties do not count towards the floor.
+
+        Verification means a government ID a human approved. Without this,
+        the farm just creates three more free accounts instead of two.
+    */
+    public function test_unverified_employers_do_not_count_towards_the_floor(): void
+    {
+        $worker = $this->worker(['rating_avg' => 5.0, 'rating_count' => 10]);
+
+        for ($i = 0; $i < 3; $i++) {
+            $this->finish(
+                $worker,
+                2,
+                'completed',
+                $this->employerAccount(verified: false)
+            );
+        }
+
+        $this->assertNotContains(
+            'reliable',
+            $this->codes($this->badges->forWorker($worker))
+        );
+    }
+
+    public function test_three_verified_employers_clears_the_floor(): void
+    {
+        $worker = $this->worker(['rating_avg' => 4.9, 'rating_count' => 8]);
+
+        $this->finish($worker, 2, 'completed', $this->employerAccount());
+        $this->finish($worker, 2, 'completed', $this->employerAccount());
+        $this->finish($worker, 2, 'completed', $this->employerAccount());
+
+        $codes = $this->codes($this->badges->forWorker($worker));
+
+        $this->assertContains('reliable', $codes);
+        $this->assertContains('highly_rated', $codes);
     }
 
     public function test_a_poor_completion_rate_loses_the_reliable_badge(): void
