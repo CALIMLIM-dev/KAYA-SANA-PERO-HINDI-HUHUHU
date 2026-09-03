@@ -5,6 +5,7 @@ import 'package:latlong2/latlong.dart';
 import 'package:provider/provider.dart';
 import 'dart:io';
 import '../../../core/constants/app_colors.dart';
+import '../../../core/constants/job_boost.dart';
 import '../../../core/utils/pin_location_match.dart';
 import '../../../data/models/location_model.dart';
 import '../../../providers/employer_profile_provider.dart';
@@ -304,12 +305,23 @@ class _PostJobScreenState extends State<PostJobScreen> {
             children: [
               Icon(Icons.flash_on, color: AppColors.accent),
               const SizedBox(width: 8),
-              const Text('Mark as Urgent?'),
+              const Text('Boost this post?'),
             ],
           ),
-          content: const Text(
-            'Urgent jobs get priority placement and appear at the top of search results, helping you find workers faster.',
-            style: TextStyle(fontSize: 15),
+          /*
+              This sentence used to be false.
+
+              The flag it set appeared in no ordering anywhere — jobs were
+              listed by recency and nothing else — so an employer ticked a
+              box, was told their post would reach the top, and nothing
+              happened. Placement is a real, paid thing now, and the price
+              is shown before the box is ticked rather than after.
+          */
+          content: Text(
+            'Your post goes to the top of the feed for '
+            '${JobBoost.days} days. Costs ${JobBoost.cost} Barya, charged '
+            'once the job is posted.',
+            style: const TextStyle(fontSize: 15),
           ),
           actions: [
             TextButton(
@@ -324,7 +336,7 @@ class _PostJobScreenState extends State<PostJobScreen> {
               style: ElevatedButton.styleFrom(
                 backgroundColor: AppColors.accent,
               ),
-              child: const Text('Mark as Urgent'),
+              child: Text('Boost for ${JobBoost.cost} Barya'),
             ),
           ],
         ),
@@ -854,7 +866,7 @@ class _PostJobScreenState extends State<PostJobScreen> {
                     children: [
                       Expanded(
                         child: _buildToggleButton(
-                          label: 'Urgent',
+                          label: 'Boost',
                           icon: Icons.flash_on,
                           isActive: _isUrgent,
                           onTap: _handleUrgentToggle,
@@ -2101,7 +2113,33 @@ class _PostJobScreenState extends State<PostJobScreen> {
 
       if (!mounted) return;
       if (success) {
-        AppToast.success(context, 'Job posted successfully!');
+        /*
+            Boosted after the post exists, not as part of saving it.
+
+            The endpoint needs a job id, and charging barya inside the save
+            would take credits as a side effect of posting. If the charge
+            fails — an empty wallet, most likely — the job is still posted
+            and the employer is told only the boost did not happen, which is
+            the truthful half of the outcome.
+        */
+        final jobId = jobProvider.lastCreatedJobId;
+        var boosted = true;
+
+        if (_isUrgent && jobId != null) {
+          boosted = await jobProvider.boostJob(jobId);
+        }
+
+        if (!mounted) return;
+
+        if (boosted) {
+          AppToast.success(context, 'Job posted successfully!');
+        } else {
+          AppToast.info(
+            context,
+            'Job posted, but the boost could not be charged: '
+            '${jobProvider.errorMessage ?? 'not enough Barya'}',
+          );
+        }
         Navigator.pop(context);
       } else {
         AppToast.error(context, jobProvider.errorMessage ?? 'Failed to post job');

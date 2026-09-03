@@ -137,6 +137,30 @@ class JobProvider with ChangeNotifier {
       '${d.month.toString().padLeft(2, '0')}-'
       '${d.day.toString().padLeft(2, '0')}';
 
+  /// The id of the most recently created job. Null until one is posted.
+  int? lastCreatedJobId;
+
+  /*
+      Buy three days at the top of the feed.
+
+      Separate from posting because it needs the job to exist first, and
+      because it spends barya — a post that quietly charged for placement
+      as a side effect of saving would be the one place in the app that
+      takes credits without asking.
+  */
+  Future<bool> boostJob(int jobId) async {
+    try {
+      await _api.post('/jobs/$jobId/boost');
+      _errorMessage = null;
+      notifyListeners();
+      return true;
+    } catch (e) {
+      _errorMessage = e.toString().replaceFirst('Exception: ', '');
+      notifyListeners();
+      return false;
+    }
+  }
+
   Future<bool> createJob({
     required String title,
     required String description,
@@ -201,6 +225,9 @@ class JobProvider with ChangeNotifier {
 
       final job = res.data['data'] as Map<String, dynamic>;
       _jobs.insert(0, job);
+      // Kept so the caller can boost the post it just made — the boost
+      // endpoint needs an id, which only exists once the job is saved.
+      lastCreatedJobId = job['id'] as int?;
       _errorMessage = null;
       _setLoading(false);
       return true;
