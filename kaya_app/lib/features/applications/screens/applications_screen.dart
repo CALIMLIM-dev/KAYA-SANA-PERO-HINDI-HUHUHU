@@ -5,6 +5,7 @@ import '../../../core/utils/realtime_refresh.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/utils/job_summary.dart';
 import '../../../core/widgets/app_toast.dart';
+import '../../../core/widgets/verify_gate.dart';
 import '../../../providers/app_mode_provider.dart';
 import '../../../providers/application_provider.dart';
 import '../../../providers/invitation_provider.dart';
@@ -1701,6 +1702,11 @@ class _InvitationCardState extends State<_InvitationCard> {
       ),
     );
     if (accept != true || !mounted) return;
+
+    // Accepting is gated server side, so ask before the spinner rather than
+    // after the refusal.
+    if (!await ensureVerified(context, action: 'accept an invitation')) return;
+    if (!mounted) return;
 
     setState(() => _busy = true);
     final conversationId = await context

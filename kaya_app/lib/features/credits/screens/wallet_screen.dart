@@ -5,6 +5,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/credits.dart';
 import '../../../core/widgets/app_toast.dart';
+import '../../../core/widgets/verify_gate.dart';
 import '../../../providers/credits_provider.dart';
 
 /// The wallet: what you have, what it costs, and how to get more.
@@ -76,6 +77,11 @@ class _WalletScreenState extends State<WalletScreen> with WidgetsBindingObserver
 
   Future<void> _buy(CreditPackage package) async {
     if (_buying) return;
+
+    // Topping up is spending, and the server refuses it unverified. Asked
+    // before the browser opens, not after the payment page loads.
+    if (!await ensureVerified(context, action: 'top up')) return;
+    if (!mounted) return;
     setState(() => _buying = true);
 
     final credits = context.read<CreditsProvider>();
@@ -297,8 +303,16 @@ class _WalletScreenState extends State<WalletScreen> with WidgetsBindingObserver
             ),
           ),
           ElevatedButton(
+            /*
+                Through the same gate as everything else.
+
+                This pushed the upload screen directly, so an account whose
+                documents were already under review was sent to submit them a
+                second time. ensureVerified knows the difference between
+                "nothing sent" and "waiting on us" and says so.
+            */
             onPressed: needsVerification
-                ? () => Navigator.of(context).pushNamed('/verification')
+                ? () => ensureVerified(context, action: 'claim your Barya')
                 : (_claiming != null ? null : () => _claim(type)),
             style: ElevatedButton.styleFrom(
               backgroundColor: AppColors.success,

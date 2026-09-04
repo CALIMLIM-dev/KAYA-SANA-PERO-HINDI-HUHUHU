@@ -6,6 +6,7 @@ import '../../../core/constants/app_colors.dart';
 import '../../../providers/invitation_provider.dart';
 import '../../../core/navigation/main_navigation.dart';
 import '../../../core/widgets/app_toast.dart';
+import '../../../core/widgets/verify_gate.dart';
 
 /// My Invitations Screen — Worker sees job invitations from employers.
 /// Backed by GET /my-invitations; Accept/Decline call the real endpoints.
@@ -410,6 +411,13 @@ class _MyInvitationsScreenState extends State<MyInvitationsScreen>
           ElevatedButton(
             onPressed: () async {
               Navigator.pop(context);
+              // Same gate as everywhere else that commits or spends: an
+              // account under review is told so rather than refused blankly.
+              if (!await ensureVerified(context,
+                  action: 'accept an invitation')) {
+                return;
+              }
+              if (!mounted) return;
               final conversationId =
                   await context.read<InvitationProvider>().accept(inv['id'] as int);
               if (!mounted) return;
