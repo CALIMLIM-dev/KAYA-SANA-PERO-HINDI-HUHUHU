@@ -328,4 +328,37 @@ class RehireTest extends TestCase
             (int) \App\Models\CreditWallet::where("user_id", $this->worker->id)->value("balance")
         );
     }
+    /*
+        And a thread to talk in.
+
+        The free path created the accepted application and stopped, so the
+        worker was hired with no conversation - the Message button reads
+        conversation_id and was simply not drawn.
+    */
+    public function test_accepting_an_invitation_from_the_job_opens_a_thread(): void
+    {
+        $job = $this->job();
+
+        \App\Models\Invitation::create([
+            "job_id"      => $job->id,
+            "employer_id" => $this->employer->id,
+            "worker_id"   => $this->worker->id,
+            "status"      => "pending",
+        ]);
+
+        $response = $this->actingAs($this->worker, "sanctum")
+            ->postJson("/api/v1/jobs/{$job->id}/apply")
+            ->assertStatus(201);
+
+        $this->assertNotNull(
+            $response->json("data.conversation_id"),
+            "A hire with nowhere to talk is a hire the Message button cannot open."
+        );
+
+        $this->assertDatabaseHas("conversations", [
+            "employer_id" => $this->employer->id,
+            "worker_id"   => $this->worker->id,
+            "status"      => "unlocked",
+        ]);
+    }
 }

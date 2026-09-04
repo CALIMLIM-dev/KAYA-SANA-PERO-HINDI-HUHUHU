@@ -77,11 +77,47 @@ class ApplicationController extends Controller
                 $job->update(['status' => 'in_progress']);
             }
 
-            return $this->ok(
-                $application,
-                'You were invited to this job, so applying was free.',
-                201
+            /*
+                And the thread, which this route forgot.
+
+                Accepting through the invitation endpoint unlocks a
+                conversation; this path created the accepted application and
+                stopped there, so a worker who took the job from the job screen
+                was hired with nowhere to talk about it. The Message button
+                reads conversation_id, so it simply was not drawn for the
+                worker and had nothing to open for the employer.
+
+                One thread per pair, matching both other places that build one.
+            */
+            $conversation = \App\Models\Conversation::firstOrCreate(
+                [
+                    'pair_low'  => min($job->employer_id, $user->id),
+                    'pair_high' => max($job->employer_id, $user->id),
+                ],
+                [
+                    'job_id'      => $job->id,
+                    'employer_id' => $job->employer_id,
+                    'worker_id'   => $user->id,
+                    'status'      => 'unlocked',
+                ]
             );
+
+            $conversation->update([
+                'status'      => 'unlocked',
+                'job_id'      => $job->id,
+                'employer_id' => $job->employer_id,
+                'worker_id'   => $user->id,
+            ]);
+
+            \App\Events\InvitationAccepted::dispatch(
+                $invitation->load(['job', 'worker'])
+            );
+
+            return $this->ok([
+                'application'     => $application,
+                'application_id'  => $application->id,
+                'conversation_id' => $conversation->id,
+            ], 'You were invited to this job, so applying was free.', 201);
         }
 
         /*

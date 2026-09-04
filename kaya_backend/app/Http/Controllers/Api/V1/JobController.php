@@ -450,9 +450,21 @@ class JobController extends Controller
             ->with('worker:id,name')
             ->get();
 
-        // So a job card can open the thread directly instead of the whole inbox.
-        $threads = \App\Models\Conversation::whereIn('job_id', $jobs->pluck('id'))
-            ->where('employer_id', $user->id)
+        /*
+            Keyed by worker, not by job.
+
+            There is one thread per pair - that is the whole point of the
+            pair_low/pair_high key - and its job_id is only ever the most
+            recent job the two of them touched. Looking it up by the jobs on
+            this page therefore missed the thread whenever an employer had
+            hired the same worker before: the conversation existed, its job_id
+            pointed at the older job, this returned null, and the Message
+            button on the card was drawn dead.
+
+            Which made it look like messaging worked for new hires and broke
+            for repeat ones - the opposite of what a rehire should feel like.
+        */
+        $threads = \App\Models\Conversation::where('employer_id', $user->id)
             ->pluck('id', 'worker_id');
 
         $reviewsGiven = \App\Models\Review::whereIn('job_id', $jobs->pluck('id'))
