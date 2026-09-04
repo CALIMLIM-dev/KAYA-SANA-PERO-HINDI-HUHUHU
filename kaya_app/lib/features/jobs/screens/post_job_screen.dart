@@ -200,6 +200,59 @@ class _PostJobScreenState extends State<PostJobScreen> {
     {'name': 'Other', 'icon': Icons.build},
   ];
 
+  /// Creates a category the seeded list does not have, then selects it.
+  ///
+  /// Selecting it immediately is the point: the employer opened this picker to
+  /// choose something, so leaving them back at a longer list to find their own
+  /// entry would be a step for nothing.
+  Future<void> _addCustomCategory(BuildContext sheetContext) async {
+    final controller = TextEditingController();
+
+    final name = await showDialog<String>(
+      context: sheetContext,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Add a category'),
+        content: TextField(
+          controller: controller,
+          autofocus: true,
+          textCapitalization: TextCapitalization.words,
+          decoration: const InputDecoration(
+            hintText: 'Job category',
+            border: OutlineInputBorder(),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () =>
+                Navigator.pop(dialogContext, controller.text.trim()),
+            child: const Text('Add'),
+          ),
+        ],
+      ),
+    );
+
+    if (name == null || name.isEmpty || !mounted) return;
+
+    final taxonomy = context.read<WorkerProfileProvider>();
+    final created = await taxonomy.createCustomCategory(name);
+
+    if (!mounted) return;
+
+    if (created == null) {
+      AppToast.error(
+          context, taxonomy.errorMessage ?? 'Could not add that category.');
+      return;
+    }
+
+    _updateSkillsForCategory(created.name, categoryId: created.id);
+
+    if (sheetContext.mounted) Navigator.pop(sheetContext);
+  }
+
   @override
   void dispose() {
     _titleController.dispose();
@@ -1659,8 +1712,41 @@ class _PostJobScreenState extends State<PostJobScreen> {
                   }
 
                   return ListView.builder(
-                    itemCount: categories.length,
+                    /*
+                        One more row than there are categories.
+
+                        The seeded list is 17 trades and there was no way past
+                        it: a worker setting up their profile can add their own
+                        category, and an employer posting the job for that exact
+                        trade could not - so the two sides of the same
+                        marketplace disagreed about what work exists. Anyone
+                        hiring for something unlisted had to file it under
+                        roughly-the-right-thing.
+
+                        Same endpoint and the same five-per-account cap the
+                        worker side uses.
+                    */
+                    itemCount: categories.length + 1,
                     itemBuilder: (context, index) {
+                      if (index == categories.length) {
+                        return ListTile(
+                          leading: const Icon(Icons.add,
+                              color: AppColors.primary),
+                          title: const Text(
+                            'Add a category',
+                            style: TextStyle(
+                              fontWeight: FontWeight.w600,
+                              color: AppColors.primary,
+                            ),
+                          ),
+                          subtitle: const Text(
+                            'For work that is not on this list',
+                            style: TextStyle(fontSize: 12),
+                          ),
+                          onTap: () => _addCustomCategory(context),
+                        );
+                      }
+
                       final category = categories[index];
                       final isSelected = _selectedCategoryId == category.id;
                       return ListTile(

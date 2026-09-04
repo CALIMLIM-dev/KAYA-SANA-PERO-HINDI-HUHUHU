@@ -9,6 +9,8 @@ import '../../../providers/employer_profile_provider.dart';
 import '../../../providers/verification_provider.dart';
 import '../widgets/inline_edit_row.dart';
 import '../widgets/inline_location_row.dart';
+import '../widgets/inline_otp_row.dart';
+import '../../../data/services/api_client.dart';
 
 /// My Employer Profile - JobStreet-inspired layout
 /// Toggle (Company / Individual) is visible directly on the profile tab
@@ -72,12 +74,72 @@ class _MyEmployerProfileScreenState extends State<MyEmployerProfileScreen>
     return (value == null || value.isEmpty) ? null : value;
   }
 
-  /// Phone and email verification, which live on the account rather than in
-  /// the verifications table. Same helper on the worker profile.
-  String _contactStatus(String key) =>
-      context.watch<AuthProvider>().user?[key] == true
-          ? 'verified'
-          : 'unverified';
+  /*
+      Phone and email, entered and confirmed in the same row.
+
+      Identical to the worker profile - same widget, same three callbacks -
+      because they are the same job and a difference between the two sides
+      would only read as one of them being unfinished.
+  */
+  Widget _contactRows() {
+    final auth = context.watch<AuthProvider>();
+    final api = ApiClient();
+
+    Future<String?> send(String channel) async {
+      try {
+        await api.post('/contact-verification/$channel/send');
+        return null;
+      } catch (e) {
+        return e.toString().replaceFirst('Exception: ', '');
+      }
+    }
+
+    Future<String?> verify(String channel, String code) async {
+      try {
+        await api.post('/contact-verification/$channel/verify',
+            data: {'code': code});
+        await auth.fetchMe();
+        return null;
+      } catch (e) {
+        return e.toString().replaceFirst('Exception: ', '');
+      }
+    }
+
+    return Column(
+      children: [
+        InlineOtpRow(
+          label: 'Phone number',
+          value: auth.user?['phone'] as String?,
+          verified: auth.user?['phone_verified'] == true,
+          hint: '09XX XXX XXXX',
+          keyboardType: TextInputType.phone,
+          validator: (v) => v.replaceAll(RegExp(r'[^0-9]'), '').length < 10
+              ? 'That does not look like a mobile number.'
+              : null,
+          onSaveValue: (v) async {
+            final ok = await auth.updateMe(phone: v);
+            return ok ? null : (auth.errorMessage ?? 'Could not save.');
+          },
+          onSendCode: () => send('phone'),
+          onVerifyCode: (c) => verify('phone', c),
+        ),
+        InlineOtpRow(
+          label: 'Email',
+          value: auth.user?['email'] as String?,
+          verified: auth.user?['email_verified'] == true,
+          keyboardType: TextInputType.emailAddress,
+          validator: (v) =>
+              v.contains('@') && v.contains('.') ? null : 'Check the address.',
+          // Email is the sign-in identity and is not changed from here.
+          onSaveValue: (v) async => v.trim() == (auth.user?['email'] ?? '')
+              ? null
+              : 'Your email is your sign-in. Change it in account settings.',
+          onSendCode: () => send('email'),
+          onVerifyCode: (c) => verify('email', c),
+        ),
+      ],
+    );
+  }
 
   /// Stops a pull landing on top of a reload that is already running.
   bool _isReloading = false;
@@ -670,8 +732,12 @@ class _MyEmployerProfileScreenState extends State<MyEmployerProfileScreen>
           )
         else ...[
           VerificationCard(
-            title: 'Government ID',
-            subtitle: 'A valid government-issued ID with a selfie',
+            // Not "Government ID": the picker on the next screen offers a
+            // National ID, a licence, a passport, a UMID, a PRC card, a
+            // Barangay ID and an Other box, so naming one of them told people
+            // we wanted that one and nothing else.
+            title: 'Valid ID',
+            subtitle: 'Any accepted ID, with a selfie',
             icon: Icons.badge,
             type: 'government_id',
             status: vp.statusFor('government_id'),
@@ -689,28 +755,14 @@ class _MyEmployerProfileScreenState extends State<MyEmployerProfileScreen>
             ),
 
           /*
-              Phone and email, from the account rather than the documents.
+              Phone and email are done in the row, not on a screen.
 
-              These are not rows in `verifications` - the contact controller
-              stamps a column on the user - so statusFor() answers "unverified"
-              for them forever, which is why every card that showed them was
-              hard-coded to false and never turned green however many codes
-              somebody entered. Read from /me instead.
+              A card that pushed the upload screen could not accept a number,
+              and the row that held the number could not verify it - so the
+              same value sat in two places and neither could finish. Both are
+              a field and a six digit code.
           */
-          VerificationCard(
-            title: 'Phone Number',
-            subtitle: 'Confirm with a code sent by SMS',
-            icon: Icons.phone_outlined,
-            type: 'phone',
-            status: _contactStatus('phone_verified'),
-          ),
-          VerificationCard(
-            title: 'Email Address',
-            subtitle: 'Confirm with a code sent to your inbox',
-            icon: Icons.mail_outline,
-            type: 'email',
-            status: _contactStatus('email_verified'),
-          ),
+          _contactRows(),
         ],
       ],
       ),

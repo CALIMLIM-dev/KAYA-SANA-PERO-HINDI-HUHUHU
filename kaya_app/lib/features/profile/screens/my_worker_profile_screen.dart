@@ -6,6 +6,7 @@ import '../widgets/credentials_section.dart';
 import '../widgets/experience_section.dart';
 import '../widgets/inline_edit_row.dart';
 import '../widgets/inline_location_row.dart';
+import '../widgets/inline_otp_row.dart';
 import '../widgets/profile_completeness_header.dart';
 import '../widgets/profile_section_card.dart';
 import '../../../data/services/api_client.dart';
@@ -1002,39 +1003,14 @@ class _MyWorkerProfileScreenState extends State<MyWorkerProfileScreen> with Sing
             Two short pieces of text do not need to be hidden - showing them is
             the whole point of a profile, and there is room.
         */
-        InlineEditRow(
-          label: 'Phone number',
-          value: p.phone,
-          hint: '09XX XXX XXXX',
-          keyboardType: TextInputType.phone,
-          maxLength: 20,
-          validator: (v) {
-            if (v.isEmpty) return null; // clearing is handled by the row
-            // Deliberately loose. Landlines, +63, and spaces are all real, and
-            // a strict pattern here rejects more valid numbers than it catches
-            // bad ones.
-            final digits = v.replaceAll(RegExp(r'[^0-9]'), '');
-            return digits.length < 7 ? 'That does not look like a phone number.' : null;
-          },
-          onSave: (v) async {
-            final provider = context.read<WorkerProfileProvider>();
-            final ok = await provider.updatePhone(v);
-            return ok ? null : (provider.errorMessage ?? 'Could not save.');
-          },
-        ),
+        /*
+            Phone and email moved to the Verification tab.
 
-        // Shown because people expect to see it, locked because changing a
-        // sign-in address is an account operation with its own verification -
-        // not something to do by tapping a row on a profile.
-        InlineEditRow(
-          label: 'Email',
-          value: p.email,
-          enabled: false,
-          disabledNote: 'Your email is your sign-in. Change it in Settings.',
-          emptyLabel: 'Not set',
-          onSave: (_) async => null,
-        ),
-
+            They were here as a value you could type and there as a status you
+            could not act on, so the same number appeared twice and neither
+            copy could finish the job. One row now holds both: enter it, get a
+            code, confirm it.
+        */
         ProfileSectionHeading('Your work'),
 
         // Skills Card - Using Selector to prevent unnecessary rebuilds
@@ -1284,12 +1260,77 @@ class _MyWorkerProfileScreenState extends State<MyWorkerProfileScreen> with Sing
     );
   }
 
-  /// Phone and email verification, which live on the account rather than in
-  /// the verifications table. Same helper on the employer profile.
-  String _contactStatus(String key) =>
-      context.watch<AuthProvider>().user?[key] == true
-          ? 'verified'
-          : 'unverified';
+  /*
+      Phone and email, entered and confirmed in the same row.
+
+      Both live as columns on the account rather than as verification rows, so
+      their status comes from /me. The three callbacks are the whole flow:
+      store the value, ask for a code, check the code.
+  */
+  Widget _contactRows() {
+    final auth = context.watch<AuthProvider>();
+    final api = ApiClient();
+
+    Future<String?> send(String channel) async {
+      try {
+        await api.post('/contact-verification/$channel/send');
+        return null;
+      } catch (e) {
+        return e.toString().replaceFirst('Exception: ', '');
+      }
+    }
+
+    Future<String?> verify(String channel, String code) async {
+      try {
+        await api.post('/contact-verification/$channel/verify',
+            data: {'code': code});
+        // The badge is driven by /me, so it has to be re-read before the row
+        // can show green.
+        await auth.fetchMe();
+        return null;
+      } catch (e) {
+        return e.toString().replaceFirst('Exception: ', '');
+      }
+    }
+
+    Future<String?> storePhone(String value) async {
+      final ok = await auth.updateMe(phone: value);
+      return ok ? null : (auth.errorMessage ?? 'Could not save.');
+    }
+
+    return Column(
+      children: [
+        InlineOtpRow(
+          label: 'Phone number',
+          value: auth.user?['phone'] as String?,
+          verified: auth.user?['phone_verified'] == true,
+          hint: '09XX XXX XXXX',
+          keyboardType: TextInputType.phone,
+          validator: (v) =>
+              v.replaceAll(RegExp(r'[^0-9]'), '').length < 10
+                  ? 'That does not look like a mobile number.'
+                  : null,
+          onSaveValue: storePhone,
+          onSendCode: () => send('phone'),
+          onVerifyCode: (c) => verify('phone', c),
+        ),
+        InlineOtpRow(
+          label: 'Email',
+          value: auth.user?['email'] as String?,
+          verified: auth.user?['email_verified'] == true,
+          keyboardType: TextInputType.emailAddress,
+          validator: (v) =>
+              v.contains('@') && v.contains('.') ? null : 'Check the address.',
+          // Email is the sign-in identity and is not changed from here.
+          onSaveValue: (v) async => v.trim() == (auth.user?['email'] ?? '')
+              ? null
+              : 'Your email is your sign-in. Change it in account settings.',
+          onSendCode: () => send('email'),
+          onVerifyCode: (c) => verify('email', c),
+        ),
+      ],
+    );
+  }
 
   Widget _buildVerificationsTab() {
     return Consumer<VerificationProvider>(
@@ -1317,37 +1358,33 @@ class _MyWorkerProfileScreenState extends State<MyWorkerProfileScreen> with Sing
 
               The ID stays first because it is the one that unlocks working.
           */
+          /*
+              "Valid ID", not "Government ID".
+
+              The picker on the next screen offers a National ID, a driver's
+              licence, a passport, a PRC card, a UMID, a Barangay ID and an
+              Other box - so calling the row Government ID told people we
+              wanted one specific document out of a list of many, and the ones
+              who only hold a Barangay ID read it as "you cannot verify".
+          */
           VerificationCard(
-            title: 'Valid Philippine ID',
-            subtitle: 'Government-issued ID with selfie',
+            title: 'Valid ID',
+            subtitle: 'Any accepted ID, with a selfie',
             icon: Icons.badge,
             type: 'government_id',
             status: vp.statusFor('government_id'),
           ),
 
           /*
-              Read from the account, not from statusFor().
+              Phone and email are done here, in the row.
 
-              Phone and email are stamped as columns on the user by the contact
-              controller rather than written as `verifications` rows, so
-              statusFor('phone') answers "unverified" forever - which is
-              exactly why the cards that used to show them were hard-coded to
-              false and never turned green.
+              A card that pushed a screen could not accept a number, and the
+              row on the Profile tab that held the number could not verify it -
+              so the same value appeared in two places, neither of which could
+              finish the job. Both are a field and a six digit code, which is
+              not a screen's worth of anything.
           */
-          VerificationCard(
-            title: 'Phone Number',
-            subtitle: 'Confirm with a code sent by SMS',
-            icon: Icons.phone_outlined,
-            type: 'phone',
-            status: _contactStatus('phone_verified'),
-          ),
-          VerificationCard(
-            title: 'Email Address',
-            subtitle: 'Confirm with a code sent to your inbox',
-            icon: Icons.mail_outline,
-            type: 'email',
-            status: _contactStatus('email_verified'),
-          ),
+          _contactRows(),
         ],
       ),
     );
