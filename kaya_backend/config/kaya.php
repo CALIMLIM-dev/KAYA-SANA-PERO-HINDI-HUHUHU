@@ -183,4 +183,31 @@ return [
         'withdraw_refund_minutes' => (int) env('CREDIT_WITHDRAW_REFUND_MINUTES', 60),
     ],
 
+    /*
+        Which build of the app the server expects to be talking to.
+
+        There is no store to push an update through - the APK is handed out
+        directly - so a tester can sit on a build from three fixes ago and
+        report bugs that were fixed hours earlier, or hit an endpoint whose
+        shape has changed. Neither side can tell, because nothing ever asked.
+
+        Two numbers, on purpose:
+
+        - `minimum` is the oldest build still allowed to run. Below it the app
+          refuses to continue and sends the user to the download. Raise this
+          only for a change that genuinely breaks an older client, because it
+          locks people out until they install something.
+        - `latest` is the newest build available. Between minimum and latest
+          the app says an update exists and lets the user carry on. That is
+          the setting for "please update", which is almost always what is
+          actually meant.
+
+        Both live in .env so a release does not need a deploy of this file.
+    */
+    'app' => [
+        'minimum_version' => env('APP_MIN_VERSION', '1.0.0'),
+        'latest_version'  => env('APP_LATEST_VERSION', '1.2.1'),
+        'download_url'    => env('APP_DOWNLOAD_URL', 'https://kayaadmin.ucucite.tech/download'),
+    ],
+
 ];

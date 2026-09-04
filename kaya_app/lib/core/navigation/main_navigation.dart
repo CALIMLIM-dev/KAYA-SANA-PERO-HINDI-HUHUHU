@@ -7,6 +7,7 @@ import '../../features/messaging/screens/messages_list_screen.dart';
 import '../../features/profile/screens/profile_screen.dart';
 import '../../providers/messaging_provider.dart';
 import '../../providers/notification_provider.dart';
+import '../widgets/version_gate.dart';
 import '../widgets/bottom_nav_bar.dart';
 
 /// Main Navigation with 4 Tabs
@@ -124,6 +125,19 @@ class _MainNavigationState extends State<MainNavigation>
     */
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) context.read<NotificationProvider>().startPolling();
+
+      /*
+          Asked once a session, here, where a session actually begins.
+
+          The APK is handed out directly, so nothing updates anybody and a
+          tester can sit several builds behind reporting a bug that was fixed
+          that morning. This asks the server what it expects and says so.
+
+          Fails open by design - see VersionGate. A version check that can
+          lock everyone out when it errors is worse than the staleness it is
+          there to prevent.
+      */
+      if (mounted) VersionGate.check(context);
     });
   }
 

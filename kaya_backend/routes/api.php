@@ -27,6 +27,18 @@ use App\Http\Controllers\Api\V1\VerificationDocumentController;
 Route::prefix('v1')->group(function () {
 
     /*
+        What build the server expects.
+
+        Public and outside auth: an out-of-date app has to be able to find
+        out it is out of date before anybody signs in, which is exactly when
+        somebody stuck on an old build is trying to.
+    */
+    Route::get('/version/{version?}', [\App\Http\Controllers\Api\V1\AppVersionController::class, 'show']);
+    // The same check by query string, so a client can ask without putting a
+    // version in the path. Both hit one controller; there is one rule.
+    Route::get('/app-version', [\App\Http\Controllers\Api\V1\AppVersionController::class, 'show']);
+
+    /*
         PayMongo tells us a payment succeeded. Public, because it is called by
         PayMongo rather than by anyone signed in — the signature is what
         authenticates it, checked against the raw body.
