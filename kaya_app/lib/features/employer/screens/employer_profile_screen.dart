@@ -396,6 +396,7 @@ class _EmployerProfileScreenState extends State<EmployerProfileScreen> {
                             rating: (reviews[i]['rating'] as num?)?.toInt() ?? 5,
                             date: (reviews[i]['date'] ?? '').toString(),
                             comment: (reviews[i]['comment'] ?? '').toString(),
+                            jobTitle: reviews[i]['job_title'] as String?,
                           ),
                           if (i < reviews.length - 1) const Divider(height: 20),
                         ],
@@ -556,6 +557,7 @@ class _EmployerProfileScreenState extends State<EmployerProfileScreen> {
     required int rating,
     required String date,
     required String comment,
+    String? jobTitle,
   }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -581,6 +583,14 @@ class _EmployerProfileScreenState extends State<EmployerProfileScreen> {
                           fontSize: 14,
                           fontWeight: FontWeight.w600,
                           color: AppColors.neutral900)),
+                  // Which job, so repeat work from one worker reads as
+                  // several jobs rather than one person repeating themselves.
+                  if (jobTitle != null && jobTitle.isNotEmpty)
+                    Text(jobTitle,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                            fontSize: 12, color: AppColors.neutral600)),
                   Row(
                     children: [
                       Row(

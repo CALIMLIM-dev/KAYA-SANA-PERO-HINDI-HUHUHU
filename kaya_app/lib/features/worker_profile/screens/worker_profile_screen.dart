@@ -638,6 +638,7 @@ class _WorkerProfileScreenState extends State<WorkerProfileScreen> {
                         rating: (reviews[i]['rating'] as num?)?.toInt() ?? 5,
                         date: (reviews[i]['date'] ?? '').toString(),
                         comment: (reviews[i]['comment'] ?? '').toString(),
+                        jobTitle: reviews[i]['job_title'] as String?,
                         tags: ((reviews[i]['tags'] as List?) ?? const [])
                             .map((t) => t.toString())
                             .where((t) => t.isNotEmpty)
@@ -1077,6 +1078,7 @@ class _WorkerProfileScreenState extends State<WorkerProfileScreen> {
     required String date,
     required String comment,
     List<String> tags = const [],
+    String? jobTitle,
   }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -1102,6 +1104,20 @@ class _WorkerProfileScreenState extends State<WorkerProfileScreen> {
                           fontSize: 15,
                           fontWeight: FontWeight.w600,
                           color: AppColors.neutral900)),
+                  /*
+                      Which job this review was for.
+
+                      A rehired worker collects several reviews from the same
+                      employer - correctly, one per job - and without the job
+                      named they read as one person repeating themselves
+                      rather than as separate pieces of work.
+                  */
+                  if (jobTitle != null && jobTitle.isNotEmpty)
+                    Text(jobTitle,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                            fontSize: 12.5, color: AppColors.neutral600)),
                   Row(
                     children: [
                       Row(

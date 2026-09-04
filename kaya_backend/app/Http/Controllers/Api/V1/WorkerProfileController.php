@@ -1271,7 +1271,16 @@ class WorkerProfileController extends Controller
         // this in EmployerProfileController.
         $reviews = \App\Models\Review::where('reviewee_id', $user->id)
             ->where('reviewee_role', 'worker')
-            ->with('reviewer:id,name')
+            /*
+                The job each review was for.
+
+                A rehired worker collects several reviews from the same
+                employer, correctly - but the list showed a name, a score and
+                a comment with nothing to say which job any of it was about,
+                so four reviews from one employer read as four opinions of the
+                same work rather than of four different jobs.
+            */
+            ->with(['reviewer:id,name', 'job:id,title,category_id', 'job.category:id,name'])
             ->latest()
             ->limit(20)
             ->get();
@@ -1450,6 +1459,10 @@ class WorkerProfileController extends Controller
                     'date'     => $r->created_at?->diffForHumans(),
                     'comment'  => $r->comment,
                     'tags'     => $r->tags ?? [],
+                    // Which job this was for, so several reviews from the
+                    // same employer read as several jobs.
+                    'job_title' => $r->job?->title,
+                    'job_category' => $r->job?->category?->name,
                 ])->values(),
             ],
             'message' => 'Success',

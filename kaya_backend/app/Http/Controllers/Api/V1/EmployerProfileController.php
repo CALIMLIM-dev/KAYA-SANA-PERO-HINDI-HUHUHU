@@ -300,7 +300,8 @@ class EmployerProfileController extends Controller
         */
         $reviews = \App\Models\Review::where('reviewee_id', $user->id)
             ->where('reviewee_role', 'employer')
-            ->with('reviewer:id,name')
+            // The job each review was for - same reason as the worker side.
+            ->with(['reviewer:id,name', 'job:id,title,category_id', 'job.category:id,name'])
             ->latest()
             ->limit(20)
             ->get();
@@ -361,6 +362,8 @@ class EmployerProfileController extends Controller
                 'date'     => $r->created_at?->diffForHumans(),
                 'comment'  => $r->comment,
                 'tags'     => $r->tags ?? [],
+                'job_title' => $r->job?->title,
+                'job_category' => $r->job?->category?->name,
             ])->values(),
         ]);
     }
