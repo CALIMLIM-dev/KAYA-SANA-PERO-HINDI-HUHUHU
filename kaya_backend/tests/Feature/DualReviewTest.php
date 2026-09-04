@@ -306,4 +306,65 @@ class DualReviewTest extends TestCase
         $this->assertSame('3.50', (string) $worker->workerProfile->fresh()->rating_avg);
         $this->assertSame(2, $worker->workerProfile->fresh()->rating_count);
     }
+    /*
+        One employer is one voice, however many times they hire.
+
+        Reviews are unique per job, so rehiring the same worker legitimately
+        earns another review - and the average used to count every one. With a
+        rehire costing half a normal invitation, the cheapest action on the
+        platform was also the easiest way to set somebody's public rating on
+        your own.
+    */
+    public function test_one_employer_hiring_repeatedly_counts_once(): void
+    {
+        $employer = $this->employer();
+        $worker   = $this->worker();
+
+        foreach ([5, 5, 5, 5] as $stars) {
+            $this->review($employer, $worker, $this->completedJob($employer, $worker), $stars)
+                ->assertStatus(201);
+        }
+
+        $profile = $worker->workerProfile()->first();
+
+        $this->assertSame(
+            1,
+            (int) $profile->rating_count,
+            "Four jobs for one employer is one person's opinion, not four."
+        );
+    }
+
+    /*
+        And the same rule protects an employer from a worker.
+    */
+    public function test_one_worker_reviewing_repeatedly_counts_once(): void
+    {
+        $employer = $this->employer();
+        $worker   = $this->worker();
+
+        foreach ([1, 1, 1] as $stars) {
+            $this->review($worker, $employer, $this->completedJob($employer, $worker), $stars)
+                ->assertStatus(201);
+        }
+
+        $profile = $employer->employerProfile()->first();
+
+        $this->assertSame(1, (int) $profile->rating_count);
+    }
+
+    public function test_different_reviewers_each_count(): void
+    {
+        $worker = $this->worker();
+
+        foreach ([5, 3] as $stars) {
+            $employer = $this->employer();
+            $this->review($employer, $worker, $this->completedJob($employer, $worker), $stars)
+                ->assertStatus(201);
+        }
+
+        $profile = $worker->workerProfile()->first();
+
+        $this->assertSame(2, (int) $profile->rating_count);
+        $this->assertEqualsWithDelta(4.0, (float) $profile->rating_avg, 0.01);
+    }
 }

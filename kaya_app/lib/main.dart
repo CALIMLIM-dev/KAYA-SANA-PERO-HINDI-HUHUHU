@@ -191,7 +191,28 @@ class KayaApp extends StatelessWidget {
             context.read<ProfileViewProvider>().clear();
             context.read<AppModeProvider>().clear();
 
-            navigator.pushNamedAndRemoveUntil(AppRouter.login, (_) => false);
+            /*
+                Only if we are not already there.
+
+                Signing out pushes the login screen itself, and the polls that
+                were already in flight - notifications every eight seconds,
+                messages by cursor - come back 401 a moment later against a
+                token that has just been deleted. Each one landed here and
+                pushed login again, so the sign-in screen slid in twice.
+
+                Two expired requests would have pushed it three times. Guarding
+                on the current route means the first one wins and the rest are
+                no-ops, whichever order they arrive in.
+            */
+            var alreadyThere = false;
+            navigator.popUntil((route) {
+              alreadyThere = route.settings.name == AppRouter.login;
+              return true;
+            });
+
+            if (!alreadyThere) {
+              navigator.pushNamedAndRemoveUntil(AppRouter.login, (_) => false);
+            }
           };
 
           return MaterialApp(

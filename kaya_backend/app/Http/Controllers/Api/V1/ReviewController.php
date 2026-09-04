@@ -280,10 +280,38 @@ class ReviewController extends Controller
      */
     private function recomputeRating(int $userId, string $role): void
     {
-        $scope = Review::where('reviewee_id', $userId)->where('reviewee_role', $role);
+        /*
+            One voice per person, not one per job.
 
-        $avg   = round((float) $scope->avg('rating'), 2);
-        $count = $scope->count();
+            Reviews are unique per job, which is right - every finished job is
+            its own piece of work and deserves its own rating, and the history
+            shows them all. But the average counted every row, so an employer
+            who hired the same worker ten times cast ten votes, and one
+            person's opinion could set somebody's public reputation on their
+            own.
+
+            That was survivable while a repeat hire was rare. Rehiring now
+            costs half of a normal invitation, deliberately, so the cheapest
+            thing on the platform was also the easiest way to inflate - or
+            bury - a rating: hire, complete, five stars, repeat.
+
+            Only the latest review from each reviewer counts toward the
+            aggregate. The rating then answers "what do the people who worked
+            with this person think", which is the question anyone reading it
+            believes it answers, and rating_count becomes a count of people
+            rather than of jobs.
+        */
+        $latestPerReviewer = Review::where('reviewee_id', $userId)
+            ->where('reviewee_role', $role)
+            ->orderByDesc('created_at')
+            ->orderByDesc('id')
+            ->get(['reviewer_id', 'rating'])
+            ->unique('reviewer_id');
+
+        $count = $latestPerReviewer->count();
+        $avg   = $count === 0
+            ? 0.0
+            : round($latestPerReviewer->avg('rating'), 2);
 
         $user = User::find($userId);
 
