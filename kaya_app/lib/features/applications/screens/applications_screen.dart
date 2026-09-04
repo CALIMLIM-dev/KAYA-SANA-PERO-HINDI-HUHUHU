@@ -799,7 +799,21 @@ class _ApplicationCard extends StatelessWidget {
     // Null until the application is accepted — messaging unlocks on hire, so
     // there is genuinely nothing to open before that.
     final conversationId = application['conversation_id'] as int?;
-    final canMessage = conversationId != null && employer != null;
+
+    /*
+        Only while the work is live.
+
+        History holds completed jobs as well as rejected ones, and a completed
+        application still carries its thread - so a finished job sat in the
+        past-work list with a Message button on it, which is a live action on a
+        card that exists to say nothing is live any more.
+
+        The thread is not lost: it is one per person and the Messages tab still
+        opens it, which is where you would look to talk to somebody you are no
+        longer working with.
+    */
+    final canMessage =
+        conversationId != null && employer != null && status == 'accepted';
 
     final category = (job?['category'] as Map<String, dynamic>?)?['name']?.toString();
     final place = (job?['city'] ?? job?['location'] ?? '').toString();
@@ -970,7 +984,9 @@ class _JobPostCard extends StatelessWidget {
       age: timeAgo(job['created_at'] as String?),
       note: note,
       noteIsCompletion: hire != null && !workDone,
-      onMessage: conversationId == null
+      // Live work only, matching the worker's card. A finished job in History
+      // is not somewhere to start a conversation from.
+      onMessage: conversationId == null || workDone
           ? null
           : () => Navigator.pushNamed(
                 context,
