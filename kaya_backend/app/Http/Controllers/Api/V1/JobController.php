@@ -458,7 +458,7 @@ class JobController extends Controller
         */
         $hires = Application::whereIn('job_id', $jobs->pluck('id'))
             ->whereIn('status', ['accepted', 'completed'])
-            ->with('worker:id,name')
+            ->with(['worker:id,name,avatar', 'worker.workerProfile:id,user_id,profile_photo_path', 'worker.employerProfile:id,user_id,image_path'])
             ->get();
 
         /*
@@ -494,6 +494,9 @@ class JobController extends Controller
                         'application_id'        => $hire->id,
                         'worker_id'             => $hire->worker_id,
                         'worker_name'           => $hire->worker?->name,
+                        // So the chat header has a face when it is opened
+                        // from a job card rather than from the inbox.
+                        'worker_avatar'         => $hire->worker?->resolvedAvatarUrl(),
                         'conversation_id'       => $threads[$hire->worker_id] ?? null,
                         'status'                => $hire->status,
                         'employer_completed_at' => $hire->employer_completed_at,

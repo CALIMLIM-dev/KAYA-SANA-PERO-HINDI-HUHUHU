@@ -841,6 +841,7 @@ class _ApplicationCard extends StatelessWidget {
                 arguments: {
                   'conversationId': conversationId,
                   'name': (employer['name'] ?? 'Employer').toString(),
+                  'avatar': employer['avatar'],
                   'jobTitle': (job?['title'] ?? 'Job').toString(),
                   'jobId': job?['id'],
                   'otherUserId': employer['id'],
@@ -994,6 +995,7 @@ class _JobPostCard extends StatelessWidget {
                 arguments: {
                   'conversationId': conversationId,
                   'name': workerName,
+                  'avatar': hire?['worker_avatar'],
                   'jobTitle': (job['title'] ?? 'Job').toString(),
                   'jobId': job['id'],
                   'otherUserId': hire?['worker_id'],

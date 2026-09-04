@@ -75,6 +75,20 @@ class ConversationController extends Controller
      * relation can't express cleanly under eager loading. Done as one extra
      * query for the whole page rather than one per row.
      */
+    /*
+        Every bubble's sender picture, resolved.
+
+        The avatar column alone is the Google photo, and most accounts here
+        signed up with an email - so a group of messages showed a column of
+        letters. Written back onto `avatar` so the app keeps reading one key.
+    */
+    private function resolveSenderAvatars($messages): void
+    {
+        $messages->each(function ($m) {
+            $m->sender?->setAttribute('avatar', $m->sender->resolvedAvatarUrl());
+        });
+    }
+
     private function attachApplications($conversations): void
     {
         if ($conversations->isEmpty()) {
@@ -128,19 +142,23 @@ class ConversationController extends Controller
         */
         if ($request->filled('after_id')) {
             $messages = $conversation->messages()
-                ->with('sender:id,name')
+                ->with(['sender:id,name,avatar', 'sender.workerProfile:id,user_id,profile_photo_path', 'sender.employerProfile:id,user_id,image_path'])
                 ->where('id', '>', (int) $request->input('after_id'))
                 ->orderBy('id')
                 ->limit(100)
                 ->get();
 
+            $this->resolveSenderAvatars($messages);
+
             return $this->ok(['data' => $messages]);
         }
 
         $messages = $conversation->messages()
-            ->with('sender:id,name')
+            ->with(['sender:id,name,avatar', 'sender.workerProfile:id,user_id,profile_photo_path', 'sender.employerProfile:id,user_id,image_path'])
             ->orderBy('created_at')
             ->paginate(50);
+
+        $this->resolveSenderAvatars($messages->getCollection());
 
         return $this->ok($messages);
     }
@@ -170,7 +188,7 @@ class ConversationController extends Controller
         $conversation->touch();
 
         $message->setRelation('conversation', $conversation);
-        $message->load('sender:id,name');
+        $message->load(['sender:id,name,avatar', 'sender.workerProfile:id,user_id,profile_photo_path', 'sender.employerProfile:id,user_id,image_path']);
 
         // Straight to both devices on the thread, then the notification row for
         // whoever isn't looking at it.

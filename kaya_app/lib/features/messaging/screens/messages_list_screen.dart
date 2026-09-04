@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../../core/constants/app_colors.dart';
+import '../../../core/widgets/profile_avatar.dart';
 import '../../../core/utils/realtime_refresh.dart';
 import '../../../core/constants/app_mode.dart';
 import '../../../providers/app_mode_provider.dart';
@@ -114,6 +115,7 @@ class _MessagesListScreenState extends State<MessagesListScreen>
       arguments: {
         'conversationId': conv['id'],
         'name': other?['name'] ?? (myRole == 'worker' ? 'Employer' : 'Worker'),
+        'avatar': other?['avatar'],
         'jobTitle': job?['title'] ?? 'Job',
         'jobId': conv['job_id'],
         'otherUserId': other?['id'],
@@ -325,7 +327,9 @@ class _MessagesListScreenState extends State<MessagesListScreen>
     final job = conv['job'] as Map<String, dynamic>?;
     final unread = (conv['unread_count'] as num?)?.toInt() ?? 0;
     final name = (other?['name'] ?? '').toString();
-    final initial = name.isNotEmpty ? name[0].toUpperCase() : '?';
+    // The other person's picture. The server resolves it from wherever
+    // they actually uploaded one, so this only has to draw it.
+    final avatar = other?['avatar'] as String?;
     final isVerified = (other?['is_verified'] as bool?) ?? false;
     final updatedAt = conv['updated_at'] as String?;
 
@@ -335,15 +339,7 @@ class _MessagesListScreenState extends State<MessagesListScreen>
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         child: Row(
           children: [
-            CircleAvatar(
-              radius: 26,
-              backgroundColor: AppColors.primary.withValues(alpha: 0.1),
-              child: Text(initial,
-                  style: const TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                      color: AppColors.primary)),
-            ),
+            ProfileAvatar(imageUrl: avatar, name: name, radius: 26),
             const SizedBox(width: 12),
             Expanded(
               child: Column(

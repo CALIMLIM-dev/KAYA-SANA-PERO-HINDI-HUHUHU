@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../../core/constants/app_colors.dart';
+import '../../../core/widgets/profile_avatar.dart';
 import '../../../data/services/realtime_service.dart';
 import '../../../providers/auth_provider.dart';
 import '../../../providers/messaging_provider.dart';
@@ -399,7 +400,8 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     return Scaffold(
       backgroundColor: const Color(0xFFF0F2F5),
       appBar: _buildAppBar(context, name, isVerified, otherRole, jobId,
-          otherUserId, args['lastSeenAt'] as String?),
+          otherUserId, args['lastSeenAt'] as String?,
+          args['avatar'] as String?),
       body: Column(
         children: [
           if (jobTitle != null)
@@ -511,7 +513,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
 
   PreferredSizeWidget _buildAppBar(BuildContext context, String name,
       bool isVerified, String otherRole, int? jobId, int? otherUserId,
-      String? lastSeenAt) {
+      String? lastSeenAt, String? avatarUrl) {
     final activity = _Activity.from(lastSeenAt);
 
     void openProfile() {
@@ -537,14 +539,12 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
         onTap: openProfile,
         child: Row(
           children: [
-            CircleAvatar(
+            // Passed in by whoever opened the chat; the inbox and the
+            // activity cards both have it from the conversation payload.
+            ProfileAvatar(
+              imageUrl: avatarUrl,
+              name: name,
               radius: 18,
-              backgroundColor: AppColors.primary.withValues(alpha: 0.1),
-              child: Text(name.isNotEmpty ? name[0].toUpperCase() : '?',
-                  style: const TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.bold,
-                      color: AppColors.primary)),
             ),
             const SizedBox(width: 10),
             Expanded(
@@ -825,12 +825,11 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
               color: AppColors.primary.withValues(alpha: 0.1),
               shape: BoxShape.circle,
             ),
-            child: Center(
-              child: Text(
-                senderName.isNotEmpty ? senderName[0].toUpperCase() : '?',
-                style: const TextStyle(
-                    fontSize: 11, fontWeight: FontWeight.bold, color: AppColors.primary),
-              ),
+            // The sender's own picture, resolved server side.
+            child: ProfileAvatar(
+              imageUrl: (msg['sender'] as Map?)?['avatar'] as String?,
+              name: senderName,
+              radius: 13,
             ),
           ),
           Flexible(
