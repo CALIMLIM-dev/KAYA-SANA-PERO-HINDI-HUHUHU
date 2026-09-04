@@ -223,8 +223,24 @@ class ApplicationController extends Controller
             ->get(['job_id', 'reviewer_id', 'reviewee_id']);
 
         $applications->each(function ($application) use ($conversations, $reviews, $user) {
+            /*
+                Only where this application actually unlocked messaging.
+
+                There is one thread per pair, so this lookup by employer found
+                a conversation for every application that worker had ever sent
+                that employer - including the ones that were rejected or
+                withdrawn. A worker hired for one job and turned down for
+                another got a Message button on the rejection too, and the
+                rule the app states in its own comment, that messaging unlocks
+                on hire, quietly stopped being true.
+
+                Accepted and completed keep it: a finished job is exactly when
+                somebody needs to ask about payment or the next one.
+            */
             $application->conversation_id =
-                $conversations[$application->job->employer_id ?? null] ?? null;
+                in_array($application->status, ['accepted', 'completed'], true)
+                    ? ($conversations[$application->job->employer_id ?? null] ?? null)
+                    : null;
 
             $forJob = $reviews->where('job_id', $application->job_id);
 
@@ -383,7 +399,20 @@ class ApplicationController extends Controller
                     'application_id'        => $app->id,
                     'application_status'    => $app->status,
                     'applied_at'            => $app->created_at,
-                    'conversation_id'       => $conversations[$worker->id] ?? null,
+                    /*
+                        The employer's half of the same rule.
+
+                        Threads are per pair, so this found one for anybody
+                        this employer had ever hired - which put a Message
+                        button beside an applicant they had just rejected on
+                        a different job. Messaging unlocks on hire, on both
+                        sides or on neither.
+                    */
+                    'conversation_id'       => in_array(
+                        $app->status,
+                        ['accepted', 'completed'],
+                        true
+                    ) ? ($conversations[$worker->id] ?? null) : null,
                     'i_reviewed_them'       => $reviewedByMe->contains($worker->id),
                     'they_reviewed_me'      => $reviewedMe->contains($worker->id),
                     // Two-sided completion, so the card can offer "Mark as
