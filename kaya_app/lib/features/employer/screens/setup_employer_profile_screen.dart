@@ -84,13 +84,43 @@ class _SetupEmployerProfileScreenState extends State<SetupEmployerProfileScreen>
   String? _identitySelfieName;
   Map<String, dynamic>? _businessDocument;
 
-  int get _totalSteps {
-    if (_selectedType == EmployerType.company) return 4; // type, details, photo, business verification
-    return 4; // type, details, photo, identity verification
+  /// The type step is not shown to an account that already looks for
+  /// work - it can only be an individual employer.
+  bool get _skipsTypeStep =>
+      context.read<AuthProvider>().workerProfileExists;
+
+  /*
+      A worker account has no choice to make on the type step, so it is not
+      asked. It can only be an individual employer - a registered business
+      does not also look for work - and showing the business option greyed
+      out is still showing it. Individual is set and the flow opens on the
+      details.
+  */
+  void _skipTypeStepIfWorker() {
+    if (!mounted || _selectedType != null) return;
+    if (!context.read<AuthProvider>().workerProfileExists) return;
+
+    setState(() {
+      _selectedType = EmployerType.individual;
+      _currentStep = 1;
+    });
+
+    if (_pageController.hasClients) _pageController.jumpToPage(1);
   }
 
+  /// Pages in the flow: type, details, photo, verification. Fixed - the
+  /// type page is jumped over, not removed, so every index below stays put.
+  static const int _pageCount = 4;
+
+  /// What the user is counting: the type page is not one of them when it is
+  /// never shown. Display only - never use this to decide where a page is.
+  int get _totalSteps => _skipsTypeStep ? _pageCount - 1 : _pageCount;
+
+  /// What to show in "Step x of y", which counts only the steps on screen.
+  int get _stepNumber => _skipsTypeStep ? _currentStep : _currentStep + 1;
+
   bool get _isCompany => _selectedType == EmployerType.company;
-  bool get _isLastStep => _currentStep == _totalSteps - 1;
+  bool get _isLastStep => _currentStep == _pageCount - 1;
 
   @override
   void initState() {
@@ -98,9 +128,18 @@ class _SetupEmployerProfileScreenState extends State<SetupEmployerProfileScreen>
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       final auth = context.read<AuthProvider>();
       final verificationProvider = context.read<VerificationProvider>();
+
+      // Before the requests, so the step is never briefly on screen. The
+      // router that opens this screen has already loaded the account.
+      _skipTypeStepIfWorker();
+
       await auth.fetchMe();
       await verificationProvider.fetchVerifications(); // Fetch verification status
       if (!mounted) return;
+
+      // And again once /me has answered, for a cold open that reached here
+      // before the account was loaded.
+      _skipTypeStepIfWorker();
 
       // Only prefill if the user hasn't started typing — these awaits take a
       // moment, and overwriting mid-typing made the entered name disappear.
@@ -179,7 +218,10 @@ class _SetupEmployerProfileScreenState extends State<SetupEmployerProfileScreen>
   }
 
   void _previousStep() async {
-    if (_currentStep == 0) {
+    // On an account that skips the type page, the details page is the first
+    // one - going back from it leaves setup rather than revealing a step the
+    // account is not asked.
+    if (_currentStep == 0 || (_skipsTypeStep && _currentStep == 1)) {
       final shouldExit = await showDialog<bool>(
         context: context,
         builder: (context) => AlertDialog(
@@ -438,7 +480,7 @@ class _SetupEmployerProfileScreenState extends State<SetupEmployerProfileScreen>
 
   @override
   Widget build(BuildContext context) {
-    final progress = (_currentStep + 1) / _totalSteps;
+    final progress = _stepNumber / _totalSteps;
 
     return PopScope(
       canPop: false,
@@ -482,7 +524,7 @@ class _SetupEmployerProfileScreenState extends State<SetupEmployerProfileScreen>
           onPressed: _previousStep,
         ),
         title: Text(
-          'Step ${_currentStep + 1} of $_totalSteps',
+          'Step $_stepNumber of $_totalSteps',
           style: const TextStyle(
             fontSize: 16,
             fontWeight: FontWeight.w600,
@@ -555,23 +597,6 @@ class _SetupEmployerProfileScreenState extends State<SetupEmployerProfileScreen>
               ],
             ),
           ),
-          /*
-              Says so here, not at Finish.
-
-              A worker account cannot register as a business - the server
-              refuses it - but the option was still selectable, so the way to
-              find out was to fill in four steps, upload a photo and an ID,
-              and be turned down on the last one.
-          */
-          if (_workerAccount) ...[
-            const SizedBox(height: 10),
-            const Text(
-              'Your account has a worker profile, so the employer side stays '
-              'Individual. A registered business does not also look for work.',
-              style: TextStyle(
-                  fontSize: 12, height: 1.4, color: AppColors.neutral600),
-            ),
-          ],
           if (_selectedType != null) ...[
             // The panel that used to sit here restated the choice just made
             // and then listed the fields the next screen asks for anyway.
@@ -1172,23 +1197,16 @@ class _SetupEmployerProfileScreenState extends State<SetupEmployerProfileScreen>
     );
   }
 
-  /// A worker profile on the account rules out registering as a business.
-  bool get _workerAccount =>
-      context.watch<AuthProvider>().workerProfileExists;
-
   Widget _buildTypeToggle(EmployerType type) {
     final isSelected = _selectedType == type;
-    final available = type != EmployerType.company || !_workerAccount;
 
     return GestureDetector(
-      onTap: !available
-          ? null
-          : () {
-              setState(() {
-                _selectedType = type;
-                if (_currentStep >= _totalSteps) _currentStep = _totalSteps - 1;
-              });
-            },
+      onTap: () {
+        setState(() {
+          _selectedType = type;
+          if (_currentStep >= _pageCount) _currentStep = _pageCount - 1;
+        });
+      },
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
         padding: const EdgeInsets.symmetric(vertical: 16),
@@ -1201,9 +1219,7 @@ class _SetupEmployerProfileScreenState extends State<SetupEmployerProfileScreen>
           children: [
             Icon(
               type.icon,
-              color: isSelected
-                  ? Colors.white
-                  : (available ? AppColors.neutral600 : AppColors.neutral400),
+              color: isSelected ? Colors.white : AppColors.neutral600,
               size: 20,
             ),
             const SizedBox(width: 8),
@@ -1212,9 +1228,7 @@ class _SetupEmployerProfileScreenState extends State<SetupEmployerProfileScreen>
               style: TextStyle(
                 fontSize: 15,
                 fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
-                color: isSelected
-                    ? Colors.white
-                    : (available ? AppColors.neutral600 : AppColors.neutral400),
+                color: isSelected ? Colors.white : AppColors.neutral600,
               ),
             ),
           ],

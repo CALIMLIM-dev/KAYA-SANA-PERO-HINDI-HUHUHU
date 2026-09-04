@@ -115,38 +115,37 @@ void main() {
   testWidgets('employer setup will not take a new name either', (tester) async {
     await tester
         .pumpWidget(wrap(const SetupEmployerProfileScreen(), lockedAccount()));
-    await tester.pump();
-
-    await tester.tapAt(tester.getCenter(find.text('Individual').first));
-    await tester.pump();
-    await tester.tapAt(tester.getCenter(find.text('Next').last));
     await tester.pumpAndSettle(const Duration(milliseconds: 600));
 
+    // A worker account opens straight on the details step, where the name
+    // belongs to the account and this screen only displays it.
     for (final label in const ['Last Name *', 'First Name *']) {
       expect(find.text(label), findsOneWidget);
       expect(takesTyping(tester, label), isFalse,
           reason: '$label must not accept typing on a settled account');
     }
   });
-  /*
-      A worker account is not offered the business option at all.
 
-      The server has always refused it, but the option was selectable, so the
-      way to find out was to fill in the whole flow and be turned down on the
-      last step.
+  /*
+      A worker account is never asked which kind of employer it is.
+
+      It can only be an individual - a registered business does not also look
+      for work - so the question has one answer and is not put. Showing the
+      business option greyed out would still be showing it.
   */
-  testWidgets('a worker account cannot pick Company', (tester) async {
+  testWidgets('worker accounts skip the employer type step', (tester) async {
     await tester
         .pumpWidget(wrap(const SetupEmployerProfileScreen(), lockedAccount()));
-    await tester.pump();
-
-    await tester.tapAt(tester.getCenter(find.text('Company').first));
-    await tester.pump();
-    await tester.tapAt(tester.getCenter(find.text('Next').last));
     await tester.pumpAndSettle(const Duration(milliseconds: 600));
 
-    // Still on the first step, with the reason on screen.
-    expect(find.textContaining('stays Individual'), findsOneWidget);
-    expect(find.text('Last Name *'), findsNothing);
+    // The page is jumped over rather than removed - what matters is that
+    // it cannot be reached or tapped. The flow does not scroll and the
+    // back button leaves setup instead of landing on it.
+    expect(find.text('Company').hitTestable(), findsNothing);
+    expect(find.text('Individual').hitTestable(), findsNothing);
+
+    // Straight to the details, and counted as the first step of three.
+    expect(find.text('Last Name *'), findsOneWidget);
+    expect(find.text('Step 1 of 3'), findsOneWidget);
   });
 }
