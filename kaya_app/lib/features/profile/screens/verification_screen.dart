@@ -769,7 +769,30 @@ class _VerificationScreenState extends State<VerificationScreen> {
   Future<void> _submitDocument(BuildContext context, String type) async {
     if (_docName == null) return;
     final vp = context.read<VerificationProvider>();
-    
+
+    /*
+        One submission per document, until it is answered.
+
+        The cards no longer open this screen while something is under review,
+        but a notification tap still can, and so can a back gesture onto a
+        screen left open from before. Without this the queue collected two and
+        three copies of the same ID from people who were only checking on it -
+        and an admin then had to work out which one to act on.
+
+        Rejected is deliberately not blocked: being told no and sending a
+        better photo is the whole point of that state.
+    */
+    final existing = vp.statusFor(type);
+    if (existing == 'pending' || existing == 'verified') {
+      AppToast.info(
+        context,
+        existing == 'verified'
+            ? 'This is already verified.'
+            : 'This is already under review. We will let you know.',
+      );
+      return;
+    }
+
     bool success;
     if (type == 'government_id') {
       // Government ID needs both ID photo and selfie

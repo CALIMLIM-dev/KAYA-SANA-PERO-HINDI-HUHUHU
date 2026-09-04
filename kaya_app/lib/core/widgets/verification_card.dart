@@ -54,13 +54,18 @@ class VerificationCard extends StatelessWidget {
     };
 
     /*
-        An approved document is not a button.
+        Neither approved nor under review is a button.
 
-        Tapping it opened the upload screen again, which reads as an invitation
-        to replace something that is finished. Pending and rejected both stay
-        tappable - one to check, one to fix.
+        Tapping an approved one opened the upload screen again, which reads as
+        an invitation to replace something finished. Under review was worse:
+        the form reopened, accepted a second upload, and the queue filled with
+        duplicate submissions of the same document from someone who had done
+        nothing wrong except tap the row to check on it.
+
+        Only rejected and never-submitted lead anywhere, because those are the
+        two states with something to do.
     */
-    final tappable = !_isVerified;
+    final tappable = !_isVerified && !_isPending;
 
     return Container(
       margin: const EdgeInsets.only(bottom: 10),

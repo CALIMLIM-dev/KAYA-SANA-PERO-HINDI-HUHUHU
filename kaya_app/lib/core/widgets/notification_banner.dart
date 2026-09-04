@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import '../../providers/auth_provider.dart';
 
 import '../../data/services/realtime_service.dart';
 import '../../providers/messaging_provider.dart';
@@ -267,8 +268,24 @@ class _NotificationBannerHostState extends State<NotificationBannerHost> {
       case 'invitation':
         navigator.pushNamed('/my-invitations');
         return;
+      /*
+          A verification notification is not always "go and upload something".
+
+          Every one of them opened the upload form, including the message
+          saying the document had just been approved - so being told you were
+          verified sent you straight to a screen asking you to verify, which
+          reads as the approval not having counted. Worse, submitting from
+          there put a duplicate of an approved document into the admin queue.
+
+          Approved and rejected both go to the profile, where the card shows
+          the real state and rejected still offers a retry. Only an account
+          with nothing submitted is sent to the form.
+      */
       case 'verification':
-        navigator.pushNamed('/verification');
+        final verified =
+            navigator.context.read<AuthProvider>().user?['is_verified'] == true;
+
+        navigator.pushNamed(verified ? AppRouter.profile : '/verification');
         return;
     }
 

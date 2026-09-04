@@ -26,7 +26,6 @@ Future<bool> ensureVerified(
   required String action,
 }) async {
   final auth = context.read<AuthProvider>();
-  final user = auth.user;
 
   /*
       Blocks only when the account is known to be unverified.
@@ -37,7 +36,26 @@ Future<bool> ensureVerified(
       refuses either way, so being permissive on "don't know" costs nothing
       and being strict on it costs a verified user their action.
   */
-  if (user == null || user['is_verified'] == true) {
+  if (auth.user == null || auth.user!['is_verified'] == true) {
+    return true;
+  }
+
+  /*
+      Cached "unverified" is not good enough to refuse on.
+
+      is_verified is a snapshot from the last /me. An admin approving an
+      account changes it on the server and nothing tells the running app, so a
+      user who was verified minutes ago was still being turned away here -
+      by a check that did not exist before this gate was added, on a screen
+      that used to simply work. Refusing on stale data is worse than the
+      problem the gate was written to solve.
+
+      One request, and only on the path that is about to refuse anyway.
+  */
+  await auth.fetchMe();
+  if (!context.mounted) return false;
+
+  if (auth.user == null || auth.user!['is_verified'] == true) {
     return true;
   }
 
