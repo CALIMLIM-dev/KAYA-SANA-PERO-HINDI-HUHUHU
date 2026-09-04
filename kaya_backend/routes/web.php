@@ -93,3 +93,27 @@ Route::prefix('admin')->name('admin.')->group(function () {
     time, without effect.
 */
 Route::view('/pay/return', 'pay.return');
+
+/*
+    Where the version dialog sends people.
+
+    A stable URL the app can be built against, pointing at wherever the APK
+    actually lives. That indirection is the whole point: the app has this
+    address compiled in, and the one place you cannot fix a bad download link
+    is a build that is already on somebody's phone. Repointing it is an .env
+    change and a config:clear.
+
+    Falls back to the admin login rather than a 404 - an out-of-date user
+    following this link should land somewhere that exists, not on an error
+    that looks like the server is broken.
+*/
+Route::get('/download', function () {
+    $target = config('kaya.app.download_file_url');
+
+    if (blank($target)) {
+        return redirect()->route('admin.login')
+            ->with('error', 'No download has been published yet.');
+    }
+
+    return redirect()->away($target);
+})->name('app.download');

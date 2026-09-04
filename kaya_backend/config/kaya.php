@@ -208,6 +208,17 @@ return [
         'minimum_version' => env('APP_MIN_VERSION', '1.0.0'),
         'latest_version'  => env('APP_LATEST_VERSION', '1.2.1'),
         'download_url'    => env('APP_DOWNLOAD_URL', 'https://kayaadmin.ucucite.tech/download'),
+
+        /*
+            Where /download actually sends people.
+
+            Two settings rather than one, on purpose. `download_url` is the
+            address compiled into the app and must never change, because the
+            builds that need it most are the ones already installed. This is
+            the target behind it - a Drive link, a GitHub release, anything -
+            and changing it is an .env edit rather than a release.
+        */
+        'download_file_url' => env('APP_DOWNLOAD_FILE_URL'),
     ],
 
 ];
