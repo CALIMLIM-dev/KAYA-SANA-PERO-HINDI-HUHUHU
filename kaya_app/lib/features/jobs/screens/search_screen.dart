@@ -594,6 +594,9 @@ class _SearchScreenState extends State<SearchScreen> {
       requiresVerification: job.requiresVerification,
       requiredSkills: job.requiredSkills,
       matchScore: job.matchScore,
+      isSaved: job.isSaved,
+      onToggleSave: () =>
+          context.read<JobProvider>().toggleSave(job.id, job.isSaved),
       onTap: () => Navigator.pushNamed(context, '/job-details',
           arguments: {'jobId': job.id}),
     );

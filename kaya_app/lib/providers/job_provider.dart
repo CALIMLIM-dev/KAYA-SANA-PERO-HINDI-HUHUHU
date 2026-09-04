@@ -390,6 +390,40 @@ class JobProvider with ChangeNotifier {
     notifyListeners();
   }
 
+  /*
+      Flips the bookmark now, and asks the server after.
+
+      saveJob and unsaveJob each did a round trip and left the feed's copy of
+      the job untouched, so the icon only changed after a full refetch - which
+      on the feed meant not until the app was reopened. A bookmark that does
+      nothing for a second and then does nothing visible reads as broken, and
+      the toast was the only evidence anything had happened at all.
+
+      Optimistic because the failure is cheap and rare: if the request is
+      refused the icon goes back, which is a smaller lie than a mark that sits
+      there doing nothing while the network decides.
+  */
+  Future<bool> toggleSave(int jobId, bool currentlySaved) async {
+    void apply(bool saved) {
+      final i = _publicJobs.indexWhere((j) => j.id == jobId);
+      if (i != -1) _publicJobs[i] = _publicJobs[i].copyWith(isSaved: saved);
+
+      if (_selectedJob?.id == jobId) {
+        _selectedJob = _selectedJob!.copyWith(isSaved: saved);
+      }
+
+      notifyListeners();
+    }
+
+    apply(!currentlySaved);
+
+    final ok = currentlySaved ? await unsaveJob(jobId) : await saveJob(jobId);
+
+    if (!ok) apply(currentlySaved);
+
+    return ok;
+  }
+
   Future<bool> saveJob(int jobId) async {
     try {
       await _api.post('/jobs/$jobId/save');

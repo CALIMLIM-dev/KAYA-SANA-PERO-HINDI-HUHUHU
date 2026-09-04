@@ -24,6 +24,13 @@ class FeaturedJobCard extends StatelessWidget {
   /// priority over the client-side skill-overlap fallback below.
   final int? matchScore;
 
+  /// Whether this job is bookmarked, and what to do when the mark is
+  /// tapped. The bookmark on this card was a bare Icon with no handler and
+  /// a permanently empty outline - it could not be pressed and never showed
+  /// that a job had already been saved.
+  final bool isSaved;
+  final VoidCallback? onToggleSave;
+
   const FeaturedJobCard({
     super.key,
     required this.title,
@@ -41,6 +48,8 @@ class FeaturedJobCard extends StatelessWidget {
     this.requiredSkills = const [],
     this.workerSkills = const [],
     this.matchScore,
+    this.isSaved = false,
+    this.onToggleSave,
   });
 
   // ─── match calculation ───────────────────────────────────────────────────────
@@ -174,10 +183,21 @@ class FeaturedJobCard extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(width: 8),
-                Icon(
-                  Icons.bookmark_border,
-                  size: 20,
-                  color: AppColors.neutral400,
+                // A real control now, and one that shows its state. Sized to
+                // a proper tap target: a bare 20px icon sits well under the
+                // 48dp minimum and was awkward to hit even once it did
+                // something.
+                InkWell(
+                  onTap: onToggleSave,
+                  borderRadius: BorderRadius.circular(24),
+                  child: Padding(
+                    padding: const EdgeInsets.all(8),
+                    child: Icon(
+                      isSaved ? Icons.bookmark : Icons.bookmark_border,
+                      size: 20,
+                      color: isSaved ? AppColors.primary : AppColors.neutral400,
+                    ),
+                  ),
                 ),
               ],
             ),

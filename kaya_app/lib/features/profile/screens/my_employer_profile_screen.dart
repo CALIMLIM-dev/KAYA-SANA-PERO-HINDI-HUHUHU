@@ -142,6 +142,55 @@ class _MyEmployerProfileScreenState extends State<MyEmployerProfileScreen>
     );
   }
 
+
+  /// Same viewer the worker profile uses, so both sides behave alike.
+  void _showPhotoPreview(String url) {
+    showDialog<void>(
+      context: context,
+      barrierColor: Colors.black87,
+      builder: (dialogContext) => Dialog(
+        backgroundColor: Colors.transparent,
+        insetPadding: const EdgeInsets.all(16),
+        child: Stack(
+          alignment: Alignment.topRight,
+          children: [
+            InteractiveViewer(
+              maxScale: 4,
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(12),
+                child: Image.network(
+                  url,
+                  fit: BoxFit.contain,
+                  loadingBuilder: (_, child, progress) => progress == null
+                      ? child
+                      : const Padding(
+                          padding: EdgeInsets.all(48),
+                          child: Center(child: CircularProgressIndicator()),
+                        ),
+                  // A broken image with no explanation reads as the photo
+                  // having been lost, which it has not.
+                  errorBuilder: (_, _, _) => const Padding(
+                    padding: EdgeInsets.all(32),
+                    child: Text(
+                      'Could not load your photo.\nCheck your connection.',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(color: Colors.white),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+            IconButton(
+              icon: const Icon(Icons.close, color: Colors.white),
+              onPressed: () => Navigator.pop(dialogContext),
+              tooltip: 'Close',
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   /// Stops a pull landing on top of a reload that is already running.
   bool _isReloading = false;
 
@@ -339,27 +388,66 @@ class _MyEmployerProfileScreenState extends State<MyEmployerProfileScreen>
                     onTap: () async {
                       final provider = context.read<EmployerProfileProvider>();
 
-                      final fromCamera = await showDialog<bool>(
+                      /*
+                          The same choices the worker profile offers.
+
+                          This went straight to Gallery/Camera, so the only
+                          thing an employer could do with their own picture
+                          was overwrite it - with no way to check what a
+                          worker actually sees, which is the one thing worth
+                          looking at. Viewing comes first when a photo
+                          exists, because looking is the common case.
+                      */
+                      final imageUrl = _profile?.imageUrl;
+                      final hasPhoto = imageUrl != null && imageUrl.isNotEmpty;
+
+                      final choice = await showDialog<String>(
                         context: context,
-                        builder: (_) => AlertDialog(
-                          title: const Text('Profile Photo'),
-                          actions: [
-                            TextButton(
-                              onPressed: () => Navigator.pop(context, false),
-                              child: const Text('Gallery'),
+                        builder: (dialogContext) => SimpleDialog(
+                          title: const Text('Profile photo'),
+                          children: [
+                            if (hasPhoto)
+                              SimpleDialogOption(
+                                onPressed: () =>
+                                    Navigator.pop(dialogContext, 'view'),
+                                child: const Text('View photo'),
+                              ),
+                            SimpleDialogOption(
+                              onPressed: () =>
+                                  Navigator.pop(dialogContext, 'gallery'),
+                              child: Text(hasPhoto
+                                  ? 'Choose a new one'
+                                  : 'Choose from gallery'),
                             ),
-                            TextButton(
-                              onPressed: () => Navigator.pop(context, true),
-                              child: const Text('Camera'),
+                            SimpleDialogOption(
+                              onPressed: () =>
+                                  Navigator.pop(dialogContext, 'camera'),
+                              child: const Text('Take a photo'),
                             ),
                           ],
                         ),
                       );
 
-                      if (fromCamera == null || !mounted) return;
+                      if (choice == null || !mounted) return;
+
+                      if (choice == 'view') {
+                        _showPhotoPreview(imageUrl!);
+                        return;
+                      }
+
+                      final fromCamera = choice == 'camera';
 
                       final ok = await provider.uploadImage(fromCamera: fromCamera);
+
                       if (!mounted) return;
+
+                      // /me carries this picture to the inbox and chat, and
+                      // is only fetched once a session - see the worker
+                      // profile for the same refresh.
+                      if (ok) {
+                        await context.read<AuthProvider>().fetchMe();
+                        if (!mounted) return;
+                      }
 
                       if (!ok) {
                         AppToast.error(

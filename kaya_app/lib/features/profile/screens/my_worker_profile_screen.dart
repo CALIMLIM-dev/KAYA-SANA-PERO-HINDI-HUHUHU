@@ -206,6 +206,17 @@ class _MyWorkerProfileScreenState extends State<MyWorkerProfileScreen> with Sing
     }
 
     await provider.uploadPhoto(fromCamera: choice == 'camera');
+
+    /*
+        And re-read the account.
+
+        The upload updates this provider, but the picture also reaches the
+        account screen, the inbox and every chat through /me - which is
+        fetched once per session. Without this, changing your photo left the
+        old one everywhere else until the app was restarted, which is exactly
+        the report.
+    */
+    if (mounted) await context.read<AuthProvider>().fetchMe();
   }
 
   /// The photo at the size other people see it, pinch to zoom.
