@@ -29,6 +29,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'admin.web'      => \App\Http\Middleware\EnsureUserIsAdminWeb::class,
             'not.suspended'  => \App\Http\Middleware\EnsureNotSuspended::class,
             'verified'       => \App\Http\Middleware\EnsureVerified::class,
+            'not.company'    => \App\Http\Middleware\EnsureNotCompanyEmployer::class,
         ]);
 
         /*

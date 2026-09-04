@@ -20,13 +20,14 @@ import 'package:kaya_app/providers/worker_profile_provider.dart';
     decide, /me never sent it, and the lock was therefore off for every
     account that has ever opened these screens - including verified ones.
 
-    These pump the real screens against a seeded /me and check the fields are
-    not typeable, which is the assertion that was missing.
+    The fields are still shown one per part, and in the order a Philippine
+    form asks for them; what changes when the name is settled is that none of
+    them takes typing.
 */
 void main() {
   Map<String, dynamic> lockedAccount() => {
         'id': 1,
-        'name': 'Ricardo Bumanglag Dela Cruz Jr.',
+        'name': 'Ricardo B. Dela Cruz Jr.',
         'first_name': 'Ricardo',
         'middle_name': 'Bumanglag',
         'last_name': 'Dela Cruz',
@@ -68,34 +69,47 @@ void main() {
     );
   }
 
-  /// Every text field on screen that will actually take typing.
-  Iterable<TextField> editableFields(WidgetTester tester) => tester
-      .widgetList<TextField>(find.byType(TextField))
-      .where((f) => !f.readOnly && (f.enabled ?? true));
+  /// The name fields, found by their labels rather than by position.
+  Finder fieldFor(String label) => find.ancestor(
+        of: find.text(label),
+        matching: find.byType(TextField),
+      );
 
-  testWidgets('worker setup shows the account name and will not take a new one',
+  bool takesTyping(WidgetTester tester, String label) {
+    final field = tester.widget<TextField>(fieldFor(label).first);
+    return !field.readOnly && (field.enabled ?? true);
+  }
+
+  testWidgets('worker setup asks surname first and will not take a new name',
       (tester) async {
-    await tester.pumpWidget(wrap(const WorkerSetupFlowScreen(), lockedAccount()));
+    await tester
+        .pumpWidget(wrap(const WorkerSetupFlowScreen(), lockedAccount()));
     await tester.pump();
 
-    expect(find.text('Ricardo Bumanglag Dela Cruz Jr.'), findsOneWidget);
-    expect(find.text('First Name *'), findsNothing);
-    expect(find.text('Last Name *'), findsNothing);
-
-    // The location picker is the one field still open on this step.
-    for (final field in editableFields(tester)) {
-      expect(field.controller?.text ?? '', isNot('Ricardo Bumanglag Dela Cruz Jr.'),
-          reason: 'the name must not be sitting in a typeable field');
+    // Every part is still labelled, so it is clear which is which.
+    for (final label in const [
+      'Last Name *',
+      'First Name *',
+      'Middle Name (optional)',
+      'Suffix',
+    ]) {
+      expect(find.text(label), findsOneWidget);
+      expect(takesTyping(tester, label), isFalse,
+          reason: '$label must not accept typing on a settled account');
     }
+
+    // Surname above the given name, the way a Philippine form asks.
+    expect(tester.getTopLeft(fieldFor('Last Name *').first).dy,
+        lessThan(tester.getTopLeft(fieldFor('First Name *').first).dy));
   });
 
-  testWidgets('worker setup still asks a new account for its name',
+  testWidgets('worker setup still lets a new account type its name',
       (tester) async {
     await tester.pumpWidget(wrap(const WorkerSetupFlowScreen(), freshAccount()));
     await tester.pump();
 
-    expect(find.text('First Name *'), findsOneWidget);
-    expect(find.text('Last Name *'), findsOneWidget);
+    expect(takesTyping(tester, 'First Name *'), isTrue);
+    expect(takesTyping(tester, 'Last Name *'), isTrue);
   });
 
   testWidgets('employer setup will not take a new name either', (tester) async {
@@ -103,14 +117,15 @@ void main() {
         .pumpWidget(wrap(const SetupEmployerProfileScreen(), lockedAccount()));
     await tester.pump();
 
-    // Step one asks which kind of employer this is; the name lives on the
-    // step after it.
     await tester.tapAt(tester.getCenter(find.text('Individual').first));
     await tester.pump();
     await tester.tapAt(tester.getCenter(find.text('Next').last));
     await tester.pumpAndSettle(const Duration(milliseconds: 600));
 
-    expect(find.text('First Name *'), findsNothing);
-    expect(find.text('Ricardo Bumanglag Dela Cruz Jr.'), findsWidgets);
+    for (final label in const ['Last Name *', 'First Name *']) {
+      expect(find.text(label), findsOneWidget);
+      expect(takesTyping(tester, label), isFalse,
+          reason: '$label must not accept typing on a settled account');
+    }
   });
 }

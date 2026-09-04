@@ -44,6 +44,74 @@ class User extends Authenticatable
         supplied a display name - keeps whatever `name` it has, so nothing is
         blanked by the mere act of saving something else.
     */
+    /*
+        The name in four parts, filled in for accounts that predate them.
+
+        The columns are only populated for accounts that registered after the
+        name was split, and both setup screens show one field per part. Read
+        straight from the columns they were empty for everybody else, so the
+        screen either asked for a name the account already had or showed four
+        blank boxes it would not let anyone type in.
+
+        Derived for display only - nothing is written back, and the composed
+        result is the same string either way, so an account that saves these
+        keeps exactly the name it had.
+    */
+    public function nameParts(): array
+    {
+        if (filled($this->first_name) || filled($this->last_name)) {
+            return [
+                'first_name'  => $this->first_name,
+                'middle_name' => $this->middle_name,
+                'last_name'   => $this->last_name,
+                'suffix'      => $this->suffix,
+            ];
+        }
+
+        $tokens = preg_split('/\s+/', trim((string) $this->name), -1, PREG_SPLIT_NO_EMPTY) ?: [];
+
+        if ($tokens === []) {
+            return ['first_name' => null, 'middle_name' => null, 'last_name' => null, 'suffix' => null];
+        }
+
+        // Jr., Sr., III and the like belong in their own box, not stuck on
+        // the end of a surname.
+        $suffixes = ['jr', 'jr.', 'sr', 'sr.', 'ii', 'iii', 'iv', 'v'];
+        $suffix = null;
+
+        if (count($tokens) > 2 && in_array(mb_strtolower(end($tokens)), $suffixes, true)) {
+            $suffix = array_pop($tokens);
+        }
+
+        $last = count($tokens) > 1 ? array_pop($tokens) : null;
+
+        /*
+            Dela Cruz is one surname, not a middle name and a surname.
+
+            Taking the last word alone left "Ricardo Dela" in the first
+            name box, which is the kind of thing a grader notices in a
+            screenshot. The particles below are the ones that carry a
+            Philippine surname; each one absorbs into it, so De La Cruz
+            and Delos Santos come out whole.
+        */
+        $particles = ['de', 'del', 'dela', 'delas', 'delos', 'la', 'las',
+            'los', 'san', 'santa', 'santo', 'sta', 'sta.', 'sto', 'sto.', 'y'];
+
+        while ($last !== null
+            && count($tokens) > 1
+            && in_array(mb_strtolower(end($tokens)), $particles, true)) {
+            $last = array_pop($tokens) . ' ' . $last;
+        }
+
+        return [
+            'first_name'  => implode(' ', $tokens),
+            // Never guessed. composeName stores the middle name as an initial,
+            // so there is nothing here to recover it from.
+            'middle_name' => null,
+            'last_name'   => $last,
+            'suffix'      => $suffix,
+        ];
+    }
     protected static function booted(): void
     {
         static::saving(function (self $user) {

@@ -46,14 +46,6 @@ class _SetupEmployerProfileScreenState extends State<SetupEmployerProfileScreen>
       and silently rewrite the name on the profile they already had, which is
       how one account ended up presenting two. Same rule on the worker setup.
   */
-  /// Which of the two lock reasons applies, for the note under the fields.
-  bool get _isVerified =>
-      context.read<AuthProvider>().user?['is_verified'] == true;
-
-  /// The one name on the account, as the server composed it.
-  String get _accountName =>
-      ((context.read<AuthProvider>().user?['name'] as String?) ?? '').trim();
-
   /*
       Answered by the server. This read `last_name`, which /me did not
       send - so the lock never came on and the second profile could be
@@ -130,7 +122,18 @@ class _SetupEmployerProfileScreenState extends State<SetupEmployerProfileScreen>
 
           Skipped once anything has been typed, same rule as the name above.
       */
-      final known = auth.user?['known_location'] as Map<String, dynamic>?;
+      /*
+          The city, not the barangay.
+
+          A worker picks a barangay, and prefilling this side with it
+          put the one value the employer picker refuses to offer into
+          the employer's own field. /me resolves the same place
+          upwards, so a hybrid gets their city here and their barangay
+          on the worker profile.
+      */
+      final stored = auth.user?['known_location'] as Map<String, dynamic>?;
+      final known =
+          (stored?['city'] as Map<String, dynamic>?) ?? stored;
 
       if (known != null &&
           known['location_id'] != null &&
@@ -655,94 +658,42 @@ class _SetupEmployerProfileScreenState extends State<SetupEmployerProfileScreen>
               // surname at twice the suffix width — a suffix box the size of
               // a surname box reads as though four characters were expected
               // in both.
-              if (_nameIsLocked)
-                // The name the account already carries. Four locked boxes
-                // - empty, on an account that registered before the name
-                // was split into parts - ask a question the user is not
-                // allowed to answer.
-                _textField(
-                  controller: TextEditingController(text: _accountName),
-                  label: 'Full Name',
-                  icon: Icons.person,
-                  readOnly: true,
-                )
-              else ...[
-                _textField(
-                  controller: _firstNameController,
-                  label: 'First Name *',
-                  icon: Icons.person,
-                  requiredMessage: 'First name is required',
-                  textCapitalization: TextCapitalization.words,
-                ),
-                const SizedBox(height: 12),
-                _textField(
-                  controller: _middleNameController,
-                  label: 'Middle Name (optional)',
-                  icon: Icons.person_outline,
-                  textCapitalization: TextCapitalization.words,
-                ),
-                const SizedBox(height: 12),
-              /*
-                  Last name on its own line, suffix under it.
-
-                  Sharing a row, "Last Name *" had two thirds of the width
-                  minus a prefix icon, and the label ellipsised to "Last Na..."
-                  on a normal phone - the one field where a truncated label is
-                  actively confusing, because a surname box that says "Last
-                  Na..." looks like it wants something else. A suffix is three
-                  characters and does not need a row of its own to itself, but
-                  it does need to stop squeezing the field beside it.
-              */
-                _textField(
-                  controller: _lastNameController,
-                  label: 'Last Name *',
-                  icon: Icons.badge_outlined,
-                  requiredMessage: 'Last name is required',
-                  textCapitalization: TextCapitalization.words,
-                ),
-                const SizedBox(height: 12),
-                _textField(
-                  controller: _suffixController,
-                  label: 'Suffix (optional)',
-                  icon: Icons.more_horiz,
-                  textCapitalization: TextCapitalization.characters,
-                ),
-              ],
-              /*
-                  Only when the field will not accept a change.
-
-                  The unlocked case used to carry a sentence explaining that
-                  this is the account name and appears on the worker profile
-                  too. Nobody needs telling that their own name is their name,
-                  and the field is editable anyway - the note said nothing the
-                  user could act on. When it is locked they do need the reason,
-                  because a field that ignores typing with no explanation reads
-                  as broken.
-              */
-              if (_nameIsLocked) ...[
-                const SizedBox(height: 6),
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Icon(Icons.lock_outline,
-                        size: 14, color: AppColors.neutral500),
-                    const SizedBox(width: 6),
-                    Expanded(
-                      child: Text(
-                        _isVerified
-                            ? 'Locked - your ID is verified. Change it from '
-                                'your profile.'
-                            : 'This is your account name, shared with your '
-                                'other profile. Change it from your profile.',
-                        style: TextStyle(
-                            fontSize: 12,
-                            height: 1.35,
-                            color: AppColors.neutral600),
-                      ),
-                    ),
-                  ],
-                ),
-              ],
+              // Surname first, the way every Philippine form asks for it.
+              // Read-only once the account has the name; the parts still show
+              // which is which rather than collapsing into one box.
+              _textField(
+                controller: _lastNameController,
+                label: 'Last Name *',
+                icon: Icons.badge_outlined,
+                requiredMessage: _nameIsLocked ? null : 'Last name is required',
+                textCapitalization: TextCapitalization.words,
+                readOnly: _nameIsLocked,
+              ),
+              const SizedBox(height: 12),
+              _textField(
+                controller: _firstNameController,
+                label: 'First Name *',
+                icon: Icons.person,
+                requiredMessage: _nameIsLocked ? null : 'First name is required',
+                textCapitalization: TextCapitalization.words,
+                readOnly: _nameIsLocked,
+              ),
+              const SizedBox(height: 12),
+              _textField(
+                controller: _middleNameController,
+                label: 'Middle Name (optional)',
+                icon: Icons.person_outline,
+                textCapitalization: TextCapitalization.words,
+                readOnly: _nameIsLocked,
+              ),
+              const SizedBox(height: 12),
+              _textField(
+                controller: _suffixController,
+                label: 'Suffix (optional)',
+                icon: Icons.more_horiz,
+                textCapitalization: TextCapitalization.characters,
+                readOnly: _nameIsLocked,
+              ),
             ],
             const SizedBox(height: 16),
             // Picker, not free text — keeps employer locations normalized so

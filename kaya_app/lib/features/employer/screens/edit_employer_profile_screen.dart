@@ -140,29 +140,6 @@ class _EditEmployerProfileScreenState
                       icon: isCompany ? Icons.business : Icons.person,
                     ),
                   ),
-                  if (!isCompany) ...[
-                    const SizedBox(height: 6),
-                    Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Icon(Icons.lock_outline,
-                            size: 14, color: AppColors.neutral500),
-                        const SizedBox(width: 6),
-                        const Expanded(
-                          child: Text(
-                            'This is your account name and it is the same on '
-                            'every profile. Change it from your worker profile '
-                            'or account settings.',
-                            style: TextStyle(
-                                fontSize: 12,
-                                height: 1.35,
-                                color: AppColors.neutral600),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-
                   const SizedBox(height: 20),
 
                   // ── Description ──

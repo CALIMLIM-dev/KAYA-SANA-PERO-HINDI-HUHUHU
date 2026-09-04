@@ -120,11 +120,18 @@ Route::prefix('v1')->group(function () {
         Route::get('/categories', [CategoryController::class, 'index']);
         Route::post('/categories', [CategoryController::class, 'store'])->middleware('throttle:taxonomy');
 
-        // Worker Profile
-        Route::post('/worker/profile/complete-setup',              [WorkerProfileController::class, 'completeSetup']);
+        /*
+            Worker Profile.
+
+            not.company guards the group rather than the handlers. Three of
+            these create the profile row and only two of them checked, so a
+            business account could reach the worker setup, upload a photo and
+            have a worker profile made for it by the upload.
+        */
+        Route::post('/worker/profile/complete-setup',              [WorkerProfileController::class, 'completeSetup'])->middleware('not.company');
         Route::delete('/worker/profile',                           [WorkerProfileController::class, 'deleteProfile']);
-        Route::put('/worker/profile',                              [WorkerProfileController::class, 'updateBasicInfo']);
-        Route::post('/worker/profile/photo',                       [WorkerProfileController::class, 'uploadPhoto']);
+        Route::put('/worker/profile',                              [WorkerProfileController::class, 'updateBasicInfo'])->middleware('not.company');
+        Route::post('/worker/profile/photo',                       [WorkerProfileController::class, 'uploadPhoto'])->middleware('not.company');
 
         // Resume. Stored privately and served only through the download route,
         // which checks the caller — a CV carries a phone number, home address
@@ -142,7 +149,9 @@ Route::prefix('v1')->group(function () {
 
         // Worker Skills
         Route::get('/worker/skills',            [WorkerProfileController::class, 'getSkills']);
-        Route::post('/worker/skills',           [WorkerProfileController::class, 'addSkill']);
+        // Creates the worker profile if there is not one yet, so it takes
+        // the same guard as the rest.
+        Route::post('/worker/skills',           [WorkerProfileController::class, 'addSkill'])->middleware('not.company');
         Route::put('/worker/skills/{id}',       [WorkerProfileController::class, 'updateSkill']);
         Route::delete('/worker/skills/{id}',    [WorkerProfileController::class, 'deleteSkill']);
         

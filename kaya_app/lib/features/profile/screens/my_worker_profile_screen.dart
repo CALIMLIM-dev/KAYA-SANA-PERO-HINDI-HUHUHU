@@ -969,9 +969,9 @@ class _MyWorkerProfileScreenState extends State<MyWorkerProfileScreen> with Sing
           label: 'Full name',
           value: p.name,
           maxLength: 100,
+          // No note, and so no popup on tap: the row carries a lock
+          // where the edit pencil would be, which is the whole message.
           enabled: !context.watch<AuthProvider>().isVerified,
-          disabledNote: 'Locked - your ID is verified. Contact support '
-              'if you need to change it.',
           validator: (v) => v.isEmpty ? 'A name is required.' : null,
           onSave: (v) async {
             final provider = context.read<WorkerProfileProvider>();

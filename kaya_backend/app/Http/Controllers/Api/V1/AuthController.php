@@ -215,10 +215,10 @@ class AuthController extends Controller
                 account is unverified, which is the one place that
                 edits it.
             */
-            'first_name'  => $user->first_name,
-            'middle_name' => $user->middle_name,
-            'last_name'   => $user->last_name,
-            'suffix'      => $user->suffix,
+            'first_name'  => $user->nameParts()['first_name'],
+            'middle_name' => $user->nameParts()['middle_name'],
+            'last_name'   => $user->nameParts()['last_name'],
+            'suffix'      => $user->nameParts()['suffix'],
             'name_locked' => $user->is_verified || filled($user->name),
 
             'email' => $user->email,
@@ -240,14 +240,39 @@ class AuthController extends Controller
             */
             'known_location' => (function () use ($workerProfile, $employerProfile) {
                 foreach ([$workerProfile, $employerProfile] as $p) {
-                    if ($p?->location_id !== null) {
-                        return [
-                            'label'       => $p->location,
-                            'location_id' => $p->location_id,
-                            'latitude'    => $p->latitude,
-                            'longitude'   => $p->longitude,
-                        ];
+                    if ($p?->location_id === null) {
+                        continue;
                     }
+
+                    /*
+                        The same place at both grains.
+
+                        A worker picks a barangay and an employer picks a
+                        city, so handing the employer setup the worker's
+                        stored location prefilled it with a barangay - the
+                        exact value the employer side refuses to offer in
+                        its own picker. `city` is that location resolved
+                        upwards: the row itself when it is already a city or
+                        municipality, its parent when it is a barangay.
+                    */
+                    $row = \App\Models\Location::find($p->location_id);
+
+                    $city = $row?->type === \App\Models\Location::TYPE_BARANGAY
+                        ? $row->parent
+                        : $row;
+
+                    return [
+                        'label'       => $p->location,
+                        'location_id' => $p->location_id,
+                        'latitude'    => $p->latitude,
+                        'longitude'   => $p->longitude,
+                        'city' => $city === null ? null : [
+                            'label'       => $city->display_name ?? $city->name,
+                            'location_id' => $city->id,
+                            'latitude'    => $city->latitude === null ? null : (float) $city->latitude,
+                            'longitude'   => $city->longitude === null ? null : (float) $city->longitude,
+                        ],
+                    ];
                 }
 
                 return null;

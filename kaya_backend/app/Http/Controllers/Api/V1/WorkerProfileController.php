@@ -188,14 +188,9 @@ class WorkerProfileController extends Controller
             outcome than a few grandfathered accounts. kaya:audit-company-
             hybrids lists them without changing anything.
         */
-        if ($user->isCompanyEmployer()) {
-            return $this->fail(
-                'This is a business account, so it cannot also have a worker '
-                . 'profile. Switch the employer profile to Individual first if '
-                . 'you also want to look for work.',
-                422
-            );
-        }
+        // Refused by the not.company middleware on this route, which
+        // covers every endpoint that can create the profile rather
+        // than the two that remembered to check.
 
         $profile = WorkerProfile::firstOrCreate(
             ['user_id' => $user->id],
@@ -390,14 +385,9 @@ class WorkerProfileController extends Controller
             outcome than a few grandfathered accounts. kaya:audit-company-
             hybrids lists them without changing anything.
         */
-        if ($request->user()->isCompanyEmployer()) {
-            return $this->fail(
-                'This is a business account, so it cannot also have a worker '
-                . 'profile. Switch the employer profile to Individual first if '
-                . 'you also want to look for work.',
-                422
-            );
-        }
+        // Refused by the not.company middleware on this route, which
+        // covers every endpoint that can create the profile rather
+        // than the two that remembered to check.
 
         $profile = WorkerProfile::firstOrCreate(
             ['user_id' => $request->user()->id],

@@ -191,4 +191,34 @@ class UserNamePartsTest extends TestCase
             ->assertOk()
             ->assertJsonPath('data.name_locked', false);
     }
+    /*
+        Accounts that registered before the split still fill the fields.
+
+        The setup screens show one box per part. Read straight from the
+        columns, an older account got four empty boxes it was not allowed to
+        type in - so the parts are derived from the name it does have. Display
+        only: nothing writes them back, and the composed result is the same
+        string either way.
+    */
+    public function test_me_derives_the_parts_for_an_account_that_only_has_a_name(): void
+    {
+        $user = User::factory()->create([
+            'name'        => 'Ricardo Dela Cruz Jr.',
+            'first_name'  => null,
+            'middle_name' => null,
+            'last_name'   => null,
+            'suffix'      => null,
+        ]);
+
+        $this->actingAs($user, 'sanctum')
+            ->getJson('/api/v1/me')
+            ->assertOk()
+            ->assertJsonPath('data.first_name', 'Ricardo')
+            ->assertJsonPath('data.last_name', 'Dela Cruz')
+            ->assertJsonPath('data.suffix', 'Jr.')
+            ->assertJsonPath('data.name_locked', true);
+
+        // Derived for the screen, never written to the account.
+        $this->assertNull($user->fresh()->first_name);
+    }
 }

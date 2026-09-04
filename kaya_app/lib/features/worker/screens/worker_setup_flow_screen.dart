@@ -67,10 +67,6 @@ class _WorkerSetupFlowScreenState extends State<WorkerSetupFlowScreen> {
       how one account ended up presenting two. Setting up the first profile
       is unaffected: there is no name yet to disagree with.
   */
-  /// Which of the two lock reasons applies, for the note under the fields.
-  bool get _isVerified =>
-      context.read<AuthProvider>().user?['is_verified'] == true;
-
   /// The one name on the account, as the server composed it.
   String get _accountName =>
       ((context.read<AuthProvider>().user?['name'] as String?) ?? '').trim();
@@ -531,82 +527,35 @@ class _WorkerSetupFlowScreenState extends State<WorkerSetupFlowScreen> {
               line tall and the labels line up down the left edge.
           */
           /*
-              One field when the name is settled, four when it is not.
+              Surname first, the way every Philippine form asks for it.
 
-              Four boxes that cannot be typed in - and that are empty on
-              an account registered before the name was split - ask a
-              question the user is not allowed to answer. The name the
-              account actually carries is shown instead, which is also
-              the name this profile will be created under.
+              Read-only once the account has the name - the fields still show
+              which part is which, rather than one box with the whole name in
+              it, and the server fills them in even for accounts that
+              registered before the name was split.
           */
-          if (_nameIsLocked)
-            TextField(
-              readOnly: true,
-              controller: TextEditingController(text: _accountName),
-              decoration: InputDecoration(
-                labelText: 'Full Name',
-                filled: true,
-                fillColor: Colors.white,
-                suffixIcon: const Icon(Icons.lock_outline,
-                    size: 18, color: AppColors.neutral500),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  borderSide: BorderSide.none,
-                ),
-                enabledBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  borderSide: BorderSide.none,
+          _nameField(_lastNameController, 'Last Name *'),
+          const SizedBox(height: 12),
+          _nameField(_firstNameController, 'First Name *'),
+          const SizedBox(height: 12),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                flex: 2,
+                child: _nameField(
+                    _middleNameController, 'Middle Name (optional)'),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: _nameField(
+                  _suffixController,
+                  'Suffix',
+                  capitalization: TextCapitalization.characters,
                 ),
               ),
-            )
-          else ...[
-            _nameField(_firstNameController, 'First Name *'),
-            const SizedBox(height: 12),
-            _nameField(_middleNameController, 'Middle Name (optional)'),
-            const SizedBox(height: 12),
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Expanded(
-                  flex: 2,
-                  child: _nameField(_lastNameController, 'Last Name *'),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: _nameField(
-                    _suffixController,
-                    'Suffix',
-                    capitalization: TextCapitalization.characters,
-                  ),
-                ),
-              ],
-            ),
-          ],
-          // Says why, when it will not accept a change. A field that
-          // ignores typing with no explanation reads as broken.
-          if (_nameIsLocked) ...[
-            const SizedBox(height: 6),
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Icon(Icons.lock_outline,
-                    size: 14, color: AppColors.neutral500),
-                const SizedBox(width: 6),
-                Expanded(
-                  child: Text(
-                    _isVerified
-                        ? 'Locked - your ID is verified. Contact support to '
-                            'change it.'
-                        : 'This is your account name, shared with your other '
-                            'profile. Change it from your profile.',
-                    style: TextStyle(
-                        fontSize: 12, height: 1.35, color: AppColors.neutral600),
-                  ),
-                ),
-              ],
-            ),
-          ],
-
+            ],
+          ),
           const SizedBox(height: 16),
           
           // Location picker — was a free-text field, which produced values that

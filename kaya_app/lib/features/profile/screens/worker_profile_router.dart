@@ -90,6 +90,18 @@ class WorkerProfileRouter extends StatelessWidget {
           );
         }
 
+        /*
+            A business account is not also a tradesperson.
+
+            The server refuses to create a worker profile for one, and
+            this sent them into the setup anyway - four steps, a photo
+            and an ID upload, then a refusal at the end. It says so
+            before any of that is filled in.
+        */
+        if (!workerProfileExists && authProvider.isCompanyEmployer) {
+          return const _CompanyAccountNotice();
+        }
+
         // No worker profile exists → Show setup flow
         if (!workerProfileExists) {
           return const WorkerSetupFlowScreen();
@@ -114,6 +126,53 @@ class WorkerProfileRouter extends StatelessWidget {
         // Profile complete → Show permanent profile screen
         return const MyWorkerProfileScreen();
       },
+    );
+  }
+}
+
+/// Shown where the worker setup would be, for an account registered as a
+/// business. No control on it: the way out is on the employer profile, which
+/// is where the account type is set.
+class _CompanyAccountNotice extends StatelessWidget {
+  const _CompanyAccountNotice();
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: AppColors.background,
+      body: Center(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 32),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Icon(Icons.business_center_outlined,
+                  size: 44, color: AppColors.neutral400),
+              const SizedBox(height: 16),
+              const Text(
+                'This is a business account',
+                style: TextStyle(
+                  fontSize: 17,
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.neutral900,
+                ),
+              ),
+              const SizedBox(height: 8),
+              const Text(
+                'A registered business hires through KAYA, so it cannot also '
+                'have a worker profile. Switch your employer profile to '
+                'Individual if you also want to look for work.',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 14,
+                  height: 1.45,
+                  color: AppColors.neutral600,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }
