@@ -46,6 +46,19 @@
     <uses-permission android:name="android.permission.WAKE_LOCK"/>
     <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS"/>
 
+    <!-- Lets the app hand a downloaded APK to the system installer.
+
+         KAYA is distributed as an APK rather than through a store, so nothing
+         updates anybody and testers sit on builds from several fixes ago.
+         Without this the update path is: open a browser, load a Drive page,
+         download, find the file, tap it, then approve. With it the app fetches
+         the APK itself and the user sees one Install prompt.
+
+         It does NOT allow a silent install - Android reserves that for the
+         store and for device-owner apps, and the user still confirms. This
+         only removes the detour. -->
+    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES"/>
+
     <application
         android:label="KAYA"
         android:name="${applicationName}"

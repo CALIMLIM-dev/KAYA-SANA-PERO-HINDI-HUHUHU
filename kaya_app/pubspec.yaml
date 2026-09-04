@@ -45,6 +45,12 @@ dependencies:
   
   # HTTP Client
   dio: ^5.4.0
+
+  # In-app update. Android forbids a silent install, so the most an app
+  # can do is fetch the APK itself and hand it to the system installer -
+  # which turns five taps and a browser detour into one Install prompt.
+  path_provider: ^2.1.0
+  open_filex: ^4.4.0
   
   # Secure Storage
   flutter_secure_storage: ^9.0.0

@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:url_launcher/url_launcher.dart';
 
 import '../constants/app_colors.dart';
 import '../constants/app_version.dart';
 import '../../data/services/api_client.dart';
+import '../services/app_updater.dart';
 
 /*
     Asks the server whether this build is still allowed to run.
@@ -66,49 +66,141 @@ class VersionGate {
       context: context,
       // A required update cannot be tapped away, an optional one can.
       barrierDismissible: !required,
-      builder: (dialogContext) => PopScope(
-        canPop: !required,
-        child: AlertDialog(
-          title: Text(required ? 'Update needed' : 'Update available'),
-          content: Text(
-            required
-                ? 'This version of KAYA is too old to keep working. '
-                    'Download the latest one to carry on.'
-                : 'Version $latest is out. You can keep using this one, '
-                    'but the newer build has the latest fixes.',
-          ),
-          actions: [
-            if (!required)
-              TextButton(
-                onPressed: () => Navigator.pop(dialogContext),
-                child: const Text('Later'),
-              ),
-            ElevatedButton(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.primary,
-                foregroundColor: Colors.white,
-              ),
-              onPressed: url.isEmpty
-                  ? null
-                  : () async {
-                      await launchUrl(
-                        Uri.parse(url),
-                        mode: LaunchMode.externalApplication,
-                      );
-                      // The dialog stays up on a required update: the download
-                      // happens in a browser and coming back to a working app
-                      // without having installed anything would defeat it.
-                      if (!required && dialogContext.mounted) {
-                        Navigator.pop(dialogContext);
-                      }
-                    },
-              child: const Text('Download'),
-            ),
-          ],
-        ),
+      builder: (dialogContext) => _UpdateDialog(
+        required: required,
+        latest: latest,
+        url: url,
       ),
     );
 
     _showing = false;
+  }
+}
+
+/*
+    The update prompt, with the download happening inside it.
+
+    Stateful because the download has to report progress somewhere, and a
+    dialog that closes to a browser and hopes for the best is the flow this
+    replaces: open Drive, wait, find the file, tap it, approve. Here the bar
+    fills in place and Android's Install prompt comes up at the end.
+
+    The Install prompt itself is not optional and never will be - Android
+    reserves silent installs for the store and for device-owner apps. One
+    confirmation is the floor.
+*/
+class _UpdateDialog extends StatefulWidget {
+  const _UpdateDialog({
+    required this.required,
+    required this.latest,
+    required this.url,
+  });
+
+  final bool required;
+  final String latest;
+  final String url;
+
+  @override
+  State<_UpdateDialog> createState() => _UpdateDialogState();
+}
+
+class _UpdateDialogState extends State<_UpdateDialog> {
+  bool _busy = false;
+  double _progress = 0;
+  String? _error;
+
+  Future<void> _install() async {
+    setState(() {
+      _busy = true;
+      _error = null;
+      _progress = 0;
+    });
+
+    final failure = await AppUpdater.downloadAndInstall(
+      widget.url,
+      onProgress: (p) {
+        if (mounted) setState(() => _progress = p);
+      },
+    );
+
+    if (!mounted) return;
+
+    setState(() {
+      _busy = false;
+      _error = failure;
+    });
+
+    /*
+        Left open on a required update, closed on an optional one.
+
+        Android's installer opens over this dialog and coming back to a
+        working app without having installed anything would defeat a required
+        update entirely - the user would simply carry on.
+    */
+    if (failure == null && !widget.required && mounted) {
+      Navigator.pop(context);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return PopScope(
+      canPop: !widget.required && !_busy,
+      child: AlertDialog(
+        title: Text(widget.required ? 'Update needed' : 'Update available'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              widget.required
+                  ? 'This version of KAYA is too old to keep working. '
+                      'Installing the update takes a few seconds.'
+                  : 'Version ${widget.latest} is out. You can keep using this '
+                      'one, but the newer build has the latest fixes.',
+            ),
+            if (_busy) ...[
+              const SizedBox(height: 16),
+              LinearProgressIndicator(
+                // Indeterminate when the server sends no content-length,
+                // which Drive sometimes does - a bar stuck at zero reads as
+                // a hang.
+                value: _progress > 0 ? _progress : null,
+              ),
+              const SizedBox(height: 6),
+              Text(
+                _progress > 0
+                    ? 'Downloading ${(_progress * 100).round()}%'
+                    : 'Downloading...',
+                style: const TextStyle(
+                    fontSize: 12, color: AppColors.neutral600),
+              ),
+            ],
+            if (_error != null) ...[
+              const SizedBox(height: 12),
+              Text(
+                _error!,
+                style: const TextStyle(fontSize: 12.5, color: AppColors.error),
+              ),
+            ],
+          ],
+        ),
+        actions: [
+          if (!widget.required && !_busy)
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Later'),
+            ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.primary,
+              foregroundColor: Colors.white,
+            ),
+            onPressed: (_busy || widget.url.isEmpty) ? null : _install,
+            child: Text(_error != null ? 'Try again' : 'Update now'),
+          ),
+        ],
+      ),
+    );
   }
 }
