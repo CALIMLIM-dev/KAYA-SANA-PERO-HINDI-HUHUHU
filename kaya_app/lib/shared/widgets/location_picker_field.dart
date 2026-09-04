@@ -39,6 +39,7 @@ class LocationPickerField extends StatefulWidget {
     this.borderColor,
     this.autofocus = false,
     this.requireSelection = true,
+    this.cityLevel = false,
   });
 
   final TextEditingController controller;
@@ -71,6 +72,10 @@ class LocationPickerField extends StatefulWidget {
   /// control sitting among them.
   final Color? borderColor;
   final bool autofocus;
+
+  /// Offer cities and municipalities only, no barangays. Used by the
+  /// employer side, which is matched on the city everywhere it matters.
+  final bool cityLevel;
 
   /// Reject free text that wasn't picked from the dropdown. Off only for
   /// fields where a loose place name is genuinely acceptable.
@@ -212,7 +217,7 @@ class _LocationPickerFieldState extends State<LocationPickerField> {
     _showOverlay();
 
     final provider = context.read<LocationProvider>();
-    await provider.search(term);
+    await provider.search(term, cityLevel: widget.cityLevel);
 
     if (!mounted) return;
 

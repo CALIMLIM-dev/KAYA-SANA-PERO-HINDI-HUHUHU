@@ -52,16 +52,32 @@ class _WorkerSetupFlowScreenState extends State<WorkerSetupFlowScreen> {
   /// label doing all the work — no hint line, so every field is exactly one
   /// row tall and the four line up whatever is typed into them.
   /*
-      Whether the account name may still be edited.
+      Whether the account name may still be edited here.
 
-      The server refuses to rename a verified account - a name matched to a
-      government ID cannot quietly become somebody else's while the badge
-      stays. Without this the fields looked editable and the refusal arrived
-      at Finish, after the whole form, which is the failure the employer setup
-      already avoids by locking instead.
+      Two reasons it cannot, and they are different:
+
+      Verified - the server refuses to rename a verified account, because a
+      name matched to a government ID cannot quietly become somebody else's
+      while the badge stays. Without locking, the fields looked editable and
+      the refusal arrived at Finish, after the whole form.
+
+      Already set - there is one name on an account, shared by both profiles.
+      Somebody setting up their second side could type a different one here
+      and silently rewrite the name on the profile they already had, which is
+      how one account ended up presenting two. Setting up the first profile
+      is unaffected: there is no name yet to disagree with.
   */
-  bool get _nameIsLocked =>
+  /// Which of the two lock reasons applies, for the note under the fields.
+  bool get _isVerified =>
       context.read<AuthProvider>().user?['is_verified'] == true;
+
+  bool get _nameIsLocked {
+    final user = context.read<AuthProvider>().user;
+
+    if (user?['is_verified'] == true) return true;
+
+    return (user?['last_name'] as String? ?? '').trim().isNotEmpty;
+  }
 
   Widget _nameField(
     TextEditingController ctrl,
@@ -490,9 +506,13 @@ class _WorkerSetupFlowScreenState extends State<WorkerSetupFlowScreen> {
                 const Icon(Icons.lock_outline,
                     size: 14, color: AppColors.neutral500),
                 const SizedBox(width: 6),
-                const Expanded(
+                Expanded(
                   child: Text(
-                    'Locked - your ID is verified. Contact support to change it.',
+                    _isVerified
+                        ? 'Locked - your ID is verified. Contact support to '
+                            'change it.'
+                        : 'This is your account name, shared with your other '
+                            'profile. Change it from your profile.',
                     style: TextStyle(
                         fontSize: 12, height: 1.35, color: AppColors.neutral600),
                   ),

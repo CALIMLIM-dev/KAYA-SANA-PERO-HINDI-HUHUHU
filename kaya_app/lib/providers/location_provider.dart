@@ -36,8 +36,21 @@ class LocationProvider with ChangeNotifier {
   */
   int _requestId = 0;
 
-  Future<void> search(String term) async {
-    final key = term.trim().toLowerCase();
+  /*
+      [cityLevel] asks for cities and municipalities only.
+
+      An employer is matched on the city everywhere it matters - the feed,
+      distance, the directory - so offering a barangay there made two accounts
+      in the same city look like different places, and made a hybrid re-pick
+      something narrower than the location already on file. A worker still
+      picks a barangay: how far they will travel is the whole point on that
+      side.
+
+      Part of the cache key, or one coarse search would poison the
+      barangay-level results for the same term.
+  */
+  Future<void> search(String term, {bool cityLevel = false}) async {
+    final key = '${cityLevel ? 'city:' : ''}${term.trim().toLowerCase()}';
     final requestId = ++_requestId;
 
     if (_cache.containsKey(key)) {
@@ -54,7 +67,11 @@ class LocationProvider with ChangeNotifier {
     try {
       final response = await _api.get(
         '/locations/search',
-        queryParameters: {if (key.isNotEmpty) 'q': key, 'limit': 20},
+        queryParameters: {
+          if (term.trim().isNotEmpty) 'q': term.trim(),
+          'limit': 20,
+          if (cityLevel) 'level': 'city',
+        },
       );
 
       final data = (response.data['data'] as List)

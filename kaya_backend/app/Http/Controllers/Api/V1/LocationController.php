@@ -31,6 +31,21 @@ class LocationController extends Controller
         $data = $request->validate([
             'q'     => ['nullable', 'string', 'max:100'],
             'limit' => ['nullable', 'integer', 'min:1', 'max:50'],
+            /*
+                Optional coarseness, for callers that should not ask for a
+                barangay.
+
+                An employer is a place of business or a household hiring, and
+                the city is the level everything about them is matched on -
+                the job feed, distance, the worker directory. Offering a
+                barangay there produced two accounts in the same city that
+                looked like different places, and made a hybrid re-pick a
+                narrower location than the one already on file.
+
+                A worker still picks a barangay: how far they will travel is
+                the whole point on that side.
+            */
+            'level' => ['nullable', 'in:city'],
         ]);
 
         $limit = $data['limit'] ?? 20;
@@ -43,7 +58,14 @@ class LocationController extends Controller
         }
 
         $results = Location::query()
-            ->selectable()
+            ->when(
+                ($data['level'] ?? null) === 'city',
+                fn ($q) => $q->whereIn('type', [
+                    Location::TYPE_CITY,
+                    Location::TYPE_MUNICIPALITY,
+                ]),
+                fn ($q) => $q->selectable(),
+            )
             ->search($term)
             ->limit($limit)
             ->get(['id', 'parent_id', 'name', 'display_name', 'type', 'province_name', 'region_name', 'latitude', 'longitude']);

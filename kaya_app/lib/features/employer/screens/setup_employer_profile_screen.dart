@@ -35,12 +35,28 @@ class _SetupEmployerProfileScreenState extends State<SetupEmployerProfileScreen>
   final _lastNameController = TextEditingController();
   final _suffixController = TextEditingController();
 
-  /// Whether the account name may still be edited from this screen.
-  ///
-  /// The server refuses to rename a verified account, so offering an editable
-  /// field would just produce a rejection at the end of a long form.
-  bool get _nameIsLocked =>
+  /*
+      Whether the account name may still be edited here.
+
+      Verified - the server refuses the rename, so an editable field would
+      only produce a rejection at the end of a long form.
+
+      Already set - there is one name on an account and both profiles share
+      it. Somebody setting up their second side could type a different one
+      and silently rewrite the name on the profile they already had, which is
+      how one account ended up presenting two. Same rule on the worker setup.
+  */
+  /// Which of the two lock reasons applies, for the note under the fields.
+  bool get _isVerified =>
       context.read<AuthProvider>().user?['is_verified'] == true;
+
+  bool get _nameIsLocked {
+    final user = context.read<AuthProvider>().user;
+
+    if (user?['is_verified'] == true) return true;
+
+    return (user?['last_name'] as String? ?? '').trim().isNotEmpty;
+  }
   final _companyNameController = TextEditingController();
   final _industryController = TextEditingController();
   final _websiteController = TextEditingController();
@@ -691,9 +707,13 @@ class _SetupEmployerProfileScreenState extends State<SetupEmployerProfileScreen>
                     const Icon(Icons.lock_outline,
                         size: 14, color: AppColors.neutral500),
                     const SizedBox(width: 6),
-                    const Expanded(
+                    Expanded(
                       child: Text(
-                        'Locked — your ID is verified. Change it from your profile.',
+                        _isVerified
+                            ? 'Locked - your ID is verified. Change it from '
+                                'your profile.'
+                            : 'This is your account name, shared with your '
+                                'other profile. Change it from your profile.',
                         style: TextStyle(
                             fontSize: 12,
                             height: 1.35,
@@ -710,6 +730,10 @@ class _SetupEmployerProfileScreenState extends State<SetupEmployerProfileScreen>
             LocationPickerField(
               controller: _locationController,
               labelText: 'Location *',
+              // City or municipality only - an employer is matched on the
+              // city, and a barangay here made two accounts in one city look
+              // like different places.
+              cityLevel: true,
               // Parent is the source of truth, so the field can reconcile its
               // label when the selection changes from outside.
               selection: _selectedLocation,
