@@ -146,4 +146,49 @@ class UserNamePartsTest extends TestCase
             ])
             ->assertOk();
     }
+    /*
+        The lock is only as good as what /me sends.
+
+        Both setup flows decide whether to freeze the name fields from this
+        payload. It carried the composed name and nothing else, so the parts
+        read null and the lock never came on - a hybrid could set the second
+        profile up under a different name. The screens are fixed; this keeps
+        the payload they depend on from quietly losing a field again.
+    */
+    public function test_me_returns_the_name_parts_and_whether_the_name_is_locked(): void
+    {
+        $user = User::factory()->create([
+            'first_name'  => 'Juan',
+            'middle_name' => 'Reyes',
+            'last_name'   => 'Dela Cruz',
+            'suffix'      => 'Jr.',
+            'is_verified' => false,
+        ]);
+
+        $this->actingAs($user, 'sanctum')
+            ->getJson('/api/v1/me')
+            ->assertOk()
+            ->assertJsonPath('data.first_name', 'Juan')
+            ->assertJsonPath('data.middle_name', 'Reyes')
+            ->assertJsonPath('data.last_name', 'Dela Cruz')
+            ->assertJsonPath('data.suffix', 'Jr.')
+            // A name is already on the account, so setting up the other
+            // profile cannot propose a different one.
+            ->assertJsonPath('data.name_locked', true);
+    }
+
+    public function test_an_account_with_no_name_yet_is_not_locked(): void
+    {
+        $user = User::factory()->create([
+            'name'        => '',
+            'first_name'  => null,
+            'last_name'   => null,
+            'is_verified' => false,
+        ]);
+
+        $this->actingAs($user, 'sanctum')
+            ->getJson('/api/v1/me')
+            ->assertOk()
+            ->assertJsonPath('data.name_locked', false);
+    }
 }

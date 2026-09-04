@@ -195,6 +195,32 @@ class AuthController extends Controller
         return $this->ok([
             'id' => $user->id,
             'name' => $user->name,
+
+            /*
+                The name in parts, and whether it can still be changed.
+
+                This endpoint sent the composed name only. Both setup
+                flows read the parts to prefill their fields and to
+                decide whether to lock them, so they read null every
+                time: the second profile asked for a name the account
+                had already given, and accepted a different one.
+
+                name_locked is answered here rather than worked out in
+                the app, because the app cannot see the whole rule -
+                a verified name is fixed because an administrator
+                matched it to an ID, and an unverified one is fixed
+                during setup because the account already has it and two
+                profiles cannot disagree about who they belong to. It
+                is still changeable from the profile screen while the
+                account is unverified, which is the one place that
+                edits it.
+            */
+            'first_name'  => $user->first_name,
+            'middle_name' => $user->middle_name,
+            'last_name'   => $user->last_name,
+            'suffix'      => $user->suffix,
+            'name_locked' => $user->is_verified || filled($user->name),
+
             'email' => $user->email,
             'phone' => $user->phone,
             'city' => $user->city,

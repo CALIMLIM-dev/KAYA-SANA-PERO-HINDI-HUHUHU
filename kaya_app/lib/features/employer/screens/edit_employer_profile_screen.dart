@@ -77,6 +77,20 @@ class _EditEmployerProfileScreenState
 
   @override
   Widget build(BuildContext context) {
+    /*
+        An individual employer has no company name.
+
+        This field was labelled "Company / Business Name" for both
+        types, prefilled with the account name for an individual, and
+        then dropped on save - the server only stores company_name for
+        a company. So it read as a way to rename yourself, said
+        "Profile updated", and changed nothing. It now shows what it
+        is: the account name, which is changed where it lives.
+    */
+    final isCompany = context.watch<EmployerProfileProvider>()
+            .profile?.employerType ==
+        EmployerType.company;
+
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
@@ -111,17 +125,43 @@ class _EditEmployerProfileScreenState
                   const SizedBox(height: 8),
 
                   // ── Company/Individual Name ──
-                  _fieldLabel('Company / Business Name'),
+                  _fieldLabel(
+                      isCompany ? 'Company / Business Name' : 'Your name'),
                   const SizedBox(height: 8),
                   TextField(
                     controller: _nameController,
+                    readOnly: !isCompany,
                     textCapitalization: TextCapitalization.words,
                     onChanged: (_) => setState(() {}),
                     decoration: _inputDeco(
-                      hint: 'e.g. ABC Construction Corp',
-                      icon: Icons.business,
+                      hint: isCompany
+                          ? 'e.g. ABC Construction Corp'
+                          : 'Your account name',
+                      icon: isCompany ? Icons.business : Icons.person,
                     ),
                   ),
+                  if (!isCompany) ...[
+                    const SizedBox(height: 6),
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Icon(Icons.lock_outline,
+                            size: 14, color: AppColors.neutral500),
+                        const SizedBox(width: 6),
+                        const Expanded(
+                          child: Text(
+                            'This is your account name and it is the same on '
+                            'every profile. Change it from your worker profile '
+                            'or account settings.',
+                            style: TextStyle(
+                                fontSize: 12,
+                                height: 1.35,
+                                color: AppColors.neutral600),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
 
                   const SizedBox(height: 20),
 
@@ -159,7 +199,13 @@ class _EditEmployerProfileScreenState
                   LocationPickerField(
                     controller: _locationController,
                     labelText: '',
-                    hintText: 'Search barangay, city or municipality',
+                    hintText: 'Search city or municipality',
+                    // An employer is matched on the city everywhere it
+                    // matters, so a barangay here made two accounts in
+                    // the same city look like different places. Setup
+                    // was fixed and this screen was not, which left the
+                    // rule undone the moment anyone edited a profile.
+                    cityLevel: true,
                     // Every other field on this form is outlined; without this
                     // the location field was the one borderless control among
                     // them.

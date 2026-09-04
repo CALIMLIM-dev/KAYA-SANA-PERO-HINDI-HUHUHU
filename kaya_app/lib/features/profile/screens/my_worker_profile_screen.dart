@@ -957,10 +957,21 @@ class _MyWorkerProfileScreenState extends State<MyWorkerProfileScreen> with Sing
             in the only field on it, tap save, wait for it to slide back. For
             one line of text. Now the row itself takes the cursor.
         */
+        /*
+            Not editable once the ID behind it has been checked.
+
+            The server has refused a verified rename for a while, but
+            this row still opened, took the typing and then showed the
+            refusal as a red toast - which reads as the app failing
+            rather than as a rule. It now says so before the tap.
+        */
         InlineEditRow(
           label: 'Full name',
           value: p.name,
           maxLength: 100,
+          enabled: !context.watch<AuthProvider>().isVerified,
+          disabledNote: 'Locked - your ID is verified. Contact support '
+              'if you need to change it.',
           validator: (v) => v.isEmpty ? 'A name is required.' : null,
           onSave: (v) async {
             final provider = context.read<WorkerProfileProvider>();

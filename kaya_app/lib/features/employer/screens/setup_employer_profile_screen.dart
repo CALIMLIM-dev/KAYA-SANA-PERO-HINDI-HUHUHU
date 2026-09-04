@@ -50,12 +50,21 @@ class _SetupEmployerProfileScreenState extends State<SetupEmployerProfileScreen>
   bool get _isVerified =>
       context.read<AuthProvider>().user?['is_verified'] == true;
 
+  /// The one name on the account, as the server composed it.
+  String get _accountName =>
+      ((context.read<AuthProvider>().user?['name'] as String?) ?? '').trim();
+
+  /*
+      Answered by the server. This read `last_name`, which /me did not
+      send - so the lock never came on and the second profile could be
+      set up under a different name than the first.
+  */
   bool get _nameIsLocked {
     final user = context.read<AuthProvider>().user;
 
-    if (user?['is_verified'] == true) return true;
+    if (user?['name_locked'] == true) return true;
 
-    return (user?['last_name'] as String? ?? '').trim().isNotEmpty;
+    return user?['is_verified'] == true;
   }
   final _companyNameController = TextEditingController();
   final _industryController = TextEditingController();
@@ -248,8 +257,10 @@ class _SetupEmployerProfileScreenState extends State<SetupEmployerProfileScreen>
       final hasCompleteIdentity =
           _identityIdPhotoPath != null && _identitySelfiePath != null;
 
-      // 1. Save name if individual
-      if (_selectedType == EmployerType.individual) {
+      // 1. Save name if individual, and only when it is still theirs to
+      // set. A locked name is already on the account; sending the fields
+      // this screen no longer shows would clear the parts behind it.
+      if (_selectedType == EmployerType.individual && !_nameIsLocked) {
         // The parts, same as worker setup. The server composes the display
         // name from them, so this screen never builds one.
         final nameSaved = await auth.updateMe(
@@ -644,23 +655,33 @@ class _SetupEmployerProfileScreenState extends State<SetupEmployerProfileScreen>
               // surname at twice the suffix width — a suffix box the size of
               // a surname box reads as though four characters were expected
               // in both.
-              _textField(
-                controller: _firstNameController,
-                label: 'First Name *',
-                icon: Icons.person,
-                requiredMessage: 'First name is required',
-                textCapitalization: TextCapitalization.words,
-                readOnly: _nameIsLocked,
-              ),
-              const SizedBox(height: 12),
-              _textField(
-                controller: _middleNameController,
-                label: 'Middle Name (optional)',
-                icon: Icons.person_outline,
-                textCapitalization: TextCapitalization.words,
-                readOnly: _nameIsLocked,
-              ),
-              const SizedBox(height: 12),
+              if (_nameIsLocked)
+                // The name the account already carries. Four locked boxes
+                // - empty, on an account that registered before the name
+                // was split into parts - ask a question the user is not
+                // allowed to answer.
+                _textField(
+                  controller: TextEditingController(text: _accountName),
+                  label: 'Full Name',
+                  icon: Icons.person,
+                  readOnly: true,
+                )
+              else ...[
+                _textField(
+                  controller: _firstNameController,
+                  label: 'First Name *',
+                  icon: Icons.person,
+                  requiredMessage: 'First name is required',
+                  textCapitalization: TextCapitalization.words,
+                ),
+                const SizedBox(height: 12),
+                _textField(
+                  controller: _middleNameController,
+                  label: 'Middle Name (optional)',
+                  icon: Icons.person_outline,
+                  textCapitalization: TextCapitalization.words,
+                ),
+                const SizedBox(height: 12),
               /*
                   Last name on its own line, suffix under it.
 
@@ -672,22 +693,21 @@ class _SetupEmployerProfileScreenState extends State<SetupEmployerProfileScreen>
                   characters and does not need a row of its own to itself, but
                   it does need to stop squeezing the field beside it.
               */
-              _textField(
-                controller: _lastNameController,
-                label: 'Last Name *',
-                icon: Icons.badge_outlined,
-                requiredMessage: 'Last name is required',
-                textCapitalization: TextCapitalization.words,
-                readOnly: _nameIsLocked,
-              ),
-              const SizedBox(height: 12),
-              _textField(
-                controller: _suffixController,
-                label: 'Suffix (optional)',
-                icon: Icons.more_horiz,
-                textCapitalization: TextCapitalization.characters,
-                readOnly: _nameIsLocked,
-              ),
+                _textField(
+                  controller: _lastNameController,
+                  label: 'Last Name *',
+                  icon: Icons.badge_outlined,
+                  requiredMessage: 'Last name is required',
+                  textCapitalization: TextCapitalization.words,
+                ),
+                const SizedBox(height: 12),
+                _textField(
+                  controller: _suffixController,
+                  label: 'Suffix (optional)',
+                  icon: Icons.more_horiz,
+                  textCapitalization: TextCapitalization.characters,
+                ),
+              ],
               /*
                   Only when the field will not accept a change.
 

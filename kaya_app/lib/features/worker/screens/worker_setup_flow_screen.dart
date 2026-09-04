@@ -71,12 +71,26 @@ class _WorkerSetupFlowScreenState extends State<WorkerSetupFlowScreen> {
   bool get _isVerified =>
       context.read<AuthProvider>().user?['is_verified'] == true;
 
+  /// The one name on the account, as the server composed it.
+  String get _accountName =>
+      ((context.read<AuthProvider>().user?['name'] as String?) ?? '').trim();
+
+  /*
+      Answered by the server, not worked out here.
+
+      This used to read `last_name` off the account, and /me never sent
+      it - so the lock was off for every account that has ever run this
+      screen, and the fields it was meant to freeze stayed empty and
+      typeable. The rule now arrives as one boolean from the endpoint
+      that knows it, with is_verified as the fallback for a server that
+      has not been deployed yet.
+  */
   bool get _nameIsLocked {
     final user = context.read<AuthProvider>().user;
 
-    if (user?['is_verified'] == true) return true;
+    if (user?['name_locked'] == true) return true;
 
-    return (user?['last_name'] as String? ?? '').trim().isNotEmpty;
+    return user?['is_verified'] == true;
   }
 
   Widget _nameField(
@@ -189,6 +203,39 @@ class _WorkerSetupFlowScreenState extends State<WorkerSetupFlowScreen> {
       if (_locationController.text.isEmpty) {
         _location = provider.location;
         _locationController.text = _location ?? '';
+      }
+
+      /*
+          The place the account already gave on its other profile.
+
+          Without this the second setup asks a hybrid where they are
+          for a second time, and the answer is stored twice with two
+          chances to disagree. The id comes with it, not just the
+          label - a location saved without one has no coordinates and
+          the worker is invisible to every distance calculation.
+
+          Still editable: people do move, and a worker picks a
+          barangay where an employer picked a city.
+      */
+      final known = authProvider.user?['known_location'] as Map<String, dynamic>?;
+
+      if (known != null &&
+          known['location_id'] != null &&
+          _locationController.text.isEmpty) {
+        final label = (known['label'] ?? '').toString();
+        final lat = (known['latitude'] as num?)?.toDouble();
+        final lng = (known['longitude'] as num?)?.toDouble();
+
+        _location = label;
+        _locationController.text = label;
+        _selectedLocation = LocationModel(
+          id: (known['location_id'] as num).toInt(),
+          name: label,
+          displayName: label,
+          type: 'city',
+          latitude: lat,
+          longitude: lng,
+        );
       }
 
       setState(() {});
@@ -304,8 +351,16 @@ class _WorkerSetupFlowScreenState extends State<WorkerSetupFlowScreen> {
         // distance and proximity calculation.
         // First and last are the required pair; middle and suffix are
         // genuinely optional and must not block the Next button.
-        return _firstNameController.text.trim().isNotEmpty &&
-            _lastNameController.text.trim().isNotEmpty &&
+        // A locked name is already on the account. Its parts can be
+        // empty on an account that registered before the name was
+        // split into four, and requiring them there would leave the
+        // user staring at a read-only field they cannot satisfy.
+        final nameReady = _nameIsLocked
+            ? _accountName.isNotEmpty
+            : _firstNameController.text.trim().isNotEmpty &&
+                _lastNameController.text.trim().isNotEmpty;
+
+        return nameReady &&
             _selectedLocation != null &&
             _pinnedLat != null &&
             _pinnedLng != null;
@@ -475,27 +530,58 @@ class _WorkerSetupFlowScreenState extends State<WorkerSetupFlowScreen> {
               than carrying a hint underneath, so every field is exactly one
               line tall and the labels line up down the left edge.
           */
-          _nameField(_firstNameController, 'First Name *'),
-          const SizedBox(height: 12),
-          _nameField(_middleNameController, 'Middle Name (optional)'),
-          const SizedBox(height: 12),
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Expanded(
-                flex: 2,
-                child: _nameField(_lastNameController, 'Last Name *'),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: _nameField(
-                  _suffixController,
-                  'Suffix',
-                  capitalization: TextCapitalization.characters,
+          /*
+              One field when the name is settled, four when it is not.
+
+              Four boxes that cannot be typed in - and that are empty on
+              an account registered before the name was split - ask a
+              question the user is not allowed to answer. The name the
+              account actually carries is shown instead, which is also
+              the name this profile will be created under.
+          */
+          if (_nameIsLocked)
+            TextField(
+              readOnly: true,
+              controller: TextEditingController(text: _accountName),
+              decoration: InputDecoration(
+                labelText: 'Full Name',
+                filled: true,
+                fillColor: Colors.white,
+                suffixIcon: const Icon(Icons.lock_outline,
+                    size: 18, color: AppColors.neutral500),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide.none,
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide.none,
                 ),
               ),
-            ],
-          ),
+            )
+          else ...[
+            _nameField(_firstNameController, 'First Name *'),
+            const SizedBox(height: 12),
+            _nameField(_middleNameController, 'Middle Name (optional)'),
+            const SizedBox(height: 12),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  flex: 2,
+                  child: _nameField(_lastNameController, 'Last Name *'),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: _nameField(
+                    _suffixController,
+                    'Suffix',
+                    capitalization: TextCapitalization.characters,
+                  ),
+                ),
+              ],
+            ),
+          ],
           // Says why, when it will not accept a change. A field that
           // ignores typing with no explanation reads as broken.
           if (_nameIsLocked) ...[
@@ -1844,9 +1930,11 @@ class _WorkerSetupFlowScreenState extends State<WorkerSetupFlowScreen> {
 
       // 1. Save the name parts. The server composes the display name from
       // them, so nothing here has to build it.
+      // Nothing is sent for a locked name: the account already has it,
+      // and this screen is not where it changes.
       final first = _firstNameController.text.trim();
       final last = _lastNameController.text.trim();
-      if (first.isNotEmpty || last.isNotEmpty) {
+      if (!_nameIsLocked && (first.isNotEmpty || last.isNotEmpty)) {
         await authProvider.updateMe(
           firstName: first,
           middleName: _middleNameController.text.trim(),

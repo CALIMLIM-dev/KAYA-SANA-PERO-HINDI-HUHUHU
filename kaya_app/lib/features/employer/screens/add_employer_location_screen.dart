@@ -111,8 +111,10 @@ class _AddEmployerLocationScreenState extends State<AddEmployerLocationScreen> {
                   // Location picker, not free text.
                   LocationPickerField(
                     controller: _locationController,
-                    labelText: 'Barangay, City or Municipality',
-                    hintText: 'Search your barangay or city',
+                    labelText: 'City or Municipality',
+                    hintText: 'Search your city or municipality',
+                    // City level, like the rest of the employer side.
+                    cityLevel: true,
                     selection: _selectedLocation,
                     onSelected: (location) => setState(() {
                       _selectedLocation = location;
