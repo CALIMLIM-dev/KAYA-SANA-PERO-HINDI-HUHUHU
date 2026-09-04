@@ -701,6 +701,23 @@ class _MyEmployerProfileScreenState extends State<MyEmployerProfileScreen>
             value: _name,
             maxLength: 120,
             validator: (v) => v.isEmpty ? 'A name is required.' : null,
+            /*
+                An individual has no company name to edit.
+
+                This row wrote to company_name for both types, and the public
+                employer profile shows company_name in place of the account
+                name - so a field labelled "Your name" was a way to display a
+                name nobody verified, sitting right beside the tick that
+                vouched for the real one.
+
+                The server already drops company_name for an individual, so
+                the row was editable and silently did nothing either way. It
+                is now what it actually is: the account name, shown here and
+                changed in one place.
+            */
+            enabled: _role == 'Company',
+            disabledNote: 'This is your account name. '
+                'Change it from your worker profile or account settings.',
             onSave: (v) async {
               final p = context.read<EmployerProfileProvider>();
               final ok = await p.updateProfile(companyName: v);

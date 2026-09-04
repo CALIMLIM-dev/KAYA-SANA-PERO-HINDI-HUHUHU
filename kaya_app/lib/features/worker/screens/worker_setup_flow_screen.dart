@@ -51,6 +51,18 @@ class _WorkerSetupFlowScreenState extends State<WorkerSetupFlowScreen> {
   /// One name box. Same shape as the rest of the form's inputs, with the
   /// label doing all the work — no hint line, so every field is exactly one
   /// row tall and the four line up whatever is typed into them.
+  /*
+      Whether the account name may still be edited.
+
+      The server refuses to rename a verified account - a name matched to a
+      government ID cannot quietly become somebody else's while the badge
+      stays. Without this the fields looked editable and the refusal arrived
+      at Finish, after the whole form, which is the failure the employer setup
+      already avoids by locking instead.
+  */
+  bool get _nameIsLocked =>
+      context.read<AuthProvider>().user?['is_verified'] == true;
+
   Widget _nameField(
     TextEditingController ctrl,
     String label, {
@@ -58,6 +70,7 @@ class _WorkerSetupFlowScreenState extends State<WorkerSetupFlowScreen> {
   }) =>
       TextField(
         controller: ctrl,
+        readOnly: _nameIsLocked,
         textCapitalization: capitalization,
         onChanged: (_) => setState(() {}),
         decoration: InputDecoration(
@@ -467,6 +480,27 @@ class _WorkerSetupFlowScreenState extends State<WorkerSetupFlowScreen> {
               ),
             ],
           ),
+          // Says why, when it will not accept a change. A field that
+          // ignores typing with no explanation reads as broken.
+          if (_nameIsLocked) ...[
+            const SizedBox(height: 6),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Icon(Icons.lock_outline,
+                    size: 14, color: AppColors.neutral500),
+                const SizedBox(width: 6),
+                const Expanded(
+                  child: Text(
+                    'Locked - your ID is verified. Contact support to change it.',
+                    style: TextStyle(
+                        fontSize: 12, height: 1.35, color: AppColors.neutral600),
+                  ),
+                ),
+              ],
+            ),
+          ],
+
           const SizedBox(height: 16),
           
           // Location picker — was a free-text field, which produced values that

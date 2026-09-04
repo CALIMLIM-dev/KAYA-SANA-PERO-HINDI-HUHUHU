@@ -314,4 +314,43 @@ class VerificationGateTest extends TestCase
             ])
             ->assertOk();
     }
+    /*
+        One field at a time has to save.
+
+        The profile screen edits one row at a time, so a request carries one
+        field - and location was `required`, which failed every one of those
+        with "the location field is required" about a location the profile
+        already had and nobody was touching.
+    */
+    public function test_an_employer_can_save_one_field_without_resending_location(): void
+    {
+        $employer = $this->employer(true);
+
+        $this->actingAs($employer, "sanctum")
+            ->putJson("/api/v1/employer-profile", ["description" => "We hire tilers."])
+            ->assertOk();
+
+        $this->assertSame(
+            "We hire tilers.",
+            $employer->employerProfile()->first()->description
+        );
+    }
+
+    /*
+        An individual cannot display a name nobody checked.
+
+        The public employer profile shows company_name in place of the account
+        name, so accepting one from an individual would put an unverified name
+        beside a verified tick.
+    */
+    public function test_an_individual_employer_cannot_set_a_company_name(): void
+    {
+        $employer = $this->employer(true);
+
+        $this->actingAs($employer, "sanctum")
+            ->putJson("/api/v1/employer-profile", ["company_name" => "Totally Real Corp"])
+            ->assertOk();
+
+        $this->assertNull($employer->employerProfile()->first()->company_name);
+    }
 }

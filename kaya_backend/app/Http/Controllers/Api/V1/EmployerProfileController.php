@@ -142,12 +142,27 @@ class EmployerProfileController extends Controller
             return $this->fail('Employer profile not found. Use POST to create.', 404);
         }
 
-        // Use type-specific validation
+        /*
+            Partial updates, because that is what this endpoint receives.
+
+            The profile screen edits one row at a time - a description here, a
+            location there - so a request carries one field. These rules had
+            `required` on location (and on company_name and industry), which
+            made every one of those single-field saves fail with "the location
+            field is required" about a location the profile already had and the
+            user was not touching.
+
+            `sometimes` keeps the rule where it matters - a location that IS
+            sent still has to be a real one, and cannot be blanked - while
+            letting the other rows save on their own. Creation still requires
+            everything: StoreEmployerProfileRequest is unchanged, and that is
+            the place a profile has to be complete.
+        */
         $validated = match ($profile->employer_type) {
             EmployerType::COMPANY => $request->validate([
-                'company_name' => ['required', 'string', 'max:255'],
-                'industry' => ['required', 'string', 'max:255'],
-                'location' => ['required', 'string', 'max:255'],
+                'company_name' => ['sometimes', 'required', 'string', 'max:255'],
+                'industry' => ['sometimes', 'required', 'string', 'max:255'],
+                'location' => ['sometimes', 'required', 'string', 'max:255'],
                 'location_id' => ['nullable', 'exists:locations,id'],
                 'latitude' => ['nullable', 'numeric', 'between:-90,90'],
                 'longitude' => ['nullable', 'numeric', 'between:-180,180'],
@@ -155,7 +170,7 @@ class EmployerProfileController extends Controller
                 'description' => ['nullable', 'string', 'max:2000'],
             ]),
             EmployerType::INDIVIDUAL => $request->validate([
-                'location' => ['required', 'string', 'max:255'],
+                'location' => ['sometimes', 'required', 'string', 'max:255'],
                 'location_id' => ['nullable', 'exists:locations,id'],
                 'latitude' => ['nullable', 'numeric', 'between:-90,90'],
                 'longitude' => ['nullable', 'numeric', 'between:-180,180'],

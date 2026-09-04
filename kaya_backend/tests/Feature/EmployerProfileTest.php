@@ -198,7 +198,19 @@ class EmployerProfileTest extends TestCase
     }
 
     /** @test */
-    public function put_fails_for_company_without_required_fields()
+    /*
+        A partial update is allowed; a blank required field is not.
+
+        This used to assert the opposite - that changing a description without
+        also resending company_name, industry and location was rejected. That
+        was the behaviour, and it was a bug: the profile screen edits one row
+        at a time, so every single-field save failed with "the location field
+        is required" about a location nobody was touching.
+
+        The rule that matters is kept and tested below: a field that IS sent
+        still cannot be emptied.
+    */
+    public function put_allows_a_partial_update_but_refuses_a_blank_required_field()
     {
         $user = User::factory()->create(['user_type' => 'employer']);
         EmployerProfile::factory()->create([
@@ -206,13 +218,18 @@ class EmployerProfileTest extends TestCase
             'employer_type' => EmployerType::COMPANY,
         ]);
 
-        $response = $this->actingAs($user, 'sanctum')
+        $this->actingAs($user, 'sanctum')
             ->putJson('/api/v1/employer-profile', [
                 'description' => 'Only description',
-            ]);
+            ])
+            ->assertOk();
 
-        $response->assertUnprocessable()
-            ->assertJsonValidationErrors(['company_name', 'industry', 'location']);
+        $this->actingAs($user, 'sanctum')
+            ->putJson('/api/v1/employer-profile', [
+                'company_name' => '',
+            ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['company_name']);
     }
 
     /** @test */
