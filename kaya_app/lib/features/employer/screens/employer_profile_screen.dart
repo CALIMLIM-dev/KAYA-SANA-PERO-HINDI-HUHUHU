@@ -145,7 +145,8 @@ class _EmployerProfileScreenState extends State<EmployerProfileScreen> {
                               height: 64,
                               decoration: BoxDecoration(
                                 color: Colors.white.withValues(alpha: 0.15),
-                                borderRadius: BorderRadius.circular(12),
+                                // Circle, matching every other avatar.
+                                shape: BoxShape.circle,
                                 border: Border.all(
                                     color: Colors.white.withValues(alpha: 0.3),
                                     width: 2),

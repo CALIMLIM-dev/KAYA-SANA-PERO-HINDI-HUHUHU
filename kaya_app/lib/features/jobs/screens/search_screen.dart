@@ -612,6 +612,7 @@ class _SearchScreenState extends State<SearchScreen> {
       matchScore: worker.matchScore,
       distanceKm: worker.distance,
       rateLabel: worker.rateLabel,
+      imageUrl: worker.profileImageUrl,
       onTap: () => Navigator.pushNamed(context, '/worker-profile',
           arguments: {'workerId': worker.userId ?? worker.id}),
     );

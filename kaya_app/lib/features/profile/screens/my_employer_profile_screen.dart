@@ -375,7 +375,11 @@ class _MyEmployerProfileScreenState extends State<MyEmployerProfileScreen>
                           height: 68,
                           decoration: BoxDecoration(
                             color: Colors.white.withValues(alpha: 0.15),
-                            borderRadius: BorderRadius.circular(12),
+                            // Circle, like every other profile picture in
+                            // the app. A rounded square here meant an
+                            // employer looked like a different kind of thing
+                            // to a worker on screens that show both.
+                            shape: BoxShape.circle,
                             border: Border.all(
                               color: Colors.white.withValues(alpha: 0.3),
                               width: 2,

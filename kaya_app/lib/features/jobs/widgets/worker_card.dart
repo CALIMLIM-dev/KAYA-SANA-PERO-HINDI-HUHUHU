@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../../core/constants/app_colors.dart';
+import '../../../core/widgets/profile_avatar.dart';
 import '../../../core/utils/format.dart';
 
 /// Worker directory card — employer-mode Search/Home. Distinct from
@@ -19,6 +20,11 @@ class WorkerCard extends StatelessWidget {
 
   /// The servers phrasing, e.g. "P500-P800/day - Open to offers".
   final String? rateLabel;
+
+  /// The worker's photo. The card drew an initial in a rounded square and
+  /// had no field for this at all, so search results were faceless even
+  /// though the browse endpoint has always sent a resolved avatar URL.
+  final String? imageUrl;
   final VoidCallback? onTap;
 
   const WorkerCard({
@@ -34,6 +40,7 @@ class WorkerCard extends StatelessWidget {
     this.matchScore,
     this.distanceKm,
     this.rateLabel,
+    this.imageUrl,
     this.onTap,
   });
 
@@ -68,23 +75,13 @@ class WorkerCard extends StatelessWidget {
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Container(
-                  width: 44,
-                  height: 44,
-                  decoration: BoxDecoration(
-                    color: AppColors.primary.withValues(alpha: 0.08),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Center(
-                    child: Text(
-                      name.isNotEmpty ? name[0].toUpperCase() : '?',
-                      style: const TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.w700,
-                        color: AppColors.primary,
-                      ),
-                    ),
-                  ),
+                // Circle, like every other avatar. This was a rounded square
+                // with an initial in it, so the same worker looked like a
+                // different kind of thing in search and on their profile.
+                ProfileAvatar(
+                  imageUrl: imageUrl,
+                  name: name,
+                  radius: 22,
                 ),
                 const SizedBox(width: 12),
                 Expanded(
