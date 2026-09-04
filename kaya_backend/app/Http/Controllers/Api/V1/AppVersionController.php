@@ -20,6 +20,26 @@ class AppVersionController extends Controller
 {
     public function show(Request $request, ?string $version = null)
     {
+        /*
+            Switched off entirely, for a Play Store build.
+
+            Google will not list an app that installs its own updates, so this
+            reports every client as current and the app never prompts. Done
+            here rather than in the app because the builds that need it are
+            already installed and cannot be reasoned with.
+        */
+        if (! config('kaya.app.update_check', true)) {
+            return response()->json([
+                'success' => true,
+                'data' => [
+                    'supported'        => true,
+                    'update_required'  => false,
+                    'update_available' => false,
+                ],
+                'message' => 'Version checking is disabled',
+            ]);
+        }
+
         $minimum = (string) config('kaya.app.minimum_version');
         $latest  = (string) config('kaya.app.latest_version');
 

@@ -198,7 +198,11 @@ class AuthController extends Controller
             'email' => $user->email,
             'phone' => $user->phone,
             'city' => $user->city,
-            'avatar' => $user->avatar,
+            // Resolved, not the raw column: an account that uploaded a
+            // picture during setup stored it on the worker or employer
+            // profile, and users.avatar is only ever the Google photo - so
+            // this screen showed a letter to people who had a picture.
+            'avatar' => $user->resolvedAvatarUrl(),
             'is_verified' => $user->is_verified,
             /*
                 Contact verification, which the app could not see.

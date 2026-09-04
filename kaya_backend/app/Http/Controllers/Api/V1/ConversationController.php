@@ -32,12 +32,38 @@ class ConversationController extends Controller
             ->with(['job:id,title,status', // last_seen_at drives the chat's activity dot. Both sides are loaded
             // because either party may be the one being looked at.
             'employer:id,name,avatar,is_verified,last_seen_at',
-            'worker:id,name,avatar,is_verified,last_seen_at', 'latestMessage'])
+            'worker:id,name,avatar,is_verified,last_seen_at',
+            /*
+                So the inbox can show a face.
+
+                users.avatar is only the Google photo, and anybody who signed
+                up with an email put their picture on a profile instead - so
+                every row in the inbox and every chat header drew a letter.
+                Eager-loaded rather than resolved per row, which would be a
+                query per conversation.
+            */
+            'employer.workerProfile:id,user_id,profile_photo_path',
+            'employer.employerProfile:id,user_id,image_path',
+            'worker.workerProfile:id,user_id,profile_photo_path',
+            'worker.employerProfile:id,user_id,image_path',
+            'latestMessage'])
             ->withCount(['messages as unread_count' => fn ($q) => $q->where('is_read', false)->where('sender_id', '!=', $user->id)])
             ->orderByDesc('updated_at')
             ->paginate(20);
 
         $this->attachApplications($conversations->getCollection());
+
+        /*
+            The resolved picture for both sides of every thread.
+
+            Written onto the loaded user rather than into a new key, so the
+            app keeps reading `avatar` and nothing on the client has to learn
+            a second field name.
+        */
+        $conversations->getCollection()->each(function ($c) {
+            $c->employer?->setAttribute('avatar', $c->employer->resolvedAvatarUrl());
+            $c->worker?->setAttribute('avatar', $c->worker->resolvedAvatarUrl());
+        });
 
         return $this->ok($conversations);
     }

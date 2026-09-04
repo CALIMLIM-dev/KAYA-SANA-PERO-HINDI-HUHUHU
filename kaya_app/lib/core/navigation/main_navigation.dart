@@ -167,6 +167,20 @@ class _MainNavigationState extends State<MainNavigation>
       // The badge is visible from every tab, so it is refreshed regardless of
       // which one is open.
       context.read<NotificationProvider>().load(force: true);
+
+      /*
+          And on every return to the foreground, not only on a cold start.
+
+          This shell is built once per session and initState does not run
+          again, so a phone that never gets fully closed - which is most
+          phones - would only ever check for an update the first time the app
+          launched. Somebody could be days behind with the app open in front
+          of them.
+
+          VersionGate guards against stacking, so a resume while the dialog is
+          already up does nothing.
+      */
+      VersionGate.check(context);
     }
   }
 

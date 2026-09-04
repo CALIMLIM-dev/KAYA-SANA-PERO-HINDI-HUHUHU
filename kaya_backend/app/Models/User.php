@@ -198,6 +198,45 @@ class User extends Authenticatable
 
     public function workerProfile()   { return $this->hasOne(WorkerProfile::class); }
     public function employerProfile() { return $this->hasOne(EmployerProfile::class); }
+
+    /*
+        This person's picture, wherever they actually put it.
+
+        `avatar` on this table is only ever the Google photo, so anybody who
+        signed up with an email and uploaded a picture during setup had it
+        stored on their worker profile or their employer profile instead - and
+        every screen reading users.avatar showed a letter in a circle. That is
+        why a fully set-up account still appeared faceless in search, in the
+        inbox, inside a chat and on its own account screen.
+
+        Worker photo first: on a marketplace where most accounts are workers,
+        that is the picture they chose to be seen as. The employer logo next,
+        then the account photo, then nothing.
+
+        Callers that fetch many users at once must eager-load
+        `workerProfile:id,user_id,profile_photo_path` and
+        `employerProfile:id,user_id,image_path`, or this is a query per row.
+    */
+    public function resolvedAvatarUrl(): ?string
+    {
+        foreach ([
+            $this->workerProfile?->profile_photo_path,
+            $this->employerProfile?->image_path,
+            $this->avatar,
+        ] as $candidate) {
+            if (blank($candidate)) {
+                continue;
+            }
+
+            // Google avatars arrive absolute and must pass through untouched,
+            // or they become ".../storage/https://lh3.googleusercontent.com/".
+            return str_starts_with($candidate, 'http')
+                ? $candidate
+                : \Illuminate\Support\Facades\Storage::disk(config('filesystems.media'))->url($candidate);
+        }
+
+        return null;
+    }
     public function postedJobs()      { return $this->hasMany(JobPost::class, 'employer_id'); }
     public function applications()    { return $this->hasMany(Application::class, 'worker_id'); }
     public function savedJobs()       { return $this->belongsToMany(JobPost::class, 'saved_jobs', 'worker_id', 'job_id'); }

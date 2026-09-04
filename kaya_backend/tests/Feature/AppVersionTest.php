@@ -93,4 +93,20 @@ class AppVersionTest extends TestCase
             ->assertOk()
             ->assertJsonPath('data.update_required', false);
     }
+    /*
+        The Play Store off switch.
+
+        Google rejects an app that installs its own updates, so this has to be
+        disableable without shipping a build - the clients that need it are
+        already on phones.
+    */
+    public function test_the_check_can_be_switched_off_entirely(): void
+    {
+        config(["kaya.app.update_check" => false]);
+
+        $this->getJson("/api/v1/version/0.0.1")
+            ->assertOk()
+            ->assertJsonPath("data.update_required", false)
+            ->assertJsonPath("data.update_available", false);
+    }
 }

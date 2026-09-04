@@ -219,6 +219,22 @@ return [
             and changing it is an .env edit rather than a release.
         */
         'download_file_url' => env('APP_DOWNLOAD_FILE_URL'),
+
+        /*
+            The off switch, for the day this ships on Play.
+
+            Google forbids an app that downloads and installs its own updates -
+            the store owns that job, and REQUEST_INSTALL_PACKAGES on a listed
+            app is a policy rejection. Set APP_UPDATE_CHECK=false and the
+            endpoint reports every client as current, so no prompt is ever
+            shown and no download is ever attempted, without touching the app.
+
+            The permission still has to come out of the manifest before a Play
+            submission - see the note there - but this makes the behaviour
+            inert immediately, from the server, for every build already out
+            there.
+        */
+        'update_check' => filter_var(env('APP_UPDATE_CHECK', true), FILTER_VALIDATE_BOOLEAN),
     ],
 
 ];
