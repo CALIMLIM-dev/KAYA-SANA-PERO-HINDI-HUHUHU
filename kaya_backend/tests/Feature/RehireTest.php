@@ -275,4 +275,57 @@ class RehireTest extends TestCase
             ->getJson('/api/v1/past-workers')
             ->assertStatus(403);
     }
+    /*
+        An invited worker is not charged to apply.
+
+        The employer already paid to invite them and accepting costs nothing,
+        so a worker who was invited and then pressed Apply from the feed was
+        billed two barya for a connection that already existed - four barya
+        out of two wallets for one introduction.
+    */
+    public function test_an_invited_worker_applies_for_free(): void
+    {
+        $job = $this->job();
+
+        \App\Models\Invitation::create([
+            "job_id"      => $job->id,
+            "employer_id" => $this->employer->id,
+            "worker_id"   => $this->worker->id,
+            "status"      => "pending",
+        ]);
+
+        \App\Models\CreditWallet::updateOrCreate(
+            ["user_id" => $this->worker->id],
+            ["balance" => 50]
+        );
+
+        $this->actingAs($this->worker, "sanctum")
+            ->postJson("/api/v1/jobs/{$job->id}/apply")
+            ->assertStatus(201);
+
+        $this->assertSame(
+            50,
+            (int) \App\Models\CreditWallet::where("user_id", $this->worker->id)->value("balance"),
+            "An invited worker must not pay to take the job they were invited to."
+        );
+    }
+
+    public function test_a_worker_who_was_not_invited_still_pays_to_apply(): void
+    {
+        $job = $this->job();
+
+        \App\Models\CreditWallet::updateOrCreate(
+            ["user_id" => $this->worker->id],
+            ["balance" => 50]
+        );
+
+        $this->actingAs($this->worker, "sanctum")
+            ->postJson("/api/v1/jobs/{$job->id}/apply")
+            ->assertStatus(201);
+
+        $this->assertSame(
+            50 - (int) config("kaya.credits.apply"),
+            (int) \App\Models\CreditWallet::where("user_id", $this->worker->id)->value("balance")
+        );
+    }
 }

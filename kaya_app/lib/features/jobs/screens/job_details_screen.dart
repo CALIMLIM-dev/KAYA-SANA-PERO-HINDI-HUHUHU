@@ -615,6 +615,34 @@ class _JobDetailsScreenState extends State<JobDetailsScreen> {
         style: _actionStyle(backgroundColor: color.withValues(alpha: 0.15)),
         child: Text(label, style: TextStyle(color: color, fontWeight: FontWeight.w600)),
       );
+    } else if (job.isInvited) {
+      /*
+          Invited: taking the job is free, and the button has to say so.
+
+          The employer already paid to invite this worker, and accepting an
+          invitation has never cost anything - but this screen knew nothing
+          about the invitation, so it drew the ordinary "Apply · 2 Barya"
+          button and took the money. Two wallets paid four barya for one
+          introduction and the worker's half bought nothing.
+
+          The server now refuses that charge whatever the app sends. This is
+          so nobody is asked for it.
+      */
+      button = ElevatedButton(
+        onPressed: _isApplying ? null : () => _apply(job),
+        style: _actionStyle(backgroundColor: AppColors.success),
+        child: _isApplying
+            ? const SizedBox(
+                height: 20,
+                width: 20,
+                child:
+                    CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+              )
+            : const Text(
+                'Accept invitation  ·  Free',
+                style: TextStyle(fontWeight: FontWeight.w700),
+              ),
+      );
     } else {
       button = ElevatedButton(
         onPressed: _isApplying ? null : () => _apply(job),

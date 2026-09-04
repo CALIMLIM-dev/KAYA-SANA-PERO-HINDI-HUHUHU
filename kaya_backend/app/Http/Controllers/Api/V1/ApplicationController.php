@@ -45,6 +45,46 @@ class ApplicationController extends Controller
         }
 
         /*
+            An invited worker does not pay to apply.
+
+            The employer already paid to invite them, and accepting that
+            invitation costs the worker nothing - so a worker who was invited,
+            then found the job in the feed and pressed Apply, was charged two
+            barya for a connection that was already made and already paid for.
+            Four barya left two wallets for one introduction, and the worker's
+            two bought them nothing they did not already have.
+
+            Handled here rather than only in the app, because the app can be
+            out of date and this is money. The invitation is accepted exactly
+            as the accept endpoint would, which also moves the job to
+            in_progress - the outcome the worker was reaching for.
+        */
+        $invitation = \App\Models\Invitation::where('job_id', $job->id)
+            ->where('worker_id', $user->id)
+            ->where('status', 'pending')
+            ->first();
+
+        if ($invitation !== null) {
+            $invitation->update(['status' => 'accepted']);
+
+            $application = Application::create([
+                'job_id'    => $job->id,
+                'worker_id' => $user->id,
+                'status'    => 'accepted',
+            ]);
+
+            if ($job->status === 'open') {
+                $job->update(['status' => 'in_progress']);
+            }
+
+            return $this->ok(
+                $application,
+                'You were invited to this job, so applying was free.',
+                201
+            );
+        }
+
+        /*
             Charged, and the application written inside the same transaction.
 
             The check above gives the friendly answer for the common case, but

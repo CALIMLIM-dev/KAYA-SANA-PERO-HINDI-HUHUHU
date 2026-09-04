@@ -42,6 +42,13 @@ class Job {
   final int? employerId;
   final String? employerAvatar;
   final bool hasApplied;
+
+  /// A pending invitation from this employer for this job.
+  ///
+  /// The employer already paid to invite, so taking the job costs the worker
+  /// nothing - the server refuses to charge for it either way, and this is
+  /// what stops the button asking for barya it will not take.
+  final bool isInvited;
   final bool isSaved;
   final bool isOwnJob;
   final List<String> photoUrls;
@@ -116,6 +123,7 @@ class Job {
     this.employerId,
     this.employerAvatar,
     this.hasApplied = false,
+    this.isInvited = false,
     this.isSaved = false,
     this.isOwnJob = false,
     this.photoUrls = const [],
@@ -193,6 +201,7 @@ class Job {
       employerId: (employerInfo?['employer_id'] ?? json['employer_id']) as int?,
       employerAvatar: employerInfo?['profile_photo_path'] as String?,
       hasApplied: json['has_applied'] as bool? ?? (status != null),
+      isInvited: json['is_invited'] as bool? ?? false,
       applicationStatus: status == null
           ? null
           : ApplicationStatus.values.firstWhere(

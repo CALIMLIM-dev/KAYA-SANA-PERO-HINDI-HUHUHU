@@ -541,6 +541,21 @@ class JobController extends Controller
             ->where('worker_id', $user->id)
             ->latest()
             ->value('status');
+        /*
+            Whether this worker was invited to this job.
+
+            The employer already paid to invite them, so taking it costs the
+            worker nothing - and without this the app had no way to know, drew
+            the ordinary "Apply for 2 Barya" button, and charged for a
+            connection that was already made and already paid for. The server
+            refuses to take that money now; this is what stops the app asking
+            for it in the first place.
+        */
+        $job->is_invited = \App\Models\Invitation::where('job_id', $job->id)
+            ->where('worker_id', $user->id)
+            ->where('status', 'pending')
+            ->exists();
+
         $job->is_saved = $user->savedJobs()->where('job_id', $job->id)->exists();
         $job->is_own_job = $job->employer_id === $user->id;
 
