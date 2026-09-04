@@ -7,6 +7,7 @@ import 'package:dio/dio.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/widgets/form_sheet.dart';
 import '../../../core/utils/pin_location_match.dart';
+import '../../../core/utils/name_parts.dart';
 import '../../../data/models/location_model.dart';
 import '../../../providers/auth_provider.dart';
 import '../../../shared/widgets/location_picker_field.dart';
@@ -85,8 +86,12 @@ class _WorkerSetupFlowScreenState extends State<WorkerSetupFlowScreen> {
     final user = context.read<AuthProvider>().user;
 
     if (user?['name_locked'] == true) return true;
+    if (user?['is_verified'] == true) return true;
 
-    return user?['is_verified'] == true;
+    // The flag is what the server answers; a name already on the account is
+    // the same answer, and is there even when talking to a server that has
+    // not been updated yet.
+    return _accountName.isNotEmpty;
   }
 
   Widget _nameField(
@@ -186,14 +191,18 @@ class _WorkerSetupFlowScreenState extends State<WorkerSetupFlowScreen> {
       // already has is filled in, and anything typed while these awaits
       // ran is left alone.
       if (_firstNameController.text.isEmpty) {
+        final user = authProvider.user;
+        // The parts as sent; split from the composed name when they are not.
+        final fallback = NameParts.of(user?['name'] as String?);
+
         _firstNameController.text =
-            (authProvider.user?['first_name'] as String?) ?? '';
+            (user?['first_name'] as String?) ?? fallback.first ?? '';
         _middleNameController.text =
-            (authProvider.user?['middle_name'] as String?) ?? '';
+            (user?['middle_name'] as String?) ?? fallback.middle ?? '';
         _lastNameController.text =
-            (authProvider.user?['last_name'] as String?) ?? '';
+            (user?['last_name'] as String?) ?? fallback.last ?? '';
         _suffixController.text =
-            (authProvider.user?['suffix'] as String?) ?? '';
+            (user?['suffix'] as String?) ?? fallback.suffix ?? '';
       }
 
       if (_locationController.text.isEmpty) {

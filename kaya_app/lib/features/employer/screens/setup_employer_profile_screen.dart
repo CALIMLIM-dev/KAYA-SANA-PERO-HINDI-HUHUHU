@@ -7,6 +7,7 @@ import '../../../data/models/location_model.dart';
 import '../../../shared/widgets/location_picker_field.dart';
 import '../../../core/constants/employer_type.dart';
 import '../../../core/navigation/app_router.dart';
+import '../../../core/utils/name_parts.dart';
 import '../../../providers/auth_provider.dart';
 import '../../../providers/employer_profile_provider.dart';
 import '../../../providers/verification_provider.dart';
@@ -55,8 +56,11 @@ class _SetupEmployerProfileScreenState extends State<SetupEmployerProfileScreen>
     final user = context.read<AuthProvider>().user;
 
     if (user?['name_locked'] == true) return true;
+    if (user?['is_verified'] == true) return true;
 
-    return user?['is_verified'] == true;
+    // A name already on the account is the same answer as the flag, and is
+    // there even against a server that has not been updated yet.
+    return ((user?['name'] as String?) ?? '').trim().isNotEmpty;
   }
   final _companyNameController = TextEditingController();
   final _industryController = TextEditingController();
@@ -144,10 +148,17 @@ class _SetupEmployerProfileScreenState extends State<SetupEmployerProfileScreen>
       // Only prefill if the user hasn't started typing — these awaits take a
       // moment, and overwriting mid-typing made the entered name disappear.
       if (_firstNameController.text.isEmpty) {
-        _firstNameController.text = auth.user?['first_name'] as String? ?? '';
-        _middleNameController.text = auth.user?['middle_name'] as String? ?? '';
-        _lastNameController.text = auth.user?['last_name'] as String? ?? '';
-        _suffixController.text = auth.user?['suffix'] as String? ?? '';
+        // The parts as sent; split from the composed name when they are not.
+        final fallback = NameParts.of(auth.user?['name'] as String?);
+
+        _firstNameController.text =
+            auth.user?['first_name'] as String? ?? fallback.first ?? '';
+        _middleNameController.text =
+            auth.user?['middle_name'] as String? ?? fallback.middle ?? '';
+        _lastNameController.text =
+            auth.user?['last_name'] as String? ?? fallback.last ?? '';
+        _suffixController.text =
+            auth.user?['suffix'] as String? ?? fallback.suffix ?? '';
       }
 
       /*

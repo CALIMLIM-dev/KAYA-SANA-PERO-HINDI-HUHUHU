@@ -155,29 +155,34 @@ class ProfileScreen extends StatelessWidget {
                 children: [
                   _SectionHeader(title: 'Account'),
                   const SizedBox(height: 12),
-                  // Both sides are always listed, whether or not the account
-                  // has them. That is the hybrid model made visible: an
-                  // account is not "a worker" or "an employer", it simply has
-                  // or hasn't set each side up, and either can be added at any
-                  // time. Hiding the missing one would leave a user with no
-                  // way to discover they could hire as well as work.
+                  // Both sides are listed whether or not the account has
+                  // them. That is the hybrid model made visible: an account is
+                  // not "a worker" or "an employer", it simply has or hasn't
+                  // set each side up, and either can be added at any time.
+                  // Hiding the missing one would leave a user with no way to
+                  // discover they could hire as well as work.
                   //
-                  // Neither branches on existence here — the routers decide.
-                  _MenuItem(
-                    icon: Icons.person_outline,
-                    title: 'Worker Profile',
-                    // Only when there is something to prompt. "Edit your
-                    // skills, experience and rate" under "Worker Profile" was
-                    // saying the same thing twice.
-                    subtitle: auth.workerProfileExists
-                        ? null
-                        : 'Set this up to apply for jobs',
-                    trailing: auth.workerProfileExists
-                        ? null
-                        : const _AddChip(),
-                    onTap: () =>
-                        Navigator.pushNamed(context, '/my-worker-profile'),
-                  ),
+                  // The exception is a business account, which cannot have a
+                  // worker profile at all. Offering "Set this up to apply for
+                  // jobs" with an Add chip to somebody the server will refuse
+                  // is a row that exists to disappoint. An account that
+                  // already holds both predates the rule and keeps its row.
+                  if (auth.workerProfileExists || auth.canCreateWorkerProfile)
+                    _MenuItem(
+                      icon: Icons.person_outline,
+                      title: 'Worker Profile',
+                      // Only when there is something to prompt. "Edit your
+                      // skills, experience and rate" under "Worker Profile"
+                      // was saying the same thing twice.
+                      subtitle: auth.workerProfileExists
+                          ? null
+                          : 'Set this up to apply for jobs',
+                      trailing: auth.workerProfileExists
+                          ? null
+                          : const _AddChip(),
+                      onTap: () =>
+                          Navigator.pushNamed(context, '/my-worker-profile'),
+                    ),
                   _MenuItem(
                     icon: Icons.business_outlined,
                     title: 'Employer Profile',
