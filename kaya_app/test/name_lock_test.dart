@@ -128,4 +128,25 @@ void main() {
           reason: '$label must not accept typing on a settled account');
     }
   });
+  /*
+      A worker account is not offered the business option at all.
+
+      The server has always refused it, but the option was selectable, so the
+      way to find out was to fill in the whole flow and be turned down on the
+      last step.
+  */
+  testWidgets('a worker account cannot pick Company', (tester) async {
+    await tester
+        .pumpWidget(wrap(const SetupEmployerProfileScreen(), lockedAccount()));
+    await tester.pump();
+
+    await tester.tapAt(tester.getCenter(find.text('Company').first));
+    await tester.pump();
+    await tester.tapAt(tester.getCenter(find.text('Next').last));
+    await tester.pumpAndSettle(const Duration(milliseconds: 600));
+
+    // Still on the first step, with the reason on screen.
+    expect(find.textContaining('stays Individual'), findsOneWidget);
+    expect(find.text('Last Name *'), findsNothing);
+  });
 }

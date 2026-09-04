@@ -188,6 +188,25 @@ class EmployerProfileController extends Controller
             ]),
         };
 
+        /*
+            The same exclusivity rule, on the way in through this endpoint.
+
+            Creation checks it, and this did not. A profile made before
+            employer_type existed still accepts one here, so a worker account
+            holding one of those could set it to company and end up in exactly
+            the state the other guard refuses to create - a verified-business
+            badge on somebody who is also a tradesperson.
+        */
+        if (($validated['employer_type'] ?? null) === EmployerType::COMPANY->value
+            && $user->isWorker()) {
+            return $this->fail(
+                'This account has a worker profile, so the employer side has '
+                . 'to stay Individual. Business accounts cannot also look for '
+                . 'work.',
+                422
+            );
+        }
+
         // Update profile
         $profile->update($validated);
 

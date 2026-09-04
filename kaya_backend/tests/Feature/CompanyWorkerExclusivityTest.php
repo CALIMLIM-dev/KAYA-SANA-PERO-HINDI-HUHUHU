@@ -107,4 +107,64 @@ class CompanyWorkerExclusivityTest extends TestCase
 
         $this->assertNotNull(WorkerProfile::where('user_id', $user->id)->first());
     }
+    /*
+        The other direction, which had a gap of its own.
+
+        Creating an employer profile as a company is refused for a worker
+        account. Editing one was not: a profile made before employer_type
+        existed accepts a type through the update endpoint, so the switch this
+        rule exists to prevent could be made one PATCH later.
+    */
+    public function test_a_worker_cannot_create_a_company_employer_profile(): void
+    {
+        $user = User::factory()->create(['is_verified' => true]);
+        WorkerProfile::create(['user_id' => $user->id]);
+
+        $this->actingAs($user, 'sanctum')
+            ->postJson('/api/v1/employer-profile', [
+                'employer_type' => 'company',
+                'company_name'  => 'Santiago Construction',
+                'industry'      => 'Construction',
+                'location'      => 'Urdaneta City',
+            ])
+            ->assertStatus(422);
+
+        $this->assertNull(EmployerProfile::where('user_id', $user->id)->first());
+    }
+
+    public function test_a_worker_cannot_switch_an_old_profile_to_company(): void
+    {
+        $user = User::factory()->create(['is_verified' => true]);
+        WorkerProfile::create(['user_id' => $user->id]);
+
+        // A profile from before employer_type existed.
+        $profile = EmployerProfile::create([
+            'user_id'  => $user->id,
+            'location' => 'Urdaneta City',
+        ]);
+        $profile->forceFill(['employer_type' => null])->save();
+
+        $this->actingAs($user, 'sanctum')
+            ->putJson('/api/v1/employer-profile', [
+                'employer_type' => 'company',
+                'company_name'  => 'Santiago Construction',
+                'location'      => 'Urdaneta City',
+            ])
+            ->assertStatus(422);
+
+        $this->assertNull($profile->fresh()->employer_type);
+    }
+
+    public function test_a_worker_may_still_hire_as_an_individual(): void
+    {
+        $user = User::factory()->create(['is_verified' => true]);
+        WorkerProfile::create(['user_id' => $user->id]);
+
+        $this->actingAs($user, 'sanctum')
+            ->postJson('/api/v1/employer-profile', [
+                'employer_type' => 'individual',
+                'location'      => 'Urdaneta City',
+            ])
+            ->assertStatus(201);
+    }
 }

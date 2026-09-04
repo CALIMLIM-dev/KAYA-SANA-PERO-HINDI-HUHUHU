@@ -555,6 +555,23 @@ class _SetupEmployerProfileScreenState extends State<SetupEmployerProfileScreen>
               ],
             ),
           ),
+          /*
+              Says so here, not at Finish.
+
+              A worker account cannot register as a business - the server
+              refuses it - but the option was still selectable, so the way to
+              find out was to fill in four steps, upload a photo and an ID,
+              and be turned down on the last one.
+          */
+          if (_workerAccount) ...[
+            const SizedBox(height: 10),
+            const Text(
+              'Your account has a worker profile, so the employer side stays '
+              'Individual. A registered business does not also look for work.',
+              style: TextStyle(
+                  fontSize: 12, height: 1.4, color: AppColors.neutral600),
+            ),
+          ],
           if (_selectedType != null) ...[
             // The panel that used to sit here restated the choice just made
             // and then listed the fields the next screen asks for anyway.
@@ -1155,16 +1172,23 @@ class _SetupEmployerProfileScreenState extends State<SetupEmployerProfileScreen>
     );
   }
 
+  /// A worker profile on the account rules out registering as a business.
+  bool get _workerAccount =>
+      context.watch<AuthProvider>().workerProfileExists;
+
   Widget _buildTypeToggle(EmployerType type) {
     final isSelected = _selectedType == type;
+    final available = type != EmployerType.company || !_workerAccount;
 
     return GestureDetector(
-      onTap: () {
-        setState(() {
-          _selectedType = type;
-          if (_currentStep >= _totalSteps) _currentStep = _totalSteps - 1;
-        });
-      },
+      onTap: !available
+          ? null
+          : () {
+              setState(() {
+                _selectedType = type;
+                if (_currentStep >= _totalSteps) _currentStep = _totalSteps - 1;
+              });
+            },
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
         padding: const EdgeInsets.symmetric(vertical: 16),
@@ -1177,7 +1201,9 @@ class _SetupEmployerProfileScreenState extends State<SetupEmployerProfileScreen>
           children: [
             Icon(
               type.icon,
-              color: isSelected ? Colors.white : AppColors.neutral600,
+              color: isSelected
+                  ? Colors.white
+                  : (available ? AppColors.neutral600 : AppColors.neutral400),
               size: 20,
             ),
             const SizedBox(width: 8),
@@ -1186,7 +1212,9 @@ class _SetupEmployerProfileScreenState extends State<SetupEmployerProfileScreen>
               style: TextStyle(
                 fontSize: 15,
                 fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
-                color: isSelected ? Colors.white : AppColors.neutral600,
+                color: isSelected
+                    ? Colors.white
+                    : (available ? AppColors.neutral600 : AppColors.neutral400),
               ),
             ),
           ],
