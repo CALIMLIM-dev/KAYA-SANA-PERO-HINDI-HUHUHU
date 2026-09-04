@@ -3,6 +3,8 @@ import 'package:provider/provider.dart';
 
 import '../../../core/widgets/app_toast.dart';
 import '../../../providers/application_provider.dart';
+import '../../../providers/app_mode_provider.dart';
+import '../../../providers/job_provider.dart';
 
 /// Records one side's confirmation that the work is finished.
 ///
@@ -62,5 +64,42 @@ Future<void> confirmCompletion(
     type: ToastType.success,
   );
 
+  /*
+      Both lists, from the server, before the caller's own refresh.
+
+      markComplete merges the server's row into ApplicationProvider, which is
+      the worker's list. The employer's card is not built from that at all - it
+      reads JobProvider's `hire` - so confirming from the employer side updated
+      a list that side never renders, and Mark as complete sat there until the
+      app was restarted.
+
+      Refreshed here rather than left to each call site, because there are
+      three of them across two screens and the one that was wrong was wrong
+      silently. A completion changes both sides of the same job by definition,
+      so both are refetched whoever pressed the button.
+  */
+  await refreshActivity(context);
+  if (!context.mounted) return;
+
   await onChanged();
+}
+
+/*
+    Refetches whichever activity lists this account actually has.
+
+    Completing and reviewing both change a row that two screens render from two
+    different providers - the worker reads ApplicationProvider, the employer
+    reads JobProvider - and every call site was left to remember that on its
+    own. The ones that forgot left a button on screen for something that had
+    already happened, which is how Mark as complete and Review both survived
+    being pressed and needed the app restarted.
+*/
+Future<void> refreshActivity(BuildContext context) async {
+  final appMode = context.read<AppModeProvider>();
+
+  await Future.wait([
+    if (appMode.hasWorkerProfile)
+      context.read<ApplicationProvider>().fetchMyApplications(),
+    if (appMode.hasEmployerProfile) context.read<JobProvider>().fetchMyJobs(),
+  ]);
 }

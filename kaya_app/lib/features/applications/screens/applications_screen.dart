@@ -871,7 +871,12 @@ class _ApplicationCard extends StatelessWidget {
                       'jobTitle': (job['title'] ?? 'this job').toString(),
                     },
                   );
-                  if (done == true) await onChanged();
+                  if (done == true) {
+                    // Refetched here too: onChanged alone was leaving the
+                    // Review button on a job that had just been reviewed.
+                    if (context.mounted) await refreshActivity(context);
+                    if (context.mounted) await onChanged();
+                  }
                 },
       onTap: job == null
           ? null
@@ -1008,7 +1013,12 @@ class _JobPostCard extends StatelessWidget {
                       'jobTitle': (job['title'] ?? 'this job').toString(),
                     },
                   );
-                  if (done == true) await onChanged();
+                  if (done == true) {
+                    // Refetched here too: onChanged alone was leaving the
+                    // Review button on a job that had just been reviewed.
+                    if (context.mounted) await refreshActivity(context);
+                    if (context.mounted) await onChanged();
+                  }
                 },
       onTap: () => Navigator.pushNamed(context, '/view-applicants',
           arguments: {'jobId': job['id']}),

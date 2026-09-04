@@ -55,6 +55,34 @@ class InvitationController extends Controller
             of the three cases it is, because "already invited" and "they said
             no" call for very different things from the employer.
         */
+        /*
+            They already applied - there is nothing to invite them to.
+
+            Nothing checked this, so an employer could pay two barya to invite
+            somebody who was already sitting in their applicant list waiting
+            for a yes. That is money for an introduction that had already been
+            made, from the other direction, and it left the job holding a
+            pending application and a pending invitation between the same two
+            people with no way to tell which one mattered.
+
+            Refused rather than silently charged, and worded so the employer
+            knows the thing they wanted is one tap away in the applicants
+            list.
+        */
+        $application = \App\Models\Application::where('job_id', $job->id)
+            ->where('worker_id', $worker->id)
+            ->whereNotIn('status', ['withdrawn', 'rejected'])
+            ->first();
+
+        if ($application !== null) {
+            return $this->fail(
+                $application->status === 'pending'
+                    ? $worker->name . ' has already applied to this job. Accept them from your applicants instead.'
+                    : $worker->name . ' is already on this job.',
+                422
+            );
+        }
+
         $existing = Invitation::where('job_id', $job->id)
             ->where('employer_id', $user->id)
             ->where('worker_id', $worker->id)
