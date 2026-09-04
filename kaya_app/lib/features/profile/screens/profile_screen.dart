@@ -14,6 +14,7 @@ import '../../../providers/invitation_provider.dart';
 import '../../../providers/messaging_provider.dart';
 import '../../../providers/worker_profile_provider.dart';
 import '../../../providers/employer_profile_provider.dart';
+import '../../../core/widgets/profile_avatar.dart';
 import '../../legal/screens/legal_screen.dart';
 
 /// Profile / Account Screen
@@ -75,10 +76,15 @@ class ProfileScreen extends StatelessWidget {
                                 border: Border.all(
                                     color: Colors.white, width: 4),
                               ),
-                              child: const CircleAvatar(
-                                backgroundColor: AppColors.primaryLight,
-                                child: Icon(Icons.person,
-                                    size: 50, color: Colors.white),
+                              // Was a hardcoded person icon, so the
+                              // account picture never appeared on the one
+                              // screen called "My Profile".
+                              child: ProfileAvatar(
+                                imageUrl: auth.user?['avatar'] as String?,
+                                name: userName,
+                                radius: 46,
+                                background: AppColors.primaryLight,
+                                foreground: Colors.white,
                               ),
                             ),
                             if (isVerified)

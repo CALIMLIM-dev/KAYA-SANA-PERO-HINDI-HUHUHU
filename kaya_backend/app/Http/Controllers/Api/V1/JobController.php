@@ -28,7 +28,7 @@ class JobController extends Controller
         // `location` is loaded for JobMatchService's proximity scoring — it
         // falls back to the town centroid when a row has no precise pin, and
         // deliberately won't lazy-load (that would be a query per job).
-        $query = JobPost::with(['employer:id,name,avatar,is_verified', 'category', 'skills', 'psgcLocation'])
+        $query = JobPost::with(['employer:id,name,avatar,is_verified', 'employer.employerProfile:id,user_id,image_path', 'category', 'skills', 'psgcLocation'])
             ->where('status', 'open');
 
         /*
@@ -117,6 +117,17 @@ class JobController extends Controller
         $profile?->load(['skills', 'psgcLocation']);
 
         $decorate = function (JobPost $job) use ($profile) {
+            /*
+                The employer's picture, on every card in the feed.
+
+                Set before the profile check below, deliberately: a signed-in
+                worker with no profile yet still sees this list, and the face
+                on a job card has nothing to do with how well it matches them.
+                Putting it after the early return meant the whole feed was
+                faceless for exactly the people seeing it for the first time.
+            */
+            $job->employer_avatar = $this->employerAvatarUrl($job->employer);
+
             if (!$profile) return $job;
 
             $match = \App\Services\JobMatchService::score($job, $profile);
@@ -498,6 +509,43 @@ class JobController extends Controller
         return $this->ok($jobs);
     }
 
+    /*
+        One employer picture, resolved the same way everywhere.
+
+        Three places used to answer this differently - the job feed sent
+        users.avatar, the job detail sent users.avatar under another key, and
+        the public employer profile read image_path - so the same employer
+        could have a face on one screen and a grey initial on the next.
+
+        Logo first because a company that uploaded one means it; the account
+        picture second so an individual householder who never touched the
+        setting still has a face.
+    */
+    private function employerAvatarUrl(?\App\Models\User $employer): ?string
+    {
+        if ($employer === null) {
+            return null;
+        }
+
+        $logo = $employer->employerProfile?->image_path;
+
+        if (filled($logo)) {
+            return \Illuminate\Support\Facades\Storage::disk(config('filesystems.media'))->url($logo);
+        }
+
+        // Google avatars arrive absolute and must pass through untouched, or
+        // they become ".../storage/https://lh3.googleusercontent.com/...".
+        $avatar = $employer->avatar;
+
+        if (blank($avatar)) {
+            return null;
+        }
+
+        return str_starts_with($avatar, 'http')
+            ? $avatar
+            : \Illuminate\Support\Facades\Storage::disk(config('filesystems.media'))->url($avatar);
+    }
+
     public function show(Request $request, JobPost $job)
     {
         /*
@@ -523,12 +571,29 @@ class JobController extends Controller
             }
         }
 
-        $job->load(['employer:id,name,avatar,is_verified', 'category', 'skills', 'psgcLocation']);
+        $job->load([
+            'employer:id,name,avatar,is_verified',
+            'employer.employerProfile:id,user_id,company_name,image_path',
+            'category',
+            'skills',
+            'psgcLocation',
+        ]);
+
         $job->employer_information = [
             'employer_id'         => $job->employer_id,
             'name'                => $job->employer->name,
             'verification_status' => $job->employer->is_verified,
-            'profile_photo_path'  => $job->employer->avatar,
+            /*
+                The logo if there is one, otherwise the account picture.
+
+                This sent users.avatar alone, which is only ever the Google or
+                account photo - so an employer who uploaded a picture during
+                setup, which is stored on the employer profile as image_path,
+                showed nothing at all on their own job posts. The same
+                fallback the public employer profile uses, so a job card and
+                that profile can no longer disagree about somebody's face.
+            */
+            'profile_photo_path'  => $this->employerAvatarUrl($job->employer),
         ];
 
         $user = $request->user();

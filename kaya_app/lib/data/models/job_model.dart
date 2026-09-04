@@ -199,7 +199,17 @@ class Job {
               .toList() ??
           const [],
       employerId: (employerInfo?['employer_id'] ?? json['employer_id']) as int?,
-      employerAvatar: employerInfo?['profile_photo_path'] as String?,
+      /*
+          Three shapes, one field.
+
+          The detail endpoint nests it under employer_information as
+          profile_photo_path, the feed sends employer_avatar alongside the
+          job, and the embedded employer relation carries a plain avatar.
+          Reading only the first meant every card in the feed was faceless.
+      */
+      employerAvatar: (employerInfo?['profile_photo_path'] ??
+          json['employer_avatar'] ??
+          employer?['avatar']) as String?,
       hasApplied: json['has_applied'] as bool? ?? (status != null),
       isInvited: json['is_invited'] as bool? ?? false,
       applicationStatus: status == null

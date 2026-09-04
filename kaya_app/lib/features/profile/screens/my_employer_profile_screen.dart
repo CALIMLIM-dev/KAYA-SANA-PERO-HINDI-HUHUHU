@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/widgets/app_toast.dart';
 import '../../../core/widgets/verification_card.dart';
+import '../../../core/widgets/profile_avatar.dart';
 import '../../../data/models/employer_profile_model.dart';
 import '../../../providers/auth_provider.dart';
 import '../../../providers/employer_profile_provider.dart';
@@ -380,11 +381,22 @@ class _MyEmployerProfileScreenState extends State<MyEmployerProfileScreen>
                               width: 2,
                             ),
                           ),
-                          child: _hasPhoto
-                              ? const Icon(Icons.business,
-                                  color: Colors.white, size: 32)
-                              : const Icon(Icons.camera_alt,
-                                  color: Colors.white54, size: 24),
+                          /*
+                              The photo, which this never drew.
+
+                              _hasPhoto chose between a business icon and a
+                              camera icon, so uploading one changed which
+                              placeholder you got and nothing else - the
+                              image was on the server the whole time.
+                          */
+                          child: ProfileAvatar(
+                            imageUrl: _profile?.imageUrl,
+                            name: _name,
+                            radius: 32,
+                            fallbackIcon: Icons.camera_alt,
+                            background: Colors.transparent,
+                            foreground: Colors.white70,
+                          ),
                         ),
                         if (!_hasPhoto)
                           Positioned(

@@ -10,6 +10,7 @@ import '../../../core/constants/credits.dart';
 import '../../../core/navigation/app_router.dart';
 import '../../../core/widgets/app_toast.dart';
 import '../../../core/widgets/verify_gate.dart';
+import '../../../core/widgets/profile_avatar.dart';
 import '../../../providers/credits_provider.dart';
 
 /// Job Details — a single real job, fetched via GET /jobs/{id}.
@@ -267,14 +268,13 @@ class _JobDetailsScreenState extends State<JobDetailsScreen> {
               borderRadius: BorderRadius.circular(12),
               child: Row(
                 children: [
-                  CircleAvatar(
+                  // The employer photo, which the model has parsed all
+                  // along and no screen ever drew.
+                  ProfileAvatar(
+                    imageUrl: job.employerAvatar,
+                    name: job.company,
                     radius: 24,
-                    backgroundColor: AppColors.primary.withValues(alpha: 0.1),
-                    child: Text(
-                      job.company.isNotEmpty ? job.company[0].toUpperCase() : '?',
-                      style: const TextStyle(
-                          fontWeight: FontWeight.bold, color: AppColors.primary),
-                    ),
+                    fallbackIcon: Icons.business,
                   ),
                   const SizedBox(width: 12),
                   Expanded(

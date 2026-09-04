@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 
 import '../../../core/constants/app_colors.dart';
 import '../../../core/widgets/badge_strip.dart';
+import '../../../core/widgets/profile_avatar.dart';
 import '../../../core/widgets/work_record.dart';
 import '../../../providers/employer_profile_provider.dart';
 
@@ -166,19 +167,14 @@ class _EmployerProfileScreenState extends State<EmployerProfileScreen> {
                                   rather than a building.
                               */
                               clipBehavior: Clip.antiAlias,
-                              child: employerImage.isEmpty
-                                  ? const Icon(Icons.business,
-                                      color: Colors.white, size: 32)
-                                  : Image.network(
-                                      employerImage,
-                                      fit: BoxFit.cover,
-                                      // A broken or slow URL must not leave a
-                                      // hole where the identity should be.
-                                      errorBuilder: (_, _, _) => const Icon(
-                                          Icons.business,
-                                          color: Colors.white,
-                                          size: 32),
-                                    ),
+                              child: ProfileAvatar(
+                                imageUrl: employerImage,
+                                name: name,
+                                radius: 32,
+                                fallbackIcon: Icons.business,
+                                background: Colors.transparent,
+                                foreground: Colors.white,
+                              ),
                             ),
                             const SizedBox(width: 14),
                             Expanded(
