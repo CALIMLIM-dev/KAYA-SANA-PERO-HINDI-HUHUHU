@@ -482,21 +482,43 @@ class _ManageJobsScreenState extends State<ManageJobsScreen>
                 SizedBox(
                   width: double.infinity,
                   child: OutlinedButton.icon(
-                    onPressed: () => hire == null
-                        ? Navigator.pushNamed(context, '/view-applicants',
-                            arguments: {'jobId': jobId})
-                        : Navigator.pushNamed(
-                            context,
-                            '/leave-review',
-                            arguments: {
-                              'revieweeId': hire['worker_id'],
-                              'revieweeName':
-                                  (hire['worker_name'] ?? 'Worker').toString(),
-                              'revieweeRole': 'worker',
-                              'jobId': jobId,
-                              'jobTitle': title,
-                            },
-                          ),
+                    /*
+                        Awaited, and refreshed on a real submit.
+
+                        This pushed and forgot, so coming back from a review
+                        left the Review button exactly where it was - the
+                        submit had gone through and nothing here asked the
+                        server again. It could be pressed a second time, which
+                        the server refuses, so the only way out was restarting
+                        the app.
+                    */
+                    onPressed: () async {
+                      if (hire == null) {
+                        await Navigator.pushNamed(context, '/view-applicants',
+                            arguments: {'jobId': jobId});
+                        if (mounted) {
+                          await context.read<JobProvider>().fetchMyJobs();
+                        }
+                        return;
+                      }
+
+                      final done = await Navigator.pushNamed(
+                        context,
+                        '/leave-review',
+                        arguments: {
+                          'revieweeId': hire['worker_id'],
+                          'revieweeName':
+                              (hire['worker_name'] ?? 'Worker').toString(),
+                          'revieweeRole': 'worker',
+                          'jobId': jobId,
+                          'jobTitle': title,
+                        },
+                      );
+
+                      if (done == true && mounted) {
+                        await context.read<JobProvider>().fetchMyJobs();
+                      }
+                    },
                     icon: const Icon(Icons.star_outline, size: 18),
                     label: Text(hire == null
                         ? 'View applicants to review'
@@ -660,6 +682,24 @@ class _ManageJobsScreenState extends State<ManageJobsScreen>
               Navigator.pop(context);
               final provider = context.read<JobProvider>();
               final ok = await provider.changeStatus(jobId, 'completed');
+
+              /*
+                  Refetched, or the button stays.
+
+                  changeStatus records the employer's half and leaves the job
+                  in progress, which is correct - but the card decides whether
+                  to draw Mark Complete from hire['employer_completed_at'],
+                  and nothing here asked the server for the new value. So the
+                  toast said "waiting for the worker to confirm" while the
+                  button that had just been pressed sat underneath it,
+                  unchanged, until the app was restarted.
+
+                  My Activity's copy of this card refreshes; this one never
+                  did. Same two-screens-one-card drift that lost the Message
+                  button and the button colours here.
+              */
+              if (ok) await provider.fetchMyJobs();
+
               if (!mounted) return;
 
               /*
