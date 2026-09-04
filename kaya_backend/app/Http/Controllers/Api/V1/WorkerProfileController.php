@@ -113,13 +113,50 @@ class WorkerProfileController extends Controller
             disagree - and the plain `name` write is skipped when parts are
             present, or it would be overwritten a moment later anyway.
         */
+        /*
+            A verified account cannot rename itself here either.
+
+            AuthController@updateMe refuses this, for a reason written out in
+            full there: verification means an administrator matched a name to
+            a government ID, so letting the name change afterwards leaves the
+            badge vouching for somebody nobody checked.
+
+            But this is a second endpoint that writes the same four columns,
+            and it had no such check - so the whole lock came off simply by
+            saving a worker profile. Anyone verified could set up the other
+            side of their account under a different name and keep the tick.
+
+            Compared on the composed result rather than field by field, so
+            fixing a spelling that produces the same display name is not
+            treated as a rename.
+        */
+        $sentParts = $request->hasAny(['first_name', 'middle_name', 'last_name', 'suffix']);
+
+        if ($user->is_verified && ($sentParts || $request->filled('name'))) {
+            $proposed = $sentParts
+                ? \App\Models\User::composeName(
+                    $request->input('first_name', $user->first_name),
+                    $request->input('middle_name', $user->middle_name),
+                    $request->input('last_name', $user->last_name),
+                    $request->input('suffix', $user->suffix),
+                )
+                : $request->input('name');
+
+            if (trim((string) $proposed) !== trim((string) $user->name)) {
+                return response()->json([
+                    'success' => false,
+                    'data' => null,
+                    'message' => 'Your name is locked because your ID has been '
+                        . 'verified. Contact support if you need to change it.',
+                ], 422);
+            }
+        }
+
         foreach (['first_name', 'middle_name', 'last_name', 'suffix'] as $part) {
             if ($request->has($part)) {
                 $user->{$part} = $request->input($part) ?: null;
             }
         }
-
-        $sentParts = $request->hasAny(['first_name', 'middle_name', 'last_name', 'suffix']);
 
         if (!$sentParts && $request->filled('name')) {
             $user->name = $request->name;

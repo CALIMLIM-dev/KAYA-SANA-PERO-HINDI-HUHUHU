@@ -94,6 +94,35 @@ class _SetupEmployerProfileScreenState extends State<SetupEmployerProfileScreen>
         _suffixController.text = auth.user?['suffix'] as String? ?? '';
       }
 
+      /*
+          The location this account already gave on its other profile.
+
+          Setting up the second side asked for it again, which is the
+          duplication people notice - they are the same person standing in the
+          same place. Prefilled with the PSGC id, not just the label, because
+          a location saved without one has no coordinates and the account
+          disappears from every distance calculation.
+
+          Skipped once anything has been typed, same rule as the name above.
+      */
+      final known = auth.user?['known_location'] as Map<String, dynamic>?;
+
+      if (known != null &&
+          known['location_id'] != null &&
+          _locationController.text.isEmpty) {
+        final label = (known['label'] ?? '').toString();
+
+        _locationController.text = label;
+        _selectedLocation = LocationModel(
+          id: (known['location_id'] as num).toInt(),
+          name: label,
+          displayName: label,
+          type: 'city',
+          latitude: (known['latitude'] as num?)?.toDouble(),
+          longitude: (known['longitude'] as num?)?.toDouble(),
+        );
+      }
+
       setState(() {});
     });
   }

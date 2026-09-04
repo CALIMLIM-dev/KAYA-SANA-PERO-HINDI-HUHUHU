@@ -257,4 +257,61 @@ class VerificationGateTest extends TestCase
             (int) CreditWallet::where('user_id', $worker->id)->value('balance')
         );
     }
+    /*
+        A verified name is locked on every endpoint that writes it.
+
+        updateMe already refused this. The worker profile endpoint writes the
+        same four columns and did not, so the whole lock came off by saving a
+        worker profile - anybody verified could set up the other side of their
+        account under a different name and keep the tick that vouched for the
+        first one.
+    */
+    public function test_a_verified_account_cannot_rename_itself_through_the_worker_profile(): void
+    {
+        $worker = $this->worker(true);
+        $before = $worker->name;
+
+        $this->actingAs($worker, "sanctum")
+            ->putJson("/api/v1/worker/profile", [
+                "first_name" => "Someone",
+                "last_name"  => "Else",
+            ])
+            ->assertStatus(422);
+
+        $this->assertSame($before, $worker->fresh()->name);
+    }
+
+    public function test_an_unverified_account_can_still_set_its_name(): void
+    {
+        $worker = $this->worker(false);
+
+        $this->actingAs($worker, "sanctum")
+            ->putJson("/api/v1/worker/profile", [
+                "first_name" => "Juan",
+                "last_name"  => "Dela Cruz",
+            ])
+            ->assertOk();
+
+        $this->assertStringContainsString("Juan", $worker->fresh()->name);
+    }
+
+    /*
+        Re-saving the same name is not a rename.
+
+        Setup screens send the name back on every save, so comparing field by
+        field would refuse an ordinary location change.
+    */
+    public function test_saving_the_same_name_again_is_allowed(): void
+    {
+        $worker = $this->worker(true);
+        $worker->forceFill(["first_name" => "Juan", "last_name" => "Dela Cruz"])->save();
+
+        $this->actingAs($worker->fresh(), "sanctum")
+            ->putJson("/api/v1/worker/profile", [
+                "first_name" => "Juan",
+                "last_name"  => "Dela Cruz",
+                "city"       => "Urdaneta City",
+            ])
+            ->assertOk();
+    }
 }

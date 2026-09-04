@@ -198,6 +198,34 @@ class AuthController extends Controller
             'email' => $user->email,
             'phone' => $user->phone,
             'city' => $user->city,
+
+            /*
+                The location this account already told us, with its id.
+
+                Setting up the second profile asked for a location the account
+                had already given on the first, and the picker needs the PSGC
+                row id - not just the label - or the profile saves with no
+                coordinates and the account is invisible to every distance
+                calculation. `city` alone could not prefill it safely, so it
+                was simply asked again.
+
+                Whichever profile has one; they are the same person standing
+                in the same place.
+            */
+            'known_location' => (function () use ($workerProfile, $employerProfile) {
+                foreach ([$workerProfile, $employerProfile] as $p) {
+                    if ($p?->location_id !== null) {
+                        return [
+                            'label'       => $p->location,
+                            'location_id' => $p->location_id,
+                            'latitude'    => $p->latitude,
+                            'longitude'   => $p->longitude,
+                        ];
+                    }
+                }
+
+                return null;
+            })(),
             // Resolved, not the raw column: an account that uploaded a
             // picture during setup stored it on the worker or employer
             // profile, and users.avatar is only ever the Google photo - so
