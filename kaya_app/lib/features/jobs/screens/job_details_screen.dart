@@ -596,13 +596,19 @@ class _JobDetailsScreenState extends State<JobDetailsScreen> {
         label: Text('View ${job.applicantCount} Applicant${job.applicantCount == 1 ? '' : 's'}'),
         style: _actionStyle(outlined: true),
       );
-    } else if (!job.isActive) {
-      button = ElevatedButton(
-        onPressed: null,
-        style: _actionStyle(),
-        child: const Text('This job is no longer open'),
-      );
     } else if (job.hasApplied) {
+      /*
+          Your own standing on this job comes before the job's status.
+
+          isActive is only `status == 'open'`, and accepting an invitation
+          moves the job to in_progress - so the worker who had just been hired
+          was told "This job is no longer open", by the branch that used to sit
+          above this one. They took the job and the app announced they had
+          missed it.
+
+          A job you are on is never "no longer open" to you. Everyone else
+          still sees it closed, which is correct: it is taken.
+      */
       final status = job.applicationStatus;
       final (label, color) = switch (status) {
         ApplicationStatus.accepted => ('Application Accepted', AppColors.success),
@@ -642,6 +648,14 @@ class _JobDetailsScreenState extends State<JobDetailsScreen> {
                 'Accept invitation  ·  Free',
                 style: TextStyle(fontWeight: FontWeight.w700),
               ),
+      );
+    } else if (!job.isActive) {
+      // Checked after the two branches above, so it only ever speaks to
+      // somebody with no standing on this job.
+      button = ElevatedButton(
+        onPressed: null,
+        style: _actionStyle(),
+        child: const Text('This job is no longer open'),
       );
     } else {
       button = ElevatedButton(
@@ -744,7 +758,17 @@ class _JobDetailsScreenState extends State<JobDetailsScreen> {
     // Only when they cannot afford it. This used to divert to the wallet on an
     // unclaimed gift alone, so somebody with a full balance tapped Apply and
     // landed on the wallet instead of applying.
-    if (credits.hasLoadedOnce && !credits.canAfford('apply')) {
+    /*
+        An invited worker is never sent to top up.
+
+        Taking an invitation is free - the employer already paid - but this
+        check ran regardless, so a worker with an empty wallet tapped "Accept
+        invitation · Free" and was pushed to the wallet to buy barya for a
+        charge that was never going to happen.
+    */
+    if (!job.isInvited &&
+        credits.hasLoadedOnce &&
+        !credits.canAfford('apply')) {
       await Navigator.pushNamed(context, AppRouter.wallet);
       if (!mounted) return;
       await credits.refresh();
