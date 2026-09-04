@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 
 import '../constants/app_colors.dart';
 import '../../providers/auth_provider.dart';
+import '../../providers/verification_provider.dart';
 
 /*
     Asks for verification before a gated action, not after it.
@@ -55,8 +56,43 @@ Future<bool> ensureVerified(
   await auth.fetchMe();
   if (!context.mounted) return false;
 
+  // The pending check below reads this, and a cold screen may never have
+  // fetched it - which would make a waiting account look like a new one.
+  await context.read<VerificationProvider>().fetchVerifications();
+  if (!context.mounted) return false;
+
   if (auth.user == null || auth.user!['is_verified'] == true) {
     return true;
+  }
+
+  /*
+      Already waiting on an admin is not the same as having done nothing.
+
+      Offering "Verify" here sent somebody whose ID was in the queue back to
+      the upload form, where the only thing they could do was submit the same
+      document again. There is nothing for them to act on, so this says so and
+      stops rather than pretending there is a next step.
+  */
+  if (hasSubmittedVerification(context)) {
+    if (context.mounted) {
+      await showDialog<void>(
+        context: context,
+        builder: (dialogContext) => AlertDialog(
+          title: const Text('Still under review'),
+          content: Text(
+            'Your documents are with us. You can $action as soon as they '
+            'are approved, and we will let you know.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext),
+              child: const Text('OK'),
+            ),
+          ],
+        ),
+      );
+    }
+    return false;
   }
 
   final goNow = await showDialog<bool>(
@@ -89,6 +125,30 @@ Future<bool> ensureVerified(
   }
 
   return false;
+}
+
+/*
+    Whether this account has already sent something in.
+
+    is_verified answers "are you approved", which is false during a review as
+    well as before one - so every check written against it alone sent somebody
+    whose documents were sitting in the admin queue back to the upload form.
+    That is the report, three times over: a notification, a gated action, and
+    a card, all treating "waiting" as "has done nothing".
+
+    True whenever anything is approved or under review, so callers can offer
+    the form only to accounts that genuinely have nothing pending.
+*/
+bool hasSubmittedVerification(BuildContext context) {
+  if (context.read<AuthProvider>().user?['is_verified'] == true) return true;
+
+  return context
+      .read<VerificationProvider>()
+      .verifications
+      .any((v) {
+    final status = '${v['status'] ?? ''}';
+    return status == 'pending' || status == 'verified';
+  });
 }
 
 /*

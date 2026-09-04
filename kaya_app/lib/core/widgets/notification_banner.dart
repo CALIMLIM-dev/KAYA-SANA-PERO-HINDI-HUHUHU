@@ -2,7 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../../providers/auth_provider.dart';
+import 'verify_gate.dart';
 
 import '../../data/services/realtime_service.dart';
 import '../../providers/messaging_provider.dart';
@@ -282,10 +282,10 @@ class _NotificationBannerHostState extends State<NotificationBannerHost> {
           with nothing submitted is sent to the form.
       */
       case 'verification':
-        final verified =
-            navigator.context.read<AuthProvider>().user?['is_verified'] == true;
+        // Same rule as the list screen: pending is not "nothing sent".
+        final submitted = hasSubmittedVerification(navigator.context);
 
-        navigator.pushNamed(verified ? AppRouter.profile : '/verification');
+        navigator.pushNamed(submitted ? AppRouter.profile : '/verification');
         return;
     }
 

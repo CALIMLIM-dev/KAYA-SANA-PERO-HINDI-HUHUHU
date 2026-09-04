@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import '../../../core/widgets/verify_gate.dart';
 
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_mode.dart';
@@ -261,11 +262,26 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
         } else {
           Navigator.pushNamed(context, AppRouter.messages);
         }
-      // Approved or rejected identity check. It carries no id — there is one
-      // verification screen and it shows the current state, including the
-      // admin's rejection reason.
+      /*
+          Approved or rejected identity check.
+
+          Both used to open the upload screen, so being told you were verified
+          sent you to a form asking you to verify - and submitting from there
+          put a duplicate of an approved document in the admin queue. The
+          banner was fixed for this and this list was not, which is the path
+          most people actually tap.
+
+          Verified goes to the profile, where the card shows the real state.
+          Rejected still goes to the form, because sending a better photo is
+          the point of that state.
+      */
       case 'verification':
-        Navigator.pushNamed(context, '/verification');
+        // Waiting counts as submitted: the form has nothing to offer
+        // somebody whose document is already in the queue.
+        final submitted = hasSubmittedVerification(context);
+
+        Navigator.pushNamed(
+            context, submitted ? AppRouter.profile : '/verification');
     }
   }
 
