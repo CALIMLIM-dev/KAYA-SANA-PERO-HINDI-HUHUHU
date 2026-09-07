@@ -3,7 +3,6 @@
 namespace App\Http\Controllers\Api\V1;
 
 use App\Http\Controllers\Controller;
-use App\Models\WorkerAvailability;
 use App\Models\WorkerProfile;
 use App\Models\WorkerSkill;
 use App\Models\WorkerCertification;
@@ -232,102 +231,6 @@ class WorkerProfileController extends Controller
         ]);
     }
     
-    /*
-        GET /worker/availability
-
-        The caller's own weekly pattern, for the editor. Returns the rows and
-        the same one-line summary every other surface shows, so the editor can
-        say what the profile will say rather than phrasing it a second way.
-    */
-    public function getAvailability(Request $request)
-    {
-        $rows = $request->user()->availability()->get();
-
-        return response()->json([
-            'success' => true,
-            'data' => [
-                'availability' => $rows->map(fn (WorkerAvailability $a) => [
-                    'day_of_week' => $a->day_of_week,
-                    'period'      => $a->period,
-                ]),
-                'summary' => WorkerAvailability::summarise($rows),
-            ],
-            'message' => 'Success',
-        ]);
-    }
-
-    /*
-        PUT /worker/availability
-
-        Replaces the whole pattern. A weekly availability is answered as a
-        whole - "weekends and weekday mornings" - so sending the set and
-        writing it in one transaction is both what the form does and what
-        cannot leave half a pattern behind if a save fails partway.
-
-        An empty list is a legitimate answer: it means "I have not said", and
-        the profile shows nothing rather than claiming the worker is never
-        free.
-    */
-    public function updateAvailability(Request $request)
-    {
-        $data = $request->validate([
-            'availability'                 => ['present', 'array', 'max:28'],
-            'availability.*.day_of_week'   => ['required', 'integer', 'between:0,6'],
-            'availability.*.period'        => ['required', 'in:' . implode(',', WorkerAvailability::PERIODS)],
-        ], [
-            'availability.*.day_of_week.between' => 'That is not a day of the week.',
-        ]);
-
-        $user = $request->user();
-
-        DB::transaction(function () use ($user, $data) {
-            WorkerAvailability::where('user_id', $user->id)->delete();
-
-            /*
-                "Whole day" swallows the rest of that day.
-
-                A form can send both whole_day and morning for a Saturday -
-                ticking the whole day after ticking a period is an obvious
-                thing to do - and storing both would render as "Sat, Sat
-                Morning". The wider answer is the true one.
-            */
-            $rows = collect($data['availability'])->unique(
-                fn ($row) => $row['day_of_week'] . ':' . $row['period']
-            );
-
-            $wholeDays = $rows
-                ->where('period', 'whole_day')
-                ->pluck('day_of_week')
-                ->all();
-
-            $rows = $rows->reject(
-                fn ($row) => $row['period'] !== 'whole_day'
-                    && in_array($row['day_of_week'], $wholeDays, true)
-            );
-
-            foreach ($rows as $row) {
-                WorkerAvailability::create([
-                    'user_id'     => $user->id,
-                    'day_of_week' => $row['day_of_week'],
-                    'period'      => $row['period'],
-                ]);
-            }
-        });
-
-        $fresh = $user->availability()->get();
-
-        return response()->json([
-            'success' => true,
-            'data' => [
-                'availability' => $fresh->map(fn (WorkerAvailability $a) => [
-                    'day_of_week' => $a->day_of_week,
-                    'period'      => $a->period,
-                ]),
-                'summary' => WorkerAvailability::summarise($fresh),
-            ],
-            'message' => 'Availability saved',
-        ]);
-    }
     public function uploadPhoto(Request $request)
     {
         $validator = Validator::make($request->all(), [
@@ -1104,23 +1007,12 @@ class WorkerProfileController extends Controller
             // country while the screen above it said "near you".
             'radius_km'   => ['nullable', 'numeric', 'min:1', 'max:500'],
             'sort'        => ['nullable', 'in:best,rating,jobs,nearest,newest'],
-            /*
-                Who can work on a given day.
-
-                The only availability filter before this was the
-                Available/Busy flag, which a worker sets by hand and
-                which says nothing about Sundays. 0 is Sunday, matching
-                Carbon.
-            */
-            'available_day' => ['nullable', 'integer', 'between:0,6'],
         ]);
 
         $query = WorkerProfile::query()
             // psgcLocation (not location — that's a string column on this
             // table) supplies the town centroid for the distance figure.
-            // user.availability eager-loaded: the card states the weekly
-            // pattern, and lazy-loading it would be a query per worker.
-            ->with(['user:id,name,avatar,is_verified,city', 'user.availability', 'skills', 'category:id,name', 'psgcLocation'])
+            ->with(['user:id,name,avatar,is_verified,city', 'skills', 'category:id,name', 'psgcLocation'])
             ->whereNotNull('category_id')
             ->whereNotNull('location');
 
@@ -1137,19 +1029,6 @@ class WorkerProfileController extends Controller
                 'location_id',
                 $place ? $place->subtreeIds() : [$data['location_id']]
             );
-        }
-
-        if (isset($data['available_day'])) {
-            $day = (int) $data['available_day'];
-
-            // A worker who has never set a pattern is not excluded:
-            // saying nothing is not the same as saying no, and hiding
-            // everybody who has not filled the form in would empty the
-            // directory the day this ships.
-            $query->where(function ($q) use ($day) {
-                $q->whereHas('user.availability', fn ($a) => $a->where('day_of_week', $day))
-                    ->orWhereDoesntHave('user.availability');
-            });
         }
 
         if (!empty($data['skill_id'])) {
@@ -1341,15 +1220,7 @@ class WorkerProfileController extends Controller
                     // What the ranking used, so a card can say "Boosted"
                     // and show the work behind the position it is in.
                     'is_boosted'     => (bool) $p->is_boosted,
-                    // One line, so a card can say when somebody works
-                    // without a second request per row.
-                    'availability_summary' => \App\Models\WorkerAvailability::summarise(
-                        $p->user?->availability ?? collect()
-                    ),
                     'jobs_completed' => (int) $p->jobs_completed,
-                    // What they charge. rate_label is the phrasing every
-                    // surface should show; the raw numbers are there for
-                    // filtering and for the edit form.
                     'rate_min'           => $p->rate_min,
                     'rate_max'           => $p->rate_max,
                     'rate_unit'          => $p->rate_unit,
@@ -1634,15 +1505,6 @@ class WorkerProfileController extends Controller
                 // see the note in BadgeService for why there is no table.
                 'badges'              => app(\App\Services\BadgeService::class)
                     ->forWorker($user),
-
-                // The weekly pattern, said the same way everywhere: the
-                // model builds the line so the profile, the card and the
-                // admin panel cannot phrase it three ways.
-                'availability'        => $user->availability->map(fn (\App\Models\WorkerAvailability $a) => [
-                    'day_of_week' => $a->day_of_week,
-                    'period'      => $a->period,
-                ]),
-                'availability_summary' => \App\Models\WorkerAvailability::summarise($user->availability),
 
                 'years_experience'    => app(\App\Services\ExperienceTotal::class)
                     ->years($profile->experiences),

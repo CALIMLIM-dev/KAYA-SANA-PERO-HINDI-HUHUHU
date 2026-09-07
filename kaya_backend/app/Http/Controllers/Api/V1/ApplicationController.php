@@ -381,9 +381,7 @@ class ApplicationController extends Controller
             ->with(['worker.workerProfile.skills'])
             ->latest()
             ->get()
-            // $job is needed for the availability warning: the pattern is
-            // only interesting against this job's dates.
-            ->map(function ($app) use ($conversations, $reviewedByMe, $reviewedMe, $previousHires, $job) {
+            ->map(function ($app) use ($conversations, $reviewedByMe, $reviewedMe, $previousHires) {
                 $worker  = $app->worker;
                 $profile = $worker->workerProfile;
 
@@ -428,19 +426,6 @@ class ApplicationController extends Controller
                     // How many of this employer's other jobs this worker has
                     // already finished. 0 for a stranger.
                     'times_hired_before'    => (int) ($previousHires[$worker->id] ?? 0),
-                    /*
-                        Said where the decision is made.
-
-                        A weekly pattern on a profile is a line nobody
-                        reads at the moment it matters. The moment is
-                        here: an employer about to hire somebody for work
-                        that starts on a day they said they do not work.
-                        Advisory - people swap a Sunday, and refusing
-                        would be the app overruling the two people
-                        involved.
-                    */
-                    'availability_warning'  => app(\App\Services\AvailabilityMatch::class)
-                        ->warningFor($worker, $job),
                     'worker_id'             => $worker->id,
                     'worker_name'           => $worker->name,
                     // Resolved, not a raw storage path — and consistent with

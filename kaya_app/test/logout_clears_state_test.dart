@@ -4,6 +4,7 @@ import 'package:kaya_app/providers/application_provider.dart';
 import 'package:kaya_app/providers/credits_provider.dart';
 import 'package:kaya_app/providers/invitation_provider.dart';
 import 'package:kaya_app/providers/job_provider.dart';
+import 'package:kaya_app/providers/schedule_provider.dart';
 
 /*
     Nothing about one account survives into the next one on the same phone.
@@ -89,5 +90,28 @@ void main() {
     credits.clear();
 
     expect(credits.balance, 0);
+  });
+  /*
+      An agreed day is between two named people.
+
+      The schedule strip in a thread says when this worker and this employer
+      settled on - leaving it in memory would show the next person on this
+      phone somebody else's arrangement.
+  */
+  test('an agreed schedule does not survive a logout', () {
+    final schedule = ScheduleProvider()
+      ..seedForTesting(
+        conversationId: 7,
+        agreed: {'id': 1, 'summary': 'Sat 13 Sep, morning', 'status': 'accepted'},
+        pending: {'id': 2, 'summary': 'Sun 14 Sep, whole day', 'status': 'proposed'},
+      );
+
+    expect(schedule.agreedFor(7), isNotNull);
+    expect(schedule.pendingFor(7), isNotNull);
+
+    schedule.clear();
+
+    expect(schedule.agreedFor(7), isNull);
+    expect(schedule.pendingFor(7), isNull);
   });
 }

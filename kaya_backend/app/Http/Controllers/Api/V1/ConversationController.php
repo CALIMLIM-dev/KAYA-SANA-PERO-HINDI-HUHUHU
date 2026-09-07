@@ -6,8 +6,11 @@ use App\Events\MessageSent;
 use App\Events\Realtime\ChatMessagePushed;
 use App\Http\Controllers\Controller;
 use App\Models\Conversation;
+use App\Models\ScheduleProposal;
+use App\Models\User;
 use App\Services\RealtimeBroadcaster;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 
 class ConversationController extends Controller
 {
@@ -197,6 +200,199 @@ class ConversationController extends Controller
         MessageSent::dispatch($message);
 
         return $this->ok($message, 'Message sent successfully', 201);
+    }
+
+    /*
+        POST /conversations/{conversation}/schedule
+
+        Offers a day and a part of it for the work. Either side can send one:
+        a worker saying "I can come Saturday morning" and an employer asking
+        the same thing are one message, and building only the employer's half
+        would make the worker somebody things are arranged around rather than
+        with.
+
+        The offer also lands in the thread as an ordinary message, so the
+        conversation still reads as a conversation - somebody scrolling back a
+        week sees where the Saturday was agreed rather than a gap.
+    */
+    public function proposeSchedule(Request $request, Conversation $conversation)
+    {
+        $user = $request->user();
+
+        if ($conversation->employer_id !== $user->id && $conversation->worker_id !== $user->id) {
+            return $this->fail('You are not part of this conversation', 403);
+        }
+
+        if ($conversation->status === 'locked') {
+            return $this->fail('Scheduling unlocks once the application is accepted', 403);
+        }
+
+        $data = $request->validate([
+            'scheduled_date' => ['required', 'date', 'after_or_equal:today'],
+            'period'         => ['required', 'in:' . implode(',', ScheduleProposal::PERIODS)],
+            'note'           => ['nullable', 'string', 'max:280'],
+            'job_id'         => ['nullable', 'integer', 'exists:jobs_posts,id'],
+        ], [
+            'scheduled_date.after_or_equal' => 'Pick a day that has not passed.',
+        ]);
+
+        $proposal = DB::transaction(function () use ($conversation, $user, $data) {
+            /*
+                One live offer per thread.
+
+                Two open proposals is two people accepting different days and
+                both believing it is settled. An earlier one is superseded
+                rather than deleted, so the thread keeps its history.
+            */
+            ScheduleProposal::where('conversation_id', $conversation->id)
+                ->where('status', 'proposed')
+                ->update(['status' => 'superseded', 'responded_at' => now()]);
+
+            return ScheduleProposal::create([
+                'conversation_id' => $conversation->id,
+                'job_id'          => $data['job_id'] ?? $conversation->job_id,
+                'proposed_by'     => $user->id,
+                'scheduled_date'  => $data['scheduled_date'],
+                'period'          => $data['period'],
+                'note'            => $data['note'] ?? null,
+                'status'          => 'proposed',
+            ]);
+        });
+
+        $this->postToThread(
+            $conversation,
+            $user,
+            'Proposed a schedule: ' . $proposal->summary()
+                . ($proposal->note ? ' - ' . $proposal->note : '')
+        );
+
+        return $this->ok($this->presentProposal($proposal), 'Schedule proposed', 201);
+    }
+
+    /*
+        POST /conversations/{conversation}/schedule/{proposal}/respond
+
+        Accept or decline. Only the other side may answer - proposing and
+        accepting your own offer would make agreement meaningless - and only
+        while it is still the live one.
+    */
+    public function respondToSchedule(
+        Request $request,
+        Conversation $conversation,
+        ScheduleProposal $proposal,
+    ) {
+        $user = $request->user();
+
+        if ($conversation->employer_id !== $user->id && $conversation->worker_id !== $user->id) {
+            return $this->fail('You are not part of this conversation', 403);
+        }
+
+        if ($proposal->conversation_id !== $conversation->id) {
+            return $this->fail('That proposal is not on this conversation', 404);
+        }
+
+        if ($proposal->proposed_by === $user->id) {
+            return $this->fail('The other person has to answer this one.', 422);
+        }
+
+        if ($proposal->status !== 'proposed') {
+            return $this->fail('That proposal has already been answered.', 422);
+        }
+
+        $data = $request->validate([
+            'accept' => ['required', 'boolean'],
+        ]);
+
+        $accepted = (bool) $data['accept'];
+
+        $proposal->update([
+            'status'       => $accepted ? 'accepted' : 'declined',
+            'responded_at' => now(),
+        ]);
+
+        $this->postToThread(
+            $conversation,
+            $user,
+            ($accepted ? 'Agreed: ' : 'Cannot make ') . $proposal->summary(),
+        );
+
+        return $this->ok(
+            $this->presentProposal($proposal->fresh()),
+            $accepted ? 'Schedule agreed' : 'Schedule declined',
+        );
+    }
+
+    /*
+        GET /conversations/{conversation}/schedule
+
+        What the two of them have settled, and anything still waiting on an
+        answer. The screen needs both: an agreed day to show at the top, and a
+        live offer to put buttons under.
+    */
+    public function schedule(Request $request, Conversation $conversation)
+    {
+        $user = $request->user();
+
+        if ($conversation->employer_id !== $user->id && $conversation->worker_id !== $user->id) {
+            return $this->fail('You are not part of this conversation', 403);
+        }
+
+        $live = ScheduleProposal::where('conversation_id', $conversation->id)
+            ->live()
+            ->latest()
+            ->first();
+
+        $agreed = ScheduleProposal::where('conversation_id', $conversation->id)
+            ->where('status', 'accepted')
+            ->latest('responded_at')
+            ->first();
+
+        return $this->ok([
+            'pending' => $live ? $this->presentProposal($live) : null,
+            'agreed'  => $agreed ? $this->presentProposal($agreed) : null,
+        ]);
+    }
+
+    private function presentProposal(ScheduleProposal $proposal): array
+    {
+        return [
+            'id'             => $proposal->id,
+            'job_id'         => $proposal->job_id,
+            'proposed_by'    => $proposal->proposed_by,
+            'scheduled_date' => $proposal->scheduled_date->toDateString(),
+            'period'         => $proposal->period,
+            'note'           => $proposal->note,
+            'status'         => $proposal->status,
+            // Written by the model so every surface says the same date the
+            // same way.
+            'summary'        => $proposal->summary(),
+            'responded_at'   => $proposal->responded_at?->toIso8601String(),
+        ];
+    }
+
+    /*
+        The schedule step, said in the thread.
+
+        A proposal that only existed as a card would leave the conversation
+        with a hole in it - somebody scrolling back would see two people
+        talking about a Saturday that appears nowhere.
+    */
+    private function postToThread(Conversation $conversation, User $sender, string $text): void
+    {
+        $message = $conversation->messages()->create([
+            'sender_id'    => $sender->id,
+            'message_text' => $text,
+            'is_read'      => false,
+        ]);
+
+        $conversation->touch();
+
+        $message->setRelation('conversation', $conversation);
+        $message->load(['sender:id,name,avatar']);
+
+        app(RealtimeBroadcaster::class)->push(new ChatMessagePushed($message));
+
+        MessageSent::dispatch($message);
     }
 
     public function markRead(Request $request, Conversation $conversation)

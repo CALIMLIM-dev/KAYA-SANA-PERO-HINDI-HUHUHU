@@ -279,12 +279,6 @@ class _ViewApplicantsScreenState extends State<ViewApplicantsScreen>
     // trust, and that fact was sitting in the database unused.
     final timesHiredBefore = asInt(applicant['times_hired_before']);
 
-    // Computed server-side against this job's dates - the app has no
-    // business working out whether a pattern covers a date range in
-    // two places.
-    final availabilityWarning =
-        (applicant['availability_warning'] as String?)?.trim();
-
     // Dual review, employer's side — mirrors the worker's on the applications
     // screen. Both halves come down with the applicant list, so showing this
     // costs no extra request.
@@ -466,43 +460,6 @@ class _ViewApplicantsScreenState extends State<ViewApplicantsScreen>
                 const SizedBox(height: 9),
                 _skillChips(skills),
               ],
-            /*
-                Said where the decision is, not on a profile nobody opens.
-
-                The worker's weekly availability only earns its place if it
-                turns up at the moment somebody is about to hire them for a
-                day they said they do not work. Advisory - people swap a
-                Sunday, and refusing would be the app overruling the two
-                people involved.
-            */
-            if (availabilityWarning != null && availabilityWarning.isNotEmpty) ...[
-              const SizedBox(height: 8),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 7),
-                decoration: BoxDecoration(
-                  color: AppColors.warning.withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Icon(Icons.event_busy_outlined,
-                        size: 13, color: AppColors.warning),
-                    const SizedBox(width: 6),
-                    Expanded(
-                      child: Text(
-                        availabilityWarning,
-                        style: const TextStyle(
-                          fontSize: 11.5,
-                          height: 1.35,
-                          color: AppColors.neutral700,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
             if (showActions) ...[
               const SizedBox(height: 6),
               Row(

@@ -136,12 +136,6 @@ Route::prefix('v1')->group(function () {
         Route::put('/worker/profile',                              [WorkerProfileController::class, 'updateBasicInfo'])->middleware('not.company');
         Route::post('/worker/profile/photo',                       [WorkerProfileController::class, 'uploadPhoto'])->middleware('not.company');
 
-        // The recurring weekly pattern - which days, and roughly when on
-        // them. Read is open to the owner; writing it creates nothing, so
-        // it does not need the not.company guard the others carry.
-        Route::get('/worker/availability',  [WorkerProfileController::class, 'getAvailability']);
-        Route::put('/worker/availability',  [WorkerProfileController::class, 'updateAvailability']);
-
         // Resume. Stored privately and served only through the download route,
         // which checks the caller — a CV carries a phone number, home address
         // and full work history, so it is never a public storage URL.
@@ -264,6 +258,17 @@ Route::prefix('v1')->group(function () {
         Route::get('/conversations/{conversation}/messages',    [ConversationController::class, 'messages']);
         Route::post('/conversations/{conversation}/messages',   [ConversationController::class, 'sendMessage']);
         Route::patch('/conversations/{conversation}/read',      [ConversationController::class, 'markRead']);
+
+        /*
+            The day the two of them settle on.
+
+            In the conversation because that is where it is agreed. The
+            job post says when the work runs; this says when these two
+            people meet for it, and either of them can propose or refuse.
+        */
+        Route::get('/conversations/{conversation}/schedule',  [ConversationController::class, 'schedule']);
+        Route::post('/conversations/{conversation}/schedule', [ConversationController::class, 'proposeSchedule']);
+        Route::post('/conversations/{conversation}/schedule/{proposal}/respond', [ConversationController::class, 'respondToSchedule']);
 
         /*
             Credits. Read only — nothing here moves a balance.

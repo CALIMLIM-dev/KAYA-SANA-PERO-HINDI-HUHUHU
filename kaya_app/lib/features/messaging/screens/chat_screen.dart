@@ -7,6 +7,8 @@ import '../../../core/constants/app_colors.dart';
 import '../../../core/widgets/profile_avatar.dart';
 import '../../../data/services/realtime_service.dart';
 import '../../../providers/auth_provider.dart';
+import '../../../providers/schedule_provider.dart';
+import '../widgets/schedule_strip.dart';
 import '../../../providers/messaging_provider.dart';
 import '../../../core/widgets/app_toast.dart';
 import '../widgets/job_tracking_panel.dart';
@@ -121,6 +123,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) {
           context.read<MessagingProvider>().fetchMessages(_conversationId!);
+          context.read<ScheduleProvider>().load(_conversationId!);
           if (needsDetails) _resolveDetails();
         }
       });
@@ -406,6 +409,17 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
         children: [
           if (jobTitle != null)
             _buildJobCard(jobTitle, jobId, context),
+
+          /*
+              The day the two of them agree on.
+
+              Here rather than on a profile because this is where it is
+              agreed: one side offers a day, the other accepts or says
+              no, and both see the same answer. A pattern on a profile
+              is what somebody usually does and nobody has to accept.
+          */
+          if (_conversationId != null)
+            ScheduleStrip(conversationId: _conversationId!, jobId: jobId),
 
           if (canTrack)
             JobTrackingPanel(
