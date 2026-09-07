@@ -824,6 +824,14 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       child: SafeArea(
         child: Row(
           children: [
+            /*
+                Labelled, not a lone icon.
+
+                A small calendar glyph beside a text box asks somebody to
+                already know what it does. Most people using this have never
+                met an app that arranges work; the word is what makes it
+                obvious, and it costs one line of the row.
+            */
             if (jobId != null && _conversationId != null) ...[
               GestureDetector(
                 onTap: () => ScheduleComposer.open(
@@ -832,14 +840,28 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                   jobId: jobId,
                 ),
                 child: Container(
-                  width: 40,
-                  height: 40,
+                  height: 44,
+                  padding: const EdgeInsets.symmetric(horizontal: 12),
                   decoration: BoxDecoration(
-                    color: AppColors.neutral100,
-                    borderRadius: BorderRadius.circular(20),
+                    color: AppColors.primary.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(22),
                   ),
-                  child: const Icon(Icons.event_outlined,
-                      size: 19, color: AppColors.neutral700),
+                  child: const Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.event_outlined,
+                          size: 20, color: AppColors.primary),
+                      SizedBox(width: 6),
+                      Text(
+                        'Set a day',
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                          color: AppColors.primary,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
               const SizedBox(width: 8),

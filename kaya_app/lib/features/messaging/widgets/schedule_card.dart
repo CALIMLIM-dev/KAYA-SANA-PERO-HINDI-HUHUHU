@@ -53,17 +53,31 @@ class ScheduleCard extends StatelessWidget {
 
     final note = (proposal['note'] as String?)?.trim();
 
+    /*
+        Narrower than the thread, on purpose.
+
+        Full width made it the biggest thing on the screen and pushed the
+        conversation out of the way - a card about one line of information
+        reading like an announcement. It sits at about four fifths, the width
+        a long message bubble takes, so it belongs to the thread rather than
+        interrupting it.
+    */
+    final maxWidth = MediaQuery.sizeOf(context).width * 0.8;
+
     return Padding(
-      padding: const EdgeInsets.fromLTRB(12, 6, 12, 6),
-      child: Container(
-        width: double.infinity,
-        padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
+      padding: const EdgeInsets.fromLTRB(12, 4, 12, 4),
+      child: Align(
+        alignment: Alignment.centerLeft,
+        child: ConstrainedBox(
+          constraints: BoxConstraints(maxWidth: maxWidth),
+          child: Container(
+        padding: const EdgeInsets.fromLTRB(11, 9, 11, 9),
         decoration: BoxDecoration(
           color: Colors.white,
-          borderRadius: BorderRadius.circular(14),
+          borderRadius: BorderRadius.circular(12),
           border: Border.all(
             color: _agreed ? AppColors.primary : AppColors.neutral200,
-            width: _agreed ? 1.4 : 1,
+            width: _agreed ? 1.3 : 1,
           ),
         ),
         child: Column(
@@ -109,11 +123,11 @@ class ScheduleCard extends StatelessWidget {
                   ),
               ],
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: 5),
             Text(
               '${proposal['summary']}',
               style: const TextStyle(
-                fontSize: 15.5,
+                fontSize: 14,
                 fontWeight: FontWeight.w700,
                 color: AppColors.neutral900,
               ),
@@ -125,15 +139,15 @@ class ScheduleCard extends StatelessWidget {
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: const TextStyle(
-                    fontSize: 12.5, color: AppColors.neutral600),
+                    fontSize: 11.5, color: AppColors.neutral600),
               ),
             ],
             if (note != null && note.isNotEmpty) ...[
-              const SizedBox(height: 6),
+              const SizedBox(height: 4),
               Text(
                 '"$note"',
                 style: const TextStyle(
-                  fontSize: 12.5,
+                  fontSize: 11.5,
                   height: 1.35,
                   fontStyle: FontStyle.italic,
                   color: AppColors.neutral600,
@@ -149,10 +163,10 @@ class ScheduleCard extends StatelessWidget {
                 "That works". It names nothing about the other work.
             */
             if (unavailable) ...[
-              const SizedBox(height: 8),
+              const SizedBox(height: 6),
               Container(
                 padding:
-                    const EdgeInsets.symmetric(horizontal: 9, vertical: 7),
+                    const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
                 decoration: BoxDecoration(
                   color: AppColors.warning.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(8),
@@ -180,7 +194,7 @@ class ScheduleCard extends StatelessWidget {
             ],
 
             if (waiting) ...[
-              const SizedBox(height: 10),
+              const SizedBox(height: 8),
               if (mine)
                 const Text(
                   'Waiting for them to answer',
@@ -198,11 +212,11 @@ class ScheduleCard extends StatelessWidget {
                           backgroundColor: AppColors.primary,
                           foregroundColor: Colors.white,
                           elevation: 0,
-                          padding: const EdgeInsets.symmetric(vertical: 9),
+                          padding: const EdgeInsets.symmetric(vertical: 7),
                           shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(9)),
                           textStyle: const TextStyle(
-                              fontSize: 13, fontWeight: FontWeight.w600),
+                              fontSize: 12.5, fontWeight: FontWeight.w600),
                         ),
                         child: const Text('That works'),
                       ),
@@ -216,11 +230,11 @@ class ScheduleCard extends StatelessWidget {
                         style: OutlinedButton.styleFrom(
                           foregroundColor: AppColors.neutral700,
                           side: const BorderSide(color: AppColors.neutral300),
-                          padding: const EdgeInsets.symmetric(vertical: 9),
+                          padding: const EdgeInsets.symmetric(vertical: 7),
                           shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(9)),
                           textStyle: const TextStyle(
-                              fontSize: 13, fontWeight: FontWeight.w600),
+                              fontSize: 12.5, fontWeight: FontWeight.w600),
                         ),
                         child: const Text("I can't"),
                       ),
@@ -229,6 +243,8 @@ class ScheduleCard extends StatelessWidget {
                 ),
             ],
           ],
+        ),
+          ),
         ),
       ),
     );
