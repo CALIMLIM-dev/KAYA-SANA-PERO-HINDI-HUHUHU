@@ -201,4 +201,52 @@ class WorkerRankingTest extends TestCase
         $this->assertContains('Barangay Worker', $names);
         $this->assertNotContains('Unplaced Worker', $names);
     }
+    /*
+        Work finished counts, and the count is read from the right column.
+
+        Every ranking test here had workers with no applications at all, so the
+        query that counts finished jobs never returned a row and never had to
+        be right about its own column name. It was not - it asked applications
+        for a user_id, which is called worker_id - and the whole directory
+        answered 500 in production while the suite stayed green.
+    */
+    public function test_finished_jobs_lift_a_worker_and_are_counted_by_worker_id(): void
+    {
+        $employer = $this->employer();
+
+        $quiet = $this->worker('Quiet Worker');
+        $busy = $this->worker('Busy Worker');
+
+        $category = $this->categoryId;
+
+        foreach (range(1, 4) as $i) {
+            $job = \App\Models\JobPost::create([
+                'employer_id' => $employer->id,
+                'category_id' => $category,
+                'title'       => "Job {$i}",
+                'description' => 'Work that got finished.',
+                'location'    => 'Urdaneta City',
+                'status'      => 'completed',
+            ]);
+
+            \App\Models\Application::create([
+                'job_id'    => $job->id,
+                'worker_id' => $busy->id,
+                'status'    => 'completed',
+            ]);
+        }
+
+        $rows = $this->actingAs($employer, 'sanctum')
+            ->getJson('/api/v1/workers')
+            ->assertOk()
+            ->json('data.data');
+
+        $this->assertSame('Busy Worker', $this->names($rows)[0]);
+
+        $busyRow = collect($rows)->firstWhere('name', 'Busy Worker');
+        $this->assertSame(4, $busyRow['jobs_completed']);
+
+        $quietRow = collect($rows)->firstWhere('name', 'Quiet Worker');
+        $this->assertSame(0, $quietRow['jobs_completed']);
+    }
 }

@@ -1145,12 +1145,15 @@ class WorkerProfileController extends Controller
             ->pluck('boostable_id')
             ->flip();
 
+        // worker_id, not user_id: an application belongs to the worker
+        // under that name, and asking for the wrong column here took the
+        // whole directory down with a 500.
         $finished = $ids === [] ? collect() : \App\Models\Application::query()
-            ->select('user_id', DB::raw('count(*) as total'))
+            ->select('worker_id', DB::raw('count(*) as total'))
             ->where('status', 'completed')
-            ->whereIn('user_id', $ids)
-            ->groupBy('user_id')
-            ->pluck('total', 'user_id');
+            ->whereIn('worker_id', $ids)
+            ->groupBy('worker_id')
+            ->pluck('total', 'worker_id');
 
         $withDistance = $withDistance->map(function (WorkerProfile $p) use ($boosted, $finished) {
             $reviews = (int) $p->rating_count;
