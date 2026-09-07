@@ -33,7 +33,11 @@ class ApplicationController extends Controller
     {
         $user = $request->user();
         if (!$user->isWorker()) return $this->fail('Forbidden', 403);
-        if ($job->status !== 'open') return $this->fail('Job is not accepting applications', 422);
+        // Both questions, not just the status: the sweep is daily and the
+        // date is exact, so a post can be past due and still marked open.
+        // Charging somebody two barya to apply to it would be the worst
+        // version of that gap.
+        if (! $job->isOpenForApplications()) return $this->fail('Job is not accepting applications', 422);
 
         // Hybrid accounts hold both profiles, so a user can reach their own posting.
         if ($job->employer_id === $user->id) {

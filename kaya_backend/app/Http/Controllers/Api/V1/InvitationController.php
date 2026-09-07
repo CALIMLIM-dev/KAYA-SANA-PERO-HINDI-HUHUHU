@@ -32,7 +32,7 @@ class InvitationController extends Controller
     {
         $user = $request->user();
         if ($job->employer_id !== $user->id) return $this->fail('Forbidden', 403);
-        if ($job->status !== 'open') return $this->fail('Job must be open to send invitations', 422);
+        if (! $job->isOpenForApplications()) return $this->fail('Job must be open to send invitations', 422);
 
         $request->validate(['worker_id' => ['required', 'exists:users,id']]);
 
@@ -185,7 +185,7 @@ class InvitationController extends Controller
         if ($invitation->status !== 'pending') return $this->fail('Invitation status must be pending to accept', 422);
 
         $job = $invitation->job;
-        if (!$job || $job->status !== 'open') return $this->fail('Job is no longer available', 422);
+        if (!$job || ! $job->isOpenForApplications()) return $this->fail('Job is no longer available', 422);
 
         /*
             Same double-booking guard as accepting an applicant, from the other

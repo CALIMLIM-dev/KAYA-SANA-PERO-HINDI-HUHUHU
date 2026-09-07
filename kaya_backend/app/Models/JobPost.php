@@ -15,6 +15,7 @@ class JobPost extends Model
         // display string; these are what filtering and proximity search use.
         'location_id', 'latitude', 'longitude', 'address_line',
         'status', 'application_count', 'is_urgent', 'photos',
+        'expires_at', 'expiry_warned_at',
         'budget_period',
         // When the work happens. end_date null means a single day.
         'start_date', 'end_date', 'start_time',
@@ -30,8 +31,40 @@ class JobPost extends Model
         // start time nobody chose.
         'start_date'    => 'date:Y-m-d',
         'end_date'      => 'date:Y-m-d',
+        // datetime, unlike the two above: this is a moment the sweep
+        // compares against now(), not a calendar day anybody picked.
+        'expires_at'       => 'datetime',
+        'expiry_warned_at' => 'datetime',
     ];
 
+    public const STATUS_OPEN = 'open';
+
+    /*
+        Past its date, but not yet swept.
+
+        The sweep runs daily and the date is exact, so for up to a day a post
+        can be past due and still marked open. Every reader that means "can
+        somebody apply to this" has to ask both questions, or a job stays
+        applicable - and chargeable - after it expired.
+    */
+    public function hasExpired(): bool
+    {
+        return $this->expires_at !== null && $this->expires_at->isPast();
+    }
+
+    public function isOpenForApplications(): bool
+    {
+        return $this->status === self::STATUS_OPEN && ! $this->hasExpired();
+    }
+
+    /// Open posts that are still inside their date, for the feed.
+    public function scopeLive($query)
+    {
+        return $query->where('status', self::STATUS_OPEN)
+            ->where(function ($q) {
+                $q->whereNull('expires_at')->orWhere('expires_at', '>', now());
+            });
+    }
     protected $appends = ['photo_urls'];
 
     /**

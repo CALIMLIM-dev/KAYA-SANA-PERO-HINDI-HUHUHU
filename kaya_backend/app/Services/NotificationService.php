@@ -167,6 +167,78 @@ class NotificationService
         }
     }
 
+    /*
+        A post is a week from expiring.
+
+        Both sides, deliberately. The employer needs to know they are about to
+        lose the post; the workers with an application on it need it more -
+        theirs is about to be declined by a date they cannot see, in the middle
+        of a conversation they may be having about it. The barya comes back
+        either way, which makes it fair; the notice is what stops it being a
+        shock.
+    */
+    public function jobExpiringSoon(JobPost $job, int $days, \Illuminate\Support\Collection $applicantIds): void
+    {
+        $when = $days === 1 ? 'tomorrow' : "in {$days} days";
+
+        $this->push(
+            userId: $job->employer_id,
+            audience: UserNotification::AUDIENCE_EMPLOYER,
+            type: 'job.expiring',
+            title: 'Your job post expires ' . $when,
+            body: '"' . $job->title . '" comes off the feed ' . $when
+                . '. Extend it from Manage Jobs if you are still hiring.',
+            referenceType: 'job',
+            referenceId: $job->id,
+        );
+
+        foreach ($applicantIds as $workerId) {
+            $this->push(
+                userId: $workerId,
+                audience: UserNotification::AUDIENCE_WORKER,
+                type: 'job.expiring',
+                title: 'A job you applied for expires ' . $when,
+                body: 'If "' . $job->title . '" is not extended, your '
+                    . 'application is withdrawn and the Barya is returned.',
+                referenceType: 'job',
+                referenceId: $job->id,
+            );
+        }
+    }
+
+    /*
+        A post has expired and its applications went with it.
+
+        The refund is named in the body because it is the first thing a worker
+        will want to know, and being told after the fact that money came back
+        is very different from noticing a balance changed.
+    */
+    public function jobExpired(JobPost $job, \Illuminate\Support\Collection $applicantIds): void
+    {
+        $this->push(
+            userId: $job->employer_id,
+            audience: UserNotification::AUDIENCE_EMPLOYER,
+            type: 'job.expired',
+            title: 'Your job post expired',
+            body: '"' . $job->title . '" is off the feed. Extend it from '
+                . 'Manage Jobs to put it back up.',
+            referenceType: 'job',
+            referenceId: $job->id,
+        );
+
+        foreach ($applicantIds as $workerId) {
+            $this->push(
+                userId: $workerId,
+                audience: UserNotification::AUDIENCE_WORKER,
+                type: 'job.expired',
+                title: 'A job you applied for expired',
+                body: '"' . $job->title . '" was taken down before anyone was '
+                    . 'hired. Your Barya has been returned.',
+                referenceType: 'job',
+                referenceId: $job->id,
+            );
+        }
+    }
     /** A worker applied — tell the employer, in their employer capacity. */
     public function applicationReceived(Application $application): void
     {

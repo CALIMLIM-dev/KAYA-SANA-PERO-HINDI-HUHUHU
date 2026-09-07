@@ -23,6 +23,31 @@ class Job {
   /// *why* a job is inactive — offering a review only after completion, for
   /// instance — had no way to ask.
   final String status;
+
+  /*
+      When the post comes off the feed.
+
+      Null on a post made before job posts had a life at all. The sweep
+      that writes the status runs daily and this date is exact, so a
+      post can be past due while still saying 'open' - anything deciding
+      whether a job is live should read this too.
+  */
+  final DateTime? expiresAt;
+
+  /*
+      Days until it comes down, negative once it is past.
+
+      Rounded up, not truncated: a post with twenty-three hours left has
+      a day left, and saying "0 days" about something still on the feed
+      reads as a bug. Truncation also made "nine days from now" answer
+      eight, because a few microseconds pass between the two clocks.
+  */
+  int? get daysUntilExpiry {
+    if (expiresAt == null) return null;
+
+    return (expiresAt!.difference(DateTime.now()).inHours / 24).ceil();
+  }
+
   final ApplicationStatus? applicationStatus;
   final String? category;
   final List<String> requiredSkills;
@@ -111,6 +136,7 @@ class Job {
     this.postedAt,
     this.isActive = true,
     this.status = '',
+    this.expiresAt,
     this.applicationStatus,
     this.category,
     this.requiredSkills = const [],
@@ -180,6 +206,9 @@ class Job {
       }(),
       isActive: json['status'] == 'open',
       status: (json['status'] ?? '').toString(),
+      expiresAt: json['expires_at'] == null
+          ? null
+          : DateTime.tryParse(json['expires_at'].toString())?.toLocal(),
       category: category?['name'] as String?,
       categoryId: category?['id'] as int? ?? json['category_id'] as int?,
       locationId: json['location_id'] as int?,

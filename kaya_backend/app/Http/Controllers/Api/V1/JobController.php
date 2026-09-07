@@ -23,13 +23,55 @@ class JobController extends Controller
         return response()->json(['success' => false, 'data' => null, 'message' => $msg], $status);
     }
 
+    /*
+        POST /jobs/{job}/extend
+
+        Buys another block of days for a post the caller owns. Two blocks, two
+        prices, both from config - see JobDurationService for why it is blocks
+        rather than a per-day rate, and why nothing renews on its own.
+    */
+    public function extend(Request $request, JobPost $job, \App\Services\JobDurationService $durations)
+    {
+        $user = $request->user();
+
+        if ($job->employer_id !== $user->id) {
+            return $this->fail('Forbidden', 403);
+        }
+
+        $data = $request->validate([
+            'days' => ['required', 'integer', 'in:' . implode(',', config('kaya.jobs.extend_blocks'))],
+        ]);
+
+        /*
+            Only a post that can still be applied to, or one that just lapsed.
+
+            Paying to extend a job that is already filled or closed buys days
+            nobody can act on. An expired post is the whole point of this
+            endpoint, so it is explicitly allowed.
+        */
+        if (! in_array($job->status, [JobPost::STATUS_OPEN, 'expired'], true)) {
+            return $this->fail('Only an open or expired job post can be extended.', 422);
+        }
+
+        $job = $durations->extend($user, $job, (int) $data['days']);
+
+        return $this->ok([
+            'id'         => $job->id,
+            'status'     => $job->status,
+            'expires_at' => $job->expires_at?->toIso8601String(),
+        ], 'This post is up for longer now.');
+    }
+
     public function index(Request $request)
     {
         // `location` is loaded for JobMatchService's proximity scoring — it
         // falls back to the town centroid when a row has no precise pin, and
         // deliberately won't lazy-load (that would be a query per job).
         $query = JobPost::with(['employer:id,name,avatar,is_verified', 'employer.employerProfile:id,user_id,image_path', 'category', 'skills', 'psgcLocation'])
-            ->where('status', 'open');
+            // live(), not status alone: the sweep runs daily and the
+            // date is exact, so a post can be a day past due and still
+            // marked open. The feed answers to the date.
+            ->live();
 
         /*
             Your own jobs are not work you can take.
@@ -310,7 +352,12 @@ class JobController extends Controller
         );
         $data['photos'] = $photoPaths;
 
-        $job = $user->postedJobs()->create(array_merge($data, ['status' => 'open']));
+        $job = $user->postedJobs()->create(array_merge($data, [
+            'status' => 'open',
+            // The free base duration. Extending past it is the paid
+            // part; posting itself stays free.
+            'expires_at' => now()->addDays((int) config('kaya.jobs.free_days')),
+        ]));
 
         if ($skillIds) $job->skills()->sync($skillIds);
 

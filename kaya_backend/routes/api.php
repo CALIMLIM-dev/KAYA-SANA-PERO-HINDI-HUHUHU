@@ -215,6 +215,10 @@ Route::prefix('v1')->group(function () {
             The employer one takes a job; the worker one takes no argument
             because you can only boost your own profile.
         */
+        // Another block of days on a post. Never automatic - see the
+        // note in config/kaya.php on why nothing renews on a timer.
+        Route::post('/jobs/{job}/extend',       [JobController::class, 'extend'])
+            ->middleware('verified:employer');
         Route::post('/jobs/{job}/boost',        [BoostController::class, 'boostJob'])
             ->middleware('verified:employer');
         Route::post('/worker-profile/boost',    [BoostController::class, 'boostProfile'])

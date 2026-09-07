@@ -148,6 +148,25 @@ class JobProvider with ChangeNotifier {
       as a side effect of saving would be the one place in the app that
       takes credits without asking.
   */
+  /*
+      Buys another block of days for a post.
+
+      Never automatic. Barya is a prepaid balance somebody topped up with real
+      money, and a post that renewed itself on a timer would be the one charge
+      in this app that happens without a tap - see the note in config/kaya.php.
+  */
+  Future<bool> extendJob(int jobId, int days) async {
+    try {
+      await _api.post('/jobs/$jobId/extend', data: {'days': days});
+      _errorMessage = null;
+      await fetchMyJobs();
+      return true;
+    } catch (e) {
+      _errorMessage = e.toString().replaceFirst('Exception: ', '');
+      notifyListeners();
+      return false;
+    }
+  }
   Future<bool> boostJob(int jobId) async {
     try {
       await _api.post('/jobs/$jobId/boost');

@@ -29,6 +29,16 @@ Schedule::command('kaya:lift-expired-suspensions')->hourly();
 Schedule::command('kaya:close-unconfirmed-hires')->dailyAt('04:00');
 
 /*
+    Takes down posts that ran out of days, and warns the ones a week off.
+
+    05:00 rather than midnight: the expiry itself is exact - the feed and
+    the apply endpoint both read the date, not the status - so this is
+    only the sweep that writes it down and returns the barya, and it can
+    run when nobody is looking.
+*/
+Schedule::command('kaya:expire-job-posts')->dailyAt('05:00');
+
+/*
     Catches payments PayMongo took but never told us about.
 
     Every fifteen minutes, because the failure it covers — a webhook that was
