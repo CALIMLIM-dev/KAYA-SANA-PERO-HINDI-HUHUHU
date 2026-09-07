@@ -173,7 +173,23 @@ class _PostJobScreenState extends State<PostJobScreen> {
   // equal to _startDate, so the two states remain distinguishable server-side.
   DateTime? _startDate;
   DateTime? _endDate;
-  TimeOfDay? _startTime;
+  /*
+      How long the work runs, in days including the first one.
+
+      Stored as a length rather than an end date because that is what the form
+      asks; _endDate is kept in step with it so everything downstream - the
+      preview, the submit, the server - keeps reading one thing.
+  */
+  int? _durationDays;
+
+  static const List<({int days, String label})> _durationChoices = [
+    (days: 1, label: 'One day'),
+    (days: 2, label: '2 days'),
+    (days: 3, label: '3 days'),
+    (days: 7, label: 'A week'),
+    (days: 14, label: '2 weeks'),
+    (days: 30, label: 'A month'),
+  ];
   bool _showScheduleError = false;
   bool _isLoadingSkills = false;
   bool _showPinError = false;
@@ -1001,28 +1017,75 @@ class _PostJobScreenState extends State<PostJobScreen> {
             off had to clear a date that was already chosen - which is state
             that now cannot disagree because there is only one piece of it.
         */
-        const SizedBox(height: 12),
-        _buildDateField(
-          label: 'End date (optional)',
-          value: _endDate,
-          hint: 'Same day',
-          onTap: _startDate == null ? null : _pickEndDate,
-          onClear: _endDate == null
-              ? null
-              : () => setState(() => _endDate = null),
+        /*
+            How long the work takes, instead of an end date and a time.
+
+            "When does it end" is arithmetic somebody has to do before they
+            can answer; "how long will this take" is the thing they already
+            know. The end date is still what gets stored - the clash check and
+            the availability warning both read it - it is just computed rather
+            than typed.
+
+            The time of day is gone entirely. It was settled in chat every
+            time, so the field mostly collected a fictional 08:00 that then sat
+            on the post looking like a commitment.
+        */
+        const SizedBox(height: 14),
+        const Text(
+          'How long will it take?',
+          style: TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+              color: AppColors.neutral800),
         ),
-        const SizedBox(height: 12),
-        _buildDateField(
-          label: 'Start time (optional)',
-          value: null,
-          display: _startTime?.format(context),
-          hint: 'Select time',
-          icon: Icons.schedule_outlined,
-          onTap: _pickStartTime,
-          onClear: _startTime == null
-              ? null
-              : () => setState(() => _startTime = null),
+        const SizedBox(height: 8),
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: _durationChoices.map((choice) {
+            final selected = _durationDays == choice.days;
+
+            return GestureDetector(
+              onTap: () => setState(() {
+                _durationDays = choice.days;
+                _endDate = _startDate == null
+                    ? null
+                    : _startDate!.add(Duration(days: choice.days - 1));
+              }),
+              child: Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
+                decoration: BoxDecoration(
+                  color: selected
+                      ? AppColors.primary.withValues(alpha: 0.1)
+                      : AppColors.neutral100,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(
+                    color: selected ? AppColors.primary : Colors.transparent,
+                    width: 1.5,
+                  ),
+                ),
+                child: Text(
+                  choice.label,
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
+                    color: selected
+                        ? AppColors.primary
+                        : AppColors.neutral700,
+                  ),
+                ),
+              ),
+            );
+          }).toList(),
         ),
+        if (_showScheduleError && _durationDays == null) ...[
+          const SizedBox(height: 6),
+          const Text(
+            'Please say how long the work will take.',
+            style: TextStyle(fontSize: 12, color: AppColors.error),
+          ),
+        ],
 
         /*
             What the worker will actually see.
@@ -1087,8 +1150,7 @@ class _PostJobScreenState extends State<PostJobScreen> {
           : '${short(start)} – ${short(end)}';
     }
 
-    final time = _startTime?.format(context);
-    return time == null ? short(start) : '${short(start)}, $time';
+    return short(start);
   }
 
   /// One tappable row, used for all three fields so they read as a set.
@@ -1197,39 +1259,16 @@ class _PostJobScreenState extends State<PostJobScreen> {
     setState(() {
       _startDate = picked;
       _showScheduleError = false;
-      // An end date that now sits before the start would be rejected by the
-      // server. Dropping it here turns a validation error into a field the
-      // employer simply picks again.
-      if (_endDate != null && _endDate!.isBefore(picked)) _endDate = null;
+
+      // The length is the answer that was given; the end date follows from
+      // it. Moving the start date therefore moves the end, rather than
+      // leaving one that now sits before it - which the server would refuse.
+      _endDate = _durationDays == null
+          ? null
+          : picked.add(Duration(days: _durationDays! - 1));
     });
   }
 
-  Future<void> _pickEndDate() async {
-    final start = _startDate!;
-    final picked = await showDatePicker(
-      context: context,
-      initialDate: _endDate ?? start,
-      firstDate: start,
-      lastDate: start.add(const Duration(days: 365)),
-    );
-    if (picked != null) setState(() => _endDate = picked);
-  }
-
-  Future<void> _pickStartTime() async {
-    final picked = await showTimePicker(
-      context: context,
-      initialTime: _startTime ?? const TimeOfDay(hour: 8, minute: 0),
-    );
-    if (picked != null) setState(() => _startTime = picked);
-  }
-
-  /// 24-hour `HH:mm`, which is the only shape the server's `date_format:H:i`
-  /// rule accepts. `TimeOfDay.format` follows the phone's locale and would send
-  /// "8:00 AM" on a device set to 12-hour time.
-  String? get _startTimeForApi => _startTime == null
-      ? null
-      : '${_startTime!.hour.toString().padLeft(2, '0')}:'
-          '${_startTime!.minute.toString().padLeft(2, '0')}';
 
   Widget _buildSection({
     required String title,
@@ -2147,6 +2186,19 @@ class _PostJobScreenState extends State<PostJobScreen> {
     }
 
     /*
+        How long it runs is required now, not optional.
+
+        A post with no length is a post nobody can plan around, and it is the
+        field both the clash check and the worker's availability warning read.
+        "One day" is a tap, so requiring it costs nothing.
+    */
+    if (_durationDays == null) {
+      setState(() => _showScheduleError = true);
+      await _pointAt(_scheduleKey, 'Please say how long the work will take');
+      return;
+    }
+
+    /*
         Weighed before it is sent.
 
         Without this the only thing that notices an over-sized set is nginx,
@@ -2207,8 +2259,9 @@ class _PostJobScreenState extends State<PostJobScreen> {
         startDate:   _startDate!,
         // Only sent when the employer said the job runs over several days, so
         // turning the toggle off cannot leave a stale end date on the record.
+        // Computed from the length the employer chose, so a one day job
+        // ends the day it starts rather than carrying no end at all.
         endDate:     _endDate,
-        startTime:   _startTimeForApi,
       );
 
       setState(() => _isLoading = false);

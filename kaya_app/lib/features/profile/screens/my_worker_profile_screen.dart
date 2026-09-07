@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../../core/constants/app_colors.dart';
+import '../../worker/widgets/availability_editor.dart';
 import '../../../core/constants/credits.dart';
 import '../../../core/constants/job_boost.dart';
 import '../../../providers/auth_provider.dart';
@@ -1143,6 +1144,43 @@ class _MyWorkerProfileScreenState extends State<MyWorkerProfileScreen> with Sing
             code, confirm it.
         */
         ProfileSectionHeading('Your work'),
+
+        /*
+            When you can work, which the app could not ask before.
+
+            The only availability was one Available/Busy switch, and
+            "available" says nothing about Sundays. This is the pattern
+            employers see on the profile, and the one that warns them
+            before they spend barya inviting somebody to work on a day
+            they said they do not.
+        */
+        // Its own card rather than _buildInfoCard: that helper is a row -
+        // label, value, chevron - and needs somewhere to go when tapped. This
+        // is edited in place, so there is nowhere to go.
+        Container(
+          margin: const EdgeInsets.only(bottom: 10),
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: AppColors.neutral200),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'When you can work',
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.neutral900,
+                ),
+              ),
+              const SizedBox(height: 10),
+              const AvailabilityEditor(),
+            ],
+          ),
+        ),
 
         // Skills Card - Using Selector to prevent unnecessary rebuilds
         Selector<WorkerProfileProvider, List<WorkerSkillModel>>(

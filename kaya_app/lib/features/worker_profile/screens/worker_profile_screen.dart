@@ -145,6 +145,11 @@ class _WorkerProfileScreenState extends State<WorkerProfileScreen> {
         than the server simply shows no label, which is the safe direction.
     */
     final experienceLabel = (w['experience_label'] as String?)?.trim();
+
+    // Built by the server so the profile, the directory card and the
+    // admin panel cannot phrase the same pattern three ways.
+    final availabilitySummary =
+        (w['availability_summary'] as String?)?.trim();
     final certifications = ((w['certifications'] as List?) ?? []).cast<Map<String, dynamic>>();
     final licenses = ((w['licenses'] as List?) ?? []).cast<Map<String, dynamic>>();
     final exams = ((w['license_examinations'] as List?) ?? []).cast<Map<String, dynamic>>();
@@ -489,6 +494,39 @@ class _WorkerProfileScreenState extends State<WorkerProfileScreen> {
           ),
 
           const SliverToBoxAdapter(child: SizedBox(height: 12)),
+
+          /*
+              When this worker can work.
+
+              Above the history on purpose: an employer reading a profile is
+              deciding whether to spend barya inviting somebody, and "can they
+              even do Saturdays" settles that faster than a work record does.
+              Nothing renders when they have not said, rather than a heading
+              over an empty line.
+          */
+          if (availabilitySummary != null && availabilitySummary.isNotEmpty)
+            SliverToBoxAdapter(
+              child: _section(
+                title: 'Availability',
+                child: Row(
+                  children: [
+                    const Icon(Icons.event_available_outlined,
+                        size: 16, color: AppColors.neutral500),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        availabilitySummary,
+                        style: const TextStyle(
+                          fontSize: 13.5,
+                          height: 1.4,
+                          color: AppColors.neutral800,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
 
           if (experiences.isNotEmpty)
             SliverToBoxAdapter(

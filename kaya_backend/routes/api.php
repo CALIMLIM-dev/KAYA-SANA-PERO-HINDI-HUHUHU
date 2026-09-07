@@ -136,6 +136,12 @@ Route::prefix('v1')->group(function () {
         Route::put('/worker/profile',                              [WorkerProfileController::class, 'updateBasicInfo'])->middleware('not.company');
         Route::post('/worker/profile/photo',                       [WorkerProfileController::class, 'uploadPhoto'])->middleware('not.company');
 
+        // The recurring weekly pattern - which days, and roughly when on
+        // them. Read is open to the owner; writing it creates nothing, so
+        // it does not need the not.company guard the others carry.
+        Route::get('/worker/availability',  [WorkerProfileController::class, 'getAvailability']);
+        Route::put('/worker/availability',  [WorkerProfileController::class, 'updateAvailability']);
+
         // Resume. Stored privately and served only through the download route,
         // which checks the caller — a CV carries a phone number, home address
         // and full work history, so it is never a public storage URL.

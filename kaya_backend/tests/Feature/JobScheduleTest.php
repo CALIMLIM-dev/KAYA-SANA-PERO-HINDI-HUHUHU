@@ -230,14 +230,76 @@ class JobScheduleTest extends TestCase
             ->post('/api/v1/jobs', $this->payload([
                 'start_date' => $start,
                 'end_date'   => $end,
-                'start_time' => '08:30',
             ]))
             ->assertCreated();
 
         $job = JobPost::first();
         $this->assertSame($start, $job->start_date->toDateString());
         $this->assertSame($end, $job->end_date->toDateString());
-        $this->assertStringStartsWith('08:30', $job->start_time);
+    }
+
+    /*
+        The form asks how long the work takes, not when it ends.
+
+        "How long will this take" is a question anybody hiring can answer;
+        an end date is arithmetic they have to do first. The end date stays
+        the stored truth, so the clash check, the availability warning and
+        the history all keep reading one field.
+    */
+    public function test_a_duration_becomes_an_end_date(): void
+    {
+        $employer = $this->employer();
+        $start = now()->addDays(2)->toDateString();
+
+        $this->actingAs($employer, 'sanctum')
+            ->post('/api/v1/jobs', $this->payload([
+                'start_date'    => $start,
+                'duration_days' => 3,
+            ]))
+            ->assertCreated();
+
+        $job = JobPost::first();
+
+        // Three days INCLUDING the first one: a three day job starting Monday
+        // finishes Wednesday, not Thursday.
+        $this->assertSame(
+            \Carbon\CarbonImmutable::parse($start)->addDays(2)->toDateString(),
+            $job->end_date->toDateString()
+        );
+    }
+
+    public function test_a_one_day_job_has_no_end_date_of_its_own(): void
+    {
+        $employer = $this->employer();
+        $start = now()->addDays(2)->toDateString();
+
+        $this->actingAs($employer, 'sanctum')
+            ->post('/api/v1/jobs', $this->payload([
+                'start_date'    => $start,
+                'duration_days' => 1,
+            ]))
+            ->assertCreated();
+
+        // Same day in and out, which is what "one day" means.
+        $this->assertSame($start, JobPost::first()->end_date->toDateString());
+    }
+
+    /*
+        The time of day is not asked for any more.
+
+        It was settled in chat every time, so the field mostly collected a
+        fictional 08:00 that then read as a commitment. An older build still
+        sending one is ignored rather than refused.
+    */
+    public function test_a_start_time_is_no_longer_accepted(): void
+    {
+        $employer = $this->employer();
+
+        $this->actingAs($employer, 'sanctum')
+            ->post('/api/v1/jobs', $this->payload(['start_time' => '08:30']))
+            ->assertCreated();
+
+        $this->assertNull(JobPost::first()->start_time);
     }
 
     public function test_the_schedule_reaches_the_client(): void

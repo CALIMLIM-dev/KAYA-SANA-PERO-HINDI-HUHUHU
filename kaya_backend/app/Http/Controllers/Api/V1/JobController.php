@@ -306,20 +306,28 @@ class JobController extends Controller
             'photos'             => ['required', 'array', 'min:1', 'max:4'],
             'photos.*'           => ['image', 'mimes:jpg,jpeg,png', 'max:5120'],
             /*
-                Required on new posts, though the column is nullable for the jobs
-                that predate it. A job with no date cannot be checked against a
-                worker's other commitments, so an optional date would mean
-                auto-withdraw silently does nothing on exactly the jobs that
-                skipped it.
+                When the work starts, and how long it runs.
 
-                end_date null means a single day — that is the common case and
-                should not need filling in. start_time stays optional because
-                the hour is usually settled in chat, and requiring it would
-                mostly collect a fictional one.
+                Required on new posts, though the columns are nullable for the
+                jobs that predate them. A job with no dates cannot be checked
+                against a worker's other commitments or against their weekly
+                availability, so an optional date would mean both checks
+                silently do nothing on exactly the jobs that skipped it.
+
+                `duration_days` is what the form asks - "how long will this
+                take" is a question anybody hiring can answer, where an end
+                date is arithmetic they have to do first. end_date is computed
+                from it below and stays the stored truth, so everything that
+                already reads dates is untouched. Sending end_date directly
+                still works, for an older build.
+
+                start_time is gone. The hour is settled in chat every time, and
+                a required field that mostly collects a fictional 08:00 is
+                worse than no field: it looks like a commitment.
             */
             'start_date'         => ['required', 'date', 'after_or_equal:today'],
+            'duration_days'      => ['nullable', 'integer', 'min:1', 'max:365'],
             'end_date'           => ['nullable', 'date', 'after_or_equal:start_date'],
-            'start_time'         => ['nullable', 'date_format:H:i'],
         ], [
             'budget_max.gte' => 'The maximum budget must be greater than or equal to the minimum budget.',
             'photos.required' => 'Please add at least one photo of the job.',
@@ -327,7 +335,26 @@ class JobController extends Controller
             'start_date.required' => 'Please choose when the work starts.',
             'start_date.after_or_equal' => 'The start date cannot be in the past.',
             'end_date.after_or_equal' => 'The job cannot end before it starts.',
+            'duration_days.min' => 'A job lasts at least a day.',
+            'duration_days.max' => 'A job post cannot run longer than a year.',
         ]);
+
+        /*
+            One day unless told otherwise.
+
+            The form sends a length; the table stores an end date, because
+            every reader - the clash check, the availability warning, the
+            history - already asks "when does this run". Computing it once
+            here keeps that one truth and lets the form ask the easier
+            question.
+        */
+        if (!empty($data['duration_days'])) {
+            $data['end_date'] = \Carbon\CarbonImmutable::parse($data['start_date'])
+                ->addDays((int) $data['duration_days'] - 1)
+                ->toDateString();
+        }
+
+        unset($data['duration_days']);
 
         /*
             The same post arriving twice.
@@ -747,12 +774,45 @@ class JobController extends Controller
                 invent a date first.
             */
             'start_date'         => ['nullable', 'date'],
+            // Same as posting: the form asks how long, the table stores an end
+            // date. start_time is no longer asked for anywhere.
+            'duration_days'      => ['nullable', 'integer', 'min:1', 'max:365'],
             'end_date'           => ['nullable', 'date', 'after_or_equal:start_date'],
-            'start_time'         => ['nullable', 'date_format:H:i'],
         ], [
             'budget_max.gte' => 'The maximum budget must be greater than or equal to the minimum budget.',
             'end_date.after_or_equal' => 'The job cannot end before it starts.',
+            'duration_days.min' => 'A job lasts at least a day.',
+            'duration_days.max' => 'A job post cannot run longer than a year.',
         ]);
+
+        if (!empty($data['duration_days'])) {
+            $from = $data['start_date'] ?? $job->start_date;
+
+            if ($from !== null) {
+                $data['end_date'] = \Carbon\CarbonImmutable::parse($from)
+                    ->addDays((int) $data['duration_days'] - 1)
+                    ->toDateString();
+            }
+        }
+
+        unset($data['duration_days']);
+
+        /*
+            One day unless told otherwise.
+
+            The form sends a length; the table stores an end date, because
+            every reader - the clash check, the availability warning, the
+            history - already asks "when does this run". Computing it once
+            here keeps that one truth and lets the form ask the easier
+            question.
+        */
+        if (!empty($data['duration_days'])) {
+            $data['end_date'] = \Carbon\CarbonImmutable::parse($data['start_date'])
+                ->addDays((int) $data['duration_days'] - 1)
+                ->toDateString();
+        }
+
+        unset($data['duration_days']);
 
         $skillIds = $data['required_skill_ids'] ?? null;
         unset($data['required_skill_ids']);

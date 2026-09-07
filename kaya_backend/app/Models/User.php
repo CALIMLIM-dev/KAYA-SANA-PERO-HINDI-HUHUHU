@@ -265,6 +265,12 @@ class User extends Authenticatable
     // ── Relationships ─────────────────────────────────────────────────────────
 
     public function workerProfile()   { return $this->hasOne(WorkerProfile::class); }
+
+    /// The recurring days and periods this worker can work.
+    public function availability()
+    {
+        return $this->hasMany(WorkerAvailability::class)->orderBy('day_of_week');
+    }
     public function employerProfile() { return $this->hasOne(EmployerProfile::class); }
 
     /*

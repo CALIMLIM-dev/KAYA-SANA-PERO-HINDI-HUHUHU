@@ -41,6 +41,13 @@ class _BadgesScreenState extends State<BadgesScreen> {
       _error = null;
     });
 
+    // Same guard the providers use: a request with no token can only fail,
+    // and leaves a thirty second timeout running behind it.
+    if (await ApiClient.getToken() == null) {
+      if (mounted) setState(() => _loading = false);
+      return;
+    }
+
     try {
       final res = await _api.get('/me/badges');
       final data = res.data['data'] as Map<String, dynamic>;
