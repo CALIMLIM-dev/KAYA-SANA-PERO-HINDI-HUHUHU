@@ -1006,6 +1006,7 @@ class WorkerProfileController extends Controller
             // Distance. Without it this endpoint returned every worker in the
             // country while the screen above it said "near you".
             'radius_km'   => ['nullable', 'numeric', 'min:1', 'max:500'],
+            'sort'        => ['nullable', 'in:best,rating,jobs,nearest,newest'],
         ]);
 
         $query = WorkerProfile::query()
@@ -1020,7 +1021,14 @@ class WorkerProfileController extends Controller
         }
 
         if (!empty($data['location_id'])) {
-            $query->where('location_id', $data['location_id']);
+            // The place and everything in it - a city includes its barangays,
+            // which is where workers actually are.
+            $place = \App\Models\Location::find($data['location_id']);
+
+            $query->whereIn(
+                'location_id',
+                $place ? $place->subtreeIds() : [$data['location_id']]
+            );
         }
 
         if (!empty($data['skill_id'])) {
@@ -1106,12 +1114,75 @@ class WorkerProfileController extends Controller
             );
         }
 
-        // Nearest first whenever the viewer has a position at all.
-        if ($viewerLat !== null && $viewerLng !== null) {
-            $withDistance = $withDistance->sortBy(
-                fn (WorkerProfile $p) => $p->computed_distance_km ?? PHP_FLOAT_MAX
-            );
-        }
+        /*
+            The order the directory comes back in.
+
+            It used to be nearest-first and nothing else, which answers "who is
+            closest" - not "who should I hire", which is the question an
+            employer opening this screen is actually asking. Distance is one
+            input now rather than the whole answer.
+
+            Every input is already on the row or already counted elsewhere, and
+            each one is worth points a person can be told about:
+
+                paid boost      lifts a worker above the list for three days
+                rating          up to 5, weighted by how many reviews back it
+                jobs finished   up to 3, flattening out at ten
+                verified ID     2
+                nearby          2 within 10km, 1 within 25km
+
+            Weighted rather than raw so one five-star review does not outrank
+            forty jobs at 4.6 - the same reason the Highly Rated badge needs
+            five reviews before it appears.
+        */
+        $ids = $withDistance->pluck('user_id')->all();
+
+        // Two queries for the whole page rather than two per worker.
+        $boosted = $ids === [] ? collect() : \App\Models\Boost::query()
+            ->active()
+            ->where('boostable_type', \App\Models\Boost::TYPE_WORKER)
+            ->whereIn('boostable_id', $ids)
+            ->pluck('boostable_id')
+            ->flip();
+
+        $finished = $ids === [] ? collect() : \App\Models\Application::query()
+            ->select('user_id', DB::raw('count(*) as total'))
+            ->where('status', 'completed')
+            ->whereIn('user_id', $ids)
+            ->groupBy('user_id')
+            ->pluck('total', 'user_id');
+
+        $withDistance = $withDistance->map(function (WorkerProfile $p) use ($boosted, $finished) {
+            $reviews = (int) $p->rating_count;
+            $rating  = (float) $p->rating_avg;
+            $done    = (int) ($finished[$p->user_id] ?? 0);
+            $km      = $p->computed_distance_km;
+
+            $score = ($rating / 5) * (min($reviews, 5) / 5) * 5
+                + (min($done, 10) / 10) * 3
+                + ($p->user?->is_verified ? 2 : 0)
+                + ($km === null ? 0 : ($km <= 10 ? 2 : ($km <= 25 ? 1 : 0)));
+
+            $p->setAttribute('is_boosted', $boosted->has($p->user_id));
+            $p->setAttribute('jobs_completed', $done);
+            $p->setAttribute('rank_score', round($score, 2));
+
+            return $p;
+        });
+
+        $sort = $data['sort'] ?? 'best';
+
+        $withDistance = match ($sort) {
+            'rating'  => $withDistance->sortByDesc(fn (WorkerProfile $p) => [$p->rating_avg, $p->rating_count]),
+            'jobs'    => $withDistance->sortByDesc(fn (WorkerProfile $p) => $p->jobs_completed),
+            'nearest' => $withDistance->sortBy(fn (WorkerProfile $p) => $p->computed_distance_km ?? PHP_FLOAT_MAX),
+            'newest'  => $withDistance->sortByDesc(fn (WorkerProfile $p) => $p->created_at),
+            // A paid boost sits above the ranking, not inside it, so three
+            // days of placement cannot be undone by one bad week.
+            default   => $withDistance->sortByDesc(
+                fn (WorkerProfile $p) => [$p->is_boosted ? 1 : 0, $p->rank_score]
+            ),
+        };
 
         $profiles = $withDistance->values();
 
@@ -1143,6 +1214,10 @@ class WorkerProfileController extends Controller
                     'distance_km'    => $this->bucketDistance($p->computed_distance_km),
                     'distance_label' => $this->distanceLabel($p->computed_distance_km),
                     'user_id'      => $p->user_id,
+                    // What the ranking used, so a card can say "Boosted"
+                    // and show the work behind the position it is in.
+                    'is_boosted'     => (bool) $p->is_boosted,
+                    'jobs_completed' => (int) $p->jobs_completed,
                     // What they charge. rate_label is the phrasing every
                     // surface should show; the raw numbers are there for
                     // filtering and for the edit form.

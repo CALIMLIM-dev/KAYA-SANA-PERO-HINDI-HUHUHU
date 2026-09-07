@@ -11,27 +11,34 @@ class PeopleWhoCanHelpSection extends StatelessWidget {
   final bool isLoading;
   final String? userLocation;
 
-  /// The radius the list was actually fetched with, so the heading can state it
-  /// instead of naming a city most of the results are not in.
-  final double? radiusKm;
+  /*
+      The place the list was fetched for.
+
+      This was a radius - fifty kilometres by default, doubling to two hundred
+      from the empty state. Nobody hiring a plumber is looking fifty kilometres
+      away, and the number was a workaround for a location filter that matched
+      city rows exactly and therefore matched nobody. The filter understands a
+      city and its barangays now, so the section can say where it is looking.
+  */
+  final String? placeLabel;
   final VoidCallback? onSeeAll;
   final Function(WorkerProfile)? onWorkerTap;
   final Function(WorkerProfile)? onWorkerInvite;
 
-  /// Widen the search and reload. Null once the radius is at its ceiling,
-  /// which hides the button rather than offering something that cannot help.
-  final VoidCallback? onWidenSearch;
+  /// Opens the place picker from the empty state, which is the only thing
+  /// that can help when nobody is here: look somewhere else.
+  final VoidCallback? onChangePlace;
 
   const PeopleWhoCanHelpSection({
     super.key,
     required this.workers,
     this.isLoading = false,
     this.userLocation,
-    this.radiusKm,
+    this.placeLabel,
     this.onSeeAll,
     this.onWorkerTap,
     this.onWorkerInvite,
-    this.onWidenSearch,
+    this.onChangePlace,
   });
 
   @override
@@ -60,16 +67,55 @@ class PeopleWhoCanHelpSection extends StatelessWidget {
                         color: AppColors.neutral900,
                       ),
                     ),
+                    /*
+                        The place, and the way to change it.
+
+                        This line stated a radius, and the only way to alter
+                        the search was a "wider area" button that appeared
+                        when the list was already empty. The place is the
+                        input now, so it is a control wherever the list is -
+                        full or empty.
+                    */
+                    InkWell(
+                      onTap: onChangePlace,
+                      borderRadius: BorderRadius.circular(6),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 2),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            if (onChangePlace != null) ...[
+                              const Icon(Icons.place_outlined,
+                                  size: 13, color: AppColors.neutral600),
+                              const SizedBox(width: 3),
+                            ],
+                            Flexible(
+                              child: Text(
+                                placeLabel != null && placeLabel!.trim().isNotEmpty
+                                    ? placeLabel!.trim()
+                                    : 'Anywhere',
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: Theme.of(context)
+                                    .textTheme
+                                    .bodySmall
+                                    ?.copyWith(
+                                      color: AppColors.neutral600,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                              ),
+                            ),
+                            if (onChangePlace != null)
+                              const Icon(Icons.expand_more,
+                                  size: 15, color: AppColors.neutral600),
+                          ],
+                        ),
+                      ),
+                    ),
                     Text(
-                      // "in {your city}" was wrong: this list is everyone within
-                      // a radius, which spans several towns. Naming the radius is
-                      // both honest and more useful than a city name that half
-                      // the results do not match.
-                      radiusKm == null
-                          ? 'Skilled professionals nearby'
-                          : userLocation != null
-                              ? 'Within ${radiusKm!.round()} km of $userLocation'
-                              : 'Within ${radiusKm!.round()} km of you',
+                      // Best first: rating, work finished, a verified ID and
+                      // how near they are, with a paid boost above the rest.
+                      'Best matches first',
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(
@@ -209,9 +255,9 @@ class PeopleWhoCanHelpSection extends StatelessWidget {
             ),
             const SizedBox(height: 4),
             Text(
-              onWidenSearch != null
-                  ? 'Nobody within ${(radiusKm ?? 50).round()} km yet'
-                  : 'Nobody found even across the whole region',
+              placeLabel != null && placeLabel!.trim().isNotEmpty
+                  ? 'Nobody has set up a worker profile in ${placeLabel!.trim()} yet'
+                  : 'No worker profiles yet',
               style: TextStyle(
                 color: AppColors.neutral500,
                 fontSize: 12,
@@ -221,20 +267,16 @@ class PeopleWhoCanHelpSection extends StatelessWidget {
             /*
                 The only way out of an empty list, so it has to work.
 
-                This offered "Adjust Location" against an empty handler. It
-                shows precisely when someone has nothing to look at, which is
-                the one moment a dead control is certain to be pressed.
-
-                The button disappears at the maximum radius rather than going
-                grey, because a worker search wider than a couple of hundred
-                kilometres is not a search anyone can act on.
+                It used to offer a wider radius, which meant workers two towns
+                over for a job somebody has to travel to. Looking somewhere
+                else is the honest version of the same offer.
             */
-            if (onWidenSearch != null) ...[
+            if (onChangePlace != null) ...[
               const SizedBox(height: 12),
               TextButton(
-                onPressed: onWidenSearch,
+                onPressed: onChangePlace,
                 child: Text(
-                  'Search a wider area',
+                  'Look in another place',
                   style: TextStyle(
                     color: AppColors.primary,
                     fontSize: 12,

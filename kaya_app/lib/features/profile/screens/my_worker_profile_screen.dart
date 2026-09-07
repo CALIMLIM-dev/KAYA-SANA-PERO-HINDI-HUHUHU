@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../../core/constants/app_colors.dart';
+import '../../../core/constants/credits.dart';
+import '../../../core/constants/job_boost.dart';
 import '../../../providers/auth_provider.dart';
+import '../../../providers/credits_provider.dart';
 import '../widgets/credentials_section.dart';
 import '../widgets/experience_section.dart';
 import '../widgets/inline_edit_row.dart';
@@ -873,6 +876,110 @@ class _MyWorkerProfileScreenState extends State<MyWorkerProfileScreen> with Sing
   /// worker being told "0 people viewed your profile" on the day they sign up
   /// is discouraging and tells them nothing they can act on — and "0" is also
   /// what a failed request looks like, so showing it would sometimes be a lie.
+  /*
+      Three days at the top of the directory, bought here.
+
+      The endpoint shipped with boosts and nothing ever called it: an employer
+      could boost a job while posting it, and a worker could not buy the one
+      thing aimed at their side at all. The cost is on screen before the
+      button, the same rule applying and inviting follow.
+  */
+  Widget _buildBoostCard() {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 16),
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppColors.neutral200),
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.trending_up, size: 22, color: AppColors.primary),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Boost your profile',
+                  style: TextStyle(
+                    fontSize: 14.5,
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.neutral900,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  'Top of the worker list for ${JobBoost.days} days, '
+                  '${JobBoost.cost} ${Credits.plural}',
+                  style: const TextStyle(
+                    fontSize: 12.5,
+                    height: 1.35,
+                    color: AppColors.neutral600,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          TextButton(
+            onPressed: _confirmBoost,
+            child: const Text('Boost'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _confirmBoost() async {
+    final go = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Boost your profile'),
+        content: Text(
+          'This charges ${JobBoost.cost} ${Credits.plural} and puts you at the '
+          'top of the worker list for ${JobBoost.days} days. It is not '
+          'refundable once it starts.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.primary,
+              foregroundColor: Colors.white,
+            ),
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Boost'),
+          ),
+        ],
+      ),
+    );
+
+    if (go != true || !mounted) return;
+
+    final provider = context.read<WorkerProfileProvider>();
+    final ok = await provider.boostProfile();
+
+    if (!mounted) return;
+
+    if (ok) {
+      // The balance on screen elsewhere is now stale by the cost of this.
+      await context.read<CreditsProvider>().refresh();
+      if (!mounted) return;
+      AppToast.success(
+        context,
+        'Boosted. You are at the top of the list for ${JobBoost.days} days.',
+      );
+    } else {
+      AppToast.error(
+        context,
+        provider.errorMessage ?? 'Could not boost your profile.',
+      );
+    }
+  }
   Widget _buildViewsBanner() {
     final views = context.watch<ProfileViewProvider>();
 
@@ -947,6 +1054,8 @@ class _MyWorkerProfileScreenState extends State<MyWorkerProfileScreen> with Sing
             ),
           ),
         ),
+
+        _buildBoostCard(),
 
         ProfileSectionHeading('About you'),
 

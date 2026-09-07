@@ -87,6 +87,9 @@ Route::prefix('v1')->group(function () {
         Route::post('/logout', [AuthController::class, 'logout'])
             ->withoutMiddleware(['auth:sanctum', 'not.suspended']);
         Route::get('/me',      [AuthController::class, 'me']);
+        // The badge list, for the person earning them rather than the
+        // person reading their profile.
+        Route::get('/me/badges', [AuthController::class, 'badges']);
         Route::get('/check-status', [AuthController::class, 'checkStatus']);
         Route::patch('/me',    [AuthController::class, 'updateMe']);
 

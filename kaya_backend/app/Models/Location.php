@@ -30,6 +30,31 @@ class Location extends Model
     public const TYPE_MUNICIPALITY = 'municipality';
     public const TYPE_BARANGAY = 'barangay';
 
+    /*
+        This location and everything inside it.
+
+        A worker picks a barangay and an employer picks a city, so matching
+        location_id exactly meant "workers in Urdaneta City" returned only the
+        handful whose own location was the city row itself - never the ones in
+        its barangays, which is all of them. That is why the directory was
+        bounded by a 50km circle instead: the circle worked around a filter
+        that could not answer the question being asked.
+
+        Two levels down covers province -> city -> barangay, which is as deep
+        as the PSGC table goes below a province.
+    */
+    public function subtreeIds(): array
+    {
+        $children = static::where('parent_id', $this->id)->pluck('id');
+
+        if ($children->isEmpty()) {
+            return [$this->id];
+        }
+
+        $grandchildren = static::whereIn('parent_id', $children)->pluck('id');
+
+        return array_merge([$this->id], $children->all(), $grandchildren->all());
+    }
     public function parent()
     {
         return $this->belongsTo(self::class, 'parent_id');

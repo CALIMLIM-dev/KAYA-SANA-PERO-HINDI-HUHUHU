@@ -124,6 +124,7 @@ class _SearchScreenState extends State<SearchScreen> {
             categoryId: _selectedCategoryId,
             rateMin: bounded && _minSalary > 0 ? _minSalary : null,
             rateMax: bounded && _maxSalary < 5000 ? _maxSalary : null,
+            sort: _workerSortParam,
           );
     }
   }
@@ -167,8 +168,10 @@ class _SearchScreenState extends State<SearchScreen> {
         if (!loc.contains(_selectedLocation!.toLowerCase())) return false;
       }
       return true;
-    }).toList()
-      ..sort(_workerComparator);
+    }).toList();
+    // Deliberately unsorted: the order came from the server's ranking, and
+    // Dart's sort is not stable, so even a comparator that answers "equal"
+    // would scramble it.
   }
 
   int _jobComparator(Job a, Job b) {
@@ -177,16 +180,6 @@ class _SearchScreenState extends State<SearchScreen> {
         return (b.salaryMax ?? b.salaryMin ?? 0)
             .compareTo(a.salaryMax ?? a.salaryMin ?? 0);
       default: // Recent — the API already orders latest() first.
-        return 0;
-    }
-  }
-
-  int _workerComparator(WorkerProfile a, WorkerProfile b) {
-    switch (_selectedSortBy) {
-      case 'Highest Rate':
-      case 'Top Rated Worker':
-        return b.rating.compareTo(a.rating);
-      default:
         return 0;
     }
   }
@@ -685,8 +678,27 @@ class _SearchScreenState extends State<SearchScreen> {
     if (_searchType == 'Jobs') {
       return ['Recent', 'Highest Pay'];
     }
-    return ['Recent', 'Top Rated Worker'];
+
+    /*
+        Ranked by the server, not re-sorted here.
+
+        "Top Rated Worker" used to reorder whichever page had already been
+        fetched, which is only the top twenty of an order the employer did not
+        choose - so sorting by rating showed the best of the nearest rather
+        than the best. These names map onto the ranking the directory itself
+        applies, so the whole list is ordered rather than one screenful.
+    */
+    return ['Best match', 'Top rated', 'Most jobs', 'Nearest', 'Recent'];
   }
+
+  /// The sort name as the API spells it. Best-first unless asked otherwise.
+  String get _workerSortParam => switch (_selectedSortBy) {
+        'Top rated' => 'rating',
+        'Most jobs' => 'jobs',
+        'Nearest' => 'nearest',
+        'Recent' => 'newest',
+        _ => 'best',
+      };
 
   void _showFilterSheet() {
     showModalBottomSheet(
@@ -752,9 +764,15 @@ class _SearchScreenState extends State<SearchScreen> {
                       children: _getCurrentSortOptions().map((option) {
                         final selected = _selectedSortBy == option;
                         return GestureDetector(
-                          onTap: () => setSheetState(() {
-                            setState(() => _selectedSortBy = option);
-                          }),
+                          // The worker sort is applied by the server, so
+                          // picking one has to ask again rather than
+                          // reorder the page already on screen.
+                          onTap: () {
+                            setSheetState(() {
+                              setState(() => _selectedSortBy = option);
+                            });
+                            if (_searchType != 'Jobs') _runSearch();
+                          },
                           child: Container(
                             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
                             decoration: BoxDecoration(

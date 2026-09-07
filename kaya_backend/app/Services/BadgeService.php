@@ -217,6 +217,139 @@ class BadgeService
      * Showing First Job beside 50 Jobs makes the row longer and says less -
      * the smaller badge is implied by the larger and only crowds it out.
      */
+    /*
+        Every badge there is, earned or not, and how far off the rest are.
+
+        forWorker and forEmployer answer "what does this person have" - the
+        question a stranger reading their profile is asking. This answers "what
+        can I get and what do I have to do", which is the question the person
+        themselves has, and until now nothing anywhere answered it: the badges
+        appeared on a profile with no list of what existed and no way to find
+        out what any of them took.
+
+        The requirements are read from the same constants the awards are, so a
+        threshold cannot be changed in one place and described in the other.
+    */
+    public function catalogFor(User $user, string $side): array
+    {
+        $worker = $side === 'worker';
+
+        if ($worker && ! $user->workerProfile) {
+            return [];
+        }
+
+        if (! $worker && ! $user->employerProfile) {
+            return [];
+        }
+
+        $earned = collect($worker ? $this->forWorker($user) : $this->forEmployer($user))
+            ->keyBy('code');
+
+        $record = $worker
+            ? $this->record->forWorker($user)
+            : $this->record->forEmployer($user);
+
+        $done = (int) $record['jobs_completed'];
+
+        $profile = $worker ? $user->workerProfile : $user->employerProfile;
+        $reviews = (int) ($profile->rating_count ?? 0);
+        $rating  = (float) ($profile->rating_avg ?? 0);
+        $rate    = $record['success_rate'];
+
+        $rows = [];
+
+        $rows[] = [
+            'code'        => 'verified',
+            'label'       => 'Verified',
+            'requirement' => 'Have a government ID approved by KAYA',
+            'progress'    => $user->is_verified ? 'Approved' : 'Not submitted yet',
+        ];
+
+        if (! $worker && $user->isCompanyEmployer()) {
+            $rows[] = [
+                'code'        => 'verified_business',
+                'label'       => 'Verified Business',
+                'requirement' => 'Have your business documents approved',
+                'progress'    => $earned->has('verified_business')
+                    ? 'Approved'
+                    : 'Not approved yet',
+            ];
+        }
+
+        $milestoneWord = $worker ? 'Finish' : 'Complete';
+        $unitWord = $worker ? 'job' : 'hire';
+
+        $rows[] = [
+            'code'        => 'first_job',
+            'label'       => 'First Job',
+            'requirement' => "{$milestoneWord} your first {$unitWord}",
+            'progress'    => "{$done} finished",
+        ];
+
+        foreach ([10, 50] as $threshold) {
+            $rows[] = [
+                'code'        => "jobs_{$threshold}",
+                'label'       => "{$threshold} Jobs",
+                'requirement' => "{$milestoneWord} {$threshold} {$unitWord}s",
+                'progress'    => "{$done} of {$threshold}",
+            ];
+        }
+
+        $rows[] = [
+            'code'        => 'highly_rated',
+            'label'       => 'Highly Rated',
+            'requirement' => sprintf(
+                'Hold a %.1f average over at least %d reviews',
+                self::RATING_MIN_AVERAGE,
+                self::RATING_MIN_REVIEWS
+            ),
+            'progress'    => $reviews === 0
+                ? 'No reviews yet'
+                : sprintf('%.1f over %d reviews', $rating, $reviews),
+        ];
+
+        $rows[] = [
+            'code'        => 'reliable',
+            'label'       => 'Reliable',
+            'requirement' => sprintf(
+                'Complete %d%% of at least %d finished jobs',
+                self::RELIABLE_MIN_RATE,
+                self::RELIABLE_MIN_FINISHED
+            ),
+            'progress'    => $rate === null
+                ? 'No finished jobs yet'
+                : "{$rate}% of {$done} finished",
+        ];
+
+        if ($worker) {
+            $rows[] = [
+                'code'        => 'repeat_hire',
+                'label'       => 'Repeat Hire',
+                'requirement' => 'Be hired again by an employer you have worked for',
+                'progress'    => $earned->has('repeat_hire')
+                    ? 'Hired back'
+                    : 'Not yet',
+            ];
+        }
+
+        $months = $user->created_at ? (int) $user->created_at->diffInMonths(now()) : 0;
+
+        $rows[] = [
+            'code'        => 'veteran',
+            'label'       => 'Veteran',
+            'requirement' => 'Be on KAYA for a year',
+            'progress'    => $months >= 12 ? 'A year and counting' : "{$months} months so far",
+        ];
+
+        return array_map(function (array $row) use ($earned) {
+            $row['earned'] = $earned->has($row['code']);
+            // The evidence line from the award itself, when there is one -
+            // "4.8 average across 6 reviews" beats repeating the rule back.
+            $row['description'] = $earned[$row['code']]['description'] ?? null;
+
+            return $row;
+        }, $rows);
+    }
     private function milestones(int $completed, bool $hiredWording = false): array
     {
         foreach (self::MILESTONES as $threshold) {

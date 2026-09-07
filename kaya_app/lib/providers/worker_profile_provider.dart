@@ -208,6 +208,26 @@ class WorkerProfileProvider with ChangeNotifier {
     }
   }
 
+  /*
+      Buy three days at the top of the worker directory.
+
+      The endpoint has existed since boosts shipped and nothing in the app ever
+      called it - jobs could be boosted at the moment of posting and a worker
+      could not buy the one thing aimed at them at all. The charge and the
+      dates are the server's; this only asks.
+  */
+  Future<bool> boostProfile() async {
+    try {
+      await _apiClient.post('/worker-profile/boost');
+      _errorMessage = null;
+      notifyListeners();
+      return true;
+    } catch (e) {
+      _errorMessage = e.toString().replaceFirst('Exception: ', '');
+      notifyListeners();
+      return false;
+    }
+  }
   Future<bool> updateName(String newName) async {
     try {
       final response = await _apiClient.put('/worker/profile', data: {'name': newName});

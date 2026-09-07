@@ -74,6 +74,10 @@ class WorkerBrowseProvider with ChangeNotifier {
     double? rateMax,
     String? rateUnit,
     double? radiusKm,
+    /// Which order the server should rank in: best, rating, jobs,
+    /// nearest or newest. Null leaves it to the server, which ranks
+    /// best-first.
+    String? sort,
   }) async {
     _isLoading = true;
     _errorMessage = null;
@@ -89,6 +93,7 @@ class WorkerBrowseProvider with ChangeNotifier {
         if (rateMax != null) 'rate_max': rateMax,
         if (rateUnit != null) 'rate_unit': rateUnit,
         if (radiusKm != null) 'radius_km': radiusKm,
+        if (sort != null) 'sort': sort,
       });
 
       final page = res.data['data'] as Map<String, dynamic>;

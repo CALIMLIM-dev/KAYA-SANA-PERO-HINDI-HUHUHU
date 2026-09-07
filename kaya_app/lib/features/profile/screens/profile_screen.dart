@@ -16,6 +16,7 @@ import '../../../providers/worker_profile_provider.dart';
 import '../../../providers/employer_profile_provider.dart';
 import '../../../core/widgets/profile_avatar.dart';
 import '../../legal/screens/legal_screen.dart';
+import 'badges_screen.dart';
 
 /// Profile / Account Screen
 class ProfileScreen extends StatelessWidget {
@@ -195,6 +196,24 @@ class ProfileScreen extends StatelessWidget {
                     onTap: () =>
                         Navigator.pushNamed(context, '/my-employer-profile'),
                   ),
+
+                  /*
+                      Badges were only ever drawn on the public profile, so
+                      the person earning them never saw them and nothing said
+                      what the others were or how to get one.
+                  */
+                  if (auth.workerProfileExists || auth.employerProfileExists)
+                    _MenuItem(
+                      icon: Icons.emoji_events_outlined,
+                      title: 'Badges',
+                      subtitle: 'What you have earned, and what the rest take',
+                      onTap: () => Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => const BadgesScreen(),
+                        ),
+                      ),
+                    ),
 
                   const SizedBox(height: 24),
 

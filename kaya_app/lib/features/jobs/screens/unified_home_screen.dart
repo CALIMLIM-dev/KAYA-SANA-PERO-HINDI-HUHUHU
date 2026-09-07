@@ -16,12 +16,12 @@ import '../../../providers/job_provider.dart';
 import '../../../providers/worker_profile_provider.dart';
 import '../../../providers/worker_browse_provider.dart';
 import '../../help/screens/faq_screen.dart';
+import '../widgets/place_picker_sheet.dart';
 import '../widgets/unified_search_bar.dart';
 import '../widgets/jobs_near_you_section.dart';
 import '../widgets/people_who_can_help_section.dart';
 import '../../notifications/widgets/notification_bell.dart';
 import '../../../core/utils/realtime_refresh.dart';
-import '../../../core/widgets/app_toast.dart';
 import '../../../data/services/realtime_service.dart';
 
 /// Home screen for both sides of the marketplace.
@@ -62,42 +62,46 @@ class _UnifiedHomeScreenState extends State<UnifiedHomeScreen>
   List<Job> _filteredJobs = [];
   List<WorkerProfile> _filteredWorkers = [];
 
-  /// How far "near you" reaches for the worker directory.
-  ///
-  /// 50 km covers a province comfortably without pulling in the next region.
-  /// The server drops anyone whose position cannot be worked out, so this is a
-  /// real bound rather than a hint.
-  static const double _nearbyRadiusKm = 50;
-
   /*
-      How far out the worker search currently reaches.
+      Where the worker directory is looking.
 
-      Starts at the default above and widens when someone asks for it from the
-      empty state. Two hundred is the ceiling: past that "people who can help"
-      stops meaning anything for a job someone has to physically travel to.
+      This was a fifty kilometre circle that doubled to two hundred from the
+      empty state. Nobody hires a carpenter fifty kilometres away, and the
+      radius was really a workaround: the location filter matched a PSGC row
+      exactly, so asking for a city returned nobody, because workers are in
+      its barangays. The filter understands a city and everything under it
+      now, so the question is a place - which is the question anyone hiring
+      actually has.
 
-      Only workers are bounded by this. Jobs come back sorted nearest-first
-      with no cut-off, which is why the jobs section offers a different way
-      out of an empty list rather than this one.
+      Starts at the account's own city and is changed from the section header.
   */
-  static const double _maxRadiusKm = 200;
-  double _radiusKm = _nearbyRadiusKm;
+  int? _placeId;
+  String? _placeLabel;
 
-  bool get _canWidenSearch => _radiusKm < _maxRadiusKm;
+  /// Whichever city the account has already given, from either profile.
+  void _adoptKnownPlace(AuthProvider auth) {
+    if (_placeId != null) return;
 
-  /// Widen the worker search and reload. Doubles rather than stepping, so it
-  /// takes two taps to reach the ceiling instead of six.
-  Future<void> _widenWorkerSearch() async {
-    if (!_canWidenSearch) return;
+    final known = auth.user?['known_location'] as Map<String, dynamic>?;
+    final city = (known?['city'] as Map<String, dynamic>?) ?? known;
+
+    if (city == null || city['location_id'] == null) return;
+
+    _placeId = (city['location_id'] as num).toInt();
+    _placeLabel = (city['label'] ?? '').toString();
+  }
+
+  /// The place picker, from the section header or its empty state.
+  Future<void> _pickPlace() async {
+    final picked = await showPlacePickerSheet(context, current: _placeLabel);
+    if (picked == null || !mounted) return;
 
     setState(() {
-      _radiusKm = (_radiusKm * 2).clamp(_nearbyRadiusKm, _maxRadiusKm);
+      _placeId = picked.id;
+      _placeLabel = picked.displayName;
     });
 
     await _initializeData();
-
-    if (!mounted) return;
-    AppToast.info(context, 'Now showing workers within ${_radiusKm.round()} km');
   }
 
   @override
@@ -187,6 +191,9 @@ class _UnifiedHomeScreenState extends State<UnifiedHomeScreen>
     final jobProvider = context.read<JobProvider>();
     final workerBrowse = context.read<WorkerBrowseProvider>();
 
+    // The account already told us where it is on one profile or the other.
+    _adoptKnownPlace(context.read<AuthProvider>());
+
     // Fetch based on what the account *owns*, not what it is focused on.
     //
     // Gating on the current mode meant a hybrid focused on worker never loaded
@@ -211,7 +218,10 @@ class _UnifiedHomeScreenState extends State<UnifiedHomeScreen>
     */
     await Future.wait([
       if (!employerOnly) jobProvider.fetchPublicJobs(nearestFirst: true),
-      if (!workerOnly) workerBrowse.fetchWorkers(radiusKm: _radiusKm),
+      // Bounded by the place, ranked best first. No radius: a circle
+      // around a point is not how anybody describes where they will
+      // work.
+      if (!workerOnly) workerBrowse.fetchWorkers(locationId: _placeId),
     ]);
 
     if (!mounted) return;
@@ -870,13 +880,11 @@ class _UnifiedHomeScreenState extends State<UnifiedHomeScreen>
                     userLocation: authProvider.user?['city'] as String?,
                     // Same bound the fetch used, so the heading cannot drift
                     // away from what was actually asked for.
-                    radiusKm: _radiusKm,
+                    placeLabel: _placeLabel,
                     onSeeAll: () => AppRouter.toSearchJobs(context),
                     onWorkerTap: _onWorkerTap,
                     onWorkerInvite: _inviteWorker,
-                    // Null at the ceiling, which hides the button instead of
-                    // offering a wider search that cannot return anything.
-                    onWidenSearch: _canWidenSearch ? _widenWorkerSearch : null,
+                    onChangePlace: _pickPlace,
                   ),
                 ),
               ],

@@ -118,7 +118,7 @@ void main() {
         worker('Ana Reyes'),
       ],
       userLocation: 'Urdaneta City',
-      radiusKm: 15,
+      placeLabel: 'Urdaneta City',
     ),
   };
 

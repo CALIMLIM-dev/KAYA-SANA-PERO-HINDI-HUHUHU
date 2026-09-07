@@ -331,6 +331,24 @@ class AuthController extends Controller
         ]);
     }
     
+    /*
+        GET /me/badges
+
+        Every badge on the account's own side of the app, earned or not, with
+        what each one takes and how far off it is. The profile endpoints
+        already return the earned ones - that is what a stranger reading a
+        profile sees - and nothing answered the question the account holder
+        has, which is what the rest of them are and how to get one.
+    */
+    public function badges(Request $request, \App\Services\BadgeService $badges)
+    {
+        $user = $request->user();
+
+        return $this->ok([
+            'worker'   => $badges->catalogFor($user, 'worker'),
+            'employer' => $badges->catalogFor($user, 'employer'),
+        ]);
+    }
     /**
      * Check suspension status (called periodically by app)
      */
