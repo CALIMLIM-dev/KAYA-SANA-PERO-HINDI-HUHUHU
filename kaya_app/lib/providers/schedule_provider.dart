@@ -69,7 +69,9 @@ class ScheduleProvider with ChangeNotifier {
   Future<bool> propose(
     int conversationId, {
     required DateTime date,
-    required String period,
+    /// 24-hour HH:mm. The phone's own formatter would send "8:00 AM" on a
+    /// 12-hour device, which the server refuses.
+    required String time,
     String? note,
     int? jobId,
   }) async {
@@ -82,7 +84,7 @@ class ScheduleProvider with ChangeNotifier {
             '${date.year.toString().padLeft(4, '0')}-'
             '${date.month.toString().padLeft(2, '0')}-'
             '${date.day.toString().padLeft(2, '0')}',
-        'period': period,
+        'scheduled_time': time,
         if (note != null && note.trim().isNotEmpty) 'note': note.trim(),
         if (jobId != null) 'job_id': jobId,
       });

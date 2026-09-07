@@ -80,7 +80,7 @@ class ScheduleProposalTest extends TestCase
             "/api/v1/conversations/{$this->conversation->id}/schedule",
             array_merge([
                 'scheduled_date' => now()->addDays(3)->toDateString(),
-                'period'         => 'morning',
+                'scheduled_time' => '08:00',
             ], $overrides)
         );
     }
@@ -182,7 +182,7 @@ class ScheduleProposalTest extends TestCase
         $first = $this->propose($this->employer)->json('data.id');
         $second = $this->propose($this->worker, [
             'scheduled_date' => now()->addDays(4)->toDateString(),
-            'period'         => 'afternoon',
+            'scheduled_time' => '13:30',
         ])->json('data.id');
 
         $this->assertSame('superseded', ScheduleProposal::find($first)->status);
@@ -204,7 +204,7 @@ class ScheduleProposalTest extends TestCase
 
         $this->propose($this->worker, [
             'scheduled_date' => now()->addDays(9)->toDateString(),
-            'period'         => 'whole_day',
+            'scheduled_time' => '07:00',
         ])->assertStatus(201);
 
         $body = $this->actingAs($this->employer, 'sanctum')
@@ -214,7 +214,7 @@ class ScheduleProposalTest extends TestCase
 
         $this->assertSame($agreed, $body['agreed']['id']);
         $this->assertNotNull($body['pending']);
-        $this->assertSame('whole_day', $body['pending']['period']);
+        $this->assertSame('7:00 AM', $body['pending']['scheduled_time']);
     }
 
     public function test_a_stranger_cannot_see_or_touch_the_schedule(): void
@@ -278,7 +278,7 @@ class ScheduleProposalTest extends TestCase
 
         $id = $this->actingAs($other, 'sanctum')->postJson(
             "/api/v1/conversations/{$otherThread->id}/schedule",
-            ['scheduled_date' => $day, 'period' => 'morning'],
+            ['scheduled_date' => $day, 'scheduled_time' => '08:00'],
         )->json('data.id');
 
         $this->actingAs($this->worker, 'sanctum')
@@ -290,10 +290,12 @@ class ScheduleProposalTest extends TestCase
             ->assertOk()
             ->json('data.worker_busy');
 
-        $this->assertSame([['date' => $day, 'period' => 'morning']], $busy);
+        // By the day, not the hour: a worker on a job that morning is not
+        // really free that afternoon either.
+        $this->assertSame([['date' => $day]], $busy);
 
         // Shown, not enforced: this employer can still offer that day.
-        $this->propose($this->employer, ['scheduled_date' => $day, 'period' => 'morning'])
+        $this->propose($this->employer, ['scheduled_date' => $day, 'scheduled_time' => '08:00'])
             ->assertStatus(201);
     }
 
@@ -326,7 +328,7 @@ class ScheduleProposalTest extends TestCase
 
         $id = $this->actingAs($other, 'sanctum')->postJson(
             "/api/v1/conversations/{$otherThread->id}/schedule",
-            ['scheduled_date' => $day, 'period' => 'whole_day', 'note' => 'Tile setting in Nancayasan'],
+            ['scheduled_date' => $day, 'scheduled_time' => '08:00', 'note' => 'Tile setting in Nancayasan'],
         )->json('data.id');
 
         $this->actingAs($this->worker, 'sanctum')
@@ -392,7 +394,7 @@ class ScheduleProposalTest extends TestCase
 
         $this->actingAs($other, 'sanctum')->postJson(
             "/api/v1/conversations/{$otherThread->id}/schedule",
-            ['scheduled_date' => now()->addDays(5)->toDateString(), 'period' => 'morning'],
+            ['scheduled_date' => now()->addDays(5)->toDateString(), 'scheduled_time' => '08:00'],
         )->assertStatus(201);
 
         $this->assertSame(
@@ -403,15 +405,26 @@ class ScheduleProposalTest extends TestCase
         );
     }
 
-    public function test_a_morning_and_an_afternoon_are_not_the_same_slot(): void
-    {
-        $this->assertTrue(ScheduleProposal::periodsOverlap('morning', 'morning'));
-        $this->assertTrue(ScheduleProposal::periodsOverlap('whole_day', 'evening'));
-        $this->assertTrue(ScheduleProposal::periodsOverlap('afternoon', 'whole_day'));
+    /*
+        The time survives the round trip, in a shape a person reads.
 
-        // Marking these as a clash would make anybody working mornings look
-        // unavailable for half the week.
-        $this->assertFalse(ScheduleProposal::periodsOverlap('morning', 'afternoon'));
-        $this->assertFalse(ScheduleProposal::periodsOverlap('evening', 'morning'));
+        The column stores 08:00:00 and the panel shows "8:00 AM" - written by
+        the model so the offer, the answer and the panel cannot describe the
+        same appointment three ways.
+    */
+    public function test_the_agreed_time_comes_back_as_a_readable_hour(): void
+    {
+        $body = $this->propose($this->employer, ['scheduled_time' => '14:30'])
+            ->assertStatus(201)
+            ->json('data');
+
+        $this->assertSame('2:30 PM', $body['scheduled_time']);
+        $this->assertStringContainsString('2:30 PM', $body['summary']);
+    }
+
+    public function test_a_time_in_the_wrong_shape_is_refused(): void
+    {
+        $this->propose($this->employer, ['scheduled_time' => 'half eight'])
+            ->assertStatus(422);
     }
 }

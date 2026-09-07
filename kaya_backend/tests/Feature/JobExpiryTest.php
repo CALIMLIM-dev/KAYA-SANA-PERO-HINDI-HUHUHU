@@ -101,6 +101,7 @@ class JobExpiryTest extends TestCase
                 'location_id' => $this->cityId(),
                 'budget_period' => 'project',
                 'start_date'  => now()->addDay()->toDateString(),
+                'end_date'    => now()->addDay()->toDateString(),
                 'photos'      => [
                     \Illuminate\Http\UploadedFile::fake()->create('job.jpg', 40, 'image/jpeg'),
                 ],

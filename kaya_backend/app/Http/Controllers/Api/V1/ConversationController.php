@@ -229,7 +229,10 @@ class ConversationController extends Controller
 
         $data = $request->validate([
             'scheduled_date' => ['required', 'date', 'after_or_equal:today'],
-            'period'         => ['required', 'in:' . implode(',', ScheduleProposal::PERIODS)],
+            // H:i, the only shape the column takes. A part of the day was
+            // the vocabulary of a weekly pattern; two people settling one
+            // job say an hour.
+            'scheduled_time' => ['required', 'date_format:H:i'],
             'note'           => ['nullable', 'string', 'max:280'],
             'job_id'         => ['nullable', 'integer', 'exists:jobs_posts,id'],
         ], [
@@ -253,7 +256,7 @@ class ConversationController extends Controller
                 'job_id'          => $data['job_id'] ?? $conversation->job_id,
                 'proposed_by'     => $user->id,
                 'scheduled_date'  => $data['scheduled_date'],
-                'period'          => $data['period'],
+                'scheduled_time'  => $data['scheduled_time'],
                 'note'            => $data['note'] ?? null,
                 'status'          => 'proposed',
             ]);
@@ -346,7 +349,7 @@ class ConversationController extends Controller
             acceptable is booking somebody who is taken without ever being
             told.
 
-            Dates and periods only. Which job, which employer and where are
+            Dates only, by the day. Which job, which employer and where are
             another conversation's business.
         */
         $busy = ScheduleProposal::commitmentsFor(
@@ -368,7 +371,7 @@ class ConversationController extends Controller
             'job_id'         => $proposal->job_id,
             'proposed_by'    => $proposal->proposed_by,
             'scheduled_date' => $proposal->scheduled_date->toDateString(),
-            'period'         => $proposal->period,
+            'scheduled_time' => $proposal->timeLabel(),
             'note'           => $proposal->note,
             'status'         => $proposal->status,
             // Written by the model so every surface says the same date the

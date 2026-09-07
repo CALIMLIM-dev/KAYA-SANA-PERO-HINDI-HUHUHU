@@ -6,23 +6,27 @@ use App\Models\Application;
 use App\Models\EmployerProfile;
 use App\Models\JobPost;
 use App\Models\User;
-use App\Models\UserNotification;
 use App\Models\WorkerProfile;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
 /*
-    Being hired should not cost a worker every other chance they had.
+    How much work somebody can carry is theirs to answer.
 
-    The panel asked for auto-withdraw on hire. Read literally that means
-    cancelling every other application the moment someone is accepted, which
-    punishes the worker for being hired: hires fall through, employers go quiet,
-    and the worker cannot get back the queues they were removed from.
+    This file used to assert the opposite. Being hired cancelled the worker's
+    other pending applications whose dates overlapped, and an employer trying
+    to hire somebody who already had a job that day was refused outright with
+    "This worker is already hired for another job on Sep 10."
 
-    So only genuine collisions are cancelled. These tests are mostly about what
-    must SURVIVE — the non-clashing application, the one on a dateless job, the
-    already-accepted one. Getting the cancel half right is easy; the value is in
-    not over-cancelling.
+    Both were written to protect a worker from being double-booked, and both
+    took the decision away from the two people making it. A mason pours
+    concrete in the morning for one employer and sets tile in the afternoon
+    for another; half this work is half a day. The worker applied to both jobs
+    on purpose.
+
+    What replaces the rule is not silence: both sides are shown what the
+    worker already holds, and then they choose. These tests exist so nobody
+    puts the enforcement back by accident.
 */
 class ClashWithdrawTest extends TestCase
 {
@@ -44,7 +48,7 @@ class ClashWithdrawTest extends TestCase
 
         return JobPost::create([
             'employer_id' => $employer->id,
-            'title'       => 'Job starting '.($start ?? 'whenever'),
+            'title'       => 'Job starting ' . ($start ?? 'whenever'),
             'description' => 'Work.',
             'budget_min'  => 1000,
             'location'    => 'Urdaneta City',
@@ -72,245 +76,109 @@ class ClashWithdrawTest extends TestCase
             ->patchJson("/api/v1/applications/{$application->id}/accept");
     }
 
-    public function test_an_application_on_the_same_day_is_cancelled(): void
+    /*
+        The case the old rule refused outright.
+
+        Two employers, one worker, the same day. Both hires go through; the
+        worker sorts out their own morning and afternoon.
+    */
+    public function test_a_worker_can_be_hired_for_two_jobs_on_the_same_day(): void
     {
-        $hired = $this->applyTo($this->job('2026-09-10'));
-        $clash = $this->applyTo($this->job('2026-09-10'));
+        $first = $this->applyTo($this->job('2026-09-10'));
+        $second = $this->applyTo($this->job('2026-09-10'));
 
-        $this->accept($hired)->assertOk();
+        $this->accept($first)->assertOk();
+        $this->accept($second)->assertOk();
 
-        $this->assertSame('cancelled', $clash->fresh()->status);
+        $this->assertSame('accepted', $first->fresh()->status);
+        $this->assertSame('accepted', $second->fresh()->status);
     }
 
-    public function test_an_application_on_a_different_day_survives(): void
+    public function test_a_job_running_through_the_hired_day_can_also_be_taken(): void
     {
-        // The whole point. Hired for Tuesday, keeps Friday.
-        $hired = $this->applyTo($this->job('2026-09-10'));
-        $other = $this->applyTo($this->job('2026-09-18'));
-
-        $this->accept($hired)->assertOk();
-
-        $this->assertSame('pending', $other->fresh()->status);
-    }
-
-    public function test_a_multi_day_job_spanning_the_hired_date_is_cancelled(): void
-    {
-        /*
-            The case a naive equality check misses. The other job does not start
-            on the hired day — it starts four days earlier and runs through it,
-            so the worker cannot do both. Comparing start dates alone would let
-            this one stand and double-book them.
-        */
         $hired = $this->applyTo($this->job('2026-09-10'));
         $spanning = $this->applyTo($this->job('2026-09-06', '2026-09-14'));
 
         $this->accept($hired)->assertOk();
+        $this->accept($spanning)->assertOk();
 
-        $this->assertSame('cancelled', $spanning->fresh()->status);
-    }
-
-    public function test_a_range_ending_the_day_before_survives(): void
-    {
-        // Boundary: ends 9 Sep, hired job starts 10 Sep. No overlap, so it
-        // stands. An off-by-one in the comparison shows up here.
-        $hired = $this->applyTo($this->job('2026-09-10'));
-        $before = $this->applyTo($this->job('2026-09-05', '2026-09-09'));
-
-        $this->accept($hired)->assertOk();
-
-        $this->assertSame('pending', $before->fresh()->status);
-    }
-
-    public function test_a_range_ending_on_the_hired_day_is_cancelled(): void
-    {
-        // The other side of the same boundary: ends the day the hired work
-        // begins, so they do collide.
-        $hired = $this->applyTo($this->job('2026-09-10'));
-        $touching = $this->applyTo($this->job('2026-09-05', '2026-09-10'));
-
-        $this->accept($hired)->assertOk();
-
-        $this->assertSame('cancelled', $touching->fresh()->status);
-    }
-
-    public function test_an_application_on_a_dateless_job_survives(): void
-    {
-        /*
-            Jobs posted before scheduling existed have no dates. Nothing can be
-            proven about them, and cancelling on no evidence is exactly the
-            behaviour this feature exists to avoid. The worker keeps it and can
-            withdraw by hand.
-        */
-        $hired = $this->applyTo($this->job('2026-09-10'));
-        $undated = $this->applyTo($this->job(null));
-
-        $this->accept($hired)->assertOk();
-
-        $this->assertSame('pending', $undated->fresh()->status);
-    }
-
-    public function test_nothing_is_cancelled_when_the_hired_job_has_no_dates(): void
-    {
-        // The mirror case. An undated hire cannot be shown to clash with
-        // anything, so it must not take other applications down with it.
-        $hired = $this->applyTo($this->job(null));
-        $other = $this->applyTo($this->job('2026-09-10'));
-
-        $this->accept($hired)->assertOk();
-
-        $this->assertSame('pending', $other->fresh()->status);
-    }
-
-    public function test_another_workers_application_is_untouched(): void
-    {
-        // Scoping check. A missing worker_id filter would cancel clashing
-        // applications belonging to everyone in the system.
-        $hired = $this->applyTo($this->job('2026-09-10'));
-
-        $someoneElse = User::factory()->create();
-        WorkerProfile::create(['user_id' => $someoneElse->id]);
-        $theirs = Application::create([
-            'job_id'    => $this->job('2026-09-10')->id,
-            'worker_id' => $someoneElse->id,
-            'status'    => 'pending',
-        ]);
-
-        $this->accept($hired)->assertOk();
-
-        $this->assertSame('pending', $theirs->fresh()->status);
-    }
-
-    public function test_an_already_accepted_application_is_not_cancelled(): void
-    {
-        // Only pending applications are in scope. Cancelling an accepted one
-        // would silently undo a hire someone already made.
-        $existing = $this->applyTo($this->job('2026-09-10'));
-        $existing->update(['status' => 'accepted']);
-
-        $hired = $this->applyTo($this->job('2026-09-10'));
-        $this->accept($hired);
-
-        $this->assertSame('accepted', $existing->fresh()->status);
+        $this->assertSame('accepted', $spanning->fresh()->status);
     }
 
     /*
-        This case used to assert the second hire went through, on the grounds
-        that cancelClashing left the first one alone. It did -- but nothing else
-        looked at it either, so both hires stood and the worker was booked twice
-        for one day without either employer being told.
+        The applications a worker paid for stay theirs.
 
-        Not cancelling the earlier hire was always right; allowing the later one
-        was the bug. Refusing is the only honest answer available: cancelling the
-        first would hand the worker to whoever pressed accept last, and allowing
-        both sends one employer to a site with nobody on it.
+        Being hired used to cancel these and refund them, which reads as
+        generous and is not: the queue they were in is gone, on work they may
+        well have been able to do.
     */
-    public function test_a_worker_cannot_be_hired_twice_for_the_same_day(): void
+    public function test_being_hired_leaves_every_other_application_alone(): void
     {
-        $existing = $this->applyTo($this->job('2026-09-10'));
-        $existing->update(['status' => 'accepted']);
-
-        $second = $this->applyTo($this->job('2026-09-10'));
-
-        $this->accept($second)->assertStatus(422);
-
-        $this->assertSame('pending', $second->fresh()->status);
-        $this->assertSame('accepted', $existing->fresh()->status);
-    }
-
-    public function test_the_refusal_does_not_name_the_other_employer(): void
-    {
-        // The dates are the second employer's business -- they need them to
-        // reschedule. Who else hired this worker is not, or every accept button
-        // becomes a way to enumerate a worker's clients.
-        $firstJob = $this->job('2026-09-10');
-        $existing = $this->applyTo($firstJob);
-        $existing->update(['status' => 'accepted']);
-
-        $otherEmployer = User::find($firstJob->employer_id);
-
-        $message = $this->accept($this->applyTo($this->job('2026-09-10')))
-            ->json('message');
-
-        $this->assertStringContainsString('already hired', $message);
-        $this->assertStringNotContainsString($otherEmployer->name, $message);
-        $this->assertStringNotContainsString($firstJob->title, $message);
-    }
-
-    public function test_a_hire_on_a_free_day_is_still_accepted(): void
-    {
-        // The guard must only catch overlaps. A worker booked on the 10th is
-        // still hireable for the 20th, or being hired once ends their week.
-        $existing = $this->applyTo($this->job('2026-09-10'));
-        $existing->update(['status' => 'accepted']);
-
-        $second = $this->applyTo($this->job('2026-09-20'));
-
-        $this->accept($second)->assertOk();
-        $this->assertSame('accepted', $second->fresh()->status);
-    }
-
-    public function test_a_dateless_job_never_blocks_a_hire(): void
-    {
-        // Mirrors clashingWith(): a job with no dates cannot be shown to collide
-        // with anything, and refusing a hire on a guess is worse than allowing
-        // it. Jobs posted before scheduling existed are exactly this case.
-        $existing = $this->applyTo($this->job(null));
-        $existing->update(['status' => 'accepted']);
-
-        $second = $this->applyTo($this->job('2026-09-10'));
-
-        $this->accept($second)->assertOk();
-    }
-
-    public function test_the_cancelled_jobs_applicant_count_goes_down(): void
-    {
-        // Mirrors withdraw(). Without it the counter only grows and permanently
-        // overstates interest in a job the worker is no longer available for.
         $hired = $this->applyTo($this->job('2026-09-10'));
-        $clashJob = $this->job('2026-09-10');
-        $this->applyTo($clashJob);
+
+        $sameDay = $this->applyTo($this->job('2026-09-10'));
+        $spanning = $this->applyTo($this->job('2026-09-06', '2026-09-14'));
+        $otherDay = $this->applyTo($this->job('2026-09-18'));
+        $dateless = $this->applyTo($this->job(null));
 
         $this->accept($hired)->assertOk();
 
-        $this->assertSame(0, $clashJob->fresh()->application_count);
+        foreach ([$sameDay, $spanning, $otherDay, $dateless] as $application) {
+            $this->assertSame(
+                'pending',
+                $application->fresh()->status,
+                'an application was cancelled on the worker\'s behalf'
+            );
+        }
     }
 
-    public function test_the_response_says_what_it_cancelled(): void
+    public function test_the_response_no_longer_reports_cancellations(): void
     {
-        // The employer's screen has to be able to explain the change. Three
-        // records moving with no acknowledgement reads as a bug.
         $hired = $this->applyTo($this->job('2026-09-10'));
         $this->applyTo($this->job('2026-09-10'));
 
+        // The key stays, because the app reads it. It is simply always empty.
         $this->accept($hired)
             ->assertOk()
-            ->assertJsonCount(1, 'data.cancelled_applications')
-            ->assertJsonStructure([
-                'data' => ['cancelled_applications' => [['id', 'job_id', 'job_title']]],
-            ]);
+            ->assertJsonPath('data.cancelled_applications', []);
     }
 
-    public function test_both_sides_are_notified(): void
+    public function test_an_applicant_count_is_not_quietly_decremented(): void
     {
         $hired = $this->applyTo($this->job('2026-09-10'));
         $clashJob = $this->job('2026-09-10');
         $this->applyTo($clashJob);
 
+        $before = $clashJob->application_count;
+
         $this->accept($hired)->assertOk();
 
-        // The worker learns why their application vanished.
-        $this->assertDatabaseHas('user_notifications', [
-            'user_id'  => $this->worker->id,
-            'type'     => 'application.cancelled',
-            'audience' => UserNotification::AUDIENCE_WORKER,
+        $this->assertSame($before, $clashJob->fresh()->application_count);
+    }
+
+    /*
+        An invitation is the same handshake from the other side, and it was
+        refused for the same reason. A worker can accept one for a day they
+        are already working.
+    */
+    public function test_a_worker_may_accept_an_invitation_for_a_day_they_already_work(): void
+    {
+        $hired = $this->applyTo($this->job('2026-09-10'));
+        $this->accept($hired)->assertOk();
+
+        $job = $this->job('2026-09-10');
+
+        $invitation = \App\Models\Invitation::create([
+            'job_id'      => $job->id,
+            'employer_id' => $job->employer_id,
+            'worker_id'   => $this->worker->id,
+            'status'      => 'pending',
         ]);
 
-        // And the employer who lost an applicant is told, because otherwise
-        // their list silently gets shorter.
-        $this->assertDatabaseHas('user_notifications', [
-            'user_id'  => $clashJob->employer_id,
-            'type'     => 'application.cancelled',
-            'audience' => UserNotification::AUDIENCE_EMPLOYER,
-        ]);
+        $this->actingAs($this->worker, 'sanctum')
+            ->patchJson("/api/v1/invitations/{$invitation->id}/accept")
+            ->assertOk();
+
+        $this->assertSame('accepted', $invitation->fresh()->status);
     }
 }

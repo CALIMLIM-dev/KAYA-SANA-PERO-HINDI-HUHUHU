@@ -188,20 +188,13 @@ class InvitationController extends Controller
         if (!$job || ! $job->isOpenForApplications()) return $this->fail('Job is no longer available', 422);
 
         /*
-            Same double-booking guard as accepting an applicant, from the other
-            side of the handshake. Accepting an invitation creates an accepted
-            application, so without this a worker could take an invite for a day
-            they have already promised to somebody else.
+            A worker with other work can still take this.
 
-            Worded for the worker, who -- unlike the employer -- is entitled to
-            know it is their own prior job in the way.
+            The mirror of the guard removed from accepting an applicant,
+            and gone for the same reason: how much work somebody can carry
+            on a given day is theirs to answer, not the app's. They are
+            shown what they already hold and decide.
         */
-        $schedule = app(\App\Services\ScheduleConflictService::class);
-        $commitment = $schedule->existingCommitment($user->id, $job);
-
-        if ($commitment !== null) {
-            return $this->fail($schedule->clashMessage($commitment, addressingWorker: true), 422);
-        }
 
         $invitation->update(['status' => 'accepted']);
 

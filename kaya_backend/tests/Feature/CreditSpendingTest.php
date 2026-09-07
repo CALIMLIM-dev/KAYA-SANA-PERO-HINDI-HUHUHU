@@ -210,40 +210,45 @@ class CreditSpendingTest extends TestCase
         $this->assertSame(50 - (int) config('kaya.credits.apply'), $this->balance($worker));
     }
 
-    /**
-     * The refund with no window and no condition.
-     *
-     * @test
-     */
-    public function an_application_cancelled_by_a_clash_is_always_refunded()
+    #[Test]
+    /*
+        Being hired takes nothing away from the worker.
+
+        This used to assert the opposite: a hire cancelled their other
+        applications on those dates and refunded each one. The refund was
+        right for as long as the cancelling was - they had not chosen it -
+        but the cancelling itself was the app deciding how many jobs
+        somebody may hold. Now nothing is cancelled, so there is nothing
+        to give back, and the barya they spent still buys them a place in
+        both queues.
+    */
+    public function being_hired_neither_cancels_nor_refunds_another_application()
     {
         $worker = $this->worker(50);
         $employerA = $this->employer();
         $employerB = $this->employer();
 
-        $clashing = $this->job($employerA, '2026-09-10');
-        $hiring   = $this->job($employerB, '2026-09-10');
+        $other  = $this->job($employerA, '2026-09-10');
+        $hiring = $this->job($employerB, '2026-09-10');
 
         $this->actingAs($worker, 'sanctum')
-            ->postJson("/api/v1/jobs/{$clashing->id}/apply")->assertCreated();
+            ->postJson("/api/v1/jobs/{$other->id}/apply")->assertCreated();
         $this->actingAs($worker, 'sanctum')
             ->postJson("/api/v1/jobs/{$hiring->id}/apply")->assertCreated();
 
         $cost = (int) config('kaya.credits.apply');
         $this->assertSame(50 - ($cost * 2), $this->balance($worker));
 
-        // Employer B hires them, which cancels the clashing application.
         $hire = Application::where('job_id', $hiring->id)->firstOrFail();
         $this->actingAs($employerB, 'sanctum')
             ->patchJson("/api/v1/applications/{$hire->id}/accept")
             ->assertOk();
 
-        $this->assertSame('cancelled',
-            Application::where('job_id', $clashing->id)->value('status'));
+        // Still standing, and still paid for.
+        $this->assertSame('pending',
+            Application::where('job_id', $other->id)->value('status'));
 
-        // The worker did not choose this, so being hired must not cost them.
-        $this->assertSame(50 - $cost, $this->balance($worker),
-            'A clash cancellation did not refund.');
+        $this->assertSame(50 - ($cost * 2), $this->balance($worker));
     }
 
     /** @test */

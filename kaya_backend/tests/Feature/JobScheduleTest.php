@@ -68,6 +68,9 @@ class JobScheduleTest extends TestCase
             'location_id'   => $location->id,
             'photos'        => [UploadedFile::fake()->create('job.jpg', 32, 'image/jpeg')],
             'start_date'    => now()->addDays(3)->toDateString(),
+            // Both dates are required now: a post says when the work
+            // starts and when it ends, and neither is computed.
+            'end_date'      => now()->addDays(3)->toDateString(),
         ], $overrides);
     }
 
@@ -202,22 +205,31 @@ class JobScheduleTest extends TestCase
             ->assertJsonValidationErrors('end_date');
     }
 
-    public function test_a_single_day_job_keeps_a_null_end_date(): void
+    /*
+        A one day job says so with two matching dates.
+
+        The end date used to be optional, and an empty one meant "same
+        day". A post now states when the work starts and when it ends,
+        both of them, because everything reading these dates - the
+        history, what a worker is shown as holding - has to know how
+        long the job runs without inferring it from a blank.
+    */
+    public function test_a_single_day_job_ends_the_day_it_starts(): void
     {
-        /*
-            Null must survive rather than being normalised to equal start_date.
-            The two states mean different things: "one day" and "a range that
-            happens to be one day long" read identically in the database if null
-            is backfilled, and the clash check then cannot tell a single-day
-            commitment from a badly-entered range.
-        */
         $employer = $this->employer();
+        $day = now()->addDays(3)->toDateString();
 
         $this->actingAs($employer, 'sanctum')
-            ->post('/api/v1/jobs', $this->payload())
+            ->post('/api/v1/jobs', $this->payload([
+                'start_date' => $day,
+                'end_date'   => $day,
+            ]))
             ->assertCreated();
 
-        $this->assertNull(JobPost::first()->end_date);
+        $job = JobPost::first();
+
+        $this->assertSame($day, $job->start_date->toDateString());
+        $this->assertSame($day, $job->end_date->toDateString());
     }
 
     public function test_a_multi_day_range_is_stored_intact(): void
@@ -240,49 +252,6 @@ class JobScheduleTest extends TestCase
 
     /*
         The form asks how long the work takes, not when it ends.
-
-        "How long will this take" is a question anybody hiring can answer;
-        an end date is arithmetic they have to do first. The end date stays
-        the stored truth, so the clash check, the availability warning and
-        the history all keep reading one field.
-    */
-    public function test_a_duration_becomes_an_end_date(): void
-    {
-        $employer = $this->employer();
-        $start = now()->addDays(2)->toDateString();
-
-        $this->actingAs($employer, 'sanctum')
-            ->post('/api/v1/jobs', $this->payload([
-                'start_date'    => $start,
-                'duration_days' => 3,
-            ]))
-            ->assertCreated();
-
-        $job = JobPost::first();
-
-        // Three days INCLUDING the first one: a three day job starting Monday
-        // finishes Wednesday, not Thursday.
-        $this->assertSame(
-            \Carbon\CarbonImmutable::parse($start)->addDays(2)->toDateString(),
-            $job->end_date->toDateString()
-        );
-    }
-
-    public function test_a_one_day_job_has_no_end_date_of_its_own(): void
-    {
-        $employer = $this->employer();
-        $start = now()->addDays(2)->toDateString();
-
-        $this->actingAs($employer, 'sanctum')
-            ->post('/api/v1/jobs', $this->payload([
-                'start_date'    => $start,
-                'duration_days' => 1,
-            ]))
-            ->assertCreated();
-
-        // Same day in and out, which is what "one day" means.
-        $this->assertSame($start, JobPost::first()->end_date->toDateString());
-    }
 
     /*
         The time of day is not asked for any more.
@@ -312,6 +281,9 @@ class JobScheduleTest extends TestCase
         $this->actingAs($employer, 'sanctum')
             ->post('/api/v1/jobs', $this->payload([
                 'start_date' => now()->addDays(4)->toDateString(),
+                // Both, or the end date from the default payload sits before
+                // the start and the post is refused.
+                'end_date'   => now()->addDays(4)->toDateString(),
             ]));
 
         $response = $this->actingAs($employer, 'sanctum')
@@ -357,5 +329,21 @@ class JobScheduleTest extends TestCase
             ->assertOk();
 
         $this->assertSame('Fix the kitchen tap', $job->fresh()->title);
+    }
+    /*
+        A post without an end date is refused.
+
+        Not pedantry: the dates are what the worker's other employers are shown
+        when they are deciding, and a job with no end is a job nobody can plan
+        around.
+    */
+    public function test_a_post_must_say_when_the_work_ends(): void
+    {
+        $payload = $this->payload();
+        unset($payload['end_date']);
+
+        $this->actingAs($this->employer(), 'sanctum')
+            ->post('/api/v1/jobs', $payload)
+            ->assertStatus(422);
     }
 }

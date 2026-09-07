@@ -13,7 +13,6 @@ use App\Services\JobCompletionService;
 use App\Services\NotificationService;
 use App\Models\CreditTransaction;
 use App\Services\CreditLedger;
-use App\Services\ScheduleConflictService;
 use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Http\Request;
 
@@ -501,24 +500,14 @@ class ApplicationController extends Controller
         if ($application->status !== 'pending') return $this->fail('Application status must be pending to accept', 422);
 
         /*
-            Refuse rather than double-book.
+            Somebody with other work is still hireable.
 
-            cancelClashing() below clears the worker's other PENDING applications
-            for these dates, but it deliberately leaves accepted ones alone -- an
-            accepted application is a promise to another employer. Without this
-            check nothing else looks at those, so two employers could each accept
-            the same worker for the same day and neither would ever be told.
-
-            Refusing is the only honest option. Cancelling the earlier hire to
-            make room would give the worker to whoever pressed the button last,
-            and silently allowing both would send one employer to an empty site.
+            This refused the hire outright when the worker already had a
+            job on the same dates. That is not KAYA's decision to make:
+            the worker applied for both, they know what they can carry,
+            and half this work is half a day. The employer is told what
+            the worker already holds and decides for themselves.
         */
-        $schedule = app(ScheduleConflictService::class);
-        $commitment = $schedule->existingCommitment($application->worker_id, $job, $application->id);
-
-        if ($commitment !== null) {
-            return $this->fail($schedule->clashMessage($commitment), 422);
-        }
 
         $application->update(['status' => 'accepted']);
 
@@ -566,17 +555,19 @@ class ApplicationController extends Controller
         ApplicationAccepted::dispatch($application->load(['job', 'worker']));
 
         /*
-            Auto-withdraw on hire, narrowed to actual collisions.
+            Nothing is cancelled on the worker's behalf.
 
-            Cancelling every other application would punish the worker for being
-            hired — hires fall through, and they would have lost their place in
-            every other queue for a job that never happened. Only the ones whose
-            dates overlap this job are cancelled; the rest stand.
+            Being hired used to sweep away their other pending
+            applications whose dates overlapped, refunding each one. It
+            was written to protect them from being double-booked and it
+            took the choice away instead: applications they had paid for,
+            on work they might well have been able to do, gone the moment
+            somebody else hired them.
 
-            Returned rather than done silently, so the employer's screen can say
-            what changed instead of three other records quietly moving.
+            They keep them. The key stays in the response because the
+            app reads it; it is simply always empty now.
         */
-        $cancelled = $schedule->cancelClashing($application);
+        $cancelled = collect();
 
         return $this->ok([
             'application'     => $application,

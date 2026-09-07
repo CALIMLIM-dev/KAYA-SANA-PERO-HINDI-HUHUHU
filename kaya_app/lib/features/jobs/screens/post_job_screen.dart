@@ -173,23 +173,6 @@ class _PostJobScreenState extends State<PostJobScreen> {
   // equal to _startDate, so the two states remain distinguishable server-side.
   DateTime? _startDate;
   DateTime? _endDate;
-  /*
-      How long the work runs, in days including the first one.
-
-      Stored as a length rather than an end date because that is what the form
-      asks; _endDate is kept in step with it so everything downstream - the
-      preview, the submit, the server - keeps reading one thing.
-  */
-  int? _durationDays;
-
-  static const List<({int days, String label})> _durationChoices = [
-    (days: 1, label: 'One day'),
-    (days: 2, label: '2 days'),
-    (days: 3, label: '3 days'),
-    (days: 7, label: 'A week'),
-    (days: 14, label: '2 weeks'),
-    (days: 30, label: 'A month'),
-  ];
   bool _showScheduleError = false;
   bool _isLoadingSkills = false;
   bool _showPinError = false;
@@ -1018,71 +1001,31 @@ class _PostJobScreenState extends State<PostJobScreen> {
             that now cannot disagree because there is only one piece of it.
         */
         /*
-            How long the work takes, instead of an end date and a time.
+            The day it ends, beside the day it starts.
 
-            "When does it end" is arithmetic somebody has to do before they
-            can answer; "how long will this take" is the thing they already
-            know. The end date is still what gets stored - the clash check and
-            the availability warning both read it - it is just computed rather
-            than typed.
+            This briefly offered "one day / a week / a month" and worked
+            the end date out from it, which is the app deciding how long
+            somebody's job runs - and a month is not a length anybody
+            hiring a plumber recognises. They know both dates. It asks
+            for both dates.
 
-            The time of day is gone entirely. It was settled in chat every
-            time, so the field mostly collected a fictional 08:00 that then sat
-            on the post looking like a commitment.
+            This is the work's own schedule, and has nothing to do with
+            how long the POST stays up, which is paid for separately.
         */
-        const SizedBox(height: 14),
-        const Text(
-          'How long will it take?',
-          style: TextStyle(
-              fontSize: 13,
-              fontWeight: FontWeight.w600,
-              color: AppColors.neutral800),
+        const SizedBox(height: 12),
+        _buildDateField(
+          label: 'End date',
+          value: _endDate,
+          hint: 'Pick a day',
+          onTap: _startDate == null ? null : _pickEndDate,
+          onClear: _endDate == null
+              ? null
+              : () => setState(() => _endDate = null),
         ),
-        const SizedBox(height: 8),
-        Wrap(
-          spacing: 8,
-          runSpacing: 8,
-          children: _durationChoices.map((choice) {
-            final selected = _durationDays == choice.days;
-
-            return GestureDetector(
-              onTap: () => setState(() {
-                _durationDays = choice.days;
-                _endDate = _startDate == null
-                    ? null
-                    : _startDate!.add(Duration(days: choice.days - 1));
-              }),
-              child: Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
-                decoration: BoxDecoration(
-                  color: selected
-                      ? AppColors.primary.withValues(alpha: 0.1)
-                      : AppColors.neutral100,
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(
-                    color: selected ? AppColors.primary : Colors.transparent,
-                    width: 1.5,
-                  ),
-                ),
-                child: Text(
-                  choice.label,
-                  style: TextStyle(
-                    fontSize: 13,
-                    fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
-                    color: selected
-                        ? AppColors.primary
-                        : AppColors.neutral700,
-                  ),
-                ),
-              ),
-            );
-          }).toList(),
-        ),
-        if (_showScheduleError && _durationDays == null) ...[
+        if (_showScheduleError && _endDate == null) ...[
           const SizedBox(height: 6),
           const Text(
-            'Please say how long the work will take.',
+            'Please choose when the work ends.',
             style: TextStyle(fontSize: 12, color: AppColors.error),
           ),
         ],
@@ -1243,6 +1186,21 @@ class _PostJobScreenState extends State<PostJobScreen> {
     return '${months[d.month - 1]} ${d.day}, ${d.year}';
   }
 
+  Future<void> _pickEndDate() async {
+    final start = _startDate!;
+
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: _endDate ?? start,
+      // Never before the start: an end date that cannot happen is a
+      // validation error waiting at the bottom of the form.
+      firstDate: start,
+      lastDate: start.add(const Duration(days: 365)),
+    );
+
+    if (picked != null) setState(() => _endDate = picked);
+  }
+
   Future<void> _pickStartDate() async {
     final now = DateTime.now();
     final picked = await showDatePicker(
@@ -1260,12 +1218,10 @@ class _PostJobScreenState extends State<PostJobScreen> {
       _startDate = picked;
       _showScheduleError = false;
 
-      // The length is the answer that was given; the end date follows from
-      // it. Moving the start date therefore moves the end, rather than
-      // leaving one that now sits before it - which the server would refuse.
-      _endDate = _durationDays == null
-          ? null
-          : picked.add(Duration(days: _durationDays! - 1));
+      // An end date now sitting before the start would be refused by the
+      // server. Dropping it turns a validation error into a field the
+      // employer simply picks again.
+      if (_endDate != null && _endDate!.isBefore(picked)) _endDate = null;
     });
   }
 
@@ -2186,15 +2142,15 @@ class _PostJobScreenState extends State<PostJobScreen> {
     }
 
     /*
-        How long it runs is required now, not optional.
+        Both dates, not one.
 
-        A post with no length is a post nobody can plan around, and it is the
-        field both the clash check and the worker's availability warning read.
-        "One day" is a tap, so requiring it costs nothing.
+        A post that says when it starts and not when it ends is a post nobody
+        can plan around - and these dates are what another employer is shown
+        when they are deciding whether this worker has room.
     */
-    if (_durationDays == null) {
+    if (_endDate == null) {
       setState(() => _showScheduleError = true);
-      await _pointAt(_scheduleKey, 'Please say how long the work will take');
+      await _pointAt(_scheduleKey, 'Please choose when the work ends');
       return;
     }
 
