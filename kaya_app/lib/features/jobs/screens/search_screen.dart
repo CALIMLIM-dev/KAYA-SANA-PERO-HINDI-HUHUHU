@@ -9,6 +9,7 @@ import '../../../data/models/job_model.dart';
 import '../../../data/models/worker_profile_model.dart';
 import '../../../core/constants/app_mode.dart';
 import '../../../providers/app_mode_provider.dart';
+import '../widgets/place_picker_sheet.dart';
 import '../../../providers/job_provider.dart';
 import '../../../providers/worker_browse_provider.dart';
 import '../../../providers/worker_profile_provider.dart';
@@ -24,7 +25,27 @@ import '../widgets/worker_card.dart';
 class SearchScreen extends StatefulWidget {
   final String? initialQuery;
 
-  const SearchScreen({super.key, this.initialQuery});
+  /*
+      Opened on a category rather than a search term.
+
+      The home category strip used to push the category's *name* into the
+      search box, so tapping Plumbing searched every job title for the word
+      "plumbing" - which misses a job called "Fix leaking pipes" and matches
+      one called "Plumbing supplies delivery". The id filters server-side,
+      the way the category chips on this screen already do.
+  */
+  final int? initialCategoryId;
+
+  /// 'Jobs' or 'Workers'. Null keeps the default, which is whichever side the
+  /// account is acting as.
+  final String? initialType;
+
+  const SearchScreen({
+    super.key,
+    this.initialQuery,
+    this.initialCategoryId,
+    this.initialType,
+  });
 
   @override
   State<SearchScreen> createState() => _SearchScreenState();
@@ -35,7 +56,19 @@ class _SearchScreenState extends State<SearchScreen> {
   Timer? _debounce;
 
   int? _selectedCategoryId;
-  String? _selectedLocation;
+
+  /*
+      Where to look.
+
+      This was a string, filtered by asking whether the result's own
+      label contained it - and no control ever set it, so the field
+      existed, was cleared by Clear All, drew a chip that could never
+      appear, and filtered nothing. It is a picked place now, and both
+      sides filter on its id server-side, which matches a city and every
+      barangay in it.
+  */
+  int? _placeId;
+  String? _placeLabel;
   String _selectedSortBy = 'Recent';
   String _searchType = 'Jobs'; // 'Jobs' or 'Workers'
 
@@ -52,6 +85,8 @@ class _SearchScreenState extends State<SearchScreen> {
     if (widget.initialQuery != null) {
       _searchController.text = widget.initialQuery!;
     }
+
+    _selectedCategoryId = widget.initialCategoryId;
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
@@ -79,6 +114,9 @@ class _SearchScreenState extends State<SearchScreen> {
           A hybrid keeps it, seeded from the mode they are in.
       */
       final appMode = context.read<AppModeProvider>();
+
+      // An explicit ask wins over the default, as long as the account has
+      // that side at all.
       _searchType = appMode.hasEmployerProfile && !appMode.hasWorkerProfile
           ? 'Workers'
           : appMode.hasWorkerProfile && !appMode.hasEmployerProfile
@@ -86,6 +124,12 @@ class _SearchScreenState extends State<SearchScreen> {
               : appMode.effectiveMode == AppMode.employer
                   ? 'Workers'
                   : 'Jobs';
+
+      if (widget.initialType == 'Workers' && appMode.hasEmployerProfile) {
+        _searchType = 'Workers';
+      } else if (widget.initialType == 'Jobs' && appMode.hasWorkerProfile) {
+        _searchType = 'Jobs';
+      }
 
       context.read<WorkerProfileProvider>().fetchCategories();
       _runSearch();
@@ -112,6 +156,7 @@ class _SearchScreenState extends State<SearchScreen> {
       await context.read<JobProvider>().fetchPublicJobs(
             search: query,
             categoryId: _selectedCategoryId,
+            locationId: _placeId,
           );
     } else {
       // Pay is a column on the worker profile, so it filters server-side.
@@ -124,6 +169,7 @@ class _SearchScreenState extends State<SearchScreen> {
             categoryId: _selectedCategoryId,
             rateMin: bounded && _minSalary > 0 ? _minSalary : null,
             rateMax: bounded && _maxSalary < 5000 ? _maxSalary : null,
+            locationId: _placeId,
             sort: _workerSortParam,
           );
     }
@@ -131,7 +177,7 @@ class _SearchScreenState extends State<SearchScreen> {
 
   int _getActiveFilterCount() {
     int count = 0;
-    if (_selectedLocation != null && _selectedLocation != 'All') count++;
+    if (_placeId != null) count++;
     if (_minSalary > 0 || _maxSalary < 5000) count++;
     if (_minRating > 0) count++;
     if (_verifiedOnly) count++;
@@ -150,10 +196,6 @@ class _SearchScreenState extends State<SearchScreen> {
       if (price != null && (price < _minSalary || price > _maxSalary)) {
         return false;
       }
-      if (_selectedLocation != null && _selectedLocation != 'All') {
-        final loc = (j.location ?? '').toLowerCase();
-        if (!loc.contains(_selectedLocation!.toLowerCase())) return false;
-      }
       return true;
     }).toList()
       ..sort(_jobComparator);
@@ -163,10 +205,6 @@ class _SearchScreenState extends State<SearchScreen> {
     return workers.where((w) {
       if (_verifiedOnly && !w.isVerified) return false;
       if (_minRating > 0 && w.rating < _minRating) return false;
-      if (_selectedLocation != null && _selectedLocation != 'All') {
-        final loc = (w.location ?? '').toLowerCase();
-        if (!loc.contains(_selectedLocation!.toLowerCase())) return false;
-      }
       return true;
     }).toList();
     // Deliberately unsorted: the order came from the server's ranking, and
@@ -521,8 +559,11 @@ class _SearchScreenState extends State<SearchScreen> {
     if (_selectedSortBy != 'Recent') {
       chip('Sort: $_selectedSortBy', () => _selectedSortBy = 'Recent');
     }
-    if (_selectedLocation != null && _selectedLocation != 'All') {
-      chip(_selectedLocation!, () => _selectedLocation = null);
+    if (_placeId != null) {
+      chip(_placeLabel ?? 'Place', () {
+        _placeId = null;
+        _placeLabel = null;
+      });
     }
     if (_minSalary > 0 || _maxSalary < 5000) {
       chip('₱${_minSalary.toInt()}–${_maxSalary.toInt()}', () {
@@ -733,7 +774,8 @@ class _SearchScreenState extends State<SearchScreen> {
                       onPressed: () {
                         setSheetState(() {
                           setState(() {
-                            _selectedLocation = null;
+                            _placeId = null;
+                            _placeLabel = null;
                             _minSalary = 0;
                             _maxSalary = 5000;
                             _minRating = 0;
@@ -755,6 +797,65 @@ class _SearchScreenState extends State<SearchScreen> {
                     // Sort lives here now. It used to be a dropdown in its own
                     // bar above the results, which cost a full row of height to
                     // show one value that is changed rarely.
+                    const Text('Place',
+                        style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
+                    const SizedBox(height: 10),
+                    InkWell(
+                      onTap: () async {
+                        final picked = await showPlacePickerSheet(
+                          context,
+                          current: _placeLabel,
+                        );
+                        if (picked == null) return;
+
+                        setSheetState(() => setState(() {
+                              _placeId = picked.id;
+                              _placeLabel = picked.displayName;
+                            }));
+                      },
+                      borderRadius: BorderRadius.circular(10),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 12, vertical: 12),
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(color: AppColors.neutral300),
+                        ),
+                        child: Row(
+                          children: [
+                            const Icon(Icons.place_outlined,
+                                size: 18, color: AppColors.neutral500),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                _placeLabel ?? 'Anywhere',
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                  fontSize: 13.5,
+                                  color: _placeId == null
+                                      ? AppColors.neutral500
+                                      : AppColors.neutral900,
+                                ),
+                              ),
+                            ),
+                            if (_placeId != null)
+                              GestureDetector(
+                                onTap: () => setSheetState(() => setState(() {
+                                      _placeId = null;
+                                      _placeLabel = null;
+                                    })),
+                                child: const Icon(Icons.close,
+                                    size: 16, color: AppColors.neutral500),
+                              )
+                            else
+                              const Icon(Icons.expand_more,
+                                  size: 18, color: AppColors.neutral500),
+                          ],
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 24),
                     const Text('Sort by',
                         style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
                     const SizedBox(height: 10),

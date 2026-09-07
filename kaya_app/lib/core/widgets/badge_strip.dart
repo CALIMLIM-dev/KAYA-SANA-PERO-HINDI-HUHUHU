@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../constants/app_colors.dart';
+import 'badge_medallion.dart';
 
 /*
     The badges on a public profile.
@@ -29,38 +30,6 @@ class BadgeStrip extends StatelessWidget {
   /// with a heading over it.
   bool get isEmpty => badges.isEmpty;
 
-  /*
-      The icon is chosen from the code, not sent by the server.
-
-      Sending an icon name over the wire would mean the server deciding how the
-      app looks, and an unknown name would have to fall back to something
-      anyway. An unrecognised code gets the neutral mark, so a badge added on
-      the server still renders correctly on an older build.
-  */
-  static IconData _iconFor(String code) {
-    switch (code) {
-      case 'verified':
-        return Icons.verified_user_outlined;
-      case 'verified_business':
-        return Icons.business_center_outlined;
-      case 'first_job':
-        return Icons.flag_outlined;
-      case 'jobs_10':
-      case 'jobs_50':
-        return Icons.workspace_premium_outlined;
-      case 'highly_rated':
-        return Icons.star_outline;
-      case 'reliable':
-        return Icons.verified_outlined;
-      case 'repeat_hire':
-        return Icons.repeat;
-      case 'veteran':
-        return Icons.schedule_outlined;
-      default:
-        return Icons.military_tech_outlined;
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     if (badges.isEmpty) return const SizedBox.shrink();
@@ -79,7 +48,7 @@ class BadgeStrip extends StatelessWidget {
           message: description,
           triggerMode: TooltipTriggerMode.longPress,
           child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+            padding: const EdgeInsets.fromLTRB(7, 5, 11, 5),
             decoration: BoxDecoration(
               color: AppColors.neutral100,
               borderRadius: BorderRadius.circular(8),
@@ -88,8 +57,11 @@ class BadgeStrip extends StatelessWidget {
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Icon(_iconFor(code), size: 14, color: AppColors.neutral700),
-                const SizedBox(width: 6),
+                // The struck medal, not an outline icon: each badge has
+                // its own glyph and its own metal, so a row of them
+                // stops reading as one thing repeated.
+                BadgeMedallion(code: code, size: 22),
+                const SizedBox(width: 7),
                 /*
                     Flexible, not fixed.
 

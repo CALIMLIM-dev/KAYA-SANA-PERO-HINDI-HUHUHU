@@ -106,6 +106,25 @@ class JobController extends Controller
             $query->where('location', 'like', "%{$location}%");
         }
 
+        /*
+            A place, matched properly.
+
+            The filter above is a LIKE on a display string, which is what the
+            app had to send because there was nothing else - so "Urdaneta"
+            missed "Nancayasan, Urdaneta City" whenever the label was written
+            differently, and there was no way to ask for a whole city at once.
+            The id matches the place and everything inside it, the same rule
+            the worker directory uses.
+        */
+        if ($locationId = $request->get('location_id')) {
+            $place = \App\Models\Location::find($locationId);
+
+            $query->whereIn(
+                'location_id',
+                $place ? $place->subtreeIds() : [$locationId]
+            );
+        }
+
         if ($skillIds = $request->get('skill_ids')) {
             $query->whereHas('skills', fn ($q) => $q->whereIn('skills.id', (array)$skillIds));
         }

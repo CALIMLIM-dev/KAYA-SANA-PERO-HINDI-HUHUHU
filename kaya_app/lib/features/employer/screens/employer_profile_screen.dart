@@ -273,6 +273,22 @@ class _EmployerProfileScreenState extends State<EmployerProfileScreen> {
             ),
           ),
 
+          /*
+              Badges, directly under the header.
+
+              They sat below About and Contact, which put the summary of an
+              employer's whole record underneath their phone number and after
+              two headings - and left the worker profile showing its badges up
+              top while this one buried them. Same place on both sides now.
+          */
+          if (badges.isNotEmpty)
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
+                child: BadgeStrip(badges: badges),
+              ),
+            ),
+
           // ── About ────────────────────────────────────────────────────────────
           if (description.isNotEmpty)
             SliverToBoxAdapter(
@@ -304,21 +320,6 @@ class _EmployerProfileScreenState extends State<EmployerProfileScreen> {
                       _contactRow(Icons.location_on_outlined, location),
                   ],
                 ),
-              ),
-            ),
-
-          /*
-              Badges, before the job list.
-
-              Same widget and same shape as the worker side - the server picks
-              which apply, so an employer's set differs in content, not in how
-              it is drawn. Nothing renders when none are earned.
-          */
-          if (badges.isNotEmpty)
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
-                child: BadgeStrip(badges: badges),
               ),
             ),
 

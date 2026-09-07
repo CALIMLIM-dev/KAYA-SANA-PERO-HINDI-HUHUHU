@@ -176,9 +176,25 @@ class AppRouter {
         return MaterialPageRoute(builder: (_) => const PostJobScreen());
       
       case searchJobs:
-        final initialQuery = settings.arguments as String?;
+        /*
+            A string or a map, because both call it.
+
+            Older callers pass the search term alone. The home category strip
+            passes a category id and which side to search, so tapping a
+            category filters on the category instead of typing its name into
+            the box.
+        */
+        final args = settings.arguments;
+        final query = args is String ? args : (args as Map?)?['query'] as String?;
+        final categoryId = args is Map ? args['categoryId'] as int? : null;
+        final searchType = args is Map ? args['searchType'] as String? : null;
+
         return MaterialPageRoute(
-          builder: (_) => SearchScreen(initialQuery: initialQuery),
+          builder: (_) => SearchScreen(
+            initialQuery: query,
+            initialCategoryId: categoryId,
+            initialType: searchType,
+          ),
         );
       
       case savedJobs:
@@ -398,8 +414,23 @@ class AppRouter {
   }
 
   /// Navigate to search jobs screen
-  static void toSearchJobs(BuildContext context, {String? query}) {
-    Navigator.pushNamed(context, searchJobs, arguments: query);
+  static void toSearchJobs(
+    BuildContext context, {
+    String? query,
+    int? categoryId,
+    String? searchType,
+  }) {
+    Navigator.pushNamed(
+      context,
+      searchJobs,
+      arguments: categoryId == null && searchType == null
+          ? query
+          : {
+              'query': query,
+              'categoryId': categoryId,
+              'searchType': searchType,
+            },
+    );
   }
 
   /// Navigate to saved jobs screen

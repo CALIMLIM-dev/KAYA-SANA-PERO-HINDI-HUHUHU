@@ -1010,8 +1010,24 @@ class _UnifiedHomeScreenState extends State<UnifiedHomeScreen>
     );
   }
 
-  void _onCategoryTap(String category) {
-    AppRouter.toSearchJobs(context, query: category);
+  /*
+      Opens search already filtered, rather than pre-typed.
+
+      The name went into the search box, which searches titles and
+      descriptions - so Plumbing missed "Fix leaking pipes" and matched
+      "Plumbing supplies delivery". The id filters on the server, the same
+      way the category chips inside search already do.
+  */
+  void _onCategoryTap(int categoryId, String name) {
+    final showingWorkers =
+        _getFilterForMode(context.read<AppModeProvider>()) ==
+            SearchFilter.showWorkers;
+
+    AppRouter.toSearchJobs(
+      context,
+      categoryId: categoryId,
+      searchType: showingWorkers ? 'Workers' : 'Jobs',
+    );
   }
 
   void _onJobTap(Job job) {
@@ -1046,34 +1062,35 @@ class _UnifiedHomeScreenState extends State<UnifiedHomeScreen>
 
 
   /// Get categories title based on current filter
+  /// Named for what tapping one gives you, which is the opposite of what
+  /// this said: showing jobs offered "Worker Skills" and showing workers
+  /// offered "Job Categories".
   String _getCategoriesTitle(SearchFilter filter) {
     switch (filter) {
       case SearchFilter.showWorkers:
-        return 'Job Categories';
+        return 'Workers by category';
       case SearchFilter.showJobs:
-        return 'Worker Skills';
+        return 'Jobs by category';
       case SearchFilter.all:
-        return 'Browse Categories';
+        return 'Browse categories';
     }
   }
 
-  /// Build appropriate categories based on current filter
-  Widget _buildCategories(SearchFilter filter) {
-    // When showing jobs (worker view) — keep original full-width Row layout with Expanded
-    if (filter == SearchFilter.showJobs) {
-      return Row(
-        children: [
-          Expanded(child: _CategoryButton(icon: Icons.build,    label: 'Skilled',   color: AppColors.primary,  onTap: () => _onCategoryTap('Skilled'))),
-          const SizedBox(width: 8),
-          Expanded(child: _CategoryButton(icon: Icons.verified, label: 'Verified',  color: AppColors.success,  onTap: () => _onCategoryTap('Verified'))),
-          const SizedBox(width: 8),
-          Expanded(child: _CategoryButton(icon: Icons.star,     label: 'Top Rated', color: AppColors.accent,   onTap: () => _onCategoryTap('Top Rated'))),
-          const SizedBox(width: 8),
-          Expanded(child: _CategoryButton(icon: Icons.schedule, label: 'Available', color: AppColors.success,  onTap: () => _onCategoryTap('Available'))),
-        ],
-      );
-    }
+  /*
+      The same categories for everybody, whichever side they are on.
 
+      In worker mode this row was four hardcoded buttons - Skilled, Verified,
+      Top Rated, Available - which are things a worker *is*, not work anybody
+      is looking for, and each one ran a plain text search for its own label.
+      "Top Rated" searched job titles for the words top rated and found
+      nothing, every time.
+
+      Now it is the category list from the server on both sides, and a tap
+      filters by that category rather than typing its name into the search
+      box. Which side it searches follows the mode: somebody looking at jobs
+      gets jobs in that category, somebody looking at workers gets workers.
+  */
+  Widget _buildCategories(SearchFilter filter) {
     /*
         Categories come from the server, not from a list in this file.
 
@@ -1108,7 +1125,7 @@ class _UnifiedHomeScreenState extends State<UnifiedHomeScreen>
             // Fixed here on purpose: in a horizontal list nothing else is
             // deciding, and equal widths are what keep the icons aligned.
             width: 84,
-            onTap: () => _onCategoryTap(category.name),
+            onTap: () => _onCategoryTap(category.id, category.name),
           );
         },
       ),

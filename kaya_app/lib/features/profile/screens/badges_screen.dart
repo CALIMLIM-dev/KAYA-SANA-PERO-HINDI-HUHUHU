@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../core/constants/app_colors.dart';
+import '../../../core/widgets/badge_medallion.dart';
 import '../../../data/services/api_client.dart';
 
 /*
@@ -59,20 +60,6 @@ class _BadgesScreenState extends State<BadgesScreen> {
         _loading = false;
       });
     }
-  }
-
-  /// The icon per code, chosen here rather than sent, so the server keeps
-  /// deciding what is true and the app keeps deciding what it looks like.
-  IconData _iconFor(String code) {
-    if (code == 'verified') return Icons.verified_outlined;
-    if (code == 'verified_business') return Icons.business_center_outlined;
-    if (code == 'first_job') return Icons.check_circle_outline;
-    if (code.startsWith('jobs_')) return Icons.workspace_premium_outlined;
-    if (code == 'highly_rated') return Icons.star_outline;
-    if (code == 'reliable') return Icons.thumb_up_outlined;
-    if (code == 'repeat_hire') return Icons.replay_outlined;
-    if (code == 'veteran') return Icons.history_outlined;
-    return Icons.emoji_events_outlined;
   }
 
   @override
@@ -196,12 +183,13 @@ class _BadgesScreenState extends State<BadgesScreen> {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(
-            _iconFor((badge['code'] ?? '').toString()),
-            size: 22,
-            // Earned ones carry the app's own colour; the rest stay grey, so
-            // the list reads at a glance without a row of coloured ribbons.
-            color: isEarned ? AppColors.primary : AppColors.neutral400,
+          // Struck in its own metal when earned, flat grey when not - the
+          // shape is the same either way, so the list reads as one set with
+          // some of it still to win.
+          BadgeMedallion(
+            code: (badge['code'] ?? '').toString(),
+            earned: isEarned,
+            size: 38,
           ),
           const SizedBox(width: 12),
           Expanded(

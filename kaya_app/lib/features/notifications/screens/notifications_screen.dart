@@ -9,6 +9,7 @@ import '../../../core/navigation/app_router.dart';
 import '../../../providers/app_mode_provider.dart';
 import '../../../providers/job_provider.dart';
 import '../../../providers/notification_provider.dart';
+import '../notification_destination.dart';
 import '../widgets/notification_item.dart';
 
 /// The notification centre.
@@ -176,59 +177,64 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
 
     return true;
   }
-  /// Marks read, then jumps to whatever the notification is about.
-  ///
-  /// `reference_type`/`reference_id` are set by the server precisely so the app
-  /// never has to parse message text to work out where to go.
+  /*
+      Marks read, then jumps to whatever the notification is about.
+
+      Where that is comes from notificationDestination(), which reads the type
+      and the audience together rather than the reference alone - see the note
+      in that file for the two classes of notification that used to open the
+      wrong screen. This method only knows how to open things.
+  */
   void _open(AppNotification n) {
     context.read<NotificationProvider>().markRead(n.id);
 
-    /*
-        Two notifications can point at the same thing and still belong on
-        different screens, so type is checked before reference_type.
+    final where = notificationDestination(
+      type: n.type,
+      audience: n.audience,
+      referenceType: n.referenceType,
+      referenceId: n.referenceId,
+    );
 
-        "Someone applied to your job" carries reference_type 'job', because the
-        job is what it is about. Following that literally sent the employer to
-        the public job page — their own listing, as a worker sees it, with no
-        applicant on it anywhere. The thing they actually want is one tap
-        further in, and the notification already carries the id needed to get
-        there.
-    */
-    if (n.type == 'application.received' && n.referenceId != null) {
-      if (!_allow(employerSide: true)) return;
+    switch (where) {
+      case NotificationDestination.applicants:
+        if (!_allow(employerSide: true)) return;
 
-      /*
-          A notification outlives the applicant it announced.
+        /*
+            A notification outlives the applicant it announced.
 
-          It stays in the list after the person withdraws, or after the
-          employer accepts or declines them, and tapping it then opened an
-          applicant list with nobody on it — which reads as the screen
-          failing to load rather than as nothing being there.
+            It stays in the list after the person withdraws, or after the
+            employer accepts or declines them, and tapping it then opened an
+            applicant list with nobody on it - which reads as the screen
+            failing to load rather than as nothing being there.
 
-          Only refused when the jobs list is actually loaded and says this
-          job has nobody pending. With no data the tap goes through, because
-          guessing 'empty' from a list that was never fetched would block a
-          real applicant.
-      */
-      final jobs = context.read<JobProvider>().jobs;
-      final job = jobs.where((j) => j['id'] == n.referenceId).firstOrNull;
-      final pending = job?['pending_application_count'];
+            Only refused when the jobs list is actually loaded and says this
+            job has nobody pending. With no data the tap goes through, because
+            guessing "empty" from a list that was never fetched would block a
+            real applicant.
+        */
+        if (n.type == 'application.received') {
+          final jobs = context.read<JobProvider>().jobs;
+          final job = jobs.where((j) => j['id'] == n.referenceId).firstOrNull;
+          final pending = job?['pending_application_count'];
 
-      if (job != null && pending is int && pending == 0) {
-        AppToast.info(context,
-            'Nobody is waiting on that job any more — they withdrew, or you already answered them.');
-        return;
-      }
-      Navigator.pushNamed(
-        context,
-        AppRouter.viewApplicants,
-        arguments: {'jobId': n.referenceId},
-      );
-      return;
-    }
+          if (job != null && pending is int && pending == 0) {
+            AppToast.info(context,
+                'Nobody is waiting on that job any more — they withdrew, or you already answered them.');
+            return;
+          }
+        }
 
-    switch (n.referenceType) {
-      case 'job':
+        Navigator.pushNamed(
+          context,
+          AppRouter.viewApplicants,
+          arguments: {'jobId': n.referenceId},
+        );
+
+      case NotificationDestination.manageJobs:
+        if (!_allow(employerSide: true)) return;
+        Navigator.pushNamed(context, AppRouter.manageJobs);
+
+      case NotificationDestination.jobDetails:
         if (n.referenceId != null) {
           Navigator.pushNamed(
             context,
@@ -236,55 +242,55 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
             arguments: {'jobId': n.referenceId},
           );
         }
-      case 'application':
+
+      case NotificationDestination.applications:
         if (!_allow(employerSide: false)) return;
         Navigator.pushNamed(context, AppRouter.applications);
-      case 'invitation':
+
+      case NotificationDestination.invitations:
         if (!_allow(employerSide: false)) return;
         Navigator.pushNamed(context, '/my-invitations');
-      /*
-          Open the thread, not the inbox.
 
-          reference_id is the conversation the message arrived in, and the
-          banner has always used it to push straight into the chat. This branch
-          dropped it and pushed the list instead, so tapping "New message" left
-          the reader to find the conversation themselves — and on a busy inbox
-          that is worse than not linking at all, because it looks like the tap
-          failed.
-      */
-      case 'conversation':
-        if (n.referenceId != null) {
-          Navigator.pushNamed(
-            context,
-            AppRouter.chat,
-            arguments: {'conversationId': n.referenceId},
-          );
-        } else {
-          Navigator.pushNamed(context, AppRouter.messages);
-        }
+      case NotificationDestination.chat:
+        Navigator.pushNamed(
+          context,
+          AppRouter.chat,
+          arguments: {'conversationId': n.referenceId},
+        );
+
+      case NotificationDestination.messages:
+        Navigator.pushNamed(context, AppRouter.messages);
+
+      case NotificationDestination.workerProfile:
+        if (!_allow(employerSide: false)) return;
+        Navigator.pushNamed(context, AppRouter.myWorkerProfile);
+
+      case NotificationDestination.employerProfile:
+        if (!_allow(employerSide: true)) return;
+        Navigator.pushNamed(context, AppRouter.myEmployerProfile);
+
       /*
           Approved or rejected identity check.
 
           Both used to open the upload screen, so being told you were verified
           sent you to a form asking you to verify - and submitting from there
-          put a duplicate of an approved document in the admin queue. The
-          banner was fixed for this and this list was not, which is the path
-          most people actually tap.
+          put a duplicate of an approved document in the admin queue.
 
           Verified goes to the profile, where the card shows the real state.
           Rejected still goes to the form, because sending a better photo is
-          the point of that state.
+          the point of that state. Waiting counts as submitted: the form has
+          nothing to offer somebody already in the queue.
       */
-      case 'verification':
-        // Waiting counts as submitted: the form has nothing to offer
-        // somebody whose document is already in the queue.
+      case NotificationDestination.verification:
         final submitted = hasSubmittedVerification(context);
 
         Navigator.pushNamed(
             context, submitted ? AppRouter.profile : '/verification');
+
+      case NotificationDestination.none:
+        break;
     }
   }
-
   static NotificationType _typeOf(String type) {
     if (type.startsWith('message.')) return NotificationType.message;
     if (type.startsWith('application.') || type.startsWith('invitation.')) {

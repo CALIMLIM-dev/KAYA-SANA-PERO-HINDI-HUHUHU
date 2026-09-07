@@ -72,6 +72,9 @@ class JobProvider with ChangeNotifier {
     String? search,
     int? categoryId,
     String? location,
+    /// The PSGC row, which matches the place and everything in it. The
+    /// `location` string above is a LIKE on a label and cannot.
+    int? locationId,
     List<int>? skillIds,
     /// Orders by distance from the signed-in worker's location. Ignored by the
     /// server for anyone without a worker profile — there is nowhere to
@@ -90,6 +93,7 @@ class JobProvider with ChangeNotifier {
         if (search != null && search.isNotEmpty) 'search': search,
         if (categoryId != null) 'category_id': categoryId,
         if (location != null && location.isNotEmpty) 'location': location,
+        if (locationId != null) 'location_id': locationId,
         if (skillIds != null && skillIds.isNotEmpty) 'skill_ids': skillIds,
         if (nearestFirst) 'sort': 'nearest',
         if (radiusKm != null) 'radius_km': radiusKm,

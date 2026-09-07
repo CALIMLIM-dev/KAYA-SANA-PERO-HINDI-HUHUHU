@@ -147,11 +147,12 @@ void main() {
           bug for days. A test that reports success over an empty screen is
           worse than no test, because it is believed.
       */
-      // In worker view the tiles are the four fixed ones; otherwise they are
-      // the seeded categories. Either way something has to be on screen, or
-      // the test is reporting success over a blank page.
+      // The same seeded categories in both views now. Worker view used to
+      // show four fixed tiles - Skilled, Verified, Top Rated, Available -
+      // which are things a worker is rather than work anyone is looking for,
+      // and each one ran a text search for its own label.
       expect(
-        find.text(workerMode ? 'Top Rated' : 'Appliance Repair'),
+        find.text('Appliance Repair'),
         findsWidgets,
         reason: 'The category tiles never rendered, so nothing was checked.',
       );
