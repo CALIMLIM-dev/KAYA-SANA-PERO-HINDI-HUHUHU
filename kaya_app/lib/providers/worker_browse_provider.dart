@@ -62,6 +62,54 @@ class WorkerBrowseProvider with ChangeNotifier {
     notifyListeners();
   }
 
+  /*
+      The most hired workers in a place, for the home screen's second row.
+
+      Kept apart from [workers] on purpose: that list is whatever the employer
+      last searched or filtered for, and a recommendation row that changes
+      whenever somebody types in the search box is not a recommendation. Same
+      endpoint, different question - sort=jobs, which the server answers from
+      completed applications.
+  */
+  List<WorkerProfile> _mostHired = [];
+  List<WorkerProfile> get mostHired => _mostHired;
+
+  /*
+      Fills both lists for a test, which has no server to fetch from.
+
+      The home rows render nothing when their list is empty, so an overflow
+      test against an unseeded provider lays out a blank strip and passes -
+      which is the false pass that hid the profile header bug for weeks. This
+      is how a test puts real cards in them.
+  */
+  @visibleForTesting
+  void seedWorkers({List<WorkerProfile>? directory, List<WorkerProfile>? hired}) {
+    if (directory != null) _workers = directory;
+    if (hired != null) _mostHired = hired;
+    notifyListeners();
+  }
+  Future<void> fetchMostHired({int? locationId, int limit = 10}) async {
+    try {
+      final res = await _api.get('/workers', queryParameters: {
+        if (locationId != null) 'location_id': locationId,
+        'sort': 'jobs',
+        'per_page': limit,
+      });
+
+      final page = res.data['data'] as Map<String, dynamic>;
+
+      _mostHired = (page['data'] as List)
+          .map((w) => WorkerProfile.fromApi(w as Map<String, dynamic>))
+          // Nobody with an empty record belongs in a row headed "most hired".
+          .where((w) => w.completedJobs > 0)
+          .toList();
+    } catch (_) {
+      // A recommendation row is not worth an error state, and a failed
+      // refresh is not an empty row: whatever was last fetched stays.
+    }
+
+    notifyListeners();
+  }
   Future<void> fetchWorkers({
     String? q,
     int? categoryId,
@@ -102,8 +150,9 @@ class WorkerBrowseProvider with ChangeNotifier {
           .map((w) => WorkerProfile.fromApi(w as Map<String, dynamic>))
           .toList();
     } catch (e) {
+      // Same rule as the job feed: a failed refresh is not an empty
+      // directory, and blanking it loses what the employer was reading.
       _errorMessage = e.toString().replaceFirst('Exception: ', '');
-      _workers = [];
     }
 
     _isLoading = false;

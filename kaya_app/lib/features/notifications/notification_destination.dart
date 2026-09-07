@@ -39,6 +39,14 @@ enum NotificationDestination {
   chat,
   messages,
 
+  /*
+      The public profile - the page somebody else sees when they open you.
+
+      Not the profile tab. Reviews are only ever rendered on the public
+      view, so sending a review notification to the account's own profile
+      screen opened a page with no review anywhere on it, which reads as
+      the tap having done nothing.
+  */
   workerProfile,
   employerProfile,
 

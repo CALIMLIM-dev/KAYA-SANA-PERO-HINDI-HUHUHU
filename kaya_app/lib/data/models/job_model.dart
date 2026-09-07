@@ -34,6 +34,10 @@ class Job {
   */
   final DateTime? expiresAt;
 
+  /// Paid placement, live right now. The feed already orders these
+  /// first; this is what lets a card say so.
+  final bool isBoosted;
+
   /*
       Days until it comes down, negative once it is past.
 
@@ -137,6 +141,7 @@ class Job {
     this.isActive = true,
     this.status = '',
     this.expiresAt,
+    this.isBoosted = false,
     this.applicationStatus,
     this.category,
     this.requiredSkills = const [],
@@ -209,6 +214,8 @@ class Job {
       expiresAt: json['expires_at'] == null
           ? null
           : DateTime.tryParse(json['expires_at'].toString())?.toLocal(),
+      // The subquery answers 1 or null, not a boolean.
+      isBoosted: json['is_boosted'] == true || json['is_boosted'] == 1,
       category: category?['name'] as String?,
       categoryId: category?['id'] as int? ?? json['category_id'] as int?,
       locationId: json['location_id'] as int?,

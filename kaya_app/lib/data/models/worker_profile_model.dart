@@ -116,7 +116,10 @@ class WorkerProfile {
       profileImageUrl: json['profile_image_url'],
       certifications: List<String>.from(json['certifications'] ?? []),
       lastActive: json['last_active'] != null ? DateTime.parse(json['last_active']) : null,
-      completedJobs: json['completed_jobs'] ?? 0,
+      // The directory sends jobs_completed, the profile sends
+      // completed_jobs. Reading only one of them left every card in
+      // the directory claiming nobody had finished anything.
+      completedJobs: json['jobs_completed'] ?? json['completed_jobs'] ?? 0,
     );
   }
 

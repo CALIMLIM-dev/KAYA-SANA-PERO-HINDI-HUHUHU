@@ -18,6 +18,7 @@ import 'package:kaya_app/providers/messaging_provider.dart';
 import 'package:kaya_app/providers/notification_provider.dart';
 import 'package:kaya_app/providers/profile_view_provider.dart';
 import 'package:kaya_app/providers/verification_provider.dart';
+import 'package:kaya_app/data/models/worker_profile_model.dart';
 import 'package:kaya_app/providers/worker_browse_provider.dart';
 import 'package:kaya_app/providers/worker_profile_provider.dart';
 
@@ -52,7 +53,23 @@ void main() {
           .map((e) => CategoryModel(id: e.key + 1, name: e.value))
           .toList();
 
-  Job job(String title) => Job(
+  /*
+      A worker for the "Most hired" row, with the long name and the
+      barangay-city-province address that make a card overflow.
+  */
+  WorkerProfile hiredWorker(String name) => WorkerProfile(
+        id: name.hashCode,
+        userId: name.hashCode,
+        name: name,
+        primarySkill: 'Mason and tile setter',
+        location: 'Barangay Nancayasan, Urdaneta City, Pangasinan',
+        rating: 4.8,
+        reviewCount: 12,
+        completedJobs: 34,
+        isVerified: true,
+        distance: 3.4,
+      );
+  Job job(String title, {bool boosted = false}) => Job(
         id: title.hashCode,
         title: title,
         company: 'Santiago Construction and General Services Incorporated',
@@ -64,6 +81,7 @@ void main() {
         category: 'Construction',
         requiredSkills: const ['Masonry', 'Tile setting'],
         isUrgent: true,
+        isBoosted: boosted,
       );
 
   Future<List<String>> overflowsIn(
@@ -99,7 +117,19 @@ void main() {
         ..seedPublicJobs([
           job('Experienced mason needed for a two storey residential build'),
           job('Tile setter'),
+          // Promoted, so the "Promoted jobs" row has a card in it. Without
+          // one the row renders nothing and the sweep measures a blank strip.
+          job('Urgent: concrete pouring crew needed this weekend', boosted: true),
         ]);
+
+      final directory = WorkerBrowseProvider()
+        ..seedWorkers(
+          directory: [hiredWorker('Ricardo Bumanglag Dela Cruz Jr.')],
+          hired: [
+            hiredWorker('Ricardo Bumanglag Dela Cruz Jr.'),
+            hiredWorker('Maria Cristina Villanueva-Santos'),
+          ],
+        );
 
       await tester.pumpWidget(
         MediaQuery(
@@ -131,7 +161,8 @@ void main() {
               ChangeNotifierProvider(create: (_) => InvitationProvider()),
               ChangeNotifierProvider(create: (_) => MessagingProvider()),
               ChangeNotifierProvider(create: (_) => NotificationProvider()),
-              ChangeNotifierProvider(create: (_) => WorkerBrowseProvider()),
+              ChangeNotifierProvider<WorkerBrowseProvider>.value(
+                  value: directory),
             ],
             child: const MaterialApp(home: UnifiedHomeScreen()),
           ),
@@ -157,6 +188,19 @@ void main() {
         reason: 'The category tiles never rendered, so nothing was checked.',
       );
 
+      /*
+          The recommendation row for this side has to appear at some point.
+
+          It draws nothing when its list is empty, so without this the sweep
+          measures a blank strip and reports that it fits - the same false
+          pass the seeded providers above exist to prevent. Watched during the
+          scroll rather than after it: a sliver that has gone off the top is
+          disposed, so looking once at the end finds nothing whether it
+          rendered or not.
+      */
+      final rowHeading = find.text(workerMode ? 'Promoted jobs' : 'Most hired');
+      var sawRow = rowHeading.evaluate().isNotEmpty;
+
       // Scrolled, because a sliver list only lays out what is on screen and
       // the sections further down would never be built otherwise.
       for (var i = 0; i < 5; i++) {
@@ -165,7 +209,15 @@ void main() {
           const Offset(0, -350),
         );
         await tester.pump(const Duration(milliseconds: 120));
+
+        sawRow = sawRow || rowHeading.evaluate().isNotEmpty;
       }
+
+      expect(
+        sawRow,
+        isTrue,
+        reason: 'The recommendation row never rendered, so nothing was checked.',
+      );
     } finally {
       FlutterError.onError = previous;
     }

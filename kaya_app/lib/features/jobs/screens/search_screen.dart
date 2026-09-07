@@ -783,6 +783,10 @@ class _SearchScreenState extends State<SearchScreen> {
                             _urgentOnly = false;
                           });
                         });
+
+                        // Same reason as Apply: the server-side filters
+                        // are only cleared once it is asked again.
+                        _runSearch();
                       },
                       child: const Text('Clear All'),
                     ),
@@ -996,7 +1000,21 @@ class _SearchScreenState extends State<SearchScreen> {
                   child: SizedBox(
                     width: double.infinity,
                     child: ElevatedButton(
-                      onPressed: () => Navigator.pop(context),
+                      /*
+                          Closes the sheet AND asks again.
+
+                          This only popped. Every filter the server applies -
+                          the place, the rate range - was therefore set and
+                          never sent: the list on screen was the answer to the
+                          previous question. Only the filters applied in the
+                          app itself (verified, rating, urgent) appeared to
+                          work, which is why it looked like the location
+                          filter in particular did nothing.
+                      */
+                      onPressed: () {
+                        Navigator.pop(context);
+                        _runSearch();
+                      },
                       style: ElevatedButton.styleFrom(
                         backgroundColor: AppColors.primary,
                         padding: const EdgeInsets.symmetric(vertical: 16),

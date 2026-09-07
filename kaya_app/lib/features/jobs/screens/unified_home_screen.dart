@@ -17,6 +17,7 @@ import '../../../providers/worker_profile_provider.dart';
 import '../../../providers/worker_browse_provider.dart';
 import '../../help/screens/faq_screen.dart';
 import '../widgets/place_picker_sheet.dart';
+import '../widgets/recommendation_row.dart';
 import '../widgets/unified_search_bar.dart';
 import '../widgets/jobs_near_you_section.dart';
 import '../widgets/people_who_can_help_section.dart';
@@ -222,6 +223,9 @@ class _UnifiedHomeScreenState extends State<UnifiedHomeScreen>
       // around a point is not how anybody describes where they will
       // work.
       if (!workerOnly) workerBrowse.fetchWorkers(locationId: _placeId),
+      // A separate question from the one above, so it is a separate
+      // ask: this row must not change when the directory is filtered.
+      if (!workerOnly) workerBrowse.fetchMostHired(locationId: _placeId),
     ]);
 
     if (!mounted) return;
@@ -869,6 +873,43 @@ class _UnifiedHomeScreenState extends State<UnifiedHomeScreen>
                   ),
                 ),
                 const SliverToBoxAdapter(child: SizedBox(height: 32)),
+
+                /*
+                    Promoted work, for whoever is looking for work.
+
+                    A boost has been buyable since boosts shipped and nothing
+                    on this screen ever said which posts had one - the feed
+                    quietly put them first and left the buyer to take that on
+                    trust. Drawn from the feed already fetched, so it costs no
+                    request.
+                */
+                SliverToBoxAdapter(
+                  child: Consumer<JobProvider>(
+                    builder: (context, jobProvider, _) {
+                      // Read from the provider rather than this screen's own
+                      // copy: that copy is only filled once the fetch returns,
+                      // so the row could not render at all before the network
+                      // answered - including in every test.
+                      final promoted = jobProvider.publicJobs
+                          .where((j) => j.isBoosted)
+                          .take(10)
+                          .toList();
+
+                      return Column(
+                        children: [
+                          RecommendationRow(
+                            title: 'Promoted jobs',
+                            subtitle:
+                                'Employers paid to put these in front of you',
+                            jobs: promoted,
+                            onJobTap: _onJobTap,
+                          ),
+                          if (promoted.isNotEmpty) const SizedBox(height: 32),
+                        ],
+                      );
+                    },
+                  ),
+                ),
               ],
 
               // People Who Can Help Section (conditional based on filter)
@@ -885,6 +926,28 @@ class _UnifiedHomeScreenState extends State<UnifiedHomeScreen>
                     onWorkerTap: _onWorkerTap,
                     onWorkerInvite: _inviteWorker,
                     onChangePlace: _pickPlace,
+                  ),
+                ),
+
+                /*
+                    Who has actually finished work, for whoever is hiring.
+
+                    The row above answers "who is a good match here" - rating,
+                    record, distance and a boost, weighed together. This one
+                    answers the plainer question an employer asks about
+                    somebody they have never met: has this person done the job
+                    before, and how often.
+                */
+                const SliverToBoxAdapter(child: SizedBox(height: 24)),
+                SliverToBoxAdapter(
+                  child: Consumer<WorkerBrowseProvider>(
+                    builder: (context, browse, _) => RecommendationRow(
+                      title: 'Most hired',
+                      subtitle: 'The workers with the most finished jobs',
+                      workers: browse.mostHired.take(10).toList(),
+                      onWorkerTap: _onWorkerTap,
+                      onWorkerInvite: _inviteWorker,
+                    ),
                   ),
                 ),
               ],

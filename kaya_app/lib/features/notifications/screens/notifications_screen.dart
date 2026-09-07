@@ -7,6 +7,7 @@ import '../../../core/constants/app_mode.dart';
 import '../../../core/widgets/app_toast.dart';
 import '../../../core/navigation/app_router.dart';
 import '../../../providers/app_mode_provider.dart';
+import '../../../providers/auth_provider.dart';
 import '../../../providers/job_provider.dart';
 import '../../../providers/notification_provider.dart';
 import '../notification_destination.dart';
@@ -261,13 +262,36 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
       case NotificationDestination.messages:
         Navigator.pushNamed(context, AppRouter.messages);
 
+      /*
+          The public view of yourself, not the profile tab.
+
+          Reviews are only drawn on the public profile - the page somebody
+          else opens - so sending a review notification to the account's own
+          profile screen landed on a page with no review on it at all.
+      */
       case NotificationDestination.workerProfile:
         if (!_allow(employerSide: false)) return;
-        Navigator.pushNamed(context, AppRouter.myWorkerProfile);
+
+        final workerId = context.read<AuthProvider>().user?['id'];
+        if (workerId == null) return;
+
+        Navigator.pushNamed(
+          context,
+          AppRouter.workerProfile,
+          arguments: {'workerId': workerId},
+        );
 
       case NotificationDestination.employerProfile:
         if (!_allow(employerSide: true)) return;
-        Navigator.pushNamed(context, AppRouter.myEmployerProfile);
+
+        final employerId = context.read<AuthProvider>().user?['id'];
+        if (employerId == null) return;
+
+        Navigator.pushNamed(
+          context,
+          AppRouter.employerProfile,
+          arguments: {'employerId': employerId},
+        );
 
       /*
           Approved or rejected identity check.

@@ -103,8 +103,15 @@ class JobProvider with ChangeNotifier {
       final rows = page['data'] as List;
       _publicJobs = rows.map((j) => Job.fromApi(j as Map<String, dynamic>)).toList();
     } catch (e) {
+      /*
+          A failed refresh is not an empty feed.
+
+          This blanked the list on any error, so a moment of bad signal took
+          away the jobs already on screen and left "no jobs found" over a
+          feed that was full a second earlier. The error is reported; what was
+          last fetched stays until something better arrives.
+      */
       _publicError = e.toString().replaceFirst('Exception: ', '');
-      _publicJobs = [];
     }
 
     _isPublicLoading = false;
