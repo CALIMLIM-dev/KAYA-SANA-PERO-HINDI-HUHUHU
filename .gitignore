@@ -62,3 +62,8 @@ kaya_db.sql
 # Claude Code config - local only, not for the public repo
 CLAUDE.md
 .claude/
+
+# The published APK, fetched onto the server by kaya:fetch-apk.
+# 60MB per release does not belong in git history.
+kaya_backend/public/kaya.apk
+kaya_backend/public/kaya.apk.part
