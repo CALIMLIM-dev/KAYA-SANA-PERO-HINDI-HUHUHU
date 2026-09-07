@@ -259,13 +259,6 @@ class ConversationController extends Controller
             ]);
         });
 
-        $this->postToThread(
-            $conversation,
-            $user,
-            'Proposed a schedule: ' . $proposal->summary()
-                . ($proposal->note ? ' - ' . $proposal->note : '')
-        );
-
         return $this->ok($this->presentProposal($proposal), 'Schedule proposed', 201);
     }
 
@@ -310,12 +303,6 @@ class ConversationController extends Controller
             'responded_at' => now(),
         ]);
 
-        $this->postToThread(
-            $conversation,
-            $user,
-            ($accepted ? 'Agreed: ' : 'Cannot make ') . $proposal->summary(),
-        );
-
         return $this->ok(
             $this->presentProposal($proposal->fresh()),
             $accepted ? 'Schedule agreed' : 'Schedule declined',
@@ -347,9 +334,30 @@ class ConversationController extends Controller
             ->latest('responded_at')
             ->first();
 
+        /*
+            Every day this worker has already agreed to, across all their
+            threads.
+
+            Sent so the employer can SEE it while choosing a day - the picker
+            marks those days and the sheet says so plainly - rather than being
+            refused after the fact. Somebody may well want that Saturday
+            anyway: work gets moved, mornings get swapped, and the two people
+            in the conversation know things the server does not. What is not
+            acceptable is booking somebody who is taken without ever being
+            told.
+
+            Dates and periods only. Which job, which employer and where are
+            another conversation's business.
+        */
+        $busy = ScheduleProposal::commitmentsFor(
+            $conversation->worker_id,
+            exceptConversation: $conversation->id,
+        );
+
         return $this->ok([
             'pending' => $live ? $this->presentProposal($live) : null,
             'agreed'  => $agreed ? $this->presentProposal($agreed) : null,
+            'worker_busy' => $busy,
         ]);
     }
 
@@ -368,31 +376,6 @@ class ConversationController extends Controller
             'summary'        => $proposal->summary(),
             'responded_at'   => $proposal->responded_at?->toIso8601String(),
         ];
-    }
-
-    /*
-        The schedule step, said in the thread.
-
-        A proposal that only existed as a card would leave the conversation
-        with a hole in it - somebody scrolling back would see two people
-        talking about a Saturday that appears nowhere.
-    */
-    private function postToThread(Conversation $conversation, User $sender, string $text): void
-    {
-        $message = $conversation->messages()->create([
-            'sender_id'    => $sender->id,
-            'message_text' => $text,
-            'is_read'      => false,
-        ]);
-
-        $conversation->touch();
-
-        $message->setRelation('conversation', $conversation);
-        $message->load(['sender:id,name,avatar']);
-
-        app(RealtimeBroadcaster::class)->push(new ChatMessagePushed($message));
-
-        MessageSent::dispatch($message);
     }
 
     public function markRead(Request $request, Conversation $conversation)

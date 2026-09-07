@@ -94,23 +94,25 @@ class ScheduleProposalTest extends TestCase
     }
 
     /*
-        The thread has to read as a conversation.
+        The schedule is a panel, not a conversation.
 
-        A proposal that lived only on a card would leave a hole in the
-        history: two people talking about a Saturday that appears nowhere.
+        Proposing used to write "Proposed a schedule: Sat 13 Sep, morning" into
+        the thread, and accepting wrote another line under it. Two people
+        arranging a day over three messages they did not type is chat the app
+        put words in their mouths for. The panel carries the state; the thread
+        stays theirs.
     */
-    public function test_a_proposal_is_also_a_message_in_the_thread(): void
+    public function test_proposing_writes_nothing_into_the_thread(): void
     {
         $this->propose($this->employer, ['note' => 'Bring your own tools'])
             ->assertStatus(201);
 
-        $message = Message::where('conversation_id', $this->conversation->id)->latest()->first();
-
-        $this->assertNotNull($message);
-        $this->assertStringContainsString('Proposed a schedule', $message->message_text);
-        $this->assertStringContainsString('Bring your own tools', $message->message_text);
+        $this->assertSame(
+            0,
+            Message::where('conversation_id', $this->conversation->id)->count(),
+            'the schedule put a message in the thread'
+        );
     }
-
     /*
         Agreement means the other person said yes.
 
@@ -242,5 +244,174 @@ class ScheduleProposalTest extends TestCase
         $this->conversation->update(['status' => 'locked']);
 
         $this->propose($this->employer)->assertStatus(403);
+    }
+    /*
+        A day the worker already agreed to elsewhere is shown, not refused.
+
+        The employer sees it while choosing - the picker marks the day and the
+        sheet says unavailable - and can still send it. The two of them know
+        things the server does not: work gets moved, mornings get swapped.
+        What is not acceptable is booking somebody already committed without
+        ever being told.
+    */
+    public function test_the_worker_s_other_commitments_are_reported(): void
+    {
+        $day = now()->addDays(5)->toDateString();
+
+        // Another employer, another thread, same worker.
+        $other = User::factory()->create(['name' => 'Other Employer']);
+        EmployerProfile::create([
+            'user_id'         => $other->id,
+            'employer_type'   => 'individual',
+            'location'        => 'Urdaneta City',
+            'setup_completed' => true,
+        ]);
+
+        $otherThread = Conversation::create([
+            // job_id is required on this table; the other thread is about
+            // other work, which is the whole point of the test.
+            'job_id'      => $this->job->id,
+            'employer_id' => $other->id,
+            'worker_id'   => $this->worker->id,
+            'status'      => 'unlocked',
+        ]);
+
+        $id = $this->actingAs($other, 'sanctum')->postJson(
+            "/api/v1/conversations/{$otherThread->id}/schedule",
+            ['scheduled_date' => $day, 'period' => 'morning'],
+        )->json('data.id');
+
+        $this->actingAs($this->worker, 'sanctum')
+            ->postJson("/api/v1/conversations/{$otherThread->id}/schedule/{$id}/respond", ['accept' => true])
+            ->assertOk();
+
+        $busy = $this->actingAs($this->employer, 'sanctum')
+            ->getJson("/api/v1/conversations/{$this->conversation->id}/schedule")
+            ->assertOk()
+            ->json('data.worker_busy');
+
+        $this->assertSame([['date' => $day, 'period' => 'morning']], $busy);
+
+        // Shown, not enforced: this employer can still offer that day.
+        $this->propose($this->employer, ['scheduled_date' => $day, 'period' => 'morning'])
+            ->assertStatus(201);
+    }
+
+    /*
+        Nothing about the other job travels with it.
+
+        The employer learns that the worker is taken. Which job, which
+        employer and where stay with the people whose business they are.
+    */
+    public function test_a_commitment_says_only_when_not_what(): void
+    {
+        $day = now()->addDays(5)->toDateString();
+
+        $other = User::factory()->create();
+        EmployerProfile::create([
+            'user_id'         => $other->id,
+            'employer_type'   => 'individual',
+            'location'        => 'Urdaneta City',
+            'setup_completed' => true,
+        ]);
+
+        $otherThread = Conversation::create([
+            // job_id is required on this table; the other thread is about
+            // other work, which is the whole point of the test.
+            'job_id'      => $this->job->id,
+            'employer_id' => $other->id,
+            'worker_id'   => $this->worker->id,
+            'status'      => 'unlocked',
+        ]);
+
+        $id = $this->actingAs($other, 'sanctum')->postJson(
+            "/api/v1/conversations/{$otherThread->id}/schedule",
+            ['scheduled_date' => $day, 'period' => 'whole_day', 'note' => 'Tile setting in Nancayasan'],
+        )->json('data.id');
+
+        $this->actingAs($this->worker, 'sanctum')
+            ->postJson("/api/v1/conversations/{$otherThread->id}/schedule/{$id}/respond", ['accept' => true])
+            ->assertOk();
+
+        $body = $this->actingAs($this->employer, 'sanctum')
+            ->getJson("/api/v1/conversations/{$this->conversation->id}/schedule")
+            ->assertOk();
+
+        $body->assertJsonPath('data.worker_busy.0.date', $day);
+
+        $raw = $body->getContent();
+
+        $this->assertStringNotContainsString('Tile setting', $raw);
+        $this->assertStringNotContainsString((string) $other->id, $raw);
+    }
+
+    /*
+        A thread does not report its own agreed day back to itself as a clash.
+    */
+    public function test_this_conversations_own_day_is_not_listed_as_busy(): void
+    {
+        $id = $this->propose($this->employer)->json('data.id');
+
+        $this->actingAs($this->worker, 'sanctum')
+            ->postJson("/api/v1/conversations/{$this->conversation->id}/schedule/{$id}/respond", ['accept' => true])
+            ->assertOk();
+
+        $this->assertSame(
+            [],
+            $this->actingAs($this->employer, 'sanctum')
+                ->getJson("/api/v1/conversations/{$this->conversation->id}/schedule")
+                ->json('data.worker_busy')
+        );
+    }
+
+    /*
+        Only what was actually agreed counts.
+
+        A pending offer is not a commitment - it is a question - and treating
+        it as one would let anybody make a worker look unavailable by
+        proposing days they never accepted.
+    */
+    public function test_an_unanswered_offer_is_not_a_commitment(): void
+    {
+        $other = User::factory()->create();
+        EmployerProfile::create([
+            'user_id'         => $other->id,
+            'employer_type'   => 'individual',
+            'location'        => 'Urdaneta City',
+            'setup_completed' => true,
+        ]);
+
+        $otherThread = Conversation::create([
+            // job_id is required on this table; the other thread is about
+            // other work, which is the whole point of the test.
+            'job_id'      => $this->job->id,
+            'employer_id' => $other->id,
+            'worker_id'   => $this->worker->id,
+            'status'      => 'unlocked',
+        ]);
+
+        $this->actingAs($other, 'sanctum')->postJson(
+            "/api/v1/conversations/{$otherThread->id}/schedule",
+            ['scheduled_date' => now()->addDays(5)->toDateString(), 'period' => 'morning'],
+        )->assertStatus(201);
+
+        $this->assertSame(
+            [],
+            $this->actingAs($this->employer, 'sanctum')
+                ->getJson("/api/v1/conversations/{$this->conversation->id}/schedule")
+                ->json('data.worker_busy')
+        );
+    }
+
+    public function test_a_morning_and_an_afternoon_are_not_the_same_slot(): void
+    {
+        $this->assertTrue(ScheduleProposal::periodsOverlap('morning', 'morning'));
+        $this->assertTrue(ScheduleProposal::periodsOverlap('whole_day', 'evening'));
+        $this->assertTrue(ScheduleProposal::periodsOverlap('afternoon', 'whole_day'));
+
+        // Marking these as a clash would make anybody working mornings look
+        // unavailable for half the week.
+        $this->assertFalse(ScheduleProposal::periodsOverlap('morning', 'afternoon'));
+        $this->assertFalse(ScheduleProposal::periodsOverlap('evening', 'morning'));
     }
 }

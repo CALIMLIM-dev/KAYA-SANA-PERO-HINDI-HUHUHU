@@ -410,17 +410,6 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
           if (jobTitle != null)
             _buildJobCard(jobTitle, jobId, context),
 
-          /*
-              The day the two of them agree on.
-
-              Here rather than on a profile because this is where it is
-              agreed: one side offers a day, the other accepts or says
-              no, and both see the same answer. A pattern on a profile
-              is what somebody usually does and nobody has to accept.
-          */
-          if (_conversationId != null)
-            ScheduleStrip(conversationId: _conversationId!, jobId: jobId),
-
           if (canTrack)
             JobTrackingPanel(
               applicationId: applicationId,
@@ -516,6 +505,17 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
               },
             ),
           ),
+
+          /*
+              The day the two of them agree on, beside where they type.
+
+              Not in the thread as messages - a schedule arranged over
+              three lines the app wrote for them is the app putting
+              words in their mouths. This holds the state; the
+              conversation stays theirs.
+          */
+          if (_conversationId != null)
+            ScheduleStrip(conversationId: _conversationId!, jobId: jobId),
 
           _buildInputBar(),
         ],

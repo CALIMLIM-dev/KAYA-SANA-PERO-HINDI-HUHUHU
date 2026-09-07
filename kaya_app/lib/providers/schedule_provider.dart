@@ -27,8 +27,20 @@ class ScheduleProvider with ChangeNotifier {
   String? get errorMessage => _errorMessage;
   bool get busy => _busy;
 
+  /*
+      The days the worker on this thread has already agreed to elsewhere.
+
+      Dates and parts of days, nothing else - which job it is and who it
+      is for stay with the people whose business they are. Shown so a day
+      can be marked unavailable while somebody is choosing one, never to
+      refuse it: the two of them know things the server does not.
+  */
+  final Map<int, List<Map<String, dynamic>>> _commitments = {};
+
   Map<String, dynamic>? agreedFor(int conversationId) => _agreed[conversationId];
   Map<String, dynamic>? pendingFor(int conversationId) => _pending[conversationId];
+  List<Map<String, dynamic>> busyFor(int conversationId) =>
+      _commitments[conversationId] ?? const [];
 
   Future<void> load(int conversationId) async {
     // No session, no schedule - and a request without one leaves a timeout
@@ -41,6 +53,8 @@ class ScheduleProvider with ChangeNotifier {
 
       _agreed[conversationId] = data['agreed'] as Map<String, dynamic>?;
       _pending[conversationId] = data['pending'] as Map<String, dynamic>?;
+      _commitments[conversationId] = ((data['worker_busy'] as List?) ?? [])
+          .cast<Map<String, dynamic>>();
       _errorMessage = null;
     } catch (e) {
       // A failed refresh is not an empty schedule: what was last known stays
@@ -130,6 +144,7 @@ class ScheduleProvider with ChangeNotifier {
   void clear() {
     _agreed.clear();
     _pending.clear();
+    _commitments.clear();
     _errorMessage = null;
     notifyListeners();
   }
