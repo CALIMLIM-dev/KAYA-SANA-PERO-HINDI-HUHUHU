@@ -376,11 +376,24 @@ class ApplicationController extends Controller
             ->groupBy('applications.worker_id')
             ->pluck('total', 'applications.worker_id');
 
+        /*
+            What each of these people already has agreed, and when.
+
+            The employer is choosing between applicants, so "this one is
+            already working on the 13th" belongs beside each of them. Nothing
+            is refused on the strength of it - how much work somebody carries
+            is theirs to answer - and nothing is said about whose work it is.
+            Dates only.
+        */
+        $busyDays = \App\Models\ScheduleProposal::commitmentsForMany(
+            $job->applications()->pluck('worker_id')->unique()->values()->all(),
+        );
+
         $applicants = $job->applications()
             ->with(['worker.workerProfile.skills'])
             ->latest()
             ->get()
-            ->map(function ($app) use ($conversations, $reviewedByMe, $reviewedMe, $previousHires) {
+            ->map(function ($app) use ($conversations, $reviewedByMe, $reviewedMe, $previousHires, $busyDays) {
                 $worker  = $app->worker;
                 $profile = $worker->workerProfile;
 
@@ -425,6 +438,10 @@ class ApplicationController extends Controller
                     // How many of this employer's other jobs this worker has
                     // already finished. 0 for a stranger.
                     'times_hired_before'    => (int) ($previousHires[$worker->id] ?? 0),
+                    // Agreed days this worker already holds, so the
+                    // card can say they are unavailable then. Dates
+                    // only - whose job it is stays theirs.
+                    'busy_days'             => $busyDays[$worker->id] ?? [],
                     'worker_id'             => $worker->id,
                     'worker_name'           => $worker->name,
                     // Resolved, not a raw storage path — and consistent with

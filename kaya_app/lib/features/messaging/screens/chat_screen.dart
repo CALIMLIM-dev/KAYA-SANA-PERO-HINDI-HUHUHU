@@ -7,7 +7,8 @@ import '../../../core/constants/app_colors.dart';
 import '../../../core/widgets/profile_avatar.dart';
 import '../../../data/services/realtime_service.dart';
 import '../../../providers/auth_provider.dart';
-import '../widgets/schedule_strip.dart';
+import '../../../providers/schedule_provider.dart';
+import '../widgets/schedule_card.dart';
 import '../../../providers/messaging_provider.dart';
 import '../../../core/widgets/app_toast.dart';
 import '../widgets/job_tracking_panel.dart';
@@ -122,6 +123,18 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) {
           context.read<MessagingProvider>().fetchMessages(_conversationId!);
+
+          /*
+              The schedule, once, and only where there is a job.
+
+              A thread with no job has nothing to arrange, so it does not
+              ask. The app polls for messages as its transport because
+              Reverb is off, which is already most of the rate limit - an
+              extra request per thread is not free.
+          */
+          if ((args is Map ? args['jobId'] : null) != null) {
+            context.read<ScheduleProvider>().load(_conversationId!);
+          }
           if (needsDetails) _resolveDetails();
         }
       });
@@ -475,11 +488,51 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                   break;
                 }
 
+                /*
+                    The schedule card rides at the end of the thread.
+
+                    In the list rather than pinned above the keyboard, because
+                    it is part of the conversation - it scrolls with it and
+                    sits where the arranging happened. Not a message: nobody
+                    typed it, and writing "Proposed a schedule" into the
+                    thread as text put words in their mouths.
+
+                    Only the live offer, or the settled one. The history of
+                    superseded offers is not something either of them needs to
+                    scroll past.
+                */
+                final schedule = context.watch<ScheduleProvider>();
+
+                final card = jobId == null || _conversationId == null
+                    ? null
+                    : schedule.pendingFor(_conversationId!) ??
+                        schedule.agreedFor(_conversationId!);
+
+                final cardDay = card == null
+                    ? null
+                    : card['scheduled_date']?.toString();
+
+                // Whether the worker has other work agreed that day, which
+                // both sides are told without being told whose it is.
+                final unavailable = cardDay != null &&
+                    schedule
+                        .busyFor(_conversationId!)
+                        .any((row) => row['date'] == cardDay);
+
                 return ListView.builder(
                   controller: _scrollController,
                   padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
-                  itemCount: messages.length,
+                  itemCount: messages.length + (card == null ? 0 : 1),
                   itemBuilder: (context, i) {
+                    if (card != null && i == messages.length) {
+                      return ScheduleCard(
+                        conversationId: _conversationId!,
+                        proposal: card,
+                        jobTitle: jobTitle,
+                        unavailable: unavailable,
+                      );
+                    }
+
                     final msg = messages[i];
                     final isMine = (msg['sender_id'] as int?) == myId;
                     final id = msg['id'] as int?;
@@ -504,25 +557,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
             ),
           ),
 
-          /*
-              The day the two of them agree on, beside where they type.
-
-              Not in the thread as messages - a schedule arranged over
-              three lines the app wrote for them is the app putting
-              words in their mouths. This holds the state; the
-              conversation stays theirs.
-          */
-          /*
-              Only where there is a job.
-
-              A schedule is a day agreed for particular work. A thread
-              with no job attached has nothing to agree about, so the
-              panel does not appear and nothing is fetched for it.
-          */
-          if (_conversationId != null && jobId != null)
-            ScheduleStrip(conversationId: _conversationId!, jobId: jobId),
-
-          _buildInputBar(),
+          _buildInputBar(jobId: jobId),
         ],
       ),
     );
@@ -765,7 +800,15 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
 
   // ─── input bar ────────────────────────────────────────────────────────────────
 
-  Widget _buildInputBar() {
+  /*
+      Where a schedule starts.
+
+      Beside the message box rather than behind the overflow menu: it is
+      the second thing people do in a hire after saying hello, and a menu
+      is where features go to be undiscovered. Only on a thread that has
+      a job - there is nothing to arrange otherwise.
+  */
+  Widget _buildInputBar({int? jobId}) {
     return Container(
       padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
       decoration: BoxDecoration(
@@ -781,6 +824,26 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       child: SafeArea(
         child: Row(
           children: [
+            if (jobId != null && _conversationId != null) ...[
+              GestureDetector(
+                onTap: () => ScheduleComposer.open(
+                  context,
+                  conversationId: _conversationId!,
+                  jobId: jobId,
+                ),
+                child: Container(
+                  width: 40,
+                  height: 40,
+                  decoration: BoxDecoration(
+                    color: AppColors.neutral100,
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: const Icon(Icons.event_outlined,
+                      size: 19, color: AppColors.neutral700),
+                ),
+              ),
+              const SizedBox(width: 8),
+            ],
             Expanded(
               child: Container(
                 decoration: BoxDecoration(

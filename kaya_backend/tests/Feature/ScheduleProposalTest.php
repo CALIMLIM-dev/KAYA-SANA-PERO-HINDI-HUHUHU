@@ -427,4 +427,108 @@ class ScheduleProposalTest extends TestCase
         $this->propose($this->employer, ['scheduled_time' => 'half eight'])
             ->assertStatus(422);
     }
+    /*
+        The other employer sees it where they are deciding.
+
+        Not only inside their own thread with the worker - by then they have
+        already hired. An employer reading a list of applicants sees which of
+        them are already committed, on which days, and chooses. It refuses
+        nobody.
+    */
+    public function test_an_applicant_list_carries_each_workers_agreed_days(): void
+    {
+        $day = now()->addDays(6)->toDateString();
+
+        // The worker agrees a day with this employer.
+        $id = $this->propose($this->employer, ['scheduled_date' => $day])
+            ->json('data.id');
+
+        $this->actingAs($this->worker, 'sanctum')
+            ->postJson("/api/v1/conversations/{$this->conversation->id}/schedule/{$id}/respond", ['accept' => true])
+            ->assertOk();
+
+        // A second employer, with their own job, reads their applicants.
+        $other = User::factory()->create();
+        EmployerProfile::create([
+            'user_id'         => $other->id,
+            'employer_type'   => 'individual',
+            'location'        => 'Urdaneta City',
+            'setup_completed' => true,
+        ]);
+
+        $theirJob = JobPost::create([
+            'employer_id' => $other->id,
+            'category_id' => $this->job->category_id,
+            'title'       => 'Repaint a gate',
+            'description' => 'One day',
+            'location'    => 'Urdaneta City',
+            'status'      => 'open',
+            'start_date'  => $day,
+            'end_date'    => $day,
+        ]);
+
+        \App\Models\Application::create([
+            'job_id'    => $theirJob->id,
+            'worker_id' => $this->worker->id,
+            'status'    => 'pending',
+        ]);
+
+        $applicants = $this->actingAs($other, 'sanctum')
+            ->getJson("/api/v1/jobs/{$theirJob->id}/applicants")
+            ->assertOk()
+            ->json('data');
+
+        $row = collect($applicants)->firstWhere('worker_id', $this->worker->id);
+
+        $this->assertNotNull($row, 'the applicant was not returned at all');
+        $this->assertSame([$day], $row['busy_days']);
+    }
+
+    public function test_the_applicant_list_says_when_not_for_whom(): void
+    {
+        $day = now()->addDays(6)->toDateString();
+
+        $id = $this->propose($this->employer, [
+            'scheduled_date' => $day,
+            'note'           => 'Tile setting in Nancayasan',
+        ])->json('data.id');
+
+        $this->actingAs($this->worker, 'sanctum')
+            ->postJson("/api/v1/conversations/{$this->conversation->id}/schedule/{$id}/respond", ['accept' => true])
+            ->assertOk();
+
+        $other = User::factory()->create();
+        EmployerProfile::create([
+            'user_id'         => $other->id,
+            'employer_type'   => 'individual',
+            'location'        => 'Urdaneta City',
+            'setup_completed' => true,
+        ]);
+
+        $theirJob = JobPost::create([
+            'employer_id' => $other->id,
+            'category_id' => $this->job->category_id,
+            'title'       => 'Repaint a gate',
+            'description' => 'One day',
+            'location'    => 'Urdaneta City',
+            'status'      => 'open',
+            'start_date'  => $day,
+            'end_date'    => $day,
+        ]);
+
+        \App\Models\Application::create([
+            'job_id'    => $theirJob->id,
+            'worker_id' => $this->worker->id,
+            'status'    => 'pending',
+        ]);
+
+        $raw = $this->actingAs($other, 'sanctum')
+            ->getJson("/api/v1/jobs/{$theirJob->id}/applicants")
+            ->assertOk()
+            ->getContent();
+
+        $this->assertStringContainsString($day, $raw);
+        $this->assertStringNotContainsString('Tile setting', $raw);
+        $this->assertStringNotContainsString('Fix a leaking pipe', $raw);
+    }
 }

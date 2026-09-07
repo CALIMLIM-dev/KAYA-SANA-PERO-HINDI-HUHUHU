@@ -279,6 +279,18 @@ class _ViewApplicantsScreenState extends State<ViewApplicantsScreen>
     // trust, and that fact was sitting in the database unused.
     final timesHiredBefore = asInt(applicant['times_hired_before']);
 
+    /*
+        Days this applicant has already agreed to, with somebody else.
+
+        Shown so an employer choosing between people can see it, never to
+        refuse anybody: a mason can pour concrete in the morning and set
+        tile in the afternoon, and how much they carry is their answer to
+        give. Dates only - whose work it is stays with them.
+    */
+    final busyDays = ((applicant['busy_days'] as List?) ?? [])
+        .map((d) => d.toString())
+        .toList();
+
     // Dual review, employer's side — mirrors the worker's on the applications
     // screen. Both halves come down with the applicant list, so showing this
     // costs no extra request.
@@ -460,6 +472,35 @@ class _ViewApplicantsScreenState extends State<ViewApplicantsScreen>
                 const SizedBox(height: 9),
                 _skillChips(skills),
               ],
+            if (busyDays.isNotEmpty) ...[
+              const SizedBox(height: 8),
+              Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 9, vertical: 7),
+                decoration: BoxDecoration(
+                  color: AppColors.warning.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Icon(Icons.event_busy_outlined,
+                        size: 13, color: AppColors.warning),
+                    const SizedBox(width: 6),
+                    Expanded(
+                      child: Text(
+                        'Unavailable ${_busyLabel(busyDays)}',
+                        style: const TextStyle(
+                          fontSize: 11.5,
+                          height: 1.35,
+                          color: AppColors.neutral700,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
             if (showActions) ...[
               const SizedBox(height: 6),
               Row(
@@ -650,6 +691,35 @@ class _ViewApplicantsScreenState extends State<ViewApplicantsScreen>
   /// pushed Accept and Reject off the bottom of a phone screen — the employer
   /// had to scroll past someone's entire skill list to act on them. Three is
   /// enough to judge relevance; the full set is a tap away on the profile.
+  /*
+      "on 13 Sep" or "on 3 days this month".
+
+      Listing a dozen dates on a card nobody would read; naming one or
+      two is what an employer can actually use.
+  */
+  static String _busyLabel(List<String> days) {
+    String short(String iso) {
+      final date = DateTime.tryParse(iso);
+      if (date == null) return iso;
+
+      const months = [
+        'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+        'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+      ];
+
+      return '${date.day} ${months[date.month - 1]}';
+    }
+
+    final sorted = [...days]..sort();
+
+    if (sorted.length == 1) return 'on ${short(sorted.first)}';
+    if (sorted.length == 2) {
+      return 'on ${short(sorted[0])} and ${short(sorted[1])}';
+    }
+
+    return 'on ${short(sorted[0])} and ${sorted.length - 1} other days';
+  }
+
   Widget _skillChips(List<String> skills) {
     const limit = 3;
     final shown = skills.take(limit).toList();

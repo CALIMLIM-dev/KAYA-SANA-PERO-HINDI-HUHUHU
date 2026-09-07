@@ -94,6 +94,35 @@ class ScheduleProposal extends Model
             ->all();
     }
 
+    /*
+        The same answer for a whole list of workers, in one query.
+
+        An employer reading their applicants is deciding between people, and
+        "this one is already working that day" belongs beside each of them -
+        not one round trip per applicant. Same thinness as the single-worker
+        version: dates, and nothing about whose work it is.
+    */
+    public static function commitmentsForMany(array $workerIds): array
+    {
+        if ($workerIds === []) {
+            return [];
+        }
+
+        return static::query()
+            ->select('schedule_proposals.scheduled_date', 'conversations.worker_id')
+            ->join('conversations', 'conversations.id', '=', 'schedule_proposals.conversation_id')
+            ->where('schedule_proposals.status', 'accepted')
+            ->whereDate('schedule_proposals.scheduled_date', '>=', now()->toDateString())
+            ->whereIn('conversations.worker_id', $workerIds)
+            ->get()
+            ->groupBy('worker_id')
+            ->map(fn ($rows) => $rows
+                ->map(fn ($row) => \Carbon\Carbon::parse($row->scheduled_date)->toDateString())
+                ->unique()
+                ->values()
+                ->all())
+            ->all();
+    }
     /// "8:00 AM", from whatever shape the column hands back.
     public function timeLabel(): string
     {
