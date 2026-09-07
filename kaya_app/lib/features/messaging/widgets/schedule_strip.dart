@@ -23,7 +23,7 @@ import '../../../providers/schedule_provider.dart';
     What it never says is what the other work is. That an employer's worker is
     taken is this employer's business; whose job it is, is not.
 */
-class ScheduleStrip extends StatelessWidget {
+class ScheduleStrip extends StatefulWidget {
   const ScheduleStrip({
     super.key,
     required this.conversationId,
@@ -32,6 +32,32 @@ class ScheduleStrip extends StatelessWidget {
 
   final int conversationId;
   final int? jobId;
+
+  @override
+  State<ScheduleStrip> createState() => _ScheduleStripState();
+}
+
+class _ScheduleStripState extends State<ScheduleStrip> {
+  int get conversationId => widget.conversationId;
+  int? get jobId => widget.jobId;
+
+  /*
+      Loaded once, when the panel appears.
+
+      It used to be fetched from the chat screen's own startup, which meant a
+      thread with no job still asked for a schedule it would never show. The
+      app polls for messages as its transport because Reverb is off, and that
+      is already close to the rate limit - an extra request per thread open is
+      not free.
+  */
+  @override
+  void initState() {
+    super.initState();
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) context.read<ScheduleProvider>().load(conversationId);
+    });
+  }
 
   static String _dateKey(DateTime date) =>
       '${date.year.toString().padLeft(4, '0')}-'

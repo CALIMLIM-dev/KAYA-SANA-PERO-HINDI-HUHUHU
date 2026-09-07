@@ -7,7 +7,6 @@ import '../../../core/constants/app_colors.dart';
 import '../../../core/widgets/profile_avatar.dart';
 import '../../../data/services/realtime_service.dart';
 import '../../../providers/auth_provider.dart';
-import '../../../providers/schedule_provider.dart';
 import '../widgets/schedule_strip.dart';
 import '../../../providers/messaging_provider.dart';
 import '../../../core/widgets/app_toast.dart';
@@ -123,7 +122,6 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) {
           context.read<MessagingProvider>().fetchMessages(_conversationId!);
-          context.read<ScheduleProvider>().load(_conversationId!);
           if (needsDetails) _resolveDetails();
         }
       });
@@ -514,7 +512,14 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
               words in their mouths. This holds the state; the
               conversation stays theirs.
           */
-          if (_conversationId != null)
+          /*
+              Only where there is a job.
+
+              A schedule is a day agreed for particular work. A thread
+              with no job attached has nothing to agree about, so the
+              panel does not appear and nothing is fetched for it.
+          */
+          if (_conversationId != null && jobId != null)
             ScheduleStrip(conversationId: _conversationId!, jobId: jobId),
 
           _buildInputBar(),

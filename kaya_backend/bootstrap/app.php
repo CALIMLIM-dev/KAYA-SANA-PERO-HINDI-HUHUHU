@@ -44,12 +44,25 @@ return Application::configure(basePath: dirname(__DIR__))
             It also blunts enumeration: walking users.id or jobs.id to harvest
             profiles stops being free.
 
-            60/minute per token (per IP when unauthenticated) is generous for a
-            phone app — a busy screen makes a handful of calls — while making a
-            scripted sweep useless. The tighter limits on login and password
-            reset stay where they are and still win, being more specific.
+            60/minute was set on the belief that a busy screen makes a
+            handful of calls. An open chat does not: Reverb is switched off
+            on this server, so polling IS the transport. The thread polls
+            every 1.5 seconds for twelve seconds after anybody types (40 a
+            minute), notifications poll every 8 (7.5 a minute), and a read
+            receipt rides along with each fetch that finds something. Two
+            people talking normally crossed 60 and were answered with "Too
+            many attempts" - the app rate-limiting its own conversation.
+
+            120/minute per token (per IP when unauthenticated) leaves room
+            for that and still makes a scripted sweep useless: harvesting
+            profiles by walking ids is bounded either way. The tighter
+            limits on login, password reset and checkout stay where they
+            are and still win, being more specific.
+
+            The real fix is turning Reverb on - see CLAUDE.md - after
+            which the polling this accommodates mostly stops.
         */
-        $middleware->throttleApi('60,1');
+        $middleware->throttleApi('120,1');
 
         // Trust all proxies. This closure runs before the config service is
         // bound, so it cannot be driven from config/env here — and '*' is the
