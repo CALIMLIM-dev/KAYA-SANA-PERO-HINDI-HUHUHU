@@ -32,6 +32,20 @@ class ClashWithdrawTest extends TestCase
 {
     use RefreshDatabase;
 
+    /*
+        Dates relative to today, never literal.
+
+        These were written as '2026-09-10' and friends. The day they were
+        written they were a week ahead; a week later they were in the past,
+        and a job whose date has passed is no longer open - so the tests
+        started refusing what they were written to allow. Only the spacing
+        between the dates matters here, and that survives an anchor.
+    */
+    private function day(int $offset): string
+    {
+        return now()->addDays(30 + $offset)->toDateString();
+    }
+
     private User $worker;
 
     protected function setUp(): void
@@ -84,8 +98,8 @@ class ClashWithdrawTest extends TestCase
     */
     public function test_a_worker_can_be_hired_for_two_jobs_on_the_same_day(): void
     {
-        $first = $this->applyTo($this->job('2026-09-10'));
-        $second = $this->applyTo($this->job('2026-09-10'));
+        $first = $this->applyTo($this->job($this->day(0)));
+        $second = $this->applyTo($this->job($this->day(0)));
 
         $this->accept($first)->assertOk();
         $this->accept($second)->assertOk();
@@ -96,8 +110,8 @@ class ClashWithdrawTest extends TestCase
 
     public function test_a_job_running_through_the_hired_day_can_also_be_taken(): void
     {
-        $hired = $this->applyTo($this->job('2026-09-10'));
-        $spanning = $this->applyTo($this->job('2026-09-06', '2026-09-14'));
+        $hired = $this->applyTo($this->job($this->day(0)));
+        $spanning = $this->applyTo($this->job($this->day(-4), $this->day(4)));
 
         $this->accept($hired)->assertOk();
         $this->accept($spanning)->assertOk();
@@ -114,11 +128,11 @@ class ClashWithdrawTest extends TestCase
     */
     public function test_being_hired_leaves_every_other_application_alone(): void
     {
-        $hired = $this->applyTo($this->job('2026-09-10'));
+        $hired = $this->applyTo($this->job($this->day(0)));
 
-        $sameDay = $this->applyTo($this->job('2026-09-10'));
-        $spanning = $this->applyTo($this->job('2026-09-06', '2026-09-14'));
-        $otherDay = $this->applyTo($this->job('2026-09-18'));
+        $sameDay = $this->applyTo($this->job($this->day(0)));
+        $spanning = $this->applyTo($this->job($this->day(-4), $this->day(4)));
+        $otherDay = $this->applyTo($this->job($this->day(8)));
         $dateless = $this->applyTo($this->job(null));
 
         $this->accept($hired)->assertOk();
@@ -134,8 +148,8 @@ class ClashWithdrawTest extends TestCase
 
     public function test_the_response_no_longer_reports_cancellations(): void
     {
-        $hired = $this->applyTo($this->job('2026-09-10'));
-        $this->applyTo($this->job('2026-09-10'));
+        $hired = $this->applyTo($this->job($this->day(0)));
+        $this->applyTo($this->job($this->day(0)));
 
         // The key stays, because the app reads it. It is simply always empty.
         $this->accept($hired)
@@ -145,8 +159,8 @@ class ClashWithdrawTest extends TestCase
 
     public function test_an_applicant_count_is_not_quietly_decremented(): void
     {
-        $hired = $this->applyTo($this->job('2026-09-10'));
-        $clashJob = $this->job('2026-09-10');
+        $hired = $this->applyTo($this->job($this->day(0)));
+        $clashJob = $this->job($this->day(0));
         $this->applyTo($clashJob);
 
         $before = $clashJob->application_count;
@@ -163,10 +177,10 @@ class ClashWithdrawTest extends TestCase
     */
     public function test_a_worker_may_accept_an_invitation_for_a_day_they_already_work(): void
     {
-        $hired = $this->applyTo($this->job('2026-09-10'));
+        $hired = $this->applyTo($this->job($this->day(0)));
         $this->accept($hired)->assertOk();
 
-        $job = $this->job('2026-09-10');
+        $job = $this->job($this->day(0));
 
         $invitation = \App\Models\Invitation::create([
             'job_id'      => $job->id,

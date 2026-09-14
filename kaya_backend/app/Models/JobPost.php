@@ -52,17 +52,38 @@ class JobPost extends Model
         return $this->expires_at !== null && $this->expires_at->isPast();
     }
 
-    public function isOpenForApplications(): bool
+    /*
+        The work's own last day has passed.
+
+        Distinct from hasExpired(), which is the listing running out of days.
+        end_date is null for a single-day job rather than copied from
+        start_date, so the last day is whichever is set. "Passed" means the
+        day after: a job for today is not over at midnight this morning.
+    */
+    public function hasEnded(): bool
     {
-        return $this->status === self::STATUS_OPEN && ! $this->hasExpired();
+        $last = $this->end_date ?? $this->start_date;
+
+        return $last !== null && $last->endOfDay()->isPast();
     }
 
-    /// Open posts that are still inside their date, for the feed.
+    public function isOpenForApplications(): bool
+    {
+        return $this->status === self::STATUS_OPEN && ! $this->hasExpired() && ! $this->hasEnded();
+    }
+
+    /// Open posts that are still inside both dates, for the feed.
     public function scopeLive($query)
     {
         return $query->where('status', self::STATUS_OPEN)
             ->where(function ($q) {
                 $q->whereNull('expires_at')->orWhere('expires_at', '>', now());
+            })
+            // Same rule as hasEnded(), in SQL: the sweep writes the status
+            // the next morning, and the feed must not wait for it.
+            ->where(function ($q) {
+                $q->whereNull('start_date')
+                  ->orWhereRaw('COALESCE(end_date, start_date) >= ?', [now()->toDateString()]);
             });
     }
     protected $appends = ['photo_urls'];

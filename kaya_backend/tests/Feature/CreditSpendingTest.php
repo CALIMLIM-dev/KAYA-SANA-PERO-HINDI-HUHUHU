@@ -27,6 +27,20 @@ class CreditSpendingTest extends TestCase
 {
     use RefreshDatabase;
 
+    /*
+        Dates relative to today, never literal.
+
+        These were written as '2026-09-10' and friends. The day they were
+        written they were a week ahead; a week later they were in the past,
+        and a job whose date has passed is no longer open - so the tests
+        started refusing what they were written to allow. Only the spacing
+        between the dates matters here, and that survives an anchor.
+    */
+    private function day(int $offset): string
+    {
+        return now()->addDays(30 + $offset)->toDateString();
+    }
+
     private function worker(int $balance = 50): User
     {
         $user = User::factory()->create();
@@ -228,8 +242,8 @@ class CreditSpendingTest extends TestCase
         $employerA = $this->employer();
         $employerB = $this->employer();
 
-        $other  = $this->job($employerA, '2026-09-10');
-        $hiring = $this->job($employerB, '2026-09-10');
+        $other  = $this->job($employerA, $this->day(0));
+        $hiring = $this->job($employerB, $this->day(0));
 
         $this->actingAs($worker, 'sanctum')
             ->postJson("/api/v1/jobs/{$other->id}/apply")->assertCreated();

@@ -39,6 +39,14 @@ Schedule::command('kaya:close-unconfirmed-hires')->dailyAt('04:00');
 Schedule::command('kaya:expire-job-posts')->dailyAt('05:00');
 
 /*
+    Closes open posts whose work date has passed - the other clock. A post
+    for last Saturday is over whatever its listing days say. Runs after the
+    expiry sweep so a post that is both expired and past is counted once, as
+    expired, and this one finds nothing left to do with it.
+*/
+Schedule::command('kaya:close-past-jobs')->dailyAt('05:10');
+
+/*
     Catches payments PayMongo took but never told us about.
 
     Every fifteen minutes, because the failure it covers — a webhook that was
