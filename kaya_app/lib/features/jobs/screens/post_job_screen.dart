@@ -6,6 +6,7 @@ import 'package:provider/provider.dart';
 import 'dart:io';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/job_boost.dart';
+import '../../../core/widgets/hint_bubble.dart';
 import '../../../core/utils/pin_location_match.dart';
 import '../../../data/models/location_model.dart';
 import '../../../providers/employer_profile_provider.dart';
@@ -896,7 +897,7 @@ class _PostJobScreenState extends State<PostJobScreen> {
 
               // Schedule
               _buildSection(
-                title: 'Schedule',
+                title: 'Date',
                 anchor: _scheduleKey,
                 icon: Icons.event_outlined,
                 children: [_buildScheduleFields()],
@@ -919,6 +920,9 @@ class _PostJobScreenState extends State<PostJobScreen> {
               _buildSection(
                 title: 'Job Priority (Optional)',
                 icon: Icons.flash_on_outlined,
+                hint: 'Boost puts this post at the top of the feed for '
+                    '${JobBoost.days} days. It costs ${JobBoost.cost} Barya, '
+                    'charged when the job is posted.',
                 children: [
                   Row(
                     children: [
@@ -929,7 +933,6 @@ class _PostJobScreenState extends State<PostJobScreen> {
                           isActive: _isUrgent,
                           onTap: _handleUrgentToggle,
                           color: AppColors.accent,
-                          showWarning: true,
                         ),
                       ),
                     ],
@@ -1223,6 +1226,8 @@ class _PostJobScreenState extends State<PostJobScreen> {
     required List<Widget> children,
     // Set on the sections _submitJob can refuse, so it can scroll to them.
     Key? anchor,
+    // A ? beside the title: hold it for a line on what the section is for.
+    String? hint,
   }) {
     return Container(
       key: anchor,
@@ -1267,6 +1272,10 @@ class _PostJobScreenState extends State<PostJobScreen> {
                   ),
                 ),
               ),
+              if (hint != null) ...[
+                const SizedBox(width: 6),
+                HintBubble(text: hint),
+              ],
             ],
           ),
           if (subtitle != null) ...[
@@ -1961,16 +1970,9 @@ class _PostJobScreenState extends State<PostJobScreen> {
     required bool isActive,
     required VoidCallback onTap,
     required Color color,
-    required bool showWarning,
   }) {
     return GestureDetector(
       onTap: onTap,
-      onLongPress: showWarning
-          ? () {
-              AppToast.warning(context,
-                  'Only mark a job urgent if it really is. Accounts that misuse this get flagged.');
-            }
-          : null,
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 12),
         decoration: BoxDecoration(
@@ -2016,14 +2018,6 @@ class _PostJobScreenState extends State<PostJobScreen> {
                 ),
               ),
             ),
-            if (showWarning) ...[
-              const SizedBox(width: 4),
-              Icon(
-                Icons.error_outline,
-                color: isActive ? Colors.white : AppColors.warning,
-                size: 16,
-              ),
-            ],
           ],
         ),
       ),

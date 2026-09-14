@@ -244,8 +244,15 @@ class _JobDetailsScreenState extends State<JobDetailsScreen> {
                         if (job.distance != null) formatDistance(job.distance!),
                       ].join('  ·  '),
                     ),
+                    // "Date", not "Schedule" - that word is the day two
+                    // people agree on in chat now, and this is the job's own.
                     if (job.scheduleLabel != null)
-                      _detailRow('Schedule', job.scheduleLabel!),
+                      _detailRow(
+                        'Date',
+                        job.phaseLabel == null
+                            ? job.scheduleLabel!
+                            : '${job.scheduleLabel!}  ·  ${job.phaseLabel!}',
+                      ),
                     if (job.category != null)
                       _detailRow('Category', job.category!),
                     if (job.postedAt != null)
@@ -588,7 +595,31 @@ class _JobDetailsScreenState extends State<JobDetailsScreen> {
   Widget _actionBar(Job job) {
     Widget button;
 
-    if (job.isOwnJob) {
+    // An open post past its own last day is over, whatever the status column
+    // says until the morning sweep writes it down.
+    final over = job.status == 'open' && job.hasEnded;
+
+    if (job.isOwnJob &&
+        (over || !const {'open', 'in_progress'}.contains(job.status))) {
+      // A finished, closed or expired post has nobody left to pick. It used to
+      // offer "View 1 Applicant" from History as if hiring were still on.
+      final label = over
+          ? 'Ended'
+          : switch (job.status) {
+              'completed' => 'Completed',
+              'cancelled' => 'Cancelled',
+              'expired' => 'Expired',
+              _ => 'Closed',
+            };
+      button = ElevatedButton(
+        onPressed: null,
+        style: _actionStyle(
+            backgroundColor: AppColors.neutral500.withValues(alpha: 0.15)),
+        child: Text(label,
+            style: const TextStyle(
+                color: AppColors.neutral600, fontWeight: FontWeight.w600)),
+      );
+    } else if (job.isOwnJob) {
       button = OutlinedButton.icon(
         onPressed: () => Navigator.pushNamed(context, '/view-applicants',
             arguments: {'jobId': job.id}),
@@ -612,6 +643,7 @@ class _JobDetailsScreenState extends State<JobDetailsScreen> {
       final status = job.applicationStatus;
       final (label, color) = switch (status) {
         ApplicationStatus.accepted => ('Application Accepted', AppColors.success),
+        ApplicationStatus.completed => ('Completed', AppColors.success),
         ApplicationStatus.rejected => ('Application Not Selected', AppColors.error),
         ApplicationStatus.withdrawn => ('Application Withdrawn', AppColors.neutral500),
         _ => ('Application Pending', AppColors.warning),
@@ -649,13 +681,13 @@ class _JobDetailsScreenState extends State<JobDetailsScreen> {
                 style: TextStyle(fontWeight: FontWeight.w700),
               ),
       );
-    } else if (!job.isActive) {
+    } else if (!job.isActive || over) {
       // Checked after the two branches above, so it only ever speaks to
       // somebody with no standing on this job.
       button = ElevatedButton(
         onPressed: null,
         style: _actionStyle(),
-        child: const Text('This job is no longer open'),
+        child: Text(over ? 'Ended' : 'This job is no longer open'),
       );
     } else {
       button = ElevatedButton(

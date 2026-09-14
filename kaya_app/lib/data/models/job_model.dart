@@ -114,6 +114,45 @@ class Job {
     return time == null ? _short(start) : '${_short(start)}, $time';
   }
 
+  /// The last day of the work: end_date, or start_date for a single-day job.
+  DateTime? get lastDay => endDate ?? startDate;
+
+  /*
+      Where today falls against the work's own dates.
+
+      Nothing read the dates after posting, so a job for last Saturday looked
+      the same as one for next Saturday - open, applicable, "Application
+      Pending". The server closes it the morning after; this is the app
+      reading the same clock, so the day itself is not a gap.
+
+      Where the status says the job is over, this says nothing - the status
+      already says it, and it says it better.
+  */
+  bool get hasEnded {
+    final last = lastDay;
+    if (last == null) return false;
+    final today = DateTime.now();
+    return DateTime(last.year, last.month, last.day)
+        .isBefore(DateTime(today.year, today.month, today.day));
+  }
+
+  bool get hasStarted {
+    final start = startDate;
+    if (start == null) return false;
+    final today = DateTime.now();
+    return !DateTime(start.year, start.month, start.day)
+        .isAfter(DateTime(today.year, today.month, today.day));
+  }
+
+  /// "Starts Aug 20" / "Ends Aug 27" / "Ended Aug 27", or null with no dates.
+  String? get phaseLabel {
+    final start = startDate, last = lastDay;
+    if (start == null || last == null) return null;
+    if (hasEnded) return 'Ended ${_short(last)}';
+    if (!hasStarted) return 'Starts ${_short(start)}';
+    return _sameDay(start, last) ? 'Today' : 'Ends ${_short(last)}';
+  }
+
   static bool _sameDay(DateTime a, DateTime b) =>
       a.year == b.year && a.month == b.month && a.day == b.day;
 
@@ -355,4 +394,8 @@ enum ApplicationStatus {
   accepted,
   rejected,
   withdrawn,
+  // The server has sent this since completion became two-sided, and the
+  // parser's fallback for an unknown value is `pending` - so every finished
+  // job in History opened to a button saying "Application Pending".
+  completed,
 }
