@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../providers/auth_provider.dart';
 import '../../../core/widgets/app_toast.dart';
+import '../../../core/widgets/otp_field.dart';
 
 class VerifyResetCodeScreen extends StatefulWidget {
   const VerifyResetCodeScreen({super.key});
@@ -13,22 +13,19 @@ class VerifyResetCodeScreen extends StatefulWidget {
 }
 
 class _VerifyResetCodeScreenState extends State<VerifyResetCodeScreen> {
-  final List<TextEditingController> _controllers = List.generate(6, (_) => TextEditingController());
-  final List<FocusNode> _focusNodes = List.generate(6, (_) => FocusNode());
+  /// One controller for the whole code. Six of them — one per box — is the
+  /// obvious build and the reason a code pasted from the email used to land
+  /// only in the first box.
+  final TextEditingController _codeCtrl = TextEditingController();
   String? _errorMessage;
 
   @override
   void dispose() {
-    for (var controller in _controllers) {
-      controller.dispose();
-    }
-    for (var node in _focusNodes) {
-      node.dispose();
-    }
+    _codeCtrl.dispose();
     super.dispose();
   }
 
-  String get _code => _controllers.map((c) => c.text).join();
+  String get _code => _codeCtrl.text;
 
   Future<void> _handleVerify(String email, AuthProvider auth) async {
     if (_code.length != 6) {
@@ -56,12 +53,8 @@ class _VerifyResetCodeScreenState extends State<VerifyResetCodeScreen> {
     if (!mounted) return;
     if (success) {
       AppToast.info(context, 'New verification code sent to your email');
-      // Clear all fields
-      for (var controller in _controllers) {
-        controller.clear();
-      }
+      _codeCtrl.clear();
       setState(() => _errorMessage = null);
-      _focusNodes[0].requestFocus();
     } else {
       setState(() => _errorMessage = auth.errorMessage);
     }
@@ -118,54 +111,12 @@ class _VerifyResetCodeScreenState extends State<VerifyResetCodeScreen> {
               ),
               const SizedBox(height: 48),
 
-              // Code input boxes
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: List.generate(6, (index) {
-                  return SizedBox(
-                    width: 50,
-                    height: 60,
-                    child: TextField(
-                      controller: _controllers[index],
-                      focusNode: _focusNodes[index],
-                      keyboardType: TextInputType.number,
-                      textAlign: TextAlign.center,
-                      maxLength: 1,
-                      style: TextStyle(
-                        fontSize: 24,
-                        fontWeight: FontWeight.bold,
-                        color: AppColors.neutral900,
-                      ),
-                      inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                      decoration: InputDecoration(
-                        counterText: '',
-                        filled: true,
-                        fillColor: AppColors.neutral50,
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                          borderSide: BorderSide.none,
-                        ),
-                        focusedBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                          borderSide: BorderSide(color: AppColors.primary, width: 2),
-                        ),
-                        errorBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                          borderSide: BorderSide(color: AppColors.error, width: 2),
-                        ),
-                      ),
-                      onChanged: (value) {
-                        setState(() => _errorMessage = null);
-                        if (value.isNotEmpty && index < 5) {
-                          _focusNodes[index + 1].requestFocus();
-                        }
-                        if (value.isEmpty && index > 0) {
-                          _focusNodes[index - 1].requestFocus();
-                        }
-                      },
-                    ),
-                  );
-                }),
+              OtpField(
+                controller: _codeCtrl,
+                autofocus: true,
+                hasError: _errorMessage != null,
+                onCompleted: (_) =>
+                    _handleVerify(email, context.read<AuthProvider>()),
               ),
 
               if (_errorMessage != null) ...[

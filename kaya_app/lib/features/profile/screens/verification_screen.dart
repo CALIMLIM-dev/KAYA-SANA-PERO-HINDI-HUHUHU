@@ -1,8 +1,11 @@
+import 'dart:async';
 import 'dart:io';
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../../core/constants/app_colors.dart';
+import '../../../core/widgets/otp_field.dart';
+import '../../../providers/auth_provider.dart';
 import '../../../providers/verification_provider.dart';
 import '../../../core/widgets/app_toast.dart';
 import '../../../data/services/api_client.dart';
@@ -54,8 +57,41 @@ class _VerificationScreenState extends State<VerificationScreen> {
 
   bool _isLoading = false;
 
+  /// Seconds left before another code may be asked for. Sending is throttled
+  /// on the server too; this is so the button says so instead of failing.
+  int _cooldown = 0;
+  Timer? _cooldownTimer;
+
+  bool _prefilled = false;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_prefilled) return;
+    _prefilled = true;
+
+    // The code goes to the address and number held on the account, so those
+    // are what the fields have to start from. Starting blank is what made
+    // "Send OTP" answer "add a phone number to your account first" to
+    // somebody looking straight at a filled-in field.
+    final user = context.read<AuthProvider>().user;
+    _phoneCtrl.text = (user?['phone'] as String?) ?? '';
+    _emailCtrl.text = (user?['email'] as String?) ?? '';
+  }
+
+  void _startCooldown() {
+    _cooldownTimer?.cancel();
+    setState(() => _cooldown = 60);
+    _cooldownTimer = Timer.periodic(const Duration(seconds: 1), (t) {
+      if (!mounted) return t.cancel();
+      setState(() => _cooldown--);
+      if (_cooldown <= 0) t.cancel();
+    });
+  }
+
   @override
   void dispose() {
+    _cooldownTimer?.cancel();
     _phoneCtrl.dispose();
     _otpCtrl.dispose();
     _emailCtrl.dispose();
@@ -110,63 +146,49 @@ class _VerificationScreenState extends State<VerificationScreen> {
           _header(Icons.phone_android, 'Verify Phone Number', subtitle),
           const SizedBox(height: 32),
           if (!_otpSent) ...[
-            _label('Phone Number'),
+            _label('Phone number'),
             const SizedBox(height: 8),
             TextField(
               controller: _phoneCtrl,
               keyboardType: TextInputType.phone,
-              onChanged: (_) => setState(() {}),
-              decoration: _deco(hint: '+63 912 345 6789', icon: Icons.phone),
+              onChanged: (_) => setState(() {
+                if (_verifyError != null) _verifyError = null;
+              }),
+              decoration: _deco(hint: '09XX XXX XXXX', icon: Icons.phone),
             ),
-            const SizedBox(height: 24),
-            _primaryButton(
-              label: 'Send OTP',
-              enabled: _phoneCtrl.text.isNotEmpty && !_isLoading,
-              onPressed: _sendOTP,
+            const SizedBox(height: 6),
+            const Text(
+              'We text a 6-digit code to this number. Saving it here updates '
+              'your account.',
+              style: TextStyle(fontSize: 12, color: AppColors.neutral500),
             ),
             // Where "phone verification is not available yet" lands when no
             // SMS provider is configured. Better than a spinner that used to
             // resolve into a success the server knew nothing about.
             if (_verifyError != null) ...[
-              const SizedBox(height: 12),
+              const SizedBox(height: 10),
               Text(_verifyError!,
                   style: const TextStyle(fontSize: 12, color: AppColors.error)),
             ],
-          ] else ...[
-            _sentBanner('OTP sent to ${_phoneCtrl.text}',
-                onTap: () => setState(() { _otpSent = false; _otpCtrl.clear(); })),
-            const SizedBox(height: 24),
-            _label('Enter the 6-digit OTP'),
-            const SizedBox(height: 8),
-            TextField(
-              controller: _otpCtrl,
-              keyboardType: TextInputType.number,
-              maxLength: 6,
-              onChanged: (_) => setState(() {}),
-              style: const TextStyle(fontSize: 24, letterSpacing: 8, fontWeight: FontWeight.w700),
-              decoration: _deco(hint: '------', icon: Icons.lock_outline),
-            ),
-            if (_verifyError != null)
-              Padding(
-                padding: const EdgeInsets.only(bottom: 8),
-                child: Text(_verifyError!,
-                    style: const TextStyle(fontSize: 12, color: AppColors.error)),
-              ),
-            Row(children: [
-              const Text("Didn't receive it? ", style: TextStyle(fontSize: 13.5, color: AppColors.neutral500)),
-              GestureDetector(
-                onTap: _isLoading ? null : _sendOTP,
-                child: const Text('Resend OTP',
-                    style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.w600, color: AppColors.primary)),
-              ),
-            ]),
             const SizedBox(height: 24),
             _primaryButton(
-              label: 'Verify',
-              enabled: _otpCtrl.text.length == 6 && !_isLoading,
-              onPressed: _verifyOTP,
+              label: 'Send code',
+              enabled: _phoneCtrl.text.trim().isNotEmpty && !_isLoading,
+              isLoading: _isLoading,
+              onPressed: _sendOTP,
             ),
-          ],
+          ] else
+            ..._codeStep(
+              sentTo: _phoneCtrl.text.trim(),
+              controller: _otpCtrl,
+              onChangeTarget: () => setState(() {
+                _otpSent = false;
+                _otpCtrl.clear();
+                _verifyError = null;
+              }),
+              onVerify: _verifyOTP,
+              onResend: _sendOTP,
+            ),
         ],
       ),
     );
@@ -184,93 +206,71 @@ class _VerificationScreenState extends State<VerificationScreen> {
           _header(Icons.email_outlined, 'Verify Email Address', subtitle),
           const SizedBox(height: 32),
           if (!_emailSent) ...[
-            _label('Email Address'),
+            _label('Email address'),
             const SizedBox(height: 8),
-            TextField(
-              controller: _emailCtrl,
-              keyboardType: TextInputType.emailAddress,
-              onChanged: (_) => setState(() {}),
-              decoration: _deco(hint: 'your.email@example.com', icon: Icons.email_outlined),
+            /*
+                Shown, not edited.
+
+                The address is the sign-in identity: `PATCH /me` does not
+                accept one and the code always goes to `users.email`. This was
+                an editable field with a "Use a different email" button under
+                it, neither of which could change anything — you could type a
+                new address, watch the code go to the old one, and never be
+                told why.
+            */
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+              decoration: BoxDecoration(
+                color: AppColors.neutral100,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: AppColors.neutral200),
+              ),
+              child: Row(children: [
+                const Icon(Icons.email_outlined,
+                    size: 20, color: AppColors.neutral500),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    _emailCtrl.text.trim().isEmpty
+                        ? 'No email on this account'
+                        : _emailCtrl.text.trim(),
+                    style: const TextStyle(
+                        fontSize: 15, color: AppColors.neutral900),
+                  ),
+                ),
+              ]),
             ),
+            const SizedBox(height: 6),
+            const Text(
+              'This is your sign-in address, so it cannot be changed here.',
+              style: TextStyle(fontSize: 12, color: AppColors.neutral500),
+            ),
+            if (_verifyError != null) ...[
+              const SizedBox(height: 10),
+              Text(_verifyError!,
+                  style: const TextStyle(fontSize: 12, color: AppColors.error)),
+            ],
             const SizedBox(height: 24),
             _primaryButton(
-              label: 'Send Verification Link',
-              enabled: _emailCtrl.text.isNotEmpty && !_isLoading,
+              label: 'Send code',
+              enabled: _emailCtrl.text.trim().isNotEmpty && !_isLoading,
+              isLoading: _isLoading,
               onPressed: _sendEmail,
             ),
           ] else ...[
-            Container(
-              padding: const EdgeInsets.all(24),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(12),
-                boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 8, offset: const Offset(0, 2))],
-              ),
-              child: Column(children: [
-                const Icon(Icons.mark_email_read_outlined, size: 56, color: AppColors.primary),
-                const SizedBox(height: 16),
-                const Text('Check your email',
-                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: AppColors.neutral900)),
-                const SizedBox(height: 8),
-                Text('We sent a 6-digit code to ${_emailCtrl.text}',
-                    style: const TextStyle(fontSize: 14, color: AppColors.neutral600),
-                    textAlign: TextAlign.center),
-                const SizedBox(height: 20),
-                /*
-                    A code the server checks, not a button that trusts you.
+            /*
+                A code the server checks, not a button that trusts you.
 
-                    This was "I've verified my email" wired to
-                    `setState(() => _emailVerified = true)` — a self-service
-                    verification button. It told the server nothing, so the
-                    badge reverted the moment the parent screen refetched.
-                */
-                TextField(
-                  controller: _emailCodeCtrl,
-                  keyboardType: TextInputType.number,
-                  textAlign: TextAlign.center,
-                  maxLength: 6,
-                  style: const TextStyle(
-                      fontSize: 24, fontWeight: FontWeight.w700, letterSpacing: 8),
-                  decoration: InputDecoration(
-                    counterText: '',
-                    hintText: '000000',
-                    hintStyle: TextStyle(
-                        color: AppColors.neutral300, letterSpacing: 8, fontSize: 24),
-                    filled: true,
-                    fillColor: AppColors.neutral100,
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                      borderSide: BorderSide.none,
-                    ),
-                  ),
-                  onChanged: (_) {
-                    if (_verifyError != null) setState(() => _verifyError = null);
-                  },
-                ),
-                if (_verifyError != null) ...[
-                  const SizedBox(height: 8),
-                  Text(_verifyError!,
-                      textAlign: TextAlign.center,
-                      style: const TextStyle(fontSize: 12, color: AppColors.error)),
-                ],
-                const SizedBox(height: 16),
-                _primaryButton(
-                  label: 'Verify email',
-                  enabled: !_isLoading,
-                  onPressed: _verifyEmailCode,
-                ),
-                const SizedBox(height: 6),
-                TextButton(
-                  onPressed: _isLoading ? null : _sendEmail,
-                  child: Text('Send a new code',
-                      style: TextStyle(fontSize: 12, color: AppColors.primary)),
-                ),
-                const SizedBox(height: 10),
-                TextButton(
-                  onPressed: () => setState(() { _emailSent = false; _emailCtrl.clear(); }),
-                  child: const Text('Use a different email', style: TextStyle(color: AppColors.neutral500)),
-                ),
-              ]),
+                This was "I've verified my email" wired to
+                `setState(() => _emailVerified = true)` — a self-service
+                verification button. It told the server nothing, so the badge
+                reverted the moment the parent screen refetched.
+            */
+            ..._codeStep(
+              sentTo: _emailCtrl.text.trim(),
+              controller: _emailCodeCtrl,
+              onVerify: _verifyEmailCode,
+              onResend: _sendEmail,
             ),
           ],
         ],
@@ -843,11 +843,41 @@ class _VerificationScreenState extends State<VerificationScreen> {
       from it rather than being invented here.
   */
 
+  /*
+      Save the number, then ask for the code.
+
+      The server sends to `users.phone` — it takes no number in the request —
+      so sending before saving a changed one texts the old number, and sending
+      with nothing saved is refused outright. The field on this screen used to
+      be read by nothing at all: you typed a number, pressed Send OTP, and the
+      server answered "add a phone number to your account first".
+  */
   Future<void> _sendOTP() async {
+    final phone = _phoneCtrl.text.trim();
+
+    if (phone.replaceAll(RegExp(r'[^0-9]'), '').length < 10) {
+      setState(() => _verifyError = 'That does not look like a mobile number.');
+      return;
+    }
+
     setState(() {
       _isLoading = true;
       _verifyError = null;
     });
+
+    final auth = context.read<AuthProvider>();
+
+    if (phone != ((auth.user?['phone'] as String?) ?? '').trim()) {
+      final saved = await auth.updateMe(phone: phone);
+      if (!mounted) return;
+      if (!saved) {
+        setState(() {
+          _isLoading = false;
+          _verifyError = auth.errorMessage ?? 'Could not save that number.';
+        });
+        return;
+      }
+    }
 
     try {
       final res = await _api.post('/contact-verification/phone/send');
@@ -855,7 +885,9 @@ class _VerificationScreenState extends State<VerificationScreen> {
       setState(() {
         _isLoading = false;
         _otpSent = true;
+        _otpCtrl.clear();
       });
+      _startCooldown();
       AppToast.success(context, res.data['message'] as String? ?? 'Code sent.');
     } catch (e) {
       if (!mounted) return;
@@ -884,6 +916,10 @@ class _VerificationScreenState extends State<VerificationScreen> {
     try {
       await _api.post('/contact-verification/phone/verify', data: {'code': code});
       if (!mounted) return;
+      // Pull the account down again so the row that sent us here shows
+      // Verified when this screen pops, rather than the old state.
+      await context.read<AuthProvider>().fetchMe();
+      if (!mounted) return;
       setState(() {
         _isLoading = false;
         _phoneVerified = true;
@@ -909,7 +945,9 @@ class _VerificationScreenState extends State<VerificationScreen> {
       setState(() {
         _isLoading = false;
         _emailSent = true;
+        _emailCodeCtrl.clear();
       });
+      _startCooldown();
       AppToast.success(context, res.data['message'] as String? ?? 'Code sent.');
     } catch (e) {
       if (!mounted) return;
@@ -937,6 +975,8 @@ class _VerificationScreenState extends State<VerificationScreen> {
 
     try {
       await _api.post('/contact-verification/email/verify', data: {'code': code});
+      if (!mounted) return;
+      await context.read<AuthProvider>().fetchMe();
       if (!mounted) return;
       setState(() {
         _isLoading = false;
@@ -976,23 +1016,104 @@ class _VerificationScreenState extends State<VerificationScreen> {
   Widget _label(String text) => Text(text,
       style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: AppColors.neutral900));
 
-  Widget _sentBanner(String msg, {required VoidCallback onTap}) {
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: AppColors.success.withValues(alpha: 0.08), borderRadius: BorderRadius.circular(10)),
-      child: Row(children: [
-        const Icon(Icons.check_circle, color: AppColors.success, size: 18),
-        const SizedBox(width: 10),
-        Expanded(child: Text(msg, style: const TextStyle(fontSize: 13.5, color: AppColors.success))),
-        TextButton(
-          onPressed: onTap,
-          style: TextButton.styleFrom(padding: EdgeInsets.zero, minimumSize: Size.zero,
-              tapTargetSize: MaterialTapTargetSize.shrinkWrap),
-          child: const Text('Change', style: TextStyle(fontSize: 12, color: AppColors.primary)),
+  /*
+      The second half of both flows, written once.
+
+      Phone and email ask for the same thing — six digits, ten minutes, five
+      guesses — so they ask for it the same way. They used to differ in every
+      respect: one a letter-spaced line, the other a centred grey box, one
+      offering "Resend OTP" and the other "Send a new code".
+
+      [onChangeTarget] is only passed where the value can actually be changed,
+      which is the phone. Email is the sign-in address and has no such button,
+      rather than one that clears a field to no effect.
+  */
+  List<Widget> _codeStep({
+    required String sentTo,
+    required TextEditingController controller,
+    required Future<void> Function() onVerify,
+    required Future<void> Function() onResend,
+    VoidCallback? onChangeTarget,
+  }) {
+    return [
+      Container(
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: AppColors.success.withValues(alpha: 0.08),
+          borderRadius: BorderRadius.circular(10),
         ),
+        child: Row(children: [
+          const Icon(Icons.check_circle, color: AppColors.success, size: 18),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text('Code sent to $sentTo',
+                style: const TextStyle(fontSize: 13.5, color: AppColors.success)),
+          ),
+          if (onChangeTarget != null)
+            TextButton(
+              onPressed: _isLoading ? null : onChangeTarget,
+              style: TextButton.styleFrom(
+                  padding: EdgeInsets.zero,
+                  minimumSize: Size.zero,
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap),
+              child: const Text('Change',
+                  style: TextStyle(fontSize: 12, color: AppColors.primary)),
+            ),
+        ]),
+      ),
+      const SizedBox(height: 28),
+      _label('Enter the 6-digit code'),
+      const SizedBox(height: 12),
+      OtpField(
+        controller: controller,
+        autofocus: true,
+        enabled: !_isLoading,
+        hasError: _verifyError != null,
+        // Six digits in means there is nothing left to decide, so submit
+        // rather than making them reach for the button as well.
+        onCompleted: (_) {
+          if (!_isLoading) onVerify();
+        },
+      ),
+      if (_verifyError != null) ...[
+        const SizedBox(height: 10),
+        Text(_verifyError!,
+            style: const TextStyle(fontSize: 12, color: AppColors.error)),
+      ],
+      const SizedBox(height: 14),
+      Row(children: [
+        const Text("Didn't get it? ",
+            style: TextStyle(fontSize: 13.5, color: AppColors.neutral500)),
+        if (_cooldown > 0)
+          Text('Resend in ${_cooldown}s',
+              style: const TextStyle(
+                  fontSize: 13.5,
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.neutral400))
+        else
+          GestureDetector(
+            onTap: _isLoading ? null : onResend,
+            child: const Text('Send a new code',
+                style: TextStyle(
+                    fontSize: 13.5,
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.primary)),
+          ),
       ]),
-    );
+      const SizedBox(height: 24),
+      // Listens to the code itself: OtpField repaints its own boxes, but the
+      // button lives out here and would otherwise stay greyed out with six
+      // digits sitting above it.
+      ValueListenableBuilder<TextEditingValue>(
+        valueListenable: controller,
+        builder: (context, value, _) => _primaryButton(
+          label: 'Verify',
+          enabled: value.text.length == 6 && !_isLoading,
+          isLoading: _isLoading,
+          onPressed: onVerify,
+        ),
+      ),
+    ];
   }
 
   InputDecoration _deco({required String hint, required IconData icon}) => InputDecoration(

@@ -161,6 +161,42 @@ void main() {
     );
   }
 
+  /*
+      Same as wrap, but the screen arrives through a route carrying arguments.
+
+      VerificationScreen reads `type` off the route to decide whether it is
+      showing the document flow, the phone flow or the email flow. Given a
+      bare `home:` it has no route arguments and always falls back to the
+      document branch — which is why the phone and email screens went
+      unswept while this file claimed to cover verification.
+  */
+  Widget wrapWithArgs(Widget screen, Map<String, dynamic> args) {
+    return MultiProvider(
+      providers: [
+        ChangeNotifierProvider(create: (_) => AuthProvider()),
+        ChangeNotifierProvider(create: (_) => WorkerProfileProvider(ApiClient())),
+        ChangeNotifierProvider(create: (_) => EmployerProfileProvider()),
+        ChangeNotifierProvider(create: (_) => VerificationProvider()),
+        ChangeNotifierProvider(create: (_) => ProfileViewProvider()),
+        ChangeNotifierProvider(create: (_) => JobProvider()),
+        ChangeNotifierProvider(create: (_) => LocationProvider()),
+        ChangeNotifierProvider(create: (_) => CreditsProvider()),
+        ChangeNotifierProvider(create: (_) => AppModeProvider()),
+        ChangeNotifierProvider(create: (_) => ApplicationProvider()),
+        ChangeNotifierProvider(create: (_) => InvitationProvider()),
+        ChangeNotifierProvider(create: (_) => MessagingProvider()),
+        ChangeNotifierProvider(create: (_) => NotificationProvider()),
+        ChangeNotifierProvider(create: (_) => WorkerBrowseProvider()),
+      ],
+      child: MaterialApp(
+        onGenerateRoute: (_) => MaterialPageRoute(
+          builder: (_) => screen,
+          settings: RouteSettings(arguments: args),
+        ),
+      ),
+    );
+  }
+
   final screens = <String, Widget Function()>{
     'my worker profile': () => wrap(const MyWorkerProfileScreen()),
     'my employer profile': () => wrap(const MyEmployerProfileScreen()),
@@ -189,6 +225,23 @@ void main() {
     'add experience': () => wrap(const AddExperienceScreen()),
     'add photo': () => wrap(const AddPhotoScreen()),
     'verification': () => wrap(const VerificationScreen()),
+    'verify phone': () => wrapWithArgs(
+          const VerificationScreen(),
+          {
+            'type': 'phone',
+            'title': 'Verify phone',
+            'subtitle':
+                'Confirm the number employers and workers will reach you on.',
+          },
+        ),
+    'verify email': () => wrapWithArgs(
+          const VerificationScreen(),
+          {
+            'type': 'email',
+            'title': 'Verify email',
+            'subtitle': 'Confirm the address your account signs in with.',
+          },
+        ),
 
     /*
         Onboarding, which nothing here covered.

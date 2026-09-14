@@ -9,7 +9,7 @@ import '../widgets/credentials_section.dart';
 import '../widgets/experience_section.dart';
 import '../widgets/inline_edit_row.dart';
 import '../widgets/inline_location_row.dart';
-import '../widgets/inline_otp_row.dart';
+import '../widgets/contact_verify_row.dart';
 import '../widgets/profile_completeness_header.dart';
 import '../widgets/profile_section_card.dart';
 import '../../../data/services/api_client.dart';
@@ -1400,64 +1400,35 @@ class _MyWorkerProfileScreenState extends State<MyWorkerProfileScreen> with Sing
   */
   Widget _contactRows() {
     final auth = context.watch<AuthProvider>();
-    final api = ApiClient();
 
-    Future<String?> send(String channel) async {
-      try {
-        await api.post('/contact-verification/$channel/send');
-        return null;
-      } catch (e) {
-        return e.toString().replaceFirst('Exception: ', '');
-      }
-    }
-
-    Future<String?> verify(String channel, String code) async {
-      try {
-        await api.post('/contact-verification/$channel/verify',
-            data: {'code': code});
-        // The badge is driven by /me, so it has to be re-read before the row
-        // can show green.
-        await auth.fetchMe();
-        return null;
-      } catch (e) {
-        return e.toString().replaceFirst('Exception: ', '');
-      }
-    }
-
-    Future<String?> storePhone(String value) async {
-      final ok = await auth.updateMe(phone: value);
-      return ok ? null : (auth.errorMessage ?? 'Could not save.');
+    // The whole flow — save the number, send the code, check it — lives on
+    // the verification screen. These rows say what the account holds and open
+    // it; refreshing on return is what turns the row into 'Verified'.
+    Future<void> open(String channel, String title) async {
+      await Navigator.pushNamed(context, '/verification', arguments: {
+        'type': channel,
+        'title': title,
+        'subtitle': channel == 'phone'
+            ? 'Confirm the number employers and workers will reach you on.'
+            : 'Confirm the address your account signs in with.',
+      });
+      if (!mounted) return;
+      await auth.fetchMe();
     }
 
     return Column(
       children: [
-        InlineOtpRow(
+        ContactVerifyRow(
           label: 'Phone number',
           value: auth.user?['phone'] as String?,
           verified: auth.user?['phone_verified'] == true,
-          hint: '09XX XXX XXXX',
-          keyboardType: TextInputType.phone,
-          validator: (v) =>
-              v.replaceAll(RegExp(r'[^0-9]'), '').length < 10
-                  ? 'That does not look like a mobile number.'
-                  : null,
-          onSaveValue: storePhone,
-          onSendCode: () => send('phone'),
-          onVerifyCode: (c) => verify('phone', c),
+          onTap: () => open('phone', 'Verify phone'),
         ),
-        InlineOtpRow(
+        ContactVerifyRow(
           label: 'Email',
           value: auth.user?['email'] as String?,
           verified: auth.user?['email_verified'] == true,
-          keyboardType: TextInputType.emailAddress,
-          validator: (v) =>
-              v.contains('@') && v.contains('.') ? null : 'Check the address.',
-          // Email is the sign-in identity and is not changed from here.
-          onSaveValue: (v) async => v.trim() == (auth.user?['email'] ?? '')
-              ? null
-              : 'Your email is your sign-in. Change it in account settings.',
-          onSendCode: () => send('email'),
-          onVerifyCode: (c) => verify('email', c),
+          onTap: () => open('email', 'Verify email'),
         ),
       ],
     );
