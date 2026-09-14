@@ -337,7 +337,7 @@ void _stubTokenRead(WidgetTester tester) {
     (call) async {
       if (call.method == 'read') return _activeToken;
       if (call.method == 'readAll') {
-        return <String, String>{if (_activeToken != null) 'auth_token': _activeToken!};
+        return <String, String>{'auth_token': ?_activeToken};
       }
       return null;
     },

@@ -259,9 +259,9 @@ class WorkerProfileProvider with ChangeNotifier {
     try {
       final response = await _apiClient.put('/worker/profile', data: {
         'city': newLocation,
-        if (locationId != null) 'location_id': locationId,
-        if (latitude != null) 'latitude': latitude,
-        if (longitude != null) 'longitude': longitude,
+        'location_id': ?locationId,
+        'latitude': ?latitude,
+        'longitude': ?longitude,
       });
       final data = response.data as Map<String, dynamic>;
       

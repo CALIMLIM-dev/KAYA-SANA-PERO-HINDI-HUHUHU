@@ -158,7 +158,7 @@ class ApplicationProvider with ChangeNotifier {
 
     try {
       final res = await _api.post('/jobs/$jobId/apply', data: {
-        if (coverLetter != null) 'cover_letter': coverLetter,
+        'cover_letter': ?coverLetter,
       });
       _applications.insert(0, res.data['data'] as Map<String, dynamic>);
       notifyListeners();

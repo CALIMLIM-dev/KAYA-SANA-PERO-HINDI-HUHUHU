@@ -122,9 +122,9 @@ class _WorkerSetupFlowScreenState extends State<WorkerSetupFlowScreen> {
   // Form data - ALL stored in memory until Finish
   String? _location;
   List<SkillModel> _selectedSkills = [];
-  List<Map<String, dynamic>> _tempExperiences = [];
-  List<Map<String, dynamic>> _tempCertifications = [];
-  List<Map<String, dynamic>> _tempLicenses = [];
+  final List<Map<String, dynamic>> _tempExperiences = [];
+  final List<Map<String, dynamic>> _tempCertifications = [];
+  final List<Map<String, dynamic>> _tempLicenses = [];
   String? _tempProfilePhotoPath;
   String _tempGovernmentIdType = 'Philippine National ID';
   String? _tempIdPhotoPath;
@@ -383,7 +383,7 @@ class _WorkerSetupFlowScreenState extends State<WorkerSetupFlowScreen> {
     
     return PopScope(
       canPop: false,
-      onPopInvoked: (didPop) async {
+      onPopInvokedWithResult: (didPop, _) async {
         if (didPop) return;
         
         final shouldExit = await showDialog<bool>(
@@ -409,9 +409,7 @@ class _WorkerSetupFlowScreenState extends State<WorkerSetupFlowScreen> {
           ),
         ) ?? false;
         
-        if (shouldExit && mounted) {
-          if (mounted) Navigator.pop(context);
-        }
+        if (shouldExit && context.mounted) Navigator.pop(context);
       },
       child: Scaffold(
       backgroundColor: AppColors.background,
@@ -449,9 +447,7 @@ class _WorkerSetupFlowScreenState extends State<WorkerSetupFlowScreen> {
                     ),
                   ) ?? false;
                   
-                  if (shouldExit && mounted) {
-                    if (mounted) Navigator.pop(context);
-                  }
+                  if (shouldExit && context.mounted) Navigator.pop(context);
                 },
               ),
         title: Text(
@@ -877,7 +873,7 @@ class _WorkerSetupFlowScreenState extends State<WorkerSetupFlowScreen> {
                         ],
                       ),
                     );
-                  }).toList(),
+                  }),
                 ],
               ),
             ),
@@ -1057,7 +1053,7 @@ class _WorkerSetupFlowScreenState extends State<WorkerSetupFlowScreen> {
                         ),
                       ],
                     );
-                  }).toList(),
+                  }),
                 ],
               ),
             ),
@@ -1233,7 +1229,7 @@ class _WorkerSetupFlowScreenState extends State<WorkerSetupFlowScreen> {
                         ),
                       ],
                     );
-                  }).toList(),
+                  }),
                 ],
               ),
             ),
@@ -1409,7 +1405,7 @@ class _WorkerSetupFlowScreenState extends State<WorkerSetupFlowScreen> {
                         ),
                       ],
                     );
-                  }).toList(),
+                  }),
                 ],
               ),
             ),

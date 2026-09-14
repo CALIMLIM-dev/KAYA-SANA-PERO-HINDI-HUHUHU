@@ -280,6 +280,13 @@ class EmployerProfileTest extends TestCase
     /** @test */
     public function upload_image_stores_file_and_returns_consistent_response()
     {
+        // UploadedFile::fake()->image() renders a real JPEG through GD. A
+        // machine without the extension cannot make one, and that is not a
+        // failure of the code under test.
+        if (! extension_loaded('gd')) {
+            $this->markTestSkipped('GD is not loaded; fake images cannot be made.');
+        }
+
         $user = User::factory()->create(['user_type' => 'employer']);
         $profile = EmployerProfile::factory()->create([
             'user_id' => $user->id,
@@ -313,6 +320,13 @@ class EmployerProfileTest extends TestCase
     /** @test */
     public function upload_image_fails_when_profile_does_not_exist()
     {
+        // UploadedFile::fake()->image() renders a real JPEG through GD. A
+        // machine without the extension cannot make one, and that is not a
+        // failure of the code under test.
+        if (! extension_loaded('gd')) {
+            $this->markTestSkipped('GD is not loaded; fake images cannot be made.');
+        }
+
         $user = User::factory()->create(['user_type' => 'employer']);
         $file = UploadedFile::fake()->image('logo.jpg');
 

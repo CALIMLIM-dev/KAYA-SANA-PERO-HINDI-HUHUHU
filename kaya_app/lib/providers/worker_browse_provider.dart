@@ -116,7 +116,7 @@ class WorkerBrowseProvider with ChangeNotifier {
   }
   Future<List<WorkerProfile>> _hiredIn(int? locationId, int limit) async {
     final res = await _api.get('/workers', queryParameters: {
-      if (locationId != null) 'location_id': locationId,
+      'location_id': ?locationId,
       'sort': 'jobs',
       'per_page': limit,
     });
@@ -154,14 +154,14 @@ class WorkerBrowseProvider with ChangeNotifier {
     try {
       final res = await _api.get('/workers', queryParameters: {
         if (q != null && q.isNotEmpty) 'q': q,
-        if (categoryId != null) 'category_id': categoryId,
-        if (skillId != null) 'skill_id': skillId,
-        if (locationId != null) 'location_id': locationId,
-        if (rateMin != null) 'rate_min': rateMin,
-        if (rateMax != null) 'rate_max': rateMax,
-        if (rateUnit != null) 'rate_unit': rateUnit,
-        if (radiusKm != null) 'radius_km': radiusKm,
-        if (sort != null) 'sort': sort,
+        'category_id': ?categoryId,
+        'skill_id': ?skillId,
+        'location_id': ?locationId,
+        'rate_min': ?rateMin,
+        'rate_max': ?rateMax,
+        'rate_unit': ?rateUnit,
+        'radius_km': ?radiusKm,
+        'sort': ?sort,
       });
 
       final page = res.data['data'] as Map<String, dynamic>;

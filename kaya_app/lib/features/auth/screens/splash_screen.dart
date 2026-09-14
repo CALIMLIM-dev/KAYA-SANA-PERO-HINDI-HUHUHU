@@ -64,9 +64,9 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
             colors: [
-              AppTheme.primaryColor.withOpacity(0.05),
+              AppTheme.primaryColor.withValues(alpha: 0.05),
               AppTheme.surfaceColor,
-              AppTheme.accentColor.withOpacity(0.05),
+              AppTheme.accentColor.withValues(alpha: 0.05),
             ],
           ),
         ),

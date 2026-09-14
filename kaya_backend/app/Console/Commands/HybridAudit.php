@@ -308,11 +308,10 @@ class HybridAudit extends Command
         /*
             The one a panel will actually ask about.
 
-            cancelClashing only sweeps applications still in 'pending'. One that
-            is already 'accepted' is a real commitment to another employer, so
-            cancelling it silently would be wrong -- but nothing else looks at it
-            either, so a second employer can accept the same worker for the same
-            day and nobody is told.
+            Nothing decides how many jobs a worker may hold. A second employer
+            can accept the same worker for the same day; what they get is the
+            day marked as taken while they choose, and nothing refused. This
+            checks that the second accept goes through.
         */
         $double = $this->postJob($tokenA, $a, 'Audit double booking', $tuesday);
         $this->api($tokenB)->post("{$this->base}/api/v1/jobs/{$double->id}/apply", [

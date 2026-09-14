@@ -268,7 +268,7 @@ class _SetupEmployerProfileScreenState extends State<SetupEmployerProfileScreen>
     if (_isLastStep) {
       // ONLY save on finish
       final saved = await _saveAllProfileData();
-      if (!saved) return;
+      if (!saved || !mounted) return;
       
       final employerProvider = context.read<EmployerProfileProvider>();
       final completed = await employerProvider.completeSetup();
@@ -495,7 +495,7 @@ class _SetupEmployerProfileScreenState extends State<SetupEmployerProfileScreen>
 
     return PopScope(
       canPop: false,
-      onPopInvoked: (didPop) async {
+      onPopInvokedWithResult: (didPop, _) async {
         if (didPop) return;
         
         final shouldExit = await showDialog<bool>(
@@ -521,9 +521,7 @@ class _SetupEmployerProfileScreenState extends State<SetupEmployerProfileScreen>
           ),
         ) ?? false;
         
-        if (shouldExit && mounted) {
-          if (mounted) Navigator.pop(context);
-        }
+        if (shouldExit && context.mounted) Navigator.pop(context);
       },
       child: Scaffold(
       backgroundColor: AppColors.background,

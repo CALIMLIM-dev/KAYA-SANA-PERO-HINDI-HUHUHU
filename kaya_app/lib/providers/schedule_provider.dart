@@ -86,7 +86,7 @@ class ScheduleProvider with ChangeNotifier {
             '${date.day.toString().padLeft(2, '0')}',
         'scheduled_time': time,
         if (note != null && note.trim().isNotEmpty) 'note': note.trim(),
-        if (jobId != null) 'job_id': jobId,
+        'job_id': ?jobId,
       });
 
       _errorMessage = null;

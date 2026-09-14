@@ -151,7 +151,7 @@ class CreditLedgerTest extends TestCase
 
         $this->assertSame(7, $this->ledger->balance($user));
 
-        $refund = $this->ledger->refund($charge, 'cancelled by a clash');
+        $refund = $this->ledger->refund($charge, 'the job was removed');
         $this->assertNotNull($refund);
         $this->assertSame(10, $this->ledger->balance($user));
         $this->assertSame($charge->id, $refund->refunds_transaction_id);

@@ -290,7 +290,7 @@ class _SignupScreenState extends State<SignupScreen> {
                   width: double.infinity,
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                    color: AppColors.error.withOpacity(0.1),
+                    color: AppColors.error.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(8),
                     border: Border.all(color: AppColors.error, width: 1),
                   ),
@@ -319,7 +319,7 @@ class _SignupScreenState extends State<SignupScreen> {
                   width: double.infinity,
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
-                    color: AppColors.error.withOpacity(0.1),
+                    color: AppColors.error.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(12),
                     border: Border.all(color: AppColors.error, width: 1),
                   ),
@@ -417,6 +417,8 @@ class _SignupScreenState extends State<SignupScreen> {
                   if (!mounted) return;
 
                   setState(() => _googleBusy = false);
+
+                  if (!context.mounted) return;
 
                   if (success) {
                     // Should not happen during signup, but handle gracefully

@@ -48,13 +48,13 @@ class CustomTextField extends StatelessWidget {
           style: Theme.of(context).textTheme.bodyLarge,
           decoration: InputDecoration(
             hintText: hintText,
-            hintStyle: TextStyle(color: AppTheme.neutral600.withOpacity(0.6)),
+            hintStyle: TextStyle(color: AppTheme.neutral600.withValues(alpha: 0.6)),
             prefixIcon: prefixIcon != null
                 ? Icon(prefixIcon, color: AppTheme.neutral600)
                 : null,
             suffixIcon: suffixIcon,
             filled: true,
-            fillColor: AppTheme.neutral200.withOpacity(0.5),
+            fillColor: AppTheme.neutral200.withValues(alpha: 0.5),
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(AppTheme.buttonRadius),
               borderSide: BorderSide.none,
@@ -62,7 +62,7 @@ class CustomTextField extends StatelessWidget {
             enabledBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(AppTheme.buttonRadius),
               borderSide: BorderSide(
-                color: AppTheme.neutral600.withOpacity(0.1),
+                color: AppTheme.neutral600.withValues(alpha: 0.1),
                 width: 1,
               ),
             ),

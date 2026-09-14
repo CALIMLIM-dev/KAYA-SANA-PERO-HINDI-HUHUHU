@@ -149,7 +149,7 @@ class _AddCertificationsScreenState extends State<AddCertificationsScreen> {
                           shrinkWrap: true,
                           physics: const NeverScrollableScrollPhysics(),
                           itemCount: certs.length,
-                          separatorBuilder: (_, __) => const SizedBox(height: 12),
+                          separatorBuilder: (_, _) => const SizedBox(height: 12),
                           itemBuilder: (_, i) => _certCard(certs[i]),
                         ),
                     ],
@@ -500,7 +500,7 @@ class _CertFormScreenState extends State<_CertFormScreen> {
                         height: 200,
                         width: double.infinity,
                         fit: BoxFit.contain,
-                        errorBuilder: (_, __, ___) => Container(
+                        errorBuilder: (_, _, _) => Container(
                           height: 140,
                           alignment: Alignment.center,
                           child: const Column(

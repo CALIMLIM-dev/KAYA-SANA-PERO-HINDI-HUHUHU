@@ -440,7 +440,7 @@ class _MyWorkerProfileScreenState extends State<MyWorkerProfileScreen> with Sing
                                             ? Image.network(
                                                 ApiClient.fileUrl(context.watch<WorkerProfileProvider>().profilePhotoPath),
                                                 fit: BoxFit.cover,
-                                                errorBuilder: (_, __, ___) =>
+                                                errorBuilder: (_, _, _) =>
                                                     const Icon(Icons.person, color: Colors.white54, size: 32),
                                               )
                                             : const Icon(Icons.camera_alt, color: Colors.white54, size: 24),
@@ -1248,7 +1248,7 @@ class _MyWorkerProfileScreenState extends State<MyWorkerProfileScreen> with Sing
                                             ),
                                           );
                                           
-                                          if (confirmed == true && mounted && skill.id != null) {
+                                          if (confirmed == true && context.mounted && skill.id != null) {
                                             // Delete the specific skill by ID
                                             final provider = context.read<WorkerProfileProvider>();
                                             await provider.deleteSkill(skill.id!);
@@ -1270,7 +1270,7 @@ class _MyWorkerProfileScreenState extends State<MyWorkerProfileScreen> with Sing
                 final skillNames = skills.map((s) => s.skillName).toList();
                 final result = await Navigator.pushNamed(context, '/add-skills', 
                     arguments: skillNames);
-                if (result != null && result is List<SkillModel> && mounted) {
+                if (result != null && result is List<SkillModel> && context.mounted) {
                   // Save skills with category info
                   await context.read<WorkerProfileProvider>().saveSkillsWithCategories(result);
                 }

@@ -296,7 +296,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       isSignup: false, // Tell backend this is login
                     );
 
-                    if (!mounted) return;
+                    if (!context.mounted) return;
 
                     if (success) {
                       Navigator.pushReplacementNamed(context, '/home');

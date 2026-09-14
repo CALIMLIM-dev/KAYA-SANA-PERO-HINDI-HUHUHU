@@ -127,7 +127,7 @@ class FAQScreen extends StatelessWidget {
           Container(
             padding: const EdgeInsets.all(20),
             decoration: BoxDecoration(
-              color: AppColors.primary.withOpacity(0.1),
+              color: AppColors.primary.withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(16),
             ),
             child: Column(
@@ -186,7 +186,7 @@ class FAQScreen extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 16),
-        ...items.map((item) => _buildExpandableFAQ(context, item)).toList(),
+        ...items.map((item) => _buildExpandableFAQ(context, item)),
       ],
     );
   }
@@ -206,6 +206,8 @@ class FAQScreen extends StatelessWidget {
             fontWeight: FontWeight.w600,
           ),
         ),
+        tilePadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+        childrenPadding: EdgeInsets.zero,
         children: [
           Padding(
             padding: const EdgeInsets.all(16),
@@ -218,8 +220,6 @@ class FAQScreen extends StatelessWidget {
             ),
           ),
         ],
-        tilePadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-        childrenPadding: EdgeInsets.zero,
       ),
     );
   }

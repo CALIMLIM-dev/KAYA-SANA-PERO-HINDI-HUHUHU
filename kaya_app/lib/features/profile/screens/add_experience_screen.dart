@@ -135,7 +135,7 @@ class _AddExperienceScreenState extends State<AddExperienceScreen> {
   Widget build(BuildContext context) {
     return PopScope(
       canPop: !_inMemoryMode,
-      onPopInvoked: (didPop) {
+      onPopInvokedWithResult: (didPop, _) {
         if (didPop) return;
         // In memory mode, return data when back is pressed
         if (_inMemoryMode) {
@@ -222,7 +222,7 @@ class _AddExperienceScreenState extends State<AddExperienceScreen> {
                         shrinkWrap: true,
                         physics: const NeverScrollableScrollPhysics(),
                         itemCount: exps.length,
-                        separatorBuilder: (_, __) => const SizedBox(height: 12),
+                        separatorBuilder: (_, _) => const SizedBox(height: 12),
                         itemBuilder: (_, i) => _expCard(exps[i]),
                       ),
                   ],
@@ -280,7 +280,7 @@ class _AddExperienceScreenState extends State<AddExperienceScreen> {
                     shrinkWrap: true,
                     physics: const NeverScrollableScrollPhysics(),
                     itemCount: _tempExperiences.length,
-                    separatorBuilder: (_, __) => const SizedBox(height: 12),
+                    separatorBuilder: (_, _) => const SizedBox(height: 12),
                     itemBuilder: (_, i) => _tempExpCard(_tempExperiences[i], i),
                   ),
               ],

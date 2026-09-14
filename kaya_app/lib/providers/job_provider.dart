@@ -91,12 +91,12 @@ class JobProvider with ChangeNotifier {
     try {
       final res = await _api.get('/jobs', queryParameters: {
         if (search != null && search.isNotEmpty) 'search': search,
-        if (categoryId != null) 'category_id': categoryId,
+        'category_id': ?categoryId,
         if (location != null && location.isNotEmpty) 'location': location,
-        if (locationId != null) 'location_id': locationId,
+        'location_id': ?locationId,
         if (skillIds != null && skillIds.isNotEmpty) 'skill_ids': skillIds,
         if (nearestFirst) 'sort': 'nearest',
-        if (radiusKm != null) 'radius_km': radiusKm,
+        'radius_km': ?radiusKm,
       });
 
       final page = res.data['data'] as Map<String, dynamic>;
@@ -201,16 +201,16 @@ class JobProvider with ChangeNotifier {
         'description':         description,
         'category_id':         categoryId,
         'required_skill_ids':  skillIds,
-        if (budgetMin != null) 'budget_min': budgetMin,
-        if (budgetMax != null) 'budget_max': budgetMax,
+        'budget_min': ?budgetMin,
+        'budget_max': ?budgetMax,
         'budget_period':       budgetPeriod,
         'location':            location,
-        if (city != null) 'city': city,
+        'city': ?city,
         // Structured location. Nullable so a job posted before the picker
         // existed still saves.
-        if (locationId != null) 'location_id': locationId,
-        if (latitude != null) 'latitude': latitude,
-        if (longitude != null) 'longitude': longitude,
+        'location_id': ?locationId,
+        'latitude': ?latitude,
+        'longitude': ?longitude,
         // Multipart stringifies every value, and FormData would send the Dart
         // bools as "true"/"false" — which Laravel's `boolean` rule rejects
         // (it only accepts 1/0/"1"/"0"), failing with "The urgent field must
@@ -222,7 +222,7 @@ class JobProvider with ChangeNotifier {
         // being in the past.
         'start_date': ymd(startDate),
         if (endDate != null) 'end_date': ymd(endDate),
-        if (startTime != null) 'start_time': startTime,
+        'start_time': ?startTime,
         'photos': await Future.wait(photos.map(
           (f) => MultipartFile.fromFile(f.path, filename: f.path.split(Platform.pathSeparator).last),
         )),

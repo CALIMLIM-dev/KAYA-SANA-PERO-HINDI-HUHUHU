@@ -936,7 +936,7 @@ class _EditJobScreenState extends State<EditJobScreen> {
       'title': _titleController.text.trim(),
       'description': _descriptionController.text.trim(),
       if (_categoryId != null) 'category_id': _categoryId,
-      if (budget != null) 'budget_min': budget,
+      'budget_min': ?budget,
       /*
           Five fields the form collected and then dropped.
 
@@ -946,7 +946,7 @@ class _EditJobScreenState extends State<EditJobScreen> {
           chips all moved on screen, reported "Job updated successfully!", and
           changed nothing.
       */
-      if (budgetMax != null) 'budget_max': budgetMax,
+      'budget_max': ?budgetMax,
       'budget_period': _salaryType.toLowerCase(),
       'is_urgent': _isUrgent,
       'required_skill_ids': _selectedSkillIds,

@@ -155,7 +155,7 @@ class _AddLicensesScreenState extends State<AddLicensesScreen> {
                           shrinkWrap: true,
                           physics: const NeverScrollableScrollPhysics(),
                           itemCount: licenses.length,
-                          separatorBuilder: (_, __) => const SizedBox(height: 12),
+                          separatorBuilder: (_, _) => const SizedBox(height: 12),
                           itemBuilder: (_, i) => _licenseCard(licenses[i]),
                         ),
                     ],
@@ -494,7 +494,7 @@ class _LicenseFormScreenState extends State<_LicenseFormScreen> {
                         height: 200,
                         width: double.infinity,
                         fit: BoxFit.contain,
-                        errorBuilder: (_, __, ___) => Container(
+                        errorBuilder: (_, _, _) => Container(
                           height: 140,
                           alignment: Alignment.center,
                           child: const Column(

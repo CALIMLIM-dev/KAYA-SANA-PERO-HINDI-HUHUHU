@@ -145,8 +145,8 @@ class AuthProvider with ChangeNotifier {
         'password': password,
         'password_confirmation': passwordConfirmation,
         'terms_accepted': termsAccepted,
-        if (phone != null) 'phone': phone,
-        if (city != null) 'city': city,
+        'phone': ?phone,
+        'city': ?city,
       });
 
       final data = response.data['data'];
@@ -322,7 +322,7 @@ class AuthProvider with ChangeNotifier {
       final response = await _api.post('/google-login', data: {
         'id_token': idToken,
         'is_signup': isSignup,
-        if (password != null) 'password': password,
+        'password': ?password,
         // Terms are gated on the Google password screen, since Google's native
         // sign-in does not reliably show its own. Sent with the account-
         // creating call (which carries the password), not the probe.

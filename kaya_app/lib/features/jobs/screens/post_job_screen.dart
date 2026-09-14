@@ -599,10 +599,10 @@ class _PostJobScreenState extends State<PostJobScreen> {
   Widget build(BuildContext context) {
     return PopScope(
       canPop: false,
-      onPopInvoked: (didPop) async {
+      onPopInvokedWithResult: (didPop, _) async {
         if (didPop) return;
         final shouldExit = await _confirmDiscard();
-        if (shouldExit && mounted) Navigator.pop(context);
+        if (shouldExit && context.mounted) Navigator.pop(context);
       },
       child: Scaffold(
       backgroundColor: AppColors.neutral50,
@@ -621,7 +621,7 @@ class _PostJobScreenState extends State<PostJobScreen> {
           icon: const Icon(Icons.arrow_back),
           onPressed: () async {
             final shouldExit = await _confirmDiscard();
-            if (shouldExit && mounted) Navigator.pop(context);
+            if (shouldExit && context.mounted) Navigator.pop(context);
           },
         ),
       ),

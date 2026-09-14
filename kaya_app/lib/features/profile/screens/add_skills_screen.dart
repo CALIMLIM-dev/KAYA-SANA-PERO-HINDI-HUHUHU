@@ -199,7 +199,7 @@ class _AddSkillsScreenState extends State<AddSkillsScreen> {
       ),
     );
 
-    if (result != null && result.isNotEmpty) {
+    if (result != null && result.isNotEmpty && mounted) {
       setState(() => _isLoadingCategories = true);
       final provider = context.read<WorkerProfileProvider>();
       final newCategory = await provider.createCustomCategory(result);
@@ -370,7 +370,7 @@ class _AddSkillsScreenState extends State<AddSkillsScreen> {
                     const Text('No categories available', style: TextStyle(color: AppColors.neutral400))
                   else
                     DropdownButtonFormField<CategoryModel>(
-                      value: _selectedCategory,
+                      initialValue: _selectedCategory,
                       decoration: InputDecoration(
                         hintText: 'Choose a job category',
                         filled: true,

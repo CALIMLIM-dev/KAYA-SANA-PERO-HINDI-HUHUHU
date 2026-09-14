@@ -118,7 +118,7 @@ class ExpireJobPosts extends Command
 
                 A refund written in a transaction that then rolls back leaves
                 the ledger claiming money moved when it did not - the same
-                order the clash sweep uses, and for the same reason.
+                order every refund in this app follows, for the same reason.
             */
             $charges = CreditTransaction::whereIn(
                 'id',

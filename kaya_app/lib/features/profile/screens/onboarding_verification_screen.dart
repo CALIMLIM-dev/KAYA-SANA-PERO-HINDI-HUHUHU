@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import '../../../core/constants/app_colors.dart';
 
-/// ONBOARDING ONLY - No API calls, returns Map<String, dynamic> with verification data
+/// ONBOARDING ONLY - No API calls, returns a `Map<String, dynamic>` with verification data
 class OnboardingVerificationScreen extends StatefulWidget {
   final Map<String, dynamic>? existingData;
   
@@ -155,7 +155,7 @@ class _OnboardingVerificationScreenState extends State<OnboardingVerificationScr
   Widget build(BuildContext context) {
     return PopScope(
       canPop: false,
-      onPopInvoked: (didPop) async {
+      onPopInvokedWithResult: (didPop, _) async {
         if (!didPop) {
           await _handleBackButton();
         }

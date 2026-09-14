@@ -229,15 +229,15 @@ class EmployerProfileProvider with ChangeNotifier {
     try {
       final res = await _api.post('/employer-profile', data: {
         'employer_type': employerType.value,
-        if (companyName != null) 'company_name': companyName,
-        if (industry != null) 'industry': industry,
-        if (website != null) 'website': website,
-        if (description != null) 'description': description,
+        'company_name': ?companyName,
+        'industry': ?industry,
+        'website': ?website,
+        'description': ?description,
         'location': location,
         // Structured location from the picker (PSGC id + coordinates).
-        if (locationId != null) 'location_id': locationId,
-        if (latitude != null) 'latitude': latitude,
-        if (longitude != null) 'longitude': longitude,
+        'location_id': ?locationId,
+        'latitude': ?latitude,
+        'longitude': ?longitude,
       });
       
       final data = res.data['data'] as Map<String, dynamic>;
@@ -323,14 +323,14 @@ class EmployerProfileProvider with ChangeNotifier {
     _setLoading(true);
     try {
       final res = await _api.put('/employer-profile', data: {
-        if (companyName != null) 'company_name': companyName,
-        if (industry != null) 'industry': industry,
-        if (website != null) 'website': website,
-        if (description != null) 'description': description,
-        if (location != null) 'location': location,
-        if (locationId != null) 'location_id': locationId,
-        if (latitude != null) 'latitude': latitude,
-        if (longitude != null) 'longitude': longitude,
+        'company_name': ?companyName,
+        'industry': ?industry,
+        'website': ?website,
+        'description': ?description,
+        'location': ?location,
+        'location_id': ?locationId,
+        'latitude': ?latitude,
+        'longitude': ?longitude,
       });
       
       final data = res.data['data'] as Map<String, dynamic>;

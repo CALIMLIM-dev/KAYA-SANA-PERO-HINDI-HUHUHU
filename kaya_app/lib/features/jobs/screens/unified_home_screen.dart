@@ -53,7 +53,7 @@ class _UnifiedHomeScreenState extends State<UnifiedHomeScreen>
   // ApplicationProvider — see _loadActivityCounts.)
   
   // Empty state dismissal flag
-  bool _isEmptyStateVisible = true; // Can be dismissed
+  final bool _isEmptyStateVisible = true; // Can be dismissed
 
   // Sourced from JobProvider.publicJobs / WorkerBrowseProvider.workers — see
   // _initializeData(). Previously these were populated from _getMockJobs() /
@@ -1178,7 +1178,7 @@ class _UnifiedHomeScreenState extends State<UnifiedHomeScreen>
         scrollDirection: Axis.horizontal,
         padding: const EdgeInsets.symmetric(horizontal: 4),
         itemCount: categories.length,
-        separatorBuilder: (_, __) => const SizedBox(width: 8),
+        separatorBuilder: (_, _) => const SizedBox(width: 8),
         itemBuilder: (context, i) {
           final category = categories[i];
           return _CategoryButton(

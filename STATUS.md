@@ -111,8 +111,6 @@ no way to delete your account. required by the data privacy act.
 photo upload limit needs a server change. nginx client_max_body_size is 1mb
   and raising it needs root, which the deploy user does not have.
 
-status messages in chat when hired and when the job ends
-
 resume is released on any application, including rejected and withdrawn ones,
   and access never expires. anyone can register, create an employer profile,
   post a job and read every applicant resume. needs a policy decision first.
@@ -127,15 +125,16 @@ composer-setup.php still sitting in the backend folder
 
 ## todo, in order
 
-1. deploy the current push
-2. decide the resume policy, then gate it
-3. delete the qa account and composer-setup.php
-4. screens stacking on back
-5. account deletion
-6. chat status messages
-7. google login speed
-8. conversation direction migration
-9. nginx upload limit, needs the server owner
+1. decide the resume policy, then gate it
+2. delete the qa account and composer-setup.php
+3. screens stacking on back
+4. account deletion
+5. google login speed
+6. conversation direction migration
+7. nginx upload limit, needs the server owner
+8. paymongo live keys, once the account is business verified
+9. b6 community threads
+10. phase 13 crews
 
 
 ## phases
@@ -148,64 +147,67 @@ done
 4. session, notifications, resume, profile completeness
 5. credits and wallet. wallets, ledger, packages, paymongo top up and
    webhook, contact unlocks, monthly and signup grants, the reconciler.
-   an earlier version of this file said "not started, no schema at all",
-   which was wrong. the migration is create_credit_tables, not
-   create_credit_wallets, and a filename grep missed it.
+   paymongo keys are not set: the account is not business verified and
+   gcash needs that. the integration is built and tested against test
+   mode and switches over by changing three env values.
+8. matching and discovery. profile views, badges, ranking, city filter
 11. deployment. live at kayaadmin.ucucite.tech
 
 partly done
 
 1. security. one item left, the resume gate
 7. trust and safety. reports and tracking done, address privacy and tin not
-8. matching and discovery. profile views done, badges and match score not
 12. cleanup and tests. ongoing
 
 not started
 
 9. skill assessments
 10. revenue reporting. reads from the credit ledger, which now exists
-13. multi worker jobs and the crew roster. workers_needed, a limit on
-    accepting, the roster screen, bulk complete, broadcast into each
-    thread. NOT part of the barya overhaul below and not superseded by
-    it. this is about how one job is staffed, not about the economy.
+13. multi worker jobs and the crew roster. see the notes below.
 
 
 ## barya economy and business overhaul
 
 replaces old phase 6 (monetized surfaces) and old phase 14 (rehire).
-subscriptions from phase 6 are dropped, not deferred. full plan with
-pricing, sources and the reversals it makes is in PLAN-barya-overhaul.md.
+subscriptions from phase 6 are dropped, not deferred. the plan with its
+pricing and reasoning is in PLAN-barya-overhaul.md; where this file and
+that one disagree, this file is what shipped.
 
-b1. business and individual accounts, and verification gated access.
-    a company account can no longer also be a worker. existing hybrid
-    accounts are left alone. unverified accounts can browse but cannot
-    post, apply, invite or spend. grants still accrue while unverified.
-    its own milestone, reviewed before b2 opens.
+b1. done. a company account cannot also be a worker, in both directions,
+    by route middleware. existing hybrids left alone. unverified accounts
+    browse but cannot post, apply, invite or spend. grants accrue while
+    unverified and are claimed once verified.
 
-b2. the barya table. one list of every source and every sink with a
-    price, so nothing is priced per feature. adds business top up tiers
-    at a better rate. one boost mechanism for job posts and worker
-    profiles, which also fixes is_urgent, a flag that is stored today
-    and changes no ordering at all.
+b2. done. one price list in config/kaya.php. one boost mechanism for job
+    posts and worker profiles, which is what is_urgent means now.
 
-b3. job post duration. thirty days free, paid extension in fixed blocks,
-    a daily sweep, and a warning to the employer and to every open
-    applicant before a post expires. applications on an expired post are
-    refunded.
+b3. done, and not as planned. the plan said thirty days free with paid
+    extension blocks. that shipped, and was replaced: it put a second
+    clock on a post beside the dates the employer chose, and nobody
+    could explain why a post for saturday was up for a month. now the
+    post runs from its start date to its end date and closes itself on
+    the last day. the first week is free and every four days past that
+    is a barya, per day and not in bands. the price shows under the
+    dates as they are picked. shortening refunds nothing. env:
+    JOB_FREE_DAYS and CREDIT_POST_DAYS_PER_BARYA.
 
-b4. worker scheduling. an availability pattern the worker sets, and a
-    booked jobs view derived from accepted applications rather than
-    stored twice.
+b4. done, and not as planned. the plan said a weekly availability
+    pattern on the profile. that shipped and was deleted: it is the
+    vocabulary of a rota, and two people settling one job say a day and
+    an hour. scheduling is a card in the conversation now. either side
+    proposes a day and time, the other accepts or declines, and days a
+    worker already holds are greyed out in the picker so they cannot be
+    picked and then refused. another employer sees only that a day is
+    taken, never whose work it is. no rule anywhere decides how many
+    jobs a worker may hold.
 
-b5. experience, rehire and badges. years of experience computed from the
-    existing entries. rehire built on invitations at half cost. a badge
-    catalogue awarded by listeners on events that already fire. 5a and
-    5c are the least coupled and can ship first.
+b5. done. years of experience from the existing entries, overlaps merged.
+    rehire on invitations at half cost. badges computed on read from
+    data that already exists, with a catalogue screen and a medallion
+    per badge.
 
-b6. community threads. one post model with a type, text and image and
-    category, reusing the existing report queue, on its own tab.
-
-order: b1, then b2, then b3. b4 and b5 in parallel. b6 last.
+b6. not started. community threads. one post model with a type, on its
+    own tab, reusing the report queue, closing on the same rule posts do.
 
 
 ## notes on phase 13
