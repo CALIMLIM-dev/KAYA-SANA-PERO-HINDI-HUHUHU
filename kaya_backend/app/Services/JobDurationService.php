@@ -5,78 +5,78 @@ namespace App\Services;
 use App\Models\CreditTransaction;
 use App\Models\JobPost;
 use App\Models\User;
-use Carbon\CarbonImmutable;
+use Carbon\CarbonInterface;
 
 /*
-    Keeping a post up past its free thirty days.
+    What a post costs, by how long it is up.
 
-    Sold as two fixed blocks rather than metered per day. A rate the employer
-    has to multiply is a price nobody can check before pressing the button,
-    and the picker needs two round numbers either way. The longer block costs
-    less per day, so committing further ahead is never punished.
+    The post runs from its start date to its end date and closes itself on
+    the last day - that span is the post's life, and it is what is paid for.
+    The first week is free, so a short job costs nothing to put up; after
+    that every few days is a barya. Per day rather than in bands: a band
+    means somebody picking 61 days pays what 90 pays, so everybody picks 90
+    and the price stops meaning anything.
 
-    Charged through CreditLedger like every other spend, so the charge and the
-    new date are written together: if either fails, both do, and nobody pays
-    for days a post did not get.
+    Both numbers are config. The rate is one env line, not a build.
+
+    This replaces a thirty-day timer that ran beside the dates and a pair of
+    paid extension blocks. Two clocks on one post confused everyone who had
+    to explain it, and the employer never chose the thirty.
 */
 class JobDurationService
 {
-    /** Barya per block, read from config so nothing here fixes a price. */
-    public function costFor(int $days): int
+    /** Days from the start date to the end date, both inclusive. One day
+     *  when they are the same - a job for Saturday is up for a day. */
+    public function spanDays(CarbonInterface $start, ?CarbonInterface $end): int
     {
-        return match ($days) {
-            14 => (int) config('kaya.credits.duration_14'),
-            30 => (int) config('kaya.credits.duration_30'),
-            default => throw new \InvalidArgumentException("No block of {$days} days is sold."),
-        };
+        $last = $end ?? $start;
+
+        return max(1, (int) $start->startOfDay()->diffInDays($last->startOfDay()) + 1);
     }
 
-    /** The blocks that can be bought, with their prices, for the picker. */
-    public function blocks(): array
+    /** Barya for a span. Zero inside the free days. */
+    public function costForSpan(int $days): int
     {
-        return array_map(fn (int $days) => [
-            'days' => $days,
-            'cost' => $this->costFor($days),
-        ], (array) config('kaya.jobs.extend_blocks'));
+        $free = (int) config('kaya.jobs.free_days');
+        $perBarya = max(1, (int) config('kaya.credits.post_days_per_barya'));
+
+        $paid = max(0, $days - $free);
+
+        return (int) ceil($paid / $perBarya);
+    }
+
+    public function costFor(CarbonInterface $start, ?CarbonInterface $end): int
+    {
+        return $this->costForSpan($this->spanDays($start, $end));
     }
 
     /*
-        Adds the block to whichever is later: the current expiry, or now.
+        Charges the post's span and writes the close date, together.
 
-        Extending a post that has already lapsed should buy the days from
-        today, not from a date in the past - otherwise somebody pays five
-        barya for a post that expires the moment they finish paying.
+        Through CreditLedger like every other spend, so the charge and the
+        post are one transaction: if either fails both do, and nobody pays
+        for a post that was never created. A free span skips the ledger -
+        there is nothing to write.
+
+        [amount] may be a difference, when a post's end date is moved later:
+        only the days not already paid for are charged.
+
+        [using] receives the ledger line, or null when nothing was charged.
+        At posting the job does not exist when the line is written, so the
+        closure creates the post and then points the line at it.
     */
-    public function extend(User $employer, JobPost $job, int $days): JobPost
+    public function charge(User $employer, int $amount, callable $using): JobPost
     {
-        $cost = $this->costFor($days);
+        if ($amount <= 0) {
+            return $using(null);
+        }
 
         return app(CreditLedger::class)->charge(
             user: $employer,
-            amount: $cost,
+            amount: $amount,
             reason: CreditTransaction::REASON_JOB_DURATION,
             referenceType: 'job',
-            referenceId: $job->id,
-            using: function () use ($job, $days) {
-                $from = $job->expires_at !== null && $job->expires_at->isFuture()
-                    ? CarbonImmutable::parse($job->expires_at)
-                    : CarbonImmutable::now();
-
-                $job->expires_at = $from->addDays($days);
-
-                // An expired post comes back with the days it was given. It
-                // keeps its applications, which were never withdrawn - they
-                // were declined and refunded by the sweep - so this is a fresh
-                // run at the same job rather than a resurrection of the old
-                // one.
-                if ($job->status === 'expired') {
-                    $job->status = JobPost::STATUS_OPEN;
-                }
-
-                $job->save();
-
-                return $job;
-            },
+            using: $using,
         );
     }
 }

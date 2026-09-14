@@ -4,9 +4,6 @@ import '../../../core/utils/realtime_refresh.dart';
 
 import '../../../core/navigation/app_router.dart';
 import '../../../core/constants/app_colors.dart';
-import '../../../core/constants/credits.dart';
-import '../../../core/constants/job_duration.dart';
-import '../../../providers/credits_provider.dart';
 import '../../../core/utils/job_summary.dart';
 import '../../../providers/job_provider.dart';
 import '../../../core/widgets/app_toast.dart';
@@ -211,7 +208,15 @@ class _ManageJobsScreenState extends State<ManageJobsScreen>
       that already carries a category, a location, a budget, an applicant count
       and an age.
   */
-  Widget _expiryLine(Map<String, dynamic> job, String status) {
+  /*
+      When the post comes down.
+
+      The end date the employer chose, said plainly: "Ends Sep 27", "Ends
+      today", or "Ended". There used to be a countdown here against a
+      thirty-day timer that ran beside the dates, with an Extend button to
+      buy blocks against it. One clock now, and it is theirs.
+  */
+  Widget _endLine(Map<String, dynamic> job, String status) {
     if (status != 'open' && status != 'expired') return const SizedBox.shrink();
 
     final raw = job['expires_at'];
@@ -219,19 +224,15 @@ class _ManageJobsScreenState extends State<ManageJobsScreen>
 
     if (at == null) return const SizedBox.shrink();
 
-    // Rounded up, like Job.daysUntilExpiry: a post with hours left has a
-    // day left, and "0 days" on something still up reads as a bug.
-    final days = (at.difference(DateTime.now()).inHours / 24).ceil();
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final endDay = DateTime(at.year, at.month, at.day);
 
-    if (status == 'open' && days > JobDuration.warnDays) {
-      return const SizedBox.shrink();
-    }
-
-    final text = status == 'expired'
-        ? 'Expired. Applicants were told and their Barya returned.'
-        : days <= 0
-            ? 'Comes down today'
-            : 'Comes down in $days day${days == 1 ? '' : 's'}';
+    final text = status == 'expired' || endDay.isBefore(today)
+        ? 'Ended ${_short(endDay)}. Applicants were told and their Barya returned.'
+        : endDay == today
+            ? 'Ends today'
+            : 'Ends ${_short(endDay)}';
 
     return Padding(
       padding: const EdgeInsets.only(top: 8),
@@ -245,94 +246,19 @@ class _ManageJobsScreenState extends State<ManageJobsScreen>
               style: const TextStyle(fontSize: 12, color: AppColors.neutral600),
             ),
           ),
-          if (status == 'open')
-            GestureDetector(
-              onTap: () => _showExtendSheet(job),
-              child: const Text(
-                'Extend',
-                style: TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                  color: AppColors.primary,
-                ),
-              ),
-            ),
         ],
       ),
     );
   }
 
-  /*
-      The two blocks, with the price on each.
-
-      No auto-renewal anywhere behind this: the cost is on screen and a tap
-      buys exactly one block, the same rule applying and inviting follow.
-  */
-  Future<void> _showExtendSheet(Map<String, dynamic> job) async {
-    final jobId = job['id'] as int;
-
-    final picked = await showModalBottomSheet<int>(
-      context: context,
-      backgroundColor: Colors.white,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
-      ),
-      builder: (sheetContext) => SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Padding(
-              padding: EdgeInsets.fromLTRB(20, 20, 20, 4),
-              child: Text(
-                'Keep this post up',
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w600,
-                  color: AppColors.neutral900,
-                ),
-              ),
-            ),
-            const Padding(
-              padding: EdgeInsets.fromLTRB(20, 0, 20, 12),
-              child: Text(
-                'It stays where it is in the feed. Nothing renews on its own.',
-                style: TextStyle(
-                    fontSize: 12.5, height: 1.35, color: AppColors.neutral600),
-              ),
-            ),
-            ...JobDuration.blocks.map(
-              (block) => ListTile(
-                leading: const Icon(Icons.schedule, color: AppColors.primary),
-                title: Text('${block.days} more days'),
-                subtitle: Text('${block.cost} ${Credits.plural}'),
-                onTap: () => Navigator.pop(sheetContext, block.days),
-              ),
-            ),
-            const SizedBox(height: 8),
-          ],
-        ),
-      ),
-    );
-
-    if (picked == null || !mounted) return;
-
-    final provider = context.read<JobProvider>();
-    final ok = await provider.extendJob(jobId, picked);
-
-    if (!mounted) return;
-
-    if (ok) {
-      await context.read<CreditsProvider>().refresh();
-      if (!mounted) return;
-      AppToast.success(context, 'This post is up for another $picked days.');
-    } else {
-      AppToast.error(
-        context,
-        provider.errorMessage ?? 'Could not extend this post.',
-      );
-    }
+  static String _short(DateTime d) {
+    const months = [
+      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+    ];
+    return '${months[d.month - 1]} ${d.day}';
   }
+
   Widget _buildCard(Map<String, dynamic> job) {
     final status = _statusOf(job);
     final jobId = job['id'] as int;
@@ -455,27 +381,10 @@ class _ManageJobsScreenState extends State<ManageJobsScreen>
                 ],
               ),
 
-              // How long it has left, and only when that is worth saying.
-              _expiryLine(job, status),
+              _endLine(job, status),
 
               // ── Actions ──
-              if (status == 'expired') ...[
-                const SizedBox(height: 12),
-                const Divider(height: 1),
-                const SizedBox(height: 10),
-                SizedBox(
-                  width: double.infinity,
-                  child: OutlinedButton.icon(
-                    onPressed: () => _showExtendSheet(job),
-                    icon: const Icon(Icons.schedule, size: 16),
-                    label: const Text('Put it back up'),
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: AppColors.primary,
-                      side: const BorderSide(color: AppColors.primary),
-                    ),
-                  ),
-                ),
-              ] else if (status == 'open') ...[
+              if (status == 'open') ...[
                 const SizedBox(height: 12),
                 const Divider(height: 1),
                 const SizedBox(height: 10),
@@ -714,9 +623,9 @@ class _ManageJobsScreenState extends State<ManageJobsScreen>
         break;
       case 'expired':
         // Its own badge, not "Closed": closed is a decision the
-        // employer made, expired is one they can undo by extending.
+        // employer made, this one is the end date arriving.
         color = AppColors.neutral500;
-        label = 'Expired';
+        label = 'Ended';
         break;
       default:
         color = AppColors.neutral400;

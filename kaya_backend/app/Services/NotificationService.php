@@ -185,9 +185,9 @@ class NotificationService
             userId: $job->employer_id,
             audience: UserNotification::AUDIENCE_EMPLOYER,
             type: 'job.expiring',
-            title: 'Your job post expires ' . $when,
-            body: '"' . $job->title . '" comes off the feed ' . $when
-                . '. Extend it from Manage Jobs if you are still hiring.',
+            title: 'Your job post ends ' . $when,
+            body: '"' . $job->title . '" comes down ' . $when
+                . '. Move the end date if you are still hiring.',
             referenceType: 'job',
             referenceId: $job->id,
         );
@@ -213,49 +213,15 @@ class NotificationService
         will want to know, and being told after the fact that money came back
         is very different from noticing a balance changed.
     */
-    /*
-        The work's own date passed with nobody hired.
-
-        Different from expiry: that is the listing running out of days, this
-        is the job itself being over. Extending makes no sense for a Saturday
-        that has already happened, so the employer is not offered it.
-    */
-    public function jobDatePassed(JobPost $job, \Illuminate\Support\Collection $applicantIds): void
-    {
-        $this->push(
-            userId: $job->employer_id,
-            audience: UserNotification::AUDIENCE_EMPLOYER,
-            type: 'job.ended',
-            title: 'Your job post has ended',
-            body: '"' . $job->title . '" is past its date and has been closed. '
-                . 'Post it again with new dates if you still need someone.',
-            referenceType: 'job',
-            referenceId: $job->id,
-        );
-
-        foreach ($applicantIds as $workerId) {
-            $this->push(
-                userId: $workerId,
-                audience: UserNotification::AUDIENCE_WORKER,
-                type: 'job.ended',
-                title: 'A job you applied for has ended',
-                body: '"' . $job->title . '" is past its date and nobody was '
-                    . 'hired. Your Barya has been returned.',
-                referenceType: 'job',
-                referenceId: $job->id,
-            );
-        }
-    }
-
     public function jobExpired(JobPost $job, \Illuminate\Support\Collection $applicantIds): void
     {
         $this->push(
             userId: $job->employer_id,
             audience: UserNotification::AUDIENCE_EMPLOYER,
             type: 'job.expired',
-            title: 'Your job post expired',
-            body: '"' . $job->title . '" is off the feed. Extend it from '
-                . 'Manage Jobs to put it back up.',
+            title: 'Your job post has ended',
+            body: '"' . $job->title . '" reached its end date and is off '
+                . 'the feed. Post it again if you are still hiring.',
             referenceType: 'job',
             referenceId: $job->id,
         );
@@ -265,9 +231,9 @@ class NotificationService
                 userId: $workerId,
                 audience: UserNotification::AUDIENCE_WORKER,
                 type: 'job.expired',
-                title: 'A job you applied for expired',
-                body: '"' . $job->title . '" was taken down before anyone was '
-                    . 'hired. Your Barya has been returned.',
+                title: 'A job you applied for has ended',
+                body: '"' . $job->title . '" reached its end date before anyone '
+                    . 'was hired. Your Barya has been returned.',
                 referenceType: 'job',
                 referenceId: $job->id,
             );

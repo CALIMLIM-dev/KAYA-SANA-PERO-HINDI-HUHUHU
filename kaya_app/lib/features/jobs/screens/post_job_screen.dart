@@ -6,7 +6,9 @@ import 'package:provider/provider.dart';
 import 'dart:io';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/job_boost.dart';
+import '../../../core/constants/credits.dart';
 import '../../../core/widgets/hint_bubble.dart';
+import '../../../providers/credits_provider.dart';
 import '../../../core/utils/pin_location_match.dart';
 import '../../../data/models/location_model.dart';
 import '../../../providers/employer_profile_provider.dart';
@@ -898,7 +900,7 @@ class _PostJobScreenState extends State<PostJobScreen> {
               // Schedule
               _buildSection(
                 title: 'Date',
-                hint: 'When the work happens. Not how long the post stays up.',
+                hint: 'Up from the start date, closes on the end date. A week is free; longer costs Barya.',
                 anchor: _scheduleKey,
                 icon: Icons.event_outlined,
                 children: [_buildScheduleFields()],
@@ -974,7 +976,7 @@ class _PostJobScreenState extends State<PostJobScreen> {
         if (_showScheduleError) ...[
           const SizedBox(height: 6),
           const Text(
-            'Please choose when the work starts.',
+            'Please choose a start date.',
             style: TextStyle(fontSize: 12, color: AppColors.error),
           ),
         ],
@@ -1001,8 +1003,9 @@ class _PostJobScreenState extends State<PostJobScreen> {
             hiring a plumber recognises. They know both dates. It asks
             for both dates.
 
-            This is the work's own schedule, and has nothing to do with
-            how long the POST stays up, which is paid for separately.
+            These dates are the post's life. It is up from the start date
+            and closes itself on the end date, and that span is what is
+            paid for - see _postCostLine.
         */
         const SizedBox(height: 12),
         _buildDateField(
@@ -1017,7 +1020,7 @@ class _PostJobScreenState extends State<PostJobScreen> {
         if (_showScheduleError && _endDate == null) ...[
           const SizedBox(height: 6),
           const Text(
-            'Please choose when the work ends.',
+            'Please choose an end date.',
             style: TextStyle(fontSize: 12, color: AppColors.error),
           ),
         ],
@@ -1057,7 +1060,55 @@ class _PostJobScreenState extends State<PostJobScreen> {
               ],
             ),
           ),
+          const SizedBox(height: 8),
+          _postCostLine(),
         ],
+      ],
+    );
+  }
+
+  /// Days the post is up: start to end, both inclusive. One when they are
+  /// the same day. Mirrors JobDurationService::spanDays on the server.
+  int? get _postDays {
+    final start = _startDate;
+    if (start == null) return null;
+    final end = _endDate ?? start;
+    return DateTime(end.year, end.month, end.day)
+            .difference(DateTime(start.year, start.month, start.day))
+            .inDays +
+        1;
+  }
+
+  /*
+      The price, next to the dates that set it.
+
+      The span is what a post costs, so the number has to sit where the
+      span is chosen and move as it does - not appear on the button after
+      the choice is made. Silent until the wallet has loaded the rule; a
+      guess here would be a price the server might not honour.
+  */
+  Widget _postCostLine() {
+    final days = _postDays;
+    if (days == null) return const SizedBox.shrink();
+
+    final cost = context.watch<CreditsProvider>().postCostFor(days);
+    if (cost == null) return const SizedBox.shrink();
+
+    final length = '$days day${days == 1 ? '' : 's'}';
+    final price = cost == 0 ? 'Free' : '$cost ${Credits.plural}';
+
+    return Row(
+      children: [
+        const Icon(Icons.schedule, size: 15, color: AppColors.neutral500),
+        const SizedBox(width: 8),
+        Text(
+          '$length  ·  $price',
+          style: const TextStyle(
+            fontSize: 12.5,
+            fontWeight: FontWeight.w600,
+            color: AppColors.neutral700,
+          ),
+        ),
       ],
     );
   }
@@ -2056,13 +2107,23 @@ class _PostJobScreenState extends State<PostJobScreen> {
                       strokeWidth: 2,
                     ),
                   )
-                : const Text(
-                    'Post Job',
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
+                : Builder(builder: (context) {
+                    // The cost on the button, where it is decided - the
+                    // same rule apply and invite follow.
+                    final days = _postDays;
+                    final cost = days == null
+                        ? null
+                        : context.watch<CreditsProvider>().postCostFor(days);
+                    return Text(
+                      cost == null || cost == 0
+                          ? 'Post Job'
+                          : 'Post for $cost ${Credits.plural}',
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    );
+                  }),
           ),
         ),
       ),
@@ -2119,7 +2180,7 @@ class _PostJobScreenState extends State<PostJobScreen> {
     // red rather than a toast about a form they have already scrolled past.
     if (_startDate == null) {
       setState(() => _showScheduleError = true);
-      await _pointAt(_scheduleKey, 'Please choose when the work starts');
+      await _pointAt(_scheduleKey, 'Please choose a start date');
       return;
     }
 
@@ -2132,7 +2193,7 @@ class _PostJobScreenState extends State<PostJobScreen> {
     */
     if (_endDate == null) {
       setState(() => _showScheduleError = true);
-      await _pointAt(_scheduleKey, 'Please choose when the work ends');
+      await _pointAt(_scheduleKey, 'Please choose an end date');
       return;
     }
 

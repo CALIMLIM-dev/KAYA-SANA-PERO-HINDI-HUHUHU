@@ -67,6 +67,12 @@ class CreditController extends Controller
                 'apply'  => (int) config('kaya.credits.apply'),
                 'invite' => (int) config('kaya.credits.invite'),
                 'unlock' => (int) config('kaya.credits.unlock'),
+                // A post's price is by its span, and the app has to show it
+                // while the dates are being picked - so it gets the rule,
+                // not a number. JobDurationService::costForSpan is the same
+                // arithmetic on the server side.
+                'post_free_days'      => (int) config('kaya.jobs.free_days'),
+                'post_days_per_barya' => (int) config('kaya.credits.post_days_per_barya'),
             ],
             'monthly_grant' => (int) config('kaya.credits.monthly_grant'),
             /*

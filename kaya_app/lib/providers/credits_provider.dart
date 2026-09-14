@@ -127,6 +127,30 @@ class CreditsProvider with ChangeNotifier {
   /// does not need a new build to take effect.
   int? costOf(String action) => _costs[action];
 
+  /// Fills the price table for a test, which has no server to fetch from.
+  @visibleForTesting
+  void seedCosts(Map<String, int> costs) {
+    _costs = Map.of(costs);
+    notifyListeners();
+  }
+
+  /*
+      What a post costs for a span of days, before it is posted.
+
+      The same arithmetic as JobDurationService::costForSpan on the server,
+      from the two numbers it sends with the balance: the free days, and
+      how many paid days one barya buys. Null until the wallet has loaded,
+      so the screen can say nothing rather than guess a price.
+  */
+  int? postCostFor(int days) {
+    final free = _costs['post_free_days'];
+    final perBarya = _costs['post_days_per_barya'];
+    if (free == null || perBarya == null || perBarya <= 0) return null;
+
+    final paid = days - free;
+    return paid <= 0 ? 0 : (paid / perBarya).ceil();
+  }
+
   bool canAfford(String action) {
     final cost = _costs[action];
     return cost == null || _balance >= cost;

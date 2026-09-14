@@ -23,45 +23,6 @@ class JobController extends Controller
         return response()->json(['success' => false, 'data' => null, 'message' => $msg], $status);
     }
 
-    /*
-        POST /jobs/{job}/extend
-
-        Buys another block of days for a post the caller owns. Two blocks, two
-        prices, both from config - see JobDurationService for why it is blocks
-        rather than a per-day rate, and why nothing renews on its own.
-    */
-    public function extend(Request $request, JobPost $job, \App\Services\JobDurationService $durations)
-    {
-        $user = $request->user();
-
-        if ($job->employer_id !== $user->id) {
-            return $this->fail('Forbidden', 403);
-        }
-
-        $data = $request->validate([
-            'days' => ['required', 'integer', 'in:' . implode(',', config('kaya.jobs.extend_blocks'))],
-        ]);
-
-        /*
-            Only a post that can still be applied to, or one that just lapsed.
-
-            Paying to extend a job that is already filled or closed buys days
-            nobody can act on. An expired post is the whole point of this
-            endpoint, so it is explicitly allowed.
-        */
-        if (! in_array($job->status, [JobPost::STATUS_OPEN, 'expired'], true)) {
-            return $this->fail('Only an open or expired job post can be extended.', 422);
-        }
-
-        $job = $durations->extend($user, $job, (int) $data['days']);
-
-        return $this->ok([
-            'id'         => $job->id,
-            'status'     => $job->status,
-            'expires_at' => $job->expires_at?->toIso8601String(),
-        ], 'This post is up for longer now.');
-    }
-
     public function index(Request $request)
     {
         // `location` is loaded for JobMatchService's proximity scoring — it
@@ -335,7 +296,7 @@ class JobController extends Controller
             'start_date.required' => 'Please choose when the work starts.',
             'start_date.after_or_equal' => 'The start date cannot be in the past.',
             'end_date.after_or_equal' => 'The job cannot end before it starts.',
-            'end_date.required' => 'Please choose when the work ends.',
+            'end_date.required' => 'Please choose an end date.',
         ]);
 
         /*
@@ -380,14 +341,36 @@ class JobController extends Controller
         );
         $data['photos'] = $photoPaths;
 
-        $job = $user->postedJobs()->create(array_merge($data, [
-            'status' => 'open',
-            // The free base duration. Extending past it is the paid
-            // part; posting itself stays free.
-            'expires_at' => now()->addDays((int) config('kaya.jobs.free_days')),
-        ]));
+        /*
+            The post's span is what is paid for, and the charge and the post
+            are one transaction: no post without the barya, no barya without
+            the post. The close date is the end date - the post comes down
+            when the employer said it would, not thirty days after posting.
+        */
+        $durations = app(\App\Services\JobDurationService::class);
+        $start = \Carbon\CarbonImmutable::parse($data['start_date']);
+        $end = \Carbon\CarbonImmutable::parse($data['end_date']);
+        $cost = $durations->costFor($start, $end);
 
-        if ($skillIds) $job->skills()->sync($skillIds);
+        try {
+            $job = $durations->charge($user, $cost, function (?\App\Models\CreditTransaction $line) use ($user, $data, $end, $skillIds) {
+                $created = $user->postedJobs()->create(array_merge($data, [
+                    'status'     => 'open',
+                    'expires_at' => $end->endOfDay(),
+                ]));
+
+                if ($skillIds) {
+                    $created->skills()->sync($skillIds);
+                }
+
+                // The ledger line was written before the post had an id.
+                $line?->update(['reference_id' => $created->id]);
+
+                return $created;
+            });
+        } catch (\App\Exceptions\InsufficientCreditsException $e) {
+            return $this->fail($e->getMessage(), 422);
+        }
 
         app(RealtimeBroadcaster::class)->push(new JobPublished($job));
 
@@ -774,8 +757,40 @@ class JobController extends Controller
             unset($data['photos']);
         }
 
-        $job->update($data);
-        if ($skillIds !== null) $job->skills()->sync($skillIds);
+        /*
+            A later end date is more days, and more days are paid for - but
+            only the days not already paid. Shortening refunds nothing; the
+            post was up, and a refund on shortening would make "post for 90,
+            trim to 7 the next morning" a free long listing. The close date
+            follows the end date either way.
+        */
+        $durations = app(\App\Services\JobDurationService::class);
+        $start = \Carbon\CarbonImmutable::parse($data['start_date'] ?? $job->start_date);
+        $end = \Carbon\CarbonImmutable::parse($data['end_date'] ?? $job->end_date ?? $start);
+        // A start moved past the old end: the post is the one day.
+        if ($end->lt($start)) {
+            $end = $start;
+        }
+
+        $paid = $job->start_date
+            ? $durations->costFor(
+                \Carbon\CarbonImmutable::parse($job->start_date),
+                $job->end_date ? \Carbon\CarbonImmutable::parse($job->end_date) : null,
+            )
+            : 0;
+        $owed = max(0, $durations->costFor($start, $end) - $paid);
+
+        try {
+            $durations->charge($user, $owed, function ($line) use ($job, $data, $skillIds, $end) {
+                $job->update(array_merge($data, ['expires_at' => $end->endOfDay()]));
+                if ($skillIds !== null) $job->skills()->sync($skillIds);
+                $line?->update(['reference_id' => $job->id]);
+
+                return $job;
+            });
+        } catch (\App\Exceptions\InsufficientCreditsException $e) {
+            return $this->fail($e->getMessage(), 422);
+        }
 
         return $this->ok($job->load(['category', 'skills']), 'Job updated');
     }

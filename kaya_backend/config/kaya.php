@@ -73,27 +73,26 @@ return [
     /*
         How long a job post stays up.
 
-        Nothing expired before this, so the feed was every job ever posted and
-        a worker could not tell a live one from a job filled in July. Thirty
-        days is the market default here - Carousell expires a listing at
-        thirty, JobStreet sells thirty days of visibility - and it keeps
-        posting itself free: the base duration costs nothing, and only keeping
-        a post up beyond it is paid.
+        A post runs from its start date to its end date and closes itself on
+        the last day. That span is the post's life, and the employer chooses
+        it when posting. The first week is free, so a short job costs nothing
+        to put up; past that the price is per day - see credits below.
 
-        Renewal is deliberately opt-in. Carousell auto-renews unless you
-        cancel; barya is a prepaid balance somebody topped up with real money,
-        and drawing from it on a timer with no fresh confirmation is exactly
-        the charge people describe as an app taking their money. Apply and
-        invite both show the cost and wait for a tap; an auto-renewing post
-        would be the one place that rule breaks.
+        There used to be a second clock: thirty listing days from posting,
+        with paid blocks to extend. Two clocks on one post confused everyone
+        who had to explain it, and the employer never chose the thirty.
+
+        Nothing renews on its own. Barya is a prepaid balance somebody topped
+        up with real money, and drawing from it on a timer with no fresh
+        confirmation is exactly the charge people describe as an app taking
+        their money. The post ends on the day the employer picked; if they
+        want longer they move the end date and pay the difference, on a tap.
     */
     'jobs' => [
-        'free_days' => (int) env('JOB_FREE_DAYS', 30),
+        'free_days' => (int) env('JOB_FREE_DAYS', 7),
 
-        // The warning, and the extension blocks that answer it. The prices
-        // live in credits.duration_14 / duration_30.
+        // How far ahead of the end date the employer is told.
         'warn_days'  => (int) env('JOB_EXPIRY_WARN_DAYS', 7),
-        'extend_blocks' => [14, 30],
     ],
     'credits' => [
 
@@ -168,14 +167,13 @@ return [
         'boost_days' => (int) env('CREDIT_BOOST_DAYS', 3),
 
         /*
-            Keeping a job post up past its free thirty days.
+            A post's days past the free week, per barya.
 
-            Sold in fixed blocks rather than per day: the picker offers two
-            choices, and the longer block costs less per day, so nobody is
-            punished for committing further ahead.
+            Four means one barya buys four more days: a fortnight is 2, a
+            month 6, ninety days 21. Per day and not in bands, because a
+            band lets 61 days cost what 90 does and then everybody picks 90.
         */
-        'duration_14' => (int) env('CREDIT_COST_DURATION_14', 3),
-        'duration_30' => (int) env('CREDIT_COST_DURATION_30', 5),
+        'post_days_per_barya' => (int) env('CREDIT_POST_DAYS_PER_BARYA', 4),
 
         // A week in the community threads. A business pays three times what a
         // worker does - commercial reach on a commercial surface.

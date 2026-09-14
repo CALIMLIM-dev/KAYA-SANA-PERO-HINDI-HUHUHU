@@ -238,6 +238,11 @@ class JobScheduleTest extends TestCase
         $start = now()->addDays(2)->toDateString();
         $end   = now()->addDays(9)->toDateString();
 
+        // Eight days is a day past the free week, so the post costs a barya.
+        app(\App\Services\CreditLedger::class)->credit(
+            $employer, 5, \App\Models\CreditTransaction::REASON_ADMIN_ADJUSTMENT
+        );
+
         $this->actingAs($employer, 'sanctum')
             ->post('/api/v1/jobs', $this->payload([
                 'start_date' => $start,
