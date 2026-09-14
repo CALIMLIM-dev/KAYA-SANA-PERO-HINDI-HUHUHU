@@ -899,8 +899,8 @@ class _PostJobScreenState extends State<PostJobScreen> {
 
               // Schedule
               _buildSection(
-                title: 'Date',
-                hint: 'Up from the start date, closes on the end date. A week is free; longer costs Barya.',
+                title: 'Duration',
+                hint: 'Your post stays up from the start date to the end date. The first week is free. Longer costs Barya.',
                 anchor: _scheduleKey,
                 icon: Icons.event_outlined,
                 children: [_buildScheduleFields()],
@@ -1095,14 +1095,14 @@ class _PostJobScreenState extends State<PostJobScreen> {
     if (cost == null) return const SizedBox.shrink();
 
     final length = '$days day${days == 1 ? '' : 's'}';
-    final price = cost == 0 ? 'Free' : '$cost ${Credits.plural}';
+    final price = cost == 0 ? 'free' : 'for $cost ${Credits.plural}';
 
     return Row(
       children: [
         const Icon(Icons.schedule, size: 15, color: AppColors.neutral500),
         const SizedBox(width: 8),
         Text(
-          '$length  ·  $price',
+          '$length $price',
           style: const TextStyle(
             fontSize: 12.5,
             fontWeight: FontWeight.w600,

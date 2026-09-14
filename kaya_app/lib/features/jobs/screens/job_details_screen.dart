@@ -244,14 +244,15 @@ class _JobDetailsScreenState extends State<JobDetailsScreen> {
                         if (job.distance != null) formatDistance(job.distance!),
                       ].join('  ·  '),
                     ),
-                    // "Date", not "Schedule" - that word is the day two
-                    // people agree on in chat now, and this is the job's own.
+                    // "Duration", not "Schedule" - that word is the day two
+                    // people agree on in chat now. This is how long the post
+                    // is up, and it is the same word the form uses.
                     if (job.scheduleLabel != null)
                       _detailRow(
-                        'Date',
+                        'Duration',
                         job.phaseLabel == null
                             ? job.scheduleLabel!
-                            : '${job.scheduleLabel!}  ·  ${job.phaseLabel!}',
+                            : '${job.scheduleLabel!}, ${job.phaseLabel!}',
                       ),
                     if (job.category != null)
                       _detailRow('Category', job.category!),
