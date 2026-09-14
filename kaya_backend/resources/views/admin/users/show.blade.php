@@ -56,7 +56,36 @@
             <div><dt class="text-slate-400">City</dt><dd class="text-slate-700">{{ $user->city ?? '—' }}</dd></div>
             <div><dt class="text-slate-400">Joined</dt><dd class="text-slate-700">{{ $user->created_at->format('M j, Y') }}</dd></div>
             <div><dt class="text-slate-400">Last Updated</dt><dd class="text-slate-700">{{ $user->updated_at->format('M j, Y') }}</dd></div>
+            <div><dt class="text-slate-400">Barya</dt><dd class="text-slate-700">
+                {{ $balance }}
+                <a href="{{ route('admin.credits.index', ['user' => $user->id]) }}" class="text-xs text-blue-600 ml-1">ledger and adjust</a>
+            </dd></div>
         </dl>
+
+        @if ($user->employerProfile)
+            @php $ep = $user->employerProfile; @endphp
+            <h3 class="text-sm font-semibold text-slate-700 mb-2">Employer</h3>
+            <dl class="grid grid-cols-2 gap-4 text-sm mb-6">
+                <div><dt class="text-slate-400">Type</dt><dd class="text-slate-700">{{ $ep->employer_type?->requiresBusinessVerification() ? 'Company' : 'Individual' }}</dd></div>
+                @if ($ep->employer_type?->requiresBusinessVerification())
+                    <div><dt class="text-slate-400">Company</dt><dd class="text-slate-700">{{ $ep->company_name ?: 'Not given' }}</dd></div>
+                    <div><dt class="text-slate-400">TIN</dt><dd class="text-slate-700 font-mono">{{ $ep->tin ?: 'Not given' }}</dd></div>
+                    <div>
+                        <dt class="text-slate-400">TIN check</dt>
+                        <dd>
+                            @if ($ep->tin_verified_at)
+                                <span class="badge-verified text-xs px-2.5 py-1 rounded-full">Checked on ORUS</span>
+                                <span class="text-xs text-slate-400 block mt-1">{{ $ep->tin_verified_at->format('M j, Y') }} by {{ $ep->tinVerifier?->name ?? 'admin' }}</span>
+                            @elseif ($ep->tin)
+                                <span class="badge-pending text-xs px-2.5 py-1 rounded-full">Not checked yet</span>
+                            @else
+                                <span class="text-slate-400">No TIN to check</span>
+                            @endif
+                        </dd>
+                    </div>
+                @endif
+            </dl>
+        @endif
 
         @if ($user->postedJobs->count())
             <h3 class="text-sm font-semibold text-slate-700 mb-2">Recent Job Posts</h3>

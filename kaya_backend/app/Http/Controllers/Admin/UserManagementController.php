@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Models\AdminAction;
 use App\Models\User;
 use App\Services\SuspensionService;
 use App\Support\ModerationReasons;
@@ -53,6 +54,7 @@ class UserManagementController extends Controller
         $user->load([
             'postedJobs' => fn ($q) => $q->latest()->take(5),
             'workerProfile',
+            'employerProfile.tinVerifier',
             'certifications',
             'licenses',
             'skills.category',
@@ -63,6 +65,7 @@ class UserManagementController extends Controller
 
         return view('admin.users.show', [
             'user'              => $user,
+            'balance'           => app(\App\Services\CreditLedger::class)->balance($user),
             'suspensionReasons' => ModerationReasons::SUSPENSION,
         ]);
     }
@@ -128,12 +131,21 @@ class UserManagementController extends Controller
             admin: Auth::user(),
         );
 
+        AdminAction::record(
+            'user.suspended', 'user', $user->id,
+            "Suspended {$user->name} for " . ModerationReasons::suspensionLabel($data['reason_code'])
+                . ($data['duration'] === 'permanent' ? ', permanently' : ", {$data['duration']} days"),
+            $data,
+        );
+
         return back()->with('success', "{$user->name} has been suspended.");
     }
 
     public function activate(User $user, SuspensionService $suspensions)
     {
         $suspensions->reinstate($user);
+
+        AdminAction::record('user.reinstated', 'user', $user->id, "Reinstated {$user->name}");
 
         return back()->with('success', "{$user->name} has been reactivated.");
     }

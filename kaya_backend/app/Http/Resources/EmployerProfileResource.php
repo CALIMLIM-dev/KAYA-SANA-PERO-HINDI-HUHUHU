@@ -23,6 +23,7 @@ class EmployerProfileResource extends JsonResource
             // profile builds its own shape and never carries it. Masked even
             // here - enough to recognise, not enough to copy.
             'tin_masked' => $this->maskedTin(),
+            'tin_verified' => $this->tin_verified_at !== null,
             'company_name' => $this->company_name,
             'industry' => $this->industry,
             'website' => $this->website,

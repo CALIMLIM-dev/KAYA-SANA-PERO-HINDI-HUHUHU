@@ -63,9 +63,16 @@ class EmployerProfile extends Model
         return $digits === '' ? null : $digits;
     }
 
+    /** The admin who checked the TIN on ORUS. Stamped by the admin panel only. */
+    public function tinVerifier()
+    {
+        return $this->belongsTo(User::class, 'tin_verified_by');
+    }
+
     protected $casts = [
         'employer_type'   => EmployerType::class,
         'setup_completed' => 'boolean',
+        'tin_verified_at' => 'datetime',
         // Same casts as WorkerProfile, so a rating serialises identically
         // whichever side of a hire it describes. Without this an employer's
         // rating arrived as 1 where a worker's arrived as "1.00", and the app

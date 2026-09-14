@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Models\AdminAction;
 use App\Models\Report;
 use App\Services\SuspensionService;
 use App\Support\ModerationReasons;
@@ -83,6 +84,12 @@ class ReportController extends Controller
             'resolved_at'     => now(),
         ]);
 
+        AdminAction::record(
+            'report.' . $data['status'], 'report', $report->id,
+            ucfirst($data['status']) . " report #{$report->id} against " . ($report->reported?->name ?? 'a deleted account'),
+            ['reported_id' => $report->reported_id, 'note' => $data['resolution_note'] ?? null],
+        );
+
         return redirect()
             ->route('admin.reports.index')
             ->with('success', 'Report ' . $data['status'] . '.');
@@ -123,6 +130,14 @@ class ReportController extends Controller
             'reviewed_by'     => Auth::id(),
             'resolved_at'     => now(),
         ]);
+
+        AdminAction::record(
+            'user.suspended', 'user', $report->reported_id,
+            "Suspended {$report->reported->name} for " . ModerationReasons::suspensionLabel($data['reason_code'])
+                . ($data['duration'] === 'permanent' ? ', permanently' : ", {$data['duration']} days")
+                . " (report #{$report->id})",
+            $data + ['report_id' => $report->id],
+        );
 
         return redirect()
             ->route('admin.reports.index')

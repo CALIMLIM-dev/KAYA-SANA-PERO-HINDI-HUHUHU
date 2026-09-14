@@ -1,5 +1,12 @@
 @extends('admin.layouts.app')
-@section('page-title', 'User Management > Worker Audit')
+@section('page-title', 'Verifications > Review')
+
+@php
+    $profile = $verification->user?->employerProfile;
+    $needsTinCheck = $verification->document_type !== 'government_id'
+        && $profile?->employer_type?->requiresBusinessVerification()
+        && filled($profile->tin);
+@endphp
 
 @section('content')
 <div class="grid grid-cols-3 gap-6 max-w-4xl">
@@ -22,9 +29,12 @@
             @if ($verification->document_type === 'government_id' && $verification->id_type)
                 <div class="flex justify-between"><dt class="text-slate-400">ID Type</dt><dd>{{ $verification->id_type }}</dd></div>
             @endif
-            {{-- The TIN the company gave. Check it against the document: a DTI certificate and a BIR 2303 both print it. --}}
-            @if ($verification->document_type !== 'government_id' && $verification->user?->employerProfile?->tin)
-                <div class="flex justify-between"><dt class="text-slate-400">TIN given</dt><dd class="font-mono">{{ $verification->user->employerProfile->tin }}</dd></div>
+            @if ($verification->document_type !== 'government_id' && $profile)
+                <div class="flex justify-between"><dt class="text-slate-400">Company</dt><dd class="text-right">{{ $profile->company_name ?: 'Not given' }}</dd></div>
+                <div class="flex justify-between"><dt class="text-slate-400">TIN</dt><dd class="font-mono">{{ $profile->tin ?: 'Not given' }}</dd></div>
+                @if ($profile->tin_verified_at)
+                    <div class="flex justify-between"><dt class="text-slate-400">TIN checked</dt><dd class="text-right">{{ $profile->tin_verified_at->format('M j, Y') }}<br><span class="text-xs text-slate-400">by {{ $profile->tinVerifier?->name ?? 'admin' }}</span></dd></div>
+                @endif
             @endif
             <div class="flex justify-between"><dt class="text-slate-400">Submitted</dt><dd>{{ $verification->created_at->format('M j, Y') }}</dd></div>
             @if ($verification->reviewed_at)
@@ -55,22 +65,51 @@
             </div>
         </div>
 
+        @if ($needsTinCheck)
+            {{-- BIR has no API. ORUS is its free lookup page, so the check is done by hand and recorded here. --}}
+            <div class="bg-white rounded-xl border border-slate-200 p-5">
+                <h3 class="text-sm font-semibold text-slate-700 mb-1">Check the TIN with BIR</h3>
+                <p class="text-sm text-slate-500">
+                    Open ORUS, choose TIN Verification, and enter <span class="font-mono text-slate-800">{{ $profile->tin }}</span>.
+                    The registered name BIR shows should match <span class="font-medium text-slate-800">{{ $profile->company_name ?: 'the company name on the document' }}</span>.
+                </p>
+                <div class="mt-3 flex items-center gap-3">
+                    <a href="https://orus.bir.gov.ph" target="_blank" rel="noopener"
+                       class="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700">
+                        Open ORUS
+                    </a>
+                    <button type="button" onclick="navigator.clipboard.writeText('{{ $profile->tin }}'); this.textContent='Copied'"
+                            class="px-4 py-2 border border-slate-300 text-slate-700 rounded-lg text-sm font-medium hover:bg-slate-50">
+                        Copy TIN
+                    </button>
+                    @if ($profile->tin_verified_at)
+                        <span class="text-xs px-2.5 py-1 rounded-full badge-verified">Checked {{ $profile->tin_verified_at->diffForHumans() }}</span>
+                    @endif
+                </div>
+            </div>
+        @endif
+
         @if ($verification->status === 'pending')
             <div class="bg-white rounded-xl border border-slate-200 p-5">
                 <h3 class="text-sm font-semibold text-slate-700 mb-3">Decision</h3>
-                <div class="flex gap-3">
-                    <form method="POST" action="{{ route('admin.verifications.approve', $verification) }}">
-                        @csrf
+                <form method="POST" action="{{ route('admin.verifications.approve', $verification) }}">
+                    @csrf
+                    @if ($needsTinCheck)
+                        <label class="flex items-start gap-2 mb-3 text-sm text-slate-700">
+                            <input type="checkbox" name="tin_checked" value="1" class="mt-0.5">
+                            <span>I checked this TIN on ORUS and the registered name matches the company.</span>
+                        </label>
+                    @endif
+                    <div class="flex gap-3">
                         <button class="px-5 py-2.5 bg-green-600 text-white rounded-lg text-sm font-medium hover:bg-green-700">
-                            ✓ Approve Verification
+                            Approve
                         </button>
-                    </form>
-
-                    <button onclick="document.getElementById('rejectForm').classList.toggle('hidden')"
-                            class="px-5 py-2.5 bg-red-50 text-red-600 border border-red-200 rounded-lg text-sm font-medium hover:bg-red-100">
-                        ✕ Reject
-                    </button>
-                </div>
+                        <button type="button" onclick="document.getElementById('rejectForm').classList.toggle('hidden')"
+                                class="px-5 py-2.5 bg-red-50 text-red-600 border border-red-200 rounded-lg text-sm font-medium hover:bg-red-100">
+                            Reject
+                        </button>
+                    </div>
+                </form>
 
                 <form id="rejectForm" method="POST" action="{{ route('admin.verifications.reject', $verification) }}" class="hidden mt-4">
                     @csrf
@@ -90,5 +129,5 @@
     </div>
 </div>
 
-<a href="{{ route('admin.verifications.index') }}" class="inline-block mt-6 text-sm text-blue-600 font-medium">← Back to Verifications</a>
+<a href="{{ route('admin.verifications.index') }}" class="inline-block mt-6 text-sm text-blue-600 font-medium">Back to verifications</a>
 @endsection
