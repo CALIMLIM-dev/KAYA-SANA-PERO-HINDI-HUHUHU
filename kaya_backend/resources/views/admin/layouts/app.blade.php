@@ -35,14 +35,16 @@
                         ['route' => 'admin.dashboard',           'label' => 'Dashboard',           'icon' => 'layout-dashboard'],
                         ['route' => 'admin.analytics.index',     'label' => 'Analytics',           'icon' => 'bar-chart-3'],
                     ],
-                    'People' => [
+                    'Accounts' => [
                         ['route' => 'admin.users.index',         'label' => 'Users',               'icon' => 'users'],
                         ['route' => 'admin.verifications.index', 'label' => 'Verifications',       'icon' => 'badge-check'],
                         ['route' => 'admin.reports.index',       'label' => 'Reports',             'icon' => 'flag'],
                     ],
-                    'Marketplace' => [
+                    'Postings' => [
                         ['route' => 'admin.jobs.index',          'label' => 'Jobs',                'icon' => 'briefcase'],
                         ['route' => 'admin.categories.index',    'label' => 'Categories & Skills', 'icon' => 'tags'],
+                    ],
+                    'Finance' => [
                         ['route' => 'admin.credits.index',       'label' => 'Barya',               'icon' => 'coins'],
                     ],
                     'Communication' => [
