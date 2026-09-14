@@ -209,9 +209,7 @@ class _WalletScreenState extends State<WalletScreen> with WidgetsBindingObserver
               const SizedBox(width: 6),
               HintBubble(
                 iconColor: Colors.white.withValues(alpha: 0.8),
-                text: 'Barya is KAYA credit. Applying, inviting and boosting '
-                    'each cost a few. You get some free when you sign up '
-                    'and every month after.',
+                text: 'KAYA credit. Applying, inviting and boosting cost a few.',
               ),
             ],
           ),

@@ -1442,8 +1442,7 @@ class _MyWorkerProfileScreenState extends State<MyWorkerProfileScreen> with Sing
                   style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppColors.neutral900)),
               SizedBox(width: 6),
               HintBubble(
-                text: 'An admin checks your ID against your name. Once it is '
-                    'approved you can apply, post and top up.',
+                text: 'Your ID is checked once. Then you can apply and post.',
               ),
             ],
           ),

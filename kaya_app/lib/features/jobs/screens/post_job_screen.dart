@@ -898,6 +898,7 @@ class _PostJobScreenState extends State<PostJobScreen> {
               // Schedule
               _buildSection(
                 title: 'Date',
+                hint: 'When the work happens. Not how long the post stays up.',
                 anchor: _scheduleKey,
                 icon: Icons.event_outlined,
                 children: [_buildScheduleFields()],
@@ -920,9 +921,7 @@ class _PostJobScreenState extends State<PostJobScreen> {
               _buildSection(
                 title: 'Job Priority (Optional)',
                 icon: Icons.flash_on_outlined,
-                hint: 'Boost puts this post at the top of the feed for '
-                    '${JobBoost.days} days. It costs ${JobBoost.cost} Barya, '
-                    'charged when the job is posted.',
+                hint: 'Top of the feed for ${JobBoost.days} days, ${JobBoost.cost} Barya.',
                 children: [
                   Row(
                     children: [

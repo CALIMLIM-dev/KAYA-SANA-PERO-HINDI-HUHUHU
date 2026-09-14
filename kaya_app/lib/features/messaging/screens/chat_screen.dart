@@ -837,8 +837,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
               // Hold for what it does. Tap opens the picker as before.
               HintBubble(
                 holdOnly: true,
-                text: 'Propose a day and time for the work. The other side '
-                    'accepts or declines, and you both see the answer here.',
+                text: 'Propose a day and time. They accept or decline here.',
                 child: GestureDetector(
                 onTap: () => ScheduleComposer.open(
                   context,

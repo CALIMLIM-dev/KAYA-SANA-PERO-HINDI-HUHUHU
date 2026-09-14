@@ -88,21 +88,25 @@ class WorkerBrowseProvider with ChangeNotifier {
     if (hired != null) _mostHired = hired;
     notifyListeners();
   }
+  /*
+      Local first, then anywhere.
+
+      The row hides itself when empty, and bounded to one town it was empty
+      for most people - nobody nearby had finished a job yet - so the row
+      the home screen was built around was never seen. A track record is
+      not a local fact the way availability is: the person who has done
+      this job forty times two towns over is still worth putting in front
+      of an employer, and each card says how far away they are.
+  */
   Future<void> fetchMostHired({int? locationId, int limit = 10}) async {
     try {
-      final res = await _api.get('/workers', queryParameters: {
-        if (locationId != null) 'location_id': locationId,
-        'sort': 'jobs',
-        'per_page': limit,
-      });
+      var hired = await _hiredIn(locationId, limit);
 
-      final page = res.data['data'] as Map<String, dynamic>;
+      if (hired.isEmpty && locationId != null) {
+        hired = await _hiredIn(null, limit);
+      }
 
-      _mostHired = (page['data'] as List)
-          .map((w) => WorkerProfile.fromApi(w as Map<String, dynamic>))
-          // Nobody with an empty record belongs in a row headed "most hired".
-          .where((w) => w.completedJobs > 0)
-          .toList();
+      _mostHired = hired;
     } catch (_) {
       // A recommendation row is not worth an error state, and a failed
       // refresh is not an empty row: whatever was last fetched stays.
@@ -110,6 +114,22 @@ class WorkerBrowseProvider with ChangeNotifier {
 
     notifyListeners();
   }
+  Future<List<WorkerProfile>> _hiredIn(int? locationId, int limit) async {
+    final res = await _api.get('/workers', queryParameters: {
+      if (locationId != null) 'location_id': locationId,
+      'sort': 'jobs',
+      'per_page': limit,
+    });
+
+    final page = res.data['data'] as Map<String, dynamic>;
+
+    return (page['data'] as List)
+        .map((w) => WorkerProfile.fromApi(w as Map<String, dynamic>))
+        // Nobody with an empty record belongs in a row headed "most hired".
+        .where((w) => w.completedJobs > 0)
+        .toList();
+  }
+
   Future<void> fetchWorkers({
     String? q,
     int? categoryId,

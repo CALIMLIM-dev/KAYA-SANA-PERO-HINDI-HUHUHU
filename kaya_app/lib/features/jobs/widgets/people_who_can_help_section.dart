@@ -59,7 +59,7 @@ class PeopleWhoCanHelpSection extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Available Workers',
+                      'Workers near you',
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: Theme.of(context).textTheme.titleLarge?.copyWith(
