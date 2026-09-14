@@ -31,6 +31,9 @@ class AppServiceProvider extends ServiceProvider
     {
         $this->registerNotificationListeners();
         $this->registerRateLimiters();
+
+        // Prices saved from the admin panel override the config defaults.
+        \App\Support\Pricing::apply();
     }
 
     /**

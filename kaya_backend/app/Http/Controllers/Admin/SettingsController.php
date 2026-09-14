@@ -4,46 +4,57 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\AdminAction;
-use App\Models\SystemSetting;
+use App\Support\Pricing;
 use Illuminate\Http\Request;
 
+/*
+    Prices, editable.
+
+    This page used to render whatever rows sat in system_settings as
+    checkboxes, and nothing in the app read them, so every switch was
+    decoration. Now it is the pricing table: the numbers config/kaya.php
+    documents, changeable without a deploy, each change written to the
+    audit log with the old and new value.
+*/
 class SettingsController extends Controller
 {
     public function index()
     {
-        $settings = SystemSetting::all()->groupBy('group');
-
-        return view('admin.settings.index', compact('settings'));
+        return view('admin.settings.index', ['fields' => Pricing::current()]);
     }
 
     public function update(Request $request)
     {
-        $values = $request->except('_token');
-
-        // What changed, before it changes, so the log can say old and new.
-        $before = SystemSetting::pluck('value', 'key');
-
-        foreach ($values as $key => $value) {
-            SystemSetting::where('key', $key)->update(['value' => $value]);
+        $rules = [];
+        foreach (Pricing::FIELDS as $key => $field) {
+            $rules[Pricing::formName($key)] = ['required', 'integer', "min:{$field['min']}", "max:{$field['max']}"];
         }
 
-        // Checkboxes that were unchecked don't get sent at all — set those to '0'
-        SystemSetting::whereNotIn('key', array_keys($values))
-            ->where('group', '!=', 'general')
-            ->update(['value' => '0']);
+        $data = $request->validate($rules);
 
-        $changed = SystemSetting::pluck('value', 'key')
-            ->filter(fn ($value, $key) => (string) $value !== (string) ($before[$key] ?? ''))
-            ->map(fn ($value, $key) => ['from' => $before[$key] ?? null, 'to' => $value]);
+        $changed = [];
+        foreach ($data as $name => $value) {
+            $key = Pricing::fromFormName($name);
+            $was = (int) config($key);
 
-        if ($changed->isNotEmpty()) {
-            AdminAction::record(
-                'settings.updated', 'setting', null,
-                'Changed ' . $changed->keys()->map(fn ($k) => str_replace('_', ' ', $k))->join(', '),
-                $changed->all(),
-            );
+            if ($was === (int) $value) {
+                continue;
+            }
+
+            Pricing::set($key, (int) $value);
+            $changed[Pricing::FIELDS[$key]['label']] = ['from' => $was, 'to' => (int) $value];
         }
 
-        return back()->with('success', 'System configuration updated.');
+        if ($changed === []) {
+            return back()->with('success', 'Nothing changed.');
+        }
+
+        AdminAction::record(
+            'settings.pricing', 'setting', null,
+            'Changed ' . collect($changed)->map(fn ($c, $label) => "{$label} {$c['from']} to {$c['to']}")->join(', '),
+            $changed,
+        );
+
+        return back()->with('success', count($changed) . ' price(s) updated. The app picks them up on its next refresh.');
     }
 }

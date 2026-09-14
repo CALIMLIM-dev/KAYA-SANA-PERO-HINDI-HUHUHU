@@ -1,36 +1,37 @@
 @extends('admin.layouts.app')
-@section('page-title', 'User Management > System Configuration')
+@section('page-title', 'Settings')
 
 @section('content')
-<form method="POST" action="{{ route('admin.settings.update') }}" class="max-w-2xl space-y-5">
+<form method="POST" action="{{ route('admin.settings.update') }}" class="max-w-3xl">
     @csrf
 
-    @foreach ($settings as $group => $items)
-        <div class="bg-white rounded-xl border border-slate-200 p-5">
-            <h3 class="text-sm font-semibold text-slate-700 mb-1 capitalize">{{ str_replace('_', ' ', $group) }}</h3>
-            <p class="text-xs text-slate-400 mb-4">
-                @if ($group === 'content_filtering')
-                    Control what's allowed in job posts, profiles, and messages.
-                @else
-                    General platform behavior.
-                @endif
-            </p>
+    @if ($errors->any())
+        <div class="mb-4 px-4 py-3 rounded-lg bg-red-50 text-red-700 text-sm border border-red-200">{{ $errors->first() }}</div>
+    @endif
 
-            <div class="space-y-3">
-                @foreach ($items as $setting)
-                    <label class="flex items-center justify-between py-2 border-b border-slate-50 last:border-0">
-                        <span class="text-sm text-slate-600">{{ $setting->label }}</span>
-                        <input type="checkbox" name="{{ $setting->key }}" value="1"
-                               @checked($setting->value === '1')
-                               class="w-5 h-5 accent-blue-600">
-                    </label>
-                @endforeach
-            </div>
+    <div class="bg-white rounded-xl border border-slate-200 p-6">
+        <h3 class="text-sm font-semibold text-slate-700 mb-1">Pricing</h3>
+        <p class="text-xs text-slate-500 mb-5">Whole numbers. Takes effect on the server at once; the app reads the new prices the next time it loads them. Every change goes to the audit log.</p>
+
+        <div class="grid grid-cols-2 gap-x-8 gap-y-4">
+            @foreach ($fields as $key => $field)
+                <label class="block">
+                    <span class="text-sm font-medium text-slate-700">{{ $field['label'] }}</span>
+                    <span class="block text-xs text-slate-400 mb-1.5">{{ $field['hint'] }}</span>
+                    <span class="flex items-center gap-2">
+                        <input type="number" name="{{ \App\Support\Pricing::formName($key) }}"
+                               value="{{ old(\App\Support\Pricing::formName($key), $field['value']) }}"
+                               min="{{ $field['min'] }}" max="{{ $field['max'] }}" step="1" required
+                               class="w-28 px-3 py-2 border border-slate-300 rounded-lg text-sm">
+                        <span class="text-xs text-slate-500">{{ $field['unit'] }}</span>
+                    </span>
+                </label>
+            @endforeach
         </div>
-    @endforeach
+    </div>
 
-    <button class="px-5 py-2.5 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700">
-        Save Configuration
+    <button class="mt-5 px-5 py-2.5 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700">
+        Save prices
     </button>
 </form>
 @endsection
