@@ -152,17 +152,19 @@ done
    mode and switches over by changing three env values.
 8. matching and discovery. profile views, badges, ranking, city filter
 11. deployment. live at kayaadmin.ucucite.tech
+1. security. resume gate, address privacy, tin on file and checked on orus
+7. trust and safety. reports, tracking, address privacy, tin check, audit log
+10. revenue reporting. the barya page in the admin reads the ledger
+14. admin panel. jobs, barya, categories and skills, announcements, audit
+    log, dashboard with queues and today against yesterday
 
 partly done
 
-1. security. one item left, the resume gate
-7. trust and safety. reports and tracking done, address privacy and tin not
 12. cleanup and tests. ongoing
 
 not started
 
 9. skill assessments
-10. revenue reporting. reads from the credit ledger, which now exists
 13. multi worker jobs and the crew roster. see the notes below.
 
 
