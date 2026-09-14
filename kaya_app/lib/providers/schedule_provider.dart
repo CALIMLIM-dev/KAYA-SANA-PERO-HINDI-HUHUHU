@@ -135,9 +135,12 @@ class ScheduleProvider with ChangeNotifier {
     required int conversationId,
     Map<String, dynamic>? agreed,
     Map<String, dynamic>? pending,
+    List<String> busyDates = const [],
   }) {
     _agreed[conversationId] = agreed;
     _pending[conversationId] = pending;
+    _commitments[conversationId] =
+        busyDates.map((d) => <String, dynamic>{'date': d}).toList();
     notifyListeners();
   }
 

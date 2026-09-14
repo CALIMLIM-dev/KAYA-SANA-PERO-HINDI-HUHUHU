@@ -315,13 +315,35 @@ class ScheduleComposer {
         .toSet();
 
     final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final last = today.add(const Duration(days: 365));
+
+    bool free(DateTime d) => !busyDays.contains(_dateKey(d));
+
+    /*
+        Taken days are greyed out and cannot be tapped.
+
+        They used to be selectable. You picked the day, then a time, and only
+        then did a sheet say "they are unavailable that day" - after letting
+        you choose it. A day the picker offers is a day that can be booked;
+        anything else is the calendar lying. Every booking app does it this
+        way, and this one does too now.
+
+        The picker asserts that its starting day passes the predicate, so it
+        opens on the first free day rather than on today.
+    */
+    var start = today;
+    while (!free(start) && !start.isAfter(last)) {
+      start = start.add(const Duration(days: 1));
+    }
 
     final date = await showDatePicker(
       context: context,
-      initialDate: now,
-      firstDate: DateTime(now.year, now.month, now.day),
-      lastDate: now.add(const Duration(days: 365)),
-      helpText: 'Which day?',
+      initialDate: start,
+      firstDate: today,
+      lastDate: last,
+      selectableDayPredicate: free,
+      helpText: busyDays.isEmpty ? 'Which day?' : 'Which day?  Greyed days are taken.',
     );
 
     if (date == null || !context.mounted) return;
@@ -333,10 +355,6 @@ class ScheduleComposer {
     );
 
     if (time == null || !context.mounted) return;
-
-    // Already agreed to something that day, in another thread. Not a refusal -
-    // it is what the sheet has to say out loud before anybody sends.
-    final taken = busyDays.contains(_dateKey(date));
 
     final noteController = TextEditingController();
 
@@ -375,36 +393,6 @@ class ScheduleComposer {
                 ),
               ],
             ),
-            if (taken) ...[
-              const SizedBox(height: 10),
-              Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                decoration: BoxDecoration(
-                  color: AppColors.warning.withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: const Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Icon(Icons.info_outline,
-                        size: 14, color: AppColors.warning),
-                    SizedBox(width: 6),
-                    Expanded(
-                      child: Text(
-                        'They are unavailable that day. You can still send '
-                        'this and see what they say.',
-                        style: TextStyle(
-                          fontSize: 12,
-                          height: 1.35,
-                          color: AppColors.neutral700,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
             const SizedBox(height: 14),
             TextField(
               controller: noteController,
