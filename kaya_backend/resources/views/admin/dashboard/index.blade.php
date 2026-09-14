@@ -1,87 +1,115 @@
 @extends('admin.layouts.app')
-@section('page-title', 'Administrative Overview')
+@section('page-title', 'Dashboard')
 
 @section('content')
+{{-- What needs doing --}}
 <div class="grid grid-cols-4 gap-4 mb-6">
-    @php
-        $cards = [
-            ['label' => 'Total Users', 'value' => $stats['total_users'], 'color' => 'blue'],
-            ['label' => 'Pending Verifications', 'value' => $stats['pending_verifications'], 'color' => 'amber'],
-            ['label' => 'Pending Reports', 'value' => $stats['pending_reports'], 'color' => 'red'],
-            ['label' => 'Open Jobs', 'value' => $stats['open_jobs'], 'color' => 'green'],
-        ];
-    @endphp
-    @foreach ($cards as $card)
-        <div class="bg-white rounded-xl border border-slate-200 p-5">
-            <p class="text-xs text-slate-400 font-medium">{{ $card['label'] }}</p>
-            <p class="text-2xl font-bold text-slate-800 mt-1">{{ $card['value'] }}</p>
-        </div>
+    @foreach ($queues as $queue)
+        <a href="{{ $queue['route'] }}"
+           class="bg-white rounded-xl border p-5 block hover:border-blue-300 {{ $queue['count'] > 0 ? 'border-amber-300' : 'border-slate-200' }}">
+            <div class="flex items-start justify-between">
+                <p class="text-xs text-slate-400 font-medium">{{ $queue['label'] }}</p>
+                @if ($queue['count'] > 0)
+                    <span class="badge-pending text-xs px-2 py-0.5 rounded-full">Needs you</span>
+                @endif
+            </div>
+            <p class="text-2xl font-bold mt-1 {{ $queue['count'] > 0 ? 'text-amber-700' : 'text-slate-800' }}">{{ $queue['count'] }}</p>
+            <p class="text-xs text-slate-400 mt-1">{{ $queue['note'] }}</p>
+        </a>
     @endforeach
+</div>
+
+{{-- Today against yesterday --}}
+<div class="bg-white rounded-xl border border-slate-200 p-5 mb-6">
+    <div class="flex items-center justify-between mb-4">
+        <h3 class="text-sm font-semibold text-slate-700">Today</h3>
+        <span class="text-xs text-slate-400">{{ now()->format('l, M j') }}, compared with yesterday</span>
+    </div>
+    <div class="grid grid-cols-5 gap-4">
+        @php
+            $labels = ['signups' => 'Sign-ups', 'jobs' => 'Jobs posted', 'applications' => 'Applications', 'hires' => 'Hires', 'revenue' => 'Top-up revenue'];
+        @endphp
+        @foreach ($daily as $key => $pair)
+            @php
+                $isMoney = $key === 'revenue';
+                $show = fn ($n) => $isMoney ? 'P' . number_format($n / 100, 2) : $n;
+                $diff = $pair['today'] - $pair['yesterday'];
+            @endphp
+            <div>
+                <p class="text-xs text-slate-400 font-medium">{{ $labels[$key] }}</p>
+                <p class="text-2xl font-bold text-slate-800 mt-1">{{ $show($pair['today']) }}</p>
+                <p class="text-xs mt-1 {{ $diff > 0 ? 'text-green-600' : ($diff < 0 ? 'text-red-500' : 'text-slate-400') }}">
+                    @if ($diff > 0) up {{ $show($diff) }} from yesterday
+                    @elseif ($diff < 0) down {{ $show(abs($diff)) }} from yesterday
+                    @else same as yesterday ({{ $show($pair['yesterday']) }})
+                    @endif
+                </p>
+            </div>
+        @endforeach
+    </div>
 </div>
 
 <div class="grid grid-cols-3 gap-4 mb-6">
     {{-- Signup trend --}}
     <div class="col-span-2 bg-white rounded-xl border border-slate-200 p-5">
         <div class="flex items-center justify-between mb-4">
-            <h3 class="text-sm font-semibold text-slate-700">Sign-ups — Last 14 Days</h3>
-            <a href="{{ route('admin.users.index') }}" class="text-xs text-blue-600 font-medium">View Report</a>
+            <h3 class="text-sm font-semibold text-slate-700">Sign-ups, last 14 days</h3>
+            <span class="text-xs text-slate-400">{{ $stats['total_users'] }} users: {{ $stats['total_workers'] }} workers, {{ $stats['total_employers'] }} employers, {{ $stats['suspended_users'] }} suspended</span>
         </div>
         <canvas id="signupChart" height="110"></canvas>
     </div>
 
     {{-- Jobs by category --}}
     <div class="bg-white rounded-xl border border-slate-200 p-5">
-        <h3 class="text-sm font-semibold text-slate-700 mb-4">Jobs by Category</h3>
+        <div class="flex items-center justify-between mb-4">
+            <h3 class="text-sm font-semibold text-slate-700">Jobs by category</h3>
+            <a href="{{ route('admin.jobs.index') }}" class="text-xs text-blue-600 font-medium">{{ $stats['open_jobs'] }} open</a>
+        </div>
         <canvas id="categoryChart" height="180"></canvas>
     </div>
 </div>
 
 <div class="grid grid-cols-2 gap-4">
-    {{-- Recent users table --}}
+    {{-- What happened --}}
     <div class="bg-white rounded-xl border border-slate-200 p-5">
-        <h3 class="text-sm font-semibold text-slate-700 mb-4">Recent Sign-ups</h3>
-        <table class="w-full text-sm">
-            <thead>
-                <tr class="text-left text-xs text-slate-400 border-b border-slate-100">
-                    <th class="py-2">Name</th>
-                    <th class="py-2">Type</th>
-                    <th class="py-2">Status</th>
-                </tr>
-            </thead>
-            <tbody>
-                @foreach ($recentUsers as $user)
-                    <tr class="border-b border-slate-50">
-                        <td class="py-2.5">{{ $user->name }}</td>
-                        <td class="py-2.5 text-slate-500">{{ $user->roleLabel() }}</td>
-                        <td class="py-2.5">
-                            @if ($user->is_suspended)
-                                <span class="badge-suspended text-xs px-2 py-1 rounded-full">Suspended</span>
-                            @elseif ($user->is_verified)
-                                <span class="badge-verified text-xs px-2 py-1 rounded-full">Verified</span>
-                            @else
-                                <span class="badge-pending text-xs px-2 py-1 rounded-full">Pending</span>
-                            @endif
-                        </td>
-                    </tr>
-                @endforeach
-            </tbody>
-        </table>
-    </div>
-
-    {{-- Recent activity --}}
-    <div class="bg-white rounded-xl border border-slate-200 p-5">
-        <h3 class="text-sm font-semibold text-slate-700 mb-4">Recent Activity</h3>
+        <h3 class="text-sm font-semibold text-slate-700 mb-4">On the platform</h3>
         <div class="space-y-3">
-            @forelse ($recentActivity as $activity)
+            @forelse ($activity as $item)
+                @php
+                    $dot = ['signup' => 'bg-blue-500', 'job' => 'bg-green-500', 'application' => 'bg-slate-400',
+                            'hire' => 'bg-emerald-600', 'payment' => 'bg-amber-500', 'verification' => 'bg-violet-500'][$item['kind']] ?? 'bg-slate-400';
+                @endphp
                 <div class="flex items-start gap-3 text-sm">
-                    <span class="w-2 h-2 mt-1.5 rounded-full bg-blue-500"></span>
-                    <div>
-                        <p class="text-slate-700">{{ $activity->title }}</p>
-                        <p class="text-xs text-slate-400">{{ $activity->created_at->diffForHumans() }}</p>
+                    <span class="w-2 h-2 mt-1.5 rounded-full {{ $dot }} flex-shrink-0"></span>
+                    <div class="min-w-0">
+                        @if ($item['link'])
+                            <a href="{{ $item['link'] }}" class="text-slate-700 hover:text-blue-600">{{ $item['text'] }}</a>
+                        @else
+                            <p class="text-slate-700">{{ $item['text'] }}</p>
+                        @endif
+                        <p class="text-xs text-slate-400">{{ $item['at']->diffForHumans() }}</p>
                     </div>
                 </div>
             @empty
-                <p class="text-sm text-slate-400">No recent activity yet.</p>
+                <p class="text-sm text-slate-400">Nothing yet.</p>
+            @endforelse
+        </div>
+    </div>
+
+    {{-- What admins did --}}
+    <div class="bg-white rounded-xl border border-slate-200 p-5">
+        <div class="flex items-center justify-between mb-4">
+            <h3 class="text-sm font-semibold text-slate-700">Admin actions</h3>
+            <a href="{{ route('admin.audit.index') }}" class="text-xs text-blue-600 font-medium">Full log</a>
+        </div>
+        <div class="space-y-3">
+            @forelse ($adminActions as $action)
+                <div class="text-sm">
+                    <p class="text-slate-700">{{ $action->summary }}</p>
+                    <p class="text-xs text-slate-400">{{ $action->admin?->name ?? 'Admin' }}, {{ $action->created_at->diffForHumans() }}</p>
+                </div>
+            @empty
+                <p class="text-sm text-slate-400">No admin actions recorded yet.</p>
             @endforelse
         </div>
     </div>

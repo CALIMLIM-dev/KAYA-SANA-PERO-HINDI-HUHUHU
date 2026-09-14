@@ -567,6 +567,66 @@ class NotificationService
         );
     }
 
+    /** KAYA took a post down. The employer hears why; applicants hear their Barya is back. */
+    public function jobClosedByAdmin(JobPost $job, string $reason, \Illuminate\Support\Collection $applicantIds): void
+    {
+        $this->push(
+            userId: $job->employer_id,
+            audience: UserNotification::AUDIENCE_EMPLOYER,
+            type: 'job.closed',
+            title: 'Your job post was closed by KAYA',
+            body: '"' . $job->title . '" was taken down. Reason: ' . $reason,
+            referenceType: 'job',
+            referenceId: $job->id,
+        );
+
+        foreach ($applicantIds as $workerId) {
+            $this->push(
+                userId: $workerId,
+                audience: UserNotification::AUDIENCE_WORKER,
+                type: 'job.closed',
+                title: 'A job you applied for was closed',
+                body: '"' . $job->title . '" was taken down by KAYA. Your Barya has been returned.',
+                referenceType: 'job',
+                referenceId: $job->id,
+            );
+        }
+    }
+
+    /*
+        An announcement from KAYA to everyone, or to one side of it.
+
+        Goes through push() one person at a time so the per-user switches
+        still apply and each row broadcasts. An announcement is account
+        business, not job business, so it lands in the account category and
+        is not silenced by someone muting job alerts.
+
+        @return int how many people it reached
+    */
+    public function announcement(string $audience, string $title, string $body): int
+    {
+        $recipients = \App\Models\User::query()
+            ->where('user_type', '!=', 'admin')
+            ->where('is_suspended', false)
+            ->when($audience === UserNotification::AUDIENCE_WORKER, fn ($q) => $q->whereHas('workerProfile'))
+            ->when($audience === UserNotification::AUDIENCE_EMPLOYER, fn ($q) => $q->whereHas('employerProfile'))
+            ->pluck('id');
+
+        $sent = 0;
+
+        foreach ($recipients as $userId) {
+            $sent += $this->push(
+                userId: $userId,
+                audience: $audience,
+                type: 'announcement.sent',
+                title: $title,
+                body: $body,
+            ) ? 1 : 0;
+        }
+
+        return $sent;
+    }
+
     /** @return int how many workers were notified */
     public function jobMatched(JobPost $job): int
     {

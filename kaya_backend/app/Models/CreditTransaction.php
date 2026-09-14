@@ -52,6 +52,12 @@ class CreditTransaction extends Model
         return $this->belongsTo(User::class);
     }
 
+    /** The administrator behind an adjustment, when there was one. */
+    public function actor(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'actor_id');
+    }
+
     /** The charge this row reverses, when it is a refund. */
     public function refunds(): BelongsTo
     {

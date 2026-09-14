@@ -1,7 +1,12 @@
 <?php
 
 use App\Http\Controllers\Admin\AdminAuthController;
+use App\Http\Controllers\Admin\AnnouncementController;
+use App\Http\Controllers\Admin\AuditController;
+use App\Http\Controllers\Admin\CategoryController as AdminCategoryController;
+use App\Http\Controllers\Admin\CreditController as AdminCreditController;
 use App\Http\Controllers\Admin\DashboardController;
+use App\Http\Controllers\Admin\JobController as AdminJobController;
 use App\Http\Controllers\Admin\ReportController;
 use App\Http\Controllers\Admin\AnalyticsController;
 use App\Http\Controllers\Admin\ReportExportController;
@@ -79,6 +84,27 @@ Route::prefix('admin')->name('admin.')->group(function () {
         // Suspends the reported account and closes the report together, so the
         // two cannot fall out of step.
         Route::post('/reports/{report}/suspend', [ReportController::class, 'suspend'])->name('reports.suspend');
+
+        Route::get('/jobs', [AdminJobController::class, 'index'])->name('jobs.index');
+        Route::get('/jobs/{job}', [AdminJobController::class, 'show'])->name('jobs.show');
+        Route::post('/jobs/{job}/close', [AdminJobController::class, 'close'])->name('jobs.close');
+
+        Route::get('/credits', [AdminCreditController::class, 'index'])->name('credits.index');
+        Route::post('/credits/adjust', [AdminCreditController::class, 'adjust'])->name('credits.adjust');
+
+        Route::get('/categories', [AdminCategoryController::class, 'index'])->name('categories.index');
+        Route::post('/categories', [AdminCategoryController::class, 'store'])->name('categories.store');
+        Route::post('/categories/{category}', [AdminCategoryController::class, 'update'])->name('categories.update');
+        Route::post('/categories/{category}/toggle', [AdminCategoryController::class, 'toggle'])->name('categories.toggle');
+        Route::post('/categories/{category}/merge', [AdminCategoryController::class, 'merge'])->name('categories.merge');
+        Route::post('/categories/{category}/skills', [AdminCategoryController::class, 'storeSkill'])->name('categories.skills.store');
+        Route::post('/skills/{skill}', [AdminCategoryController::class, 'updateSkill'])->name('skills.update');
+        Route::post('/skills/{skill}/delete', [AdminCategoryController::class, 'destroySkill'])->name('skills.destroy');
+
+        Route::get('/announcements', [AnnouncementController::class, 'index'])->name('announcements.index');
+        Route::post('/announcements', [AnnouncementController::class, 'send'])->name('announcements.send');
+
+        Route::get('/audit', [AuditController::class, 'index'])->name('audit.index');
 
         Route::get('/settings', [SettingsController::class, 'index'])->name('settings.index');
         Route::post('/settings', [SettingsController::class, 'update'])->name('settings.update');

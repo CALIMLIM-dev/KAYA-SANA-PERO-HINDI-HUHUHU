@@ -103,6 +103,7 @@ class UserNotification extends Model
             // who mutes job alerts still needs to hear that their ID was
             // rejected and their verified badge is not coming.
             'verification' => 'account',
+            'announcement' => 'account',
         ][explode('.', $type)[0]] ?? 'jobs';
     }
 
