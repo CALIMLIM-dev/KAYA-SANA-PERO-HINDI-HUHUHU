@@ -22,6 +22,10 @@
             @if ($verification->document_type === 'government_id' && $verification->id_type)
                 <div class="flex justify-between"><dt class="text-slate-400">ID Type</dt><dd>{{ $verification->id_type }}</dd></div>
             @endif
+            {{-- The TIN the company gave. Check it against the document: a DTI certificate and a BIR 2303 both print it. --}}
+            @if ($verification->document_type !== 'government_id' && $verification->user?->employerProfile?->tin)
+                <div class="flex justify-between"><dt class="text-slate-400">TIN given</dt><dd class="font-mono">{{ $verification->user->employerProfile->tin }}</dd></div>
+            @endif
             <div class="flex justify-between"><dt class="text-slate-400">Submitted</dt><dd>{{ $verification->created_at->format('M j, Y') }}</dd></div>
             @if ($verification->reviewed_at)
                 <div class="flex justify-between"><dt class="text-slate-400">Reviewed</dt><dd>{{ $verification->reviewed_at->format('M j, Y') }}</dd></div>

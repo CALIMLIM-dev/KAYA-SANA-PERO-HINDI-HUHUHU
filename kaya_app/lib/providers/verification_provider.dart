@@ -86,6 +86,9 @@ class VerificationProvider with ChangeNotifier {
     required String fileName,
     String? filePath,
     List<int>? fileBytes,
+    // A company's TIN, sent with its business document. Null for an
+    // individual, who has none to give.
+    String? tin,
   }) async {
     _setLoading(true);
     try {
@@ -103,6 +106,7 @@ class VerificationProvider with ChangeNotifier {
       final formData = FormData.fromMap({
         'type': type,
         'document': multipart,
+        if (tin != null && tin.trim().isNotEmpty) 'tin': tin.trim(),
       });
       await _api.postMultipart('/verifications', formData);
       await fetchVerifications();

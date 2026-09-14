@@ -5,7 +5,9 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/widgets/otp_field.dart';
+import '../../../core/constants/employer_type.dart';
 import '../../../providers/auth_provider.dart';
+import '../../../providers/employer_profile_provider.dart';
 import '../../../providers/verification_provider.dart';
 import '../../../core/widgets/app_toast.dart';
 import '../../../data/services/api_client.dart';
@@ -51,6 +53,9 @@ class _VerificationScreenState extends State<VerificationScreen> {
   // ID Type dropdown
   String? _selectedIdType;
   final _customIdCtrl = TextEditingController();
+
+  // A company's TIN, given with its business document.
+  final _tinCtrl = TextEditingController();
   
   bool _confirmed = false;
   bool _submitted = false;
@@ -97,6 +102,7 @@ class _VerificationScreenState extends State<VerificationScreen> {
     _emailCtrl.dispose();
     _emailCodeCtrl.dispose();
     _customIdCtrl.dispose();
+    _tinCtrl.dispose();
     super.dispose();
   }
 
@@ -444,7 +450,31 @@ class _VerificationScreenState extends State<VerificationScreen> {
                 ],
               ),
             ),
-            
+
+            /*
+                The TIN, for a company.
+
+                Both a DTI certificate and a BIR 2303 print it, so the admin
+                checks the number against the document rather than asking for
+                another upload. Only a company account sees the field: an
+                individual has no business TIN, and the server refuses one.
+            */
+            if (isBusiness && _isCompanyAccount(context)) ...[
+              const SizedBox(height: 20),
+              _label('Business TIN'),
+              const SizedBox(height: 8),
+              TextField(
+                controller: _tinCtrl,
+                keyboardType: TextInputType.number,
+                onChanged: (_) => setState(() {}),
+                decoration: _deco(hint: '123-456-789-000', icon: Icons.badge_outlined),
+              ),
+              const SizedBox(height: 6),
+              const Text(
+                'As printed on your DTI certificate or BIR 2303.',
+                style: TextStyle(fontSize: 12, color: AppColors.neutral500),
+              ),
+            ],
             const SizedBox(height: 24),
             
             GestureDetector(
@@ -812,18 +842,24 @@ class _VerificationScreenState extends State<VerificationScreen> {
       );
     } else {
       // Other document types
+      if (type == 'business_reg' && _isCompanyAccount(context) && _tinCtrl.text.trim().isEmpty) {
+        AppToast.error(context, 'Please enter your business TIN.');
+        return;
+      }
+
       success = await vp.submitDocument(
         type: type,
         fileName: _docName!,
         filePath: _docPath,
         fileBytes: _docBytes,
+        tin: _isCompanyAccount(context) ? _tinCtrl.text : null,
       );
     }
     
     if (!mounted) return;
     if (success) {
       setState(() => _submitted = true);
-    } else {
+    } else if (context.mounted) {
       AppToast.error(context, vp.errorMessage ?? 'Submission failed');
     }
   }
@@ -1012,6 +1048,10 @@ class _VerificationScreenState extends State<VerificationScreen> {
       ],
     );
   }
+
+  bool _isCompanyAccount(BuildContext context) =>
+      context.read<EmployerProfileProvider>().profile?.employerType ==
+      EmployerType.company;
 
   Widget _label(String text) => Text(text,
       style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: AppColors.neutral900));

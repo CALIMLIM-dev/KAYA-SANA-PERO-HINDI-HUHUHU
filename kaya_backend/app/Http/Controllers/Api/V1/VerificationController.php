@@ -75,18 +75,54 @@ class VerificationController extends Controller
             
         } else {
             // Other document types (business_reg, etc.)
+            // Dashes off before the rule sees it: 123-456-789-000 is how it
+            // is printed, and the regex below wants digits.
+            if ($request->filled('tin')) {
+                $request->merge(['tin' => preg_replace('/\D/', '', (string) $request->input('tin'))]);
+            }
+
             $request->validate([
                 'type'     => ['required', 'string', 'in:business_reg,business_permit,dti,sec'],
                 'document' => ['required', 'file', 'mimes:jpg,jpeg,png,pdf', 'max:5120'],
+                // Nine digits for an old-format TIN, twelve with the branch
+                // code. Dashes are stripped before this runs.
+                'tin'      => ['nullable', 'string', 'regex:/^\d{9}(\d{3})?$/'],
+            ], [
+                'tin.regex' => 'A TIN is 9 or 12 digits, like 123-456-789-000.',
             ]);
-            
+
+            /*
+                A company gives its TIN with its business document.
+
+                Both a DTI certificate and a BIR 2303 carry it, so the admin
+                checks the number against the paper in front of them rather
+                than asking for one more upload. Required for a company and
+                meaningless for an individual, who is refused it: a tax number
+                on a personal account has nowhere to be checked.
+            */
+            $profile = $user->employerProfile;
+            $isCompany = $profile?->employer_type?->requiresBusinessVerification() ?? false;
+            $tin = \App\Models\EmployerProfile::normaliseTin($request->input('tin'));
+
+            if ($isCompany && $tin === null) {
+                return $this->fail('Please enter your business TIN.', 422);
+            }
+
+            if (! $isCompany && $tin !== null) {
+                return $this->fail('Only a company account has a TIN to give.', 422);
+            }
+
             // Stored before the old one is dropped - see the branch above.
             $path = $request->file('document')->store('verifications', config('filesystems.documents'));
 
-            $verification = DB::transaction(function () use ($user, $type, $path) {
+            $verification = DB::transaction(function () use ($user, $type, $path, $profile, $tin) {
                 Verification::where('user_id', $user->id)
                     ->where('document_type', $type)
                     ->delete();
+
+                if ($tin !== null) {
+                    $profile->forceFill(['tin' => $tin])->save();
+                }
 
                 return Verification::create([
                     'user_id'             => $user->id,

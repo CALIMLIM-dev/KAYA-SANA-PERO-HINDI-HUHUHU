@@ -19,6 +19,10 @@ class EmployerProfileResource extends JsonResource
             'id' => $this->id,
             'user_id' => $this->user_id,
             'employer_type' => $this->employer_type?->value,
+            // Only the owner's own endpoints use this resource; the public
+            // profile builds its own shape and never carries it. Masked even
+            // here - enough to recognise, not enough to copy.
+            'tin_masked' => $this->maskedTin(),
             'company_name' => $this->company_name,
             'industry' => $this->industry,
             'website' => $this->website,

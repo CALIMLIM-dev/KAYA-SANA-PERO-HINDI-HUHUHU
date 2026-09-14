@@ -14,6 +14,7 @@ class EmployerProfile extends Model
         'user_id',
         'employer_type',
         'business_structure',
+        'tin',
         'company_name',
         'industry',
         'website',
@@ -28,6 +29,39 @@ class EmployerProfile extends Model
         // person's worker rating — see ReviewController::recomputeRating.
         'rating_avg', 'rating_count',
     ];
+
+    /*
+        The TIN never goes to another user.
+
+        It is on every public employer response - the job card's employer,
+        the profile a worker opens - and a tax number beside a name is
+        enough to impersonate a business. Hidden by default; the owner gets
+        it back masked through maskedTin(), and the admin reads it off the
+        verification.
+    */
+    protected $hidden = ['tin'];
+
+    /** The last three digits, for the owner to recognise their own. */
+    public function maskedTin(): ?string
+    {
+        if (blank($this->tin)) {
+            return null;
+        }
+
+        return str_repeat('*', max(0, strlen($this->tin) - 3)) . substr($this->tin, -3);
+    }
+
+    /** Digits only. People type 123-456-789-000 and the dashes are formatting. */
+    public static function normaliseTin(?string $raw): ?string
+    {
+        if ($raw === null) {
+            return null;
+        }
+
+        $digits = preg_replace('/\D/', '', $raw);
+
+        return $digits === '' ? null : $digits;
+    }
 
     protected $casts = [
         'employer_type'   => EmployerType::class,
