@@ -8,6 +8,7 @@ use App\Models\JobPost;
 use App\Models\Review;
 use App\Models\User;
 use App\Services\NotificationService;
+use App\Services\RatingService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
@@ -106,7 +107,9 @@ class ReviewController extends Controller
 
         // Kept as a friendly message even though a unique index now enforces it
         // underneath — a 500 from a constraint violation is not an answer.
-        if (Review::where('reviewer_id', $user->id)
+        // withHidden: a review that was taken down still counts as written,
+        // or the same person could post it again.
+        if (Review::withHidden()->where('reviewer_id', $user->id)
             ->where('reviewee_id', $revieweeId)
             ->where('job_id', $job->id)
             ->exists()) {
@@ -128,7 +131,7 @@ class ReviewController extends Controller
                     : null,
             ]);
 
-            $this->recomputeRating($revieweeId, $role);
+            RatingService::recompute($revieweeId, $role);
 
             return $review;
         });
@@ -268,59 +271,5 @@ class ReviewController extends Controller
     {
         return $job->updated_at !== null
             && $job->updated_at->lt(now()->subDays(self::REVIEW_WINDOW_DAYS));
-    }
-
-    /**
-     * Recompute one side of a person's reputation.
-     *
-     * Scoped by role, which is what keeps a hybrid account's two reputations
-     * apart: reviews earned as an employer must not move their worker rating.
-     * Recomputed from the table rather than incremented, so a deleted or
-     * moderated review cannot leave the average permanently wrong.
-     */
-    private function recomputeRating(int $userId, string $role): void
-    {
-        /*
-            One voice per person, not one per job.
-
-            Reviews are unique per job, which is right - every finished job is
-            its own piece of work and deserves its own rating, and the history
-            shows them all. But the average counted every row, so an employer
-            who hired the same worker ten times cast ten votes, and one
-            person's opinion could set somebody's public reputation on their
-            own.
-
-            That was survivable while a repeat hire was rare. Rehiring now
-            costs half of a normal invitation, deliberately, so the cheapest
-            thing on the platform was also the easiest way to inflate - or
-            bury - a rating: hire, complete, five stars, repeat.
-
-            Only the latest review from each reviewer counts toward the
-            aggregate. The rating then answers "what do the people who worked
-            with this person think", which is the question anyone reading it
-            believes it answers, and rating_count becomes a count of people
-            rather than of jobs.
-        */
-        $latestPerReviewer = Review::where('reviewee_id', $userId)
-            ->where('reviewee_role', $role)
-            ->orderByDesc('created_at')
-            ->orderByDesc('id')
-            ->get(['reviewer_id', 'rating'])
-            ->unique('reviewer_id');
-
-        $count = $latestPerReviewer->count();
-        $avg   = $count === 0
-            ? 0.0
-            : round($latestPerReviewer->avg('rating'), 2);
-
-        $user = User::find($userId);
-
-        if ($role === 'worker') {
-            $user?->workerProfile?->update(['rating_avg' => $avg, 'rating_count' => $count]);
-
-            return;
-        }
-
-        $user?->employerProfile?->update(['rating_avg' => $avg, 'rating_count' => $count]);
     }
 }

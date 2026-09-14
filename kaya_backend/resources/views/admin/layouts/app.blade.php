@@ -39,6 +39,7 @@
                         ['route' => 'admin.users.index',         'label' => 'Users',               'icon' => 'users'],
                         ['route' => 'admin.verifications.index', 'label' => 'Verifications',       'icon' => 'badge-check'],
                         ['route' => 'admin.reports.index',       'label' => 'Reports',             'icon' => 'flag'],
+                        ['route' => 'admin.reviews.index',       'label' => 'Reviews',             'icon' => 'star'],
                     ],
                     'Postings' => [
                         ['route' => 'admin.jobs.index',          'label' => 'Jobs',                'icon' => 'briefcase'],

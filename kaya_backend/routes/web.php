@@ -8,6 +8,7 @@ use App\Http\Controllers\Admin\CreditController as AdminCreditController;
 use App\Http\Controllers\Admin\DashboardController;
 use App\Http\Controllers\Admin\JobController as AdminJobController;
 use App\Http\Controllers\Admin\ReportController;
+use App\Http\Controllers\Admin\ReviewController as AdminReviewController;
 use App\Http\Controllers\Admin\AnalyticsController;
 use App\Http\Controllers\Admin\ReportExportController;
 use App\Http\Controllers\Admin\SettingsController;
@@ -100,6 +101,10 @@ Route::prefix('admin')->name('admin.')->group(function () {
         Route::post('/categories/{category}/skills', [AdminCategoryController::class, 'storeSkill'])->name('categories.skills.store');
         Route::post('/skills/{skill}', [AdminCategoryController::class, 'updateSkill'])->name('skills.update');
         Route::post('/skills/{skill}/delete', [AdminCategoryController::class, 'destroySkill'])->name('skills.destroy');
+
+        Route::get('/reviews', [AdminReviewController::class, 'index'])->name('reviews.index');
+        Route::post('/reviews/{id}/hide', [AdminReviewController::class, 'hide'])->whereNumber('id')->name('reviews.hide');
+        Route::post('/reviews/{id}/restore', [AdminReviewController::class, 'restore'])->whereNumber('id')->name('reviews.restore');
 
         Route::get('/announcements', [AnnouncementController::class, 'index'])->name('announcements.index');
         Route::post('/announcements', [AnnouncementController::class, 'send'])->name('announcements.send');
