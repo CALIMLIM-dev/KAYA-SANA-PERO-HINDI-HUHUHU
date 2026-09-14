@@ -31,6 +31,16 @@ class VersionGate {
   /// stack another one on top of it.
   static bool _showing = false;
 
+  /// The optional update the user already said no to this session. Asked
+  /// once; a required update is never remembered here.
+  static String? _declined;
+
+  @visibleForTesting
+  static void reset() {
+    _showing = false;
+    _declined = null;
+  }
+
   static Future<void> check(BuildContext context) async {
     Map<String, dynamic> data;
 
@@ -60,6 +70,16 @@ class VersionGate {
     if (!required && !available) return;
     if (_showing) return;
 
+    /*
+        Once per version, not once per foreground.
+
+        The check runs on every resume so a phone that is never closed still
+        hears about updates. But the dialog came back on every resume too,
+        and an optional update that reappears each time you switch apps is
+        a nag, not a notice. Dismissing it stands until the next version.
+    */
+    if (!required && latest == _declined) return;
+
     _showing = true;
 
     await showDialog<void>(
@@ -74,6 +94,7 @@ class VersionGate {
     );
 
     _showing = false;
+    if (!required) _declined = latest;
   }
 }
 
