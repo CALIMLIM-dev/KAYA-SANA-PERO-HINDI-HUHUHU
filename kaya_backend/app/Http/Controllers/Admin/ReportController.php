@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\AdminAction;
+use App\Models\Conversation;
 use App\Models\Report;
 use App\Services\SuspensionService;
 use App\Support\ModerationReasons;
@@ -60,9 +61,27 @@ class ReportController extends Controller
             'dismissed' => Report::where('reporter_id', $report->reporter_id)->where('status', 'dismissed')->count(),
         ];
 
+        /*
+            What the two of them actually said.
+
+            A report about messages used to show the reporter's description
+            and nothing else, so the decision rested on one side's account.
+            The last messages between the pair are shown here, and only here:
+            behind the admin session, on the page where the decision is made.
+        */
+        $conversation = Conversation::where('pair_low', min($report->reporter_id, $report->reported_id))
+            ->where('pair_high', max($report->reporter_id, $report->reported_id))
+            ->first();
+
+        $messages = $conversation
+            ? $conversation->messages()->with('sender:id,name')->latest('id')->take(40)->get()->reverse()->values()
+            : collect();
+
         return view('admin.reports.show', [
             'report'           => $report,
             'history'          => $history,
+            'conversation'     => $conversation,
+            'messages'         => $messages,
             'reporterStats'    => $reporterStats,
             'suspensionReasons' => ModerationReasons::SUSPENSION,
             'suggested'        => ModerationReasons::suggestedSuspension($report->reason_code),

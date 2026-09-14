@@ -106,6 +106,32 @@
             @endif
         </div>
 
+        {{-- ── What they said to each other ── --}}
+        <div class="bg-white rounded-xl border border-slate-200 p-6">
+            <h3 class="text-sm font-semibold text-slate-700">Messages between them</h3>
+            @if (! $conversation)
+                <p class="text-sm text-slate-400 mt-4">These two have never messaged each other on KAYA.</p>
+            @elseif ($messages->isEmpty())
+                <p class="text-sm text-slate-400 mt-4">They have a conversation but nothing was sent in it.</p>
+            @else
+                <p class="text-xs text-slate-400 mt-1">Last {{ $messages->count() }} messages. Read here only; this is not shown to either of them.</p>
+                <div class="mt-4 space-y-2 max-h-96 overflow-y-auto pr-1">
+                    @foreach ($messages as $m)
+                        @php $fromReported = $m->sender_id === $report->reported_id; @endphp
+                        <div class="flex {{ $fromReported ? 'justify-start' : 'justify-end' }}">
+                            <div class="max-w-[75%] rounded-lg px-3 py-2 text-sm {{ $fromReported ? 'bg-red-50 text-slate-800' : 'bg-slate-100 text-slate-700' }}">
+                                <p class="text-[11px] font-medium {{ $fromReported ? 'text-red-700' : 'text-slate-500' }}">
+                                    {{ $m->sender?->name ?? 'Deleted account' }}{{ $fromReported ? ' (reported)' : '' }}
+                                </p>
+                                <p class="whitespace-pre-line">{{ $m->message_text }}</p>
+                                <p class="text-[11px] text-slate-400 mt-0.5">{{ $m->created_at->format('M j, g:i A') }}</p>
+                            </div>
+                        </div>
+                    @endforeach
+                </div>
+            @endif
+        </div>
+
         {{-- ── Prior reports about the same person ── --}}
         <div class="bg-white rounded-xl border border-slate-200 p-6">
             <h3 class="text-sm font-semibold text-slate-700">History</h3>
