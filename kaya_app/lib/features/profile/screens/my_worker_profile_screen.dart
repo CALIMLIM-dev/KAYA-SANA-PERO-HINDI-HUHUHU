@@ -9,6 +9,7 @@ import '../widgets/credentials_section.dart';
 import '../widgets/experience_section.dart';
 import '../widgets/inline_edit_row.dart';
 import '../widgets/inline_location_row.dart';
+import '../../../core/widgets/hint_bubble.dart';
 import '../widgets/contact_verify_row.dart';
 import '../widgets/profile_completeness_header.dart';
 import '../widgets/profile_section_card.dart';
@@ -1435,8 +1436,17 @@ class _MyWorkerProfileScreenState extends State<MyWorkerProfileScreen> with Sing
       builder: (context, vp, _) => ListView(
         padding: const EdgeInsets.all(16),
         children: [
-          const Text('Verification',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppColors.neutral900)),
+          const Row(
+            children: [
+              Text('Verification',
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppColors.neutral900)),
+              SizedBox(width: 6),
+              HintBubble(
+                text: 'An admin checks your ID against your name. Once it is '
+                    'approved you can apply, post and top up.',
+              ),
+            ],
+          ),
           const SizedBox(height: 8),
           // What it unlocks, not what it might get you. The old line sold a
           // benefit nobody promised; this one states the rule.

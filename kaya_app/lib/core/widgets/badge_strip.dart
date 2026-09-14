@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../constants/app_colors.dart';
 import 'badge_medallion.dart';
+import 'hint_bubble.dart';
 
 /*
     The badges on a public profile.
@@ -44,9 +45,10 @@ class BadgeStrip extends StatelessWidget {
 
         if (label.isEmpty) return const SizedBox.shrink();
 
-        return Tooltip(
-          message: description,
-          triggerMode: TooltipTriggerMode.longPress,
+        // Hold a badge and it says how it was earned, in a bubble beside
+        // it. This was the stock Tooltip - a grey slab above or below.
+        return HintBubble(
+          text: description,
           child: Container(
             padding: const EdgeInsets.fromLTRB(7, 5, 11, 5),
             decoration: BoxDecoration(

@@ -5,6 +5,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/credits.dart';
 import '../../../core/widgets/app_toast.dart';
+import '../../../core/widgets/hint_bubble.dart';
 import '../../../core/widgets/verify_gate.dart';
 import '../../../providers/credits_provider.dart';
 
@@ -199,9 +200,20 @@ class _WalletScreenState extends State<WalletScreen> with WidgetsBindingObserver
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            'Your balance',
-            style: TextStyle(fontSize: 13, color: Colors.white.withValues(alpha: 0.8)),
+          Row(
+            children: [
+              Text(
+                'Your balance',
+                style: TextStyle(fontSize: 13, color: Colors.white.withValues(alpha: 0.8)),
+              ),
+              const SizedBox(width: 6),
+              HintBubble(
+                iconColor: Colors.white.withValues(alpha: 0.8),
+                text: 'Barya is KAYA credit. Applying, inviting and boosting '
+                    'each cost a few. You get some free when you sign up '
+                    'and every month after.',
+              ),
+            ],
           ),
           const SizedBox(height: 8),
           Row(
