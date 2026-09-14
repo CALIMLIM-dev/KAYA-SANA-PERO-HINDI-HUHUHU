@@ -53,7 +53,9 @@ class _HintBubbleState extends State<HintBubble> {
   Timer? _autoHide;
 
   static const double _maxWidth = 236;
+  static const double _minWidth = 120;
   static const double _gap = 8;
+  static const double _edge = 12;
 
   @override
   void dispose() {
@@ -64,16 +66,27 @@ class _HintBubbleState extends State<HintBubble> {
   void _show() {
     if (_entry != null) return;
 
-    // Which side has room. The bubble sits to the right of the icon unless
-    // that would run off the screen, in which case it sits to the left.
+    /*
+        Whichever side has more room, and no wider than that room.
+
+        It used to open on the right unless the full 236px did not fit, and
+        then on the left regardless of what was there. The wallet's ? sits
+        120px in on a 360px phone: 200px free on the right, 100px on the
+        left, so it went left and ran off the screen. Now the bubble goes
+        where there is more space and narrows to fit it.
+    */
     final box = context.findRenderObject() as RenderBox?;
     final overlay = Overlay.of(context);
     if (box == null || !box.hasSize) return;
 
     final origin = box.localToGlobal(Offset.zero);
     final screenWidth = MediaQuery.sizeOf(context).width;
-    final roomRight = screenWidth - (origin.dx + box.size.width) - 16;
-    final onRight = roomRight >= _maxWidth + _gap;
+    final roomRight = screenWidth - (origin.dx + box.size.width) - _edge;
+    final roomLeft = origin.dx - _edge;
+    final onRight = roomRight >= roomLeft;
+    final width = ((onRight ? roomRight : roomLeft) - _gap)
+        .clamp(_minWidth, _maxWidth)
+        .toDouble();
 
     _entry = OverlayEntry(
       builder: (_) => Stack(
@@ -92,7 +105,11 @@ class _HintBubbleState extends State<HintBubble> {
             targetAnchor: onRight ? Alignment.centerRight : Alignment.centerLeft,
             followerAnchor: onRight ? Alignment.centerLeft : Alignment.centerRight,
             offset: Offset(onRight ? _gap : -_gap, 0),
-            child: _Bubble(text: widget.text, tailOnLeft: onRight),
+            child: _Bubble(
+              text: widget.text,
+              tailOnLeft: onRight,
+              maxWidth: width,
+            ),
           ),
         ],
       ),
@@ -141,10 +158,15 @@ class _HintBubbleState extends State<HintBubble> {
 /// icon. Drawn rather than composed from a Container and a rotated square,
 /// so the tail's border joins the card's border in one line.
 class _Bubble extends StatelessWidget {
-  const _Bubble({required this.text, required this.tailOnLeft});
+  const _Bubble({
+    required this.text,
+    required this.tailOnLeft,
+    required this.maxWidth,
+  });
 
   final String text;
   final bool tailOnLeft;
+  final double maxWidth;
 
   static const double _tail = 8;
 
@@ -155,8 +177,7 @@ class _Bubble extends StatelessWidget {
       child: CustomPaint(
         painter: _BubblePainter(tailOnLeft: tailOnLeft, tail: _tail),
         child: Container(
-          constraints:
-              const BoxConstraints(maxWidth: _HintBubbleState._maxWidth),
+          constraints: BoxConstraints(maxWidth: maxWidth),
           padding: EdgeInsets.fromLTRB(
             tailOnLeft ? 12 + _tail : 12,
             9,

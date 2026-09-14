@@ -74,6 +74,42 @@ void main() {
     expect(bubble.right, lessThan(icon.left));
   });
 
+  /*
+      The wallet's ? on a 360px phone: 120px in from the left, with the long
+      Barya hint. Neither side has the full width. It used to open on the
+      left and vanish off the edge.
+  */
+  testWidgets('with room on neither side it stays on screen', (tester) async {
+    tester.view.physicalSize = const Size(360, 640);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    await tester.pumpWidget(MaterialApp(
+      home: Scaffold(
+        body: Row(children: const [
+          SizedBox(width: 120),
+          HintBubble(
+            text: 'KAYA credit. Applying, inviting and boosting cost a few.',
+          ),
+          Spacer(),
+        ]),
+      ),
+    ));
+
+    await tester.longPress(find.byIcon(Icons.help_outline));
+    await tester.pump();
+
+    final bubble = tester.getRect(
+      find.text('KAYA credit. Applying, inviting and boosting cost a few.'),
+    );
+    expect(bubble.left, greaterThanOrEqualTo(0));
+    expect(bubble.right, lessThanOrEqualTo(360));
+    // It went to the roomier side.
+    final icon = tester.getRect(find.byIcon(Icons.help_outline));
+    expect(bubble.left, greaterThan(icon.right));
+  });
+
   testWidgets('it takes no layout space', (tester) async {
     await tester.pumpWidget(host(const HintBubble(text: 'Floating')));
 
