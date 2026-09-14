@@ -403,7 +403,7 @@ class _MyInvitationsScreenState extends State<MyInvitationsScreen>
       builder: (_) => AlertDialog(
         title: const Text('Accept Invitation?'),
         content: Text(
-            'Accept the invitation for "$jobTitle"? You\'ll be able to message the employer after accepting.'),
+            'You can message the employer after.'),
         actions: [
           TextButton(
               onPressed: () => Navigator.pop(context),

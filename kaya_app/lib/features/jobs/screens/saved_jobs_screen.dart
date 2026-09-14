@@ -186,8 +186,7 @@ class _SavedJobsScreenState extends State<SavedJobsScreen>
       builder: (dialogContext) => AlertDialog(
         title: const Text('Clear all saved jobs'),
         content: Text(
-          'Remove all $count saved ${count == 1 ? 'job' : 'jobs'}? '
-          'You can save them again from the job listing.',
+          'Remove all $count saved ${count == 1 ? 'job' : 'jobs'}?',
         ),
         actions: [
           TextButton(

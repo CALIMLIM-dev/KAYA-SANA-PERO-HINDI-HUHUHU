@@ -238,7 +238,7 @@ class _SetupEmployerProfileScreenState extends State<SetupEmployerProfileScreen>
         builder: (context) => AlertDialog(
           title: const Text('Discard Profile Setup?'),
           content: const Text(
-            'Your profile is not complete. If you leave now, all progress will be discarded.',
+            'Your progress will be lost.',
           ),
           actions: [
             TextButton(
@@ -503,7 +503,7 @@ class _SetupEmployerProfileScreenState extends State<SetupEmployerProfileScreen>
           builder: (context) => AlertDialog(
             title: const Text('Discard Profile Setup?'),
             content: const Text(
-              'Your profile is not complete. If you leave now, all progress will be discarded.',
+              'Your progress will be lost.',
             ),
             actions: [
               TextButton(

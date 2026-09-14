@@ -84,7 +84,7 @@ class _AddCertificationsScreenState extends State<AddCertificationsScreen> {
       context: context,
       builder: (_) => AlertDialog(
         title: const Text('Delete Certification'),
-        content: const Text('Are you sure you want to delete this certification?'),
+        content: const Text('It comes off your profile.'),
         actions: [
           TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
           TextButton(

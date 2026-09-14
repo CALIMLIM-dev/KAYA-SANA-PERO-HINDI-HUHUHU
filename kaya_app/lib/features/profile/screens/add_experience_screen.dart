@@ -117,7 +117,7 @@ class _AddExperienceScreenState extends State<AddExperienceScreen> {
       context: context,
       builder: (_) => AlertDialog(
         title: const Text('Delete Experience'),
-        content: const Text('Are you sure?'),
+        content: const Text('It comes off your profile.'),
         actions: [
           TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
           TextButton(

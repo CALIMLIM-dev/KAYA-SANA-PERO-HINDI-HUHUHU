@@ -851,9 +851,7 @@ class _MyWorkerProfileScreenState extends State<MyWorkerProfileScreen> with Sing
       builder: (dialogContext) => AlertDialog(
         title: const Text('Update your location?'),
         content: Text(
-          'That pin is in ${resolved.displayName}.\n\n'
-          'Update your profile location to match, so jobs show the right '
-          'distance to you?',
+          'Your pin is in ${resolved.displayName}. Match your profile to it?',
         ),
         actions: [
           TextButton(
@@ -935,11 +933,9 @@ class _MyWorkerProfileScreenState extends State<MyWorkerProfileScreen> with Sing
     final go = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Boost your profile'),
+        title: const Text('Boost your profile?'),
         content: Text(
-          'This charges ${JobBoost.cost} ${Credits.plural} and puts you at the '
-          'top of the worker list for ${JobBoost.days} days. It is not '
-          'refundable once it starts.',
+          'Top of the worker list for ${JobBoost.days} days. No refund once it starts.',
         ),
         actions: [
           TextButton(
@@ -952,7 +948,7 @@ class _MyWorkerProfileScreenState extends State<MyWorkerProfileScreen> with Sing
               foregroundColor: Colors.white,
             ),
             onPressed: () => Navigator.pop(context, true),
-            child: const Text('Boost'),
+            child: Text('Boost for ${JobBoost.cost} ${Credits.plural}'),
           ),
         ],
       ),

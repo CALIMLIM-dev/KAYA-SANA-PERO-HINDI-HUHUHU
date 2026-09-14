@@ -98,25 +98,8 @@ class _JobTrackingPanelState extends State<JobTrackingPanel> {
           context: context,
           builder: (context) => AlertDialog(
             title: const Text('Share your location?'),
-            content: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  '${widget.otherPartyName} will be able to see where you are '
-                  'while this job is in progress.',
-                  style: const TextStyle(fontSize: 14, height: 1.5),
-                ),
-                const SizedBox(height: 12),
-                const Text(
-                  '• Only for this job — nobody else can see it\n'
-                  '• You can stop any time, and your location history is '
-                  'deleted when you do\n'
-                  '• Sharing ends automatically when the job finishes',
-                  style: TextStyle(
-                      fontSize: 13.5, height: 1.6, color: AppColors.neutral600),
-                ),
-              ],
+            content: Text(
+              '${widget.otherPartyName} can see where you are until this job ends.',
             ),
             actions: [
               TextButton(

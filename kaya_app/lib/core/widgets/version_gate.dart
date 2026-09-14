@@ -154,10 +154,8 @@ class _UpdateDialogState extends State<_UpdateDialog> {
           children: [
             Text(
               widget.required
-                  ? 'This version of KAYA is too old to keep working. '
-                      'Installing the update takes a few seconds.'
-                  : 'Version ${widget.latest} is out. You can keep using this '
-                      'one, but the newer build has the latest fixes.',
+                  ? 'This version is too old to keep working.'
+                  : 'Version ${widget.latest} is out.',
             ),
             if (_busy) ...[
               const SizedBox(height: 16),

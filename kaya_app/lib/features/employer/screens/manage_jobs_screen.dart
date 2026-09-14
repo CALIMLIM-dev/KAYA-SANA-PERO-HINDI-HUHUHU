@@ -828,8 +828,7 @@ class _ManageJobsScreenState extends State<ManageJobsScreen>
         // Says what actually happens. Completion is two-sided now: this records
         // the employer's half and the worker still has to confirm.
         content: Text(
-          'Mark "$title" as complete? The worker has to confirm as well before '
-          'the job counts as finished and either of you can leave a review.',
+          'The worker has to confirm as well.',
         ),
         actions: [
           TextButton(

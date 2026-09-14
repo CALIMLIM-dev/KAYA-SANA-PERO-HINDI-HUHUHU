@@ -124,7 +124,7 @@ class _OnboardingVerificationScreenState extends State<OnboardingVerificationScr
         builder: (context) => AlertDialog(
           title: const Text('Discard Verification?'),
           content: const Text(
-            'Your verification photos will be discarded. You can verify your identity later from your profile.',
+            'Your photos will be lost. You can verify later.',
           ),
           actions: [
             TextButton(

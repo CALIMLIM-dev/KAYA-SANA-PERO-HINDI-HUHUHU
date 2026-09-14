@@ -784,7 +784,7 @@ class _ViewApplicantsScreenState extends State<ViewApplicantsScreen>
       builder: (_) => AlertDialog(
         title: Text(accept ? 'Accept Applicant?' : 'Reject Applicant?'),
         content: Text(accept
-            ? 'Accept $name? Messaging will be unlocked between you.'
+            ? 'Accept $name? You can message each other after.'
             : 'Reject $name?'),
         actions: [
           TextButton(

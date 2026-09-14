@@ -90,7 +90,7 @@ class _AddLicensesScreenState extends State<AddLicensesScreen> {
       context: context,
       builder: (_) => AlertDialog(
         title: const Text('Delete License'),
-        content: const Text('Are you sure?'),
+        content: const Text('It comes off your profile.'),
         actions: [
           TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
           TextButton(

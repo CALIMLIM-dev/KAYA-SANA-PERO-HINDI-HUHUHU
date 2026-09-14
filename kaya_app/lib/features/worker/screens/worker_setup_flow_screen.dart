@@ -391,7 +391,7 @@ class _WorkerSetupFlowScreenState extends State<WorkerSetupFlowScreen> {
           builder: (context) => AlertDialog(
             title: const Text('Discard Profile Setup?'),
             content: const Text(
-              'Your profile is not complete. If you leave now, all progress will be discarded.',
+              'Your progress will be lost.',
             ),
             actions: [
               TextButton(
@@ -431,7 +431,7 @@ class _WorkerSetupFlowScreenState extends State<WorkerSetupFlowScreen> {
                     builder: (context) => AlertDialog(
                       title: const Text('Discard Profile Setup?'),
                       content: const Text(
-                        'Your profile is not complete. If you leave now, all progress will be discarded.',
+                        'Your progress will be lost.',
                       ),
                       actions: [
                         TextButton(
@@ -737,8 +737,7 @@ class _WorkerSetupFlowScreenState extends State<WorkerSetupFlowScreen> {
             title: const Text('Pin is somewhere else'),
             content: Text(
               'Your pin is in ${resolved.displayName}, not '
-              '${_selectedLocation?.displayName ?? 'the location you chose'}.\n\n'
-              'Use the pinned location instead?',
+              '${_selectedLocation?.displayName ?? 'the location you chose'}.',
             ),
             actions: [
               TextButton(

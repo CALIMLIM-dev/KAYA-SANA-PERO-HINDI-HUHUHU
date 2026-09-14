@@ -666,7 +666,7 @@ class _ApplicantReviewScreenState extends State<ApplicantReviewScreen> {
       builder: (_) => AlertDialog(
         title: const Text('Accept Applicant?'),
         content: Text(
-            'Accept ${applicant['name']}? Messaging will be unlocked between you.'),
+            'Accept ${applicant['name']}? You can message each other after.'),
         actions: [
           TextButton(
               onPressed: () => Navigator.pop(context),
@@ -692,7 +692,7 @@ class _ApplicantReviewScreenState extends State<ApplicantReviewScreen> {
       context: context,
       builder: (_) => AlertDialog(
         title: const Text('Reject Applicant?'),
-        content: const Text('This applicant will be notified of your decision.'),
+        content: const Text('They will be notified.'),
         actions: [
           TextButton(
               onPressed: () => Navigator.pop(context),

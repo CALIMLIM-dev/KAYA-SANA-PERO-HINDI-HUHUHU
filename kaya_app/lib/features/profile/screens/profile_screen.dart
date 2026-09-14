@@ -342,8 +342,7 @@ class ProfileScreen extends StatelessWidget {
     showDialog(
       context: context,
       builder: (_) => AlertDialog(
-        title: const Text('Logout'),
-        content: const Text('Are you sure you want to logout?'),
+        title: const Text('Sign out?'),
         actions: [
           TextButton(
               onPressed: () => Navigator.pop(context),

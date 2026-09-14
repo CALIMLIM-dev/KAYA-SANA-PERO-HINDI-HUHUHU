@@ -27,8 +27,7 @@ Future<void> confirmCompletion(
     builder: (dialogContext) => AlertDialog(
       title: const Text('Mark this job complete?'),
       content: Text(
-        'The $otherParty has to confirm as well before the job counts as '
-        'finished and either of you can leave a review.',
+        'The $otherParty has to confirm as well.',
       ),
       actions: [
         TextButton(

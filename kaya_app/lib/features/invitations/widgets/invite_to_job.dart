@@ -71,8 +71,7 @@ Future<void> showInviteToJobSheet(
       builder: (dialogContext) => AlertDialog(
         title: const Text('No open jobs'),
         content: Text(
-          'You need an open job to invite $workerName to. '
-          'Post one and you can invite them from the job.',
+          'Post a job first, then invite $workerName from it.',
         ),
         actions: [
           TextButton(

@@ -571,7 +571,7 @@ class _PostJobScreenState extends State<PostJobScreen> {
           builder: (context) => AlertDialog(
             title: const Text('Discard This Job Post?'),
             content: const Text(
-              'You have unsaved changes. If you leave now, everything you\'ve entered will be discarded.',
+              'Everything you entered will be lost.',
             ),
             actions: [
               TextButton(
@@ -1475,8 +1475,7 @@ class _PostJobScreenState extends State<PostJobScreen> {
             title: const Text('Pin is somewhere else'),
             content: Text(
               'Your pin is in ${resolved.displayName}, not '
-              '${_selectedLocation?.displayName ?? 'the selected location'}.\n\n'
-              'Use the pinned location instead?',
+              '${_selectedLocation?.displayName ?? 'the selected location'}.',
             ),
             actions: [
               TextButton(

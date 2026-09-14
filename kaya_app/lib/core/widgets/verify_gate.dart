@@ -80,8 +80,7 @@ Future<bool> ensureVerified(
         builder: (dialogContext) => AlertDialog(
           title: const Text('Still under review'),
           content: Text(
-            'Your documents are with us. You can $action as soon as they '
-            'are approved, and we will let you know.',
+            'You can $action once your documents are approved.',
           ),
           actions: [
             TextButton(
@@ -100,8 +99,7 @@ Future<bool> ensureVerified(
     builder: (dialogContext) => AlertDialog(
       title: const Text('Verify your account'),
       content: Text(
-        'You need a verified account to $action. '
-        'Upload a government ID and we will review it.',
+        'Upload a government ID to $action.',
       ),
       actions: [
         TextButton(

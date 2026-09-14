@@ -1715,7 +1715,7 @@ class _InvitationCardState extends State<_InvitationCard> {
       builder: (_) => AlertDialog(
         title: const Text('Accept Invitation?'),
         content: Text(
-            'Accept the invitation for "$_jobTitle"? You\'ll be able to message the employer after accepting.'),
+            'You can message the employer after.'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
