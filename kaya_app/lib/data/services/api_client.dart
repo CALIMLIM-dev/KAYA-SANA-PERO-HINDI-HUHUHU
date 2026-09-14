@@ -276,6 +276,19 @@ class ApiClient {
     }
   }
 
+  /// A file, not JSON. Same client, same token, same error handling - the
+  /// only difference is the body comes back as bytes.
+  Future<Response<List<int>>> getBytes(String path) async {
+    try {
+      return await _dio.get<List<int>>(
+        path,
+        options: Options(responseType: ResponseType.bytes),
+      );
+    } on DioException catch (e) {
+      throw _handleError(e);
+    }
+  }
+
   Future<Response> post(String path, {dynamic data}) async {
     try {
       return await _dio.post(path, data: data);

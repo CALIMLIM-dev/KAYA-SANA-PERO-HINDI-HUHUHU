@@ -32,7 +32,6 @@ class AppRoutes {
   static const String editJob = '/edit-job';
   static const String manageJobs = '/manage-jobs';
   static const String viewApplicants = '/view-applicants';
-  static const String applicantReview = '/applicant-review';
   
   // Messaging
   static const String chat = '/chat';

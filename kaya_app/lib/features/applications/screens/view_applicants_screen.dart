@@ -6,6 +6,7 @@ import '../../../core/constants/app_colors.dart';
 import '../../../core/utils/json_parse.dart';
 import '../../../providers/application_provider.dart';
 import '../../../providers/job_provider.dart';
+import '../../../core/services/resume_opener.dart';
 import '../../../core/widgets/app_toast.dart';
 import '../widgets/completion_action.dart';
 
@@ -294,6 +295,7 @@ class _ViewApplicantsScreenState extends State<ViewApplicantsScreen>
     // Dual review, employer's side — mirrors the worker's on the applications
     // screen. Both halves come down with the applicant list, so showing this
     // costs no extra request.
+    final hasResume = applicant['has_resume'] == true;
     final iReviewedThem = applicant['i_reviewed_them'] == true;
     final theyReviewedMe = applicant['they_reviewed_me'] == true;
 
@@ -498,6 +500,36 @@ class _ViewApplicantsScreenState extends State<ViewApplicantsScreen>
                       ),
                     ),
                   ],
+                ),
+              ),
+            ],
+            /*
+                The resume, where the decision is made.
+
+                A worker uploads one and, until this, no screen ever showed it
+                to an employer - the endpoint existed and nothing called it.
+                Offered while the application is live, which is also exactly
+                when the server allows it; afterwards the button goes with
+                the access.
+            */
+            if (hasResume && workerId != null &&
+                const {'pending', 'accepted'}.contains(status)) ...[
+              const SizedBox(height: 6),
+              SizedBox(
+                width: double.infinity,
+                child: OutlinedButton.icon(
+                  onPressed: () => _openResume(workerId),
+                  icon: const Icon(Icons.description_outlined, size: 16),
+                  label: const Text('View resume'),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: AppColors.primary,
+                    side: const BorderSide(color: AppColors.primary),
+                    padding: const EdgeInsets.symmetric(vertical: 10),
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8)),
+                    textStyle: const TextStyle(
+                        fontSize: 13.5, fontWeight: FontWeight.w600),
+                  ),
                 ),
               ),
             ],
@@ -776,6 +808,13 @@ class _ViewApplicantsScreenState extends State<ViewApplicantsScreen>
           style: TextStyle(
               fontSize: 11, fontWeight: FontWeight.w600, color: color)),
     );
+  }
+
+  Future<void> _openResume(int workerId) async {
+    AppToast.info(context, 'Opening resume');
+    final failure = await ResumeOpener.open(workerId);
+    if (!mounted || failure == null) return;
+    AppToast.error(context, failure);
   }
 
   void _confirmRespond(int applicationId, String name, {required bool accept}) {

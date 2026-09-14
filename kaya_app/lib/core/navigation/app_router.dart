@@ -59,7 +59,6 @@ import '../../features/employer/screens/add_employer_about_screen.dart';
 import '../../features/employer/screens/manage_jobs_screen.dart';
 import '../../features/employer/screens/employer_profile_screen.dart';
 import '../../features/applications/screens/view_applicants_screen.dart';
-import '../../features/applications/screens/applicant_review_screen.dart';
 import '../../features/reviews/screens/leave_review_screen.dart';
 import '../../features/invitations/screens/past_workers_screen.dart';
 import '../../features/profile/screens/verification_screen.dart';
@@ -308,11 +307,6 @@ class AppRouter {
           settings: settings,
         );
       
-      case '/applicant-review':
-        return MaterialPageRoute(
-          builder: (_) => const ApplicantReviewScreen(),
-          settings: settings,
-        );
 
       case '/leave-review':
         return MaterialPageRoute(

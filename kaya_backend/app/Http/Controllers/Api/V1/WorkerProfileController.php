@@ -1288,31 +1288,15 @@ class WorkerProfileController extends Controller
      * precision stops being useful anyway: "3 km" and "3.4 km" mean the same
      * thing to someone deciding whether to hire.
      */
+    // Both live in App\Support\DistanceBand now, shared with the job feed.
     private function bucketDistance(?float $km): ?float
     {
-        if ($km === null) return null;
-
-        if ($km < 1)  return 1;
-        if ($km < 5)  return 5;
-        if ($km < 15) return 15;
-        if ($km < 30) return 30;
-        if ($km < 50) return 50;
-
-        return 100;
+        return \App\Support\DistanceBand::bucket($km);
     }
 
-    /** The band in words, so the app does not have to invent the phrasing. */
     private function distanceLabel(?float $km): ?string
     {
-        if ($km === null) return null;
-
-        if ($km < 1)  return 'Under 1 km away';
-        if ($km < 5)  return 'Under 5 km away';
-        if ($km < 15) return '5–15 km away';
-        if ($km < 30) return '15–30 km away';
-        if ($km < 50) return '30–50 km away';
-
-        return 'Over 50 km away';
+        return \App\Support\DistanceBand::label($km);
     }
 
     private function workerDistance(WorkerProfile $p, ?float $lat, ?float $lng): ?float
@@ -1665,11 +1649,18 @@ class WorkerProfileController extends Controller
      *
      * The access rule is the feature here. A resume is released to:
      *
-     *   • the worker themselves, and
-     *   • an employer the worker has actually applied to.
+     *   - the worker themselves, and
+     *   - an employer with a live application from this worker: pending or
+     *     accepted, on a job that is still open or in progress.
      *
-     * Applying is the consent. Browsing the worker directory is not — otherwise
-     * any account that can reach /workers could harvest home addresses and
+     * Applying is the consent, and the consent ends with the application.
+     * The rule used to be "has ever applied", with no status and no expiry,
+     * so an employer kept the file after rejecting the person, after the
+     * worker withdrew, and years after the job closed - and a one-peso post
+     * that drew one applicant was a way to collect a resume for keeps.
+     *
+     * Browsing the worker directory is not consent either. Otherwise any
+     * account that can reach /workers could harvest home addresses and
      * phone numbers in bulk, which is exactly the abuse RA 10173 exists to
      * prevent.
      */
@@ -1689,13 +1680,16 @@ class WorkerProfileController extends Controller
         $isOwner = $viewer->id === $user->id;
 
         $hasApplicationToViewer = \App\Models\Application::where('worker_id', $user->id)
-            ->whereHas('job', fn ($q) => $q->where('employer_id', $viewer->id))
+            ->whereIn('status', ['pending', 'accepted'])
+            ->whereHas('job', fn ($q) => $q
+                ->where('employer_id', $viewer->id)
+                ->whereIn('status', ['open', 'in_progress']))
             ->exists();
 
         if (!$isOwner && !$hasApplicationToViewer) {
             return response()->json([
                 'success' => false,
-                'message' => 'You can view this resume once this worker applies to one of your jobs',
+                'message' => 'You can view this resume while this worker has an application open with you',
                 'data'    => null,
             ], 403);
         }

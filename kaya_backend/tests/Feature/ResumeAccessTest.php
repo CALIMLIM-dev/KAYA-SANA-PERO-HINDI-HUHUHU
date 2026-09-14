@@ -19,8 +19,10 @@ use Tests\TestCase;
  * wrong isn't a bug — it's a bulk personal-data leak, and under RA 10173 that
  * is exactly the harm the law exists to prevent.
  *
- * The rule: the worker themselves, and employers the worker has *applied to*.
- * Applying is the consent. Browsing the worker directory is not.
+ * The rule: the worker themselves, and an employer with a *live* application
+ * from the worker — pending or accepted, on a job still open or in progress.
+ * Applying is the consent, and the consent ends with the application.
+ * Browsing the worker directory is not consent.
  */
 class ResumeAccessTest extends TestCase
 {
@@ -140,6 +142,85 @@ class ResumeAccessTest extends TestCase
         ]);
 
         $this->actingAs($stranger, 'sanctum')
+            ->get("/api/v1/workers/{$worker->id}/resume")
+            ->assertForbidden();
+    }
+
+    // ── the consent ends with the application ───────────────────────────────
+
+    /** An employer and one application from the worker, in the state given. */
+    private function employerWith(string $applicationStatus, string $jobStatus = 'open'): array
+    {
+        [$worker] = $this->workerWithResume();
+        $employer = User::factory()->create();
+
+        $job = JobPost::create([
+            'employer_id' => $employer->id,
+            'title'       => 'Rewire the shop lights',
+            'description' => 'x',
+            'budget_min'  => 1500,
+            'status'      => $jobStatus,
+        ]);
+
+        Application::create([
+            'job_id'    => $job->id,
+            'worker_id' => $worker->id,
+            'status'    => $applicationStatus,
+        ]);
+
+        return [$worker, $employer];
+    }
+
+    /** @test */
+    public function the_hired_employer_keeps_it_while_the_job_runs()
+    {
+        [$worker, $employer] = $this->employerWith('accepted', 'in_progress');
+
+        $this->actingAs($employer, 'sanctum')
+            ->get("/api/v1/workers/{$worker->id}/resume")
+            ->assertOk();
+    }
+
+    /** @test */
+    public function rejecting_the_worker_ends_access()
+    {
+        // The rule used to be "has ever applied". An employer who turned the
+        // person down kept the file, which is the file without the reason.
+        [$worker, $employer] = $this->employerWith('rejected');
+
+        $this->actingAs($employer, 'sanctum')
+            ->get("/api/v1/workers/{$worker->id}/resume")
+            ->assertForbidden();
+    }
+
+    /** @test */
+    public function withdrawing_ends_access()
+    {
+        [$worker, $employer] = $this->employerWith('withdrawn');
+
+        $this->actingAs($employer, 'sanctum')
+            ->get("/api/v1/workers/{$worker->id}/resume")
+            ->assertForbidden();
+    }
+
+    /** @test */
+    public function a_finished_job_ends_access()
+    {
+        [$worker, $employer] = $this->employerWith('completed', 'completed');
+
+        $this->actingAs($employer, 'sanctum')
+            ->get("/api/v1/workers/{$worker->id}/resume")
+            ->assertForbidden();
+    }
+
+    /** @test */
+    public function a_closed_post_ends_access_even_for_a_pending_applicant()
+    {
+        // A one-peso post that drew one applicant, then closed, was a way to
+        // collect a resume for keeps.
+        [$worker, $employer] = $this->employerWith('pending', 'closed');
+
+        $this->actingAs($employer, 'sanctum')
             ->get("/api/v1/workers/{$worker->id}/resume")
             ->assertForbidden();
     }
