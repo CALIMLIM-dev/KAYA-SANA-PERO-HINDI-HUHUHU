@@ -368,42 +368,32 @@ class _PostJobScreenState extends State<PostJobScreen> {
       // Show popup when enabling urgent
       showDialog(
         context: context,
-        builder: (context) => AlertDialog(
-          title: Row(
-            children: [
-              Icon(Icons.flash_on, color: AppColors.accent),
-              const SizedBox(width: 8),
-              const Text('Boost this post?'),
-            ],
-          ),
-          /*
-              This sentence used to be false.
+        /*
+            The same plain dialog as every other confirmation in this file.
 
-              The flag it set appeared in no ordering anywhere — jobs were
-              listed by recency and nothing else — so an employer ticked a
-              box, was told their post would reach the top, and nothing
-              happened. Placement is a real, paid thing now, and the price
-              is shown before the box is ticked rather than after.
-          */
+            This had an icon crammed into the title row and three clauses of
+            body text, and read as a different kind of thing from the Discard
+            dialog beside it. The price was also in two places. One sentence,
+            and the cost on the button where it is decided.
+
+            The sentence used to be false: the flag it set appeared in no
+            ordering anywhere. Placement is a real, paid thing now.
+        */
+        builder: (context) => AlertDialog(
+          title: const Text('Boost this post?'),
           content: Text(
-            'Your post goes to the top of the feed for '
-            '${JobBoost.days} days. Costs ${JobBoost.cost} Barya, charged '
-            'once the job is posted.',
-            style: const TextStyle(fontSize: 15),
+            'It stays at the top of the feed for ${JobBoost.days} days.',
           ),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context),
               child: const Text('Cancel'),
             ),
-            ElevatedButton(
+            TextButton(
               onPressed: () {
                 Navigator.pop(context);
                 setState(() => _isUrgent = true);
               },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.accent,
-              ),
               child: Text('Boost for ${JobBoost.cost} Barya'),
             ),
           ],

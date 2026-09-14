@@ -173,11 +173,10 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
                   ),
                   child: const Text('Try again'),
                 ),
-                TextButton(
-                  onPressed: () => Navigator.pushReplacementNamed(context, '/login'),
-                  child: Text('Sign in with a different account',
-                      style: TextStyle(fontSize: 12, color: AppColors.neutral500)),
-                ),
+                // No way to the login screen from here. Signing in needs the
+                // same server this screen just failed to reach, and a link
+                // that sends you there reads as being signed out - which the
+                // line above has just said you are not.
               ],
             ),
           ),
