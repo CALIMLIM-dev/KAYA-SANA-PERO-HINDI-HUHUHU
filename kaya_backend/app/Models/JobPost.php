@@ -57,6 +57,48 @@ class JobPost extends Model
         return $this->status === self::STATUS_OPEN && ! $this->hasExpired();
     }
 
+    /** The exact place. Released to a party to the work, nobody else. */
+    public const PRECISE_LOCATION = ['address_line', 'latitude', 'longitude'];
+
+    /*
+        Who may see exactly where this job is.
+
+        The employer, and a worker they have hired. Everyone else gets the
+        barangay and a distance band - the same rule a worker's own pin
+        follows. An open post used to send its address line and coordinates
+        to every signed-in account that opened the feed, which is an
+        employer's home address on a public listing.
+
+        An applicant is not yet a party: they have not been hired, and a
+        one-peso application would otherwise be the price of the address.
+        Acceptance is when they need to travel there, and when they get it.
+    */
+    public function isPartyTo(?User $viewer): bool
+    {
+        if ($viewer === null) {
+            return false;
+        }
+
+        if ($this->employer_id === $viewer->id) {
+            return true;
+        }
+
+        return $this->applications()
+            ->where('worker_id', $viewer->id)
+            ->whereIn('status', ['accepted', 'completed'])
+            ->exists();
+    }
+
+    /** Hides the exact place unless the viewer is a party. Returns $this. */
+    public function forViewer(?User $viewer): static
+    {
+        if (! $this->isPartyTo($viewer)) {
+            $this->makeHidden(self::PRECISE_LOCATION);
+        }
+
+        return $this;
+    }
+
     /*
         Open posts that are still inside their date, for the feed.
 

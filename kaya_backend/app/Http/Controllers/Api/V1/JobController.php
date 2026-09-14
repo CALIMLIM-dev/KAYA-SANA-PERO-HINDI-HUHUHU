@@ -9,6 +9,7 @@ use App\Models\Application;
 use App\Models\JobPost;
 use App\Services\NotificationService;
 use App\Services\RealtimeBroadcaster;
+use App\Support\DistanceBand;
 use Illuminate\Http\Request;
 
 class JobController extends Controller
@@ -156,17 +157,31 @@ class JobController extends Controller
             $job->match_score = $match['score'];
             $job->matched_skills = $match['matched_skills'];
             $job->match_reasons = $match['reasons'];
-            // Rounded here so every surface shows the same figure rather
-            // than each client picking its own precision.
-            $job->distance_km = $match['distance_km'] === null
-                ? null
-                : round($match['distance_km'], 1);
+            // Exact here, because the radius filter and the nearest sort
+            // below need it. Coarsened by $redact before anything is sent.
+            $job->distance_km = $match['distance_km'];
+            return $job;
+        };
+
+        /*
+            What leaves the server, per job.
+
+            The feed is open posts, and nobody browsing one is a party to it
+            - own posts are excluded above and a hired worker's job is no
+            longer open - so the exact place is hidden on every row, and the
+            distance goes out as a band. See JobPost::forViewer.
+        */
+        $redact = function (JobPost $job) {
+            $job->makeHidden(JobPost::PRECISE_LOCATION);
+            if ($job->distance_km !== null) {
+                $job->distance_km = DistanceBand::bucket((float) $job->distance_km);
+            }
             return $job;
         };
 
         if (!$needsDistancePass) {
             $jobs = $query->orderByDesc('is_boosted')->latest()->paginate(20);
-            $jobs->getCollection()->transform($decorate);
+            $jobs->getCollection()->transform($decorate)->transform($redact);
             return $this->ok($jobs);
         }
 
@@ -196,7 +211,7 @@ class JobController extends Controller
             }
 
             $jobs = $query->orderByDesc('is_boosted')->latest()->paginate(20);
-            $jobs->getCollection()->transform($decorate);
+            $jobs->getCollection()->transform($decorate)->transform($redact);
             return $this->ok($jobs);
         }
 
@@ -231,7 +246,7 @@ class JobController extends Controller
         $page = max(1, (int) $request->input('page', 1));
 
         return $this->ok([
-            'data'         => $scored->forPage($page, $perPage)->values(),
+            'data'         => $scored->forPage($page, $perPage)->values()->map($redact),
             'current_page' => $page,
             'per_page'     => $perPage,
             'total'        => $scored->count(),
@@ -697,7 +712,8 @@ class JobController extends Controller
         $job->is_saved = $user->savedJobs()->where('job_id', $job->id)->exists();
         $job->is_own_job = $job->employer_id === $user->id;
 
-        return $this->ok($job);
+        // The exact place only for the employer and a worker they hired.
+        return $this->ok($job->forViewer($user));
     }
 
     public function update(Request $request, JobPost $job)
