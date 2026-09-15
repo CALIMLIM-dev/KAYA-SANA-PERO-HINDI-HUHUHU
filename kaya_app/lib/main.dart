@@ -15,6 +15,7 @@ import 'providers/application_provider.dart';
 import 'providers/invitation_provider.dart';
 import 'providers/messaging_provider.dart';
 import 'providers/schedule_provider.dart';
+import 'providers/community_provider.dart';
 import 'providers/job_tracking_provider.dart';
 import 'providers/review_provider.dart';
 import 'providers/location_provider.dart';
@@ -149,6 +150,7 @@ class KayaApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => InvitationProvider()),
         ChangeNotifierProvider(create: (_) => MessagingProvider()),
         ChangeNotifierProvider(create: (_) => ScheduleProvider()),
+        ChangeNotifierProvider(create: (_) => CommunityProvider()),
         ChangeNotifierProvider(create: (_) => JobTrackingProvider()),
         ChangeNotifierProvider(create: (_) => VerificationProvider()),
         ChangeNotifierProvider(create: (_) => ReviewProvider()),
