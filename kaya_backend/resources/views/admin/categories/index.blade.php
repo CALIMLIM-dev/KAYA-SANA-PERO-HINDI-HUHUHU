@@ -2,21 +2,15 @@
 @section('page-title', 'Categories & Skills')
 
 @section('content')
-<div class="flex items-start gap-4 mb-6">
+<div class="mb-6 max-w-xl">
     <div class="bg-white rounded-xl border border-slate-200 p-5 flex-1">
         <h3 class="text-sm font-semibold text-slate-700 mb-1">Add a category</h3>
-        <p class="text-xs text-slate-500 mb-3">Shows in every picker right away. Add skills under it below.</p>
         <form method="POST" action="{{ route('admin.categories.store') }}" class="flex gap-2">
             @csrf
             <input type="text" name="name" required maxlength="60" placeholder="Category name"
                    class="flex-1 px-3 py-2 border border-slate-300 rounded-lg text-sm">
             <button class="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium">Add</button>
         </form>
-    </div>
-    <div class="bg-white rounded-xl border border-slate-200 p-5 w-80 text-sm text-slate-500">
-        <p>{{ $categories->count() }} categories, {{ $categories->where('is_active', true)->count() }} on.</p>
-        <p class="mt-1">{{ $categories->where('is_custom', true)->count() }} were added by users.</p>
-        <p class="mt-1 text-xs">Switching a category off hides it from pickers. Jobs and profiles already under it keep it.</p>
     </div>
 </div>
 

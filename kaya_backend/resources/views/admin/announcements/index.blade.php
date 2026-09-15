@@ -5,7 +5,6 @@
 <div class="grid grid-cols-3 gap-6">
     <div class="col-span-2 bg-white rounded-xl border border-slate-200 p-6">
         <h3 class="text-sm font-semibold text-slate-700 mb-1">Send an announcement</h3>
-        <p class="text-xs text-slate-500 mb-4">Arrives as a notification in the app. Suspended accounts are skipped. There is no undo, so read it twice.</p>
 
         @if ($errors->any())
             <div class="mb-4 px-4 py-3 rounded-lg bg-red-50 text-red-700 text-sm border border-red-200">{{ $errors->first() }}</div>

@@ -26,6 +26,16 @@
 
             <p class="text-sm text-slate-700 mt-4 whitespace-pre-line">{{ $job->description }}</p>
 
+            @if ($job->photo_urls)
+                <div class="grid grid-cols-4 gap-2 mt-4">
+                    @foreach ($job->photo_urls as $url)
+                        <a href="{{ $url }}" target="_blank" rel="noopener" class="block aspect-square rounded-lg overflow-hidden border border-slate-200 bg-slate-50">
+                            <img src="{{ $url }}" class="w-full h-full object-cover" alt="Job photo">
+                        </a>
+                    @endforeach
+                </div>
+            @endif
+
             @if ($job->skills->isNotEmpty())
                 <div class="flex flex-wrap gap-2 mt-4">
                     @foreach ($job->skills as $skill)
@@ -108,7 +118,6 @@
         @if (in_array($job->status, ['open', 'in_progress']))
             <div class="bg-white rounded-xl border border-slate-200 p-6">
                 <h3 class="text-sm font-semibold text-slate-700 mb-1">Close this post</h3>
-                <p class="text-xs text-slate-500 mb-3">Takes it off the feed. Pending applicants are told and get their Barya back. The employer is told the reason.</p>
                 <form method="POST" action="{{ route('admin.jobs.close', $job) }}" onsubmit="return confirm('Close this post?')">
                     @csrf
                     <input type="text" name="reason" required maxlength="255" placeholder="Reason the employer will see"

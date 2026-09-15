@@ -4,7 +4,6 @@
 @section('content')
 <div class="bg-white rounded-xl border border-slate-200">
     <div class="p-5 border-b border-slate-100 flex items-center gap-3">
-        <p class="text-sm text-slate-500">Everything done in this panel, newest first. Nothing here can be edited or removed.</p>
         <form method="GET" class="flex items-center gap-2 ml-auto">
             <select name="area" class="px-3 py-2 border border-slate-300 rounded-lg text-sm">
                 <option value="all">All areas</option>

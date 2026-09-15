@@ -11,13 +11,11 @@
 
     <div class="bg-white rounded-xl border border-slate-200 p-6">
         <h3 class="text-sm font-semibold text-slate-700 mb-1">Pricing</h3>
-        <p class="text-xs text-slate-500 mb-5">Whole numbers. Takes effect on the server at once; the app reads the new prices the next time it loads them. Every change goes to the audit log.</p>
 
         <div class="grid grid-cols-2 gap-x-8 gap-y-4">
             @foreach ($fields as $key => $field)
                 <label class="block">
-                    <span class="text-sm font-medium text-slate-700">{{ $field['label'] }}</span>
-                    <span class="block text-xs text-slate-400 mb-1.5">{{ $field['hint'] }}</span>
+                    <span class="block text-sm font-medium text-slate-700 mb-1.5">{{ $field['label'] }}</span>
                     <span class="flex items-center gap-2">
                         <input type="number" name="{{ \App\Support\Pricing::formName($key) }}"
                                value="{{ old(\App\Support\Pricing::formName($key), $field['value']) }}"

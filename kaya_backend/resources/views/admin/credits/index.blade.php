@@ -48,7 +48,6 @@
 
     <div class="col-span-2 bg-white rounded-xl border border-slate-200 p-5">
         <h3 class="text-sm font-semibold text-slate-700 mb-1">Adjust a balance</h3>
-        <p class="text-xs text-slate-500 mb-3">Positive gives Barya, negative takes it. The note shows in the user's wallet history and in the audit log.</p>
         <form method="POST" action="{{ route('admin.credits.adjust') }}" class="grid grid-cols-6 gap-3 items-end">
             @csrf
             <div class="col-span-2">
