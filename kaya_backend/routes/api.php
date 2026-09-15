@@ -2,6 +2,7 @@
 
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Api\V1\AuthController;
+use App\Http\Controllers\Api\V1\CommunityPostController;
 use App\Http\Controllers\Api\V1\WorkerProfileController;
 use App\Http\Controllers\Api\V1\EmployerProfileController;
 use App\Http\Controllers\Api\V1\JobController;
@@ -219,6 +220,23 @@ Route::prefix('v1')->group(function () {
             ->middleware('verified:employer');
         Route::post('/worker-profile/boost',    [BoostController::class, 'boostProfile'])
             ->middleware('verified:worker');
+
+        /*
+            The community board. Reading is open to every signed-in
+            account; posting is a spend and gated like one. A business post
+            is checked for its documents in the controller, because the
+            verified:employer gate would also refuse an individual - and an
+            individual is refused here for a different reason with a
+            different message.
+        */
+        Route::get('/community',                 [CommunityPostController::class, 'index']);
+        Route::get('/community/costs',           [CommunityPostController::class, 'costs']);
+        Route::get('/community/mine',            [CommunityPostController::class, 'mine']);
+        Route::get('/community/{post}',          [CommunityPostController::class, 'show']);
+        Route::post('/community',                [CommunityPostController::class, 'store'])
+            ->middleware('verified');
+        Route::delete('/community/{post}',       [CommunityPostController::class, 'destroy']);
+        Route::post('/community/{post}/contact', [CommunityPostController::class, 'contact']);
 
         // Saved Jobs
         Route::get('/saved-jobs', [JobController::class, 'savedJobs']);
