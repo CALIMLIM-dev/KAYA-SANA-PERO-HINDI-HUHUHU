@@ -3,12 +3,22 @@ import '../../../core/constants/app_colors.dart';
 import '../../../core/utils/format.dart';
 import '../../../data/models/job_model.dart';
 
-/// Compact Job Card matching Worker Card style
-/// Vertical layout with fixed dimensions for horizontal scrolling
+/// The job card.
+///
+/// One card for every list a job appears in: the home carousels, the search
+/// results and the saved jobs. Search used to draw its own, taller card with
+/// skill chips and a match line, so the same job looked like two different
+/// things one tab apart.
+///
+/// In a carousel the parent fixes the height and the bottom row is pushed to
+/// the floor; in a vertical list the card takes the height its content needs.
+/// [onToggleSave] adds the bookmark, on the lists that have somewhere to keep
+/// a saved job.
 class CompactJobCard extends StatelessWidget {
   final Job job;
   final VoidCallback? onTap;
   final VoidCallback? onContact;
+  final VoidCallback? onToggleSave;
   final List<String> workerSkills;
 
   const CompactJobCard({
@@ -16,6 +26,7 @@ class CompactJobCard extends StatelessWidget {
     required this.job,
     this.onTap,
     this.onContact,
+    this.onToggleSave,
     this.workerSkills = const [],
   });
 
@@ -67,13 +78,19 @@ class CompactJobCard extends StatelessWidget {
             ),
           ],
         ),
-        child: Column(
+        child: LayoutBuilder(builder: (context, constraints) {
+          return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisSize: MainAxisSize.min,
           children: [
             // Job Header Row - Compact
-            SizedBox(
-              height: 45,
+            //
+            // Minimum heights, not fixed ones. Two lines of text at the
+            // largest text size are 44px of a 45px box, and the applicants
+            // column below ran 1px past its 32 at that size, on every card,
+            // as a stripe of yellow and black along the bottom.
+            ConstrainedBox(
+              constraints: const BoxConstraints(minHeight: 45),
               child: Row(
                 children: [
                   // Company/Category Avatar
@@ -95,6 +112,7 @@ class CompactJobCard extends StatelessWidget {
                   // Job Title and Company
                   Expanded(
                     child: Column(
+                      mainAxisSize: MainAxisSize.min,
                       mainAxisAlignment: MainAxisAlignment.center,
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
@@ -118,7 +136,7 @@ class CompactJobCard extends StatelessWidget {
                           ],
                         ),
                         Text(
-                          job.company,
+                          job.company.isEmpty ? 'Private employer' : job.company,
                           style: Theme.of(context).textTheme.bodySmall?.copyWith(
                             color: AppColors.neutral600,
                             fontSize: 11,
@@ -155,6 +173,27 @@ class CompactJobCard extends StatelessWidget {
                           color: Color(0xFF8A6D00),
                           height: 1.2,
                         ),
+                      ),
+                    ),
+                  ],
+
+                  // Bookmark. Only where the list has a saved-jobs screen to
+                  // send the job to.
+                  if (onToggleSave != null) ...[
+                    const SizedBox(width: 2),
+                    IconButton(
+                      onPressed: onToggleSave,
+                      padding: EdgeInsets.zero,
+                      constraints:
+                          const BoxConstraints.tightFor(width: 32, height: 32),
+                      visualDensity: VisualDensity.compact,
+                      tooltip: job.isSaved ? 'Unsave' : 'Save',
+                      icon: Icon(
+                        job.isSaved ? Icons.bookmark : Icons.bookmark_border,
+                        size: 20,
+                        color: job.isSaved
+                            ? AppColors.primary
+                            : AppColors.neutral500,
                       ),
                     ),
                   ],
@@ -288,15 +327,22 @@ class CompactJobCard extends StatelessWidget {
               ),
             ],
 
-            const Spacer(),
+            // A carousel fixes the height, so the bottom row sits on the
+            // floor. A vertical list does not, and a Spacer there is an
+            // unbounded-height error, not a gap.
+            if (constraints.hasBoundedHeight)
+              const Spacer()
+            else
+              const SizedBox(height: 8),
             
             // Bottom Row: Applicants and Action Button
-            SizedBox(
-              height: 32,
+            ConstrainedBox(
+              constraints: const BoxConstraints(minHeight: 32),
               child: Row(
                 children: [
                   Expanded(
                     child: Column(
+                      mainAxisSize: MainAxisSize.min,
                       mainAxisAlignment: MainAxisAlignment.center,
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
@@ -352,7 +398,8 @@ class CompactJobCard extends StatelessWidget {
               ),
             ),
           ],
-        ),
+          );
+        }),
       ),
     );
   }

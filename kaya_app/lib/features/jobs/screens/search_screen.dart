@@ -4,7 +4,6 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../../core/constants/app_colors.dart';
-import '../../../core/utils/format.dart';
 import '../../../data/models/job_model.dart';
 import '../../../data/models/worker_profile_model.dart';
 import '../../../core/constants/app_mode.dart';
@@ -13,7 +12,7 @@ import '../widgets/place_picker_sheet.dart';
 import '../../../providers/job_provider.dart';
 import '../../../providers/worker_browse_provider.dart';
 import '../../../providers/worker_profile_provider.dart';
-import '../widgets/featured_job_card.dart';
+import '../widgets/compact_job_card.dart';
 import '../widgets/worker_card.dart';
 
 /// Search Screen — Jobs and Workers, backed by GET /jobs and GET /workers.
@@ -613,26 +612,15 @@ class _SearchScreenState extends State<SearchScreen> {
   }
 
   Widget _jobCard(Job job) {
-    return FeaturedJobCard(
-      title: job.title,
-      company: job.company.isEmpty ? 'Private Employer' : job.company,
-      location: job.location ?? 'Location not set',
-      // Employer rating is not part of the job payload yet — left blank
-      // rather than inventing a number.
-      rating: '',
-      reviews: '',
-      salary: _formatSalary(job.salaryMin, job.salaryMax),
-      category: job.category,
-      distance: job.distance == null ? null : formatDistance(job.distance!),
-      isUrgent: job.isUrgent,
-      requiresVerification: job.requiresVerification,
-      requiredSkills: job.requiredSkills,
-      matchScore: job.matchScore,
-      isSaved: job.isSaved,
+    void open() => Navigator.pushNamed(context, '/job-details',
+        arguments: {'jobId': job.id});
+
+    return CompactJobCard(
+      job: job,
+      onTap: open,
+      onContact: open,
       onToggleSave: () =>
           context.read<JobProvider>().toggleSave(job.id, job.isSaved),
-      onTap: () => Navigator.pushNamed(context, '/job-details',
-          arguments: {'jobId': job.id}),
     );
   }
 
@@ -654,14 +642,6 @@ class _SearchScreenState extends State<SearchScreen> {
       onTap: () => Navigator.pushNamed(context, '/worker-profile',
           arguments: {'workerId': worker.userId ?? worker.id}),
     );
-  }
-
-  String _formatSalary(double? min, double? max) {
-    if (min == null && max == null) return 'Negotiable';
-    if (min != null && max != null && max != min) {
-      return '₱${min.toStringAsFixed(0)}-${max.toStringAsFixed(0)}';
-    }
-    return '₱${(min ?? max)!.toStringAsFixed(0)}';
   }
 
   Widget _errorState(String message) {

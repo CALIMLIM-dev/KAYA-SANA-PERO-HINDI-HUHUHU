@@ -2,12 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../../core/constants/app_colors.dart';
-import '../../../core/utils/format.dart';
 import '../../../core/utils/realtime_refresh.dart';
 import '../../../core/widgets/app_toast.dart';
 import '../../../data/models/job_model.dart';
 import '../../../providers/job_provider.dart';
-import '../widgets/featured_job_card.dart';
+import '../widgets/compact_job_card.dart';
 
 /// Jobs the worker saved.
 ///
@@ -111,26 +110,24 @@ class _SavedJobsScreenState extends State<SavedJobsScreen>
   }
 
   Widget _card(Job job) {
-    return FeaturedJobCard(
-      title: job.title,
-      company: job.company.isEmpty ? 'Private Employer' : job.company,
-      location: job.location ?? 'Location not set',
-      // Employer rating is not part of the job payload, so it is left blank
-      // rather than invented — same as the search results.
-      rating: '',
-      reviews: '',
-      salary: _formatSalary(job.salaryMin, job.salaryMax),
-      category: job.category,
-      distance: job.distance == null ? null : formatDistance(job.distance!),
-      isUrgent: job.isUrgent,
-      requiresVerification: job.requiresVerification,
-      requiredSkills: job.requiredSkills,
-      matchScore: job.matchScore,
-      onTap: () async {
-        await Navigator.pushNamed(context, '/job-details',
-            arguments: {'jobId': job.id});
-        // Unsaving from the details screen must not leave the job sitting here.
-        if (mounted) _load();
+    Future<void> open() async {
+      await Navigator.pushNamed(context, '/job-details',
+          arguments: {'jobId': job.id});
+      // Unsaving from the details screen must not leave the job sitting here.
+      if (mounted) _load();
+    }
+
+    // Everything on this screen is saved by definition; the list endpoint
+    // does not repeat the flag, so the bookmark is filled in here.
+    return CompactJobCard(
+      job: job.copyWith(isSaved: true),
+      onTap: open,
+      onContact: open,
+      onToggleSave: () async {
+        final ok = await context.read<JobProvider>().unsaveJob(job.id);
+        if (!ok && mounted) {
+          AppToast.error(context, 'Could not remove that job. Try again.');
+        }
       },
     );
   }
@@ -168,14 +165,6 @@ class _SavedJobsScreenState extends State<SavedJobsScreen>
         ],
       ],
     );
-  }
-
-  String _formatSalary(double? min, double? max) {
-    if (min == null && max == null) return 'Salary not set';
-    if (min != null && max != null && min != max) {
-      return '₱${min.toStringAsFixed(0)} – ₱${max.toStringAsFixed(0)}';
-    }
-    return '₱${(min ?? max)!.toStringAsFixed(0)}';
   }
 
   Future<void> _confirmClearAll() async {

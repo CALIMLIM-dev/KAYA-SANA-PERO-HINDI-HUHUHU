@@ -4,7 +4,7 @@ import '../../../core/widgets/profile_avatar.dart';
 import '../../../core/utils/format.dart';
 
 /// Worker directory card — employer-mode Search/Home. Distinct from
-/// FeaturedJobCard: workers have an availability status, not a price, and no
+/// CompactJobCard: workers have an availability status, not a price, and no
 /// bookmark/applied state, so this isn't a relabeled job card.
 class WorkerCard extends StatelessWidget {
   final String name;
