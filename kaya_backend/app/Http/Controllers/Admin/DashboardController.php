@@ -44,25 +44,21 @@ class DashboardController extends Controller
                 'label' => 'Verifications waiting',
                 'count' => Verification::where('status', 'pending')->count(),
                 'route' => route('admin.verifications.index'),
-                'note'  => 'Documents to approve or reject',
             ],
             [
                 'label' => 'Reports waiting',
                 'count' => Report::where('status', 'pending')->count(),
                 'route' => route('admin.reports.index'),
-                'note'  => 'Accounts reported by other users',
             ],
             [
                 'label' => 'TINs not checked',
                 'count' => EmployerProfile::whereNotNull('tin')->whereNull('tin_verified_at')->count(),
                 'route' => route('admin.verifications.index', ['status' => 'pending']),
-                'note'  => 'Companies whose TIN has not been checked on ORUS',
             ],
             [
                 'label' => 'Posts ending in 3 days',
                 'count' => JobPost::where('status', 'open')->whereBetween('expires_at', [now(), now()->addDays(3)])->count(),
                 'route' => route('admin.jobs.index', ['status' => 'open']),
-                'note'  => 'Open posts about to go off the feed',
             ],
         ];
 

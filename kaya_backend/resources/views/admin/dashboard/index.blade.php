@@ -14,7 +14,6 @@
                 @endif
             </div>
             <p class="text-2xl font-bold mt-1 {{ $queue['count'] > 0 ? 'text-amber-700' : 'text-slate-800' }}">{{ $queue['count'] }}</p>
-            <p class="text-xs text-slate-400 mt-1">{{ $queue['note'] }}</p>
         </a>
     @endforeach
 </div>
@@ -23,7 +22,7 @@
 <div class="bg-white rounded-xl border border-slate-200 p-5 mb-6">
     <div class="flex items-center justify-between mb-4">
         <h3 class="text-sm font-semibold text-slate-700">Today</h3>
-        <span class="text-xs text-slate-400">{{ now()->format('l, M j') }}, compared with yesterday</span>
+        <span class="text-xs text-slate-400">{{ now()->format('l, M j') }}</span>
     </div>
     <div class="grid grid-cols-5 gap-4">
         @php
@@ -39,10 +38,7 @@
                 <p class="text-xs text-slate-400 font-medium">{{ $labels[$key] }}</p>
                 <p class="text-2xl font-bold text-slate-800 mt-1">{{ $show($pair['today']) }}</p>
                 <p class="text-xs mt-1 {{ $diff > 0 ? 'text-green-600' : ($diff < 0 ? 'text-red-500' : 'text-slate-400') }}">
-                    @if ($diff > 0) up {{ $show($diff) }} from yesterday
-                    @elseif ($diff < 0) down {{ $show(abs($diff)) }} from yesterday
-                    @else same as yesterday ({{ $show($pair['yesterday']) }})
-                    @endif
+                    Yesterday {{ $show($pair['yesterday']) }}
                 </p>
             </div>
         @endforeach

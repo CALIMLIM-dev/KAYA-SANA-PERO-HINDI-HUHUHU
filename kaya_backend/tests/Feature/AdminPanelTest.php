@@ -355,6 +355,21 @@ class AdminPanelTest extends TestCase
     }
 
     #[Test]
+    public function the_pager_is_the_panels_own_and_never_dark(): void
+    {
+        $employer = $this->company();
+        for ($i = 0; $i < 20; $i++) {
+            JobPost::create(['employer_id' => $employer->id, 'title' => "Job {$i}", 'description' => 'x', 'status' => 'open']);
+        }
+
+        $this->actingAs($this->admin())->get('/admin/jobs')
+            ->assertOk()
+            ->assertSee('1 to 15 of 20')
+            ->assertSee('Next')
+            ->assertDontSee('dark:');
+    }
+
+    #[Test]
     public function a_regular_user_cannot_open_any_of_it(): void
     {
         $user = User::factory()->create();
