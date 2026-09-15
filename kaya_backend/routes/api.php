@@ -3,6 +3,7 @@
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Api\V1\AuthController;
 use App\Http\Controllers\Api\V1\CommunityPostController;
+use App\Http\Controllers\Api\V1\RosterController;
 use App\Http\Controllers\Api\V1\WorkerProfileController;
 use App\Http\Controllers\Api\V1\EmployerProfileController;
 use App\Http\Controllers\Api\V1\JobController;
@@ -205,6 +206,11 @@ Route::prefix('v1')->group(function () {
         Route::delete('/jobs/{job}/save',       [JobController::class, 'unsave']);
         Route::get('/jobs/{job}/matches',       [JobController::class, 'matches']);
         Route::get('/jobs/{job}/applicants',    [ApplicationController::class, 'jobApplicants']);
+        // The roster: everyone hired on one job, marked done together,
+        // told things together. Employer only, checked in the controller.
+        Route::get('/jobs/{job}/roster',             [RosterController::class, 'show']);
+        Route::post('/jobs/{job}/roster/complete',   [RosterController::class, 'completeAll']);
+        Route::post('/jobs/{job}/roster/broadcast',  [RosterController::class, 'broadcast']);
         Route::post('/jobs/{job}/apply',        [ApplicationController::class, 'apply'])
             ->middleware('verified:worker');
         Route::post('/jobs/{job}/invite',       [InvitationController::class, 'send'])

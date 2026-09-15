@@ -521,6 +521,18 @@ class ApplicationController extends Controller
         if ($job->employer_id !== $user->id) return $this->fail('Forbidden', 403);
         if ($application->status !== 'pending') return $this->fail('Application status must be pending to accept', 422);
 
+        // A job for three people takes three. The fourth is told the spots
+        // are full rather than quietly becoming a fourth hire.
+        if ($job->isFull()) {
+            $needed = max(1, (int) $job->workers_needed);
+            return $this->fail(
+                $needed === 1
+                    ? 'Somebody has already been hired for this job.'
+                    : "All {$needed} spots on this job are filled.",
+                422,
+            );
+        }
+
         /*
             Somebody with other work is still hireable.
 
@@ -533,8 +545,11 @@ class ApplicationController extends Controller
 
         $application->update(['status' => 'accepted']);
 
-        // Mark job in_progress
-        $job->update(['status' => 'in_progress']);
+        // Off the feed once every spot is taken. A job for five with one
+        // hired is still hiring, and stays open to applications.
+        if ($job->fresh()->isFull()) {
+            $job->update(['status' => 'in_progress']);
+        }
 
         // Unlock or create conversation
         /*
