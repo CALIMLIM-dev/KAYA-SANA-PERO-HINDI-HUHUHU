@@ -161,8 +161,6 @@ class _SignupScreenState extends State<SignupScreen> {
               Text('Create Account',
                   style: TextStyle(fontSize: 32, fontWeight: FontWeight.bold, color: AppColors.neutral900)),
               const SizedBox(height: 8),
-              Text('Sign up to get started',
-                  style: TextStyle(fontSize: 16, color: AppColors.neutral600)),
               const SizedBox(height: 40),
 
               // ── Email or Phone ────────────────────────────────────────────

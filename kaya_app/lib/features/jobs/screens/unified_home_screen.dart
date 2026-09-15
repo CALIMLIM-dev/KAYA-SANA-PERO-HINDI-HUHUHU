@@ -457,7 +457,7 @@ class _UnifiedHomeScreenState extends State<UnifiedHomeScreen>
 
           // Subtext
           Text(
-            'Set up a profile to get started. Looking for work? Create a worker profile. Hiring? Set up as an employer. You can do both.',
+            'Looking for work? Set up a worker profile. Hiring? Set up as an employer. You can have both.',
             style: TextStyle(
               fontSize: 14,
               color: AppColors.neutral600,

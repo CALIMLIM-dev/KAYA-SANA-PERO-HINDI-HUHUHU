@@ -6,7 +6,6 @@ import '../../data/models/worker_profile_model.dart';
 import '../../features/auth/screens/welcome_screen.dart';
 import '../../features/auth/screens/login_screen.dart';
 import '../../features/auth/screens/signup_screen.dart';
-import '../../features/auth/screens/profile_setup_screen.dart';
 import '../../features/auth/screens/forgot_password_screen.dart';
 import '../../features/auth/screens/verify_reset_code_screen.dart';
 import '../../features/auth/screens/reset_password_screen.dart';
@@ -78,7 +77,6 @@ class AppRouter {
   static const String welcome = '/';
   static const String login = '/login';
   static const String signup = '/signup';
-  static const String profileSetup = '/profile-setup';
   static const String forgotPassword = '/forgot-password';
   static const String verifyResetCode = '/verify-reset-code';
   static const String resetPassword = '/reset-password';
@@ -132,8 +130,6 @@ class AppRouter {
       case signup:
         return MaterialPageRoute(builder: (_) => const SignupScreen());
       
-      case profileSetup:
-        return MaterialPageRoute(builder: (_) => const ProfileSetupScreen());
       
       case forgotPassword:
         return MaterialPageRoute(builder: (_) => const ForgotPasswordScreen());

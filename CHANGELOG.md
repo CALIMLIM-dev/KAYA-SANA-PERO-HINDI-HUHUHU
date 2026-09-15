@@ -11,9 +11,41 @@ minor release, and `feat!:` or a `BREAKING CHANGE:` footer for a major one.
 
 ---
 
-## Unreleased
+## 1.10.24 - 2026-09-15
 
-Nothing yet.
+Everything between 1.2.0 and here, in one entry. The version moved with each
+release; the changelog did not.
+
+### Added
+
+- Business and individual employer accounts. A registered business submits
+  its DTI or SEC registration and Mayor's permit; a company account cannot
+  also be a worker account.
+- Verification gates transacting. Posting, applying, inviting and topping up
+  need a verified ID; browsing does not.
+- One price list for barya, and one boost for job posts and worker profiles.
+- Job posts run from their start date to their end date and close
+  themselves. The first week is free.
+- Scheduling inside the chat: either side proposes a day and time, the other
+  accepts or declines. Days a worker already holds are greyed out.
+- Years of experience, rehire invitations at half cost, and badges.
+- The community board, a fifth tab. Workers post that they are free,
+  verified companies post that they are hiring.
+- Crews: a job for one to ten workers, with a roster.
+- Skill checks per trade, written by the admin and marked on the server.
+- Account deletion from Settings, as the Data Privacy Act requires.
+- Notifications on the phone's shade when the app is in the background or
+  closed.
+- Admin: dashboard queues, audit log, review moderation, pricing settings,
+  community and skill check pages, live queue counts.
+
+### Fixed
+
+- Screens refresh from the notification poll instead of a socket that is
+  switched off on the server.
+- One picture per account across the worker and employer profiles.
+- The search and saved jobs lists use a list card in the home card's style.
+- The sign-up consent sheet walks through both pages.
 
 ---
 

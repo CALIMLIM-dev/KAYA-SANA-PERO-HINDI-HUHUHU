@@ -34,18 +34,18 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
   final List<OnboardingPage> _pages = [
     OnboardingPage(
       icon: Icons.work_outline,
-      title: 'Find Skilled Workers',
-      description: 'Connect with verified professionals for plumbing, electrical, construction, and more.',
+      title: 'Find workers near you',
+      description: 'Plumbers, electricians, carpenters, cleaners and more, sorted by distance from you.',
     ),
     OnboardingPage(
       icon: Icons.verified_user,
-      title: 'Verified Profiles',
-      description: 'All workers are verified with ratings and reviews from previous jobs.',
+      title: 'Verified IDs',
+      description: 'Workers and employers verify a government ID before they can apply, post or hire.',
     ),
     OnboardingPage(
       icon: Icons.chat_bubble_outline,
-      title: 'Direct Communication',
-      description: 'Chat directly with workers to discuss job details and negotiate terms.',
+      title: 'Chat after a hire',
+      description: 'Once an application is accepted, the two of you get a chat, a schedule and location sharing.',
     ),
   ];
 

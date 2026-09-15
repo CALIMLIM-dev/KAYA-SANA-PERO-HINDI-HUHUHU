@@ -1,7 +1,13 @@
 import 'package:flutter/material.dart';
 import '../../../core/constants/app_colors.dart';
 
-/// Comprehensive FAQ Screen
+/// Questions people actually ask, answered for the app as it is.
+///
+/// The earlier version described an app that did not exist: phone
+/// verification at sign-up, an Apply Now button, a blue checkmark, reviews
+/// editable for 24 hours, a support team reachable from a button whose
+/// handler was empty. Every answer here names the screen and the button as
+/// they are.
 class FAQScreen extends StatelessWidget {
   const FAQScreen({super.key});
 
@@ -19,154 +25,144 @@ class FAQScreen extends StatelessWidget {
         children: [
           _buildFAQSection(
             context,
-            'Getting Started',
+            'Accounts',
             [
-              _FAQItem(
+              const _FAQItem(
                 question: 'How do I create an account?',
-                answer: 'Tap "Get Started" on the welcome screen, fill in your details, and verify your phone number. You\'ll then choose whether you\'re looking for work or need to hire someone.',
+                answer:
+                    'Sign up with your email or phone number and a password, or with Google. '
+                    'Then set up a worker profile, an employer profile, or both.',
               ),
-              _FAQItem(
-                question: 'How do I switch between looking for work and hiring?',
-                answer: 'Use the toggle at the top of the home screen anytime to switch between modes. Your account works for both - no need to create separate profiles.',
+              const _FAQItem(
+                question: 'Can one account both look for work and hire?',
+                answer:
+                    'Yes. Set up both profiles and switch with the toggle at the top of the home screen. '
+                    'The one exception is a registered business: a business account cannot also be a worker account.',
               ),
-              _FAQItem(
-                question: 'What\'s the difference between the two modes?',
-                answer: 'In "Looking for work" mode, you browse and apply for jobs. In "Need to hire" mode, you post jobs and review applications from workers.',
+              const _FAQItem(
+                question: 'What does verified mean?',
+                answer:
+                    'The person submitted a Philippine government ID and a selfie holding it, and an admin checked them. '
+                    'A business also submits its DTI or SEC registration and Mayor\'s permit. '
+                    'You can browse without verifying, but posting, applying, inviting and topping up need it.',
               ),
-            ],
-          ),
-          const SizedBox(height: 24),
-          _buildFAQSection(
-            context,
-            'For Job Seekers',
-            [
-              _FAQItem(
-                question: 'How do I apply for jobs?',
-                answer: 'Browse jobs on the home screen or search page, tap on a job that interests you, and tap "Apply Now". Your application will be sent directly to the employer.',
-              ),
-              _FAQItem(
-                question: 'How do I track my applications?',
-                answer: 'Check the Applications tab to see all your job applications organized by status: Pending, Accepted, Rejected, and Completed.',
-              ),
-              _FAQItem(
-                question: 'What happens after I apply?',
-                answer: 'The employer will review your application and either accept or reject it. If accepted, messaging will be unlocked so you can discuss job details.',
-              ),
-              _FAQItem(
-                question: 'How do I complete my worker profile?',
-                answer: 'Go to Profile > Edit Profile to add your skills, experience, certifications, and availability. A complete profile gets more job offers.',
-              ),
-            ],
-          ),
-          const SizedBox(height: 24),
-          _buildFAQSection(
-            context,
-            'For Employers',
-            [
-              _FAQItem(
-                question: 'How do I post a job?',
-                answer: 'Tap the yellow "+" button on the home screen, fill in the job details (title, description, budget, requirements), and tap "Post Job".',
-              ),
-              _FAQItem(
-                question: 'How do I find workers?',
-                answer: 'Post a job and workers will apply, or browse available workers on the home screen and send them job invitations.',
-              ),
-              _FAQItem(
-                question: 'What are job invitations?',
-                answer: 'You can invite specific workers to apply for your jobs. This helps you reach qualified candidates who might not have seen your job post yet.',
-              ),
-              _FAQItem(
-                question: 'How do I review applications?',
-                answer: 'You\'ll get notifications when workers apply. Review their profiles, skills, and experience, then accept or reject their applications.',
-              ),
-            ],
-          ),
-          const SizedBox(height: 24),
-          _buildFAQSection(
-            context,
-            'Verification & Safety',
-            [
-              _FAQItem(
-                question: 'What does verification mean?',
-                answer: 'Verified users have confirmed their identity and skills through our verification process. Look for the blue checkmark badge.',
-              ),
-              _FAQItem(
+              const _FAQItem(
                 question: 'How do I get verified?',
-                answer: 'Go to Profile > Verification and follow the steps to submit your ID and relevant certifications. Verification typically takes 24-48 hours.',
+                answer:
+                    'Open your profile, then Verification, and upload the documents. '
+                    'An admin reviews them and you get a notification either way.',
               ),
-              _FAQItem(
-                question: 'Is KAYA safe to use?',
-                answer: 'We verify user identities, have a review system, and secure messaging. Always meet in public places and trust your instincts.',
-              ),
-              _FAQItem(
-                question: 'How do I report a problem?',
-                answer: 'Use the "Report" option in conversations or profiles, or contact support through Profile > Help & Support.',
+              const _FAQItem(
+                question: 'How do I delete my account?',
+                answer:
+                    'Profile, Settings, Delete account. You type your password once more. '
+                    'Your profile, documents and photos are removed and cannot be brought back. '
+                    'You cannot delete while you are on a job that is not finished.',
               ),
             ],
           ),
           const SizedBox(height: 24),
           _buildFAQSection(
             context,
-            'Payments & Reviews',
+            'Looking for work',
             [
-              _FAQItem(
-                question: 'How do payments work?',
-                answer: 'KAYA facilitates job matching. Payment terms and methods are agreed upon directly between employer and worker.',
+              const _FAQItem(
+                question: 'How do I apply for a job?',
+                answer:
+                    'Open the job and tap Apply. Applying costs barya, shown on the button before you confirm. '
+                    'You get it back if you withdraw within the grace period, or if the employer removes the job.',
               ),
-              _FAQItem(
-                question: 'How do I leave a review?',
-                answer: 'After completing a job, both employer and worker can leave reviews in the Applications tab. Reviews help build trust in the community.',
+              const _FAQItem(
+                question: 'Where are my applications?',
+                answer:
+                    'Home, then My Applications. They are grouped by status: pending, accepted, rejected, completed.',
               ),
-              _FAQItem(
-                question: 'Can I edit or delete my review?',
-                answer: 'Reviews can be edited within 24 hours of posting. Contact support if you need help with review issues.',
+              const _FAQItem(
+                question: 'What happens after I apply?',
+                answer:
+                    'The employer accepts or rejects. If accepted, a chat opens between the two of you, '
+                    'where you can agree a day and time and share your location on the day.',
+              ),
+              const _FAQItem(
+                question: 'What is a skill check?',
+                answer:
+                    'A short test for your trade, marked on the server. Passing puts Skill checked on your card '
+                    'in the directory. If you do not pass you can try again after a week.',
               ),
             ],
           ),
-          const SizedBox(height: 32),
-          Container(
-            padding: const EdgeInsets.all(20),
-            decoration: BoxDecoration(
-              color: AppColors.primary.withValues(alpha: 0.1),
-              borderRadius: BorderRadius.circular(16),
-            ),
-            child: Column(
-              children: [
-                Icon(
-                  Icons.help_center,
-                  size: 48,
-                  color: AppColors.primary,
-                ),
-                const SizedBox(height: 12),
-                Text(
-                  'Still need help?',
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  'Contact our support team anytime',
-                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: AppColors.neutral600,
-                  ),
-                ),
-                const SizedBox(height: 16),
-                SizedBox(
-                  width: double.infinity,
-                  child: ElevatedButton(
-                    onPressed: () {
-                      // Navigate to contact support
-                    },
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppColors.primary,
-                      foregroundColor: Colors.white,
-                    ),
-                    child: const Text('Contact Support'),
-                  ),
-                ),
-              ],
-            ),
+          const SizedBox(height: 24),
+          _buildFAQSection(
+            context,
+            'Hiring',
+            [
+              const _FAQItem(
+                question: 'How do I post a job?',
+                answer:
+                    'In employer mode, tap Post a Job on the home screen. The post runs from its start date '
+                    'to its end date. The first week is free; longer costs barya, shown under the dates as you pick them.',
+              ),
+              const _FAQItem(
+                question: 'How do I find workers?',
+                answer:
+                    'Post a job and workers apply, or open Search in employer mode to browse workers by trade '
+                    'and distance and invite one to a job. Inviting costs barya; inviting someone you have hired before costs half.',
+              ),
+              const _FAQItem(
+                question: 'Can I hire more than one person for a job?',
+                answer:
+                    'Yes. Set how many workers the job needs, one to ten. The post stays open until every spot is taken. '
+                    'The roster lists everyone hired and lets you message them all or mark the job done for all of them.',
+              ),
+              const _FAQItem(
+                question: 'How do I see who applied?',
+                answer:
+                    'Home, then Active Jobs, then the job. Each applicant shows their profile, skills, rating '
+                    'and whether you have hired them before. Accept or reject from there.',
+              ),
+            ],
+          ),
+          const SizedBox(height: 24),
+          _buildFAQSection(
+            context,
+            'Barya and payment',
+            [
+              const _FAQItem(
+                question: 'What is barya?',
+                answer:
+                    'The app\'s credit. Every account gets some on sign-up and some each month. '
+                    'Applying, inviting, boosting and community posts cost barya. A job post is free for its first week, and messaging is free.',
+              ),
+              const _FAQItem(
+                question: 'How do I pay a worker?',
+                answer:
+                    'Directly. KAYA does not hold or move job payments. Agree the amount and how you will pay in the chat.',
+              ),
+              const _FAQItem(
+                question: 'How do I top up?',
+                answer:
+                    'Profile, then My Wallet, then choose a package. Payment goes through PayMongo. You need a verified account.',
+              ),
+            ],
+          ),
+          const SizedBox(height: 24),
+          _buildFAQSection(
+            context,
+            'Safety',
+            [
+              const _FAQItem(
+                question: 'How do I report someone?',
+                answer:
+                    'In a chat, open the menu at the top right and choose Report. On a community post, use Report on the post. '
+                    'An admin reads the report and can suspend the account.',
+              ),
+              const _FAQItem(
+                question: 'How do reviews work?',
+                answer:
+                    'After a job is marked complete by both sides, each can review the other: workers from My Applications, employers from My Job Posts. '
+                    'A review cannot be edited once sent. An admin can hide a review that breaks the rules.',
+              ),
+            ],
           ),
           const SizedBox(height: 32),
         ],

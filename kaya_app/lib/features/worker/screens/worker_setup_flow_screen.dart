@@ -506,7 +506,7 @@ class _WorkerSetupFlowScreenState extends State<WorkerSetupFlowScreen> {
           ),
           const SizedBox(height: 8),
           const Text(
-            'Let employers know who you are and where you work.',
+            'Your name and where you are based.',
             style: TextStyle(
               fontSize: 14,
               color: AppColors.neutral600,
@@ -784,7 +784,7 @@ class _WorkerSetupFlowScreenState extends State<WorkerSetupFlowScreen> {
           ),
           const SizedBox(height: 8),
           const Text(
-            'Select your category and skills. This helps employers find you.',
+            'Your trade and the work you do.',
             style: TextStyle(
               fontSize: 14,
               color: AppColors.neutral600,
@@ -937,7 +937,7 @@ class _WorkerSetupFlowScreenState extends State<WorkerSetupFlowScreen> {
           ),
           const SizedBox(height: 8),
           const Text(
-            'Add your work history to stand out. (Optional)',
+            'Optional. Past jobs and how long you did them.',
             style: TextStyle(
               fontSize: 14,
               color: AppColors.neutral600,
@@ -1111,7 +1111,7 @@ class _WorkerSetupFlowScreenState extends State<WorkerSetupFlowScreen> {
           ),
           const SizedBox(height: 8),
           const Text(
-            'Add professional certifications to boost your profile. (Optional)',
+            'Optional. TESDA and other certificates.',
             style: TextStyle(
               fontSize: 14,
               color: AppColors.neutral600,
@@ -1287,7 +1287,7 @@ class _WorkerSetupFlowScreenState extends State<WorkerSetupFlowScreen> {
           ),
           const SizedBox(height: 8),
           const Text(
-            'Add any professional licences you hold. (Optional)',
+            'Optional. PRC or other licences.',
             style: TextStyle(
               fontSize: 14,
               color: AppColors.neutral600,
@@ -1463,7 +1463,7 @@ class _WorkerSetupFlowScreenState extends State<WorkerSetupFlowScreen> {
           ),
           const SizedBox(height: 8),
           const Text(
-            'Profiles with photos get 5x more views! (Optional)',
+            'Optional. A clear photo of your face.',
             style: TextStyle(
               fontSize: 14,
               color: AppColors.neutral600,
@@ -1598,7 +1598,7 @@ class _WorkerSetupFlowScreenState extends State<WorkerSetupFlowScreen> {
           ),
           const SizedBox(height: 8),
           const Text(
-            'Get verified to increase trust and unlock more opportunities. (Optional)',
+            'Optional now. Needed before you can apply for a job.',
             style: TextStyle(
               fontSize: 14,
               color: AppColors.neutral600,

@@ -807,7 +807,7 @@ class _SetupEmployerProfileScreenState extends State<SetupEmployerProfileScreen>
           ),
           const SizedBox(height: 8),
           const Text(
-            'A photo makes your job posts feel more trustworthy. You can skip this for now.',
+            'Optional. A logo, or a photo of you.',
             style: TextStyle(fontSize: 14, color: AppColors.neutral600),
           ),
           const SizedBox(height: 32),
@@ -914,7 +914,7 @@ class _SetupEmployerProfileScreenState extends State<SetupEmployerProfileScreen>
       icon: Icons.badge,
       title: 'Verify your identity',
       body:
-          'Submit a valid Philippine government ID and selfie. This uses the same verification flow as worker profiles.',
+          'A Philippine government ID and a selfie holding it. Needed before you can post a job.',
       documentType: 'government_id',
       documentTitle: 'Valid Philippine ID',
       documentSubtitle: 'Government-issued ID with selfie',
