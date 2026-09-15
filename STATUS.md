@@ -133,7 +133,8 @@ composer-setup.php still sitting in the backend folder
 6. conversation direction migration
 7. nginx upload limit, needs the server owner
 8. paymongo live keys, once the account is business verified
-9. phase 13 crews
+9. b6 community threads
+10. phase 13 crews
 
 
 ## phases
@@ -207,13 +208,8 @@ b5. done. years of experience from the existing entries, overlaps merged.
     data that already exists, with a catalogue screen and a medallion
     per badge.
 
-b6. done. the community board, a fifth tab. a worker posts that they are
-    free, a verified company that it is hiring. one table with a type.
-    paid for a week up front, three live posts per account, the sweep
-    ends them. answering a post opens the pair's thread with no job
-    behind it. reports point at the post. admin page removes one and
-    tells the poster. not built: replies. a notice is answered in chat,
-    not under the notice.
+b6. not started. community threads. one post model with a type, on its
+    own tab, reusing the report queue, closing on the same rule posts do.
 
 
 ## notes on phase 13

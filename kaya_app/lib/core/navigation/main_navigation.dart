@@ -3,7 +3,6 @@ import 'package:provider/provider.dart';
 
 import '../../features/jobs/screens/unified_home_screen.dart';
 import '../../features/jobs/screens/search_screen.dart';
-import '../../features/community/screens/community_screen.dart';
 import '../../features/messaging/screens/messages_list_screen.dart';
 import '../../features/profile/screens/profile_screen.dart';
 import '../../providers/messaging_provider.dart';
@@ -33,9 +32,8 @@ class MainNavigation extends StatefulWidget {
 
   static const int homeTab = 0;
   static const int searchTab = 1;
-  static const int communityTab = 2;
-  static const int messagesTab = 3;
-  static const int profileTab = 4;
+  static const int messagesTab = 2;
+  static const int profileTab = 3;
 
   /// Which tab the shell is showing.
   ///
@@ -79,7 +77,6 @@ class _MainNavigationState extends State<MainNavigation>
   final List<Widget> _screens = const [
     UnifiedHomeScreen(),
     SearchScreen(),
-    CommunityScreen(),
     MessagesListScreen(),
     ProfileScreen(),
   ];
