@@ -116,7 +116,9 @@ class _MessagesListScreenState extends State<MessagesListScreen>
         'conversationId': conv['id'],
         'name': other?['name'] ?? (myRole == 'worker' ? 'Employer' : 'Worker'),
         'avatar': other?['avatar'],
-        'jobTitle': job?['title'] ?? 'Job',
+        // Null when the thread began on the community board: the chat
+        // then shows no job card, instead of one that says Job.
+        'jobTitle': job?['title'],
         'jobId': conv['job_id'],
         'otherUserId': other?['id'],
         'isVerified': (other?['is_verified'] as bool?) ?? false,
@@ -411,7 +413,7 @@ class _MessagesListScreenState extends State<MessagesListScreen>
                       ],
                       Flexible(
                         child: Text(
-                          (job?['title'] ?? 'Job').toString(),
+                          (job?['title'] ?? 'From the community board').toString(),
                           style: const TextStyle(
                               fontSize: 11,
                               color: AppColors.primary,

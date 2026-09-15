@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../providers/app_mode_provider.dart';
+import '../../../providers/community_provider.dart';
 import '../../../providers/notification_provider.dart';
 import '../../../providers/profile_view_provider.dart';
 import '../../../core/constants/credits.dart';
@@ -374,6 +375,8 @@ class ProfileScreen extends StatelessWidget {
                   Provider.of<WorkerProfileProvider>(context, listen: false);
               final employerProfile =
                   Provider.of<EmployerProfileProvider>(context, listen: false);
+              final community =
+                  Provider.of<CommunityProvider>(context, listen: false);
               await auth.logout();
               // Drop the persisted Worker/Employer mode so the next account to
               // sign in on this device does not inherit it.
@@ -416,6 +419,7 @@ class ProfileScreen extends StatelessWidget {
               messaging.clear();
               workerProfile.clear();
               employerProfile.clear();
+              community.clear();
 
               // Navigate to login screen and clear navigation stack
               if (context.mounted) {
