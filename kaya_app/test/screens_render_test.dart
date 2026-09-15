@@ -12,6 +12,7 @@ import 'package:kaya_app/features/employer/screens/setup_employer_profile_screen
 import 'package:kaya_app/features/profile/screens/my_employer_profile_screen.dart';
 import 'package:kaya_app/features/profile/screens/my_worker_profile_screen.dart';
 import 'package:kaya_app/providers/auth_provider.dart';
+import 'package:kaya_app/providers/credits_provider.dart';
 import 'package:kaya_app/providers/employer_profile_provider.dart';
 import 'package:kaya_app/providers/profile_view_provider.dart';
 import 'package:kaya_app/providers/verification_provider.dart';
@@ -46,6 +47,7 @@ void main() {
         ChangeNotifierProvider(create: (_) => ProfileViewProvider()),
         ChangeNotifierProvider(create: (_) => JobProvider()),
         ChangeNotifierProvider(create: (_) => LocationProvider()),
+        ChangeNotifierProvider(create: (_) => CreditsProvider()),
       ],
       child: MaterialApp(home: screen),
     );

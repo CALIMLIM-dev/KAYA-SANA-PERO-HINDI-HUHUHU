@@ -822,17 +822,44 @@ class AuthController extends Controller
         return $this->ok(null, 'Password reset successful. Please login with your new password.');
     }
 
+    /*
+        What the worker's own profile screen loads.
+
+        It read latitude, longitude and the resume off this response, and
+        none of them were in it - they were on /me, which that screen never
+        calls. So a pin saved fine and then never showed as saved: the
+        button went back to "Pin location" and the map reopened on the
+        centre of town. The resume vanished the same way. They are here now,
+        with the bio and the boost, which that screen also needs.
+    */
     public function user(Request $request)
     {
+        $user = $request->user();
+        $worker = $user->workerProfile;
+
+        $boostedUntil = $worker === null
+            ? null
+            : app(\App\Services\BoostService::class)->activeUntil(\App\Models\Boost::TYPE_WORKER, $user->id);
+
         return $this->ok([
-            'id' => $request->user()->id,
-            'name' => $request->user()->name,
-            'email' => $request->user()->email,
-            'phone' => $request->user()->phone,
-            'city' => $request->user()->city,
-            'avatar' => $request->user()->resolvedAvatarUrl(),
-            'is_verified' => $request->user()->is_verified,
-            'user_type' => $request->user()->user_type,
+            'id' => $user->id,
+            'name' => $user->name,
+            'email' => $user->email,
+            'phone' => $user->phone,
+            'city' => $user->city,
+            'avatar' => $user->resolvedAvatarUrl(),
+            'is_verified' => $user->is_verified,
+            'user_type' => $user->user_type,
+            'location_id' => $worker?->location_id,
+            'latitude' => $worker?->latitude === null ? null : (float) $worker->latitude,
+            'longitude' => $worker?->longitude === null ? null : (float) $worker->longitude,
+            'bio' => $worker?->bio,
+            'boosted_until' => $boostedUntil?->toIso8601String(),
+            'resume' => $worker === null ? null : [
+                'has_resume'  => $worker->hasResume(),
+                'file_name'   => $worker->resume_original_name,
+                'uploaded_at' => $worker->resume_uploaded_at?->toIso8601String(),
+            ],
         ], 'User retrieved successfully');
     }
 }

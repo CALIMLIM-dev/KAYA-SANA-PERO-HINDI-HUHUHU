@@ -92,6 +92,9 @@ class WorkerProfileController extends Controller
             'rate_min'           => 'nullable|numeric|min:0',
             'rate_max'           => 'nullable|numeric|min:0|gte:rate_min',
             'rate_unit'          => 'nullable|in:hour,day,project',
+            // A few lines about the work. Scored by completeness() for as
+            // long as that has existed, and until now nothing could set it.
+            'bio'                => 'nullable|string|max:500',
         ]);
         
         if ($validator->fails()) {
@@ -208,11 +211,34 @@ class WorkerProfileController extends Controller
             $profileDirty = true;
         }
 
+        /*
+            A pin belongs to the city it was dropped in.
+
+            A worker who moves their profile to another town without dropping
+            a new pin would otherwise keep coordinates in the old one, and be
+            listed as "2 km away" from jobs two provinces off. With no pin
+            the distance code falls back to the town centre, which is right.
+        */
+        $movedCity = $request->filled('location_id')
+            && (int) $request->input('location_id') !== (int) $profile->location_id;
+
+        if ($movedCity && ! $request->filled('latitude')) {
+            $profile->latitude = null;
+            $profile->longitude = null;
+            $profileDirty = true;
+        }
+
         foreach (['location_id', 'latitude', 'longitude', 'rate_min', 'rate_max', 'rate_unit'] as $field) {
             if ($request->filled($field)) {
                 $profile->{$field} = $request->input($field);
                 $profileDirty = true;
             }
+        }
+
+        // has(), not filled(): sending an empty bio clears it.
+        if ($request->has('bio')) {
+            $profile->bio = trim((string) $request->input('bio')) ?: null;
+            $profileDirty = true;
         }
 
         if ($profileDirty) {

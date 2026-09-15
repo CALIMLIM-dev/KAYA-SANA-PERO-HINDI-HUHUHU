@@ -45,12 +45,21 @@ class WorkerProfileProvider with ChangeNotifier {
   */
   double? latitude;
   double? longitude;
+  int? locationId;
 
   /// True once an exact position has been dropped, not just a city chosen.
   bool get hasPinnedLocation => latitude != null && longitude != null;
   String? phone;
   String? email;
   String? profilePhotoPath;
+
+  /// A few lines about the work, in the worker's own words.
+  String? bio;
+
+  /// When the current boost runs out, or null when there is none.
+  DateTime? boostedUntil;
+  bool get isBoosted =>
+      boostedUntil != null && boostedUntil!.isAfter(DateTime.now());
 
   /*
       The resume on file, if any.
@@ -147,7 +156,10 @@ class WorkerProfileProvider with ChangeNotifier {
         */
         latitude = asDoubleOrNull(userData['latitude']);
         longitude = asDoubleOrNull(userData['longitude']);
+        locationId = (userData['location_id'] as num?)?.toInt();
         profilePhotoPath = userData['avatar'] as String?;
+        bio = userData['bio'] as String?;
+        boostedUntil = DateTime.tryParse('${userData['boosted_until'] ?? ''}');
 
         // Name and date only - the path never leaves the server.
         _adoptResume(userData['resume']);
@@ -218,7 +230,11 @@ class WorkerProfileProvider with ChangeNotifier {
   */
   Future<bool> boostProfile() async {
     try {
-      await _apiClient.post('/worker-profile/boost');
+      final response = await _apiClient.post('/worker-profile/boost');
+      final body = response.data;
+      final data = body is Map ? body['data'] : null;
+      boostedUntil =
+          DateTime.tryParse('${data is Map ? data['ends_at'] ?? '' : ''}');
       _errorMessage = null;
       notifyListeners();
       return true;
@@ -228,6 +244,25 @@ class WorkerProfileProvider with ChangeNotifier {
       return false;
     }
   }
+  Future<bool> updateBio(String text) async {
+    try {
+      final response =
+          await _apiClient.put('/worker/profile', data: {'bio': text.trim()});
+      final data = response.data as Map<String, dynamic>;
+
+      if (data['success'] == true) {
+        bio = text.trim().isEmpty ? null : text.trim();
+        notifyListeners();
+        return true;
+      }
+      _errorMessage = data['message'];
+      return false;
+    } catch (e) {
+      _errorMessage = e.toString().replaceFirst('Exception: ', '');
+      return false;
+    }
+  }
+
   Future<bool> updateName(String newName) async {
     try {
       final response = await _apiClient.put('/worker/profile', data: {'name': newName});
@@ -266,11 +301,19 @@ class WorkerProfileProvider with ChangeNotifier {
       final data = response.data as Map<String, dynamic>;
       
       if (data['success']) {
+        final movedCity = locationId != null && locationId != this.locationId;
         location = newLocation;
+        if (locationId != null) this.locationId = locationId;
         // Kept in step with what was just sent, so the pin state on screen
-        // does not wait for the next fetch to catch up.
-        if (latitude != null) this.latitude = latitude;
-        if (longitude != null) this.longitude = longitude;
+        // does not wait for the next fetch to catch up. A new city with no
+        // pin means the old pin is gone - the server drops it too.
+        if (latitude != null && longitude != null) {
+          this.latitude = latitude;
+          this.longitude = longitude;
+        } else if (movedCity) {
+          this.latitude = null;
+          this.longitude = null;
+        }
         notifyListeners();
         return true;
       } else {

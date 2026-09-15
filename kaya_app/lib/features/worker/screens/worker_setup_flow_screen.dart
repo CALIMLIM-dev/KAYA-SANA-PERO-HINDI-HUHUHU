@@ -1905,10 +1905,11 @@ class _WorkerSetupFlowScreenState extends State<WorkerSetupFlowScreen> {
         final success = await provider.updateLocation(
           location,
           locationId: _selectedLocation?.id,
-          // A dropped pin beats the centroid; without one the town's own
-          // coordinates are used, which is what keeps pinning optional.
-          latitude: _pinnedLat ?? _selectedLocation?.latitude,
-          longitude: _pinnedLng ?? _selectedLocation?.longitude,
+          // Only a pin the user dropped. Without one the server measures
+          // from the town centre itself, and the profile does not claim a
+          // spot nobody chose.
+          latitude: _pinnedLat,
+          longitude: _pinnedLng,
         );
         if (!success && mounted) {
           throw Exception(provider.errorMessage ?? 'Failed to save location');

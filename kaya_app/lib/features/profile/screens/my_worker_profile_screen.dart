@@ -22,6 +22,8 @@ import '../../../providers/verification_provider.dart';
 import '../../../providers/profile_view_provider.dart';
 import '../../../core/widgets/app_toast.dart';
 import '../../../core/widgets/verification_card.dart';
+import '../../../core/widgets/verify_gate.dart';
+import '../../../core/navigation/app_router.dart';
 
 /// My Worker Profile - JobStreet-inspired card layout
 /// Shows filled data in cards, NOT empty clickable placeholders
@@ -884,6 +886,12 @@ class _MyWorkerProfileScreenState extends State<MyWorkerProfileScreen> with Sing
       button, the same rule applying and inviting follow.
   */
   Widget _buildBoostCard() {
+    final p = context.watch<WorkerProfileProvider>();
+    final credits = context.watch<CreditsProvider>();
+    final cost = credits.boostCost ?? JobBoost.cost;
+    final days = credits.boostDays ?? JobBoost.days;
+    final boosted = p.isBoosted;
+
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
       padding: const EdgeInsets.all(14),
@@ -900,9 +908,9 @@ class _MyWorkerProfileScreenState extends State<MyWorkerProfileScreen> with Sing
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
-                  'Boost your profile',
-                  style: TextStyle(
+                Text(
+                  boosted ? 'Your profile is boosted' : 'Boost your profile',
+                  style: const TextStyle(
                     fontSize: 14.5,
                     fontWeight: FontWeight.w600,
                     color: AppColors.neutral900,
@@ -910,8 +918,12 @@ class _MyWorkerProfileScreenState extends State<MyWorkerProfileScreen> with Sing
                 ),
                 const SizedBox(height: 2),
                 Text(
-                  'Top of the worker list for ${JobBoost.days} days, '
-                  '${JobBoost.cost} ${Credits.plural}',
+                  boosted
+                      ? 'Top of the worker list until '
+                          '${_short(p.boostedUntil!)}. Boost again to add '
+                          '$days more days.'
+                      : 'Top of the worker list for $days days, '
+                          '$cost ${Credits.plural}',
                   style: const TextStyle(
                     fontSize: 12.5,
                     height: 1.35,
@@ -923,20 +935,60 @@ class _MyWorkerProfileScreenState extends State<MyWorkerProfileScreen> with Sing
           ),
           TextButton(
             onPressed: _confirmBoost,
-            child: const Text('Boost'),
+            child: Text(boosted ? 'Extend' : 'Boost'),
           ),
         ],
       ),
     );
   }
 
+  static String _short(DateTime d) {
+    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+                    'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    return '${months[d.month - 1]} ${d.day}';
+  }
+
+  /*
+      The same checks applying follows, before any request goes out.
+
+      Unverified, unfinished or broke, the server refuses - and this used
+      to show that refusal as a raw error after the confirm dialog. Each
+      case is now caught first and sent where it can be fixed.
+  */
   Future<void> _confirmBoost() async {
+    final p = context.read<WorkerProfileProvider>();
+    final credits = context.read<CreditsProvider>();
+    final cost = credits.boostCost ?? JobBoost.cost;
+    final days = credits.boostDays ?? JobBoost.days;
+
+    if (!await ensureVerified(context, action: 'boost your profile')) return;
+    if (!mounted) return;
+
+    final unfinished = (p.location ?? '').trim().isEmpty || p.skills.isEmpty;
+    if (unfinished) {
+      AppToast.warning(
+        context,
+        'Finish your profile first. Add your location and at least one skill.',
+      );
+      return;
+    }
+
+    if (credits.hasLoadedOnce && !credits.canAfford('boost')) {
+      await Navigator.pushNamed(context, AppRouter.wallet);
+      if (!mounted) return;
+      await credits.refresh();
+      return;
+    }
+
     final go = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Boost your profile?'),
+        title: Text(p.isBoosted ? 'Extend your boost?' : 'Boost your profile?'),
         content: Text(
-          'Top of the worker list for ${JobBoost.days} days. No refund once it starts.',
+          p.isBoosted
+              ? '$days more days at the top of the worker list, added after '
+                  '${_short(p.boostedUntil!)}. No refund once it starts.'
+              : 'Top of the worker list for $days days. No refund once it starts.',
         ),
         actions: [
           TextButton(
@@ -949,7 +1001,7 @@ class _MyWorkerProfileScreenState extends State<MyWorkerProfileScreen> with Sing
               foregroundColor: Colors.white,
             ),
             onPressed: () => Navigator.pop(context, true),
-            child: Text('Boost for ${JobBoost.cost} ${Credits.plural}'),
+            child: Text('Boost for $cost ${Credits.plural}'),
           ),
         ],
       ),
@@ -968,7 +1020,8 @@ class _MyWorkerProfileScreenState extends State<MyWorkerProfileScreen> with Sing
       if (!mounted) return;
       AppToast.success(
         context,
-        'Boosted. You are at the top of the list for ${JobBoost.days} days.',
+        'Boosted. You are at the top of the list until '
+        '${_short(provider.boostedUntil ?? DateTime.now().add(Duration(days: days)))}.',
       );
     } else {
       AppToast.error(
@@ -1095,19 +1148,44 @@ class _MyWorkerProfileScreenState extends State<MyWorkerProfileScreen> with Sing
             measures distance depends on them, so free text is never accepted
             on its own.
         */
+        /*
+            A few lines about the work. Scored by the completeness ring
+            since it was built, and this is the first place it can be typed.
+        */
+        InlineEditRow(
+          label: 'About your work',
+          value: p.bio,
+          emptyLabel: 'Not written yet',
+          maxLines: 4,
+          maxLength: 500,
+          hint: 'What you do, how long you have done it, what you are good at.',
+          onSave: (v) async {
+            final provider = context.read<WorkerProfileProvider>();
+            // Read before the await: the completeness ring reads /me.
+            final auth = context.read<AuthProvider>();
+            final ok = await provider.updateBio(v);
+            if (ok) await auth.fetchMe();
+            return ok ? null : (provider.errorMessage ?? 'Could not save.');
+          },
+        ),
+
         InlineLocationRow(
           value: p.location,
           onSave: (place) async {
             final provider = context.read<WorkerProfileProvider>();
-            // The place's own coordinates are its centroid - the middle of the
-            // city, not where anybody lives. Good enough to sort by until the
-            // exact spot is pinned below, and it replaces any previous pin
-            // because a pin in the old city is worse than none.
+            /*
+                The place, not its coordinates.
+
+                This used to save the city's centroid as the pin, so choosing
+                a city lit the button below up as "Pinned" for a spot nobody
+                chose, and the map then opened on the middle of town with a
+                pin already on it. The server measures from the town centre
+                on its own when there is no pin, so only a real pin is saved
+                as one. Changing city drops the old pin server-side.
+            */
             final ok = await provider.updateLocation(
               place.displayName,
               locationId: place.id,
-              latitude: place.latitude,
-              longitude: place.longitude,
             );
             return ok ? null : (provider.errorMessage ?? 'Could not save.');
           },
