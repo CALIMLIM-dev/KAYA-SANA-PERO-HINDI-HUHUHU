@@ -57,7 +57,7 @@ class ReportController extends Controller
                 'nullable', 'string', 'max:1000',
             ],
             'subject_id'  => ['nullable', 'integer'],
-            'subject_type' => ['nullable', Rule::in(['user', 'job', 'message'])],
+            'subject_type' => ['nullable', Rule::in(['user', 'job', 'message', 'community_post'])],
         ]);
 
         $reporter = $request->user();

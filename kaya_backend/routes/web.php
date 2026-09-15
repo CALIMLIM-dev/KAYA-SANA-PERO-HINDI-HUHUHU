@@ -3,6 +3,7 @@
 use App\Http\Controllers\Admin\AdminAuthController;
 use App\Http\Controllers\Admin\AnnouncementController;
 use App\Http\Controllers\Admin\AuditController;
+use App\Http\Controllers\Admin\CommunityController as AdminCommunityController;
 use App\Http\Controllers\Admin\CategoryController as AdminCategoryController;
 use App\Http\Controllers\Admin\CreditController as AdminCreditController;
 use App\Http\Controllers\Admin\DashboardController;
@@ -101,6 +102,9 @@ Route::prefix('admin')->name('admin.')->group(function () {
         Route::post('/categories/{category}/skills', [AdminCategoryController::class, 'storeSkill'])->name('categories.skills.store');
         Route::post('/skills/{skill}', [AdminCategoryController::class, 'updateSkill'])->name('skills.update');
         Route::post('/skills/{skill}/delete', [AdminCategoryController::class, 'destroySkill'])->name('skills.destroy');
+
+        Route::get('/community', [AdminCommunityController::class, 'index'])->name('community.index');
+        Route::post('/community/{post}/remove', [AdminCommunityController::class, 'remove'])->name('community.remove');
 
         Route::get('/reviews', [AdminReviewController::class, 'index'])->name('reviews.index');
         Route::post('/reviews/{id}/hide', [AdminReviewController::class, 'hide'])->whereNumber('id')->name('reviews.hide');
