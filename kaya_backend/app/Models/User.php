@@ -197,6 +197,7 @@ class User extends Authenticatable
         'password'          => 'hashed',
         'is_verified'       => 'boolean',
         'is_suspended'      => 'boolean',
+        'deleted_at'        => 'datetime',
         'terms_accepted'    => 'boolean',
         'terms_accepted_at' => 'datetime',
         'password_reset_expires_at' => 'datetime',

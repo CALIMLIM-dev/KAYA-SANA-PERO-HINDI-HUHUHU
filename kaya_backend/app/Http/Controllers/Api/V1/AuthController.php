@@ -11,6 +11,7 @@ use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use Illuminate\Support\Facades\Mail;
 use App\Mail\PasswordResetMail;
+use App\Services\AccountDeletionService;
 use App\Services\GoogleTokenVerifier;
 
 class AuthController extends Controller
@@ -121,6 +122,14 @@ class AuthController extends Controller
             return $this->fail('Incorrect email or password', 401);
         }
 
+        if ($user->deleted_at !== null) {
+            return response()->json([
+                'success' => false,
+                'data'    => ['is_deleted' => true],
+                'message' => 'This account was deleted.',
+            ], 403);
+        }
+
         if ($user->is_suspended) {
             return response()->json([
                 'success' => false,
@@ -143,6 +152,35 @@ class AuthController extends Controller
      * underneath it (suspension does exactly that) can still complete its
      * sign-out instead of retrying a 401 forever.
      */
+    /*
+        Deletes the signed-in account.
+
+        The password is asked for again, so a phone left unlocked cannot end
+        an account in two taps. What goes and what stays is decided in
+        AccountDeletionService; this only checks the person is who they say
+        and that nothing is mid-hire.
+    */
+    public function deleteAccount(Request $request, AccountDeletionService $deletion)
+    {
+        $user = $request->user();
+
+        $data = $request->validate([
+            'password' => ['required', 'string'],
+        ]);
+
+        if (! Hash::check($data['password'], $user->password)) {
+            return $this->fail('That password is not right.', 422);
+        }
+
+        if ($why = $deletion->blocker($user)) {
+            return $this->fail($why, 422);
+        }
+
+        $deletion->delete($user);
+
+        return $this->ok(null, 'Your account has been deleted.');
+    }
+
     public function logout(Request $request)
     {
         $user = $request->user() ?? Auth::guard('sanctum')->user();
@@ -648,6 +686,14 @@ class AuthController extends Controller
                 sign-in screen, where Google handed them a fresh one. The
                 suspension revoked the session and then replaced it.
             */
+            if ($existingUser->deleted_at !== null) {
+                return response()->json([
+                    'success' => false,
+                    'data'    => ['is_deleted' => true],
+                    'message' => 'This account was deleted.',
+                ], 403);
+            }
+
             if ($existingUser->is_suspended) {
                 return response()->json([
                     'success' => false,

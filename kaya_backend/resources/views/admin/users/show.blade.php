@@ -21,7 +21,9 @@
                 <p class="text-sm text-slate-400">{{ $user->email }} · {{ $user->roleLabel() }}</p>
             </div>
             <div class="ml-auto flex items-center gap-3">
-                @if ($user->is_suspended)
+                @if ($user->deleted_at)
+                    <span class="text-xs px-3 py-1.5 rounded-full bg-slate-200 text-slate-600">Deleted by the owner on {{ $user->deleted_at->format('M j, Y') }}</span>
+                @elseif ($user->is_suspended)
                     <span class="badge-suspended text-xs px-3 py-1.5 rounded-full">Suspended</span>
                     <form method="POST" action="{{ route('admin.users.activate', $user) }}" class="inline">
                         @csrf
@@ -352,7 +354,7 @@
 </div>
 
 {{-- Suspend Modal --}}
-@if (!$user->is_suspended)
+@if (!$user->is_suspended && !$user->deleted_at)
 <style>
     .mod-select {
         width: 100%; padding: 9px 32px 9px 12px; border: 1px solid #cbd5e1;

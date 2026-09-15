@@ -52,7 +52,9 @@
                     <td class="py-3 px-5 text-slate-500">{{ $user->roleLabel() }}</td>
                     <td class="py-3 px-5 text-slate-500">{{ $user->created_at->format('M j, Y') }}</td>
                     <td class="py-3 px-5">
-                        @if ($user->is_suspended)
+                        @if ($user->deleted_at)
+                            <span class="text-xs px-2 py-1 rounded-full bg-slate-200 text-slate-600">Deleted</span>
+                        @elseif ($user->is_suspended)
                             <span class="badge-suspended text-xs px-2 py-1 rounded-full">Suspended</span>
                         @elseif ($user->is_verified)
                             <span class="badge-verified text-xs px-2 py-1 rounded-full">Verified</span>
