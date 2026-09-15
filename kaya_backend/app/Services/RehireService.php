@@ -131,7 +131,7 @@ class RehireService
             ->map(fn ($row) => [
                 'worker_id'      => (int) $row->worker_id,
                 'name'           => $row->name,
-                'avatar'         => $row->avatar,
+                'avatar'         => \App\Models\User::mediaUrl($row->avatar),
                 'is_verified'    => (bool) $row->is_verified,
                 'rating_avg'     => $row->rating_count > 0 ? (float) $row->rating_avg : null,
                 'rating_count'   => (int) $row->rating_count,

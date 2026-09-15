@@ -287,7 +287,22 @@ class User extends Authenticatable
     */
     public function resolvedAvatarUrl(): ?string
     {
+        /*
+            The latest upload wins.
+
+            Both photo uploads now write users.avatar, so for anyone who has
+            uploaded since, that column is the picture they chose last and
+            it comes first. The order below it is for accounts from before:
+            a worker photo, then an employer logo, then the Google photo.
+            Google photos are absolute URLs and are only ever a fallback -
+            a person who uploaded a picture meant to replace it.
+        */
+        $uploaded = filled($this->avatar) && ! str_starts_with($this->avatar, 'http')
+            ? $this->avatar
+            : null;
+
         foreach ([
+            $uploaded,
             $this->workerProfile?->profile_photo_path,
             $this->employerProfile?->image_path,
             $this->avatar,
@@ -296,14 +311,22 @@ class User extends Authenticatable
                 continue;
             }
 
-            // Google avatars arrive absolute and must pass through untouched,
-            // or they become ".../storage/https://lh3.googleusercontent.com/".
-            return str_starts_with($candidate, 'http')
-                ? $candidate
-                : \Illuminate\Support\Facades\Storage::disk(config('filesystems.media'))->url($candidate);
+            return self::mediaUrl($candidate);
         }
 
         return null;
+    }
+
+    /** A stored path becomes a URL; a Google URL passes through untouched. */
+    public static function mediaUrl(?string $pathOrUrl): ?string
+    {
+        if (blank($pathOrUrl)) {
+            return null;
+        }
+
+        return str_starts_with($pathOrUrl, 'http')
+            ? $pathOrUrl
+            : \Illuminate\Support\Facades\Storage::disk(config('filesystems.media'))->url($pathOrUrl);
     }
     public function postedJobs()      { return $this->hasMany(JobPost::class, 'employer_id'); }
     public function applications()    { return $this->hasMany(Application::class, 'worker_id'); }

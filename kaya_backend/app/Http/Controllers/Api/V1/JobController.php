@@ -29,7 +29,7 @@ class JobController extends Controller
         // `location` is loaded for JobMatchService's proximity scoring — it
         // falls back to the town centroid when a row has no precise pin, and
         // deliberately won't lazy-load (that would be a query per job).
-        $query = JobPost::with(['employer:id,name,avatar,is_verified', 'employer.employerProfile:id,user_id,image_path', 'category', 'skills', 'psgcLocation'])
+        $query = JobPost::with(['employer:id,name,avatar,is_verified', 'employer.employerProfile:id,user_id,image_path', 'employer.workerProfile:id,user_id,profile_photo_path', 'category', 'skills', 'psgcLocation'])
             // live(), not status alone: the sweep runs daily and the
             // date is exact, so a post can be a day past due and still
             // marked open. The feed answers to the date.
@@ -442,7 +442,7 @@ class JobController extends Controller
             return [
                 'user_id'        => $profile->user_id,
                 'name'           => $profile->user?->name,
-                'avatar'         => $profile->user?->avatar,
+                'avatar'         => $profile->user?->resolvedAvatarUrl(),
                 'is_verified'    => (bool) $profile->user?->is_verified,
                 'location'       => $profile->location,
                 'category'       => $profile->category?->name,
@@ -599,27 +599,10 @@ class JobController extends Controller
     */
     private function employerAvatarUrl(?\App\Models\User $employer): ?string
     {
-        if ($employer === null) {
-            return null;
-        }
-
-        $logo = $employer->employerProfile?->image_path;
-
-        if (filled($logo)) {
-            return \Illuminate\Support\Facades\Storage::disk(config('filesystems.media'))->url($logo);
-        }
-
-        // Google avatars arrive absolute and must pass through untouched, or
-        // they become ".../storage/https://lh3.googleusercontent.com/...".
-        $avatar = $employer->avatar;
-
-        if (blank($avatar)) {
-            return null;
-        }
-
-        return str_starts_with($avatar, 'http')
-            ? $avatar
-            : \Illuminate\Support\Facades\Storage::disk(config('filesystems.media'))->url($avatar);
+        // One rule, on the model: the latest upload, whichever side it was
+        // made from. This used to prefer the logo and chat preferred the
+        // worker photo, so the same person had two faces.
+        return $employer?->resolvedAvatarUrl();
     }
 
     public function show(Request $request, JobPost $job)
@@ -650,6 +633,7 @@ class JobController extends Controller
         $job->load([
             'employer:id,name,avatar,is_verified',
             'employer.employerProfile:id,user_id,company_name,image_path',
+            'employer.workerProfile:id,user_id,profile_photo_path',
             'category',
             'skills',
             'psgcLocation',

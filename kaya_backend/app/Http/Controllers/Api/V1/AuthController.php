@@ -830,7 +830,7 @@ class AuthController extends Controller
             'email' => $request->user()->email,
             'phone' => $request->user()->phone,
             'city' => $request->user()->city,
-            'avatar' => $request->user()->avatar,
+            'avatar' => $request->user()->resolvedAvatarUrl(),
             'is_verified' => $request->user()->is_verified,
             'user_type' => $request->user()->user_type,
         ], 'User retrieved successfully');

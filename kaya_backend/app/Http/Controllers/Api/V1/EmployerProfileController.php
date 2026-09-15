@@ -280,6 +280,16 @@ class EmployerProfileController extends Controller
             'logo_path' => $path, // Keep in sync during migration
         ]);
 
+        /*
+            And the account's picture, so this is the face everywhere.
+
+            The worker upload has always written users.avatar; this one did
+            not, so a person who changed their employer picture kept their
+            old photo in chat, on job cards and on the account screen, all
+            of which read the account. One upload, one picture.
+        */
+        $user->forceFill(['avatar' => $path])->save();
+
         // Refresh profile to get updated data
         $profile = $profile->fresh();
 
@@ -343,7 +353,7 @@ class EmployerProfileController extends Controller
         return $this->ok([
             'user_id'        => $user->id,
             'name'           => $user->name,
-            'avatar'         => $user->avatar,
+            'avatar'         => $user->resolvedAvatarUrl(),
             'is_verified'    => (bool) $user->is_verified,
             'employer_type'  => $profile->employer_type?->value,
             'company_name'   => $profile->company_name,
