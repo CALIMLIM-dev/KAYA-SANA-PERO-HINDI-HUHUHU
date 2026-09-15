@@ -8,11 +8,22 @@ import '../../legal/data/legal_documents.dart';
 /// they were actually put in front of you, and the checkbox stays disabled
 /// until both documents have been scrolled to the end.
 ///
+/// It is two steps, and the sheet says so. People read the terms to the end,
+/// saw "scroll to the bottom of both tabs", and had no idea there was a
+/// second tab: the tab strip looks like a heading. So each step ends in a
+/// button that takes you to the next one, and the notice at the bottom names
+/// what is still unread. A page short enough not to scroll counts as read
+/// the moment it is shown, or nobody could ever get past it.
+///
 /// Reading the same documents later goes through [LegalScreen] instead, which
 /// has no gate and no buttons. Text for both comes from [LegalDocuments], so
 /// the two can never drift apart.
 class TermsModal extends StatefulWidget {
-  const TermsModal({super.key});
+  /// 0 opens on the terms, 1 on the privacy policy. Reading order is still
+  /// enforced; this only decides what is on screen first.
+  final int initialTab;
+
+  const TermsModal({super.key, this.initialTab = 0});
 
   @override
   State<TermsModal> createState() => _TermsModalState();
@@ -31,15 +42,52 @@ class _TermsModalState extends State<TermsModal>
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 2, vsync: this);
+    _tabController = TabController(
+      length: 2,
+      vsync: this,
+      initialIndex: widget.initialTab.clamp(0, 1),
+    );
+    _tabController.addListener(_onTabChanged);
     
     // Listen for scroll events
     _termsScrollController.addListener(_checkTermsScroll);
     _privacyScrollController.addListener(_checkPrivacyScroll);
+
+    WidgetsBinding.instance.addPostFrameCallback((_) => _markShortPagesRead());
   }
+
+  void _onTabChanged() {
+    if (!mounted) return;
+    setState(() {});
+    // The second page is built when it is first shown, so its controller
+    // has nothing to measure until now.
+    WidgetsBinding.instance.addPostFrameCallback((_) => _markShortPagesRead());
+  }
+
+  /// A page with nothing to scroll can never fire the scroll listener.
+  void _markShortPagesRead() {
+    if (!mounted) return;
+    var changed = false;
+    if (!_hasScrolledTermsToBottom &&
+        _termsScrollController.hasClients &&
+        _termsScrollController.position.maxScrollExtent <= 0) {
+      _hasScrolledTermsToBottom = true;
+      changed = true;
+    }
+    if (!_hasScrolledPrivacyToBottom &&
+        _privacyScrollController.hasClients &&
+        _privacyScrollController.position.maxScrollExtent <= 0) {
+      _hasScrolledPrivacyToBottom = true;
+      changed = true;
+    }
+    if (changed) setState(() {});
+  }
+
+  void _goToPrivacy() => _tabController.animateTo(1);
 
   @override
   void dispose() {
+    _tabController.removeListener(_onTabChanged);
     _tabController.dispose();
     _termsScrollController.dispose();
     _privacyScrollController.dispose();
@@ -108,9 +156,9 @@ class _TermsModalState extends State<TermsModal>
             labelColor: AppColors.primary,
             unselectedLabelColor: AppColors.neutral600,
             labelStyle: const TextStyle(fontWeight: FontWeight.w600),
-            tabs: const [
-              Tab(text: 'Terms & Conditions'),
-              Tab(text: 'Privacy Policy'),
+            tabs: [
+              _tab('1. Terms', _hasScrolledTermsToBottom),
+              _tab('2. Privacy', _hasScrolledPrivacyToBottom),
             ],
           ),
           
@@ -121,12 +169,12 @@ class _TermsModalState extends State<TermsModal>
               children: [
                 _buildScrollIndicatorWrapper(
                   _buildTermsContent(),
-                  _termsScrollController,
                   _hasScrolledTermsToBottom,
+                  // Read to the end: the way forward is the next page.
+                  next: _hasScrolledPrivacyToBottom ? null : _goToPrivacy,
                 ),
                 _buildScrollIndicatorWrapper(
                   _buildPrivacyContent(),
-                  _privacyScrollController,
                   _hasScrolledPrivacyToBottom,
                 ),
               ],
@@ -144,7 +192,7 @@ class _TermsModalState extends State<TermsModal>
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  // Warning if not scrolled both
+                  // Says what is still unread, not "both tabs".
                   if (!_canEnableCheckbox)
                     Container(
                       padding: const EdgeInsets.all(12),
@@ -160,7 +208,7 @@ class _TermsModalState extends State<TermsModal>
                           const SizedBox(width: 8),
                           Expanded(
                             child: Text(
-                              'Please scroll to the bottom of both tabs',
+                              _whatIsLeft(),
                               style: TextStyle(
                                 fontSize: 12,
                                 color: AppColors.warning,
@@ -255,10 +303,64 @@ class _TermsModalState extends State<TermsModal>
     );
   }
 
-  Widget _buildScrollIndicatorWrapper(Widget child, ScrollController controller, bool hasScrolledToBottom) {
+  String _whatIsLeft() {
+    if (!_hasScrolledTermsToBottom && !_hasScrolledPrivacyToBottom) {
+      return 'Read the Terms and Conditions to the end. The Privacy Policy comes after it.';
+    }
+    if (!_hasScrolledTermsToBottom) {
+      return 'One left: read the Terms and Conditions to the end.';
+    }
+    return 'One left: read the Privacy Policy to the end.';
+  }
+
+  Widget _tab(String label, bool read) {
+    return Tab(
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Flexible(child: Text(label, overflow: TextOverflow.ellipsis)),
+          if (read) ...[
+            const SizedBox(width: 4),
+            const Icon(Icons.check_circle, size: 14, color: AppColors.success),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildScrollIndicatorWrapper(
+    Widget child,
+    bool hasScrolledToBottom, {
+    VoidCallback? next,
+  }) {
     return Stack(
       children: [
         child,
+        // Read to the end, and the other page still to go: one button that
+        // takes you there, where the scroll hint was.
+        if (hasScrolledToBottom && next != null)
+          Positioned(
+            bottom: 12,
+            left: 20,
+            right: 20,
+            child: ElevatedButton.icon(
+              onPressed: next,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.primary,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(vertical: 12),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                elevation: 0,
+              ),
+              icon: const Icon(Icons.arrow_forward, size: 18),
+              label: const Text(
+                'Next: Privacy Policy',
+                style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+              ),
+            ),
+          ),
         // Scroll indicator at bottom
         if (!hasScrolledToBottom)
           Positioned(

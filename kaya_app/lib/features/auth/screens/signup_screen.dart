@@ -1,3 +1,4 @@
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../../core/constants/app_colors.dart';
@@ -28,6 +29,28 @@ class _SignupScreenState extends State<SignupScreen> {
   String? _googleError;
   String? _termsError;
 
+  late final TapGestureRecognizer _termsTap = TapGestureRecognizer()
+    ..onTap = () => _openTerms(0);
+  late final TapGestureRecognizer _privacyTap = TapGestureRecognizer()
+    ..onTap = () => _openTerms(1);
+
+  /// The consent sheet. Accepting ticks the box; declining leaves it as it
+  /// was. [tab] is only which document shows first.
+  Future<void> _openTerms(int tab) async {
+    final accepted = await showModalBottomSheet<bool>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => TermsModal(initialTab: tab),
+    );
+    if (accepted == true && mounted) {
+      setState(() {
+        _agreeToTerms = true;
+        _termsError = null;
+      });
+    }
+  }
+
   /// Tracked per button rather than from AuthProvider.isLoading.
   ///
   /// Both paths go through the same provider, so a shared flag made the email
@@ -41,6 +64,8 @@ class _SignupScreenState extends State<SignupScreen> {
     _inputController.dispose();
     _passwordController.dispose();
     _confirmPasswordController.dispose();
+    _termsTap.dispose();
+    _privacyTap.dispose();
     super.dispose();
   }
 
@@ -81,12 +106,16 @@ class _SignupScreenState extends State<SignupScreen> {
       _confirmError  = confirmErr;
     });
 
-    if (!_agreeToTerms) {
-      setState(() => _termsError = 'You must agree to the Terms & Conditions to continue.');
-      return false;
-    }
+    // Reported together with the field errors, not instead of them, so one
+    // press of Sign up shows everything that still needs doing.
+    setState(() => _termsError = _agreeToTerms
+        ? null
+        : 'Read and accept the Terms and Conditions and Privacy Policy to continue.');
 
-    return inputErr == null && passErr == null && confirmErr == null;
+    return inputErr == null &&
+        passErr == null &&
+        confirmErr == null &&
+        _agreeToTerms;
   }
 
   Future<void> _handleSignup(AuthProvider auth) async {
@@ -230,7 +259,16 @@ class _SignupScreenState extends State<SignupScreen> {
                     height: 24,
                     child: Checkbox(
                       value: _agreeToTerms,
-                      onChanged: null, // Disabled - can only be checked via modal
+                      // Ticking it means reading them: the box opens the
+                      // sheet, and only Accept in the sheet checks it.
+                      // Unticking is allowed; Sign up will ask again.
+                      onChanged: (_) {
+                        if (_agreeToTerms) {
+                          setState(() => _agreeToTerms = false);
+                        } else {
+                          _openTerms(0);
+                        }
+                      },
                       activeColor: AppColors.primary,
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
                     ),
@@ -238,20 +276,7 @@ class _SignupScreenState extends State<SignupScreen> {
                   const SizedBox(width: 12),
                   Expanded(
                     child: GestureDetector(
-                      onTap: () async {
-                        final accepted = await showModalBottomSheet<bool>(
-                          context: context,
-                          isScrollControlled: true,
-                          backgroundColor: Colors.transparent,
-                          builder: (_) => const TermsModal(),
-                        );
-                        if (accepted == true && mounted) {
-                          setState(() {
-                            _agreeToTerms = true;
-                            _termsError = null;
-                          });
-                        }
-                      },
+                      onTap: () => _openTerms(0),
                       child: Text.rich(
                         TextSpan(
                           text: 'I have read and agree to the ',
@@ -259,6 +284,7 @@ class _SignupScreenState extends State<SignupScreen> {
                           children: [
                             TextSpan(
                               text: 'Terms and Conditions',
+                              recognizer: _termsTap,
                               style: TextStyle(
                                 color: AppColors.primary,
                                 fontWeight: FontWeight.w600,
@@ -271,6 +297,7 @@ class _SignupScreenState extends State<SignupScreen> {
                             ),
                             TextSpan(
                               text: 'Privacy Policy',
+                              recognizer: _privacyTap,
                               style: TextStyle(
                                 color: AppColors.primary,
                                 fontWeight: FontWeight.w600,
