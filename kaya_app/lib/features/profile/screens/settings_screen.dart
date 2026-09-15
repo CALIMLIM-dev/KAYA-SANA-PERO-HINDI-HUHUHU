@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../widgets/change_password_sheet.dart';
+import '../widgets/delete_account_sheet.dart';
 
 import '../../../core/constants/app_colors.dart';
 import '../../../core/widgets/app_toast.dart';
@@ -112,6 +113,16 @@ class _SettingsScreenState extends State<SettingsScreen> {
           _sectionHeader('Notifications'),
           const SizedBox(height: 10),
           ..._buildNotificationSection(),
+
+          const SizedBox(height: 24),
+          _sectionHeader('Leaving'),
+          const SizedBox(height: 10),
+          _menuItem(
+            icon: Icons.person_remove_outlined,
+            title: 'Delete account',
+            subtitle: 'Removes your profile and data. Cannot be undone',
+            onTap: () => showDeleteAccountSheet(context),
+          ),
 
           const SizedBox(height: 32),
         ],

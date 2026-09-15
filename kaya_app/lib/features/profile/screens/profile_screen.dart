@@ -1,20 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../../core/constants/app_colors.dart';
-import '../../../providers/app_mode_provider.dart';
-import '../../../providers/community_provider.dart';
-import '../../../providers/notification_provider.dart';
-import '../../../providers/profile_view_provider.dart';
 import '../../../core/constants/credits.dart';
 import '../../../core/navigation/app_router.dart';
 import '../../../providers/auth_provider.dart';
 import '../../../providers/credits_provider.dart';
-import '../../../providers/job_provider.dart';
-import '../../../providers/application_provider.dart';
-import '../../../providers/invitation_provider.dart';
-import '../../../providers/messaging_provider.dart';
-import '../../../providers/worker_profile_provider.dart';
-import '../../../providers/employer_profile_provider.dart';
+import '../../../core/utils/end_session.dart';
 import '../../../core/widgets/profile_avatar.dart';
 import '../../legal/screens/legal_screen.dart';
 import 'badges_screen.dart';
@@ -351,84 +342,7 @@ class ProfileScreen extends StatelessWidget {
           ElevatedButton(
             onPressed: () async {
               Navigator.pop(context); // Close dialog
-              
-              // Perform logout
-              final auth = Provider.of<AuthProvider>(context, listen: false);
-              final appMode =
-                  Provider.of<AppModeProvider>(context, listen: false);
-              final notifications =
-                  Provider.of<NotificationProvider>(context, listen: false);
-              final profileViews =
-                  Provider.of<ProfileViewProvider>(context, listen: false);
-              final credits =
-                  Provider.of<CreditsProvider>(context, listen: false);
-              // Resolved before the await, like the ones above: the context
-              // may be gone by the time logout returns.
-              final jobs = Provider.of<JobProvider>(context, listen: false);
-              final applications =
-                  Provider.of<ApplicationProvider>(context, listen: false);
-              final invitations =
-                  Provider.of<InvitationProvider>(context, listen: false);
-              final messaging =
-                  Provider.of<MessagingProvider>(context, listen: false);
-              final workerProfile =
-                  Provider.of<WorkerProfileProvider>(context, listen: false);
-              final employerProfile =
-                  Provider.of<EmployerProfileProvider>(context, listen: false);
-              final community =
-                  Provider.of<CommunityProvider>(context, listen: false);
-              await auth.logout();
-              // Drop the persisted Worker/Employer mode so the next account to
-              // sign in on this device does not inherit it.
-              await appMode.clear();
-              // Same reason: a stale badge count and someone else's inbox must
-              // not survive into the next session.
-              notifications.clear();
-              // And the previous account's view count, which would otherwise
-              // greet the next person as if it were theirs.
-              profileViews.clear();
-              /*
-                  And their balance, which was the worst of these.
-
-                  CreditsProvider has a clear() and nothing ever called it, so
-                  the next account to sign in on this phone inherited the last
-                  one's number. Worse than a stale badge: load() returns early
-                  once it has loaded, so the wrong balance never corrected
-                  itself on the home screen - it sat there until something else
-                  forced a refresh, showing one account somebody else's money.
-              */
-              credits.clear();
-
-              /*
-                  And everything else that belongs to one account.
-
-                  The balance was found and fixed on its own; the same hole was
-                  open in six more providers, none of which had a clear() at
-                  all. Signing out and back in on one phone left the next
-                  person holding the previous account's posted jobs, their
-                  applications and applicant lists, their invitations, their
-                  conversations and their profile - and, once the rehire list
-                  existed, the names and photos of everyone they had hired.
-
-                  Reference data is not touched: categories and the skill
-                  catalog are the same for every account.
-              */
-              jobs.clear();
-              applications.clear();
-              invitations.clear();
-              messaging.clear();
-              workerProfile.clear();
-              employerProfile.clear();
-              community.clear();
-
-              // Navigate to login screen and clear navigation stack
-              if (context.mounted) {
-                Navigator.pushNamedAndRemoveUntil(
-                  context,
-                  '/login',
-                  (route) => false,
-                );
-              }
+              await endSession(context);
             },
             style:
                 ElevatedButton.styleFrom(backgroundColor: AppColors.error),
