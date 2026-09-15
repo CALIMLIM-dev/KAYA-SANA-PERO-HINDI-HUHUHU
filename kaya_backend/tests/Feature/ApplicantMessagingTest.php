@@ -136,9 +136,6 @@ class ApplicantMessagingTest extends TestCase
         $second = User::factory()->create();
         WorkerProfile::create(['user_id' => $second->id]);
 
-        // Two hires need two spots; a job is for one person unless it says so.
-        $this->job->update(['workers_needed' => 2]);
-
         foreach ([$this->worker, $second] as $worker) {
             $application = Application::create([
                 'job_id'    => $this->job->id,
