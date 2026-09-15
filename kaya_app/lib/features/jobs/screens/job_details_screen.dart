@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 
 import '../../../core/constants/app_colors.dart';
 import '../../../core/utils/format.dart';
+import '../../../core/utils/realtime_refresh.dart';
 import '../../../data/models/job_model.dart';
 import '../../../providers/application_provider.dart';
 import '../../../providers/job_provider.dart';
@@ -26,7 +27,8 @@ class JobDetailsScreen extends StatefulWidget {
   State<JobDetailsScreen> createState() => _JobDetailsScreenState();
 }
 
-class _JobDetailsScreenState extends State<JobDetailsScreen> {
+class _JobDetailsScreenState extends State<JobDetailsScreen>
+    with RealtimeRefresh {
   int? _jobId;
   bool _initialized = false;
   bool _isApplying = false;
@@ -55,6 +57,18 @@ class _JobDetailsScreenState extends State<JobDetailsScreen> {
         (_) => context.read<JobProvider>().fetchJobDetail(_jobId!),
       );
     }
+
+    // Applicant count, spots filled, and the worker's own status all live
+    // on this page and all change from the other side.
+    bindRealtimeRefresh();
+  }
+
+  @override
+  List<String> get refreshOn => const ['application.', 'invitation.', 'job.'];
+
+  @override
+  void onRealtimeRefresh() {
+    if (_jobId != null) context.read<JobProvider>().fetchJobDetail(_jobId!);
   }
 
   @override

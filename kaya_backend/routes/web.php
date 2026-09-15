@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Admin\AdminAuthController;
 use App\Http\Controllers\Admin\AnnouncementController;
+use App\Http\Controllers\Admin\PulseController;
 use App\Http\Controllers\Admin\AssessmentController as AdminAssessmentController;
 use App\Http\Controllers\Admin\AuditController;
 use App\Http\Controllers\Admin\CommunityController as AdminCommunityController;
@@ -42,6 +43,7 @@ Route::prefix('admin')->name('admin.')->group(function () {
 
         Route::get('/', [DashboardController::class, 'index'])->name('dashboard');
         Route::get('/dashboard', [DashboardController::class, 'index']);
+        Route::get('/pulse', [PulseController::class, 'index'])->name('pulse');
 
         Route::get('/users', [UserManagementController::class, 'index'])->name('users.index');
         Route::get('/users/{user}', [UserManagementController::class, 'show'])->name('users.show');

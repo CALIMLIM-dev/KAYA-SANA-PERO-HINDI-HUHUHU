@@ -37,8 +37,8 @@
                     ],
                     'Accounts' => [
                         ['route' => 'admin.users.index',         'label' => 'Users',               'icon' => 'users'],
-                        ['route' => 'admin.verifications.index', 'label' => 'Verifications',       'icon' => 'badge-check'],
-                        ['route' => 'admin.reports.index',       'label' => 'Reports',             'icon' => 'flag'],
+                        ['route' => 'admin.verifications.index', 'label' => 'Verifications',       'icon' => 'badge-check', 'queue' => 'verifications'],
+                        ['route' => 'admin.reports.index',       'label' => 'Reports',             'icon' => 'flag',        'queue' => 'reports'],
                         ['route' => 'admin.reviews.index',       'label' => 'Reviews',             'icon' => 'star'],
                     ],
                     'Postings' => [
@@ -71,7 +71,11 @@
                        class="flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium mb-0.5
                               {{ $isActive ? 'bg-blue-50 text-blue-700' : 'text-slate-600 hover:bg-slate-50' }}">
                         <i data-lucide="{{ $link['icon'] }}" class="nav-icon"></i>
-                        {{ $link['label'] }}
+                        <span class="flex-1">{{ $link['label'] }}</span>
+                        @if (isset($link['queue']))
+                            <span data-queue="{{ $link['queue'] }}" hidden
+                                  class="min-w-[20px] h-5 px-1.5 rounded-full bg-amber-100 text-amber-800 text-[11px] font-semibold flex items-center justify-center"></span>
+                        @endif
                     </a>
                 @endforeach
             @endforeach
@@ -102,6 +106,12 @@
         </header>
 
         <main class="p-8">
+            <div id="pulse-banner" hidden
+                 class="mb-6 px-4 py-3 rounded-lg bg-blue-50 text-blue-800 text-sm border border-blue-200 flex items-center justify-between gap-4">
+                <span>This page has changed since it was opened.</span>
+                <button type="button" onclick="location.reload()"
+                        class="px-3 py-1.5 rounded-md bg-blue-600 text-white text-xs font-semibold hover:bg-blue-700">Refresh</button>
+            </div>
             @if (session('success'))
                 <div class="mb-6 px-4 py-3 rounded-lg bg-green-50 text-green-700 text-sm border border-green-200">
                     {{ session('success') }}
@@ -117,5 +127,77 @@
     </div>
 </div>
 <script>lucide.createIcons();</script>
+<script>
+/*
+    Keeps the page current without anyone pressing refresh.
+
+    Every ten seconds it asks /admin/pulse for a stamp of the data the
+    panel shows. When the stamp moves, the page reloads itself, unless
+    somebody is in the middle of typing into it, in which case a banner
+    with a Refresh button appears instead and the typing is left alone.
+    The sidebar queue badges update on every poll either way. Polling
+    stops while the tab is hidden and resumes, immediately, when it is
+    shown again.
+*/
+(function () {
+    var url = @json(route('admin.pulse'));
+    var every = 10000;
+    var stamp = null;
+    var dirty = false;
+    var timer = null;
+
+    document.addEventListener('input', function () { dirty = true; }, true);
+
+    function typing() {
+        var el = document.activeElement;
+        if (!el) return false;
+        var tag = el.tagName;
+        return tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || el.isContentEditable;
+    }
+
+    function badges(queues) {
+        document.querySelectorAll('[data-queue]').forEach(function (el) {
+            var n = queues && queues[el.dataset.queue];
+            el.hidden = !n;
+            el.textContent = n || '';
+        });
+    }
+
+    function poll() {
+        fetch(url, { headers: { 'Accept': 'application/json' }, credentials: 'same-origin' })
+            .then(function (r) { return r.ok ? r.json() : null; })
+            .then(function (data) {
+                if (!data) return;
+                badges(data.queues);
+                if (stamp === null) { stamp = data.stamp; return; }
+                if (data.stamp === stamp) return;
+                stamp = data.stamp;
+                if (dirty || typing()) {
+                    document.getElementById('pulse-banner').hidden = false;
+                } else {
+                    location.reload();
+                }
+            })
+            .catch(function () {});
+    }
+
+    function start() {
+        if (timer) return;
+        poll();
+        timer = setInterval(poll, every);
+    }
+
+    function stop() {
+        if (timer) clearInterval(timer);
+        timer = null;
+    }
+
+    document.addEventListener('visibilitychange', function () {
+        document.hidden ? stop() : start();
+    });
+
+    if (!document.hidden) start();
+})();
+</script>
 </body>
 </html>

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../core/constants/app_colors.dart';
+import '../../../core/utils/realtime_refresh.dart';
 import '../../../core/widgets/app_toast.dart';
 import '../../../core/widgets/profile_avatar.dart';
 import '../../../data/services/api_client.dart';
@@ -23,7 +24,7 @@ class RosterScreen extends StatefulWidget {
   State<RosterScreen> createState() => _RosterScreenState();
 }
 
-class _RosterScreenState extends State<RosterScreen> {
+class _RosterScreenState extends State<RosterScreen> with RealtimeRefresh {
   final ApiClient _api = ApiClient();
 
   Map<String, dynamic>? _job;
@@ -36,7 +37,15 @@ class _RosterScreenState extends State<RosterScreen> {
   void initState() {
     super.initState();
     _load();
+    bindRealtimeRefresh();
   }
+
+  // A hire confirming their side, or withdrawing, changes this list.
+  @override
+  List<String> get refreshOn => const ['application.', 'job.'];
+
+  @override
+  void onRealtimeRefresh() => _load();
 
   Future<void> _load() async {
     try {
