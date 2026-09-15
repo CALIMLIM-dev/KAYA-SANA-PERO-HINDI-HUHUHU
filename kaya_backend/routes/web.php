@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Admin\AdminAuthController;
 use App\Http\Controllers\Admin\AnnouncementController;
+use App\Http\Controllers\Admin\AssessmentController as AdminAssessmentController;
 use App\Http\Controllers\Admin\AuditController;
 use App\Http\Controllers\Admin\CommunityController as AdminCommunityController;
 use App\Http\Controllers\Admin\CategoryController as AdminCategoryController;
@@ -102,6 +103,13 @@ Route::prefix('admin')->name('admin.')->group(function () {
         Route::post('/categories/{category}/skills', [AdminCategoryController::class, 'storeSkill'])->name('categories.skills.store');
         Route::post('/skills/{skill}', [AdminCategoryController::class, 'updateSkill'])->name('skills.update');
         Route::post('/skills/{skill}/delete', [AdminCategoryController::class, 'destroySkill'])->name('skills.destroy');
+
+        Route::get('/assessments', [AdminAssessmentController::class, 'index'])->name('assessments.index');
+        Route::post('/assessments', [AdminAssessmentController::class, 'store'])->name('assessments.store');
+        Route::post('/assessments/{assessment}', [AdminAssessmentController::class, 'update'])->name('assessments.update');
+        Route::post('/assessments/{assessment}/questions', [AdminAssessmentController::class, 'storeQuestion'])->name('assessments.questions.store');
+        Route::post('/assessment-questions/{question}', [AdminAssessmentController::class, 'updateQuestion'])->name('assessments.questions.update');
+        Route::post('/assessment-questions/{question}/delete', [AdminAssessmentController::class, 'destroyQuestion'])->name('assessments.questions.destroy');
 
         Route::get('/community', [AdminCommunityController::class, 'index'])->name('community.index');
         Route::post('/community/{post}/remove', [AdminCommunityController::class, 'remove'])->name('community.remove');

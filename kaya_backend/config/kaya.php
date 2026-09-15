@@ -105,6 +105,18 @@ return [
     'community' => [
         'days' => (int) env('COMMUNITY_POST_DAYS', 7),
     ],
+
+    /*
+        Skill checks.
+
+        A failed test can be taken again after this many days. Long enough
+        that the answers are not simply memorised from the last sitting,
+        short enough that one bad afternoon does not lock a trade for a
+        month.
+    */
+    'assessments' => [
+        'retry_days' => (int) env('ASSESSMENT_RETRY_DAYS', 7),
+    ],
     'credits' => [
 
         /*

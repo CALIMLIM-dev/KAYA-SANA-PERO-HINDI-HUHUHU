@@ -19,6 +19,7 @@ class DatabaseSeeder extends Seeder
             AdminSeeder::class,
             CategorySeeder::class,
             SkillSeeder::class,
+            AssessmentSeeder::class,
         ]);
     }
 }
