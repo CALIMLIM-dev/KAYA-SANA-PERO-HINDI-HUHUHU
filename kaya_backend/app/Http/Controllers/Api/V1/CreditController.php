@@ -71,6 +71,8 @@ class CreditController extends Controller
                 // while the dates are being picked - so it gets the rule,
                 // not a number. JobDurationService::costForSpan is the same
                 // arithmetic on the server side.
+                'boost'      => (int) config('kaya.credits.boost'),
+                'boost_days' => (int) config('kaya.credits.boost_days'),
                 'post_free_days'      => (int) config('kaya.jobs.free_days'),
                 'post_days_per_barya' => (int) config('kaya.credits.post_days_per_barya'),
             ],

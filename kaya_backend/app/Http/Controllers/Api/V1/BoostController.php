@@ -70,6 +70,12 @@ class BoostController extends Controller
             return $this->fail('You need a worker profile to boost one.', 422);
         }
 
+        // The directory only lists finished profiles, so boosting an
+        // unfinished one buys a place in a list it is not in.
+        if (! $user->workerProfile->isSetupCompleted()) {
+            return $this->fail('Finish your profile first. Add your location, a job category and at least one skill.', 422);
+        }
+
         $boost = $boosts->purchase($user, Boost::TYPE_WORKER, $user->id);
 
         return $this->ok([

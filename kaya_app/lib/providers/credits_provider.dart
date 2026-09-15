@@ -127,6 +127,11 @@ class CreditsProvider with ChangeNotifier {
   /// does not need a new build to take effect.
   int? costOf(String action) => _costs[action];
 
+  /// What a boost costs and how long it runs, from the server. Null until
+  /// the wallet has loaded.
+  int? get boostCost => _costs['boost'];
+  int? get boostDays => _costs['boost_days'];
+
   /// Fills the price table for a test, which has no server to fetch from.
   @visibleForTesting
   void seedCosts(Map<String, int> costs) {
