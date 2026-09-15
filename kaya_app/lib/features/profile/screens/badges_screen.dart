@@ -26,6 +26,9 @@ class _BadgesScreenState extends State<BadgesScreen> {
 
   bool _loading = true;
   String? _error;
+  /// Verified, Verified Business, Veteran: the person's, shown once. A
+  /// hybrid used to see each of them under both sides.
+  List<Map<String, dynamic>> _account = const [];
   List<Map<String, dynamic>> _worker = const [];
   List<Map<String, dynamic>> _employer = const [];
 
@@ -54,6 +57,8 @@ class _BadgesScreenState extends State<BadgesScreen> {
 
       if (!mounted) return;
       setState(() {
+        _account = ((data['account'] as List?) ?? [])
+            .cast<Map<String, dynamic>>();
         _worker = ((data['worker'] as List?) ?? [])
             .cast<Map<String, dynamic>>();
         _employer = ((data['employer'] as List?) ?? [])
@@ -111,7 +116,9 @@ class _BadgesScreenState extends State<BadgesScreen> {
       );
     }
 
-    final earned = [..._worker, ..._employer].where((b) => b['earned'] == true).length;
+    final earned = [..._account, ..._worker, ..._employer]
+        .where((b) => b['earned'] == true)
+        .length;
 
     return RefreshIndicator(
       onRefresh: _load,
@@ -129,16 +136,22 @@ class _BadgesScreenState extends State<BadgesScreen> {
             ),
           ),
           const SizedBox(height: 16),
+          if (_account.isNotEmpty) ...[
+            _heading('Your account'),
+            ..._account.map(_tile),
+          ],
           if (_worker.isNotEmpty) ...[
+            if (_account.isNotEmpty) const SizedBox(height: 24),
             _heading('As a worker'),
             ..._worker.map(_tile),
           ],
           if (_employer.isNotEmpty) ...[
-            if (_worker.isNotEmpty) const SizedBox(height: 24),
+            if (_account.isNotEmpty || _worker.isNotEmpty)
+              const SizedBox(height: 24),
             _heading('As an employer'),
             ..._employer.map(_tile),
           ],
-          if (_worker.isEmpty && _employer.isEmpty)
+          if (_account.isEmpty && _worker.isEmpty && _employer.isEmpty)
             const Padding(
               padding: EdgeInsets.only(top: 48),
               child: Text(

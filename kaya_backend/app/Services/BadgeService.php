@@ -281,7 +281,7 @@ class BadgeService
 
         $rows[] = [
             'code'        => 'first_job',
-            'label'       => 'First Job',
+            'label'       => $worker ? 'First Job' : 'First Hire',
             'requirement' => "{$milestoneWord} your first {$unitWord}",
             'progress'    => "{$done} finished",
         ];
@@ -289,7 +289,7 @@ class BadgeService
         foreach ([10, 50] as $threshold) {
             $rows[] = [
                 'code'        => "jobs_{$threshold}",
-                'label'       => "{$threshold} Jobs",
+                'label'       => $worker ? "{$threshold} Jobs" : "{$threshold} Hires",
                 'requirement' => "{$milestoneWord} {$threshold} {$unitWord}s",
                 'progress'    => "{$done} of {$threshold}",
             ];
@@ -357,17 +357,19 @@ class BadgeService
                 continue;
             }
 
+            // An employer's milestone is a hire, and the label says so. It
+            // used to read "First Job" on both sides.
             if ($threshold === 1) {
                 return [$this->badge(
                     'first_job',
-                    'First Job',
+                    $hiredWording ? 'First Hire' : 'First Job',
                     $hiredWording ? 'Completed their first hire' : 'Finished their first job'
                 )];
             }
 
             return [$this->badge(
                 "jobs_{$threshold}",
-                "{$threshold} Jobs",
+                $hiredWording ? "{$threshold} Hires" : "{$threshold} Jobs",
                 $hiredWording
                     ? "Completed {$threshold} hires"
                     : "Finished {$threshold} jobs"

@@ -36,11 +36,13 @@ class BadgeCatalogTest extends TestCase
 
     public function test_the_list_names_every_badge_and_what_it_takes(): void
     {
-        $rows = $this->actingAs($this->worker(), 'sanctum')
+        $data = $this->actingAs($this->worker(), 'sanctum')
             ->getJson('/api/v1/me/badges')
             ->assertOk()
-            ->json('data.worker');
+            ->json('data');
 
+        // Account badges are listed once, on their own; the side keeps the rest.
+        $rows = array_merge($data['account'], $data['worker']);
         $codes = array_column($rows, 'code');
 
         foreach (['verified', 'first_job', 'jobs_10', 'jobs_50', 'highly_rated', 'reliable', 'repeat_hire', 'veteran'] as $code) {
@@ -56,10 +58,11 @@ class BadgeCatalogTest extends TestCase
 
     public function test_an_unearned_badge_is_listed_as_unearned(): void
     {
-        $rows = collect($this->actingAs($this->worker(), 'sanctum')
+        $data = $this->actingAs($this->worker(), 'sanctum')
             ->getJson('/api/v1/me/badges')
             ->assertOk()
-            ->json('data.worker'))->keyBy('code');
+            ->json('data');
+        $rows = collect(array_merge($data['account'], $data['worker']))->keyBy('code');
 
         $this->assertFalse($rows['verified']['earned']);
         $this->assertFalse($rows['first_job']['earned']);
@@ -70,9 +73,32 @@ class BadgeCatalogTest extends TestCase
         $rows = collect($this->actingAs($this->worker(true), 'sanctum')
             ->getJson('/api/v1/me/badges')
             ->assertOk()
-            ->json('data.worker'))->keyBy('code');
+            ->json('data.account'))->keyBy('code');
 
         $this->assertTrue($rows['verified']['earned']);
+    }
+
+    /*
+        A hybrid saw Verified and Veteran twice, once under each side, as if
+        there were two of each to earn. They belong to the person.
+    */
+    public function test_a_hybrid_sees_each_account_badge_once_and_hires_named_as_hires(): void
+    {
+        $user = $this->worker(true);
+        \App\Models\EmployerProfile::create(['user_id' => $user->id, 'employer_type' => 'individual', 'location' => 'x']);
+
+        $data = $this->actingAs($user, 'sanctum')->getJson('/api/v1/me/badges')->assertOk()->json('data');
+
+        $this->assertSame(['verified', 'veteran'], array_column($data['account'], 'code'));
+        $this->assertNotContains('verified', array_column($data['worker'], 'code'));
+        $this->assertNotContains('verified', array_column($data['employer'], 'code'));
+        $this->assertNotContains('veteran', array_column($data['employer'], 'code'));
+
+        $employer = collect($data['employer'])->keyBy('code');
+        $this->assertSame('First Hire', $employer['first_job']['label']);
+        $this->assertSame('10 Hires', $employer['jobs_10']['label']);
+        $worker = collect($data['worker'])->keyBy('code');
+        $this->assertSame('First Job', $worker['first_job']['label']);
     }
 
     /*

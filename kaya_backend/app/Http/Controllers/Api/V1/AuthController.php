@@ -344,9 +344,35 @@ class AuthController extends Controller
     {
         $user = $request->user();
 
+        $worker = $badges->catalogFor($user, 'worker');
+        $employer = $badges->catalogFor($user, 'employer');
+
+        /*
+            Account badges once, not once per side.
+
+            Verified, Verified Business and Veteran belong to the person, not
+            to a role, and a hybrid saw each of them twice: under "As a
+            worker" and again under "As an employer", as if there were two
+            of them to earn. They are pulled out into their own list, and
+            the two side lists keep only what that side earns on its own.
+        */
+        $accountCodes = ['verified', 'verified_business', 'veteran'];
+        $account = collect(array_merge($worker, $employer))
+            ->filter(fn ($row) => in_array($row['code'], $accountCodes, true))
+            ->unique('code')
+            ->sortBy(fn ($row) => array_search($row['code'], $accountCodes, true))
+            ->values()
+            ->all();
+
+        $sideOnly = fn (array $rows) => array_values(array_filter(
+            $rows,
+            fn ($row) => ! in_array($row['code'], $accountCodes, true),
+        ));
+
         return $this->ok([
-            'worker'   => $badges->catalogFor($user, 'worker'),
-            'employer' => $badges->catalogFor($user, 'employer'),
+            'account'  => $account,
+            'worker'   => $sideOnly($worker),
+            'employer' => $sideOnly($employer),
         ]);
     }
     /**
