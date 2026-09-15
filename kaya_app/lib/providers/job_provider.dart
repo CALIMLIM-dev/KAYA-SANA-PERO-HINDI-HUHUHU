@@ -193,11 +193,14 @@ class JobProvider with ChangeNotifier {
     required DateTime startDate,
     DateTime? endDate,
     String? startTime,
+    // How many people the job is for. One unless the employer says more.
+    int workersNeeded = 1,
   }) async {
     _setLoading(true);
     try {
       final formData = FormData.fromMap({
         'title':               title,
+        'workers_needed':      workersNeeded,
         'description':         description,
         'category_id':         categoryId,
         'required_skill_ids':  skillIds,
