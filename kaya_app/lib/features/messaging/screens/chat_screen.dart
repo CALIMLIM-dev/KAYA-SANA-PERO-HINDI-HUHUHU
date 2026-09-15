@@ -504,10 +504,11 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                 */
                 final schedule = context.watch<ScheduleProvider>();
 
+                // The newest proposal, whatever was said to it. A decline
+                // shows as one instead of the older agreement coming back.
                 final card = jobId == null || _conversationId == null
                     ? null
-                    : schedule.pendingFor(_conversationId!) ??
-                        schedule.agreedFor(_conversationId!);
+                    : schedule.currentFor(_conversationId!);
 
                 final cardDay = card == null
                     ? null

@@ -241,14 +241,17 @@ class ConversationController extends Controller
 
         $proposal = DB::transaction(function () use ($conversation, $user, $data) {
             /*
-                One live offer per thread.
+                One offer per thread, and a new one replaces the old plan.
 
                 Two open proposals is two people accepting different days and
-                both believing it is settled. An earlier one is superseded
-                rather than deleted, so the thread keeps its history.
+                both believing it is settled. And a new proposal on top of an
+                agreed day means that day is being changed: if the answer is
+                no, the two of them have not agreed, and the thread must not
+                quietly fall back to showing the old day as settled. Earlier
+                rows are superseded rather than deleted, so the history stays.
             */
             ScheduleProposal::where('conversation_id', $conversation->id)
-                ->where('status', 'proposed')
+                ->whereIn('status', ['proposed', 'accepted'])
                 ->update(['status' => 'superseded', 'responded_at' => now()]);
 
             return ScheduleProposal::create([
@@ -327,15 +330,22 @@ class ConversationController extends Controller
             return $this->fail('You are not part of this conversation', 403);
         }
 
-        $live = ScheduleProposal::where('conversation_id', $conversation->id)
-            ->live()
-            ->latest()
+        /*
+            The latest proposal is the only one that matters.
+
+            This used to send the live one and, separately, the last accepted
+            one ever. After a decline the live one was gone and the screen
+            fell back to an older acceptance, so a person who had just said
+            no was shown "Agreed". A decline was never shown to anybody at
+            all. Now the newest row is sent whatever its answer, so a
+            declined day reads as declined until somebody proposes another.
+        */
+        $current = ScheduleProposal::where('conversation_id', $conversation->id)
+            ->latest('id')
             ->first();
 
-        $agreed = ScheduleProposal::where('conversation_id', $conversation->id)
-            ->where('status', 'accepted')
-            ->latest('responded_at')
-            ->first();
+        $live = $current?->status === 'proposed' ? $current : null;
+        $agreed = $current?->status === 'accepted' ? $current : null;
 
         /*
             Every day this worker has already agreed to, across all their
@@ -360,6 +370,8 @@ class ConversationController extends Controller
         return $this->ok([
             'pending' => $live ? $this->presentProposal($live) : null,
             'agreed'  => $agreed ? $this->presentProposal($agreed) : null,
+            // Whatever it is: proposed, accepted or declined.
+            'current' => $current ? $this->presentProposal($current) : null,
             'worker_busy' => $busy,
         ]);
     }

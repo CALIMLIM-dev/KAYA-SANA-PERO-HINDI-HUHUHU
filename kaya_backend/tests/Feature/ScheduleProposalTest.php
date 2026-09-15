@@ -212,9 +212,47 @@ class ScheduleProposalTest extends TestCase
             ->assertOk()
             ->json('data');
 
-        $this->assertSame($agreed, $body['agreed']['id']);
+        // A new proposal is a change to the plan: the old day is no longer
+        // reported as agreed while the new one waits for an answer.
+        $this->assertNull($body['agreed']);
         $this->assertNotNull($body['pending']);
         $this->assertSame('7:00 AM', $body['pending']['scheduled_time']);
+        $this->assertSame($body['pending']['id'], $body['current']['id']);
+        $this->assertSame('superseded', ScheduleProposal::find($agreed)->status);
+    }
+
+    /*
+        Declining showed as agreeing.
+
+        The thread sent the last accepted day whatever came after it, so a
+        person who accepted Saturday, was then asked for Sunday and said no
+        was shown Saturday as "Agreed" - and the no was never shown at all.
+    */
+    public function test_a_declined_day_reads_as_declined_not_as_the_old_agreement(): void
+    {
+        $saturday = $this->propose($this->employer)->json('data.id');
+        $this->actingAs($this->worker, 'sanctum')
+            ->postJson("/api/v1/conversations/{$this->conversation->id}/schedule/{$saturday}/respond", ['accept' => true])
+            ->assertOk();
+
+        $sunday = $this->propose($this->employer, ['scheduled_date' => now()->addDays(4)->toDateString()])->json('data.id');
+        $this->actingAs($this->worker, 'sanctum')
+            ->postJson("/api/v1/conversations/{$this->conversation->id}/schedule/{$sunday}/respond", ['accept' => false])
+            ->assertOk();
+
+        $body = $this->actingAs($this->worker, 'sanctum')
+            ->getJson("/api/v1/conversations/{$this->conversation->id}/schedule")
+            ->assertOk()
+            ->json('data');
+
+        $this->assertNull($body['agreed']);
+        $this->assertNull($body['pending']);
+        $this->assertSame($sunday, $body['current']['id']);
+        $this->assertSame('declined', $body['current']['status']);
+
+        // And the worker is not marked busy on a day they never agreed to,
+        // nor on the one that was replaced.
+        $this->assertSame([], ScheduleProposal::commitmentsFor($this->worker->id));
     }
 
     public function test_a_stranger_cannot_see_or_touch_the_schedule(): void

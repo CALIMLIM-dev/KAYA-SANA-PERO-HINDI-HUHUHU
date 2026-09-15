@@ -20,6 +20,7 @@ class ScheduleProvider with ChangeNotifier {
   /// conversation id → what is agreed, and what is still waiting.
   final Map<int, Map<String, dynamic>?> _agreed = {};
   final Map<int, Map<String, dynamic>?> _pending = {};
+  final Map<int, Map<String, dynamic>?> _current = {};
 
   String? _errorMessage;
   bool _busy = false;
@@ -39,6 +40,11 @@ class ScheduleProvider with ChangeNotifier {
 
   Map<String, dynamic>? agreedFor(int conversationId) => _agreed[conversationId];
   Map<String, dynamic>? pendingFor(int conversationId) => _pending[conversationId];
+
+  /// The newest proposal whatever its answer, so a decline is shown as one
+  /// rather than the thread falling back to an older agreement.
+  Map<String, dynamic>? currentFor(int conversationId) =>
+      _current[conversationId] ?? _pending[conversationId] ?? _agreed[conversationId];
   List<Map<String, dynamic>> busyFor(int conversationId) =>
       _commitments[conversationId] ?? const [];
 
@@ -53,6 +59,7 @@ class ScheduleProvider with ChangeNotifier {
 
       _agreed[conversationId] = data['agreed'] as Map<String, dynamic>?;
       _pending[conversationId] = data['pending'] as Map<String, dynamic>?;
+      _current[conversationId] = data['current'] as Map<String, dynamic>?;
       _commitments[conversationId] = ((data['worker_busy'] as List?) ?? [])
           .cast<Map<String, dynamic>>();
       _errorMessage = null;
@@ -135,10 +142,12 @@ class ScheduleProvider with ChangeNotifier {
     required int conversationId,
     Map<String, dynamic>? agreed,
     Map<String, dynamic>? pending,
+    Map<String, dynamic>? current,
     List<String> busyDates = const [],
   }) {
     _agreed[conversationId] = agreed;
     _pending[conversationId] = pending;
+    _current[conversationId] = current ?? pending ?? agreed;
     _commitments[conversationId] =
         busyDates.map((d) => <String, dynamic>{'date': d}).toList();
     notifyListeners();
@@ -149,6 +158,7 @@ class ScheduleProvider with ChangeNotifier {
   void clear() {
     _agreed.clear();
     _pending.clear();
+    _current.clear();
     _commitments.clear();
     _errorMessage = null;
     notifyListeners();
