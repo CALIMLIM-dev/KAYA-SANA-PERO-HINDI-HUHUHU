@@ -15,6 +15,8 @@ class JobPost extends Model
         // display string; these are what filtering and proximity search use.
         'location_id', 'latitude', 'longitude', 'address_line',
         'status', 'application_count', 'is_urgent', 'photos',
+        // How many people the job is for. One unless the employer says more.
+        'workers_needed',
         'expires_at', 'expiry_warned_at',
         'budget_period',
         // When the work happens. end_date null means a single day.
@@ -147,6 +149,23 @@ class JobPost extends Model
     public function employer()     { return $this->belongsTo(User::class, 'employer_id'); }
     public function category()     { return $this->belongsTo(Category::class); }
     public function applications() { return $this->hasMany(Application::class, 'job_id'); }
+
+    /** The people on the job: accepted, or accepted and since finished. */
+    public function hires()
+    {
+        return $this->hasMany(Application::class, 'job_id')->whereIn('status', ['accepted', 'completed']);
+    }
+
+    /** Spots taken. A job for one is full after its first hire. */
+    public function filledCount(): int
+    {
+        return $this->hires()->count();
+    }
+
+    public function isFull(): bool
+    {
+        return $this->filledCount() >= max(1, (int) $this->workers_needed);
+    }
     /**
      * The pivot column is `job_id`, but Laravel infers `job_post_id` from this
      * model's name — so the foreign key must be given explicitly. Without it

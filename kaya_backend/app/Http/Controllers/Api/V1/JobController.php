@@ -304,6 +304,9 @@ class JobController extends Controller
             */
             'start_date'         => ['required', 'date', 'after_or_equal:today'],
             'end_date'           => ['required', 'date', 'after_or_equal:start_date'],
+            // One by default. Ten at most: past that it is a crew with a
+            // payroll, which KAYA does not run.
+            'workers_needed'     => ['nullable', 'integer', 'min:1', 'max:10'],
         ], [
             'budget_max.gte' => 'The maximum budget must be greater than or equal to the minimum budget.',
             'photos.required' => 'Please add at least one photo of the job.',
@@ -508,6 +511,8 @@ class JobController extends Controller
             ->withCount([
                 'applications',
                 'applications as pending_application_count' => fn ($q) => $q->where('status', 'pending'),
+                // Spots taken, beside how many there are.
+                'hires as workers_filled',
             ])
             ->latest()
             ->get()
@@ -638,6 +643,7 @@ class JobController extends Controller
             'skills',
             'psgcLocation',
         ]);
+        $job->loadCount('hires as workers_filled');
 
         $job->employer_information = [
             'employer_id'         => $job->employer_id,
@@ -740,6 +746,7 @@ class JobController extends Controller
             */
             'start_date'         => ['nullable', 'date'],
             'end_date'           => ['nullable', 'date', 'after_or_equal:start_date'],
+            'workers_needed'     => ['nullable', 'integer', 'min:1', 'max:10'],
         ], [
             'budget_max.gte' => 'The maximum budget must be greater than or equal to the minimum budget.',
             'end_date.after_or_equal' => 'The job cannot end before it starts.',
