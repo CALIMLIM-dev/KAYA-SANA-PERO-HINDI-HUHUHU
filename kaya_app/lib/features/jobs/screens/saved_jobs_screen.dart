@@ -6,7 +6,7 @@ import '../../../core/utils/realtime_refresh.dart';
 import '../../../core/widgets/app_toast.dart';
 import '../../../data/models/job_model.dart';
 import '../../../providers/job_provider.dart';
-import '../widgets/compact_job_card.dart';
+import '../widgets/job_list_card.dart';
 
 /// Jobs the worker saved.
 ///
@@ -119,10 +119,9 @@ class _SavedJobsScreenState extends State<SavedJobsScreen>
 
     // Everything on this screen is saved by definition; the list endpoint
     // does not repeat the flag, so the bookmark is filled in here.
-    return CompactJobCard(
+    return JobListCard(
       job: job.copyWith(isSaved: true),
       onTap: open,
-      onContact: open,
       onToggleSave: () async {
         final ok = await context.read<JobProvider>().unsaveJob(job.id);
         if (!ok && mounted) {

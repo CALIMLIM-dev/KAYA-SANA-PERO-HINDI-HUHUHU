@@ -12,7 +12,7 @@ import '../widgets/place_picker_sheet.dart';
 import '../../../providers/job_provider.dart';
 import '../../../providers/worker_browse_provider.dart';
 import '../../../providers/worker_profile_provider.dart';
-import '../widgets/compact_job_card.dart';
+import '../widgets/job_list_card.dart';
 import '../widgets/worker_card.dart';
 
 /// Search Screen — Jobs and Workers, backed by GET /jobs and GET /workers.
@@ -615,10 +615,9 @@ class _SearchScreenState extends State<SearchScreen> {
     void open() => Navigator.pushNamed(context, '/job-details',
         arguments: {'jobId': job.id});
 
-    return CompactJobCard(
+    return JobListCard(
       job: job,
       onTap: open,
-      onContact: open,
       onToggleSave: () =>
           context.read<JobProvider>().toggleSave(job.id, job.isSaved),
     );

@@ -3,7 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'package:kaya_app/features/applications/widgets/application_card.dart';
 import 'package:kaya_app/data/models/job_model.dart';
-import 'package:kaya_app/features/jobs/widgets/compact_job_card.dart';
+import 'package:kaya_app/features/jobs/widgets/job_list_card.dart';
 import 'package:kaya_app/features/jobs/widgets/job_card_v2.dart';
 import 'package:kaya_app/features/jobs/widgets/worker_card.dart';
 import 'package:kaya_app/features/messaging/widgets/conversation_card.dart';
@@ -91,9 +91,9 @@ void main() {
       postedTime: '2 hours ago',
       onTap: () {},
     ),
-    // The job card as search and saved jobs draw it: in a list, with the
-    // bookmark, and every optional line switched on.
-    'compact job card': CompactJobCard(
+    // The job card as search and saved jobs draw it, with the bookmark and
+    // every optional line switched on.
+    'job list card': JobListCard(
       job: Job(
         id: 1,
         title: longTitle,
@@ -115,7 +115,6 @@ void main() {
         requiredSkills: const ['Masonry', 'Tile setting', 'Plastering'],
       ),
       onTap: () {},
-      onContact: () {},
       onToggleSave: () {},
     ),
     'worker card': WorkerCard(

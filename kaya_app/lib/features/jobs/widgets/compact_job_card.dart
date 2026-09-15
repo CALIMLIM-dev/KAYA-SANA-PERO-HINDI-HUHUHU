@@ -3,22 +3,16 @@ import '../../../core/constants/app_colors.dart';
 import '../../../core/utils/format.dart';
 import '../../../data/models/job_model.dart';
 
-/// The job card.
+/// The job card for the home carousels.
 ///
-/// One card for every list a job appears in: the home carousels, the search
-/// results and the saved jobs. Search used to draw its own, taller card with
-/// skill chips and a match line, so the same job looked like two different
-/// things one tab apart.
-///
-/// In a carousel the parent fixes the height and the bottom row is pushed to
-/// the floor; in a vertical list the card takes the height its content needs.
-/// [onToggleSave] adds the bookmark, on the lists that have somewhere to keep
-/// a saved job.
+/// Drawn at a fixed height in a row that scrolls sideways, so everything is
+/// one line and the bottom row is pushed to the floor. The full-width list
+/// version, for search and saved jobs, is JobListCard: same icons, colours
+/// and order of lines, sized for a list.
 class CompactJobCard extends StatelessWidget {
   final Job job;
   final VoidCallback? onTap;
   final VoidCallback? onContact;
-  final VoidCallback? onToggleSave;
   final List<String> workerSkills;
 
   const CompactJobCard({
@@ -26,7 +20,6 @@ class CompactJobCard extends StatelessWidget {
     required this.job,
     this.onTap,
     this.onContact,
-    this.onToggleSave,
     this.workerSkills = const [],
   });
 
@@ -173,27 +166,6 @@ class CompactJobCard extends StatelessWidget {
                           color: Color(0xFF8A6D00),
                           height: 1.2,
                         ),
-                      ),
-                    ),
-                  ],
-
-                  // Bookmark. Only where the list has a saved-jobs screen to
-                  // send the job to.
-                  if (onToggleSave != null) ...[
-                    const SizedBox(width: 2),
-                    IconButton(
-                      onPressed: onToggleSave,
-                      padding: EdgeInsets.zero,
-                      constraints:
-                          const BoxConstraints.tightFor(width: 32, height: 32),
-                      visualDensity: VisualDensity.compact,
-                      tooltip: job.isSaved ? 'Unsave' : 'Save',
-                      icon: Icon(
-                        job.isSaved ? Icons.bookmark : Icons.bookmark_border,
-                        size: 20,
-                        color: job.isSaved
-                            ? AppColors.primary
-                            : AppColors.neutral500,
                       ),
                     ),
                   ],
