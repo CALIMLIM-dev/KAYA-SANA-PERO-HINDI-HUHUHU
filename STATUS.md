@@ -45,6 +45,20 @@ unused dead code removed
 
 ## fixed today
 
+account deletion. DELETE /me with the password, from Settings. profiles,
+  documents, photos, resume, saved jobs, notifications go; open posts close
+  and applicants are refunded; the row stays as Deleted account for the
+  ledger and audit log. refused mid-hire.
+
+screens refresh from the notification poll, not the socket. admin pages
+  poll a stamp and reload when data changes.
+
+notifications reach the shade when the app is backgrounded or closed
+  (workmanager, 15 minutes). one shared high-water mark.
+
+search and saved jobs have their own list card. consent sheet walks both
+  pages.
+
 my activity
 
 hired workers had no tab of their own, their live job sat inside the
@@ -106,8 +120,6 @@ screens stacking when going back
 
 google login slow
 
-no way to delete your account. required by the data privacy act.
-
 photo upload limit needs a server change. nginx client_max_body_size is 1mb
   and raising it needs root, which the deploy user does not have.
 
@@ -128,11 +140,10 @@ composer-setup.php still sitting in the backend folder
 1. decide the resume policy, then gate it
 2. delete the qa account and composer-setup.php
 3. screens stacking on back
-4. account deletion
-5. google login speed
-6. conversation direction migration
-7. nginx upload limit, needs the server owner
-8. paymongo live keys, once the account is business verified
+4. google login speed
+5. conversation direction migration
+6. nginx upload limit, needs the server owner
+7. paymongo live keys, once the account is business verified
 
 
 ## phases
