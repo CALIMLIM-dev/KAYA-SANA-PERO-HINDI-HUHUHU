@@ -593,20 +593,6 @@ class NotificationService
         }
     }
 
-    /** An administrator took a community post down; the poster hears why. */
-    public function communityPostRemoved(\App\Models\CommunityPost $post, string $reason): void
-    {
-        $this->push(
-            userId: $post->user_id,
-            audience: $post->type === \App\Models\CommunityPost::TYPE_BUSINESS
-                ? UserNotification::AUDIENCE_EMPLOYER
-                : UserNotification::AUDIENCE_WORKER,
-            type: 'community.removed',
-            title: 'Your community post was removed',
-            body: '"' . $post->title . '" was taken down by KAYA. Reason: ' . $reason,
-        );
-    }
-
     /*
         An announcement from KAYA to everyone, or to one side of it.
 

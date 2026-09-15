@@ -104,7 +104,6 @@ class UserNotification extends Model
             // rejected and their verified badge is not coming.
             'verification' => 'account',
             'announcement' => 'account',
-            'community'    => 'account',
         ][explode('.', $type)[0]] ?? 'jobs';
     }
 

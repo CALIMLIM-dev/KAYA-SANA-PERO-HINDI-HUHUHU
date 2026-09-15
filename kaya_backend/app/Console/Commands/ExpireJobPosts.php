@@ -44,17 +44,7 @@ class ExpireJobPosts extends Command
         $warned = $this->warnExpiringSoon($notifications, $dry);
         $expired = $this->expirePastDue($notifications, $ledger, $dry);
 
-        /*
-            Community posts end by the same clock. Readers already check the
-            date, so this only tidies the status for the admin counts; there
-            is nothing to refund and nobody to tell.
-        */
-        $ended = $dry ? 0 : \App\Models\CommunityPost::query()
-            ->where('status', \App\Models\CommunityPost::STATUS_LIVE)
-            ->where('expires_at', '<=', now())
-            ->update(['status' => \App\Models\CommunityPost::STATUS_ENDED]);
-
-        $this->info("Warned {$warned}, expired {$expired}, community posts ended {$ended}.");
+        $this->info("Warned {$warned}, expired {$expired}.");
 
         return self::SUCCESS;
     }

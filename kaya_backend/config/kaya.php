@@ -94,17 +94,6 @@ return [
         // How far ahead of the end date the employer is told.
         'warn_days'  => (int) env('JOB_EXPIRY_WARN_DAYS', 7),
     ],
-
-    /*
-        The community board.
-
-        A post runs this many days, paid up front at the thread_ad prices
-        under credits. A week: long enough for a notice to be seen, short
-        enough that the board is never a wall of stale ones.
-    */
-    'community' => [
-        'days' => (int) env('COMMUNITY_POST_DAYS', 7),
-    ],
     'credits' => [
 
         /*

@@ -43,7 +43,6 @@
                     ],
                     'Postings' => [
                         ['route' => 'admin.jobs.index',          'label' => 'Jobs',                'icon' => 'briefcase'],
-                        ['route' => 'admin.community.index',     'label' => 'Community',           'icon' => 'message-square'],
                         ['route' => 'admin.categories.index',    'label' => 'Categories & Skills', 'icon' => 'tags'],
                     ],
                     'Finance' => [
