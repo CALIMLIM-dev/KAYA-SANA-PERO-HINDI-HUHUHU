@@ -155,6 +155,9 @@ done
 10. revenue reporting. the barya page in the admin reads the ledger
 14. admin panel. jobs, barya, categories and skills, announcements, audit
     log, dashboard with queues and today against yesterday
+9. skill checks. a short test per trade, written by the admin on its own
+    page, marked on the server. a pass is a badge on the profile and a
+    chip in the directory. a fail waits a week. eight trades seeded.
 13. crews. a job says how many people it is for, one to ten. it stays
     open until every spot is taken and refuses a hire past that. the
     roster lists everyone hired, marks them all complete from the
@@ -167,7 +170,7 @@ partly done
 
 not started
 
-9. skill assessments
+none. every phase is built.
 
 
 ## barya economy and business overhaul

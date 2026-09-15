@@ -14,6 +14,7 @@ class WorkerCard extends StatelessWidget {
   final String reviews;
   final bool isAvailable;
   final bool isVerified;
+  final bool isSkillChecked;
   final List<String> skills;
   final int? matchScore;
   final double? distanceKm;
@@ -36,6 +37,7 @@ class WorkerCard extends StatelessWidget {
     required this.reviews,
     required this.isAvailable,
     this.isVerified = false,
+    this.isSkillChecked = false,
     this.skills = const [],
     this.matchScore,
     this.distanceKm,
@@ -109,13 +111,40 @@ class WorkerCard extends StatelessWidget {
                         ],
                       ),
                       const SizedBox(height: 3),
-                      Text(
-                        primarySkill,
-                        style: const TextStyle(
-                          fontSize: 13.5,
-                          color: AppColors.neutral600,
-                        ),
-                        overflow: TextOverflow.ellipsis,
+                      Row(
+                        children: [
+                          Flexible(
+                            child: Text(
+                              primarySkill,
+                              style: const TextStyle(
+                                fontSize: 13.5,
+                                color: AppColors.neutral600,
+                              ),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                          // Passed the trade's skill check. The one thing on
+                          // the card that says they can do the work.
+                          if (isSkillChecked) ...[
+                            const SizedBox(width: 6),
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 6, vertical: 1),
+                              decoration: BoxDecoration(
+                                color: AppColors.primary.withValues(alpha: 0.1),
+                                borderRadius: BorderRadius.circular(6),
+                              ),
+                              child: const Text(
+                                'Skill checked',
+                                style: TextStyle(
+                                  fontSize: 10.5,
+                                  fontWeight: FontWeight.w600,
+                                  color: AppColors.primary,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ],
                       ),
                       const SizedBox(height: 2),
                       Row(

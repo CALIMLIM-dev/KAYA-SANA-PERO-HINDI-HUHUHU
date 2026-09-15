@@ -13,6 +13,7 @@ import '../../../core/widgets/hint_bubble.dart';
 import '../widgets/contact_verify_row.dart';
 import '../widgets/profile_completeness_header.dart';
 import '../widgets/profile_section_card.dart';
+import '../widgets/skill_check_card.dart';
 import '../../../data/services/api_client.dart';
 import '../../../data/models/location_model.dart';
 import '../../../data/models/worker_skill_model.dart';
@@ -1225,6 +1226,11 @@ class _MyWorkerProfileScreenState extends State<MyWorkerProfileScreen> with Sing
             code, confirm it.
         */
         ProfileSectionHeading('Your work'),
+
+        // Pass a test on the trade and the profile says Skill checked.
+        SkillCheckCard(
+          onChanged: () => context.read<AuthProvider>().fetchMe(),
+        ),
 
         // Skills Card - Using Selector to prevent unnecessary rebuilds
         Selector<WorkerProfileProvider, List<WorkerSkillModel>>(
