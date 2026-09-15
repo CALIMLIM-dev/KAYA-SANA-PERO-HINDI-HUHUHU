@@ -57,12 +57,6 @@ class Job {
   final List<String> requiredSkills;
   final int applicantCount;
 
-  /// How many people the job is for, and how many are hired so far. The
-  /// second is null where the server did not count it (the public feed).
-  final int workersNeeded;
-  final int? workersFilled;
-  bool get isCrew => workersNeeded > 1;
-
   /// Server-computed match (0-100) for the signed-in worker, from
   /// JobMatchService — same scoring an employer sees on their applicant list.
   /// Null when the account has no worker profile to score against.
@@ -191,8 +185,6 @@ class Job {
     this.category,
     this.requiredSkills = const [],
     this.applicantCount = 0,
-    this.workersNeeded = 1,
-    this.workersFilled,
     this.matchScore,
     this.matchedSkills = const [],
     this.jobId,
@@ -276,8 +268,6 @@ class Job {
               .where((s) => s.isNotEmpty)
               .toList(),
       applicantCount: (json['application_count'] as num?)?.toInt() ?? 0,
-      workersNeeded: (json['workers_needed'] as num?)?.toInt() ?? 1,
-      workersFilled: (json['workers_filled'] as num?)?.toInt(),
       matchScore: (json['match_score'] as num?)?.toInt(),
       matchedSkills: (json['matched_skills'] as List?)
               ?.map((s) => s.toString())
@@ -378,8 +368,6 @@ class Job {
     String? category,
     List<String>? requiredSkills,
     int? applicantCount,
-    int? workersNeeded,
-    int? workersFilled,
   }) {
     return Job(
       id: id ?? this.id,
@@ -400,8 +388,6 @@ class Job {
       category: category ?? this.category,
       requiredSkills: requiredSkills ?? this.requiredSkills,
       applicantCount: applicantCount ?? this.applicantCount,
-      workersNeeded: workersNeeded ?? this.workersNeeded,
-      workersFilled: workersFilled ?? this.workersFilled,
     );
   }
 }

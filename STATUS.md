@@ -133,6 +133,7 @@ composer-setup.php still sitting in the backend folder
 6. conversation direction migration
 7. nginx upload limit, needs the server owner
 8. paymongo live keys, once the account is business verified
+9. phase 13 crews
 
 
 ## phases
@@ -155,11 +156,6 @@ done
 10. revenue reporting. the barya page in the admin reads the ledger
 14. admin panel. jobs, barya, categories and skills, announcements, audit
     log, dashboard with queues and today against yesterday
-13. crews. a job says how many people it is for, one to ten. it stays
-    open until every spot is taken and refuses a hire past that. the
-    roster lists everyone hired, marks them all complete from the
-    employer's side, and writes one message into each of their own
-    threads. no group chat, by design.
 
 partly done
 
@@ -168,6 +164,7 @@ partly done
 not started
 
 9. skill assessments
+13. multi worker jobs and the crew roster. see the notes below.
 
 
 ## barya economy and business overhaul
