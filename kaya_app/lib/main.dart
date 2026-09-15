@@ -26,6 +26,8 @@ import 'providers/profile_view_provider.dart';
 import 'providers/verification_provider.dart';
 import 'data/services/api_client.dart';
 import 'data/services/background_controller.dart';
+import 'data/services/background_poll.dart';
+import 'data/services/local_alerts.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -53,6 +55,11 @@ void main() async {
   // Android drops a notification aimed at a channel that does not exist yet,
   // so this has to happen before anything tries to start the service.
   BackgroundController.instance.configure();
+
+  // The channel alerts post into, and the periodic job that polls for them
+  // when the app is closed. Neither does anything until someone signs in.
+  await LocalAlerts.init();
+  await BackgroundPoll.configure();
 
   /*
       The black band under the bottom navigation.

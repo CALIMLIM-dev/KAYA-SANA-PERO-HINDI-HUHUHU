@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import '../core/constants/app_mode.dart';
 import '../core/utils/json_parse.dart';
 import '../data/services/api_client.dart';
+import '../data/services/background_poll.dart';
 import '../data/services/realtime_service.dart';
 
 /// One notification, exactly as both the REST list and the socket deliver it.
@@ -160,6 +161,12 @@ class NotificationProvider with ChangeNotifier {
 
       _recountFromItems();
       _hasLoadedOnce = true;
+
+      // Everything in the list has been put in front of the person now, so
+      // the closed-app worker must not announce any of it later.
+      if (_items.isNotEmpty) {
+        _markSeen(_items.map((n) => n.id).reduce((a, b) => a > b ? a : b));
+      }
     } catch (e) {
       _error = 'Could not load notifications';
       debugPrint('[notifications] load failed: $e');
@@ -377,7 +384,7 @@ class NotificationProvider with ChangeNotifier {
     // this, opening the app would fire a banner for every unread backlog
     // item at once.
     if (_newestSeenId == 0) {
-      _newestSeenId = fetched.map((n) => n.id).reduce((a, b) => a > b ? a : b);
+      _markSeen(fetched.map((n) => n.id).reduce((a, b) => a > b ? a : b));
       return;
     }
 
@@ -386,7 +393,7 @@ class NotificationProvider with ChangeNotifier {
 
     if (fresh.isEmpty) return;
 
-    _newestSeenId = fresh.last.id;
+    _markSeen(fresh.last.id);
 
     for (final n in fresh) {
       _items.removeWhere((existing) => existing.id == n.id);
@@ -401,6 +408,14 @@ class NotificationProvider with ChangeNotifier {
     }
   }
 
+  /// Advances the high-water mark here and in shared preferences, where the
+  /// closed-app worker reads it.
+  void _markSeen(int id) {
+    if (id <= _newestSeenId) return;
+    _newestSeenId = id;
+    unawaited(BackgroundPoll.rememberSeen(id));
+  }
+
   void _onPushed(Map<String, dynamic> data) {
     final raw = data['notification'];
     if (raw is! Map) return;
@@ -410,7 +425,7 @@ class NotificationProvider with ChangeNotifier {
 
     // Keep the poll's high-water mark in step, so a pushed notification is not
     // re-announced by the next poll.
-    if (notification.id > _newestSeenId) _newestSeenId = notification.id;
+    if (notification.id > _newestSeenId) _markSeen(notification.id);
 
     // De-duplicate on id. A notification can arrive twice — once pushed, once
     // in a refresh that raced it — and appending blindly would show it twice.

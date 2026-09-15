@@ -3,8 +3,11 @@ import 'dart:io';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter_foreground_task/flutter_foreground_task.dart';
-import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:geolocator/geolocator.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+
+import 'background_poll.dart';
+import 'local_alerts.dart';
 
 /*
     Work that outlives the app.
@@ -37,14 +40,11 @@ import 'package:geolocator/geolocator.dart';
     with a plain client rather than the app's ApiClient.
 */
 
-const String _kNotificationChannelId = 'kaya_default';
-
 /// Keys for the values the app hands the service when it starts.
 class BackgroundKeys {
   static const token = 'bg_token';
   static const baseUrl = 'bg_base_url';
   static const applicationId = 'bg_application_id';
-  static const lastNotificationId = 'bg_last_notification_id';
 }
 
 /// The isolate entry point. Must be top-level and marked for the VM, or it is
@@ -55,8 +55,6 @@ void startBackgroundCallback() {
 }
 
 class _KayaTaskHandler extends TaskHandler {
-  final FlutterLocalNotificationsPlugin _local = FlutterLocalNotificationsPlugin();
-
   String? _token;
   String? _baseUrl;
   int? _applicationId;
@@ -96,15 +94,12 @@ class _KayaTaskHandler extends TaskHandler {
     _baseUrl = await FlutterForegroundTask.getData<String>(key: BackgroundKeys.baseUrl);
     _applicationId =
         await FlutterForegroundTask.getData<int>(key: BackgroundKeys.applicationId);
-    _lastNotificationId = await FlutterForegroundTask.getData<int>(
-            key: BackgroundKeys.lastNotificationId) ??
-        0;
+    // The same mark the app and the closed-app worker keep, so the three
+    // never announce one another's notifications.
+    final prefs = await SharedPreferences.getInstance();
+    _lastNotificationId = prefs.getInt(BackgroundPoll.lastSeenKey) ?? 0;
 
-    await _local.initialize(
-      settings: const InitializationSettings(
-        android: AndroidInitializationSettings('@mipmap/ic_launcher'),
-      ),
-    );
+    await LocalAlerts.init();
   }
 
   @override
@@ -155,6 +150,12 @@ class _KayaTaskHandler extends TaskHandler {
   /// raises each on the notification shade.
   Future<void> _pollNotifications() async {
     try {
+      // The app may have shown some of these on screen since the last tick.
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.reload();
+      final seenInApp = prefs.getInt(BackgroundPoll.lastSeenKey) ?? 0;
+      if (seenInApp > _lastNotificationId) _lastNotificationId = seenInApp;
+
       final body = await _get('/notifications?after_id=$_lastNotificationId');
       if (body == null) return;
 
@@ -179,31 +180,16 @@ class _KayaTaskHandler extends TaskHandler {
 
       // Persisted so a restarted service does not replay what it already
       // showed — START_STICKY means onStart can run again at any time.
-      await FlutterForegroundTask.saveData(
-        key: BackgroundKeys.lastNotificationId,
-        value: _lastNotificationId,
-      );
+      if (_lastNotificationId > (prefs.getInt(BackgroundPoll.lastSeenKey) ?? 0)) {
+        await prefs.setInt(BackgroundPoll.lastSeenKey, _lastNotificationId);
+      }
     } catch (e) {
       debugPrint('[bg] notification poll failed: $e');
     }
   }
 
-  Future<void> _show({required int id, required String title, required String body}) async {
-    await _local.show(
-      id: id,
-      title: title,
-      body: body,
-      notificationDetails: const NotificationDetails(
-        android: AndroidNotificationDetails(
-          _kNotificationChannelId,
-          'KAYA',
-          channelDescription: 'Messages, hires and job matches',
-          importance: Importance.high,
-          priority: Priority.high,
-        ),
-      ),
-    );
-  }
+  Future<void> _show({required int id, required String title, required String body}) =>
+      LocalAlerts.show(id: id, title: title, body: body);
 
   // ── plain HTTP, because ApiClient lives in the other isolate ───────────────
 

@@ -8,6 +8,8 @@ import '../../features/messaging/screens/messages_list_screen.dart';
 import '../../features/profile/screens/profile_screen.dart';
 import '../../providers/messaging_provider.dart';
 import '../../providers/notification_provider.dart';
+import '../../data/services/background_poll.dart';
+import '../../data/services/local_alerts.dart';
 import '../widgets/version_gate.dart';
 import '../widgets/bottom_nav_bar.dart';
 
@@ -128,6 +130,11 @@ class _MainNavigationState extends State<MainNavigation>
     */
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) context.read<NotificationProvider>().startPolling();
+
+      // Notifications outside the app: permission to post them, and the
+      // job that checks for them after the app is closed.
+      LocalAlerts.requestPermission();
+      BackgroundPoll.register();
 
       /*
           Asked once a session, here, where a session actually begins.

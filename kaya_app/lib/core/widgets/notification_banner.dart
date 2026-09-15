@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 import 'verify_gate.dart';
 
 import '../../data/services/realtime_service.dart';
+import '../../data/services/local_alerts.dart';
 import '../../providers/messaging_provider.dart';
 import '../../providers/notification_provider.dart';
 import '../constants/app_colors.dart';
@@ -49,6 +50,8 @@ class _NotificationBannerHostState extends State<NotificationBannerHost> {
   void initState() {
     super.initState();
     _bind();
+    // A notification tapped on the shade opens the same place a banner does.
+    LocalAlerts.onTap = _openTarget;
   }
 
   /// The user id only exists once the socket has fetched its config, so this
@@ -160,6 +163,25 @@ class _NotificationBannerHostState extends State<NotificationBannerHost> {
 
     final notification = Map<String, dynamic>.from(raw);
     final type = '${notification['type'] ?? ''}';
+
+    /*
+        Not on screen: the phone's shade, not an overlay nobody can see.
+
+        The poll keeps running for a while after the app is backgrounded,
+        and it used to draw its banner into a window that was not showing.
+        A message that arrived while the person was in another app was
+        lost until they came back.
+    */
+    if (WidgetsBinding.instance.lifecycleState != AppLifecycleState.resumed) {
+      final id = notification['id'];
+      LocalAlerts.show(
+        id: id is int ? id : 0,
+        title: '${notification['title'] ?? 'KAYA'}',
+        body: '${notification['body'] ?? ''}',
+        notification: notification,
+      );
+      return;
+    }
     final referenceType = '${notification['reference_type'] ?? ''}';
     final referenceId = notification['reference_id'] as int?;
 

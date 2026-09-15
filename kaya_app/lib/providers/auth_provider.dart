@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import '../data/services/api_client.dart';
 import '../data/services/background_controller.dart';
+import '../data/services/background_poll.dart';
 import '../data/services/message_cache.dart';
 import '../data/services/realtime_service.dart';
 
@@ -378,6 +379,7 @@ class AuthProvider with ChangeNotifier {
         restarting it. A suspended tester's phone sat in exactly that loop.
     */
     await BackgroundController.instance.stop();
+    await BackgroundPoll.cancel();
 
     // disconnect() clears its listeners and subscriptions synchronously before
     // it awaits the socket close, so the next account cannot inherit this one's
