@@ -73,8 +73,8 @@
                         <i data-lucide="{{ $link['icon'] }}" class="nav-icon"></i>
                         <span class="flex-1">{{ $link['label'] }}</span>
                         @if (isset($link['queue']))
-                            <span data-queue="{{ $link['queue'] }}" hidden
-                                  class="min-w-[20px] h-5 px-1.5 rounded-full bg-amber-100 text-amber-800 text-[11px] font-semibold flex items-center justify-center"></span>
+                            <span data-queue="{{ $link['queue'] }}" style="display:none"
+                                  class="min-w-[20px] h-5 px-1.5 rounded-full bg-amber-100 text-amber-800 text-[11px] font-semibold items-center justify-center"></span>
                         @endif
                     </a>
                 @endforeach
@@ -106,8 +106,11 @@
         </header>
 
         <main class="p-8">
-            <div id="pulse-banner" hidden
-                 class="mb-6 px-4 py-3 rounded-lg bg-blue-50 text-blue-800 text-sm border border-blue-200 flex items-center justify-between gap-4">
+            {{-- Shown by the poll script below. display is set inline on purpose:
+                 a Tailwind display class on the element would override the
+                 hidden attribute and the banner would sit on every page. --}}
+            <div id="pulse-banner" style="display:none"
+                 class="mb-6 px-4 py-3 rounded-lg bg-blue-50 text-blue-800 text-sm border border-blue-200 items-center justify-between gap-4">
                 <span>This page has changed since it was opened.</span>
                 <button type="button" onclick="location.reload()"
                         class="px-3 py-1.5 rounded-md bg-blue-600 text-white text-xs font-semibold hover:bg-blue-700">Refresh</button>
@@ -158,7 +161,7 @@
     function badges(queues) {
         document.querySelectorAll('[data-queue]').forEach(function (el) {
             var n = queues && queues[el.dataset.queue];
-            el.hidden = !n;
+            el.style.display = n ? 'flex' : 'none';
             el.textContent = n || '';
         });
     }
@@ -173,7 +176,7 @@
                 if (data.stamp === stamp) return;
                 stamp = data.stamp;
                 if (dirty || typing()) {
-                    document.getElementById('pulse-banner').hidden = false;
+                    document.getElementById('pulse-banner').style.display = 'flex';
                 } else {
                     location.reload();
                 }
