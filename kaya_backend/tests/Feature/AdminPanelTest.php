@@ -369,6 +369,29 @@ class AdminPanelTest extends TestCase
             ->assertDontSee('dark:');
     }
 
+    /*
+        A company has no worker profile, and the user page only listed
+        verifications under the worker block, so its business document was
+        nowhere on its own page. A PDF was also drawn in an img tag.
+    */
+    #[Test]
+    public function a_company_accounts_business_document_shows_on_its_page(): void
+    {
+        $company = $this->company();
+        $doc = $this->businessDoc($company);
+
+        $this->actingAs($this->admin())->get("/admin/users/{$company->id}")
+            ->assertOk()
+            ->assertSee('Business reg')
+            ->assertSee('Open document (PDF)')
+            ->assertSee(route('admin.verifications.show', $doc));
+
+        $this->actingAs($this->admin())->get("/admin/verifications/{$doc->id}")
+            ->assertOk()
+            ->assertSee('Open document')
+            ->assertDontSee('<img src="' . route('admin.verifications.document', [$doc, 'front']), false);
+    }
+
     #[Test]
     public function a_regular_user_cannot_open_any_of_it(): void
     {

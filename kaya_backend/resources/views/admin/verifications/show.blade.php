@@ -49,8 +49,17 @@
             <h3 class="text-sm font-semibold text-slate-700 mb-3">Submitted Documents</h3>
             <div class="grid grid-cols-2 gap-3">
                 <div class="border border-slate-200 rounded-lg h-36 flex items-center justify-center bg-slate-50 text-xs text-slate-400 overflow-hidden">
-                    @if ($verification->document_front_url)
-                        <img src="{{ route('admin.verifications.document', [$verification, 'front']) }}" class="h-full w-full object-contain rounded-lg">
+                    @if ($verification->document_front_url && str_ends_with(strtolower($verification->document_front_url), '.pdf'))
+                        {{-- A business document is usually a PDF, and a PDF in an img tag is a broken picture. --}}
+                        <a href="{{ route('admin.verifications.document', [$verification, 'front']) }}" target="_blank" rel="noopener"
+                           class="flex flex-col items-center justify-center h-full w-full hover:bg-slate-100">
+                            <span class="text-2xl font-semibold text-red-500">PDF</span>
+                            <span class="mt-1 text-blue-600">Open document</span>
+                        </a>
+                    @elseif ($verification->document_front_url)
+                        <a href="{{ route('admin.verifications.document', [$verification, 'front']) }}" target="_blank" rel="noopener" class="h-full w-full">
+                            <img src="{{ route('admin.verifications.document', [$verification, 'front']) }}" class="h-full w-full object-contain rounded-lg">
+                        </a>
                     @else
                         <span>{{ $verification->document_type === 'business_reg' ? 'Business document' : 'Front of ID' }} - not uploaded</span>
                     @endif

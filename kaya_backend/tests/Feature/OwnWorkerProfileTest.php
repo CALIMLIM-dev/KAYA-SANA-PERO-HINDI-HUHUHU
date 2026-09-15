@@ -156,6 +156,20 @@ class OwnWorkerProfileTest extends TestCase
     }
 
     #[Test]
+    public function a_job_with_a_worker_on_it_cannot_be_deleted_and_a_live_employer_profile_cannot_go(): void
+    {
+        $employer = User::factory()->create(['is_verified' => true]);
+        \App\Models\EmployerProfile::create(['user_id' => $employer->id, 'employer_type' => 'individual', 'location' => 'x']);
+        $job = \App\Models\JobPost::create(['employer_id' => $employer->id, 'title' => 'x', 'description' => 'x', 'status' => 'in_progress']);
+
+        $this->actingAs($employer, 'sanctum')->deleteJson("/api/v1/jobs/{$job->id}")->assertStatus(422);
+        $this->assertDatabaseHas('jobs_posts', ['id' => $job->id]);
+
+        $this->actingAs($employer, 'sanctum')->deleteJson('/api/v1/employer-profile')->assertStatus(422);
+        $this->assertDatabaseHas('employer_profiles', ['user_id' => $employer->id]);
+    }
+
+    #[Test]
     public function the_wallet_carries_the_boost_price(): void
     {
         $this->actingAs($this->worker(), 'sanctum')->getJson('/api/v1/credits/wallet')

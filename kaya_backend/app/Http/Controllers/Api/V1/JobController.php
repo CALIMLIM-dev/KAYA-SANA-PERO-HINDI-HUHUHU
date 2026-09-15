@@ -863,6 +863,12 @@ class JobController extends Controller
         $user = $request->user();
         if ($job->employer_id !== $user->id) return $this->fail('Forbidden', 403);
 
+        // Somebody is hired and working. Deleting the post would take their
+        // application, their chat and their tracking with it, by cascade.
+        if ($job->status === 'in_progress') {
+            return $this->fail('This job has a worker on it. Finish or cancel it first.', 422);
+        }
+
         /*
             Give the applicants their credits back first.
 

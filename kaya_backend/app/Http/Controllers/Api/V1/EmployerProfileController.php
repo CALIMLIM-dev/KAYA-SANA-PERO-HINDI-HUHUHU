@@ -244,6 +244,14 @@ class EmployerProfileController extends Controller
 
         // Silent success if no profile exists
         if ($profile) {
+            // The posts belong to the account, not the profile, so they
+            // would outlive it: live posts with no employer behind them.
+            $live = $user->postedJobs()->whereIn('status', ['open', 'in_progress'])->count();
+
+            if ($live > 0) {
+                return $this->fail("Close your {$live} open job post" . ($live === 1 ? '' : 's') . ' first.', 422);
+            }
+
             $profile->delete(); // CASCADE handles related data
         }
 

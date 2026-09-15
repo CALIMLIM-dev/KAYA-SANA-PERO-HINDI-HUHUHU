@@ -9,8 +9,9 @@
         <div class="bg-white rounded-xl border border-slate-200 p-6">
         <div class="flex items-center gap-4 mb-6">
             <div class="w-14 h-14 rounded-full bg-slate-200 flex items-center justify-center text-lg font-semibold text-slate-600 overflow-hidden">
-                @if ($user->workerProfile && $user->workerProfile->profile_photo)
-                    <img src="{{ asset('storage/' . $user->workerProfile->profile_photo) }}" class="w-full h-full object-cover" alt="{{ $user->name }}">
+                {{-- Read profile_photo, a column that does not exist, so no user ever had a face here. --}}
+                @if ($user->resolvedAvatarUrl())
+                    <img src="{{ $user->resolvedAvatarUrl() }}" class="w-full h-full object-cover" alt="{{ $user->name }}">
                 @else
                     {{ strtoupper(substr($user->name, 0, 1)) }}
                 @endif
@@ -97,8 +98,7 @@
         @endif
         </div>
 
-        {{-- Blue Panel: Verifications + Skills --}}
-        @if ($user->workerProfile)
+        {{-- Verifications belong to the account, not the worker side: a company's business documents live here too. --}}
             {{-- Verifications Section --}}
             @if ($user->verifications->count() > 0)
                 <div class="bg-white rounded-xl border border-slate-200 p-6">
@@ -116,7 +116,13 @@
                                     @if ($verification->document_type === 'government_id')
                                         <p class="text-xs text-slate-500 mb-3">ID Type: {{ $verification->id_type }}</p>
                                         <div class="grid grid-cols-2 gap-2">
-                                            @if ($verification->document_front_url)
+                                            @if ($verification->document_front_url && str_ends_with(strtolower($verification->document_front_url), '.pdf'))
+                                                <a href="{{ route('admin.verifications.document', [$verification, 'front']) }}" target="_blank" rel="noopener"
+                                                   class="flex flex-col items-center justify-center border border-slate-200 rounded h-20 bg-slate-50 hover:border-blue-400">
+                                                    <span class="text-sm font-semibold text-red-500">PDF</span>
+                                                    <span class="text-xs text-blue-600">Open</span>
+                                                </a>
+                                            @elseif ($verification->document_front_url)
                                                 <div class="relative group cursor-pointer" onclick="showImageModal('{{ route('admin.verifications.document', [$verification, 'front']) }}')">
                                                     <div class="border border-slate-200 rounded h-20 overflow-hidden hover:border-blue-400 transition-colors">
                                                         <img src="{{ route('admin.verifications.document', [$verification, 'front']) }}" class="w-full h-full object-contain bg-slate-50">
@@ -141,6 +147,18 @@
                                                 </div>
                                             @endif
                                         </div>
+                                    @else
+                                        {{-- A business document: one file, usually a PDF, and the page where it is decided. --}}
+                                        <div class="flex items-center gap-3 text-xs">
+                                            @if ($verification->document_front_url)
+                                                <a href="{{ route('admin.verifications.document', [$verification, 'front']) }}" target="_blank" rel="noopener" class="text-blue-600 hover:underline">
+                                                    Open document{{ str_ends_with(strtolower($verification->document_front_url), '.pdf') ? ' (PDF)' : '' }}
+                                                </a>
+                                            @else
+                                                <span class="text-slate-400">No file uploaded</span>
+                                            @endif
+                                            <a href="{{ route('admin.verifications.show', $verification) }}" class="text-blue-600 hover:underline">Review</a>
+                                        </div>
                                     @endif
                                 </div>
                             @endforeach
@@ -148,6 +166,7 @@
                 </div>
             @endif
 
+        @if ($user->workerProfile)
             {{-- Skills Section - Grouped by Category --}}
             @if ($user->skills->count() > 0)
                 <div class="bg-white rounded-xl border border-slate-200 p-6">
