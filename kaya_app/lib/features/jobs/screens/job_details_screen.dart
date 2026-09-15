@@ -647,6 +647,7 @@ class _JobDetailsScreenState extends State<JobDetailsScreen> {
         ApplicationStatus.completed => ('Completed', AppColors.success),
         ApplicationStatus.rejected => ('Application Not Selected', AppColors.error),
         ApplicationStatus.withdrawn => ('Application Withdrawn', AppColors.neutral500),
+        ApplicationStatus.cancelled => ('Application Cancelled', AppColors.neutral500),
         _ => ('Application Pending', AppColors.warning),
       };
       button = ElevatedButton(

@@ -934,7 +934,7 @@ class _MyWorkerProfileScreenState extends State<MyWorkerProfileScreen> with Sing
             ),
           ),
           TextButton(
-            onPressed: _confirmBoost,
+            onPressed: _boosting ? null : _confirmBoost,
             child: Text(boosted ? 'Extend' : 'Boost'),
           ),
         ],
@@ -955,7 +955,12 @@ class _MyWorkerProfileScreenState extends State<MyWorkerProfileScreen> with Sing
       to show that refusal as a raw error after the confirm dialog. Each
       case is now caught first and sent where it can be fixed.
   */
+  /// A tap while the last one is still in flight would open a second
+  /// dialog and, confirmed, charge twice.
+  bool _boosting = false;
+
   Future<void> _confirmBoost() async {
+    if (_boosting) return;
     final p = context.read<WorkerProfileProvider>();
     final credits = context.read<CreditsProvider>();
     final cost = credits.boostCost ?? JobBoost.cost;
@@ -1009,10 +1014,12 @@ class _MyWorkerProfileScreenState extends State<MyWorkerProfileScreen> with Sing
 
     if (go != true || !mounted) return;
 
+    setState(() => _boosting = true);
     final provider = context.read<WorkerProfileProvider>();
     final ok = await provider.boostProfile();
 
     if (!mounted) return;
+    setState(() => _boosting = false);
 
     if (ok) {
       // The balance on screen elsewhere is now stale by the cost of this.

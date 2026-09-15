@@ -842,7 +842,7 @@ class _ViewApplicantsScreenState extends State<ViewApplicantsScreen>
               // should hear about it rather than discovering it later.
               final cleared = provider.lastAcceptCancelledCount;
               final suffix = accept && cleared > 0
-                  ? ' — $cleared clashing application'
+                  ? '. $cleared clashing application'
                       '${cleared == 1 ? '' : 's'} cancelled'
                   : '';
 

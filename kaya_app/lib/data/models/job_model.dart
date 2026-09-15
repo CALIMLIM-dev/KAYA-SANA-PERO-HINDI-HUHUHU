@@ -315,8 +315,11 @@ class Job {
       distance: json['distance_km']?.toDouble(),
       postedAt: json['posted_at'] != null ? DateTime.parse(json['posted_at']) : null,
       isActive: json['is_active'] ?? true,
-      applicationStatus: json['application_status'] != null 
-          ? ApplicationStatus.values.firstWhere((e) => e.name == json['application_status'])
+      applicationStatus: json['application_status'] != null
+          ? ApplicationStatus.values.firstWhere(
+              (e) => e.name == json['application_status'],
+              orElse: () => ApplicationStatus.pending,
+            )
           : null,
       category: json['category'],
       requiredSkills: List<String>.from(json['required_skills'] ?? []),
@@ -398,4 +401,9 @@ enum ApplicationStatus {
   // parser's fallback for an unknown value is `pending` - so every finished
   // job in History opened to a button saying "Application Pending".
   completed,
+  // Set by the server when a post ends or is closed with the application
+  // still open, and when a hire elsewhere clashes. Missing here, so it
+  // fell back to pending and read as "Application Pending" on a job that
+  // was over.
+  cancelled,
 }

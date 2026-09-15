@@ -1693,7 +1693,12 @@ class _PostJobScreenState extends State<PostJobScreen> {
           children: [
             if (_selectedCategory != null)
               Icon(
-                _categories.firstWhere((c) => c['name'] == _selectedCategory)['icon'],
+                // orElse: the category list can change under a draft now
+                // that categories are edited from the admin panel.
+                _categories.firstWhere(
+                  (c) => c['name'] == _selectedCategory,
+                  orElse: () => {'icon': Icons.build},
+                )['icon'] as IconData,
                 color: AppColors.primary,
                 size: 20,
               )
