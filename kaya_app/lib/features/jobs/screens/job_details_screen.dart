@@ -256,6 +256,10 @@ class _JobDetailsScreenState extends State<JobDetailsScreen> {
                       ),
                     if (job.category != null)
                       _detailRow('Category', job.category!),
+                    // A job for several people says so, and how many spots
+                    // are still open when the server counted them.
+                    if (job.isCrew)
+                      _detailRow('Workers needed', _crewLine(job)),
                     if (job.postedAt != null)
                       _detailRow('Posted', _timeAgo(job.postedAt!)),
                     _detailRow(
@@ -896,6 +900,15 @@ class _JobDetailsScreenState extends State<JobDetailsScreen> {
       return '₱${fmt(min)} - ₱${fmt(max)}';
     }
     return '₱${fmt(min ?? max!)}';
+  }
+
+  /// "3, 1 spot still open" for a job hiring several people.
+  String _crewLine(Job job) {
+    final filled = job.workersFilled;
+    if (filled == null) return '${job.workersNeeded}';
+    final open = job.workersNeeded - filled;
+    if (open <= 0) return '${job.workersNeeded}, all hired';
+    return '${job.workersNeeded}, $open spot${open == 1 ? '' : 's'} still open';
   }
 
   String _timeAgo(DateTime date) {

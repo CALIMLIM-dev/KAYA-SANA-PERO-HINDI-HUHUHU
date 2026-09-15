@@ -126,6 +126,11 @@ class _ViewApplicantsScreenState extends State<ViewApplicantsScreen>
             .length;
         final perWorkerActions = hiredCount > 1;
 
+        // Spots on the job, and whether any are left. Counted from the
+        // list rather than the job so it is right the moment one is taken.
+        final spots = context.watch<JobProvider>().selectedJob?.workersNeeded ?? 1;
+        final full = hiredCount >= spots;
+
         return Scaffold(
           backgroundColor: AppColors.background,
           appBar: AppBar(
@@ -158,7 +163,10 @@ class _ViewApplicantsScreenState extends State<ViewApplicantsScreen>
                       children: [
                         _buildList(pending,
                             showActions: true,
-                            perWorkerActions: perWorkerActions),
+                            perWorkerActions: perWorkerActions,
+                            spots: spots,
+                            hired: hiredCount,
+                            full: full),
                         _buildList(accepted,
                             showActions: false,
                             perWorkerActions: perWorkerActions),
@@ -203,7 +211,11 @@ class _ViewApplicantsScreenState extends State<ViewApplicantsScreen>
   }
 
   Widget _buildList(List<Map<String, dynamic>> applicants,
-      {required bool showActions, required bool perWorkerActions}) {
+      {required bool showActions,
+      required bool perWorkerActions,
+      int spots = 1,
+      int hired = 0,
+      bool full = false}) {
     if (applicants.isEmpty) {
       return Center(
         child: Column(
@@ -240,22 +252,53 @@ class _ViewApplicantsScreenState extends State<ViewApplicantsScreen>
       );
     }
 
+    // A job for several people says how many are still open above the
+    // pending list, and Accept stops once they are all taken.
+    final header = showActions && spots > 1
+        ? Padding(
+            padding: const EdgeInsets.only(bottom: 12),
+            child: Row(
+              children: [
+                Icon(full ? Icons.group : Icons.group_outlined,
+                    size: 16, color: full ? AppColors.success : AppColors.neutral600),
+                const SizedBox(width: 6),
+                Text(
+                  full
+                      ? 'All $spots spots filled.'
+                      : '$hired of $spots hired. ${spots - hired} more to accept.',
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w500,
+                    color: full ? AppColors.success : AppColors.neutral700,
+                  ),
+                ),
+              ],
+            ),
+          )
+        : null;
+
     return RefreshIndicator(
       onRefresh: () =>
           context.read<ApplicationProvider>().fetchApplicants(_jobId!),
       child: ListView.builder(
         padding: const EdgeInsets.all(16),
-        itemCount: applicants.length,
-        itemBuilder: (context, index) =>
-            _buildApplicantCard(applicants[index],
-                showActions: showActions,
-                perWorkerActions: perWorkerActions),
+        itemCount: applicants.length + (header == null ? 0 : 1),
+        itemBuilder: (context, index) {
+          if (header != null && index == 0) return header;
+          return _buildApplicantCard(
+              applicants[index - (header == null ? 0 : 1)],
+              showActions: showActions,
+              perWorkerActions: perWorkerActions,
+              full: full);
+        },
       ),
     );
   }
 
   Widget _buildApplicantCard(Map<String, dynamic> applicant,
-      {required bool showActions, required bool perWorkerActions}) {
+      {required bool showActions,
+      required bool perWorkerActions,
+      bool full = false}) {
     final status = (applicant['application_status'] ?? 'pending').toString();
     final name = (applicant['worker_name'] ?? 'Worker').toString();
     // worker_rating comes from WorkerProfile.rating_avg, a Laravel decimal
@@ -539,8 +582,12 @@ class _ViewApplicantsScreenState extends State<ViewApplicantsScreen>
                 children: [
                   Expanded(
                     child: ElevatedButton(
-                      onPressed: () => _confirmRespond(applicationId, name,
-                          accept: true),
+                      // No spot left to accept into. The server refuses
+                      // too; this just says so before the tap.
+                      onPressed: full
+                          ? null
+                          : () => _confirmRespond(applicationId, name,
+                              accept: true),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: AppColors.success,
                         foregroundColor: Colors.white,
@@ -551,7 +598,7 @@ class _ViewApplicantsScreenState extends State<ViewApplicantsScreen>
                         textStyle: const TextStyle(
                             fontSize: 13.5, fontWeight: FontWeight.w600),
                       ),
-                      child: const Text('Accept'),
+                      child: Text(full ? 'Spots filled' : 'Accept'),
                     ),
                   ),
                   const SizedBox(width: 8),

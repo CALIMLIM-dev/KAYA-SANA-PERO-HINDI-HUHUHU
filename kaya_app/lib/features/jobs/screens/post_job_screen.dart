@@ -170,6 +170,10 @@ class _PostJobScreenState extends State<PostJobScreen> {
   final List<File> _selectedImages = [];
   bool _isLoading = false;
   bool _isUrgent = false;
+
+  /// How many people the job is for. One is the common case; ten is the
+  /// ceiling, above which it is a crew with a payroll and not a job post.
+  int _workersNeeded = 1;
   bool _showPhotoError = false;
 
   // Schedule. _endDate stays null for a single-day job rather than being set
@@ -907,6 +911,15 @@ class _PostJobScreenState extends State<PostJobScreen> {
               ),
               const SizedBox(height: 16),
 
+              // How many people
+              _buildSection(
+                title: 'Workers needed',
+                hint: 'The post stays open until this many are hired. Up to ten.',
+                icon: Icons.group_outlined,
+                children: [_buildWorkersNeeded()],
+              ),
+              const SizedBox(height: 16),
+
               /*
                   Negotiable is gone.
 
@@ -1572,6 +1585,36 @@ class _PostJobScreenState extends State<PostJobScreen> {
       One place rather than fourteen call sites, so the rhythm cannot drift
       apart again field by field.
   */
+  Widget _buildWorkersNeeded() {
+    return Row(
+      children: [
+        Text(
+          _workersNeeded == 1 ? '1 worker' : '$_workersNeeded workers',
+          style: const TextStyle(
+            fontSize: 15,
+            fontWeight: FontWeight.w600,
+            color: AppColors.neutral900,
+          ),
+        ),
+        const Spacer(),
+        IconButton(
+          tooltip: 'Fewer',
+          onPressed: _workersNeeded > 1
+              ? () => setState(() => _workersNeeded--)
+              : null,
+          icon: const Icon(Icons.remove_circle_outline),
+        ),
+        IconButton(
+          tooltip: 'More',
+          onPressed: _workersNeeded < 10
+              ? () => setState(() => _workersNeeded++)
+              : null,
+          icon: const Icon(Icons.add_circle_outline),
+        ),
+      ],
+    );
+  }
+
   Widget _buildLabel(String text) {
     return Padding(
       padding: const EdgeInsets.only(top: 16),
@@ -2266,6 +2309,7 @@ class _PostJobScreenState extends State<PostJobScreen> {
         // Computed from the length the employer chose, so a one day job
         // ends the day it starts rather than carrying no end at all.
         endDate:     _endDate,
+        workersNeeded: _workersNeeded,
       );
 
       setState(() => _isLoading = false);

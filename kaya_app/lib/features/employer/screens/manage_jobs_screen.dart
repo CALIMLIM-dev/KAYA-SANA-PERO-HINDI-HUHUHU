@@ -7,6 +7,7 @@ import '../../../core/constants/app_colors.dart';
 import '../../../core/utils/job_summary.dart';
 import '../../../providers/job_provider.dart';
 import '../../../core/widgets/app_toast.dart';
+import 'roster_screen.dart';
 
 /// Manage Jobs Screen — employer's posted jobs, on real data from JobProvider.
 ///
@@ -216,6 +217,15 @@ class _ManageJobsScreenState extends State<ManageJobsScreen>
       thirty-day timer that ran beside the dates, with an Extend button to
       buy blocks against it. One clock now, and it is theirs.
   */
+  Future<void> _openRoster(int jobId) async {
+    await Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => RosterScreen(jobId: jobId)),
+    );
+    // Completions may have moved while the roster was open.
+    if (mounted) context.read<JobProvider>().fetchMyJobs();
+  }
+
   Widget _endLine(Map<String, dynamic> job, String status) {
     if (status != 'open' && status != 'expired') return const SizedBox.shrink();
 
@@ -291,6 +301,12 @@ class _ManageJobsScreenState extends State<ManageJobsScreen>
     final category = (job['category'] as Map<String, dynamic>?)?['name']?.toString();
     final location = (job['city'] ?? job['location'] ?? '').toString();
     final applicants = (job['application_count'] as num?)?.toInt() ?? 0;
+    // A job for more than one person is run from its roster, not from the
+    // single-hire buttons below, which cannot say which person they mean.
+    final workersNeeded = (job['workers_needed'] as num?)?.toInt() ?? 1;
+    final workersFilled = (job['workers_filled'] as num?)?.toInt() ??
+        (job['hire_count'] as num?)?.toInt() ?? 0;
+    final isCrew = workersNeeded > 1 || workersFilled > 1;
     final budget = formatBudget(job);
     final postedAgo = timeAgo(job['created_at'] as String?);
 
@@ -355,22 +371,34 @@ class _ManageJobsScreenState extends State<ManageJobsScreen>
                 ],
               ),
               const SizedBox(height: 10),
+              // Budget on the left, counts on the right. Both give way
+              // rather than push past the edge: a salary range beside "9
+              // applicants" and "2 days ago" is wider than a small phone
+              // at a large text size.
               Row(
                 children: [
                   if (budget != null)
-                    Text(budget,
-                        style: const TextStyle(
-                            fontSize: 15,
-                            fontWeight: FontWeight.w700,
-                            color: AppColors.primary)),
+                    Flexible(
+                      child: Text(budget,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                              fontSize: 15,
+                              fontWeight: FontWeight.w700,
+                              color: AppColors.primary)),
+                    ),
+                  const SizedBox(width: 8),
                   const Spacer(),
                   if (status != 'closed') ...[
                     const Icon(Icons.people_outline,
                         size: 14, color: AppColors.neutral400),
                     const SizedBox(width: 4),
-                    Text('$applicants applicant${applicants == 1 ? '' : 's'}',
-                        style: const TextStyle(
-                            fontSize: 12, color: AppColors.neutral500)),
+                    Flexible(
+                      child: Text(
+                          '$applicants applicant${applicants == 1 ? '' : 's'}',
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                              fontSize: 12, color: AppColors.neutral500)),
+                    ),
                   ],
                   if (postedAgo != null) ...[
                     const SizedBox(width: 8),
@@ -382,6 +410,20 @@ class _ManageJobsScreenState extends State<ManageJobsScreen>
               ),
 
               _endLine(job, status),
+
+              if (isCrew && status != 'completed') ...[
+                const SizedBox(height: 6),
+                Row(
+                  children: [
+                    const Icon(Icons.group_outlined, size: 14, color: AppColors.neutral500),
+                    const SizedBox(width: 6),
+                    Text(
+                      '$workersFilled of $workersNeeded hired',
+                      style: const TextStyle(fontSize: 12, color: AppColors.neutral600),
+                    ),
+                  ],
+                ),
+              ],
 
               // ── Actions ──
               if (status == 'open') ...[
@@ -422,6 +464,52 @@ class _ManageJobsScreenState extends State<ManageJobsScreen>
                       child: const Text('Manage', style: TextStyle(fontSize: 13.5)),
                     ),
                   ],
+                ),
+                // Its own row: three buttons across do not fit a small
+                // phone at a large text size.
+                if (isCrew && workersFilled > 0) ...[
+                  const SizedBox(height: 8),
+                  SizedBox(
+                    width: double.infinity,
+                    child: OutlinedButton.icon(
+                      onPressed: () => _openRoster(jobId),
+                      icon: const Icon(Icons.group_outlined, size: 16),
+                      label: Text('Roster ($workersFilled hired)'),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: AppColors.primary,
+                        side: const BorderSide(color: AppColors.primary),
+                        padding: const EdgeInsets.symmetric(vertical: 10),
+                        shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8)),
+                        textStyle: const TextStyle(
+                            fontSize: 13.5, fontWeight: FontWeight.w600),
+                      ),
+                    ),
+                  ),
+                ],
+              ] else if (status == 'in_progress' && isCrew) ...[
+                const SizedBox(height: 12),
+                const Divider(height: 1),
+                const SizedBox(height: 10),
+                // One button for the whole crew. Message and Mark Complete
+                // below are for a single hire and cannot say which of
+                // several people they mean.
+                SizedBox(
+                  width: double.infinity,
+                  child: OutlinedButton.icon(
+                    onPressed: () => _openRoster(jobId),
+                    icon: const Icon(Icons.group_outlined, size: 16),
+                    label: Text('Roster ($workersFilled)'),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: AppColors.primary,
+                      side: const BorderSide(color: AppColors.primary),
+                      padding: const EdgeInsets.symmetric(vertical: 10),
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8)),
+                      textStyle: const TextStyle(
+                          fontSize: 13.5, fontWeight: FontWeight.w600),
+                    ),
+                  ),
                 ),
               ] else if (status == 'in_progress') ...[
                 const SizedBox(height: 12),
