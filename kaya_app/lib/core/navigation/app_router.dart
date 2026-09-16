@@ -17,13 +17,12 @@ import 'main_navigation.dart';
 
 // Job Related Screens
 import '../../features/jobs/screens/job_details_screen.dart';
-import '../../features/jobs/screens/post_job_screen.dart';
 import '../../features/jobs/screens/search_screen.dart';
+import '../../features/jobs/screens/post_job_screen.dart';
 import '../../features/jobs/screens/saved_jobs_screen.dart';
 
 // Worker Profile Screens
 import '../../features/worker_profile/screens/worker_profile_screen.dart';
-import '../../features/worker_profile/screens/edit_worker_profile_screen.dart';
 
 // Application Screens
 import '../../features/applications/screens/applications_screen.dart';
@@ -40,22 +39,10 @@ import '../../features/notifications/screens/notifications_screen.dart';
 import '../../features/profile/screens/profile_screen.dart';
 import '../../features/profile/screens/worker_profile_router.dart';
 import '../../features/profile/screens/employer_profile_router.dart';
-import '../../features/profile/screens/add_name_screen.dart';
-import '../../features/profile/screens/add_location_screen.dart';
-import '../../features/profile/screens/add_personal_details_screen.dart';
 import '../../features/profile/screens/add_skills_screen.dart';
-import '../../features/profile/screens/add_experience_screen.dart';
-import '../../features/profile/screens/upload_resume_screen.dart';
-import '../../features/profile/screens/add_photo_screen.dart';
-import '../../features/profile/screens/add_certifications_screen.dart';
-import '../../features/profile/screens/add_licenses_screen.dart';
 
 // Employer Screens
 import '../../features/employer/screens/setup_employer_profile_screen.dart';
-import '../../features/employer/screens/add_employer_details_screen.dart';
-import '../../features/employer/screens/add_employer_contact_screen.dart';
-import '../../features/employer/screens/add_employer_location_screen.dart';
-import '../../features/employer/screens/add_employer_about_screen.dart';
 import '../../features/employer/screens/manage_jobs_screen.dart';
 import '../../features/employer/screens/employer_profile_screen.dart';
 import '../../features/applications/screens/view_applicants_screen.dart';
@@ -83,10 +70,10 @@ class AppRouter {
   static const String resetPassword = '/reset-password';
   static const String googlePassword = '/google-password';
   static const String home = '/home';
+  static const String searchJobs = '/search';
   static const String jobDetails = '/job-details';
   static const String workerProfile = '/worker-profile';
   static const String postJob = '/post-job';
-  static const String searchJobs = '/search';
   static const String savedJobs = '/saved-jobs';
   static const String applications = '/applications';
   static const String messages = '/messages';
@@ -95,25 +82,12 @@ class AppRouter {
   static const String wallet = '/wallet';
   static const String pastWorkers = '/past-workers';
   static const String profile = '/profile';
-  static const String editWorkerProfile = '/edit-worker-profile';
   static const String myWorkerProfile = '/my-worker-profile';
   static const String setupWorkerProfile = '/setup-worker-profile';
   static const String myEmployerProfile = '/my-employer-profile';
-  static const String addName = '/add-name';
-  static const String addLocation = '/add-location';
-  static const String addPersonalDetails = '/add-personal-details';
   static const String addSkills = '/add-skills';
-  static const String addExperience = '/add-experience';
-  static const String uploadResume = '/upload-resume';
-  static const String addPhoto = '/add-photo';
-  static const String addCertifications = '/add-certifications';
-  static const String addLicenses = '/add-licenses';
   static const String faq = '/faq';
   static const String setupEmployerProfile = '/setup-employer-profile';
-  static const String addEmployerDetails = '/add-employer-details';
-  static const String addEmployerContact = '/add-employer-contact';
-  static const String addEmployerLocation = '/add-employer-location';
-  static const String addEmployerAbout = '/add-employer-about';
   static const String manageJobs = '/manage-jobs';
   static const String viewApplicants = '/view-applicants';
   static const String employerProfile = '/employer-profile';
@@ -180,6 +154,27 @@ class AppRouter {
       
       case home:
         return MaterialPageRoute(builder: (_) => const MainNavigation());
+
+      case searchJobs:
+        /*
+            A string or a map, because both call it.
+
+            Older callers pass the search term alone. The home category strip
+            passes a category id and which side to search, so tapping a
+            category filters on the category instead of typing its name into
+            the box.
+        */
+        final args = settings.arguments;
+        final query = args is String ? args : (args as Map?)?['query'] as String?;
+        final categoryId = args is Map ? args['categoryId'] as int? : null;
+        final searchType = args is Map ? args['searchType'] as String? : null;
+        return MaterialPageRoute(
+          builder: (_) => SearchScreen(
+            initialQuery: query,
+            initialCategoryId: categoryId,
+            initialType: searchType,
+          ),
+        );
       
       case jobDetails:
         return MaterialPageRoute(
@@ -196,28 +191,7 @@ class AppRouter {
       case postJob:
         return MaterialPageRoute(builder: (_) => const PostJobScreen());
       
-      case searchJobs:
-        /*
-            A string or a map, because both call it.
 
-            Older callers pass the search term alone. The home category strip
-            passes a category id and which side to search, so tapping a
-            category filters on the category instead of typing its name into
-            the box.
-        */
-        final args = settings.arguments;
-        final query = args is String ? args : (args as Map?)?['query'] as String?;
-        final categoryId = args is Map ? args['categoryId'] as int? : null;
-        final searchType = args is Map ? args['searchType'] as String? : null;
-
-        return MaterialPageRoute(
-          builder: (_) => SearchScreen(
-            initialQuery: query,
-            initialCategoryId: categoryId,
-            initialType: searchType,
-          ),
-        );
-      
       case savedJobs:
         return MaterialPageRoute(builder: (_) => const SavedJobsScreen());
       
@@ -245,17 +219,7 @@ class AppRouter {
       case profile:
         return MaterialPageRoute(builder: (_) => const ProfileScreen());
       
-      case editWorkerProfile:
-        return MaterialPageRoute(builder: (_) => const EditWorkerProfileScreen());
-      
-      // Both roles go through their router, which picks setup-or-view.
-      //
-      // These used to land on the view screens directly, so tapping "Worker
-      // Profile" with no worker profile opened a screen built to display one
-      // and the employer entry re-implemented the check at its call site. A
-      // hybrid account needs "add the side I don't have, edit the side I do"
-      // to work identically for both, and that is a routing decision, not
-      // something every caller should repeat.
+
       case myWorkerProfile:
       case setupWorkerProfile:
         return MaterialPageRoute(builder: (_) => const WorkerProfileRouter());
@@ -263,63 +227,19 @@ class AppRouter {
       case myEmployerProfile:
         return MaterialPageRoute(builder: (_) => const EmployerProfileRouter());
       
-      case addName:
-        final initName = settings.arguments as String?;
-        return MaterialPageRoute(builder: (_) => AddNameScreen(initialValue: initName));
-
-      case addLocation:
-        final initLoc = settings.arguments as String?;
-        return MaterialPageRoute(builder: (_) => AddLocationScreen(initialValue: initLoc));
-
-      case addPersonalDetails:
-        final args = settings.arguments as Map<String, String?>?;
-        return MaterialPageRoute(builder: (_) => AddPersonalDetailsScreen(
-          initialPhone: args?['phone'],
-          initialEmail: args?['email'],
-        ));
 
       case addSkills:
         final initSkills = (settings.arguments as List<dynamic>?)?.cast<String>() ?? [];
         return MaterialPageRoute(builder: (_) => AddSkillsScreen(initialSkills: initSkills));
       
-      case addExperience:
-        return MaterialPageRoute(builder: (_) => const AddExperienceScreen());
-      
-      case uploadResume:
-        return MaterialPageRoute(builder: (_) => const UploadResumeScreen());
-      
-      case addPhoto:
-        return MaterialPageRoute(builder: (_) => const AddPhotoScreen());
-      
-      case addCertifications:
-        return MaterialPageRoute(builder: (_) => const AddCertificationsScreen());
-      
-      case addLicenses:
-        return MaterialPageRoute(builder: (_) => const AddLicensesScreen());
-      
+
       case faq:
         return MaterialPageRoute(builder: (_) => const FAQScreen());
       
       case setupEmployerProfile:
         return MaterialPageRoute(builder: (_) => const SetupEmployerProfileScreen());
       
-      case addEmployerDetails:
-        final initialName = settings.arguments as String?;
-        return MaterialPageRoute(
-          builder: (_) => AddEmployerDetailsScreen(initialName: initialName),
-        );
-      
-      case addEmployerContact:
-        return MaterialPageRoute(builder: (_) => const AddEmployerContactScreen());
-      
-      case addEmployerLocation:
-        final initEmpLoc = settings.arguments as String?;
-        return MaterialPageRoute(builder: (_) => AddEmployerLocationScreen(initialValue: initEmpLoc));
 
-      case addEmployerAbout:
-        final initAbout = settings.arguments as String?;
-        return MaterialPageRoute(builder: (_) => AddEmployerAboutScreen(initialValue: initAbout));
-      
       case manageJobs:
         return MaterialPageRoute(builder: (_) => const ManageJobsScreen());
       
@@ -493,11 +413,6 @@ class AppRouter {
   /// Navigate to profile screen
   static void toProfile(BuildContext context) {
     push(context, profile);
-  }
-
-  /// Navigate to edit worker profile screen
-  static void toEditWorkerProfile(BuildContext context) {
-    push(context, editWorkerProfile);
   }
 
   /// Navigate to my worker profile screen

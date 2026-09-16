@@ -17,10 +17,6 @@ import 'package:kaya_app/features/auth/screens/signup_screen.dart';
 import 'package:kaya_app/features/jobs/screens/job_details_screen.dart';
 import 'package:kaya_app/features/jobs/screens/unified_home_screen.dart';
 import 'package:kaya_app/features/location/screens/pin_location_screen.dart';
-import 'package:kaya_app/features/profile/screens/add_certifications_screen.dart';
-import 'package:kaya_app/features/profile/screens/add_experience_screen.dart';
-import 'package:kaya_app/features/profile/screens/add_licenses_screen.dart';
-import 'package:kaya_app/features/profile/screens/add_photo_screen.dart';
 import 'package:kaya_app/features/profile/screens/verification_screen.dart';
 import 'package:kaya_app/features/credits/screens/wallet_screen.dart';
 import 'package:kaya_app/features/employer/screens/manage_jobs_screen.dart';
@@ -220,10 +216,6 @@ void main() {
     'forgot password': () => wrap(const ForgotPasswordScreen()),
     'job details': () => wrap(const JobDetailsScreen()),
     'pin location': () => wrap(const PinLocationScreen()),
-    'add certifications': () => wrap(const AddCertificationsScreen()),
-    'add licenses': () => wrap(const AddLicensesScreen()),
-    'add experience': () => wrap(const AddExperienceScreen()),
-    'add photo': () => wrap(const AddPhotoScreen()),
     'verification': () => wrap(const VerificationScreen()),
     'verify phone': () => wrapWithArgs(
           const VerificationScreen(),

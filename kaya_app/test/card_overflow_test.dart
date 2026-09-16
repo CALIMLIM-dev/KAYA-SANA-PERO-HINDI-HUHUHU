@@ -4,7 +4,6 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:kaya_app/features/applications/widgets/application_card.dart';
 import 'package:kaya_app/data/models/job_model.dart';
 import 'package:kaya_app/features/jobs/widgets/job_list_card.dart';
-import 'package:kaya_app/features/jobs/widgets/job_card_v2.dart';
 import 'package:kaya_app/features/jobs/widgets/worker_card.dart';
 import 'package:kaya_app/features/messaging/widgets/conversation_card.dart';
 import 'package:kaya_app/features/notifications/widgets/notification_item.dart';
@@ -82,15 +81,6 @@ void main() {
   }
 
   final cards = <String, Widget>{
-    'job card': JobCardV2(
-      title: longTitle,
-      company: longCompany,
-      location: longPlace,
-      salary: 'PHP 800 - 1,200/day',
-      isVerified: true,
-      postedTime: '2 hours ago',
-      onTap: () {},
-    ),
     // The job card as search and saved jobs draw it, with the bookmark and
     // every optional line switched on.
     'job list card': JobListCard(
