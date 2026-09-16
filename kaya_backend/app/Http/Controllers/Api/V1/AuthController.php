@@ -99,7 +99,7 @@ class AuthController extends Controller
         $user  = User::create($userData);
         $token = $user->createToken('kaya_app')->plainTextToken;
 
-        return $this->ok(['user' => $this->ownAccount($user), 'token' => $token], 'Registration successful', 201);
+        return $this->ok(['user' => $this->accountPayload($user), 'token' => $token], 'Registration successful', 201);
     }
 
     public function login(Request $request)
@@ -143,7 +143,7 @@ class AuthController extends Controller
 
         $token = $user->createToken('kaya_app')->plainTextToken;
 
-        return $this->ok(['user' => $this->ownAccount($user), 'token' => $token], 'Login successful');
+        return $this->ok(['user' => $this->accountPayload($user), 'token' => $token], 'Login successful');
     }
 
     /**
@@ -208,7 +208,7 @@ class AuthController extends Controller
     public function me(Request $request)
     {
         $user = $request->user();
-        
+
         // Check if user is suspended
         if ($user->is_suspended) {
             return response()->json([
@@ -221,16 +221,28 @@ class AuthController extends Controller
             ], 403);
         }
 
-        // Eager load profiles
+        return $this->ok($this->accountPayload($user));
+    }
+
+    /*
+        The account as the app needs it: the flags that say which profiles
+        exist and whether they are set up, the resume, the picture.
+
+        Served by /me and, since the same fields decide the first screen after
+        signing in, returned by login, register and Google sign-in as well. The
+        app used to have to call /me straight after every one of those, which
+        was one whole round trip added to every sign-in.
+    */
+    private function accountPayload(User $user): array
+    {
         $employerProfile = $user->employerProfile;
         $workerProfile = $user->workerProfile;
-        
-        // For worker profile, need to load skills relationship to check completion
+
         if ($workerProfile) {
             $workerProfile->load('skills');
         }
-        
-        return $this->ok([
+
+        return [
             'id' => $user->id,
             'name' => $user->name,
 
@@ -333,7 +345,7 @@ class AuthController extends Controller
             'email_verified' => $user->email_verified_at !== null,
             'phone_verified' => $user->phone_verified_at !== null,
             'user_type' => $user->user_type,
-            
+
             // Employer profile flags
             'employer_profile_exists' => $employerProfile !== null,
             'employer_type' => $employerProfile?->employer_type?->value,
@@ -366,9 +378,9 @@ class AuthController extends Controller
                 'file_name'   => $workerProfile->resume_original_name,
                 'uploaded_at' => $workerProfile->resume_uploaded_at?->toIso8601String(),
             ],
-        ]);
+        ];
     }
-    
+
     /*
         GET /me/badges
 
@@ -419,7 +431,7 @@ class AuthController extends Controller
     public function checkStatus(Request $request)
     {
         $user = $request->user();
-        
+
         return $this->ok([
             'is_suspended' => $user->is_suspended,
             'suspended_reason' => $user->suspended_reason,
@@ -727,7 +739,7 @@ class AuthController extends Controller
             $existingUser->save();
 
             $token = $existingUser->createToken('kaya_app')->plainTextToken;
-            return $this->ok(['user' => $this->ownAccount($existingUser), 'token' => $token], 'Google login successful');
+            return $this->ok(['user' => $this->accountPayload($existingUser), 'token' => $token], 'Google login successful');
         }
 
         // New user attempting to login
@@ -770,7 +782,7 @@ class AuthController extends Controller
 
         $token = $user->createToken('kaya_app')->plainTextToken;
 
-        return $this->ok(['user' => $this->ownAccount($user), 'token' => $token], 'Account created successfully', 201);
+        return $this->ok(['user' => $this->accountPayload($user), 'token' => $token], 'Account created successfully', 201);
     }
 
     /**
