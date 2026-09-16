@@ -13,6 +13,7 @@ import '../../../core/widgets/hint_bubble.dart';
 import '../widgets/contact_verify_row.dart';
 import '../widgets/profile_completeness_header.dart';
 import '../widgets/profile_section_card.dart';
+import '../widgets/resume_card.dart';
 import '../widgets/skill_check_card.dart';
 import '../../../data/services/api_client.dart';
 import '../../../data/models/location_model.dart';
@@ -1231,6 +1232,9 @@ class _MyWorkerProfileScreenState extends State<MyWorkerProfileScreen> with Sing
         SkillCheckCard(
           onChanged: () => context.read<AuthProvider>().fetchMe(),
         ),
+
+        // Upload, open, replace or remove. Employers see it once applied to.
+        const ResumeCard(),
 
         // Skills Card - Using Selector to prevent unnecessary rebuilds
         Selector<WorkerProfileProvider, List<WorkerSkillModel>>(

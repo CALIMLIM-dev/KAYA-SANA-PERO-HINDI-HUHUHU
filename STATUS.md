@@ -45,6 +45,14 @@ unused dead code removed
 
 ## fixed today
 
+resume: the upload card was missing from the worker profile, so no resume
+  ever existed and the employer's View resume button never showed. added.
+  access was already gated to pending or accepted applications on open jobs.
+
+stripe as a second payment provider, test mode. PAYMENT_PROVIDER picks;
+  webhooks at /webhooks/stripe and /webhooks/paymongo. the reconciler asks
+  the provider that took the payment.
+
 account deletion. DELETE /me with the password, from Settings. profiles,
   documents, photos, resume, saved jobs, notifications go; open posts close
   and applicants are refunded; the row stays as Deleted account for the
@@ -123,10 +131,6 @@ google login slow
 photo upload limit needs a server change. nginx client_max_body_size is 1mb
   and raising it needs root, which the deploy user does not have.
 
-resume is released on any application, including rejected and withdrawn ones,
-  and access never expires. anyone can register, create an employer profile,
-  post a job and read every applicant resume. needs a policy decision first.
-
 conversation direction is wrong for two hybrid accounts who have hired each
   other both ways. you hired can appear where they hired you.
 
@@ -137,13 +141,12 @@ composer-setup.php still sitting in the backend folder
 
 ## todo, in order
 
-1. decide the resume policy, then gate it
-2. delete the qa account and composer-setup.php
-3. screens stacking on back
-4. google login speed
-5. conversation direction migration
-6. nginx upload limit, needs the server owner
-7. paymongo live keys, once the account is business verified
+1. delete the qa account
+2. screens stacking on back
+3. google login speed
+4. conversation direction migration
+5. nginx upload limit, needs the server owner
+6. stripe test keys in .env (no paymongo account)
 
 
 ## phases

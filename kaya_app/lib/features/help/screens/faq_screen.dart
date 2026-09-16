@@ -141,7 +141,7 @@ class FAQScreen extends StatelessWidget {
               const _FAQItem(
                 question: 'How do I top up?',
                 answer:
-                    'Profile, then My Wallet, then choose a package. Payment goes through PayMongo. You need a verified account.',
+                    'Profile, then My Wallet, then choose a package. Payment opens in your browser. You need a verified account.',
               ),
             ],
           ),
