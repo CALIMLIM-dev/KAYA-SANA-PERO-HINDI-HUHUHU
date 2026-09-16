@@ -29,7 +29,7 @@ void main() {
     // one, because only headings occupy the space. Dragging the list itself
     // rather than scrollUntilVisible, which cannot tell the ListView apart from
     // the TabBarView's own scrollable.
-    await tester.drag(find.byType(ListView).first, const Offset(0, -400));
+    await tester.drag(find.byType(ListView).first, const Offset(0, -1200));
     await tester.pumpAndSettle();
     expect(find.text(sections.last.title), findsOneWidget);
   });
