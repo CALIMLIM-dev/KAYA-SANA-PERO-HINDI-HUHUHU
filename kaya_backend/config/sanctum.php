@@ -50,7 +50,10 @@ return [
     |
     */
 
-    'expiration' => null,
+    // Ninety days. A phone that has not opened the app in three months is
+    // asked to sign in again; a token that never expires is a token that
+    // is stolen once and works forever.
+    'expiration' => 129600,
 
     /*
     |--------------------------------------------------------------------------

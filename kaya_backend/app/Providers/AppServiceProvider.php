@@ -32,6 +32,12 @@ class AppServiceProvider extends ServiceProvider
         $this->registerNotificationListeners();
         $this->registerRateLimiters();
 
+        // Behind nginx the request arrives as http. Every URL the app builds
+        // for itself, avatars and document links included, is https anyway.
+        if ($this->app->isProduction()) {
+            \Illuminate\Support\Facades\URL::forceScheme('https');
+        }
+
         // Prices saved from the admin panel override the config defaults.
         \App\Support\Pricing::apply();
 

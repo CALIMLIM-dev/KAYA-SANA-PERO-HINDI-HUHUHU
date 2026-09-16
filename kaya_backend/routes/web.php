@@ -35,7 +35,10 @@ Route::prefix('admin')->name('admin.')->group(function () {
 
     // Public — login
     Route::get('/login', [AdminAuthController::class, 'showLogin'])->name('login');
-    Route::post('/login', [AdminAuthController::class, 'login']);
+    // Ten a minute per email and address, like the API's sign-in. This
+    // account can read government IDs; it was the one door with no lock
+    // on guessing.
+    Route::post('/login', [AdminAuthController::class, 'login'])->middleware('throttle:auth');
 
     // Protected — everything else
     Route::middleware(['auth', 'admin.web'])->group(function () {

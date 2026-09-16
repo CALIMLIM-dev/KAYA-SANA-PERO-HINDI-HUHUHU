@@ -72,6 +72,7 @@ return Application::configure(basePath: dirname(__DIR__))
 
         // Origins are governed by config/cors.php (CORS_ALLOWED_ORIGINS).
         $middleware->append(\Illuminate\Http\Middleware\HandleCors::class);
+        $middleware->append(\App\Http\Middleware\SecurityHeaders::class);
 
         /*
             Records when each user was last active, for the chat's activity dot.
