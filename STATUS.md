@@ -45,6 +45,17 @@ unused dead code removed
 
 ## fixed today
 
+screens stacking on back. AppRouter.push refuses a route already on top
+  with the same arguments; every screen goes through it.
+
+google login: sign-in responses carry the /me payload so the extra round
+  trip is gone; google sign-out only when signed in.
+
+conversation direction: kaya:realign-conversations sets seats and job from
+  the newest hire for threads made before the rule.
+
+chat job strip in the job card style.
+
 resume: the upload card was missing from the worker profile, so no resume
   ever existed and the employer's View resume button never showed. added.
   access was already gated to pending or accepted applications on open jobs.
@@ -120,15 +131,8 @@ pin names the wrong barangay near a boundary. the server matches the closest
   centroid, not the area that contains the pin. it is visible now but still
   wrong. needs boundary data.
 
-screens stacking when going back
-
-google login slow
-
 photo upload limit needs a server change. nginx client_max_body_size is 1mb
   and raising it needs root, which the deploy user does not have.
-
-conversation direction is wrong for two hybrid accounts who have hired each
-  other both ways. you hired can appear where they hired you.
 
 qa test account still on production
 
@@ -138,11 +142,8 @@ composer-setup.php still sitting in the backend folder
 ## todo, in order
 
 1. delete the qa account
-2. screens stacking on back
-3. google login speed
-4. conversation direction migration
-5. nginx upload limit, needs the server owner
-6. payment provider. there is no paymongo account; play store needs
+2. nginx upload limit, needs the server owner
+3. payment provider. there is no paymongo account; play store needs
    google play billing for barya anyway
 
 
