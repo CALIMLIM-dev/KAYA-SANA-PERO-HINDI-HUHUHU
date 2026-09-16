@@ -12,10 +12,12 @@ import '../../../providers/schedule_provider.dart';
 import '../widgets/schedule_card.dart';
 import '../../../providers/messaging_provider.dart';
 import '../../../core/widgets/app_toast.dart';
+import '../widgets/chat_job_strip.dart';
 import '../widgets/job_tracking_panel.dart';
 import '../../moderation/widgets/report_sheet.dart';
 import '../../invitations/widgets/invite_to_job.dart';
 import '../../../providers/app_mode_provider.dart';
+import '../../../core/navigation/app_router.dart';
 
 /// Chat Screen — message thread for a real conversation.
 /// Arguments: { conversationId, name, jobTitle, jobId, otherUserId,
@@ -64,7 +66,6 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   final TextEditingController _controller = TextEditingController();
   final ScrollController _scrollController = ScrollController();
   MessagingProvider? _messaging;
-  bool _jobCardExpanded = false;
   /*
       Which older message has had its time revealed.
 
@@ -419,8 +420,8 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
           args['avatar'] as String?),
       body: Column(
         children: [
-          if (jobTitle != null)
-            _buildJobCard(jobTitle, jobId, context),
+          if (jobTitle != null && jobId != null)
+            ChatJobStrip(jobId: jobId, title: jobTitle, status: jobStatus),
 
           if (canTrack)
             JobTrackingPanel(
@@ -574,8 +575,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
 
     void openProfile() {
       if (otherUserId == null) return;
-      Navigator.pushNamed(
-        context,
+      AppRouter.push(context,
         otherRole == 'worker' ? '/worker-profile' : '/employer-profile',
         arguments: otherRole == 'worker'
             ? {'workerId': otherUserId}
@@ -731,74 +731,6 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   }
 
   // ─── job card ─────────────────────────────────────────────────────────────────
-
-  Widget _buildJobCard(String jobTitle, int? jobId, BuildContext context) {
-    return GestureDetector(
-      onTap: () => setState(() => _jobCardExpanded = !_jobCardExpanded),
-      child: Container(
-        width: double.infinity,
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          border: Border(bottom: BorderSide(color: AppColors.neutral200, width: 1)),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(6),
-                  decoration: BoxDecoration(
-                    color: AppColors.primary.withValues(alpha: 0.08),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: const Icon(Icons.work_outline,
-                      size: 16, color: AppColors.primary),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Text(jobTitle,
-                      style: const TextStyle(
-                          fontSize: 13.5,
-                          fontWeight: FontWeight.w700,
-                          color: AppColors.neutral900),
-                      overflow: TextOverflow.ellipsis),
-                ),
-                Icon(
-                  _jobCardExpanded ? Icons.keyboard_arrow_up : Icons.keyboard_arrow_down,
-                  size: 18,
-                  color: AppColors.neutral400,
-                ),
-              ],
-            ),
-            if (_jobCardExpanded && jobId != null) ...[
-              const SizedBox(height: 12),
-              const Divider(height: 1),
-              const SizedBox(height: 10),
-              SizedBox(
-                width: double.infinity,
-                child: OutlinedButton(
-                  onPressed: () => Navigator.pushNamed(context, '/job-details',
-                      arguments: {'jobId': jobId}),
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: AppColors.primary,
-                    side: const BorderSide(color: AppColors.primary),
-                    padding: const EdgeInsets.symmetric(vertical: 8),
-                    shape:
-                        RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                    textStyle:
-                        const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w600),
-                  ),
-                  child: const Text('View Full Job Details'),
-                ),
-              ),
-            ],
-          ],
-        ),
-      ),
-    );
-  }
 
   // ─── input bar ────────────────────────────────────────────────────────────────
 

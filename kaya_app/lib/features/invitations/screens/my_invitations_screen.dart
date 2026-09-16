@@ -7,6 +7,7 @@ import '../../../providers/invitation_provider.dart';
 import '../../../core/navigation/main_navigation.dart';
 import '../../../core/widgets/app_toast.dart';
 import '../../../core/widgets/verify_gate.dart';
+import '../../../core/navigation/app_router.dart';
 
 /// My Invitations Screen — Worker sees job invitations from employers.
 /// Backed by GET /my-invitations; Accept/Decline call the real endpoints.
@@ -259,7 +260,7 @@ class _MyInvitationsScreenState extends State<MyInvitationsScreen>
                     child: OutlinedButton(
                       onPressed: jobId == null
                           ? null
-                          : () => Navigator.pushNamed(context, '/job-details',
+                          : () => AppRouter.push(context, '/job-details',
                               arguments: {'jobId': jobId}),
                       style: OutlinedButton.styleFrom(
                         foregroundColor: AppColors.primary,
@@ -438,8 +439,7 @@ class _MyInvitationsScreenState extends State<MyInvitationsScreen>
                 type: ToastType.success,
                 duration: const Duration(seconds: 4),
                 actionLabel: 'Message',
-                onAction: () => Navigator.pushNamed(
-                  context,
+                onAction: () => AppRouter.push(context,
                   '/chat',
                   arguments: {
                     'conversationId': conversationId,

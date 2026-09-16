@@ -6,6 +6,7 @@ import '../../../core/widgets/badge_strip.dart';
 import '../../../core/widgets/profile_avatar.dart';
 import '../../../core/widgets/work_record.dart';
 import '../../../providers/employer_profile_provider.dart';
+import '../../../core/navigation/app_router.dart';
 
 /// Public Employer Profile View — shown to workers when they tap "Posted by"
 /// on a job listing. Reads {'employerId': int} from route arguments and
@@ -503,7 +504,7 @@ class _EmployerProfileScreenState extends State<EmployerProfileScreen> {
   }) {
     return InkWell(
       onTap: () =>
-          Navigator.pushNamed(context, '/job-details', arguments: {'jobId': jobId}),
+          AppRouter.push(context, '/job-details', arguments: {'jobId': jobId}),
       borderRadius: BorderRadius.circular(8),
       child: Row(
         children: [

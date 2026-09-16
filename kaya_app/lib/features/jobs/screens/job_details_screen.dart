@@ -289,7 +289,7 @@ class _JobDetailsScreenState extends State<JobDetailsScreen>
             child: InkWell(
               onTap: job.employerId == null
                   ? null
-                  : () => Navigator.pushNamed(context, '/employer-profile',
+                  : () => AppRouter.push(context, '/employer-profile',
                       arguments: {'employerId': job.employerId}),
               borderRadius: BorderRadius.circular(12),
               child: Row(
@@ -640,7 +640,7 @@ class _JobDetailsScreenState extends State<JobDetailsScreen>
       );
     } else if (job.isOwnJob) {
       button = OutlinedButton.icon(
-        onPressed: () => Navigator.pushNamed(context, '/view-applicants',
+        onPressed: () => AppRouter.push(context, '/view-applicants',
             arguments: {'jobId': job.id}),
         icon: const Icon(Icons.people_outline),
         label: Text('View ${job.applicantCount} Applicant${job.applicantCount == 1 ? '' : 's'}'),
@@ -821,7 +821,7 @@ class _JobDetailsScreenState extends State<JobDetailsScreen>
     if (!job.isInvited &&
         credits.hasLoadedOnce &&
         !credits.canAfford('apply')) {
-      await Navigator.pushNamed(context, AppRouter.wallet);
+      await AppRouter.push(context, AppRouter.wallet);
       if (!mounted) return;
       await credits.refresh();
       return;
@@ -875,7 +875,7 @@ class _JobDetailsScreenState extends State<JobDetailsScreen>
       );
 
       if (goToWallet == true && mounted) {
-        await Navigator.pushNamed(context, AppRouter.wallet);
+        await AppRouter.push(context, AppRouter.wallet);
         if (mounted) await credits.refresh();
       }
       return;

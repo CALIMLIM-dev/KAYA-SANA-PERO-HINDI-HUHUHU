@@ -11,6 +11,7 @@ import '../../../providers/application_provider.dart';
 import '../../../providers/invitation_provider.dart';
 import '../../../providers/job_provider.dart';
 import '../widgets/completion_action.dart';
+import '../../../core/navigation/app_router.dart';
 
 /*
     My Activity — one rule decides where everything goes.
@@ -835,8 +836,7 @@ class _ApplicationCard extends StatelessWidget {
       actionIsCompletion: canConfirm,
       onMessage: !canMessage
           ? null
-          : () => Navigator.pushNamed(
-                context,
+          : () => AppRouter.push(context,
                 '/chat',
                 arguments: {
                   'conversationId': conversationId,
@@ -874,8 +874,7 @@ class _ApplicationCard extends StatelessWidget {
                   this is the one place that was not reading it.
               */
               : () async {
-                  final done = await Navigator.pushNamed(
-                    context,
+                  final done = await AppRouter.push(context,
                     '/leave-review',
                     arguments: {
                       'revieweeId': employer['id'],
@@ -895,7 +894,7 @@ class _ApplicationCard extends StatelessWidget {
                 },
       onTap: job == null
           ? null
-          : () => Navigator.pushNamed(context, '/job-details',
+          : () => AppRouter.push(context, '/job-details',
               arguments: {'jobId': job['id']}),
     );
   }
@@ -989,8 +988,7 @@ class _JobPostCard extends StatelessWidget {
       // is not somewhere to start a conversation from.
       onMessage: conversationId == null || workDone
           ? null
-          : () => Navigator.pushNamed(
-                context,
+          : () => AppRouter.push(context,
                 '/chat',
                 arguments: {
                   'conversationId': conversationId,
@@ -1020,8 +1018,7 @@ class _JobPostCard extends StatelessWidget {
               // Same fix as the worker's card above: awaited, and refreshed
               // on a successful submit so the button does not linger.
               : () async {
-                  final done = await Navigator.pushNamed(
-                    context,
+                  final done = await AppRouter.push(context,
                     '/leave-review',
                     arguments: {
                       'revieweeId': hire['worker_id'],
@@ -1038,7 +1035,7 @@ class _JobPostCard extends StatelessWidget {
                     if (context.mounted) await onChanged();
                   }
                 },
-      onTap: () => Navigator.pushNamed(context, '/view-applicants',
+      onTap: () => AppRouter.push(context, '/view-applicants',
           arguments: {'jobId': job['id']}),
     );
   }
@@ -1760,8 +1757,7 @@ class _InvitationCardState extends State<_InvitationCard> {
       type: ToastType.success,
       duration: const Duration(seconds: 4),
       actionLabel: 'Message',
-      onAction: () => Navigator.pushNamed(
-        context,
+      onAction: () => AppRouter.push(context,
         '/chat',
         arguments: {
           'conversationId': conversationId,

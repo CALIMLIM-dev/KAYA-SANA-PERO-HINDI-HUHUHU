@@ -18,6 +18,7 @@ import '../../../providers/worker_profile_provider.dart';
 import '../../../shared/widgets/location_picker_field.dart';
 import '../../../core/widgets/app_toast.dart';
 import '../../../core/widgets/verify_gate.dart';
+import '../../../core/navigation/app_router.dart';
 
 /// Post Job Screen - Clean, professional design following industry best practices
 class PostJobScreen extends StatefulWidget {
@@ -1478,8 +1479,7 @@ class _PostJobScreenState extends State<PostJobScreen> {
   }
 
   Future<void> _openPinPicker() async {
-    final result = await Navigator.pushNamed(
-      context,
+    final result = await AppRouter.push(context,
       '/pin-location',
       arguments: {
         // Open on the chosen place rather than making the user pan there.

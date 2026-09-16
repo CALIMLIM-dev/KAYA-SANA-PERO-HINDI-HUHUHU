@@ -665,8 +665,7 @@ class _WorkerSetupFlowScreenState extends State<WorkerSetupFlowScreen> {
   }
 
   Future<void> _openWorkerPinPicker() async {
-    final result = await Navigator.pushNamed(
-      context,
+    final result = await AppRouter.push(context,
       '/pin-location',
       arguments: {
         'latitude': _pinnedLat ?? _selectedLocation?.latitude,

@@ -97,7 +97,7 @@ class _ManageJobsScreenState extends State<ManageJobsScreen>
                 tooltip: 'Worked with before',
                 icon: const Icon(Icons.history),
                 onPressed: () =>
-                    Navigator.pushNamed(context, AppRouter.pastWorkers),
+                    AppRouter.push(context, AppRouter.pastWorkers),
               ),
             ],
             bottom: TabBar(
@@ -126,7 +126,7 @@ class _ManageJobsScreenState extends State<ManageJobsScreen>
                       ],
                     ),
           floatingActionButton: FloatingActionButton.extended(
-            onPressed: () => Navigator.pushNamed(context, '/post-job'),
+            onPressed: () => AppRouter.push(context, '/post-job'),
             backgroundColor: AppColors.accent,
             foregroundColor: Colors.white,
             icon: const Icon(Icons.add),
@@ -324,7 +324,7 @@ class _ManageJobsScreenState extends State<ManageJobsScreen>
         ],
       ),
       child: InkWell(
-        onTap: () => Navigator.pushNamed(context, '/job-details',
+        onTap: () => AppRouter.push(context, '/job-details',
             arguments: {'jobId': jobId}),
         borderRadius: BorderRadius.circular(16),
         child: Padding(
@@ -434,8 +434,7 @@ class _ManageJobsScreenState extends State<ManageJobsScreen>
                   children: [
                     Expanded(
                       child: OutlinedButton.icon(
-                        onPressed: () => Navigator.pushNamed(
-                            context, '/view-applicants',
+                        onPressed: () => AppRouter.push(context, '/view-applicants',
                             arguments: {'jobId': jobId}),
                         icon: const Icon(Icons.people, size: 16),
                         label: Text('Applicants ($applicants)'),
@@ -552,8 +551,7 @@ class _ManageJobsScreenState extends State<ManageJobsScreen>
                         // second copy of that one.
                         onPressed: conversationId == null
                             ? null
-                            : () => Navigator.pushNamed(
-                                  context,
+                            : () => AppRouter.push(context,
                                   '/chat',
                                   arguments: {
                                     'conversationId': conversationId,
@@ -643,7 +641,7 @@ class _ManageJobsScreenState extends State<ManageJobsScreen>
                     */
                     onPressed: () async {
                       if (hire == null) {
-                        await Navigator.pushNamed(context, '/view-applicants',
+                        await AppRouter.push(context, '/view-applicants',
                             arguments: {'jobId': jobId});
                         if (mounted) {
                           await context.read<JobProvider>().fetchMyJobs();
@@ -651,8 +649,7 @@ class _ManageJobsScreenState extends State<ManageJobsScreen>
                         return;
                       }
 
-                      final done = await Navigator.pushNamed(
-                        context,
+                      final done = await AppRouter.push(context,
                         '/leave-review',
                         arguments: {
                           'revieweeId': hire['worker_id'],
@@ -765,7 +762,7 @@ class _ManageJobsScreenState extends State<ManageJobsScreen>
                   urgent job displayed as ordinary, and saving would have
                   written those defaults back over the real values.
               */
-              Navigator.pushNamed(context, '/edit-job', arguments: {
+              AppRouter.push(context, '/edit-job', arguments: {
                 'id': jobId,
                 'title': job['title'],
                 'category': category?['name'],

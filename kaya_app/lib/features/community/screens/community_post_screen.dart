@@ -6,6 +6,7 @@ import '../../../core/widgets/app_toast.dart';
 import '../../../core/widgets/profile_avatar.dart';
 import '../../../providers/community_provider.dart';
 import '../../moderation/widgets/report_sheet.dart';
+import '../../../core/navigation/app_router.dart';
 
 /*
     One post, in full, with the two things a reader can do: message the
@@ -45,7 +46,7 @@ class _CommunityPostScreenState extends State<CommunityPostScreen> {
     final other = (data['other'] as Map?)?.cast<String, dynamic>() ?? const {};
     final myRole = (data['my_role'] ?? 'worker').toString();
 
-    Navigator.pushNamed(context, '/chat', arguments: {
+    AppRouter.push(context, '/chat', arguments: {
       'conversationId': data['conversation_id'],
       'name': (other['name'] ?? _poster['name'] ?? '').toString(),
       'avatar': other['avatar'] ?? _poster['avatar'],

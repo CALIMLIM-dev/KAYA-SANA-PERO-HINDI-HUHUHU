@@ -5,6 +5,7 @@ import '../../../core/utils/realtime_refresh.dart';
 import '../../../core/widgets/app_toast.dart';
 import '../../../core/widgets/profile_avatar.dart';
 import '../../../data/services/api_client.dart';
+import '../../../core/navigation/app_router.dart';
 
 /*
     Everyone hired on one job, on one screen.
@@ -194,7 +195,7 @@ class _RosterScreenState extends State<RosterScreen> with RealtimeRefresh {
       AppToast.info(context, 'No chat with this worker yet.');
       return;
     }
-    Navigator.pushNamed(context, '/chat', arguments: {
+    AppRouter.push(context, '/chat', arguments: {
       'conversationId': conversationId,
       'name': (hire['name'] ?? 'Worker').toString(),
       'avatar': hire['avatar'],

@@ -7,6 +7,7 @@ import '../../../core/constants/app_mode.dart';
 import '../../../providers/app_mode_provider.dart';
 import '../../../providers/auth_provider.dart';
 import '../../../providers/messaging_provider.dart';
+import '../../../core/navigation/app_router.dart';
 
 /// Conversations List Screen — backed by GET /conversations.
 class MessagesListScreen extends StatefulWidget {
@@ -109,8 +110,7 @@ class _MessagesListScreenState extends State<MessagesListScreen>
     final other = _otherParty(conv, myRole);
     final job = conv['job'] as Map<String, dynamic>?;
 
-    Navigator.pushNamed(
-      context,
+    AppRouter.push(context,
       '/chat',
       arguments: {
         'conversationId': conv['id'],

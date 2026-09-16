@@ -100,7 +100,7 @@ class _ComposeCommunityPostScreenState extends State<ComposeCommunityPostScreen>
     final credits = context.read<CreditsProvider>();
     final cost = _cost;
     if (cost != null && credits.hasLoadedOnce && credits.balance < cost) {
-      await Navigator.pushNamed(context, AppRouter.wallet);
+      await AppRouter.push(context, AppRouter.wallet);
       if (!mounted) return;
       await credits.refresh();
       return;

@@ -7,6 +7,7 @@ import '../../../data/models/location_model.dart';
 import '../../../providers/employer_profile_provider.dart';
 import '../../../shared/widgets/location_picker_field.dart';
 import '../../../core/widgets/app_toast.dart';
+import '../../../core/navigation/app_router.dart';
 
 /// Edit Employer Profile Screen
 /// Pre-filled with existing data, each field is editable
@@ -235,8 +236,7 @@ class _EditEmployerProfileScreenState
                               fontWeight: FontWeight.w600,
                               color: AppColors.warning)),
                     ),
-                    onTap: () => Navigator.pushNamed(
-                      context,
+                    onTap: () => AppRouter.push(context,
                       '/verification',
                       arguments: {
                         'type': 'business_reg',

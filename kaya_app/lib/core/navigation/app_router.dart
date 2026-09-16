@@ -1,3 +1,4 @@
+import 'package:collection/collection.dart';
 import 'package:flutter/material.dart';
 import '../../data/models/job_model.dart';
 import '../../data/models/worker_profile_model.dart';
@@ -117,6 +118,31 @@ class AppRouter {
   static const String viewApplicants = '/view-applicants';
   static const String employerProfile = '/employer-profile';
   static const String pinLocation = '/pin-location';
+
+  /*
+      What is on the navigator right now.
+
+      Registered on the MaterialApp. push() below asks it whether the route
+      it is about to open is already the one on top, which is how a second
+      tap on the same card, a notification for the job already open, or a
+      chat opening the job that opened the chat stop stacking copies of
+      the same screen that all have to be backed out of one by one.
+  */
+  static final RouteStack observer = RouteStack();
+
+  /// Pushes a named route unless that exact route, with the same
+  /// arguments, is already on top. Every screen goes through this.
+  static Future<T?> push<T extends Object?>(BuildContext context, String route,
+      {Object? arguments}) {
+    final top = observer.top;
+    if (top != null &&
+        top.settings.name == route &&
+        const DeepCollectionEquality().equals(top.settings.arguments, arguments)) {
+      return Future<T?>.value(null);
+    }
+
+    return Navigator.pushNamed<T>(context, route, arguments: arguments);
+  }
 
   /// Generate routes for the app
   static Route<dynamic> generateRoute(RouteSettings settings) {
@@ -388,19 +414,19 @@ class AppRouter {
   /// the rest live via GET /jobs/{id}, so the details are never stale relative
   /// to whatever list the tap came from.
   static void toJobDetails(BuildContext context, Job job) {
-    Navigator.pushNamed(context, jobDetails, arguments: {'jobId': job.id});
+    push(context, jobDetails, arguments: {'jobId': job.id});
   }
 
   /// Navigate to worker profile screen. Same reasoning as toJobDetails: only
   /// the id travels, the screen fetches the full profile itself.
   static void toWorkerProfile(BuildContext context, WorkerProfile worker) {
-    Navigator.pushNamed(context, workerProfile,
+    push(context, workerProfile,
         arguments: {'workerId': worker.userId ?? worker.id});
   }
 
   /// Navigate to post job screen
   static void toPostJob(BuildContext context) {
-    Navigator.pushNamed(context, postJob);
+    push(context, postJob);
   }
 
   /// Navigate to search jobs screen
@@ -410,8 +436,7 @@ class AppRouter {
     int? categoryId,
     String? searchType,
   }) {
-    Navigator.pushNamed(
-      context,
+    push(context,
       searchJobs,
       arguments: categoryId == null && searchType == null
           ? query
@@ -425,12 +450,12 @@ class AppRouter {
 
   /// Navigate to saved jobs screen
   static void toSavedJobs(BuildContext context) {
-    Navigator.pushNamed(context, savedJobs);
+    push(context, savedJobs);
   }
 
   /// Navigate to applications screen
   static void toApplications(BuildContext context) {
-    Navigator.pushNamed(context, applications);
+    push(context, applications);
   }
 
   /// Open the inbox.
@@ -449,8 +474,7 @@ class AppRouter {
     String? workerImageUrl,
     int? jobId,
   }) {
-    Navigator.pushNamed(
-      context,
+    push(context,
       chat,
       arguments: {
         'workerId': workerId,
@@ -463,37 +487,37 @@ class AppRouter {
 
   /// Navigate to notifications screen
   static void toNotifications(BuildContext context) {
-    Navigator.pushNamed(context, notifications);
+    push(context, notifications);
   }
 
   /// Navigate to profile screen
   static void toProfile(BuildContext context) {
-    Navigator.pushNamed(context, profile);
+    push(context, profile);
   }
 
   /// Navigate to edit worker profile screen
   static void toEditWorkerProfile(BuildContext context) {
-    Navigator.pushNamed(context, editWorkerProfile);
+    push(context, editWorkerProfile);
   }
 
   /// Navigate to my worker profile screen
   static void toMyWorkerProfile(BuildContext context) {
-    Navigator.pushNamed(context, myWorkerProfile);
+    push(context, myWorkerProfile);
   }
 
   /// Navigate to public employer profile (read-only view for workers)
   static void toEmployerProfile(BuildContext context) {
-    Navigator.pushNamed(context, employerProfile);
+    push(context, employerProfile);
   }
 
   /// Navigate to my employer profile (NEW system - own profile management)
   static void toMyEmployerProfile(BuildContext context) {
-    Navigator.pushNamed(context, myEmployerProfile);
+    push(context, myEmployerProfile);
   }
 
   /// Navigate to FAQ screen
   static void toFAQ(BuildContext context) {
-    Navigator.pushNamed(context, faq);
+    push(context, faq);
   }
 
   /// Navigate to home screen and clear stack
@@ -514,5 +538,35 @@ class AppRouter {
   /// Check if we can go back
   static bool canPop(BuildContext context) {
     return Navigator.canPop(context);
+  }
+}
+
+/// Keeps the list of routes the root navigator currently holds.
+class RouteStack extends NavigatorObserver {
+  final List<Route<dynamic>> _routes = [];
+
+  Route<dynamic>? get top => _routes.isEmpty ? null : _routes.last;
+
+  @override
+  void didPush(Route<dynamic> route, Route<dynamic>? previousRoute) => _routes.add(route);
+
+  @override
+  void didPop(Route<dynamic> route, Route<dynamic>? previousRoute) => _routes.remove(route);
+
+  @override
+  void didRemove(Route<dynamic> route, Route<dynamic>? previousRoute) => _routes.remove(route);
+
+  @override
+  void didReplace({Route<dynamic>? newRoute, Route<dynamic>? oldRoute}) {
+    final i = oldRoute == null ? -1 : _routes.indexOf(oldRoute);
+    if (i >= 0) {
+      if (newRoute != null) {
+        _routes[i] = newRoute;
+      } else {
+        _routes.removeAt(i);
+      }
+    } else if (newRoute != null) {
+      _routes.add(newRoute);
+    }
   }
 }

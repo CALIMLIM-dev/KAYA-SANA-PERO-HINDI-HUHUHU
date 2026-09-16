@@ -784,8 +784,7 @@ class _MyWorkerProfileScreenState extends State<MyWorkerProfileScreen> with Sing
     );
   }
   Future<void> _openPinPicker(WorkerProfileProvider p) async {
-    final result = await Navigator.pushNamed(
-      context,
+    final result = await AppRouter.push(context,
       '/pin-location',
       arguments: {
         'latitude': p.latitude,
@@ -981,7 +980,7 @@ class _MyWorkerProfileScreenState extends State<MyWorkerProfileScreen> with Sing
     }
 
     if (credits.hasLoadedOnce && !credits.canAfford('boost')) {
-      await Navigator.pushNamed(context, AppRouter.wallet);
+      await AppRouter.push(context, AppRouter.wallet);
       if (!mounted) return;
       await credits.refresh();
       return;
@@ -1363,7 +1362,7 @@ class _MyWorkerProfileScreenState extends State<MyWorkerProfileScreen> with Sing
                   : const Text('None added', style: TextStyle(color: AppColors.neutral600)),
               onTap: () async {
                 final skillNames = skills.map((s) => s.skillName).toList();
-                final result = await Navigator.pushNamed(context, '/add-skills', 
+                final result = await AppRouter.push(context, '/add-skills', 
                     arguments: skillNames);
                 if (result != null && result is List<SkillModel> && context.mounted) {
                   // Save skills with category info
@@ -1497,7 +1496,7 @@ class _MyWorkerProfileScreenState extends State<MyWorkerProfileScreen> with Sing
     // the verification screen. These rows say what the account holds and open
     // it; refreshing on return is what turns the row into 'Verified'.
     Future<void> open(String channel, String title) async {
-      await Navigator.pushNamed(context, '/verification', arguments: {
+      await AppRouter.push(context, '/verification', arguments: {
         'type': channel,
         'title': title,
         'subtitle': channel == 'phone'

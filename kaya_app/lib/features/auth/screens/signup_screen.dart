@@ -5,6 +5,7 @@ import '../../../core/constants/app_colors.dart';
 import '../../../providers/auth_provider.dart';
 import '../../../shared/widgets/ph_phone_field.dart';
 import '../widgets/terms_modal.dart';
+import '../../../core/navigation/app_router.dart';
 
 class SignupScreen extends StatefulWidget {
   const SignupScreen({super.key});
@@ -458,7 +459,7 @@ class _SignupScreenState extends State<SignupScreen> {
                       setState(() => _googleError = 'This email is already registered. Please use the login screen instead.');
                     } else if (error.contains('Password is required')) {
                       // New user - needs to set password
-                      Navigator.pushNamed(context, '/google-password', arguments: googleData);
+                      AppRouter.push(context, '/google-password', arguments: googleData);
                     } else {
                       // Other error - show it inline
                       setState(() => _googleError = error.isNotEmpty ? error : 'Google Sign-In failed. Please try again.');

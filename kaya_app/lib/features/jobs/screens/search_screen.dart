@@ -14,6 +14,7 @@ import '../../../providers/worker_browse_provider.dart';
 import '../../../providers/worker_profile_provider.dart';
 import '../widgets/job_list_card.dart';
 import '../widgets/worker_card.dart';
+import '../../../core/navigation/app_router.dart';
 
 /// Search Screen — Jobs and Workers, backed by GET /jobs and GET /workers.
 ///
@@ -612,7 +613,7 @@ class _SearchScreenState extends State<SearchScreen> {
   }
 
   Widget _jobCard(Job job) {
-    void open() => Navigator.pushNamed(context, '/job-details',
+    void open() => AppRouter.push(context, '/job-details',
         arguments: {'jobId': job.id});
 
     return JobListCard(
@@ -638,7 +639,7 @@ class _SearchScreenState extends State<SearchScreen> {
       distanceKm: worker.distance,
       rateLabel: worker.rateLabel,
       imageUrl: worker.profileImageUrl,
-      onTap: () => Navigator.pushNamed(context, '/worker-profile',
+      onTap: () => AppRouter.push(context, '/worker-profile',
           arguments: {'workerId': worker.userId ?? worker.id}),
     );
   }

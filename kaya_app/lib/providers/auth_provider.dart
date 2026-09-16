@@ -242,8 +242,12 @@ class AuthProvider with ChangeNotifier {
 
   Future<Map<String, dynamic>?> initiateGoogleSignIn() async {
     try {
-      // Sign out first to force account picker to show
-      await _googleSignIn.signOut();
+      // Signed out first so the account picker shows. Only when there is
+      // a session to end: after a normal logout there is none, and the
+      // sign-out call itself was a second of Play Services on every tap.
+      if (await _googleSignIn.isSignedIn()) {
+        await _googleSignIn.signOut();
+      }
       
       final googleUser = await _googleSignIn.signIn();
       if (googleUser == null) return null; // User cancelled
@@ -417,13 +421,19 @@ class AuthProvider with ChangeNotifier {
   /// already had a complete profile — until something else happened to call
   /// fetchMe() later (e.g. opening a profile setup screen).
   Future<void> _hydrateProfileFlags() async {
-    try {
-      final response = await _api.get('/me');
-      _user = response.data['data'] as Map<String, dynamic>;
+    // The sign-in response carries the same payload as /me now, so the
+    // second round trip only happens for a server that did not send it.
+    if (_user?.containsKey('worker_profile_exists') == true) {
       _hasFetchedMe = true;
-    } catch (_) {
-      // Keep the raw auth-response user — a transient failure here shouldn't
-      // undo a login/register that just succeeded.
+    } else {
+      try {
+        final response = await _api.get('/me');
+        _user = response.data['data'] as Map<String, dynamic>;
+        _hasFetchedMe = true;
+      } catch (_) {
+        // Keep the raw auth-response user — a transient failure here shouldn't
+        // undo a login/register that just succeeded.
+      }
     }
 
     // Every auth path funnels through here, so this is the one place the

@@ -8,6 +8,7 @@ import '../../../core/widgets/verify_gate.dart';
 import '../../../providers/credits_provider.dart';
 import '../../../providers/invitation_provider.dart';
 import '../../../providers/job_provider.dart';
+import '../../../core/navigation/app_router.dart';
 
 /*
     Picking one of your open jobs and inviting someone to it.
@@ -87,7 +88,7 @@ Future<void> showInviteToJobSheet(
     );
 
     if (postNow == true && context.mounted) {
-      await Navigator.pushNamed(context, '/post-job');
+      await AppRouter.push(context, '/post-job');
     }
     return;
   }

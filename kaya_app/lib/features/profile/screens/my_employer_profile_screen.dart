@@ -11,6 +11,7 @@ import '../../../providers/verification_provider.dart';
 import '../widgets/inline_edit_row.dart';
 import '../widgets/inline_location_row.dart';
 import '../widgets/contact_verify_row.dart';
+import '../../../core/navigation/app_router.dart';
 
 /// My Employer Profile - JobStreet-inspired layout
 /// Toggle (Company / Individual) is visible directly on the profile tab
@@ -88,7 +89,7 @@ class _MyEmployerProfileScreenState extends State<MyEmployerProfileScreen>
     // the verification screen. These rows say what the account holds and open
     // it; refreshing on return is what turns the row into 'Verified'.
     Future<void> open(String channel, String title) async {
-      await Navigator.pushNamed(context, '/verification', arguments: {
+      await AppRouter.push(context, '/verification', arguments: {
         'type': channel,
         'title': title,
         'subtitle': channel == 'phone'

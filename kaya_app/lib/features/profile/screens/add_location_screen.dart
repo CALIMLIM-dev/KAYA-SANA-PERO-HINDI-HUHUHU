@@ -3,6 +3,7 @@ import '../../../core/constants/app_colors.dart';
 import '../../../core/widgets/app_toast.dart';
 import '../../../data/models/location_model.dart';
 import '../../../shared/widgets/location_picker_field.dart';
+import '../../../core/navigation/app_router.dart';
 
 /// Sets a worker's base location: the PSGC place plus an exact pin.
 ///
@@ -67,8 +68,7 @@ class _AddLocationScreenState extends State<AddLocationScreen> {
   }
 
   Future<void> _openPinPicker() async {
-    final result = await Navigator.pushNamed(
-      context,
+    final result = await AppRouter.push(context,
       '/pin-location',
       arguments: {
         'latitude': _pinnedLat ?? _selectedLocation?.latitude,

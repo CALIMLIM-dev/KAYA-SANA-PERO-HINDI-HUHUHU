@@ -228,6 +228,7 @@ class KayaApp extends StatelessWidget {
 
           return MaterialApp(
             navigatorKey: _navigatorKey,
+            navigatorObservers: [AppRouter.observer],
             /*
                 Caps how far the system font scale can stretch this app's text.
 

@@ -482,7 +482,7 @@ class _UnifiedHomeScreenState extends State<UnifiedHomeScreen>
               if (context.watch<AuthProvider>().canCreateWorkerProfile) ...[
               Expanded(
                 child: OutlinedButton(
-                  onPressed: () => Navigator.pushNamed(context, AppRouter.setupWorkerProfile),
+                  onPressed: () => AppRouter.push(context, AppRouter.setupWorkerProfile),
                   style: OutlinedButton.styleFrom(
                     foregroundColor: AppColors.primary,
                     side: BorderSide(color: AppColors.primary),
@@ -504,7 +504,7 @@ class _UnifiedHomeScreenState extends State<UnifiedHomeScreen>
               ],
               Expanded(
                 child: OutlinedButton(
-                  onPressed: () => Navigator.pushNamed(context, AppRouter.setupEmployerProfile),
+                  onPressed: () => AppRouter.push(context, AppRouter.setupEmployerProfile),
                   style: OutlinedButton.styleFrom(
                     foregroundColor: AppColors.primary,
                     side: BorderSide(color: AppColors.primary),
@@ -1105,7 +1105,7 @@ class _UnifiedHomeScreenState extends State<UnifiedHomeScreen>
   /// conversation only exists once an application is accepted, which is the
   /// rule that stops the inbox becoming a cold-contact channel.
   void _contactEmployer(Job job) {
-    Navigator.pushNamed(context, '/job-details', arguments: {'jobId': job.id});
+    AppRouter.push(context, '/job-details', arguments: {'jobId': job.id});
   }
 
   void _onWorkerTap(WorkerProfile worker) {
@@ -1326,11 +1326,11 @@ class _UnifiedHomeScreenState extends State<UnifiedHomeScreen>
 
   // Simple navigation methods - always go to screens
   void _navigateToActiveJobs() {
-    Navigator.pushNamed(context, '/manage-jobs');
+    AppRouter.push(context, '/manage-jobs');
   }
 
   void _navigateToPendingApplications() {
-    Navigator.pushNamed(context, '/applications');
+    AppRouter.push(context, '/applications');
   }
 
   /// Get time-based greeting
@@ -1631,7 +1631,7 @@ class _BalanceChipState extends State<_BalanceChip> {
     return InkWell(
       borderRadius: BorderRadius.circular(12),
       onTap: () async {
-        await Navigator.pushNamed(context, AppRouter.wallet);
+        await AppRouter.push(context, AppRouter.wallet);
         if (context.mounted) context.read<CreditsProvider>().refresh();
       },
       child: Container(

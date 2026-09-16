@@ -7,6 +7,7 @@ import '../../../core/widgets/app_toast.dart';
 import '../../../data/models/job_model.dart';
 import '../../../providers/job_provider.dart';
 import '../widgets/job_list_card.dart';
+import '../../../core/navigation/app_router.dart';
 
 /// Jobs the worker saved.
 ///
@@ -111,7 +112,7 @@ class _SavedJobsScreenState extends State<SavedJobsScreen>
 
   Widget _card(Job job) {
     Future<void> open() async {
-      await Navigator.pushNamed(context, '/job-details',
+      await AppRouter.push(context, '/job-details',
           arguments: {'jobId': job.id});
       // Unsaving from the details screen must not leave the job sitting here.
       if (mounted) _load();

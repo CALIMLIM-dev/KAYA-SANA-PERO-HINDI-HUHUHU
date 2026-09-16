@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../constants/app_colors.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/verification_provider.dart';
+import '../navigation/app_router.dart';
 
 /*
     Asks for verification before a gated action, not after it.
@@ -119,7 +120,7 @@ Future<bool> ensureVerified(
   );
 
   if (goNow == true && context.mounted) {
-    await Navigator.pushNamed(context, '/verification');
+    await AppRouter.push(context, '/verification');
   }
 
   return false;

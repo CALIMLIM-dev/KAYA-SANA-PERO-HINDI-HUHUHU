@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../constants/app_colors.dart';
+import '../navigation/app_router.dart';
 
 /*
     One verification row, used by both profiles.
@@ -79,8 +80,7 @@ class VerificationCard extends StatelessWidget {
         color: Colors.transparent,
         child: InkWell(
           onTap: tappable
-              ? () => Navigator.pushNamed(
-                    context,
+              ? () => AppRouter.push(context,
                     '/verification',
                     arguments: {
                       'type': type,

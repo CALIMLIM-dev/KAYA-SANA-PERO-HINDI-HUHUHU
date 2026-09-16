@@ -225,20 +225,18 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
           }
         }
 
-        Navigator.pushNamed(
-          context,
+        AppRouter.push(context,
           AppRouter.viewApplicants,
           arguments: {'jobId': n.referenceId},
         );
 
       case NotificationDestination.manageJobs:
         if (!_allow(employerSide: true)) return;
-        Navigator.pushNamed(context, AppRouter.manageJobs);
+        AppRouter.push(context, AppRouter.manageJobs);
 
       case NotificationDestination.jobDetails:
         if (n.referenceId != null) {
-          Navigator.pushNamed(
-            context,
+          AppRouter.push(context,
             AppRouter.jobDetails,
             arguments: {'jobId': n.referenceId},
           );
@@ -246,21 +244,20 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
 
       case NotificationDestination.applications:
         if (!_allow(employerSide: false)) return;
-        Navigator.pushNamed(context, AppRouter.applications);
+        AppRouter.push(context, AppRouter.applications);
 
       case NotificationDestination.invitations:
         if (!_allow(employerSide: false)) return;
-        Navigator.pushNamed(context, '/my-invitations');
+        AppRouter.push(context, '/my-invitations');
 
       case NotificationDestination.chat:
-        Navigator.pushNamed(
-          context,
+        AppRouter.push(context,
           AppRouter.chat,
           arguments: {'conversationId': n.referenceId},
         );
 
       case NotificationDestination.messages:
-        Navigator.pushNamed(context, AppRouter.messages);
+        AppRouter.push(context, AppRouter.messages);
 
       /*
           The public view of yourself, not the profile tab.
@@ -275,8 +272,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
         final workerId = context.read<AuthProvider>().user?['id'];
         if (workerId == null) return;
 
-        Navigator.pushNamed(
-          context,
+        AppRouter.push(context,
           AppRouter.workerProfile,
           arguments: {'workerId': workerId},
         );
@@ -287,8 +283,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
         final employerId = context.read<AuthProvider>().user?['id'];
         if (employerId == null) return;
 
-        Navigator.pushNamed(
-          context,
+        AppRouter.push(context,
           AppRouter.employerProfile,
           arguments: {'employerId': employerId},
         );
@@ -308,8 +303,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
       case NotificationDestination.verification:
         final submitted = hasSubmittedVerification(context);
 
-        Navigator.pushNamed(
-            context, submitted ? AppRouter.profile : '/verification');
+        AppRouter.push(context, submitted ? AppRouter.profile : '/verification');
 
       case NotificationDestination.none:
         break;

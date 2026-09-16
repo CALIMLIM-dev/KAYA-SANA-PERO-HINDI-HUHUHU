@@ -174,7 +174,7 @@ class ProfileScreen extends StatelessWidget {
                           ? null
                           : const _AddChip(),
                       onTap: () =>
-                          Navigator.pushNamed(context, '/my-worker-profile'),
+                          AppRouter.push(context, '/my-worker-profile'),
                     ),
                   _MenuItem(
                     icon: Icons.business_outlined,
@@ -186,7 +186,7 @@ class ProfileScreen extends StatelessWidget {
                         ? null
                         : const _AddChip(),
                     onTap: () =>
-                        Navigator.pushNamed(context, '/my-employer-profile'),
+                        AppRouter.push(context, '/my-employer-profile'),
                   ),
 
                   /*
@@ -224,7 +224,7 @@ class ProfileScreen extends StatelessWidget {
                       subtitle: credits.hasLoadedOnce
                           ? '${credits.balance} ${Credits.plural}'
                           : null,
-                      onTap: () => Navigator.pushNamed(context, AppRouter.wallet),
+                      onTap: () => AppRouter.push(context, AppRouter.wallet),
                     ),
                   ),
 
@@ -237,7 +237,7 @@ class ProfileScreen extends StatelessWidget {
                     icon: Icons.bookmark_outline,
                     title: 'Saved Jobs',
                     onTap: () =>
-                        Navigator.pushNamed(context, '/saved-jobs'),
+                        AppRouter.push(context, '/saved-jobs'),
                   ),
                   // Gated on the real profile flag. This used to read
                   // `userRole == 'Employer'` against a variable hardcoded to
@@ -248,7 +248,7 @@ class ProfileScreen extends StatelessWidget {
                       icon: Icons.business_center_outlined,
                       title: 'My Job Posts',
                       onTap: () =>
-                          Navigator.pushNamed(context, '/manage-jobs'),
+                          AppRouter.push(context, '/manage-jobs'),
                     ),
 
                   const SizedBox(height: 24),
@@ -260,7 +260,7 @@ class ProfileScreen extends StatelessWidget {
                     icon: Icons.settings_outlined,
                     title: 'Settings',
                     onTap: () =>
-                        Navigator.pushNamed(context, '/settings'),
+                        AppRouter.push(context, '/settings'),
                   ),
 
                   const SizedBox(height: 24),
@@ -271,7 +271,7 @@ class ProfileScreen extends StatelessWidget {
                   _MenuItem(
                     icon: Icons.help_outline,
                     title: 'Help Center',
-                    onTap: () => Navigator.pushNamed(context, '/faq'),
+                    onTap: () => AppRouter.push(context, '/faq'),
                   ),
                   // "About" was a row with an empty onTap — it looked tappable
                   // and did nothing, which reads as a broken app rather than a

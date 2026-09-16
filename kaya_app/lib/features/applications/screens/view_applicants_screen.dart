@@ -9,6 +9,7 @@ import '../../../providers/job_provider.dart';
 import '../../../core/services/resume_opener.dart';
 import '../../../core/widgets/app_toast.dart';
 import '../widgets/completion_action.dart';
+import '../../../core/navigation/app_router.dart';
 
 /// View Applicants Screen — employer sees everyone who actually applied to a
 /// job, via GET /jobs/{job}/applicants.
@@ -396,7 +397,7 @@ class _ViewApplicantsScreenState extends State<ViewApplicantsScreen>
       child: InkWell(
         onTap: workerId == null
             ? null
-            : () => Navigator.pushNamed(context, '/worker-profile',
+            : () => AppRouter.push(context, '/worker-profile',
                 arguments: {'workerId': workerId}),
         borderRadius: BorderRadius.circular(16),
         child: Padding(
@@ -643,8 +644,7 @@ class _ViewApplicantsScreenState extends State<ViewApplicantsScreen>
                         // rather than pretending.
                         onPressed: conversationId == null
                             ? null
-                            : () => Navigator.pushNamed(
-                                  context,
+                            : () => AppRouter.push(context,
                                   '/chat',
                                   arguments: {
                                     'conversationId': conversationId,
@@ -703,8 +703,7 @@ class _ViewApplicantsScreenState extends State<ViewApplicantsScreen>
                               // the button live until the list was reloaded by
                               // some other means.
                               : () async {
-                                  final done = await Navigator.pushNamed(
-                                    context,
+                                  final done = await AppRouter.push(context,
                                     '/leave-review',
                                     arguments: {
                                       'revieweeId': workerId,

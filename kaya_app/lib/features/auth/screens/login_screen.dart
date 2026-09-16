@@ -4,6 +4,7 @@ import '../../../core/constants/app_colors.dart';
 import '../../../providers/auth_provider.dart';
 import '../../../shared/widgets/ph_phone_field.dart';
 import '../../../shared/widgets/suspension_dialog.dart';
+import '../../../core/navigation/app_router.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -190,7 +191,7 @@ class _LoginScreenState extends State<LoginScreen> {
               Align(
                 alignment: Alignment.centerRight,
                 child: TextButton(
-                  onPressed: () => Navigator.pushNamed(context, '/forgot-password'),
+                  onPressed: () => AppRouter.push(context, '/forgot-password'),
                   child: Text('Forgot Password?',
                       style: TextStyle(color: AppColors.primary, fontWeight: FontWeight.w600)),
                 ),
