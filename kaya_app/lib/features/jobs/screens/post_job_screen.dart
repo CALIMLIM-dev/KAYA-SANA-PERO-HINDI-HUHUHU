@@ -2404,6 +2404,10 @@ class _PinPreviewMapState extends State<_PinPreviewMap> {
           maxNativeZoom: 19,
           maxZoom: 21,
         ),
+        // OSM's licence requires visible attribution on every map.
+        const RichAttributionWidget(
+          attributions: [TextSourceAttribution('OpenStreetMap contributors')],
+        ),
         MarkerLayer(
           markers: [
             Marker(

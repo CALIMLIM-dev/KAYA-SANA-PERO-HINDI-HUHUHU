@@ -371,6 +371,10 @@ class _JobTrackingPanelState extends State<JobTrackingPanel> {
                     maxNativeZoom: 19,
                     maxZoom: 21,
                   ),
+                  // OSM's licence requires visible attribution on every map.
+                  const RichAttributionWidget(
+                    attributions: [TextSourceAttribution('OpenStreetMap contributors')],
+                  ),
                   // GPS accuracy drawn honestly, rather than a single dot
                   // implying precision the fix doesn't have.
                   if (provider.accuracyM != null && provider.accuracyM! > 0)
