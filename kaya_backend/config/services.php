@@ -75,25 +75,6 @@ return [
         webhook is registered. Without it every incoming call is unverifiable
         and must be refused rather than trusted.
     */
-    /*
-        Which provider opens checkouts. 'stripe' or 'paymongo'. Left empty,
-        whichever one has a secret key is used, PayMongo first.
-    */
-    'payments' => [
-        'provider' => env('PAYMENT_PROVIDER'),
-    ],
-
-    /*
-        Stripe, test mode only. Stripe does not serve businesses in the
-        Philippines, so it cannot take live money here; it is how top-ups are
-        demonstrated without a PayMongo account.
-    */
-    'stripe' => [
-        'secret_key'     => env('STRIPE_SECRET_KEY'),
-        'webhook_secret' => env('STRIPE_WEBHOOK_SECRET'),
-        'return_url'     => env('STRIPE_RETURN_URL', env('APP_URL') . '/pay/return'),
-    ],
-
     'paymongo' => [
         'secret_key'     => env('PAYMONGO_SECRET_KEY'),
         'public_key'     => env('PAYMONGO_PUBLIC_KEY'),

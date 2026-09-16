@@ -22,7 +22,7 @@ class CreditPayment extends Model
     protected $fillable = [
         'user_id', 'reference', 'credit_package_id',
         'credits', 'amount_centavos', 'status',
-        'provider_session_id', 'paid_at', 'credit_transaction_id', 'provider',
+        'provider_session_id', 'paid_at', 'credit_transaction_id',
     ];
 
     protected $casts = [

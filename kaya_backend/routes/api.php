@@ -51,8 +51,7 @@ Route::prefix('v1')->group(function () {
         retry looks exactly like a provider outage while quietly costing
         somebody the credits they paid for.
     */
-    Route::post('/webhooks/{provider}', [CreditCheckoutController::class, 'webhook'])
-        ->whereIn('provider', ['paymongo', 'stripe'])
+    Route::post('/webhooks/paymongo', [CreditCheckoutController::class, 'webhook'])
         ->middleware('throttle:paymongo-webhook');
 
     // ── Auth (public) ─────────────────────────────────────────────────────────

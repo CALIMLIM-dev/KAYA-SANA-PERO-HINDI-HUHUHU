@@ -5,7 +5,6 @@ namespace App\Console\Commands;
 use App\Models\CreditPayment;
 use App\Services\CreditPurchase;
 use App\Services\PayMongoClient;
-use App\Services\StripeClient;
 use Illuminate\Console\Command;
 
 /*
@@ -35,12 +34,10 @@ class ReconcileCreditPayments extends Command
 
     protected $description = 'Grant credits for payments PayMongo took but never told us about';
 
-    public function handle(PayMongoClient $paymongo, StripeClient $stripe, CreditPurchase $purchase): int
+    public function handle(PayMongoClient $paymongo, CreditPurchase $purchase): int
     {
-        $gateways = ['paymongo' => $paymongo, 'stripe' => $stripe];
-
-        if (! $paymongo->isConfigured() && ! $stripe->isConfigured()) {
-            $this->line('  No payment provider is configured — nothing to reconcile.');
+        if (! $paymongo->isConfigured()) {
+            $this->line('  PayMongo is not configured — nothing to reconcile.');
 
             return self::SUCCESS;
         }
@@ -69,12 +66,7 @@ class ReconcileCreditPayments extends Command
         $granted = 0;
 
         foreach ($payments as $payment) {
-            $gateway = $gateways[$payment->provider ?? 'paymongo'] ?? null;
-            if ($gateway === null || ! $gateway->isConfigured()) {
-                continue;
-            }
-
-            $status = $gateway->paymentStatus($payment->provider_session_id);
+            $status = $paymongo->paymentStatus($payment->provider_session_id);
 
             if ($status !== 'paid') {
                 continue;

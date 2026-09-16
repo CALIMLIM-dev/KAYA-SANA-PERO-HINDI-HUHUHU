@@ -20,7 +20,7 @@ use Illuminate\Support\Str;
 class CreditPurchase
 {
     public function __construct(
-        private PaymentGateway $gateway,
+        private PayMongoClient $paymongo,
         private CreditLedger $ledger,
     ) {}
 
@@ -44,10 +44,9 @@ class CreditPurchase
             'credits' => $package->credits,
             'amount_centavos' => $package->amount_centavos,
             'status' => CreditPayment::STATUS_PENDING,
-            'provider' => $this->gateway->name(),
         ]);
 
-        $checkout = $this->gateway->createCheckout(
+        $checkout = $this->paymongo->createCheckout(
             $payment,
             sprintf('%d %s', $package->credits, config('kaya.credits.currency_name_plural')),
         );
@@ -108,22 +107,30 @@ class CreditPurchase
     /**
      * Finds the payment a webhook is talking about.
      *
-     * Our own reference first, the one value we generated and the provider
-     * only echoes back. The provider's session id is the fallback.
+     * Matched on our own reference first, because that is the one value we
+     * generated ourselves and PayMongo only echoes back. The session id is the
+     * fallback for payloads that carry it instead.
      */
-    public function findPayment(array $payload, PaymentGateway $gateway): ?CreditPayment
+    public function findPayment(array $payload): ?CreditPayment
     {
-        $keys = $gateway->paymentKeys($payload);
+        $attributes = $payload['data']['attributes'] ?? [];
+        $inner = $attributes['data']['attributes'] ?? [];
 
-        if (filled($keys['reference'])) {
-            $found = CreditPayment::where('reference', $keys['reference'])->first();
+        $reference = $inner['reference_number']
+            ?? $attributes['reference_number']
+            ?? null;
+
+        if (filled($reference)) {
+            $found = CreditPayment::where('reference', $reference)->first();
             if ($found !== null) {
                 return $found;
             }
         }
 
-        return filled($keys['session_id'])
-            ? CreditPayment::where('provider_session_id', $keys['session_id'])->first()
+        $sessionId = $payload['data']['attributes']['data']['id'] ?? null;
+
+        return filled($sessionId)
+            ? CreditPayment::where('provider_session_id', $sessionId)->first()
             : null;
     }
 }
