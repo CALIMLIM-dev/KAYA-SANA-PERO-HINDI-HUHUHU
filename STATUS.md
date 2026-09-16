@@ -49,10 +49,6 @@ resume: the upload card was missing from the worker profile, so no resume
   ever existed and the employer's View resume button never showed. added.
   access was already gated to pending or accepted applications on open jobs.
 
-stripe as a second payment provider, test mode. PAYMENT_PROVIDER picks;
-  webhooks at /webhooks/stripe and /webhooks/paymongo. the reconciler asks
-  the provider that took the payment.
-
 account deletion. DELETE /me with the password, from Settings. profiles,
   documents, photos, resume, saved jobs, notifications go; open posts close
   and applicants are refunded; the row stays as Deleted account for the
@@ -146,7 +142,8 @@ composer-setup.php still sitting in the backend folder
 3. google login speed
 4. conversation direction migration
 5. nginx upload limit, needs the server owner
-6. stripe test keys in .env (no paymongo account)
+6. payment provider. there is no paymongo account; play store needs
+   google play billing for barya anyway
 
 
 ## phases
