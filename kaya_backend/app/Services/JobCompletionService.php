@@ -6,6 +6,7 @@ use App\Events\JobCompleted;
 use App\Models\Application;
 use App\Models\JobPost;
 use App\Models\User;
+use App\Services\ChatEvents;
 use App\Services\NotificationService;
 use Illuminate\Support\Facades\DB;
 
@@ -106,6 +107,19 @@ class JobCompletionService
         if ($wasFirstConfirmation
             && ! ($application->employer_completed_at && $application->worker_completed_at)) {
             app(NotificationService::class)->completionPending($application, $side);
+        }
+
+        // And into the chat, so the thread says what happened.
+        if ($wasFirstConfirmation && $application->job) {
+            $events = app(ChatEvents::class);
+            $thread = $events->threadFor($application->job, $application);
+            $by = $side === self::SIDE_EMPLOYER ? $application->job->employer : $application->worker;
+
+            if ($thread && $by) {
+                $application->status === 'completed'
+                    ? $events->completed($thread, $application->job, $by)
+                    : $events->confirmed($thread, $application->job, $by);
+            }
         }
 
         return $application;

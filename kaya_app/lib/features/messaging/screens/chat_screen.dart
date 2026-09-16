@@ -13,6 +13,7 @@ import '../widgets/schedule_card.dart';
 import '../../../providers/messaging_provider.dart';
 import '../../../core/widgets/app_toast.dart';
 import '../widgets/chat_job_strip.dart';
+import '../widgets/system_message_card.dart';
 import '../widgets/job_tracking_panel.dart';
 import '../../moderation/widgets/report_sheet.dart';
 import '../../invitations/widgets/invite_to_job.dart';
@@ -537,6 +538,13 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                     }
 
                     final msg = messages[i];
+
+                    // The job's history: hired, marked done, complete.
+                    // Nobody typed it, so it is not a bubble.
+                    if (msg['type'] == 'system') {
+                      return SystemMessageCard(message: msg);
+                    }
+
                     final isMine = (msg['sender_id'] as int?) == myId;
                     final id = msg['id'] as int?;
 

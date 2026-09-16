@@ -244,6 +244,8 @@ class InvitationController extends Controller
             'worker_id' => $user->id,
         ]);
 
+        app(\App\Services\ChatEvents::class)->hired($conversation, $job, $job->employer, $user);
+
         InvitationAccepted::dispatch($invitation->load(['job', 'worker']));
 
         return $this->ok([

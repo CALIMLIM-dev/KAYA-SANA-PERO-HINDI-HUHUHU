@@ -199,9 +199,11 @@ class CrewTest extends TestCase
         $threadA = Conversation::where('pair_low', min($employer->id, $a->id))->where('pair_high', max($employer->id, $a->id))->first();
         $threadB = Conversation::where('pair_low', min($employer->id, $b->id))->where('pair_high', max($employer->id, $b->id))->first();
 
-        $this->assertSame(1, Message::where('conversation_id', $threadA->id)->count());
-        $this->assertSame(1, Message::where('conversation_id', $threadB->id)->count());
-        $this->assertSame('Start is moved to 7 AM tomorrow.', Message::where('conversation_id', $threadA->id)->value('message_text'));
+        // One typed message each, beside the hire's own system row.
+        $typed = fn ($thread) => Message::where('conversation_id', $thread->id)->where('type', 'text');
+        $this->assertSame(1, $typed($threadA)->count());
+        $this->assertSame(1, $typed($threadB)->count());
+        $this->assertSame('Start is moved to 7 AM tomorrow.', $typed($threadA)->value('message_text'));
         $this->assertSame(2, Conversation::count(), 'no shared thread was made');
 
         // Each worker sees it in their own thread only.

@@ -6,13 +6,14 @@ use Illuminate\Database\Eloquent\Model;
 
 class Message extends Model
 {
-    protected $fillable = ['conversation_id', 'sender_id', 'message_text', 'is_read', 'read_at'];
+    protected $fillable = ['conversation_id', 'sender_id', 'message_text', 'is_read', 'read_at', 'type', 'payload'];
 
     protected $casts = [
         'is_read' => 'boolean',
         // The moment it was seen, which is_read alone cannot carry — the
         // instant the flag flips, when it happened is gone.
         'read_at' => 'datetime',
+        'payload' => 'array',
     ];
 
     public function conversation() { return $this->belongsTo(Conversation::class); }

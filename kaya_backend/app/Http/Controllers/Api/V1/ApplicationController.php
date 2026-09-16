@@ -112,6 +112,8 @@ class ApplicationController extends Controller
                 'worker_id'   => $user->id,
             ]);
 
+            app(\App\Services\ChatEvents::class)->hired($conversation, $job, $job->employer, $user);
+
             \App\Events\InvitationAccepted::dispatch(
                 $invitation->load(['job', 'worker'])
             );
@@ -590,6 +592,9 @@ class ApplicationController extends Controller
         ]);
 
         ApplicationAccepted::dispatch($application->load(['job', 'worker']));
+
+        // Into the thread, so the chat carries the hire.
+        app(\App\Services\ChatEvents::class)->hired($conversation, $job, $user, $application->worker);
 
         /*
             Nothing is cancelled on the worker's behalf.

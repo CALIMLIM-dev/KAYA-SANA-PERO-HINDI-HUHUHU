@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter/foundation.dart';
 import 'package:path/path.dart' as p;
 import 'package:sqflite/sqflite.dart';
@@ -28,7 +30,8 @@ class MessageCache {
 
   static final MessageCache instance = MessageCache._();
 
-  static const int _version = 1;
+  // 2: type and payload, for the system rows that carry the job history.
+  static const int _version = 2;
 
   /// Local rows waiting on the server are given ids below this, so they sort
   /// after everything real and can never collide with a server id.
@@ -56,6 +59,8 @@ class MessageCache {
             -- 'sent' once the server has it; 'pending' while in flight;
             -- 'failed' when the send did not land and can be retried.
             status          TEXT DEFAULT 'sent',
+            type            TEXT DEFAULT 'text',
+            payload         TEXT,
             PRIMARY KEY (conversation_id, id)
           )
         ''');
@@ -64,6 +69,12 @@ class MessageCache {
         await db.execute(
           'CREATE INDEX idx_messages_thread ON messages (conversation_id, id)',
         );
+      },
+      onUpgrade: (db, from, to) async {
+        if (from < 2) {
+          await db.execute("ALTER TABLE messages ADD COLUMN type TEXT DEFAULT 'text'");
+          await db.execute('ALTER TABLE messages ADD COLUMN payload TEXT');
+        }
       },
     );
 
@@ -137,6 +148,8 @@ class MessageCache {
             'is_read': (message['is_read'] == true) ? 1 : 0,
             'read_at': message['read_at']?.toString(),
             'status': message['status'] ?? 'sent',
+            'type': message['type'] ?? 'text',
+            'payload': message['payload'] == null ? null : jsonEncode(message['payload']),
           },
           conflictAlgorithm: ConflictAlgorithm.replace,
         );
@@ -224,6 +237,8 @@ class MessageCache {
       'is_read': row['is_read'] == 1,
       'read_at': row['read_at'],
       'status': row['status'],
+      'type': row['type'] ?? 'text',
+      'payload': row['payload'] is String ? jsonDecode(row['payload'] as String) : null,
     };
   }
 }
