@@ -13,9 +13,14 @@ use Illuminate\Support\Facades\Log;
  * the secret key never leaving the server. If PayMongo is slow or down, the
  * caller gets null rather than a hung request.
  */
-class PayMongoClient
+class PayMongoClient implements PaymentGateway
 {
     private const BASE = 'https://api.paymongo.com/v1';
+
+    public function name(): string
+    {
+        return 'paymongo';
+    }
 
     public function isConfigured(): bool
     {
@@ -175,5 +180,40 @@ class PayMongoClient
         // Constant time, so the comparison cannot be used to guess the secret
         // one character at a time.
         return hash_equals($expected, $signature);
+    }
+
+    public function eventId(array $payload): ?string
+    {
+        $id = $payload['data']['id'] ?? null;
+
+        return is_string($id) ? $id : null;
+    }
+
+    public function eventType(array $payload): string
+    {
+        return (string) ($payload['data']['attributes']['type'] ?? 'unknown');
+    }
+
+    public function isPaidEvent(array $payload): bool
+    {
+        $type = $this->eventType($payload);
+
+        return str_contains($type, 'paid') || str_contains($type, 'payment.');
+    }
+
+    /**
+     * Matched on our own reference first, because that is the one value we
+     * generated ourselves and PayMongo only echoes back. The session id is the
+     * fallback for payloads that carry it instead.
+     */
+    public function paymentKeys(array $payload): array
+    {
+        $attributes = $payload['data']['attributes'] ?? [];
+        $inner = $attributes['data']['attributes'] ?? [];
+
+        return [
+            'reference'  => $inner['reference_number'] ?? $attributes['reference_number'] ?? null,
+            'session_id' => $payload['data']['attributes']['data']['id'] ?? null,
+        ];
     }
 }

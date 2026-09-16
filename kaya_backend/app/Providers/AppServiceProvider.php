@@ -22,6 +22,23 @@ class AppServiceProvider extends ServiceProvider
         $this->app->singleton(\App\Services\RealtimeBroadcaster::class);
         // The only thing allowed to move a credit balance.
         $this->app->singleton(\App\Services\CreditLedger::class);
+
+        /*
+            Which payment provider opens checkouts. PAYMENT_PROVIDER decides;
+            left empty, whichever has a key wins, PayMongo first. Webhooks
+            and the reconciler do not use this: each names its provider.
+        */
+        $this->app->bind(\App\Services\PaymentGateway::class, function ($app) {
+            $choice = config('services.payments.provider');
+            $stripeOnly = blank(config('services.paymongo.secret_key'))
+                && filled(config('services.stripe.secret_key'));
+
+            if ($choice === 'stripe' || ($choice === null && $stripeOnly)) {
+                return $app->make(\App\Services\StripeClient::class);
+            }
+
+            return $app->make(\App\Services\PayMongoClient::class);
+        });
     }
 
     /**
