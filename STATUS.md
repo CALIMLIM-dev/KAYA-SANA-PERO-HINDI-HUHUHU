@@ -45,6 +45,10 @@ unused dead code removed
 
 ## fixed today
 
+job history in the chat, shopee style. hired, marked done and complete
+  land in the thread as system rows with the job named and tappable.
+  messages.type and payload.
+
 screens stacking on back. AppRouter.push refuses a route already on top
   with the same arguments; every screen goes through it.
 
