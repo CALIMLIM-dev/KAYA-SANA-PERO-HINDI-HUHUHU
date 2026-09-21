@@ -221,6 +221,17 @@ return [
         'signup_grant' => (int) env('CREDIT_SIGNUP_GRANT', 20),
 
         /*
+            Top-ups granted without payment. Testing only.
+
+            There is no payment provider yet, so while this is on a package
+            is credited the moment it is chosen and the payment row is
+            written as paid by "free". Every such row is visible in the
+            admin ledger as a test top-up. Set to false the day a provider
+            exists; the checkout then opens a real payment page again.
+        */
+        'free_topup' => (bool) env('CREDIT_FREE_TOPUP', false),
+
+        /*
             How long after applying a withdrawal still refunds.
 
             Beyond this window, "apply, get seen, withdraw" would be a free

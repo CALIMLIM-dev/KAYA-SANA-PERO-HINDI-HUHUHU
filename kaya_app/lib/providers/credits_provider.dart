@@ -224,6 +224,15 @@ class CreditsProvider with ChangeNotifier {
     }
   }
 
+  /// Set when a top-up was credited without a payment page; read once by
+  /// the wallet screen and cleared.
+  String? _grantedMessage;
+  String? takeGrantedMessage() {
+    final m = _grantedMessage;
+    _grantedMessage = null;
+    return m;
+  }
+
   /// Starts a purchase and returns the page to send the buyer to.
   ///
   /// Nothing is granted here. The credits arrive through the webhook or the
@@ -235,7 +244,17 @@ class CreditsProvider with ChangeNotifier {
         'package_id': packageId,
       });
 
-      return response.data['data']['checkout_url'] as String?;
+      final data = response.data['data'] as Map<String, dynamic>;
+
+      // Testing: the server credited the package outright. Nothing to open;
+      // the balance is refetched and the server's message is shown.
+      if (data['granted'] == true) {
+        _grantedMessage = response.data['message'] as String?;
+        await load(force: true);
+        return null;
+      }
+
+      return data['checkout_url'] as String?;
     } catch (e) {
       _error = e.toString().replaceFirst('Exception: ', '');
       notifyListeners();

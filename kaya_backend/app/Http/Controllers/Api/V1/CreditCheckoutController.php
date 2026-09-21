@@ -43,10 +43,6 @@ class CreditCheckoutController extends Controller
             'package_id' => ['required', 'integer', 'exists:credit_packages,id'],
         ]);
 
-        if (! $this->paymongo->isConfigured()) {
-            return $this->fail('Top up is not available yet.', 503);
-        }
-
         // Loaded from the database. Nothing about price or credits is read
         // from the request, so a tampered amount buys nothing extra.
         $package = CreditPackage::where('id', $data['package_id'])
@@ -55,6 +51,23 @@ class CreditCheckoutController extends Controller
 
         if ($package === null) {
             return $this->fail('That package is no longer available.', 422);
+        }
+
+        // Testing: no provider, the package is simply credited. See
+        // config/kaya.php, credits.free_topup.
+        if (config('kaya.credits.free_topup')) {
+            $payment = $this->purchase->grantFree($request->user(), $package);
+
+            return $this->ok([
+                'granted'    => true,
+                'credits'    => $payment->credits,
+                'amount_php' => $payment->amountPhp(),
+                'reference'  => $payment->reference,
+            ], 'Added ' . $payment->credits . ' ' . config('kaya.credits.currency_name_plural') . '. Top-ups are free while the app is in testing.', 201);
+        }
+
+        if (! $this->paymongo->isConfigured()) {
+            return $this->fail('Top up is not available yet.', 503);
         }
 
         $started = $this->purchase->start($request->user(), $package);

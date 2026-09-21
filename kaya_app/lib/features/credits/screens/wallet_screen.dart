@@ -92,6 +92,11 @@ class _WalletScreenState extends State<WalletScreen> with WidgetsBindingObserver
     setState(() => _buying = false);
 
     if (url == null) {
+      final granted = credits.takeGrantedMessage();
+      if (granted != null) {
+        AppToast.success(context, granted);
+        return;
+      }
       AppToast.error(context, credits.error ?? 'Could not start the payment.');
       return;
     }

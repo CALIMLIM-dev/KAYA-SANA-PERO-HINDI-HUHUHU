@@ -37,7 +37,9 @@ class CreditController extends Controller
             'revenue_all'    => (int) CreditPayment::where('status', CreditPayment::STATUS_PAID)->sum('amount_centavos'),
             'revenue_30d'    => (int) CreditPayment::where('status', CreditPayment::STATUS_PAID)
                 ->where('paid_at', '>=', Carbon::now()->subDays(30))->sum('amount_centavos'),
+            // Paid for. Free test top-ups carry no amount and are not sales.
             'sold_30d'       => (int) CreditPayment::where('status', CreditPayment::STATUS_PAID)
+                ->where('amount_centavos', '>', 0)
                 ->where('paid_at', '>=', Carbon::now()->subDays(30))->sum('credits'),
             'spent_30d'      => (int) abs(CreditTransaction::where('delta', '<', 0)
                 ->where('created_at', '>=', Carbon::now()->subDays(30))->sum('delta')),

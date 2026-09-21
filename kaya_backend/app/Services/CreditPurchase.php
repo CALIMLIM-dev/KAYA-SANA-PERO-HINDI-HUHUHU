@@ -63,6 +63,31 @@ class CreditPurchase
     }
 
     /**
+     * A top-up with no payment behind it, for testing without a provider.
+     *
+     * Goes through the same row and the same grant as a paid one, so the
+     * ledger, the admin's revenue page and the wallet history all show it
+     * the way they would show a real purchase, marked "free" so it can be
+     * told apart and never counted as revenue.
+     */
+    public function grantFree(User $user, CreditPackage $package): CreditPayment
+    {
+        $payment = CreditPayment::create([
+            'user_id' => $user->id,
+            'reference' => (string) Str::ulid(),
+            'credit_package_id' => $package->id,
+            'credits' => $package->credits,
+            'amount_centavos' => 0,
+            'status' => CreditPayment::STATUS_PENDING,
+            'provider_session_id' => 'free-' . Str::ulid(),
+        ]);
+
+        $this->markPaid($payment);
+
+        return $payment->refresh();
+    }
+
+    /**
      * Grants the credits for a payment, exactly once, however often it is called.
      *
      * The guarantee is the conditional UPDATE below, not a check beforehand.
