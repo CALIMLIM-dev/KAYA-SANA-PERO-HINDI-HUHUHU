@@ -19,7 +19,7 @@
     },
     {
       "title": "Your Profile",
-      "body": "Everything you put on your profile must be true and about you. Skills, work history, certificates and licences you add are shown to other users. KAYA does not check that a certificate or licence is genuine beyond confirming that a file was uploaded. A skill check passed on KAYA is a short test on the trade and is not a professional certification.\n\nA resume you upload can be opened only by an employer you have a pending or accepted application with, and only while that application is open."
+      "body": "Everything you put on your profile must be true and about you. Skills, work history, certificates and licences you add are shown to other users. KAYA does not check that a certificate or licence is genuine beyond confirming that a file was uploaded.\n\nA resume you upload can be opened only by an employer you have a pending or accepted application with, and only while that application is open."
     },
     {
       "title": "Barya",
@@ -69,7 +69,7 @@
   "privacy": [
     {
       "title": "Information We Collect",
-      "body": "Account: your name, email address or phone number, password, and if you sign in with Google, the name, email and picture Google provides.\n\nProfile: your location, profile photo, bio, availability, and for workers your trade, skills, work history, certificates, licences, resume and skill check results. For employers, the business name, type, address, TIN and business registration documents.\n\nVerification: a government-issued ID and a selfie holding it.\n\nActivity: jobs you post or apply to, invitations, hires, schedules, reviews, community posts, barya balance and transactions, reports you make or receive, notifications, and the messages you send in chats.\n\nLocation: the place you set on your profile or a job; a map pin if you drop one; and, only during a job where you have turned on location sharing, your live position.\n\nDevice: the app version, and a token that lets us show you notifications."
+      "body": "Account: your name, email address or phone number, password, and if you sign in with Google, the name, email and picture Google provides.\n\nProfile: your location, profile photo, bio, availability, and for workers your trade, skills, work history, certificates, licences, resume. For employers, the business name, type, address, TIN and business registration documents.\n\nVerification: a government-issued ID and a selfie holding it.\n\nActivity: jobs you post or apply to, invitations, hires, schedules, reviews, community posts, barya balance and transactions, reports you make or receive, notifications, and the messages you send in chats.\n\nLocation: the place you set on your profile or a job; a map pin if you drop one; and, only during a job where you have turned on location sharing, your live position.\n\nDevice: the app version, and a token that lets us show you notifications."
     },
     {
       "title": "Why We Collect It",

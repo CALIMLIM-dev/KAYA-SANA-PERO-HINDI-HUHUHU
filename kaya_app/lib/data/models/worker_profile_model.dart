@@ -11,8 +11,6 @@ class WorkerProfile {
   final int reviewCount;
   final bool isVerified;
 
-  /// Passed a KAYA skill check for some trade.
-  final bool isSkillChecked;
   final bool isAvailable;
   final double? distance; // in kilometers
   final String? bio;
@@ -47,7 +45,6 @@ class WorkerProfile {
     required this.rating,
     required this.reviewCount,
     this.isVerified = false,
-    this.isSkillChecked = false,
     this.isAvailable = true,
     this.distance,
     this.bio,
@@ -90,7 +87,6 @@ class WorkerProfile {
       // Straight-line km from whoever is browsing, computed server-side.
       distance: asDoubleOrNull(json['distance_km']),
       isVerified: json['is_verified'] as bool? ?? false,
-      isSkillChecked: json['is_skill_checked'] as bool? ?? false,
       isAvailable: (json['availability_status'] ?? 'available') == 'available',
       bio: json['bio'] as String?,
       profileImageUrl: json['avatar'] as String?,
@@ -159,7 +155,6 @@ class WorkerProfile {
     double? rating,
     int? reviewCount,
     bool? isVerified,
-    bool? isSkillChecked,
     bool? isAvailable,
     double? distance,
     String? bio,
@@ -179,7 +174,6 @@ class WorkerProfile {
       rating: rating ?? this.rating,
       reviewCount: reviewCount ?? this.reviewCount,
       isVerified: isVerified ?? this.isVerified,
-      isSkillChecked: isSkillChecked ?? this.isSkillChecked,
       isAvailable: isAvailable ?? this.isAvailable,
       distance: distance ?? this.distance,
       bio: bio ?? this.bio,

@@ -1171,9 +1171,6 @@ class WorkerProfileController extends Controller
             ->pluck('boostable_id')
             ->flip();
 
-        // Who has passed a skill check, for the chip on the card. One query.
-        $skillChecked = \App\Models\AssessmentAttempt::passedByUsers($ids);
-
         // worker_id, not user_id: an application belongs to the worker
         // under that name, and asking for the wrong column here took the
         // whole directory down with a 500.
@@ -1249,7 +1246,6 @@ class WorkerProfileController extends Controller
                     // What the ranking used, so a card can say "Boosted"
                     // and show the work behind the position it is in.
                     'is_boosted'     => (bool) $p->is_boosted,
-                    'is_skill_checked' => isset($skillChecked[(int) $p->user_id]),
                     'jobs_completed' => (int) $p->jobs_completed,
                     'rate_min'           => $p->rate_min,
                     'rate_max'           => $p->rate_max,
@@ -1519,11 +1515,6 @@ class WorkerProfileController extends Controller
                 // see the note in BadgeService for why there is no table.
                 'badges'              => app(\App\Services\BadgeService::class)
                     ->forWorker($user),
-
-                // The trades this worker has passed a skill check for.
-                'skills_checked'      => \App\Models\Category::whereIn(
-                    'id', \App\Models\AssessmentAttempt::passedCategoryIdsFor($user->id)
-                )->orderBy('name')->pluck('name')->values(),
 
                 'years_experience'    => app(\App\Services\ExperienceTotal::class)
                     ->years($profile->experiences),

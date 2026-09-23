@@ -1,7 +1,6 @@
 <?php
 
 use Illuminate\Support\Facades\Route;
-use App\Http\Controllers\Api\V1\AssessmentController;
 use App\Http\Controllers\Api\V1\AuthController;
 use App\Http\Controllers\Api\V1\CommunityPostController;
 use App\Http\Controllers\Api\V1\RosterController;
@@ -247,12 +246,6 @@ Route::prefix('v1')->group(function () {
             ->middleware('verified');
         Route::delete('/community/{post}',       [CommunityPostController::class, 'destroy']);
         Route::post('/community/{post}/contact', [CommunityPostController::class, 'contact']);
-
-        // Skill checks. Reading is open; sitting one needs a worker profile,
-        // checked in the controller.
-        Route::get('/assessments',                     [AssessmentController::class, 'index']);
-        Route::get('/assessments/{assessment}',        [AssessmentController::class, 'show']);
-        Route::post('/assessments/{assessment}/submit', [AssessmentController::class, 'submit']);
 
         // Saved Jobs
         Route::get('/saved-jobs', [JobController::class, 'savedJobs']);

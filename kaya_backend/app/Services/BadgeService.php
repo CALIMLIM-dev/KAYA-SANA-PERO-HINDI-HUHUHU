@@ -148,24 +148,6 @@ class BadgeService
             );
         }
 
-        /*
-            Passed a skill check. One badge however many trades were
-            passed; the description names them, which is what an employer
-            reading it wants to know.
-        */
-        $passedCategories = \App\Models\Category::whereIn(
-            'id',
-            \App\Models\AssessmentAttempt::passedCategoryIdsFor($user->id)
-        )->orderBy('name')->pluck('name');
-
-        if ($passedCategories->isNotEmpty()) {
-            $badges[] = $this->badge(
-                'skill_checked',
-                'Skill Checked',
-                'Passed the KAYA skill check for ' . $passedCategories->join(', ', ' and ')
-            );
-        }
-
         return array_merge($badges, $this->veteran($user));
     }
 
@@ -347,15 +329,6 @@ class BadgeService
                 'progress'    => $earned->has('repeat_hire')
                     ? 'Hired back'
                     : 'Not yet',
-            ];
-
-            $rows[] = [
-                'code'        => 'skill_checked',
-                'label'       => 'Skill Checked',
-                'requirement' => 'Pass the skill check for your trade, on your profile',
-                'progress'    => $earned->has('skill_checked')
-                    ? 'Passed'
-                    : 'Not taken yet',
             ];
         }
 

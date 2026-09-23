@@ -83,12 +83,6 @@ class FAQScreen extends StatelessWidget {
                     'The employer accepts or rejects. If accepted, a chat opens between the two of you, '
                     'where you can agree a day and time and share your location on the day.',
               ),
-              const _FAQItem(
-                question: 'What is a skill check?',
-                answer:
-                    'A short test for your trade, marked on the server. Passing puts Skill checked on your card '
-                    'in the directory. If you do not pass you can try again after a week.',
-              ),
             ],
           ),
           const SizedBox(height: 24),

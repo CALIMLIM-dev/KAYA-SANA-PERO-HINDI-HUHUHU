@@ -45,7 +45,6 @@
                         ['route' => 'admin.jobs.index',          'label' => 'Jobs',                'icon' => 'briefcase'],
                         ['route' => 'admin.community.index',     'label' => 'Community',           'icon' => 'message-square'],
                         ['route' => 'admin.categories.index',    'label' => 'Categories & Skills', 'icon' => 'tags'],
-                        ['route' => 'admin.assessments.index',   'label' => 'Skill Checks',        'icon' => 'clipboard-check'],
                     ],
                     'Finance' => [
                         ['route' => 'admin.credits.index',       'label' => 'Barya',               'icon' => 'coins'],
