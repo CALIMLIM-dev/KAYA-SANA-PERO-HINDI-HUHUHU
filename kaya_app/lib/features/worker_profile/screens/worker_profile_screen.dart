@@ -9,6 +9,7 @@ import '../../../core/utils/json_parse.dart';
 import '../../../providers/worker_browse_provider.dart';
 import '../../../core/widgets/app_toast.dart';
 import '../../invitations/widgets/invite_to_job.dart';
+import '../../../core/widgets/photo_viewer.dart';
 
 /// Public Worker Profile Screen — shown to employers when browsing workers.
 /// Reads {'workerId': int} from route arguments and fetches the real profile
@@ -180,7 +181,14 @@ class _WorkerProfileScreenState extends State<WorkerProfileScreen> {
                       children: [
                         Stack(
                           children: [
-                            Container(
+                            // Tapped, the picture opens full screen. At
+                            // 100 pixels you cannot tell one face from
+                            // another.
+                            GestureDetector(
+                              onTap: avatar.isEmpty
+                                  ? null
+                                  : () => showPhotoViewer(context, avatar),
+                              child: Container(
                               width: 100,
                               height: 100,
                               decoration: BoxDecoration(
@@ -205,6 +213,7 @@ class _WorkerProfileScreenState extends State<WorkerProfileScreen> {
                                             color: Colors.white),
                                       ),
                               ),
+                            ),
                             ),
                             if (isVerified)
                               Positioned(

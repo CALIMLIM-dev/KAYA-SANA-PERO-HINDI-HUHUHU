@@ -126,9 +126,59 @@ class _SetupEmployerProfileScreenState extends State<SetupEmployerProfileScreen>
   bool get _isCompany => _selectedType == EmployerType.company;
   bool get _isLastStep => _currentStep == _pageCount - 1;
 
+  /*
+      Name and place from the account, for whichever fields are still empty.
+      Same reason as the worker setup: this waited on /me before writing a
+      single field, so the form opened empty and filled itself a moment
+      later. Anything already typed is left alone.
+  */
+  void _prefillFromAccount(AuthProvider auth) {
+    final user = auth.user;
+    if (user == null) return;
+
+    if (_firstNameController.text.isEmpty) {
+      final fallback = NameParts.of(user['name'] as String?);
+
+      _firstNameController.text =
+          user['first_name'] as String? ?? fallback.first ?? '';
+      _middleNameController.text =
+          user['middle_name'] as String? ?? fallback.middle ?? '';
+      _lastNameController.text =
+          user['last_name'] as String? ?? fallback.last ?? '';
+      _suffixController.text =
+          user['suffix'] as String? ?? fallback.suffix ?? '';
+    }
+
+    // The city, not the barangay: the employer picker does not offer one.
+    final stored = user['known_location'] as Map<String, dynamic>?;
+    final known = (stored?['city'] as Map<String, dynamic>?) ?? stored;
+
+    if (known != null &&
+        known['location_id'] != null &&
+        _locationController.text.isEmpty) {
+      final label = (known['label'] ?? '').toString();
+
+      _locationController.text = label;
+      _selectedLocation = LocationModel(
+        id: (known['location_id'] as num).toInt(),
+        name: label,
+        displayName: label,
+        type: 'city',
+        latitude: (known['latitude'] as num?)?.toDouble(),
+        longitude: (known['longitude'] as num?)?.toDouble(),
+      );
+    }
+  }
+
   @override
   void initState() {
     super.initState();
+
+    // Whatever the app already holds, written before anything is fetched.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) setState(() => _prefillFromAccount(context.read<AuthProvider>()));
+    });
+
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       final auth = context.read<AuthProvider>();
       final verificationProvider = context.read<VerificationProvider>();
@@ -144,6 +194,9 @@ class _SetupEmployerProfileScreenState extends State<SetupEmployerProfileScreen>
       // And again once /me has answered, for a cold open that reached here
       // before the account was loaded.
       _skipTypeStepIfWorker();
+
+      // Again with fresh values, for anything still empty.
+      _prefillFromAccount(auth);
 
       // Only prefill if the user hasn't started typing — these awaits take a
       // moment, and overwriting mid-typing made the entered name disappear.

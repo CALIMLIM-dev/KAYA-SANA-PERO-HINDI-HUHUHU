@@ -306,7 +306,7 @@ class JobController extends Controller
             'end_date'           => ['required', 'date', 'after_or_equal:start_date'],
             // One by default. Ten at most: past that it is a crew with a
             // payroll, which KAYA does not run.
-            'workers_needed'     => ['nullable', 'integer', 'min:1', 'max:10'],
+            'workers_needed'     => ['nullable', 'integer', 'min:1', 'max:20'],
         ], [
             'budget_max.gte' => 'The maximum budget must be greater than or equal to the minimum budget.',
             'photos.required' => 'Please add at least one photo of the job.',
@@ -746,7 +746,7 @@ class JobController extends Controller
             */
             'start_date'         => ['nullable', 'date'],
             'end_date'           => ['nullable', 'date', 'after_or_equal:start_date'],
-            'workers_needed'     => ['nullable', 'integer', 'min:1', 'max:10'],
+            'workers_needed'     => ['nullable', 'integer', 'min:1', 'max:20'],
         ], [
             'budget_max.gte' => 'The maximum budget must be greater than or equal to the minimum budget.',
             'end_date.after_or_equal' => 'The job cannot end before it starts.',
@@ -932,10 +932,17 @@ class JobController extends Controller
         return $refunded;
     }
 
+    /*
+        Bookmarking a job.
+
+        Open to any signed-in account. It used to require a worker profile,
+        so an employer, or a hybrid who happened to be in employer mode,
+        tapped the bookmark and was told Forbidden. Saving a job commits to
+        nothing and costs nothing; it is a bookmark.
+    */
     public function save(Request $request, JobPost $job)
     {
         $user = $request->user();
-        if (!$user->isWorker()) return $this->fail('Forbidden', 403);
 
         if ($user->savedJobs()->where('job_id', $job->id)->exists()) {
             return $this->ok(null, 'Job already saved');
@@ -948,7 +955,6 @@ class JobController extends Controller
     public function unsave(Request $request, JobPost $job)
     {
         $user = $request->user();
-        if (!$user->isWorker()) return $this->fail('Forbidden', 403);
 
         $user->savedJobs()->detach($job->id);
         return $this->ok(null, 'Job unsaved successfully');
@@ -957,7 +963,6 @@ class JobController extends Controller
     public function savedJobs(Request $request)
     {
         $user = $request->user();
-        if (!$user->isWorker()) return $this->fail('Forbidden', 403);
 
         $jobs = $user->savedJobs()->with(['employer:id,name,avatar,is_verified', 'category', 'skills'])->latest()->get();
         return $this->ok($jobs);

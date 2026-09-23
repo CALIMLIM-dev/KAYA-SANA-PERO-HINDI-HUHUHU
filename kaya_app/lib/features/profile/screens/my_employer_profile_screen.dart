@@ -236,6 +236,19 @@ class _MyEmployerProfileScreenState extends State<MyEmployerProfileScreen>
   // ─── helpers ────────────────────────────────────────────────────────────────
   // ─── build ──────────────────────────────────────────────────────────────────
 
+  /*
+      The account's picture, whichever side uploaded it. Same reason as the
+      worker profile: this read the employer profile's own column only, so
+      a hybrid saw a photo on one side and a letter on the other.
+  */
+  String? _photoUrl(BuildContext context) {
+    final own = _profile?.imageUrl;
+    if (own != null && own.isNotEmpty) return own;
+
+    final account = context.watch<AuthProvider>().user?['avatar'] as String?;
+    return (account != null && account.isNotEmpty) ? account : null;
+  }
+
   @override
   Widget build(BuildContext context) {
     /*
@@ -249,6 +262,19 @@ class _MyEmployerProfileScreenState extends State<MyEmployerProfileScreen>
     // The name wraps to at most two lines now, so this only ever adds room
     // for the second one - no open-ended guessing about how long a name is.
     final extraNameLines = (_name ?? '').length > 22 ? 1 : 0;
+
+    /*
+        The first load, told apart from an empty profile. Same reason as
+        the worker profile: with nothing watching the loading state, a cold
+        open drew every field blank until the fetch landed.
+    */
+    final employer = context.watch<EmployerProfileProvider>();
+    if (employer.isLoading && employer.profile == null) {
+      return const Scaffold(
+        backgroundColor: AppColors.background,
+        body: Center(child: CircularProgressIndicator(strokeWidth: 2)),
+      );
+    }
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -458,7 +484,7 @@ class _MyEmployerProfileScreenState extends State<MyEmployerProfileScreen>
                               image was on the server the whole time.
                           */
                           child: ProfileAvatar(
-                            imageUrl: _profile?.imageUrl,
+                            imageUrl: _photoUrl(context),
                             name: _name,
                             radius: 32,
                             fallbackIcon: Icons.camera_alt,

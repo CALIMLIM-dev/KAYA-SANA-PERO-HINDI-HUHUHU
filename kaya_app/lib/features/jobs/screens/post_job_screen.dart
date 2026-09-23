@@ -143,7 +143,6 @@ class _PostJobScreenState extends State<PostJobScreen> {
   final _budgetController = TextEditingController();
   final _budgetMaxController = TextEditingController();
   final _locationController = TextEditingController();
-  final _workersNeededController = TextEditingController(text: '1');
   
   String? _selectedCategory;
 
@@ -175,6 +174,9 @@ class _PostJobScreenState extends State<PostJobScreen> {
   /// How many people the job is for. One is the common case; ten is the
   /// ceiling, above which it is a crew with a payroll and not a job post.
   int _workersNeeded = 1;
+
+  /// The most a single post may hire. Matches the server's own cap.
+  static const int _maxWorkers = 20;
   bool _showPhotoError = false;
 
   // Schedule. _endDate stays null for a single-day job rather than being set
@@ -267,7 +269,6 @@ class _PostJobScreenState extends State<PostJobScreen> {
     _budgetController.dispose();
     _budgetMaxController.dispose();
     _locationController.dispose();
-    _workersNeededController.dispose();
     _customSkillController.dispose();
     super.dispose();
   }
@@ -742,27 +743,6 @@ class _PostJobScreenState extends State<PostJobScreen> {
                       style: TextStyle(fontSize: 12, color: AppColors.error),
                     ),
                   ],
-                ],
-              ),
-              const SizedBox(height: 16),
-
-              // Workers Needed
-              _buildSection(
-                title: 'Workers Needed',
-                icon: Icons.groups_outlined,
-                children: [
-                  TextFormField(
-                    controller: _workersNeededController,
-                    keyboardType: TextInputType.number,
-                    decoration: _inputDecoration(icon: Icons.people),
-                    validator: (value) {
-                      if (value?.isEmpty ?? true) return 'Required';
-                      final number = int.tryParse(value!);
-                      if (number == null || number < 1) return 'Must be at least 1';
-                      if (number > 9) return 'Maximum 9 workers';
-                      return null;
-                    },
-                  ),
                 ],
               ),
               const SizedBox(height: 16),
@@ -1606,7 +1586,7 @@ class _PostJobScreenState extends State<PostJobScreen> {
         ),
         IconButton(
           tooltip: 'More',
-          onPressed: _workersNeeded < 10
+          onPressed: _workersNeeded < _maxWorkers
               ? () => setState(() => _workersNeeded++)
               : null,
           icon: const Icon(Icons.add_circle_outline),

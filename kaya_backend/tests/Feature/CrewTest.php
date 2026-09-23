@@ -118,7 +118,7 @@ class CrewTest extends TestCase
             'workers_needed' => $n,
         ];
 
-        $this->actingAs($employer, 'sanctum')->postJson('/api/v1/jobs', $payload(11))->assertStatus(422);
+        $this->actingAs($employer, 'sanctum')->postJson('/api/v1/jobs', $payload(21))->assertStatus(422);
         $this->actingAs($employer, 'sanctum')->postJson('/api/v1/jobs', $payload(0))->assertStatus(422);
         $this->actingAs($employer, 'sanctum')->postJson('/api/v1/jobs', $payload(5))->assertStatus(201)
             ->assertJsonPath('data.workers_needed', 5);

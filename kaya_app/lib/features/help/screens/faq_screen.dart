@@ -105,7 +105,7 @@ class FAQScreen extends StatelessWidget {
               const _FAQItem(
                 question: 'Can I hire more than one person for a job?',
                 answer:
-                    'Yes. Set how many workers the job needs, one to ten. The post stays open until every spot is taken. '
+                    'Yes. Set how many workers the job needs, one to twenty. The post stays open until every spot is taken. '
                     'The roster lists everyone hired and lets you message them all or mark the job done for all of them.',
               ),
               const _FAQItem(

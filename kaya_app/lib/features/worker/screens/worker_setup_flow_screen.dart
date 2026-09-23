@@ -155,6 +155,52 @@ class _WorkerSetupFlowScreenState extends State<WorkerSetupFlowScreen> {
   double? _pinnedLat;
   double? _pinnedLng;
   
+  /*
+      Name and place from the account, for whichever fields are still empty.
+
+      Called once before anything is fetched and again after, because the
+      account is already loaded by the router that opened this screen. It
+      used to run only after four requests had returned, so setting up a
+      second profile opened on an empty form that filled itself in a second
+      or two later. Anything already typed is left alone.
+  */
+  void _prefillFromAccount(AuthProvider auth) {
+    final user = auth.user;
+    if (user == null) return;
+
+    if (_firstNameController.text.isEmpty) {
+      final fallback = NameParts.of(user['name'] as String?);
+
+      _firstNameController.text =
+          (user['first_name'] as String?) ?? fallback.first ?? '';
+      _middleNameController.text =
+          (user['middle_name'] as String?) ?? fallback.middle ?? '';
+      _lastNameController.text =
+          (user['last_name'] as String?) ?? fallback.last ?? '';
+      _suffixController.text =
+          (user['suffix'] as String?) ?? fallback.suffix ?? '';
+    }
+
+    final known = user['known_location'] as Map<String, dynamic>?;
+
+    if (known != null &&
+        known['location_id'] != null &&
+        _locationController.text.isEmpty) {
+      final label = (known['label'] ?? '').toString();
+
+      _location = label;
+      _locationController.text = label;
+      _selectedLocation = LocationModel(
+        id: (known['location_id'] as num).toInt(),
+        name: label,
+        displayName: label,
+        type: 'city',
+        latitude: (known['latitude'] as num?)?.toDouble(),
+        longitude: (known['longitude'] as num?)?.toDouble(),
+      );
+    }
+  }
+
   @override
   void initState() {
     super.initState();
@@ -167,7 +213,11 @@ class _WorkerSetupFlowScreenState extends State<WorkerSetupFlowScreen> {
     _middleNameController = TextEditingController();
     _lastNameController = TextEditingController();
     _suffixController = TextEditingController();
-    
+
+    // Whatever the app already holds, written now rather than after four
+    // requests have come back.
+    _prefillFromAccount(context.read<AuthProvider>());
+
     // Load existing data
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       final authProvider = context.read<AuthProvider>();
@@ -181,6 +231,9 @@ class _WorkerSetupFlowScreenState extends State<WorkerSetupFlowScreen> {
       await verificationProvider.fetchVerifications(); // Fetch verification status
       
       if (!mounted) return;
+
+      // Again with fresh values, for anything still empty.
+      _prefillFromAccount(authProvider);
 
       // Only prefill fields the user has not already started filling in.
       //

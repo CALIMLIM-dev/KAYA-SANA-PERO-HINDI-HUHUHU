@@ -7,6 +7,7 @@ import '../../../core/widgets/profile_avatar.dart';
 import '../../../core/widgets/work_record.dart';
 import '../../../providers/employer_profile_provider.dart';
 import '../../../core/navigation/app_router.dart';
+import '../../../core/widgets/photo_viewer.dart';
 
 /// Public Employer Profile View — shown to workers when they tap "Posted by"
 /// on a job listing. Reads {'employerId': int} from route arguments and
@@ -169,13 +170,19 @@ class _EmployerProfileScreenState extends State<EmployerProfileScreen> {
                                   rather than a building.
                               */
                               clipBehavior: Clip.antiAlias,
-                              child: ProfileAvatar(
-                                imageUrl: employerImage,
-                                name: name,
-                                radius: 32,
-                                fallbackIcon: Icons.business,
-                                background: Colors.transparent,
-                                foreground: Colors.white,
+                              // Tapped, the picture opens full screen.
+                              child: GestureDetector(
+                                onTap: employerImage.isEmpty
+                                    ? null
+                                    : () => showPhotoViewer(context, employerImage),
+                                child: ProfileAvatar(
+                                  imageUrl: employerImage,
+                                  name: name,
+                                  radius: 32,
+                                  fallbackIcon: Icons.business,
+                                  background: Colors.transparent,
+                                  foreground: Colors.white,
+                                ),
                               ),
                             ),
                             const SizedBox(width: 14),

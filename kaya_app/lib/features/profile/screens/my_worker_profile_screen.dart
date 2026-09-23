@@ -274,6 +274,22 @@ class _MyWorkerProfileScreenState extends State<MyWorkerProfileScreen> with Sing
     );
   }
 
+  /*
+      The account's picture, whichever side uploaded it.
+
+      A hybrid who set a photo on the employer side saw a letter here,
+      because this screen read the worker profile's own column and nothing
+      else. The server already resolves one picture per account and sends
+      it on /me; this reads that when the worker side has none of its own.
+  */
+  String? _photoUrl(BuildContext context) {
+    final own = context.watch<WorkerProfileProvider>().profilePhotoPath;
+    if (own != null) return ApiClient.fileUrl(own);
+
+    final account = context.watch<AuthProvider>().user?['avatar'] as String?;
+    return (account != null && account.isNotEmpty) ? account : null;
+  }
+
   @override
   Widget build(BuildContext context) {
     /*
@@ -292,6 +308,23 @@ class _MyWorkerProfileScreenState extends State<MyWorkerProfileScreen> with Sing
     });
 
     final profile = context.watch<WorkerProfileProvider>();
+
+    /*
+        The first load, told apart from an empty profile.
+
+        Nothing here consulted the provider's loading state, so on a cold
+        open the screen drew a blank profile with every field empty until
+        the fetch landed. That is indistinguishable from an account that
+        has filled nothing in, which is why it looked like the profile
+        needed a refresh to appear.
+    */
+    if (profile.isLoading && profile.name == null) {
+      return const Scaffold(
+        backgroundColor: AppColors.background,
+        body: Center(child: CircularProgressIndicator(strokeWidth: 2)),
+      );
+    }
+
     final contactLines = [
       (profile.phone ?? '').isNotEmpty,
       (profile.email ?? '').isNotEmpty,
@@ -439,9 +472,9 @@ class _MyWorkerProfileScreenState extends State<MyWorkerProfileScreen> with Sing
                                       ),
                                       child: ClipRRect(
                                         borderRadius: BorderRadius.circular(10),
-                                        child: context.watch<WorkerProfileProvider>().profilePhotoPath != null
+                                        child: _photoUrl(context) != null
                                             ? Image.network(
-                                                ApiClient.fileUrl(context.watch<WorkerProfileProvider>().profilePhotoPath),
+                                                _photoUrl(context)!,
                                                 fit: BoxFit.cover,
                                                 errorBuilder: (_, _, _) =>
                                                     const Icon(Icons.person, color: Colors.white54, size: 32),
