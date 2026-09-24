@@ -347,7 +347,7 @@ class _MyInvitationsScreenState extends State<MyInvitationsScreen>
         v == null ? null : (v is num ? v.toDouble() : double.tryParse('$v'));
     final minV = asDouble(min);
     final maxV = asDouble(max);
-    if (minV == null && maxV == null) return 'Negotiable';
+    if (minV == null && maxV == null) return 'To be discussed';
     if (minV != null && maxV != null && maxV != minV) {
       return '₱${minV.toStringAsFixed(0)}-${maxV.toStringAsFixed(0)}';
     }

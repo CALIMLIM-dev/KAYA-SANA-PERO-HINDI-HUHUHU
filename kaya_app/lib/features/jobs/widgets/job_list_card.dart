@@ -345,7 +345,7 @@ class JobListCard extends StatelessWidget {
     }
     final one = min ?? max;
     if (one != null) return '₱${one.toStringAsFixed(0)}/${job.salaryPeriod}';
-    return 'Negotiable';
+    return 'Payment terms: to be discussed';
   }
 
   String _footer() {

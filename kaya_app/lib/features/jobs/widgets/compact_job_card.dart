@@ -399,7 +399,7 @@ class CompactJobCard extends StatelessWidget {
     } else if (job.salaryMax != null) {
       return '₱${job.salaryMax!.toStringAsFixed(0)}/${job.salaryPeriod}';
     }
-    return 'Negotiable';
+    return 'To be discussed';
   }
 
   String _getTimeAgo() {

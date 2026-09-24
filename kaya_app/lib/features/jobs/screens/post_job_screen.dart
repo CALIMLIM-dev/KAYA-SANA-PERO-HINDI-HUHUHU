@@ -165,6 +165,20 @@ class _PostJobScreenState extends State<PostJobScreen> {
   double? _pinnedLat;
   double? _pinnedLng;
   String _salaryType = 'Daily';
+
+  /*
+      Whether the post carries a figure at all.
+
+      An employer who does not know the going rate for a trade had no way
+      to say so: the amount was required, so they guessed. "Discuss payment
+      terms" posts the job without one and the amount is agreed with the
+      worker in the chat after hiring.
+  */
+  static const String _paySetAmount = 'Set amount';
+  static const String _payDiscuss = 'Discuss payment terms';
+  String _payChoice = _paySetAmount;
+
+  bool get _amountIsSet => _payChoice == _paySetAmount;
   final List<String> _selectedSkills = [];
   final _customSkillController = TextEditingController();
   final List<File> _selectedImages = [];
@@ -277,6 +291,9 @@ class _PostJobScreenState extends State<PostJobScreen> {
   /// `numeric|min:0`, but catching it here gives inline feedback instead of a
   /// 422 after the user has filled in the whole form.
   String? _validateSalary(String? value) {
+    // Nothing to check when the amount is being left to the chat.
+    if (!_amountIsSet) return null;
+
     final raw = value?.trim() ?? '';
     if (raw.isEmpty) return 'Required';
 
@@ -753,6 +770,32 @@ class _PostJobScreenState extends State<PostJobScreen> {
                 anchor: _locationKey,
                 icon: Icons.payments_outlined,
                 children: [
+                  _buildLabel('Payment'),
+                  const SizedBox(height: 8),
+                  _buildDropdown(
+                    value: _payChoice,
+                    items: const [_paySetAmount, _payDiscuss],
+                    onChanged: (value) => setState(() {
+                      _payChoice = value!;
+                      if (!_amountIsSet) {
+                        _budgetController.clear();
+                        _budgetMaxController.clear();
+                      }
+                      // Clears any error sitting on the amount fields.
+                      _formKey.currentState?.validate();
+                    }),
+                  ),
+                  const SizedBox(height: 8),
+                  if (!_amountIsSet)
+                    const Padding(
+                      padding: EdgeInsets.only(bottom: 8),
+                      child: Text(
+                        'The job will show Payment terms: to be discussed. '
+                        'You and the worker agree the amount in the chat after hiring.',
+                        style: TextStyle(fontSize: 12.5, height: 1.35, color: AppColors.neutral600),
+                      ),
+                    ),
+                  if (_amountIsSet)
                   Row(
                     children: [
                       Expanded(
@@ -828,13 +871,15 @@ class _PostJobScreenState extends State<PostJobScreen> {
                       The range belongs together and the period does not, so
                       the split follows the meaning as well as the width.
                   */
-                  _buildLabel('Payment'),
-                  const SizedBox(height: 8),
-                  _buildDropdown(
-                    value: _salaryType,
-                    items: const ['Daily', 'Hourly', 'Project'],
-                    onChanged: (value) => setState(() => _salaryType = value!),
-                  ),
+                  if (_amountIsSet) ...[
+                    _buildLabel('Payment period'),
+                    const SizedBox(height: 8),
+                    _buildDropdown(
+                      value: _salaryType,
+                      items: const ['Daily', 'Hourly', 'Project'],
+                      onChanged: (value) => setState(() => _salaryType = value!),
+                    ),
+                  ],
                   const SizedBox(height: 16),
                   
                   _buildLabel('Location'),
@@ -2265,10 +2310,14 @@ class _PostJobScreenState extends State<PostJobScreen> {
         // Real skill ids, so a job's requirements can be matched against the
         // skills workers picked during onboarding.
         skillIds:    _selectedSkillIds,
-        budgetMin:   double.tryParse(_budgetController.text.replaceAll(',', '')),
+        budgetMin:   _amountIsSet
+            ? double.tryParse(_budgetController.text.replaceAll(',', ''))
+            : null,
         // Optional upper bound. createJob has always accepted it; nothing ever
         // sent one, so every job was filed with a single figure.
-        budgetMax:   double.tryParse(_budgetMaxController.text.replaceAll(',', '')),
+        budgetMax:   _amountIsSet
+            ? double.tryParse(_budgetMaxController.text.replaceAll(',', ''))
+            : null,
         location:    _locationController.text.trim(),
         // Structured location from the picker: the id normalizes filtering and
         // the coordinates power proximity search.

@@ -909,7 +909,7 @@ class _JobDetailsScreenState extends State<JobDetailsScreen>
     String fmt(double v) => v == v.roundToDouble() ? v.toInt().toString() : v.toStringAsFixed(2);
     // No budget on the post at all. "Negotiable" used to stand in here and
     // said nothing - the employer simply never entered a figure.
-    if (min == null && max == null) return 'Not specified';
+    if (min == null && max == null) return 'To be discussed';
     if (min != null && max != null && max != min) {
       return '₱${fmt(min)} - ₱${fmt(max)}';
     }
