@@ -196,9 +196,25 @@ class ConversationController extends Controller
             'message_text' => ['required', 'string', 'max:2000'],
         ]);
 
+        /*
+            Read before it is delivered. See MessageFilter.
+
+            Swearing is masked and still sent; a phone number, an email, an
+            app to move to or "let us talk outside" is refused. The second
+            set is the loophole this whole release is about - a pair
+            introduced here arranging every later job somewhere else - and
+            contact details are something the app sells, so handing them over
+            free is the paid feature given away.
+        */
+        $read = app(\App\Services\MessageFilter::class)->inspect(trim($request->message_text));
+
+        if ($read['refusal'] !== null) {
+            return $this->fail($read['refusal'], 422);
+        }
+
         $message = $conversation->messages()->create([
             'sender_id'    => $user->id,
-            'message_text' => trim($request->message_text),
+            'message_text' => $read['text'],
             'is_read'      => false,
         ]);
 

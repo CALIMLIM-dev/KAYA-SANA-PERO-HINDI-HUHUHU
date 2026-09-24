@@ -244,7 +244,23 @@ class MessagingProvider with ChangeNotifier {
       as still sending, and a failed one says so and offers a retry, rather
       than silently pretending to have arrived.
   */
+  /*
+      Why the last message was turned away, if it was.
+
+      A refusal is not a failure. The server read the message and decided not
+      to carry it - a phone number, or "add mo ako sa fb" - and sending the
+      same words again will always get the same answer. Leaving it on screen
+      greyed out with a Retry would be a button that cannot work, so the
+      message is taken back and this says why instead.
+
+      Null for an ordinary failure, which is worth retrying and stays put.
+  */
+  String? _lastRefusal;
+  String? get lastRefusal => _lastRefusal;
+
   Future<bool> sendMessage(int conversationId, String text) async {
+    _lastRefusal = null;
+
     // A local id, above every real one, so it sorts last and cannot collide
     // with a server id.
     final pendingId = MessageCache.pendingIdBase +
@@ -288,6 +304,22 @@ class MessagingProvider with ChangeNotifier {
 
       return true;
     } catch (e) {
+      // Read and refused, not lost. Taken back off the thread entirely: it
+      // was never delivered, and the reason goes to the sender instead.
+      if (e is ApiException && e.status == 422) {
+        _lastRefusal = e.message;
+
+        await MessageCache.instance.remove(conversationId, pendingId);
+
+        if (_activeConversationId == conversationId) {
+          _messages = _messages.where((m) => m['id'] != pendingId).toList();
+        }
+
+        notifyListeners();
+
+        return false;
+      }
+
       await MessageCache.instance.markFailed(conversationId, pendingId);
 
       if (_activeConversationId == conversationId) {

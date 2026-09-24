@@ -134,7 +134,16 @@ class RosterController extends Controller
         }
 
         $data = $request->validate(['message_text' => ['required', 'string', 'max:2000']]);
-        $text = trim($data['message_text']);
+
+        // The same reading a one to one message gets. A broadcast is still a
+        // message, and it reaches more people. See MessageFilter.
+        $read = app(\App\Services\MessageFilter::class)->inspect(trim($data['message_text']));
+
+        if ($read['refusal'] !== null) {
+            return $this->fail($read['refusal'], 422);
+        }
+
+        $text = $read['text'];
 
         $workerIds = $job->hires()->pluck('worker_id')->unique();
 

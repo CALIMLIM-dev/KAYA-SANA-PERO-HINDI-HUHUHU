@@ -359,9 +359,27 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       final messaging = context.read<MessagingProvider>();
       _scrollToBottom();
 
-      await messaging.sendMessage(_conversationId!, text);
+      final sent = await messaging.sendMessage(_conversationId!, text);
 
-      if (mounted) _scrollToBottom();
+      if (!mounted) return;
+
+      /*
+          Turned away rather than lost.
+
+          The message is already gone from the thread - nothing was
+          delivered - so the words go back into the box for editing and
+          the server's own reason is said out loud. Retrying the same
+          text would only be refused again.
+      */
+      if (!sent && messaging.lastRefusal != null) {
+        _controller.text = text;
+        _controller.selection = TextSelection.collapsed(offset: text.length);
+        AppToast.error(context, messaging.lastRefusal!);
+
+        return;
+      }
+
+      _scrollToBottom();
     }());
   }
 

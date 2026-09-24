@@ -164,12 +164,33 @@ class CommunityPostController extends Controller
             ? $request->file('photo')->store('community_photos', config('filesystems.media'))
             : null;
 
+        /*
+            A notice on the board is read by everybody, so it is read by the
+            filter twice - once for the headline, once for the body. Same
+            rule as chat: swearing masked, contact details refused. A post
+            saying "text me on 0917" is the whole board turned into a way
+            around the app. See MessageFilter.
+        */
+        $filter = app(\App\Services\MessageFilter::class);
+        $title = $filter->inspect(trim($data['title']));
+        $body = $filter->inspect(trim($data['body']));
+
+        foreach ([$title, $body] as $read) {
+            if ($read['refusal'] !== null) {
+                if ($photoPath) {
+                    Storage::disk(config('filesystems.media'))->delete($photoPath);
+                }
+
+                return $this->fail($read['refusal'], 422);
+            }
+        }
+
         $attributes = [
             'user_id'     => $user->id,
             'type'        => $data['type'],
             'category_id' => $data['category_id'] ?? null,
-            'title'       => trim($data['title']),
-            'body'        => trim($data['body']),
+            'title'       => $title['text'],
+            'body'        => $body['text'],
             'photo_path'  => $photoPath,
             'location'    => $data['location'] ?? null,
             'location_id' => $data['location_id'] ?? null,
