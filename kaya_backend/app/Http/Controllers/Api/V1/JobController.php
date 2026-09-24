@@ -559,14 +559,24 @@ class JobController extends Controller
             ->where('reviewer_id', $user->id)
             ->pluck('reviewee_id', 'job_id');
 
-        $jobs->each(function ($job) use ($hires, $reviewsGiven, $threads) {
+        /*
+            The reduced invite price, sent once for the page.
+
+            Not asked of RehireService per hire: that counts finished jobs
+            between the pair, which is a query each, and a hire that reached
+            'completed' has finished one by definition. Sent rather than
+            assumed so the app never hardcodes a number config owns.
+        */
+        $rehireCost = (int) config('kaya.credits.rehire_invite');
+
+        $jobs->each(function ($job) use ($hires, $reviewsGiven, $threads, $rehireCost) {
             // Only the single-hire case gets a card button. With two people on
             // one job the card cannot say who you mean, so those keep going
             // through the applicants list.
             $forJob = $hires->where('job_id', $job->id);
 
             $job->hire = $forJob->count() === 1
-                ? (function ($hire) use ($reviewsGiven, $job, $threads) {
+                ? (function ($hire) use ($reviewsGiven, $job, $threads, $rehireCost) {
                     return [
                         'application_id'        => $hire->id,
                         'worker_id'             => $hire->worker_id,
@@ -579,6 +589,12 @@ class JobController extends Controller
                         'employer_completed_at' => $hire->employer_completed_at,
                         'worker_completed_at'   => $hire->worker_completed_at,
                         'i_reviewed_them'       => isset($reviewsGiven[$job->id]),
+                        // History is where an employer decides to work with
+                        // somebody again, so the price of doing it belongs on
+                        // the card. Only meaningful once the hire finished.
+                        'rehire_cost'           => $hire->status === 'completed'
+                            ? $rehireCost
+                            : null,
                     ];
                 })($forJob->first())
                 : null;

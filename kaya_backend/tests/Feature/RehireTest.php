@@ -219,6 +219,37 @@ class RehireTest extends TestCase
         );
     }
 
+    /*
+        The reduced price rides on the finished job.
+
+        Reinvite lives on the job card in History now, not on a screen of its
+        own, so the card has to carry what it costs - a price the app worked
+        out for itself is a price the two sides can disagree about. A hire
+        that has not finished carries none, because there is nothing to
+        reinvite from yet.
+    */
+    public function test_a_finished_job_carries_the_reduced_invite_price(): void
+    {
+        $this->completedJobTogether();
+
+        $jobs = $this->actingAs($this->employer, 'sanctum')
+            ->getJson('/api/v1/jobs/my')->assertOk()->json('data');
+
+        $rows = collect($jobs['data'] ?? $jobs);
+        $finished = $rows->firstWhere('status', 'completed');
+
+        $this->assertNotNull($finished, 'the finished job must be in My Jobs');
+        $this->assertSame(
+            (int) config('kaya.credits.rehire_invite'),
+            $finished['hire']['rehire_cost'],
+        );
+        $this->assertLessThan(
+            (int) config('kaya.credits.invite'),
+            $finished['hire']['rehire_cost'],
+            'reinviting somebody proven has to cost less than inviting a stranger',
+        );
+    }
+
     public function test_past_workers_lists_only_people_actually_worked_with(): void
     {
         $stranger = $this->makeWorker('Never Hired');

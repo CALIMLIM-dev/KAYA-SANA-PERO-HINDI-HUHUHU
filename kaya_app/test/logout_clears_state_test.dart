@@ -46,39 +46,17 @@ void main() {
     expect(applications.applications, isEmpty);
   });
 
-  /*
-      The one with the worst contents.
-
-      Past workers carries names, photos and ratings of real people the
-      previous employer hired.
-  */
-  test('invitations and the rehire list do not survive a logout', () {
+  test('invitations do not survive a logout', () {
     final invitations = InvitationProvider()
       ..seedInvitations([
         {'id': 1, 'status': 'pending'},
-      ])
-      ..seedPastWorkers([
-        {
-          'worker_id': 7,
-          'name': 'Juan Dela Cruz',
-          'avatar': 'https://example.test/j.png',
-          'times_hired': 3,
-        },
-      ], cost: 1);
+      ]);
 
     expect(invitations.invitations, isNotEmpty);
-    expect(invitations.pastWorkers, isNotEmpty);
-    expect(invitations.rehireCost, 1);
-    expect(invitations.hasLoadedPastWorkers, isTrue);
 
     invitations.clear();
 
     expect(invitations.invitations, isEmpty);
-    expect(invitations.pastWorkers, isEmpty);
-    expect(invitations.rehireCost, isNull);
-    // Back to unloaded, or the next account sees an empty list presented as
-    // fact rather than a spinner while theirs is fetched.
-    expect(invitations.hasLoadedPastWorkers, isFalse);
   });
 
   test('a balance does not survive a logout', () {

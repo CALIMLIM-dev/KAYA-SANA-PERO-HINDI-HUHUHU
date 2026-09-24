@@ -7,6 +7,8 @@ import '../../../core/constants/app_colors.dart';
 import '../../../core/utils/job_summary.dart';
 import '../../../providers/job_provider.dart';
 import '../../../core/widgets/app_toast.dart';
+import '../../../core/constants/credits.dart';
+import '../../invitations/widgets/invite_to_job.dart';
 import 'roster_screen.dart';
 
 /// Manage Jobs Screen — employer's posted jobs, on real data from JobProvider.
@@ -84,22 +86,16 @@ class _ManageJobsScreenState extends State<ManageJobsScreen>
             title: const Text('My Jobs',
                 style: TextStyle(fontWeight: FontWeight.w600)),
             /*
-                Where an employer reaches people they have hired before.
+                No "worked with before" screen any more.
 
-                Here rather than on the activity strip: that strip has room
-                for two tiles and a third broke it on a hybrid account. This
-                screen is already the employer's home, and re-inviting is a
-                hiring action, so it belongs beside the jobs rather than in
-                the worker's inbox.
+                It was a second list of the same people this screen's History
+                tab already holds, reached by an icon most employers never
+                pressed, and it split one decision across two places: the job
+                you remember is in History, the person you want to hire again
+                was somewhere else. Reinvite now sits on the finished job's
+                own card, which is where somebody thinking "they were good"
+                is already looking.
             */
-            actions: [
-              IconButton(
-                tooltip: 'Worked with before',
-                icon: const Icon(Icons.history),
-                onPressed: () =>
-                    AppRouter.push(context, AppRouter.pastWorkers),
-              ),
-            ],
             bottom: TabBar(
               controller: _tabController,
               indicatorColor: AppColors.accent,
@@ -680,6 +676,47 @@ class _ManageJobsScreenState extends State<ManageJobsScreen>
                     ),
                   ),
                 ),
+
+                /*
+                    Work with them again, from the job that proved it.
+
+                    This is what the "worked with before" screen was for. It
+                    sat behind an icon in the app bar and listed the same
+                    people whose finished jobs are on this tab, so the person
+                    and the job they did were in two different places. The
+                    reduced price comes down with the hire rather than being
+                    worked out here, so the number read and the number charged
+                    are the same one.
+                */
+                if (hire != null && hire['rehire_cost'] != null) ...[
+                  const SizedBox(height: 8),
+                  SizedBox(
+                    width: double.infinity,
+                    child: OutlinedButton.icon(
+                      onPressed: () => showInviteToJobSheet(
+                        context,
+                        workerId: (hire['worker_id'] as num).toInt(),
+                        workerName:
+                            (hire['worker_name'] ?? 'this worker').toString(),
+                        costOverride: (hire['rehire_cost'] as num).toInt(),
+                      ),
+                      icon: const Icon(Icons.person_add_alt_1_outlined, size: 18),
+                      label: Text(
+                        'Reinvite ${hire['worker_name'] ?? 'worker'}'
+                        ' · ${Credits.amount((hire['rehire_cost'] as num).toInt())}',
+                      ),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: AppColors.primary,
+                        side: const BorderSide(color: AppColors.primary),
+                        padding: const EdgeInsets.symmetric(vertical: 11),
+                        shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(10)),
+                        textStyle: const TextStyle(
+                            fontSize: 14, fontWeight: FontWeight.w600),
+                      ),
+                    ),
+                  ),
+                ],
               ],
             ],
           ),

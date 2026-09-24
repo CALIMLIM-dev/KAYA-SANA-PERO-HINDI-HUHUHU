@@ -843,7 +843,23 @@ class _ApplicationCard extends StatelessWidget {
       // cannot review work that is not finished — so one slot serves both.
       actionIcon: canConfirm ? Icons.check_circle_outline : Icons.star_outline,
       actionIsCompletion: canConfirm,
-      onMessage: !canMessage
+      /*
+          Live work: the thread. Finished work: the employer.
+
+          The conversation is hidden the moment a job completes, so a worker
+          who wants more work from somebody they already did a good job for
+          had nothing to press. Their profile lists the jobs they have open,
+          which is the ordinary way into applying again - and it is the
+          worker's half of the employer's Reinvite, both in History where
+          somebody thinking "that one went well" is already looking.
+      */
+      secondaryLabel: workDone ? 'Ask for work again' : 'Message',
+      secondaryIcon:
+          workDone ? Icons.work_history_outlined : Icons.message_outlined,
+      onMessage: workDone && employer != null
+          ? () => AppRouter.push(context, '/employer-profile',
+                arguments: {'employerId': employer['id']})
+          : !canMessage
           ? null
           : () => AppRouter.push(context,
                 '/chat',
@@ -1098,10 +1114,16 @@ Widget _cardShell({
       act, and the employer side already said so in colour.
   */
   bool actionIsCompletion = false,
-  /// Optional "Message" button, shown once a conversation exists. Sits beside
-  /// the action when both are present rather than stacking, so an accepted and
-  /// completed job does not grow two full-width buttons.
+  /// Optional secondary button. Sits beside the action when both are present
+  /// rather than stacking, so an accepted and completed job does not grow two
+  /// full-width buttons.
+  ///
+  /// It is Message while the work is live. On a finished job the thread is
+  /// gone - that is the point of hiding it - and the slot carries the way
+  /// back to the same employer instead.
   VoidCallback? onMessage,
+  String secondaryLabel = 'Message',
+  IconData secondaryIcon = Icons.message_outlined,
   /// Optional one-line state under the buttons — where the completion or the
   /// mutual review stands. A sentence, because a badge cannot say "waiting
   /// for theirs".
@@ -1252,10 +1274,10 @@ Widget _cardShell({
                     Expanded(
                       child: OutlinedButton.icon(
                         onPressed: onMessage,
-                        icon: const Icon(Icons.message_outlined, size: 16),
-                        label: const FittedBox(
+                        icon: Icon(secondaryIcon, size: 16),
+                        label: FittedBox(
                           fit: BoxFit.scaleDown,
-                          child: Text('Message', maxLines: 1),
+                          child: Text(secondaryLabel, maxLines: 1),
                         ),
                         style: OutlinedButton.styleFrom(
                           foregroundColor: AppColors.primary,
