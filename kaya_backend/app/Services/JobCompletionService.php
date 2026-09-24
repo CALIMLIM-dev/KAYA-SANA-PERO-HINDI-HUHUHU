@@ -147,6 +147,22 @@ class JobCompletionService
 
         $job->update(['status' => 'completed']);
 
+        /*
+            And the thread goes quiet.
+
+            The pair introduced by this job can no longer keep talking in it,
+            which is what stopped the next job being arranged outside KAYA.
+            Hidden from both inboxes, not deleted, and back the moment either
+            of them hires the other again - see the migration.
+
+            Every thread on the job, because a job can have several hires and
+            each has its own.
+        */
+        \App\Models\Conversation::where('job_id', $job->id)
+            ->whereNull('archived_at')
+            ->get()
+            ->each->archive();
+
         // After the write, but still inside the caller's transaction — the
         // listener queue is what actually defers this, and a notification that
         // announced a completion which then rolled back would be worse than a

@@ -6,6 +6,7 @@ import '../../../core/widgets/app_toast.dart';
 import '../../../core/widgets/profile_avatar.dart';
 import '../../../data/services/api_client.dart';
 import '../../../core/navigation/app_router.dart';
+import '../../applications/widgets/completion_action.dart';
 
 /*
     Everyone hired on one job, on one screen.
@@ -282,23 +283,36 @@ class _RosterScreenState extends State<RosterScreen> with RealtimeRefresh {
                                 ),
                               ),
                             ),
-                            const SizedBox(width: 10),
-                            Expanded(
-                              child: ElevatedButton.icon(
-                                onPressed: _busy || _waitingOnMe == 0 ? null : _completeAll,
-                                icon: const Icon(Icons.done_all, size: 18),
-                                label: Text(_waitingOnMe == 0 ? 'All marked' : 'Mark all complete'),
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: AppColors.success,
-                                  foregroundColor: Colors.white,
-                                  elevation: 0,
-                                  padding: const EdgeInsets.symmetric(vertical: 12),
-                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                            // Not before the job's last day. Where the
+                            // button would be, the line below says when it
+                            // arrives. See completionHasOpened.
+                            if (completionHasOpened(_job)) ...[
+                              const SizedBox(width: 10),
+                              Expanded(
+                                child: ElevatedButton.icon(
+                                  onPressed: _busy || _waitingOnMe == 0 ? null : _completeAll,
+                                  icon: const Icon(Icons.done_all, size: 18),
+                                  label: Text(_waitingOnMe == 0 ? 'All marked' : 'Mark all complete'),
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: AppColors.success,
+                                    foregroundColor: Colors.white,
+                                    elevation: 0,
+                                    padding: const EdgeInsets.symmetric(vertical: 12),
+                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                                  ),
                                 ),
                               ),
-                            ),
+                            ],
                           ],
                         ),
+                        if (completionWaitNote(_job) != null) ...[
+                          const SizedBox(height: 10),
+                          Text(
+                            completionWaitNote(_job)!,
+                            style: const TextStyle(
+                                fontSize: 12.5, color: AppColors.neutral600),
+                          ),
+                        ],
                       ],
                     ],
                   ),

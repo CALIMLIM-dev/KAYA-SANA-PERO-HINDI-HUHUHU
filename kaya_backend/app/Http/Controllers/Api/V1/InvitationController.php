@@ -247,6 +247,7 @@ class InvitationController extends Controller
             'job_id' => $job->id,
             'employer_id' => $invitation->employer_id,
             'worker_id' => $user->id,
+            'archived_at' => null,
         ]);
 
         app(\App\Services\ChatEvents::class)->hired($conversation, $job, $job->employer, $user);

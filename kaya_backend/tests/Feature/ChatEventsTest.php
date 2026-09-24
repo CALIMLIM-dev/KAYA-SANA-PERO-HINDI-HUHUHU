@@ -63,18 +63,29 @@ class ChatEventsTest extends TestCase
         $this->assertSame('hired', $rows[0]->payload['event']);
         $this->assertSame('Ana Reyes hired Ben Santos.', $rows[0]->message_text);
 
+        // Past the job's last day, which is when completion opens up.
+        $this->travelTo(now()->addDays(4));
+
         $this->actingAs($worker, 'sanctum')->patchJson("/api/v1/applications/{$application->id}/complete")->assertOk();
+
+        // Typed on the wire, so the app can tell them from typed messages.
+        // Read here rather than after the job finishes, because finishing it
+        // closes the thread.
+        $this->actingAs($worker, 'sanctum')
+            ->getJson("/api/v1/conversations/{$thread->id}/messages")
+            ->assertOk()
+            ->assertJsonPath('data.data.0.type', 'system')
+            ->assertJsonPath('data.data.1.payload.event', 'confirmed')
+            ->assertJsonPath('data.data.1.payload.job_id', $job->id);
+
         $this->actingAs($employer, 'sanctum')->patchJson("/api/v1/applications/{$application->id}/complete")->assertOk();
 
         $events = Message::where('conversation_id', $thread->id)->orderBy('id')->pluck('payload')->map(fn ($p) => $p['event']);
         $this->assertSame(['hired', 'confirmed', 'completed'], $events->all());
 
-        // Typed on the wire, so the app can tell them from typed messages.
+        // And the thread is gone from both sides now the job is done.
         $this->actingAs($worker, 'sanctum')
             ->getJson("/api/v1/conversations/{$thread->id}/messages")
-            ->assertOk()
-            ->assertJsonPath('data.data.0.type', 'system')
-            ->assertJsonPath('data.data.2.payload.event', 'completed')
-            ->assertJsonPath('data.data.2.payload.job_id', $job->id);
+            ->assertStatus(403);
     }
 }

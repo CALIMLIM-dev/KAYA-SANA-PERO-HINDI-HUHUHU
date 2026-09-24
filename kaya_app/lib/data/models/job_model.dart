@@ -150,6 +150,37 @@ class Job {
         .isAfter(DateTime(today.year, today.month, today.day));
   }
 
+  /*
+      Whether the work was due to be finished by now.
+
+      Mark as complete does not exist before this is true, so finishing a job
+      means the work was due to be done rather than somebody tapping a button
+      on the afternoon they were hired. The last day itself counts - work
+      finishes during the day, and neither side should wait for midnight to
+      say so.
+
+      A job with no dates predates scheduling and is not held to a deadline.
+      The server applies the same rule in JobPost::deadlineHasArrived.
+  */
+  bool get completionHasOpened {
+    final last = lastDay;
+    if (last == null) return true;
+
+    final today = DateTime.now();
+
+    return !DateTime(last.year, last.month, last.day)
+        .isAfter(DateTime(today.year, today.month, today.day));
+  }
+
+  /// The line a card carries while Mark as complete is still to come.
+  String? get deadlineNote {
+    final last = lastDay;
+
+    return last == null || completionHasOpened
+        ? null
+        : 'Due ${_short(last)} · mark complete opens that day';
+  }
+
   /// "Starts Aug 20" / "Ends Aug 27" / "Ended Aug 27", or null with no dates.
   String? get phaseLabel {
     final start = startDate, last = lastDay;

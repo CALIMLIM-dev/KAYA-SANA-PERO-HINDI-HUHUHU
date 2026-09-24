@@ -6,7 +6,45 @@ use Illuminate\Database\Eloquent\Model;
 
 class Conversation extends Model
 {
-    protected $fillable = ['job_id', 'employer_id', 'worker_id', 'status', 'pair_low', 'pair_high'];
+    protected $fillable = [
+        'job_id', 'community_post_id', 'employer_id', 'worker_id', 'status',
+        'archived_at', 'pair_low', 'pair_high',
+    ];
+
+    protected $casts = ['archived_at' => 'datetime'];
+
+    /*
+        Out of both inboxes, still on the record.
+
+        Called when the work the thread was for is over. Nothing is deleted -
+        the messages stay readable to an admin handling a report, and the
+        thread returns whole the moment the pair works together again.
+    */
+    public function archive(): void
+    {
+        if ($this->archived_at === null) {
+            $this->forceFill(['archived_at' => now()])->save();
+        }
+    }
+
+    /** Visible again. Every hire and every community reply does this. */
+    public function unarchive(): void
+    {
+        if ($this->archived_at !== null) {
+            $this->forceFill(['archived_at' => null])->save();
+        }
+    }
+
+    public function isArchived(): bool
+    {
+        return $this->archived_at !== null;
+    }
+
+    /** The threads either inbox should draw. */
+    public function scopeVisible($query)
+    {
+        return $query->whereNull('archived_at');
+    }
 
     /**
      * Keeps the pair columns in step with the two people on the row.
@@ -37,6 +75,7 @@ class Conversation extends Model
     }
 
     public function job()      { return $this->belongsTo(JobPost::class, 'job_id'); }
+    public function communityPost() { return $this->belongsTo(CommunityPost::class, 'community_post_id'); }
     public function employer() { return $this->belongsTo(User::class, 'employer_id'); }
     public function worker()   { return $this->belongsTo(User::class, 'worker_id'); }
     public function messages() { return $this->hasMany(Message::class); }

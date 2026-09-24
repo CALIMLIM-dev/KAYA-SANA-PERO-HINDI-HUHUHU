@@ -102,3 +102,55 @@ Future<void> refreshActivity(BuildContext context) async {
     if (appMode.hasEmployerProfile) context.read<JobProvider>().fetchMyJobs(),
   ]);
 }
+
+/*
+    When the work was due to be finished.
+
+    The job's end date, or its start date when it is one day. Read straight
+    out of the job map because the activity lists hold maps rather than Job
+    models; it is the same fact as Job.lastDay and JobPost::deadline.
+
+    Null for a post made before jobs had dates. Those have no deadline and are
+    not held to one.
+*/
+DateTime? jobDeadline(Map<String, dynamic>? job) {
+  final raw = (job?['end_date'] ?? job?['start_date']) as String?;
+  final parsed = raw == null ? null : DateTime.tryParse(raw);
+
+  return parsed == null
+      ? null
+      : DateTime(parsed.year, parsed.month, parsed.day);
+}
+
+/*
+    Whether Mark as complete belongs on screen at all yet.
+
+    It does not exist before the job's last day, so that finishing a job means
+    the work was due to be done rather than somebody tapping a button on the
+    afternoon they were hired. The last day itself counts - work finishes
+    during the day, and neither side should have to wait for midnight to say
+    so - and the server applies the same rule, so a stale screen is refused
+    rather than obeyed.
+*/
+bool completionHasOpened(Map<String, dynamic>? job) {
+  final deadline = jobDeadline(job);
+  if (deadline == null) return true;
+
+  final now = DateTime.now();
+
+  return !deadline.isAfter(DateTime(now.year, now.month, now.day));
+}
+
+/// The line the card carries while the button is still to come.
+String? completionWaitNote(Map<String, dynamic>? job) {
+  final deadline = jobDeadline(job);
+  if (deadline == null || completionHasOpened(job)) return null;
+
+  const months = [
+    'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+    'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+  ];
+
+  return 'Due ${months[deadline.month - 1]} ${deadline.day}'
+      ' · mark complete opens that day';
+}

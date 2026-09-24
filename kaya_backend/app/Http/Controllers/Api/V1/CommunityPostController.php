@@ -250,14 +250,24 @@ class CommunityPostController extends Controller
 
         $conversation = Conversation::firstOrCreate(
             ['pair_low' => min($user->id, $post->user_id), 'pair_high' => max($user->id, $post->user_id)],
-            ['job_id' => null, 'employer_id' => $employerId, 'worker_id' => $workerId, 'status' => 'unlocked'],
+            [
+                'job_id'            => null,
+                'community_post_id' => $post->id,
+                'employer_id'       => $employerId,
+                'worker_id'         => $workerId,
+                'status'            => 'unlocked',
+            ],
         );
 
         // An existing thread keeps its job; only the seats and the lock move.
         $conversation->update([
-            'status'      => 'unlocked',
-            'employer_id' => $employerId,
-            'worker_id'   => $workerId,
+            'status'            => 'unlocked',
+            'community_post_id' => $post->id,
+            'employer_id'       => $employerId,
+            'worker_id'         => $workerId,
+            // The post is live, so the thread is too - including one hidden
+            // when an older job between these two finished.
+            'archived_at'       => null,
         ]);
 
         return $this->ok([

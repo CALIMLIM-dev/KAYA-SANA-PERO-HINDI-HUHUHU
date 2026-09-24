@@ -161,6 +161,9 @@ class CrewTest extends TestCase
         $this->accept($employer, $appA)->assertOk();
         $this->accept($employer, $appB)->assertOk();
 
+        // Completion opens on the job's last day; the fixture runs to day 10.
+        $this->travelTo(now()->addDays(11));
+
         $this->actingAs($employer, 'sanctum')->postJson("/api/v1/jobs/{$job->id}/roster/complete")
             ->assertOk()
             ->assertJsonPath('data.marked', 2);

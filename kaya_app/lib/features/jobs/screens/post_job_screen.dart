@@ -929,8 +929,8 @@ class _PostJobScreenState extends State<PostJobScreen> {
 
               // Schedule
               _buildSection(
-                title: 'Duration',
-                hint: 'Your post stays up from the start date to the end date. The first week is free. Longer costs Barya.',
+                title: 'Schedule',
+                hint: 'Your post stays up from the start date to the deadline. The first week is free. Longer costs Barya.',
                 anchor: _scheduleKey,
                 icon: Icons.event_outlined,
                 children: [_buildScheduleFields()],
@@ -940,7 +940,7 @@ class _PostJobScreenState extends State<PostJobScreen> {
               // How many people
               _buildSection(
                 title: 'Workers needed',
-                hint: 'The post stays open until this many are hired. Up to ten.',
+                hint: 'The post stays open until this many are hired. Up to twenty.',
                 icon: Icons.group_outlined,
                 children: [_buildWorkersNeeded()],
               ),
@@ -1034,6 +1034,15 @@ class _PostJobScreenState extends State<PostJobScreen> {
             that now cannot disagree because there is only one piece of it.
         */
         /*
+            The deadline, beside the day it starts.
+
+            Called a deadline rather than an end date because that is the
+            work it now does: it is the day the job is due to be finished,
+            and Mark as complete does not appear until it arrives. "End
+            date" read as a formality when it is the one date the completion
+            of the job hangs on.
+        */
+        /*
             The day it ends, beside the day it starts.
 
             This briefly offered "one day / a week / a month" and worked
@@ -1048,7 +1057,7 @@ class _PostJobScreenState extends State<PostJobScreen> {
         */
         const SizedBox(height: 12),
         _buildDateField(
-          label: 'End date',
+          label: 'Deadline *',
           value: _endDate,
           hint: 'Pick a day',
           onTap: _startDate == null ? null : _pickEndDate,
@@ -1059,10 +1068,15 @@ class _PostJobScreenState extends State<PostJobScreen> {
         if (_showScheduleError && _endDate == null) ...[
           const SizedBox(height: 6),
           const Text(
-            'Please choose an end date.',
+            'Please choose a deadline.',
             style: TextStyle(fontSize: 12, color: AppColors.error),
           ),
         ],
+        const SizedBox(height: 6),
+        const Text(
+          'The day the work must be finished. Mark as complete opens that day.',
+          style: TextStyle(fontSize: 12, color: AppColors.textSecondary),
+        ),
 
         /*
             What the worker will actually see.

@@ -358,7 +358,17 @@ class _ViewApplicantsScreenState extends State<ViewApplicantsScreen>
     final iConfirmed = applicant['employer_completed_at'] != null;
     final theyConfirmed = applicant['worker_completed_at'] != null;
 
-    final canConfirm = status == 'accepted' && !iConfirmed;
+    /*
+        Not before the work was due to finish.
+
+        The same rule as the activity lists and the server: no Mark complete
+        until the job's last day, and a line saying when it opens instead.
+    */
+    final job = context.watch<JobProvider>().selectedJob;
+    final dueNote = job?.deadlineNote;
+
+    final canConfirm = status == 'accepted' && !iConfirmed
+        && (job?.completionHasOpened ?? true);
 
     final String? reviewNote = !workDone && status != 'accepted'
         ? null
@@ -367,7 +377,7 @@ class _ViewApplicantsScreenState extends State<ViewApplicantsScreen>
                 ? 'Waiting for $name to confirm'
                 : theyConfirmed
                     ? '$name marked this done — confirm to finish it'
-                    : null)
+                    : dueNote)
             : iReviewedThem && theyReviewedMe
                 ? 'You both reviewed each other'
                 : iReviewedThem

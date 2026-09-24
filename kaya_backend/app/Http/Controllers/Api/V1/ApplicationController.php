@@ -115,6 +115,7 @@ class ApplicationController extends Controller
                 'job_id'      => $job->id,
                 'employer_id' => $job->employer_id,
                 'worker_id'   => $user->id,
+                'archived_at' => null,
             ]);
 
             app(\App\Services\ChatEvents::class)->hired($conversation, $job, $job->employer, $user);
@@ -493,6 +494,11 @@ class ApplicationController extends Controller
             return $this->fail('Only an accepted hire can be marked complete', 422);
         }
 
+        // Not before the work was due to finish. See JobPost::deadline.
+        if ($application->job && $why = $application->job->completionRefusal()) {
+            return $this->fail($why, 422);
+        }
+
         $application = $service->confirm($application, $side);
         $recorded = $service->lastConfirmationWasNew;
 
@@ -600,6 +606,9 @@ class ApplicationController extends Controller
             'job_id' => $job->id,
             'employer_id' => $user->id,
             'worker_id' => $application->worker_id,
+            // A thread hidden when their last job finished comes back here,
+            // with its history. This is the rehire half of that rule.
+            'archived_at' => null,
         ]);
 
         ApplicationAccepted::dispatch($application->load(['job', 'worker']));

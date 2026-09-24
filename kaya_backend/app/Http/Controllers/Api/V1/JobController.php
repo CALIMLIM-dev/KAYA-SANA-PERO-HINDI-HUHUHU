@@ -312,8 +312,8 @@ class JobController extends Controller
             'location_id.required' => 'Please pick the job location from the suggestions.',
             'start_date.required' => 'Please choose when the work starts.',
             'start_date.after_or_equal' => 'The start date cannot be in the past.',
-            'end_date.after_or_equal' => 'The job cannot end before it starts.',
-            'end_date.required' => 'Please choose an end date.',
+            'end_date.after_or_equal' => 'The deadline cannot be before the start date.',
+            'end_date.required' => 'Please choose a deadline.',
         ]);
 
         /*
@@ -748,7 +748,7 @@ class JobController extends Controller
             'workers_needed'     => ['nullable', 'integer', 'min:1', 'max:20'],
         ], [
             'budget_max.gte' => 'The maximum budget must be greater than or equal to the minimum budget.',
-            'end_date.after_or_equal' => 'The job cannot end before it starts.',
+            'end_date.after_or_equal' => 'The deadline cannot be before the start date.',
         ]);
 
         $skillIds = $data['required_skill_ids'] ?? null;
@@ -826,6 +826,11 @@ class JobController extends Controller
             fires exactly once.
         */
         if (! $wasCompleted && $request->status === 'completed') {
+            // Not before the work was due to finish. See JobPost::deadline.
+            if ($why = $job->completionRefusal()) {
+                return $this->fail($why, 422);
+            }
+
             $service = app(\App\Services\JobCompletionService::class);
 
             $hires = Application::where('job_id', $job->id)

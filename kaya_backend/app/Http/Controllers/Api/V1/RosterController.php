@@ -95,6 +95,11 @@ class RosterController extends Controller
         $user = $request->user();
         if ($job->employer_id !== $user->id) return $this->fail('Forbidden', 403);
 
+        // Not before the work was due to finish. See JobPost::deadline.
+        if ($why = $job->completionRefusal()) {
+            return $this->fail($why, 422);
+        }
+
         $open = $job->hires()->where('status', 'accepted')->get();
 
         if ($open->isEmpty()) {
@@ -123,6 +128,10 @@ class RosterController extends Controller
     {
         $user = $request->user();
         if ($job->employer_id !== $user->id) return $this->fail('Forbidden', 403);
+
+        if (in_array($job->status, ['completed', 'closed'], true)) {
+            return $this->fail('This job is finished. The threads on it are closed.', 422);
+        }
 
         $data = $request->validate(['message_text' => ['required', 'string', 'max:2000']]);
         $text = trim($data['message_text']);

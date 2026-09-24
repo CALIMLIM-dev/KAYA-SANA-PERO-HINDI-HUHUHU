@@ -59,6 +59,52 @@ class JobPost extends Model
         return $this->status === self::STATUS_OPEN && ! $this->hasExpired();
     }
 
+    /*
+        The day the work is due to be finished.
+
+        The schedule says when the work runs, and the last day of it is the
+        deadline - end_date for a job that runs over several days, the start
+        date for a job that is one day. There is no separate column because
+        there is no separate fact, and a second date that always equalled the
+        first would only be something to keep in step.
+
+        Null for posts made before the schedule existed. Those have no
+        deadline and are not held to one.
+    */
+    public function deadline(): ?\Illuminate\Support\Carbon
+    {
+        $last = $this->end_date ?? $this->start_date;
+
+        return $last ? $last->copy()->startOfDay() : null;
+    }
+
+    /*
+        Whether the job may be marked complete yet.
+
+        Completion is not available until the deadline day arrives, so that
+        'done' means the work was actually due to be done. The day it arrives
+        counts - a one-day job booked for today is completable today, not at
+        midnight tonight, because the work finishes during the day and the two
+        of them should not have to wait until tomorrow to say so.
+    */
+    public function deadlineHasArrived(): bool
+    {
+        $deadline = $this->deadline();
+
+        return $deadline === null || ! $deadline->isFuture();
+    }
+
+    /** Why completion is refused, or null when it is allowed. */
+    public function completionRefusal(): ?string
+    {
+        if ($this->deadlineHasArrived()) {
+            return null;
+        }
+
+        return 'This job runs until ' . $this->deadline()->format('j M Y')
+            . '. It can be marked complete from that day.';
+    }
+
     /** The exact place. Released to a party to the work, nobody else. */
     public const PRECISE_LOCATION = ['address_line', 'latitude', 'longitude'];
 

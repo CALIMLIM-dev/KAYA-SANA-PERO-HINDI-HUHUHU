@@ -29,6 +29,8 @@ class ConversationController extends Controller
         $user = $request->user();
 
         $conversations = Conversation::where('status', 'unlocked')
+            // Threads whose job is finished are out of both inboxes.
+            ->visible()
             ->where(fn ($q) => $q->where('employer_id', $user->id)->orWhere('worker_id', $user->id))
             // job.status drives whether the chat can offer location sharing —
             // it is only available on a hire in progress.
@@ -124,6 +126,12 @@ class ConversationController extends Controller
             return $this->fail('You do not have permission to view this conversation', 403);
         }
 
+        // Hidden because the work it was for is over. Not deleted - it comes
+        // back whole if these two work together again. See the migration.
+        if ($conversation->isArchived()) {
+            return $this->fail('This conversation closed when the job finished.', 403);
+        }
+
         /*
             Incremental fetch, for polling.
 
@@ -174,6 +182,12 @@ class ConversationController extends Controller
             return $this->fail('You do not have permission to send messages in this conversation', 403);
         }
 
+        // Hidden because the work it was for is over. Not deleted - it comes
+        // back whole if these two work together again. See the migration.
+        if ($conversation->isArchived()) {
+            return $this->fail('This conversation closed when the job finished.', 403);
+        }
+
         if ($conversation->status === 'locked') {
             return $this->fail('Messaging unlocks once the application is accepted', 403);
         }
@@ -221,6 +235,12 @@ class ConversationController extends Controller
 
         if ($conversation->employer_id !== $user->id && $conversation->worker_id !== $user->id) {
             return $this->fail('You are not part of this conversation', 403);
+        }
+
+        // Hidden because the work it was for is over. Not deleted - it comes
+        // back whole if these two work together again. See the migration.
+        if ($conversation->isArchived()) {
+            return $this->fail('This conversation closed when the job finished.', 403);
         }
 
         if ($conversation->status === 'locked') {

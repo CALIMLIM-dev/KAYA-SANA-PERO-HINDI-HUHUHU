@@ -756,7 +756,16 @@ class _ApplicationCard extends StatelessWidget {
     final isHired = status == 'accepted' || status == 'completed';
     final workDone = status == 'completed';
 
-    final canConfirm = isHired && !workDone && !iConfirmed;
+    /*
+        Not before the work was due to finish.
+
+        Mark as complete does not exist until the job's last day. Where it
+        would have been, the card says when it opens. See completionHasOpened.
+    */
+    final dueNote = completionWaitNote(job);
+
+    final canConfirm =
+        isHired && !workDone && !iConfirmed && completionHasOpened(job);
 
     /*
         Dual review, from the worker's side.
@@ -784,7 +793,7 @@ class _ApplicationCard extends StatelessWidget {
                 ? 'Marked done · waiting for the employer to confirm'
                 : theyConfirmed
                     ? 'The employer marked this done — confirm to finish it'
-                    : null)
+                    : dueNote)
             : iReviewed && theyReviewed
                 ? 'You both reviewed each other'
                 : iReviewed
@@ -943,7 +952,17 @@ class _JobPostCard extends StatelessWidget {
     final workerName = (hire?['worker_name'] ?? 'the worker').toString();
 
     final workDone = hire?['status'] == 'completed';
-    final canConfirm = hire != null && !workDone && !iConfirmed;
+
+    /*
+        Not before the work was due to finish.
+
+        Mark as complete does not exist until the job's last day. Where it
+        would have been, the card says when it opens. See completionHasOpened.
+    */
+    final dueNote = completionWaitNote(job);
+
+    final canConfirm =
+        hire != null && !workDone && !iConfirmed && completionHasOpened(job);
     final canReview = hire != null && workDone && hire['i_reviewed_them'] != true;
 
     final String? note = hire == null
@@ -953,7 +972,7 @@ class _JobPostCard extends StatelessWidget {
                 ? 'Marked done · waiting for $workerName to confirm'
                 : theyConfirmed
                     ? '$workerName marked this done — confirm to finish it'
-                    : null)
+                    : dueNote)
             : hire['i_reviewed_them'] == true
                 ? 'You reviewed $workerName'
                 : null;
