@@ -1062,12 +1062,9 @@ class WorkerProfileController extends Controller
         }
 
         if (!empty($data['q'])) {
-            $term = $data['q'];
-            $query->where(function ($q) use ($term) {
-                $q->whereHas('user', fn ($u) => $u->where('name', 'like', "%{$term}%"))
-                    ->orWhereHas('skills', fn ($s) => $s->where('skill_name', 'like', "%{$term}%"))
-                    ->orWhereHas('category', fn ($c) => $c->where('name', 'like', "%{$term}%"));
-            });
+            // Word by word and forgiving of a misspelling, the same way the
+            // job feed searches. See TextSearch.
+            app(\App\Services\TextSearch::class)->workers($query, (string) $data['q']);
         }
 
         // Rate is a column, so it filters in the database rather than after.

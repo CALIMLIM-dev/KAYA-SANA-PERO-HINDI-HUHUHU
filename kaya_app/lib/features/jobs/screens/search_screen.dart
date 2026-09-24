@@ -15,6 +15,7 @@ import '../../../providers/worker_profile_provider.dart';
 import '../widgets/job_list_card.dart';
 import '../widgets/worker_card.dart';
 import '../../../core/navigation/app_router.dart';
+import '../../../providers/auth_provider.dart';
 
 /// Search Screen — Jobs and Workers, backed by GET /jobs and GET /workers.
 ///
@@ -129,6 +130,24 @@ class _SearchScreenState extends State<SearchScreen> {
         _searchType = 'Workers';
       } else if (widget.initialType == 'Jobs' && appMode.hasWorkerProfile) {
         _searchType = 'Jobs';
+      }
+
+      /*
+          The account's own town, without being asked for it.
+
+          Place was an empty filter every time the screen opened, so
+          finding work nearby meant picking the same town by hand on
+          every visit. The account already carries one; the city is used
+          rather than the barangay, since a job two streets away is
+          usually filed under the city. Still removable from the chip.
+      */
+      final stored = context.read<AuthProvider>().user?['known_location']
+          as Map<String, dynamic>?;
+      final known = (stored?['city'] as Map<String, dynamic>?) ?? stored;
+
+      if (_placeId == null && known != null && known['location_id'] != null) {
+        _placeId = (known['location_id'] as num).toInt();
+        _placeLabel = (known['label'] ?? '').toString();
       }
 
       context.read<WorkerProfileProvider>().fetchCategories();

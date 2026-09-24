@@ -47,6 +47,11 @@ class ApplicationController extends Controller
             return $this->fail('You have already applied to this job', 422);
         }
 
+        // Too far to be worth the fare. See WorkingDistance.
+        if ($why = app(\App\Services\WorkingDistance::class)->refusalFor($job, $user, 'worker')) {
+            return $this->fail($why, 422);
+        }
+
         /*
             An invited worker does not pay to apply.
 
@@ -522,6 +527,12 @@ class ApplicationController extends Controller
 
         if ($job->employer_id !== $user->id) return $this->fail('Forbidden', 403);
         if ($application->status !== 'pending') return $this->fail('Application status must be pending to accept', 422);
+
+        // Too far to be worth the fare. See WorkingDistance.
+        if ($why = app(\App\Services\WorkingDistance::class)
+            ->refusalFor($job, $application->worker, 'employer')) {
+            return $this->fail($why, 422);
+        }
 
         // A job for three people takes three. The fourth is told the spots
         // are full rather than quietly becoming a fourth hire.

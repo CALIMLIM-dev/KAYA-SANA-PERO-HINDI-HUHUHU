@@ -42,6 +42,11 @@ class InvitationController extends Controller
         if (!$worker->isWorker()) return $this->fail('User is not a worker', 422);
         if ($worker->is_suspended) return $this->fail('Worker account is suspended', 422);
 
+        // Too far to be worth the fare. See WorkingDistance.
+        if ($why = app(\App\Services\WorkingDistance::class)->refusalFor($job, $worker, 'employer')) {
+            return $this->fail($why, 422);
+        }
+
         /*
             Matched against the whole key, not a subset of statuses.
 

@@ -46,11 +46,30 @@ class RoutingService
     /** After a failure, wait before trying again rather than hammering. */
     private const FAILURE_CACHE_SECONDS = 60;
 
+    /*
+        Past this, a route is not worth drawing.
+
+        Work is limited to WorkingDistance::LIMIT_KM anyway, so a request
+        for a route far beyond it is a bad coordinate rather than a trip
+        anybody is making. The demo router answers those slowly or with a
+        shape that wanders, which is the route highlight going wrong on
+        screen. Refused here instead, and the map falls back to the plain
+        straight line.
+    */
+    private const MAX_ROUTE_KM = 40.0;
+
     /**
      * @return array{geometry: list<array{0: float, 1: float}>, distance_km: float, duration_min: int, provider: string}|null
      */
     public function route(float $fromLat, float $fromLng, float $toLat, float $toLng): ?array
     {
+        // Absurdly far apart: a bad coordinate, not a journey. See
+        // MAX_ROUTE_KM.
+        if (\App\Services\JobMatchService::distanceBetween($fromLat, $fromLng, $toLat, $toLng)
+            > self::MAX_ROUTE_KM) {
+            return null;
+        }
+
         /*
             Rounded to three decimals — about 110 metres.
 

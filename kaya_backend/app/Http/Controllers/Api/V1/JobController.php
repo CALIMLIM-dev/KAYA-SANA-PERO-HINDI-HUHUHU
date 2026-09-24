@@ -54,10 +54,9 @@ class JobController extends Controller
         }
 
         if ($search = $request->get('search')) {
-            $query->where(function ($q) use ($search) {
-                $q->where('title', 'like', "%{$search}%")
-                  ->orWhere('description', 'like', "%{$search}%");
-            });
+            // Word by word, across the title, description, category and
+            // skills, and forgiving of a misspelling. See TextSearch.
+            app(\App\Services\TextSearch::class)->jobs($query, (string) $search);
         }
 
         if ($categoryId = $request->get('category_id')) {
