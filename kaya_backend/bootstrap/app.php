@@ -27,6 +27,8 @@ return Application::configure(basePath: dirname(__DIR__))
 
         $middleware->alias([
             'admin.web'      => \App\Http\Middleware\EnsureUserIsAdminWeb::class,
+            // One ability, named on the route. See App\Enums\AdminRole.
+            'admin.can'      => \App\Http\Middleware\EnsureAdminCan::class,
             'not.suspended'  => \App\Http\Middleware\EnsureNotSuspended::class,
             'verified'       => \App\Http\Middleware\EnsureVerified::class,
             'not.company'    => \App\Http\Middleware\EnsureNotCompanyEmployer::class,

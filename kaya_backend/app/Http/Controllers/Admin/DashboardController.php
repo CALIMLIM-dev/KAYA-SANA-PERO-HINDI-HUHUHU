@@ -24,7 +24,7 @@ use Illuminate\Support\Carbon;
 */
 class DashboardController extends Controller
 {
-    public function index()
+    public function index(\Illuminate\Http\Request $request)
     {
         $today = Carbon::today();
         $yesterday = Carbon::yesterday();
@@ -38,34 +38,46 @@ class DashboardController extends Controller
             'revenue'      => $this->pair(fn ($from, $to) => (int) CreditPayment::where('status', CreditPayment::STATUS_PAID)->whereBetween('paid_at', [$from, $to])->sum('amount_centavos'), $today, $yesterday),
         ];
 
-        // Queues. Each one is a link to the page that clears it.
+        // Queues. Each one is a link to the page that clears it, and each
+        // carries the ability that page needs - a card an analyst can only
+        // bounce off is not information, it is a dead end.
         $queues = [
             [
+                'can'   => \App\Enums\AdminRole::MODERATE,
                 'label' => 'Verifications waiting',
                 'count' => Verification::where('status', 'pending')->count(),
                 'route' => route('admin.verifications.index'),
             ],
             [
+                'can'   => \App\Enums\AdminRole::MODERATE,
                 'label' => 'Reports waiting',
                 'count' => Report::where('status', 'pending')->count(),
                 'route' => route('admin.reports.index'),
             ],
             [
+                'can'   => \App\Enums\AdminRole::MODERATE,
                 'label' => 'Community posts waiting',
                 'count' => \App\Models\CommunityPost::where('status', \App\Models\CommunityPost::STATUS_PENDING)->count(),
                 'route' => route('admin.community.index'),
             ],
             [
+                'can'   => \App\Enums\AdminRole::MODERATE,
                 'label' => 'TINs not checked',
                 'count' => EmployerProfile::whereNotNull('tin')->whereNull('tin_verified_at')->count(),
                 'route' => route('admin.verifications.index', ['status' => 'pending']),
             ],
             [
+                'can'   => \App\Enums\AdminRole::MODERATE,
                 'label' => 'Posts ending in 3 days',
                 'count' => JobPost::where('status', 'open')->whereBetween('expires_at', [now(), now()->addDays(3)])->count(),
                 'route' => route('admin.jobs.index', ['status' => 'open']),
             ],
         ];
+
+        $queues = array_values(array_filter(
+            $queues,
+            fn ($queue) => $request->user()->adminCan($queue['can']),
+        ));
 
         $stats = [
             'total_users'     => User::where('user_type', '!=', 'admin')->count(),

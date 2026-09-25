@@ -352,6 +352,23 @@ class User extends Authenticatable
      */
     public function isAdmin(): bool { return $this->user_type === 'admin'; }
 
+    /*
+        Which kind of administrator, and what that kind may do.
+
+        Only meaningful on an account whose user_type is 'admin'. Null means
+        an account that predates the column, which keeps every key it had -
+        see the migration and App\Enums\AdminRole.
+    */
+    public function adminRole(): \App\Enums\AdminRole
+    {
+        return \App\Enums\AdminRole::fromUser($this->admin_role);
+    }
+
+    public function adminCan(string $ability): bool
+    {
+        return $this->isAdmin() && $this->adminRole()->can($ability);
+    }
+
     /**
      * Worker/Employer are driven by profile existence, NOT user_type.
      *

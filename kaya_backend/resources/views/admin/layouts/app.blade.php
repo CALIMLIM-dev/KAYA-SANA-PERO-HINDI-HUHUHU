@@ -32,31 +32,48 @@
             @php
                 $groups = [
                     'Overview' => [
-                        ['route' => 'admin.dashboard',           'label' => 'Dashboard',           'icon' => 'layout-dashboard'],
-                        ['route' => 'admin.analytics.index',     'label' => 'Analytics',           'icon' => 'bar-chart-3'],
+                        ['route' => 'admin.dashboard',           'label' => 'Dashboard',           'icon' => 'layout-dashboard', 'can' => 'analytics'],
+                        ['route' => 'admin.analytics.index',     'label' => 'Analytics',           'icon' => 'bar-chart-3',      'can' => 'analytics'],
                     ],
                     'Accounts' => [
-                        ['route' => 'admin.users.index',         'label' => 'Users',               'icon' => 'users'],
-                        ['route' => 'admin.verifications.index', 'label' => 'Verifications',       'icon' => 'badge-check', 'queue' => 'verifications'],
-                        ['route' => 'admin.reports.index',       'label' => 'Reports',             'icon' => 'flag',        'queue' => 'reports'],
-                        ['route' => 'admin.reviews.index',       'label' => 'Reviews',             'icon' => 'star'],
+                        ['route' => 'admin.users.index',         'label' => 'Users',               'icon' => 'users',       'can' => 'users'],
+                        ['route' => 'admin.verifications.index', 'label' => 'Verifications',       'icon' => 'badge-check', 'can' => 'moderate', 'queue' => 'verifications'],
+                        ['route' => 'admin.reports.index',       'label' => 'Reports',             'icon' => 'flag',        'can' => 'moderate', 'queue' => 'reports'],
+                        ['route' => 'admin.reviews.index',       'label' => 'Reviews',             'icon' => 'star',        'can' => 'moderate'],
                     ],
                     'Postings' => [
-                        ['route' => 'admin.jobs.index',          'label' => 'Jobs',                'icon' => 'briefcase'],
-                        ['route' => 'admin.community.index',     'label' => 'Community',           'icon' => 'message-square', 'queue' => 'community'],
-                        ['route' => 'admin.categories.index',    'label' => 'Categories & Skills', 'icon' => 'tags'],
+                        ['route' => 'admin.jobs.index',          'label' => 'Jobs',                'icon' => 'briefcase',      'can' => 'moderate'],
+                        ['route' => 'admin.community.index',     'label' => 'Community',           'icon' => 'message-square', 'can' => 'moderate', 'queue' => 'community'],
+                        ['route' => 'admin.categories.index',    'label' => 'Categories & Skills', 'icon' => 'tags',           'can' => 'settings'],
                     ],
                     'Finance' => [
-                        ['route' => 'admin.credits.index',       'label' => 'Barya',               'icon' => 'coins'],
+                        ['route' => 'admin.credits.index',       'label' => 'Barya',               'icon' => 'coins', 'can' => 'finance'],
                     ],
                     'Communication' => [
-                        ['route' => 'admin.announcements.index', 'label' => 'Announcements',       'icon' => 'megaphone'],
+                        ['route' => 'admin.announcements.index', 'label' => 'Announcements',       'icon' => 'megaphone', 'can' => 'settings'],
                     ],
                     'System' => [
-                        ['route' => 'admin.audit.index',         'label' => 'Audit Log',           'icon' => 'scroll-text'],
-                        ['route' => 'admin.settings.index',      'label' => 'Settings',            'icon' => 'settings'],
+                        ['route' => 'admin.admins.index',        'label' => 'Administrators',      'icon' => 'shield',       'can' => 'settings'],
+                        ['route' => 'admin.audit.index',         'label' => 'Audit Log',           'icon' => 'scroll-text',  'can' => 'settings'],
+                        ['route' => 'admin.settings.index',      'label' => 'Settings',            'icon' => 'settings',     'can' => 'settings'],
                     ],
                 ];
+
+                /*
+                    Only the links this account can actually open.
+
+                    Hiding a link is decoration - the rule lives on the routes,
+                    in EnsureAdminCan - but a panel that shows a moderator six
+                    pages that bounce them is worse than one that shows three
+                    that work. A heading with nothing left under it goes too.
+                */
+                $groups = array_filter(array_map(
+                    fn ($links) => array_values(array_filter(
+                        $links,
+                        fn ($link) => auth()->user()?->adminCan($link['can']) ?? false,
+                    )),
+                    $groups,
+                ));
             @endphp
 
             @foreach ($groups as $heading => $links)

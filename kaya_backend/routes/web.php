@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Admin\AdminAuthController;
+use App\Http\Controllers\Admin\AdminTeamController;
 use App\Http\Controllers\Admin\AnnouncementController;
 use App\Http\Controllers\Admin\PulseController;
 use App\Http\Controllers\Admin\AuditController;
@@ -47,6 +48,12 @@ Route::prefix('admin')->name('admin.')->group(function () {
         Route::get('/dashboard', [DashboardController::class, 'index']);
         Route::get('/pulse', [PulseController::class, 'index'])->name('pulse');
 
+        /*
+            Each block is gated on the ability it needs, on the route rather
+            than inside the controller - a page added to a group is covered by
+            the line that registers it. See App\Enums\AdminRole.
+        */
+        Route::middleware('admin.can:users')->group(function () {
         Route::get('/users', [UserManagementController::class, 'index'])->name('users.index');
         Route::get('/users/{user}', [UserManagementController::class, 'show'])->name('users.show');
         // Certificate and licence scans, streamed rather than linked - see the
@@ -57,7 +64,9 @@ Route::prefix('admin')->name('admin.')->group(function () {
             ->name('users.document');
         Route::post('/users/{user}/suspend', [UserManagementController::class, 'suspend'])->name('users.suspend');
         Route::post('/users/{user}/activate', [UserManagementController::class, 'activate'])->name('users.activate');
+        });
 
+        Route::middleware('admin.can:moderate')->group(function () {
         Route::get('/verifications', [VerificationController::class, 'index'])->name('verifications.index');
         Route::get('/verifications/{verification}', [VerificationController::class, 'show'])->name('verifications.show');
         // Government IDs moved to private storage, so the panel can no longer
@@ -67,6 +76,7 @@ Route::prefix('admin')->name('admin.')->group(function () {
             ->name('verifications.document');
         Route::post('/verifications/{verification}/approve', [VerificationController::class, 'approve'])->name('verifications.approve');
         Route::post('/verifications/{verification}/reject', [VerificationController::class, 'reject'])->name('verifications.reject');
+        });
 
         Route::get("/analytics", [AnalyticsController::class, "index"])->name("analytics.index");
 
@@ -85,6 +95,7 @@ Route::prefix('admin')->name('admin.')->group(function () {
             Route::get('/categories', [ReportExportController::class, 'categories'])->name('categories');
         });
 
+        Route::middleware('admin.can:moderate')->group(function () {
         Route::get('/reports', [ReportController::class, 'index'])->name('reports.index');
         Route::get('/reports/{report}', [ReportController::class, 'show'])->name('reports.show');
         Route::post('/reports/{report}/resolve', [ReportController::class, 'resolve'])->name('reports.resolve');
@@ -95,10 +106,14 @@ Route::prefix('admin')->name('admin.')->group(function () {
         Route::get('/jobs', [AdminJobController::class, 'index'])->name('jobs.index');
         Route::get('/jobs/{job}', [AdminJobController::class, 'show'])->name('jobs.show');
         Route::post('/jobs/{job}/close', [AdminJobController::class, 'close'])->name('jobs.close');
+        });
 
-        Route::get('/credits', [AdminCreditController::class, 'index'])->name('credits.index');
-        Route::post('/credits/adjust', [AdminCreditController::class, 'adjust'])->name('credits.adjust');
+        Route::middleware('admin.can:finance')->group(function () {
+            Route::get('/credits', [AdminCreditController::class, 'index'])->name('credits.index');
+            Route::post('/credits/adjust', [AdminCreditController::class, 'adjust'])->name('credits.adjust');
+        });
 
+        Route::middleware('admin.can:settings')->group(function () {
         Route::get('/categories', [AdminCategoryController::class, 'index'])->name('categories.index');
         Route::post('/categories', [AdminCategoryController::class, 'store'])->name('categories.store');
         Route::post('/categories/{category}', [AdminCategoryController::class, 'update'])->name('categories.update');
@@ -107,7 +122,9 @@ Route::prefix('admin')->name('admin.')->group(function () {
         Route::post('/categories/{category}/skills', [AdminCategoryController::class, 'storeSkill'])->name('categories.skills.store');
         Route::post('/skills/{skill}', [AdminCategoryController::class, 'updateSkill'])->name('skills.update');
         Route::post('/skills/{skill}/delete', [AdminCategoryController::class, 'destroySkill'])->name('skills.destroy');
+        });
 
+        Route::middleware('admin.can:moderate')->group(function () {
         Route::get('/community', [AdminCommunityController::class, 'index'])->name('community.index');
         Route::post('/community/{post}/remove', [AdminCommunityController::class, 'remove'])->name('community.remove');
         Route::post('/community/{post}/approve', [AdminCommunityController::class, 'approve'])->name('community.approve');
@@ -117,14 +134,21 @@ Route::prefix('admin')->name('admin.')->group(function () {
         Route::get('/reviews', [AdminReviewController::class, 'index'])->name('reviews.index');
         Route::post('/reviews/{id}/hide', [AdminReviewController::class, 'hide'])->whereNumber('id')->name('reviews.hide');
         Route::post('/reviews/{id}/restore', [AdminReviewController::class, 'restore'])->whereNumber('id')->name('reviews.restore');
+        });
 
-        Route::get('/announcements', [AnnouncementController::class, 'index'])->name('announcements.index');
-        Route::post('/announcements', [AnnouncementController::class, 'send'])->name('announcements.send');
+        Route::middleware('admin.can:settings')->group(function () {
+            Route::get('/announcements', [AnnouncementController::class, 'index'])->name('announcements.index');
+            Route::post('/announcements', [AnnouncementController::class, 'send'])->name('announcements.send');
 
-        Route::get('/audit', [AuditController::class, 'index'])->name('audit.index');
+            Route::get('/audit', [AuditController::class, 'index'])->name('audit.index');
 
-        Route::get('/settings', [SettingsController::class, 'index'])->name('settings.index');
-        Route::post('/settings', [SettingsController::class, 'update'])->name('settings.update');
+            Route::get('/settings', [SettingsController::class, 'index'])->name('settings.index');
+            Route::post('/settings', [SettingsController::class, 'update'])->name('settings.update');
+
+            // Who the administrators are, and what each of them may do.
+            Route::get('/admins', [AdminTeamController::class, 'index'])->name('admins.index');
+            Route::post('/admins/{user}/role', [AdminTeamController::class, 'setRole'])->name('admins.role');
+        });
     });
 });
 
