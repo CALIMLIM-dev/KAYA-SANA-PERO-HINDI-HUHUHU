@@ -341,11 +341,29 @@ class BadgeService
             'progress'    => $months >= 12 ? 'A year and counting' : "{$months} months so far",
         ];
 
-        return array_map(function (array $row) use ($earned) {
+        /*
+            What each badge pays, and whether this account has been paid.
+
+            The reward is why the list is worth opening at all: a catalogue of
+            labels is a list of things you cannot spend. Read from config so
+            the screen and the ledger take the same number, and the receipt is
+            read here rather than inferred from 'earned' - a badge lost and
+            earned again is still paid for. See BadgeRewardService.
+        */
+        $rewards = (array) config('kaya.credits.badge_rewards');
+
+        $paid = \App\Models\BadgeReward::where('user_id', $user->id)
+            ->where('side', $side)
+            ->pluck('code')
+            ->flip();
+
+        return array_map(function (array $row) use ($earned, $rewards, $paid) {
             $row['earned'] = $earned->has($row['code']);
             // The evidence line from the award itself, when there is one -
             // "4.8 average across 6 reviews" beats repeating the rule back.
             $row['description'] = $earned[$row['code']]['description'] ?? null;
+            $row['reward'] = (int) ($rewards[$row['code']] ?? 0);
+            $row['reward_paid'] = $paid->has($row['code']);
 
             return $row;
         }, $rows);

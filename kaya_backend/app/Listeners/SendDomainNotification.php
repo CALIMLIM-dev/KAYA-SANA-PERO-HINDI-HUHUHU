@@ -66,5 +66,27 @@ class SendDomainNotification
     public function onJobCompleted(JobCompleted $event): void
     {
         $this->notifications->jobCompleted($event->job);
+
+        /*
+            A finished job is the commonest way a badge is earned, on both
+            sides at once: the worker's first job and the employer's first
+            hire are the same event seen from two ends.
+
+            Settled here rather than on a read of the profile, so the Barya
+            arrives when the thing happened instead of the next time somebody
+            opens a screen. Paying twice is impossible whatever calls this -
+            see BadgeRewardService.
+        */
+        $rewards = app(\App\Services\BadgeRewardService::class);
+
+        if ($event->job->employer) {
+            $rewards->settle($event->job->employer);
+        }
+
+        \App\Models\Application::where('job_id', $event->job->id)
+            ->where('status', 'completed')
+            ->with('worker')
+            ->get()
+            ->each(fn ($hire) => $hire->worker && $rewards->settle($hire->worker));
     }
 }

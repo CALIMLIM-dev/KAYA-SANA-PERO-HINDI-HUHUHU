@@ -36,6 +36,15 @@ class CreditTransaction extends Model
     public const REASON_REFUND = 'refund';
     public const REASON_ADMIN_ADJUSTMENT = 'admin_adjustment';
 
+    /*
+        Earning a badge pays Barya, once.
+
+        Its own reason rather than a grant, so the history screen can say
+        what the line was for and the admin revenue view does not read a
+        reward as a monthly top-up. See BadgeRewardService.
+    */
+    public const REASON_BADGE_REWARD = 'badge_reward';
+
     protected $fillable = [
         'user_id', 'delta', 'balance_after', 'reason',
         'reference_type', 'reference_id', 'refunds_transaction_id',

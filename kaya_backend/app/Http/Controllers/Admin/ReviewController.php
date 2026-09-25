@@ -25,11 +25,24 @@ class ReviewController extends Controller
         $search = trim((string) $request->get('search'));
         $rating = $request->integer('rating');
 
+        /*
+            Which side of the market is being reviewed.
+
+            A worker being called unreliable and an employer being called a
+            late payer are different problems handled by different decisions,
+            and the page mixed them into one stream where the only way to tell
+            them apart was to read each row. reviewee_role already records it.
+        */
+        $role = in_array($request->get('role'), ['worker', 'employer'], true)
+            ? $request->get('role')
+            : 'all';
+
         $reviews = Review::withHidden()
             ->with(['reviewer:id,name', 'reviewee:id,name', 'job:id,title', 'hider:id,name'])
             ->when($show === 'visible', fn ($q) => $q->whereNull('hidden_at'))
             ->when($show === 'hidden', fn ($q) => $q->whereNotNull('hidden_at'))
             ->when($rating > 0, fn ($q) => $q->where('rating', $rating))
+            ->when($role !== 'all', fn ($q) => $q->where('reviewee_role', $role))
             ->when($search !== '', function ($q) use ($search) {
                 $q->where(function ($q) use ($search) {
                     $q->where('comment', 'like', "%{$search}%")
@@ -46,7 +59,15 @@ class ReviewController extends Controller
             'hidden'  => Review::withHidden()->whereNotNull('hidden_at')->count(),
         ];
 
-        return view('admin.reviews.index', compact('reviews', 'show', 'search', 'rating', 'counts'));
+        $roleCounts = [
+            'all'      => Review::count(),
+            'worker'   => Review::where('reviewee_role', 'worker')->count(),
+            'employer' => Review::where('reviewee_role', 'employer')->count(),
+        ];
+
+        return view('admin.reviews.index', compact(
+            'reviews', 'show', 'search', 'rating', 'counts', 'role', 'roleCounts',
+        ));
     }
 
     public function hide(Request $request, int $id)

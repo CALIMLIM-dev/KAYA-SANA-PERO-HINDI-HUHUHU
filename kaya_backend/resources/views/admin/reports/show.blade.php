@@ -167,28 +167,6 @@
                 </div>
             @endif
 
-            <div class="bg-white rounded-xl border border-slate-200 p-5">
-                <h3 class="text-sm font-semibold text-slate-700">Close report</h3>
-
-                <form method="POST" action="{{ route('admin.reports.resolve', $report) }}" class="mt-4 space-y-3">
-                    @csrf
-                    <textarea name="resolution_note" rows="2" maxlength="1000"
-                              class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm
-                                     focus:outline-none focus:ring-2 focus:ring-blue-500"
-                              placeholder="Optional, internal"></textarea>
-                    <div class="flex gap-2">
-                        <button type="submit" name="status" value="dismissed"
-                                class="flex-1 px-3 py-2 border border-slate-300 text-slate-600 text-xs font-semibold rounded-lg hover:bg-slate-50">
-                            Dismiss
-                        </button>
-                        <button type="submit" name="status" value="resolved"
-                                class="flex-1 px-3 py-2 bg-slate-800 text-white text-xs font-semibold rounded-lg hover:bg-slate-900">
-                            Handled
-                        </button>
-                    </div>
-                </form>
-            </div>
-
             <div class="bg-white rounded-xl border border-red-200 p-5">
                 <h3 class="text-sm font-semibold text-red-700">Suspend</h3>
 
@@ -249,6 +227,50 @@
                     </button>
                 </form>
             </div>
+
+            {{--
+                Second, because the decision about the account comes first.
+                "Handled" used to be a button on its own, so a report could be
+                closed as upheld with nothing having happened to anybody: the
+                queue emptied and the account never heard a word.
+            --}}
+            <div class="bg-white rounded-xl border border-slate-200 p-5">
+                <h3 class="text-sm font-semibold text-slate-700">Close without suspending</h3>
+
+                <form method="POST" action="{{ route('admin.reports.resolve', $report) }}" class="mt-4 space-y-3">
+                    @csrf
+                    <textarea name="resolution_note" rows="2" maxlength="1000"
+                              class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm
+                                     focus:outline-none focus:ring-2 focus:ring-blue-500"
+                              placeholder="What you decided. A warning sends this to them."></textarea>
+
+                    <div class="space-y-2">
+                        <p class="text-xs font-semibold text-slate-600">Upheld — what happens to the account</p>
+                        <label class="flex items-start gap-2 text-sm text-slate-700">
+                            <input type="radio" name="action" value="warned" class="mt-0.5" checked>
+                            <span>Warn them. They get a notification saying another report can lead to a suspension.</span>
+                        </label>
+                        <label class="flex items-start gap-2 text-sm text-slate-700">
+                            <input type="radio" name="action" value="none" class="mt-0.5">
+                            <span>No action. Recorded against the account, nothing sent.</span>
+                        </label>
+                    </div>
+
+                    <button type="submit" name="status" value="resolved"
+                            class="w-full px-3 py-2 bg-slate-800 text-white text-xs font-semibold rounded-lg hover:bg-slate-900">
+                        Close as upheld
+                    </button>
+
+                    <div class="pt-2 border-t border-slate-100">
+                        <p class="text-xs text-slate-500 mb-2">Or the complaint was not upheld:</p>
+                        <button type="submit" name="status" value="dismissed"
+                                class="w-full px-3 py-2 border border-slate-300 text-slate-600 text-xs font-semibold rounded-lg hover:bg-slate-50">
+                            Dismiss
+                        </button>
+                    </div>
+                </form>
+            </div>
+
         @else
             <div class="bg-white rounded-xl border border-slate-200 p-5">
                 <p class="text-sm font-semibold text-slate-700">Already decided</p>

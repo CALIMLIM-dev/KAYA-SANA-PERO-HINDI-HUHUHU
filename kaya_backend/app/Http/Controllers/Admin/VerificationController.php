@@ -83,6 +83,12 @@ class VerificationController extends Controller
             audience: $this->audienceFor($verification),
         );
 
+        // Approving an ID earns the Verified badge, and a badge pays.
+        // See BadgeRewardService.
+        if ($verification->user) {
+            app(\App\Services\BadgeRewardService::class)->settle($verification->user);
+        }
+
         return redirect()->route('admin.verifications.index')
             ->with('success', "{$verification->user->name}'s verification was approved.");
     }

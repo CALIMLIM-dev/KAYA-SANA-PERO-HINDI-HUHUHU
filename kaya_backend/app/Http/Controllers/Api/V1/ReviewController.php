@@ -137,6 +137,16 @@ class ReviewController extends Controller
         });
 
         /*
+            A review can be the one that earns Highly Rated, so the badges are
+            settled here too - after the transaction, because a reward paid
+            against a rating that then rolled back would be a real payment for
+            nothing.
+        */
+        if ($reviewee = \App\Models\User::find($revieweeId)) {
+            app(\App\Services\BadgeRewardService::class)->settle($reviewee);
+        }
+
+        /*
             Tell the person they were reviewed.
 
             After the transaction, so nothing is announced that could still roll

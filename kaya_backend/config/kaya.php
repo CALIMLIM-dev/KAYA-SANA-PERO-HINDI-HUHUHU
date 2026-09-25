@@ -210,6 +210,36 @@ return [
         'signup_grant' => (int) env('CREDIT_SIGNUP_GRANT', 20),
 
         /*
+            What each badge pays, once, the first time it is earned.
+
+            Priced from the same ladder as everything else: an application is
+            2 barya, so 'First Job' at 5 is two and a half applications and
+            '50 Jobs' at 60 is a month's worth of them. The shape is
+            deliberate - the early ones are small and easy, the late ones are
+            large and slow, because the point is to carry somebody through the
+            first week rather than to be farmable.
+
+            The two reputation badges pay the most because they are the ones
+            that cannot be manufactured cheaply: BadgeService will not award
+            either until three separately verified people have finished work
+            with the account.
+
+            Paid once, ever. Losing a badge and earning it back pays nothing
+            the second time - see the badge_rewards migration.
+        */
+        'badge_rewards' => [
+            'verified'          => (int) env('CREDIT_BADGE_VERIFIED', 10),
+            'verified_business' => (int) env('CREDIT_BADGE_VERIFIED_BUSINESS', 20),
+            'first_job'         => (int) env('CREDIT_BADGE_FIRST_JOB', 5),
+            'jobs_10'           => (int) env('CREDIT_BADGE_JOBS_10', 20),
+            'jobs_50'           => (int) env('CREDIT_BADGE_JOBS_50', 60),
+            'highly_rated'      => (int) env('CREDIT_BADGE_HIGHLY_RATED', 30),
+            'reliable'          => (int) env('CREDIT_BADGE_RELIABLE', 30),
+            'repeat_hire'       => (int) env('CREDIT_BADGE_REPEAT_HIRE', 15),
+            'veteran'           => (int) env('CREDIT_BADGE_VETERAN', 15),
+        ],
+
+        /*
             Top-ups granted without payment. Testing only.
 
             There is no payment provider yet, so while this is on a package

@@ -649,6 +649,49 @@ class NotificationService
             : UserNotification::AUDIENCE_WORKER;
     }
 
+    /*
+        A badge was earned, and it paid.
+
+        Worth telling somebody about for the same reason it is worth paying
+        for: a badge that appears silently on a profile nobody has opened is
+        indistinguishable from nothing happening.
+    */
+    public function badgeEarned(\App\Models\User $user, string $label, int $amount, string $side): void
+    {
+        $this->push(
+            userId: $user->id,
+            audience: $side === 'employer'
+                ? UserNotification::AUDIENCE_EMPLOYER
+                : UserNotification::AUDIENCE_WORKER,
+            type: 'badge.earned',
+            title: 'You earned the ' . $label . ' badge',
+            body: 'It is on your profile now, and ' . $amount . ' Barya has been added to your wallet.',
+        );
+    }
+
+    /*
+        A report was upheld and the account was warned rather than suspended.
+
+        The point of a warning is that the person hears it. Closing a report
+        as handled and telling nobody leaves an account that has no idea it
+        was reported, which is how the same thing happens again.
+
+        Lands in the account category rather than under worker or employer:
+        it is about the account, whichever side of it was complained about.
+    */
+    public function moderationWarning(\App\Models\User $user, ?string $note = null): void
+    {
+        $this->push(
+            userId: $user->id,
+            audience: UserNotification::AUDIENCE_BOTH,
+            type: 'moderation.warning',
+            title: 'A warning from KAYA',
+            body: 'Somebody reported your account and we looked into it. '
+                . ($note ?: 'Please keep to the community rules.')
+                . ' Another report like this can lead to a suspension.',
+        );
+    }
+
     /** An administrator took a community post down; the poster hears why. */
     public function communityPostRemoved(\App\Models\CommunityPost $post, string $reason): void
     {

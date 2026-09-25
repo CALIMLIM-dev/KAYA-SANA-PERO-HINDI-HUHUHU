@@ -15,7 +15,19 @@ import '../../../data/services/api_client.dart';
     either.
 */
 class BadgesScreen extends StatefulWidget {
-  const BadgesScreen({super.key});
+  const BadgesScreen({super.key, this.seed});
+
+  /*
+      Rows in place of the fetch, for a render test.
+
+      This screen talks to the API itself rather than through a provider, so
+      there is no seeder to reach for. A seeded list is the seam: the layout
+      is what the test is about, and a catalogue of nine tiles with a reward
+      pill on each is exactly the content that runs out of room on a small
+      phone at a large text size.
+  */
+  @visibleForTesting
+  final Map<String, List<Map<String, dynamic>>>? seed;
 
   @override
   State<BadgesScreen> createState() => _BadgesScreenState();
@@ -35,6 +47,18 @@ class _BadgesScreenState extends State<BadgesScreen> {
   @override
   void initState() {
     super.initState();
+
+    final seed = widget.seed;
+
+    if (seed != null) {
+      _account = seed['account'] ?? const [];
+      _worker = seed['worker'] ?? const [];
+      _employer = seed['employer'] ?? const [];
+      _loading = false;
+
+      return;
+    }
+
     _load();
   }
 
@@ -127,8 +151,9 @@ class _BadgesScreenState extends State<BadgesScreen> {
         children: [
           Text(
             earned == 0
-                ? 'Nothing earned yet. Each one below says what it takes.'
-                : '$earned earned so far.',
+                ? 'Nothing earned yet. Each one below says what it takes, and '
+                    'what it pays.'
+                : '$earned earned so far. Each one pays Barya the first time.',
             style: const TextStyle(
               fontSize: 13,
               height: 1.4,
@@ -190,6 +215,16 @@ class _BadgesScreenState extends State<BadgesScreen> {
     // more than repeating the requirement back at somebody who has met it.
     final description = (badge['description'] as String?)?.trim();
 
+    /*
+        What the badge pays, and whether it already has.
+
+        The reward is the reason this list is worth opening: a catalogue of
+        labels is a list of things you cannot spend. Read from the server so
+        the number on screen and the number the wallet takes are the same one.
+    */
+    final reward = (badge['reward'] as num?)?.toInt() ?? 0;
+    final rewardPaid = badge['reward_paid'] == true;
+
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
       padding: const EdgeInsets.all(14),
@@ -248,6 +283,25 @@ class _BadgesScreenState extends State<BadgesScreen> {
               ],
             ),
           ),
+          if (reward > 0) ...[
+            const SizedBox(width: 8),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              decoration: BoxDecoration(
+                color: (rewardPaid ? AppColors.success : AppColors.neutral500)
+                    .withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: Text(
+                rewardPaid ? '+$reward paid' : '+$reward',
+                style: TextStyle(
+                  fontSize: 11.5,
+                  fontWeight: FontWeight.w600,
+                  color: rewardPaid ? AppColors.success : AppColors.neutral600,
+                ),
+              ),
+            ),
+          ],
           if (isEarned)
             const Padding(
               padding: EdgeInsets.only(left: 8, top: 2),

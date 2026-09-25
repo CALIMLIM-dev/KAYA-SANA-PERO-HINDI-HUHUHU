@@ -88,30 +88,67 @@ class ReportController extends Controller
         ]);
     }
 
-    /** Dismiss, or mark as handled without suspending. */
+    /*
+        Dismiss it, or close it having decided what happened to the account.
+
+        "Handled" used to be a button on its own, which meant a report could
+        be marked resolved with nothing having happened to anybody - the queue
+        emptied, the record said the complaint was upheld, and the account it
+        was about never heard a word. The decision now comes first and the
+        close follows from it: suspend through the form below, warn them, or
+        say plainly that no action was taken.
+
+        Dismissing is untouched. A complaint that was not upheld needs no
+        action by definition, and making the admin justify one would push
+        borderline reports towards a warning nobody meant to give.
+    */
     public function resolve(Request $request, Report $report)
     {
         $data = $request->validate([
             'status' => ['required', Rule::in(['resolved', 'dismissed'])],
+            // Only asked for on a report being upheld, and then required:
+            // that is the whole point of the change.
+            'action' => ['required_if:status,resolved', Rule::in(['warned', 'none'])],
             'resolution_note' => ['nullable', 'string', 'max:1000'],
+        ], [
+            'action.required_if' => 'Say what happened to the account before closing the report.',
         ]);
+
+        $note = $data['resolution_note'] ?? null;
+
+        if ($data['status'] === 'resolved') {
+            $warned = $data['action'] === 'warned';
+
+            $note = ($warned ? 'Warned' : 'No action taken')
+                . ($note ? ' - ' . $note : '');
+
+            if ($warned && $report->reported && ! $report->reported->isAdmin()) {
+                app(\App\Services\NotificationService::class)->moderationWarning(
+                    $report->reported,
+                    $data['resolution_note'] ?? null,
+                );
+            }
+        }
 
         $report->update([
             'status'          => $data['status'],
-            'resolution_note' => $data['resolution_note'] ?? null,
+            'resolution_note' => $note,
             'reviewed_by'     => Auth::id(),
             'resolved_at'     => now(),
         ]);
 
         AdminAction::record(
             'report.' . $data['status'], 'report', $report->id,
-            ucfirst($data['status']) . " report #{$report->id} against " . ($report->reported?->name ?? 'a deleted account'),
-            ['reported_id' => $report->reported_id, 'note' => $data['resolution_note'] ?? null],
+            ucfirst($data['status']) . " report #{$report->id} against " . ($report->reported?->name ?? 'a deleted account')
+                . ($data['status'] === 'resolved' ? ' (' . $note . ')' : ''),
+            ['reported_id' => $report->reported_id, 'action' => $data['action'] ?? null, 'note' => $data['resolution_note'] ?? null],
         );
 
         return redirect()
             ->route('admin.reports.index')
-            ->with('success', 'Report ' . $data['status'] . '.');
+            ->with('success', $data['status'] === 'dismissed'
+                ? 'Report dismissed.'
+                : 'Report closed: ' . $note . '.');
     }
 
     /**
