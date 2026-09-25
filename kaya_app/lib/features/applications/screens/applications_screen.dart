@@ -1794,7 +1794,7 @@ class _InvitationCardState extends State<_InvitationCard> {
     final job = _job;
     AppToast.show(
       context,
-      'Invitation accepted!',
+      'Invitation accepted',
       type: ToastType.success,
       duration: const Duration(seconds: 4),
       actionLabel: 'Message',

@@ -856,7 +856,7 @@ class _MyEmployerProfileScreenState extends State<MyEmployerProfileScreen>
         else ...[
           VerificationCard(
             // Not "Government ID": the picker on the next screen offers a
-            // National ID, a licence, a passport, a UMID, a PRC card, a
+            // National ID, a license, a passport, a UMID, a PRC card, a
             // Barangay ID and an Other box, so naming one of them told people
             // we wanted that one and nothing else.
             title: 'Valid ID',

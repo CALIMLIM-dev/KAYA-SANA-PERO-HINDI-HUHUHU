@@ -483,7 +483,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                 final messages = provider.messages;
                 if (messages.isEmpty) {
                   return const Center(
-                    child: Text('No messages yet — say hello!',
+                    child: Text('No messages yet. Start the conversation.',
                         style: TextStyle(color: AppColors.neutral500)),
                   );
                 }

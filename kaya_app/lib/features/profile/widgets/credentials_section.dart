@@ -12,13 +12,13 @@ import 'section_add_row.dart';
 
 /// Which kind of credential a section is showing.
 ///
-/// Licences and certifications are the same shape - a name, an issuer, a date
+/// Licenses and certifications are the same shape - a name, an issuer, a date
 /// and a scanned document - and were two near-identical screens. One widget
 /// with a flag beats two files that drift apart.
-enum CredentialKind { licence, certification }
+enum CredentialKind { license, certification }
 
 /*
-    Licences and certifications, edited on the profile.
+    Licenses and certifications, edited on the profile.
 
     Both used to be a read-only list plus a separate screen, and the separate
     screen is where the document bug lived: it let you pick a replacement file
@@ -53,7 +53,7 @@ class _CredentialsSectionState extends State<CredentialsSection> {
   String? _fileName;
   String? _existingDoc;
 
-  bool get _isLicence => widget.kind == CredentialKind.licence;
+  bool get _isLicence => widget.kind == CredentialKind.license;
 
   @override
   void dispose() {
@@ -92,7 +92,7 @@ class _CredentialsSectionState extends State<CredentialsSection> {
 
     if (name.isEmpty || issuer.isEmpty) {
       setState(() => _error = _isLicence
-          ? 'A licence name and issuing authority are both needed.'
+          ? 'A license name and issuing authority are both needed.'
           : 'A certificate name and issuing organisation are both needed.');
       return false;
     }
@@ -146,7 +146,7 @@ class _CredentialsSectionState extends State<CredentialsSection> {
     final sure = await showDialog<bool>(
       context: context,
       builder: (_) => AlertDialog(
-        title: Text(_isLicence ? 'Remove this licence?' : 'Remove this certificate?'),
+        title: Text(_isLicence ? 'Remove this license?' : 'Remove this certificate?'),
         content: Text('"$label" comes off your profile, along with its document.'),
         actions: [
           TextButton(
@@ -373,7 +373,7 @@ class _CredentialsSectionState extends State<CredentialsSection> {
   List<Widget> _fields() => [
         InlineField(
           controller: _name,
-          label: _isLicence ? 'Licence name' : 'Certificate name',
+          label: _isLicence ? 'License name' : 'Certificate name',
         ),
         InlineField(
           controller: _issuer,
@@ -381,7 +381,7 @@ class _CredentialsSectionState extends State<CredentialsSection> {
         ),
         InlineField(
           controller: _reference,
-          label: _isLicence ? 'Licence number' : 'Credential ID',
+          label: _isLicence ? 'License number' : 'Credential ID',
           hint: 'Optional',
         ),
         _documentField(),
@@ -427,19 +427,19 @@ class _CredentialsSectionState extends State<CredentialsSection> {
               _existingDoc = e.doc;
               _showEditor(
                 id: e.id,
-                heading: _isLicence ? 'Edit licence' : 'Edit certificate',
+                heading: _isLicence ? 'Edit license' : 'Edit certificate',
               );
             },
             onDelete: e.id == null ? null : () => _delete(e.id!, e.title),
           ),
         SectionAddRow(
           label: entries.isEmpty
-              ? (_isLicence ? 'Add a licence' : 'Add a certificate')
+              ? (_isLicence ? 'Add a license' : 'Add a certificate')
               : 'Add another',
           onTap: () {
             _reset();
             _showEditor(
-              heading: _isLicence ? 'New licence' : 'New certificate',
+              heading: _isLicence ? 'New license' : 'New certificate',
             );
           },
         ),

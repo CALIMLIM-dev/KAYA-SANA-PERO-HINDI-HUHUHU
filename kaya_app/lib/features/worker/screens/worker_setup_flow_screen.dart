@@ -1339,7 +1339,7 @@ class _WorkerSetupFlowScreenState extends State<WorkerSetupFlowScreen> {
           ),
           const SizedBox(height: 8),
           const Text(
-            'Optional. PRC or other licences.',
+            'Optional. PRC or other licenses.',
             style: TextStyle(
               fontSize: 14,
               color: AppColors.neutral600,

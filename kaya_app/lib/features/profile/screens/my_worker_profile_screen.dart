@@ -1422,7 +1422,7 @@ class _MyWorkerProfileScreenState extends State<MyWorkerProfileScreen> with Sing
         CredentialsSection(kind: CredentialKind.certification),
 
         const SizedBox(height: 4),
-        CredentialsSection(kind: CredentialKind.licence),
+        CredentialsSection(kind: CredentialKind.license),
       ],
     );
   }
@@ -1590,7 +1590,7 @@ class _MyWorkerProfileScreenState extends State<MyWorkerProfileScreen> with Sing
               "Valid ID", not "Government ID".
 
               The picker on the next screen offers a National ID, a driver's
-              licence, a passport, a PRC card, a UMID, a Barangay ID and an
+              license, a passport, a PRC card, a UMID, a Barangay ID and an
               Other box - so calling the row Government ID told people we
               wanted one specific document out of a list of many, and the ones
               who only hold a Barangay ID read it as "you cannot verify".

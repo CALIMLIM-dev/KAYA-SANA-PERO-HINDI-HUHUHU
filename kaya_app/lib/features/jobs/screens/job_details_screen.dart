@@ -843,7 +843,7 @@ class _JobDetailsScreenState extends State<JobDetailsScreen>
       await credits.refresh();
       if (!mounted) return;
 
-      AppToast.success(context, 'Application submitted!');
+      AppToast.success(context, 'Application sent');
       return;
     }
 

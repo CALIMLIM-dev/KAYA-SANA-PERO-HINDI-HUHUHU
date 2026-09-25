@@ -371,7 +371,7 @@ class _JobTrackingPanelState extends State<JobTrackingPanel> {
                     maxNativeZoom: 19,
                     maxZoom: 21,
                   ),
-                  // OSM's licence requires visible attribution on every map.
+                  // OSM's license requires visible attribution on every map.
                   const RichAttributionWidget(
                     attributions: [TextSourceAttribution('OpenStreetMap contributors')],
                   ),

@@ -544,8 +544,11 @@ class _EditJobScreenState extends State<EditJobScreen> {
                     onTap: () => _pickDate(isStart: true),
                   ),
                   const SizedBox(height: 10),
+                  // Named the way the post form names it. It is the day the
+                  // work is due to be finished, and Mark as complete does not
+                  // appear until it arrives.
                   _dateRow(
-                    label: 'End date (optional)',
+                    label: 'Deadline',
                     value: _endDate,
                     onTap: _startDate == null
                         ? null
@@ -968,7 +971,7 @@ class _EditJobScreenState extends State<EditJobScreen> {
     setState(() => _isLoading = false);
 
     AppToast.info(context, success
-            ? 'Job updated successfully!'
+            ? 'Job updated'
             : jobProvider.errorMessage ?? 'Failed to update job');
 
     if (success) Navigator.pop(context, true);

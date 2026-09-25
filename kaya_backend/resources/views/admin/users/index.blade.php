@@ -15,7 +15,7 @@
             </select>
 
             <select name="status" class="px-3 py-2 border border-slate-300 rounded-lg text-sm">
-                <option value="">All Statuses</option>
+                <option value="">All statuses</option>
                 <option value="verified" @selected(request('status')==='verified')>Verified</option>
                 <option value="pending" @selected(request('status')==='pending')>Pending</option>
                 <option value="suspended" @selected(request('status')==='suspended')>Suspended</option>

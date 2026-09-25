@@ -53,7 +53,7 @@ class LegalDocuments {
       ),
       LegalSection(
         'Your Profile',
-        'Everything you put on your profile must be true and about you. Skills, work history, certificates and licences you add are shown to other users. KAYA does not check that a certificate or licence is genuine beyond confirming that a file was uploaded.\n\nA resume you upload can be opened only by an employer you have a pending or accepted application with, and only while that application is open.',
+        'Everything you put on your profile must be true and about you. Skills, work history, certificates and licenses you add are shown to other users. KAYA does not check that a certificate or license is genuine beyond confirming that a file was uploaded.\n\nA resume you upload can be opened only by an employer you have a pending or accepted application with, and only while that application is open.',
       ),
       LegalSection(
         'Barya',
@@ -69,7 +69,7 @@ class LegalDocuments {
       ),
       LegalSection(
         'Worker Responsibilities',
-        'Apply only to jobs you can actually do and intend to do. Show up when you agreed to, or say so in the chat as early as you can. Do the work to the standard you described. Do not claim skills, experience, certificates or licences you do not have. Do not share another person\'s details or location with anyone.',
+        'Apply only to jobs you can actually do and intend to do. Show up when you agreed to, or say so in the chat as early as you can. Do the work to the standard you described. Do not claim skills, experience, certificates or licenses you do not have. Do not share another person\'s details or location with anyone.',
       ),
       LegalSection(
         'Scheduling and Location Sharing',
@@ -107,7 +107,7 @@ class LegalDocuments {
     sections: [
       LegalSection(
         'Information We Collect',
-        'Account: your name, email address or phone number, password, and if you sign in with Google, the name, email and picture Google provides.\n\nProfile: your location, profile photo, bio, availability, and for workers your trade, skills, work history, certificates, licences, resume. For employers, the business name, type, address, TIN and business registration documents.\n\nVerification: a government-issued ID and a selfie holding it.\n\nActivity: jobs you post or apply to, invitations, hires, schedules, reviews, community posts, barya balance and transactions, reports you make or receive, notifications, and the messages you send in chats.\n\nLocation: the place you set on your profile or a job; a map pin if you drop one; and, only during a job where you have turned on location sharing, your live position.\n\nDevice: the app version, and a token that lets us show you notifications.',
+        'Account: your name, email address or phone number, password, and if you sign in with Google, the name, email and picture Google provides.\n\nProfile: your location, profile photo, bio, availability, and for workers your trade, skills, work history, certificates, licenses, resume. For employers, the business name, type, address, TIN and business registration documents.\n\nVerification: a government-issued ID and a selfie holding it.\n\nActivity: jobs you post or apply to, invitations, hires, schedules, reviews, community posts, barya balance and transactions, reports you make or receive, notifications, and the messages you send in chats.\n\nLocation: the place you set on your profile or a job; a map pin if you drop one; and, only during a job where you have turned on location sharing, your live position.\n\nDevice: the app version, and a token that lets us show you notifications.',
       ),
       LegalSection(
         'Why We Collect It',
@@ -115,7 +115,7 @@ class LegalDocuments {
       ),
       LegalSection(
         'Who Can See What',
-        'Other users see your public profile: your name, photo, bio, location at the city or barangay level, skills, work history, certificates, licences, rating, badges, and whether you are verified. Employers you apply to can also open your resume while your application is open. Nobody sees your ID, selfie, exact address, email, phone number, TIN or business documents except KAYA admins.\n\nYour live location, when you share it, is seen only by the employer on that job, only while sharing is on. A day you have agreed to work is shown as unavailable to other employers without saying for whom.\n\nCommunity posts are visible to every signed-in user. Chats are private to the two people in them; an admin may read the recent messages of a chat that has been reported.',
+        'Other users see your public profile: your name, photo, bio, location at the city or barangay level, skills, work history, certificates, licenses, rating, badges, and whether you are verified. Employers you apply to can also open your resume while your application is open. Nobody sees your ID, selfie, exact address, email, phone number, TIN or business documents except KAYA admins.\n\nYour live location, when you share it, is seen only by the employer on that job, only while sharing is on. A day you have agreed to work is shown as unavailable to other employers without saying for whom.\n\nCommunity posts are visible to every signed-in user. Chats are private to the two people in them; an admin may read the recent messages of a chat that has been reported.',
       ),
       LegalSection(
         'Who We Share Your Data With',
@@ -135,7 +135,7 @@ class LegalDocuments {
       ),
       LegalSection(
         'Data Retention',
-        'We keep your data while your account is active. Live location pings are deleted within a day of being recorded. A chat stays for as long as either person in it has an account.\n\nWhen you delete your account, the following are removed at once: your name, email, phone, photos, bio, profile, skills, work history, certificates, licences, resume, ID and business documents, saved jobs and notifications. Open job posts are closed and pending applications ended. The following are kept because they are records other people rely on, but no longer identify you: your barya transaction history, the reviews you gave other people, reports, and the admin audit log. Messages you sent stay in the other person\'s chat under the name Deleted account.',
+        'We keep your data while your account is active. Live location pings are deleted within a day of being recorded. A chat stays for as long as either person in it has an account.\n\nWhen you delete your account, the following are removed at once: your name, email, phone, photos, bio, profile, skills, work history, certificates, licenses, resume, ID and business documents, saved jobs and notifications. Open job posts are closed and pending applications ended. The following are kept because they are records other people rely on, but no longer identify you: your barya transaction history, the reviews you gave other people, reports, and the admin audit log. Messages you sent stay in the other person\'s chat under the name Deleted account.',
       ),
       LegalSection(
         'Your Rights Under RA 10173',

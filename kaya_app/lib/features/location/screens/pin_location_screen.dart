@@ -354,7 +354,7 @@ class _PinLocationScreenState extends State<PinLocationScreen> {
                           ),
                         ],
                       ),
-                    // OSM's licence requires visible attribution.
+                    // OSM's license requires visible attribution.
                     const RichAttributionWidget(
                       attributions: [
                         TextSourceAttribution('OpenStreetMap contributors'),

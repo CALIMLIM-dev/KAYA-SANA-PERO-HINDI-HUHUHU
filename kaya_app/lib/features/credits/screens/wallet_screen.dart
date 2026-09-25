@@ -73,7 +73,7 @@ class _WalletScreenState extends State<WalletScreen> with WidgetsBindingObserver
     }
 
     // Somebody else's tap won the race, or the account is not eligible.
-    AppToast.info(context, credits.error ?? 'Nothing to claim right now.');
+    AppToast.info(context, credits.error ?? 'Nothing to claim.');
   }
 
   Future<void> _buy(CreditPackage package) async {

@@ -2378,7 +2378,7 @@ class _PostJobScreenState extends State<PostJobScreen> {
         if (!mounted) return;
 
         if (boosted) {
-          AppToast.success(context, 'Job posted successfully!');
+          AppToast.success(context, 'Job posted');
         } else {
           AppToast.info(
             context,
@@ -2447,7 +2447,7 @@ class _PinPreviewMapState extends State<_PinPreviewMap> {
           maxNativeZoom: 19,
           maxZoom: 21,
         ),
-        // OSM's licence requires visible attribution on every map.
+        // OSM's license requires visible attribution on every map.
         const RichAttributionWidget(
           attributions: [TextSourceAttribution('OpenStreetMap contributors')],
         ),

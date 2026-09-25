@@ -16,7 +16,7 @@
         <thead>
             <tr class="text-left text-xs text-slate-400 border-b border-slate-100">
                 <th class="py-3 px-5">Applicant</th>
-                <th class="py-3 px-5">Document Type</th>
+                <th class="py-3 px-5">Document type</th>
                 <th class="py-3 px-5">Submitted</th>
                 <th class="py-3 px-5">Status</th>
                 <th class="py-3 px-5 text-right">Action</th>

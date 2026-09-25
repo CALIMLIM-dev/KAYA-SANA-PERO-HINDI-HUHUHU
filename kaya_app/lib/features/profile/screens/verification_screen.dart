@@ -143,7 +143,7 @@ class _VerificationScreenState extends State<VerificationScreen> {
   // ── Phone ─────────────────────────────────────────────────────────────────
 
   Widget _buildPhone(String subtitle) {
-    if (_phoneVerified) return _successState('Phone number verified!');
+    if (_phoneVerified) return _successState('Phone number verified');
     return SingleChildScrollView(
       padding: const EdgeInsets.all(24),
       child: Column(
@@ -203,7 +203,7 @@ class _VerificationScreenState extends State<VerificationScreen> {
   // ── Email ─────────────────────────────────────────────────────────────────
 
   Widget _buildEmail(String subtitle) {
-    if (_emailVerified) return _successState('Email address verified!');
+    if (_emailVerified) return _successState('Email address verified');
     return SingleChildScrollView(
       padding: const EdgeInsets.all(24),
       child: Column(
@@ -285,7 +285,7 @@ class _VerificationScreenState extends State<VerificationScreen> {
   }
 
   Widget _buildDocument(BuildContext context, String type, String subtitle) {
-    if (_submitted) return _successState('Document submitted for review!');
+    if (_submitted) return _successState('Document sent for review');
 
     final isGovID = type == 'government_id';
     final isBusiness = type == 'business_reg';

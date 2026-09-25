@@ -6,7 +6,7 @@ import '../../../core/constants/app_colors.dart';
     A profile entry that opens into its own form, in place.
 
     Some things on a profile are not one line of text. A job you held has a
-    title, an employer, two dates and a description; a licence has a name, an
+    title, an employer, two dates and a description; a license has a name, an
     authority, a date and a scanned document. None of that fits in a single
     field, which is why they were the last parts still pushing a whole screen.
 

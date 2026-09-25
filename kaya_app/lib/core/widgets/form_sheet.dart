@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 /*
     A full-height form, presented as a sheet instead of a page.
 
-    Adding a certification, a licence or a job is something you do *to* the
+    Adding a certification, a license or a job is something you do *to* the
     profile you are looking at, and pushing a whole page for it threw the
     profile away and brought it back a moment later — the list you were adding
     to disappeared, so nothing on screen connected the form to the thing it was

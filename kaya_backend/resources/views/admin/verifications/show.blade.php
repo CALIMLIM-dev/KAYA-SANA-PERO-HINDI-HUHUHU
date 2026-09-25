@@ -126,7 +126,7 @@
                     <textarea name="reason" required rows="2"
                               class="w-full mt-1 px-3 py-2 border border-slate-300 rounded-lg text-sm"
                               placeholder="e.g. Document image is blurry, ID number doesn't match name"></textarea>
-                    <button class="mt-2 px-4 py-2 bg-red-600 text-white rounded-lg text-sm font-medium">Confirm Rejection</button>
+                    <button class="mt-2 px-4 py-2 bg-red-600 text-white rounded-lg text-sm font-medium">Confirm rejection</button>
                 </form>
             </div>
         @elseif ($verification->rejection_reason)

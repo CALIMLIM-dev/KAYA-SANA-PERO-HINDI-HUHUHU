@@ -309,7 +309,7 @@ class AppRouter {
               const Icon(Icons.error_outline, size: 64, color: Colors.red),
               const SizedBox(height: 16),
               const Text(
-                'Oops! Something went wrong.',
+                'Something went wrong',
                 style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
               ),
               const SizedBox(height: 8),

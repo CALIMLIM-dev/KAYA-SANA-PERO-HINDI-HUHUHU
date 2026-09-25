@@ -500,17 +500,34 @@ class _ViewApplicantsScreenState extends State<ViewApplicantsScreen>
                         // Rating and applied-time share one line instead of
                         // stacking, and an unrated worker says so rather than
                         // leaving a gap that reads as missing data.
-                        Text(
-                          reviewCount > 0
-                              ? '★ ${rating.toStringAsFixed(1)} · $reviewCount review'
-                                  '${reviewCount == 1 ? '' : 's'}'
-                              : 'No reviews yet',
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: reviewCount > 0
-                                ? AppColors.neutral600
-                                : AppColors.neutral400,
-                          ),
+                        // The star is an icon, like everywhere else in the
+                        // app. It used to be the character U+2605, which
+                        // renders in whatever the device has for it - a
+                        // different weight and size from the real one, and a
+                        // box on a handset that has neither.
+                        Row(
+                          children: [
+                            if (reviewCount > 0) ...[
+                              const Icon(Icons.star,
+                                  size: 13, color: AppColors.accent),
+                              const SizedBox(width: 3),
+                            ],
+                            Flexible(
+                              child: Text(
+                                reviewCount > 0
+                                    ? '${rating.toStringAsFixed(1)} · $reviewCount review'
+                                        '${reviewCount == 1 ? '' : 's'}'
+                                    : 'No reviews yet',
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: reviewCount > 0
+                                      ? AppColors.neutral600
+                                      : AppColors.neutral400,
+                                ),
+                              ),
+                            ),
+                          ],
                         ),
                       ],
                     ),

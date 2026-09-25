@@ -58,7 +58,7 @@
             <div><dt class="text-slate-400">Phone</dt><dd class="text-slate-700">{{ $user->phone ?? '—' }}</dd></div>
             <div><dt class="text-slate-400">City</dt><dd class="text-slate-700">{{ $user->city ?? '—' }}</dd></div>
             <div><dt class="text-slate-400">Joined</dt><dd class="text-slate-700">{{ $user->created_at->format('M j, Y') }}</dd></div>
-            <div><dt class="text-slate-400">Last Updated</dt><dd class="text-slate-700">{{ $user->updated_at->format('M j, Y') }}</dd></div>
+            <div><dt class="text-slate-400">Last updated</dt><dd class="text-slate-700">{{ $user->updated_at->format('M j, Y') }}</dd></div>
             <div><dt class="text-slate-400">Barya</dt><dd class="text-slate-700">
                 {{ $balance }}
                 <a href="{{ route('admin.credits.index', ['user' => $user->id]) }}" class="text-xs text-blue-600 ml-1">ledger and adjust</a>
