@@ -44,7 +44,6 @@ class _EditJobScreenState extends State<EditJobScreen> {
   /// came from a hardcoded map and could never be sent — the server takes ids.
   List<int> _selectedSkillIds = [];
 
-  final _budgetMaxController = TextEditingController();
   bool _isLoading = false;
   // Prefilled from the job being edited — see the note in didChangeDependencies.
   DateTime? _startDate;
@@ -131,7 +130,6 @@ class _EditJobScreenState extends State<EditJobScreen> {
     _budgetController.dispose();
     _locationController.dispose();
     _workersNeededController.dispose();
-    _budgetMaxController.dispose();
     super.dispose();
   }
 
@@ -157,8 +155,6 @@ class _EditJobScreenState extends State<EditJobScreen> {
             (args['workersNeeded'] ?? 1).toString();
         _selectedCategory = args['category'] as String?;
         _categoryId       = args['category_id'] as int?;
-        _budgetMaxController.text =
-            (args['budget_max'] ?? '').toString().replaceAll('null', '');
 
         /*
             Read the job's own values, not this form's defaults.
@@ -357,6 +353,8 @@ class _EditJobScreenState extends State<EditJobScreen> {
       ),
       body: Form(
         key: _formKey,
+        // The red clears as the box is corrected, same as the post form.
+        autovalidateMode: AutovalidateMode.onUserInteraction,
         child: SingleChildScrollView(
           child: Column(
             children: [
@@ -433,63 +431,29 @@ class _EditJobScreenState extends State<EditJobScreen> {
               _section(
                 title: 'Salary & Location',
                 children: [
+                  /*
+                      One amount, not a range.
+
+                      The post form asks for a single figure, so a job
+                      that cannot be created with a range must not be
+                      editable into one. Two boxes across a phone also
+                      leaves room the three never had.
+                  */
                   Row(
                     children: [
                       Expanded(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            _label('Salary from'),
+                            _label('Amount'),
                             const SizedBox(height: 8),
                             TextFormField(
                               controller: _budgetController,
-                              onChanged: (_) {
-                                if (_budgetMaxController.text.trim().isNotEmpty) {
-                                  _formKey.currentState?.validate();
-                                }
-                              },
                               keyboardType: TextInputType.number,
                               decoration: _inputDeco(
                                   hint: '1,200', prefix: '₱ '),
                               validator: (v) =>
                                   v?.isEmpty ?? true ? 'Required' : null,
-                            ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      /*
-                          _budgetMaxController was declared, prefilled from the
-                          job and read back on save - but no field was ever
-                          bound to it, so the maximum could be neither seen nor
-                          changed. Whatever the job was posted with was simply
-                          written back unchanged.
-                      */
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            _label('to (optional)'),
-                            const SizedBox(height: 8),
-                            TextFormField(
-                              controller: _budgetMaxController,
-                              keyboardType: TextInputType.number,
-                              decoration: _inputDeco(
-                                  hint: '1,800', prefix: '₱ '),
-                              validator: (v) {
-                                final raw = v?.trim() ?? '';
-                                if (raw.isEmpty) return null;
-                                final max =
-                                    double.tryParse(raw.replaceAll(',', ''));
-                                if (max == null) return 'Enter a valid amount';
-                                if (max <= 0) return 'Must be greater than 0';
-                                final min = double.tryParse(
-                                    _budgetController.text.replaceAll(',', ''));
-                                if (min != null && max < min) {
-                                  return 'Cannot be below the minimum';
-                                }
-                                return null;
-                              },
                             ),
                           ],
                         ),
@@ -933,7 +897,8 @@ class _EditJobScreenState extends State<EditJobScreen> {
     final jobProvider = context.read<JobProvider>();
     final budget = double.tryParse(_budgetController.text.replaceAll(',', ''));
 
-    final budgetMax = double.tryParse(_budgetMaxController.text.replaceAll(',', ''));
+    // Cleared on save: a job is priced at one figure now.
+    const double? budgetMax = null;
 
     final success = await jobProvider.updateJob(_jobId!, {
       'title': _titleController.text.trim(),

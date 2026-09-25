@@ -141,7 +141,6 @@ class _PostJobScreenState extends State<PostJobScreen> {
   final _titleController = TextEditingController();
   final _descriptionController = TextEditingController();
   final _budgetController = TextEditingController();
-  final _budgetMaxController = TextEditingController();
   final _locationController = TextEditingController();
   
   String? _selectedCategory;
@@ -281,7 +280,6 @@ class _PostJobScreenState extends State<PostJobScreen> {
     _titleController.dispose();
     _descriptionController.dispose();
     _budgetController.dispose();
-    _budgetMaxController.dispose();
     _locationController.dispose();
     _customSkillController.dispose();
     super.dispose();
@@ -301,30 +299,6 @@ class _PostJobScreenState extends State<PostJobScreen> {
     if (amount == null) return 'Enter a valid amount';
     if (amount <= 0) return 'Salary must be greater than 0';
     if (amount > 1000000) return 'Amount looks too high';
-
-    return null;
-  }
-
-  /*
-      The top of the range. Optional - a single figure is a valid way to price
-      a job - but when given it has to sit above the minimum.
-
-      Checked here as well as on the server. The server has always refused an
-      inverted range, so the post simply failed at submit with the reason
-      arriving as a toast after the round trip; catching it on the field says
-      which box is wrong, before the request.
-  */
-  String? _validateSalaryMax(String? value) {
-    final raw = value?.trim() ?? '';
-    if (raw.isEmpty) return null;
-
-    final amount = double.tryParse(raw.replaceAll(',', ''));
-    if (amount == null) return 'Enter a valid amount';
-    if (amount <= 0) return 'Must be greater than 0';
-    if (amount > 1000000) return 'Amount looks too high';
-
-    final min = double.tryParse(_budgetController.text.replaceAll(',', ''));
-    if (min != null && amount < min) return 'Cannot be below the minimum';
 
     return null;
   }
@@ -650,6 +624,17 @@ class _PostJobScreenState extends State<PostJobScreen> {
       ),
       body: Form(
         key: _formKey,
+        /*
+            The red goes away when the box is filled in.
+
+            Without this the form validates only on submit, so an error
+            put on a field stayed there while you corrected it and only
+            cleared on the next attempt - the whole form reading as
+            broken while you were fixing it. onUserInteraction re-checks
+            each field as it is touched, which makes the message a
+            prompt rather than an accusation.
+        */
+        autovalidateMode: AutovalidateMode.onUserInteraction,
         child: SingleChildScrollView(
           child: Column(
             children: [
@@ -779,7 +764,6 @@ class _PostJobScreenState extends State<PostJobScreen> {
                       _payChoice = value!;
                       if (!_amountIsSet) {
                         _budgetController.clear();
-                        _budgetMaxController.clear();
                       }
                       // Clears any error sitting on the amount fields.
                       _formKey.currentState?.validate();
@@ -795,69 +779,36 @@ class _PostJobScreenState extends State<PostJobScreen> {
                         style: TextStyle(fontSize: 12.5, height: 1.35, color: AppColors.neutral600),
                       ),
                     ),
-                  if (_amountIsSet)
-                  Row(
-                    children: [
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            _buildLabel('Salary from'),
-                            const SizedBox(height: 8),
-                            TextFormField(
-                              controller: _budgetController,
-                              keyboardType: TextInputType.number,
-                              decoration: _inputDecoration(
-                                hint: '1,200',
-                                prefix: '₱ ',
-                              ),
-                              // Previously only checked "not empty", so "abc"
-                              // passed here and then silently became null at
-                              // double.tryParse, posting a job with no salary.
-                              validator: _validateSalary,
-                              // Re-run the maximum's check, so correcting the
-                              // minimum clears an error sitting on the other
-                              // box rather than leaving it stale.
-                              onChanged: (_) {
-                                if (_budgetMaxController.text.trim().isNotEmpty) {
-                                  _formKey.currentState?.validate();
-                                }
-                              },
-                            ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      /*
-                          The top of the range.
+                  /*
+                      One amount, not a range.
 
-                          The server has accepted budget_max from the start and
-                          the whole salary filter is built on a range, but no
-                          field ever collected one - so every job was posted
-                          with a single figure and "₱500-800/day" could not be
-                          expressed. Optional, because pricing a job at one
-                          number is legitimate.
-                      */
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            _buildLabel('to (optional)'),
-                            const SizedBox(height: 8),
-                            TextFormField(
-                              controller: _budgetMaxController,
-                              keyboardType: TextInputType.number,
-                              decoration: _inputDecoration(
-                                hint: '1,800',
-                                prefix: '₱ ',
-                              ),
-                              validator: _validateSalaryMax,
-                            ),
-                          ],
+                      This asked for "Salary from" and "to (optional)",
+                      which is two boxes to answer one question and
+                      leaves the employer working out whether a range is
+                      expected of them. A job here is priced at a figure;
+                      where it genuinely is not, that is what Discuss
+                      payment terms above is for.
+                  */
+                  if (_amountIsSet)
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        _buildLabel('Amount'),
+                        const SizedBox(height: 8),
+                        TextFormField(
+                          controller: _budgetController,
+                          keyboardType: TextInputType.number,
+                          decoration: _inputDecoration(
+                            hint: '1,200',
+                            prefix: '₱ ',
+                          ),
+                          // Previously only checked "not empty", so "abc"
+                          // passed here and then silently became null at
+                          // double.tryParse, posting a job with no salary.
+                          validator: _validateSalary,
                         ),
-                      ),
-                    ],
-                  ),
+                      ],
+                    ),
                   /*
                       Payment on its own line.
 
@@ -927,9 +878,17 @@ class _PostJobScreenState extends State<PostJobScreen> {
               ),
               const SizedBox(height: 16),
 
-              // Schedule
+              /*
+                  Duration, not Schedule.
+
+                  Schedule already means something else here: the day
+                  the two of them agree in the chat after a hire, which
+                  either side can propose or decline. This section is
+                  how long the post runs and when the work is due, so
+                  it keeps its own name.
+              */
               _buildSection(
-                title: 'Schedule',
+                title: 'Duration',
                 hint: 'Your post stays up from the start date to the deadline. The first week is free. Longer costs Barya.',
                 anchor: _scheduleKey,
                 icon: Icons.event_outlined,
@@ -2327,11 +2286,9 @@ class _PostJobScreenState extends State<PostJobScreen> {
         budgetMin:   _amountIsSet
             ? double.tryParse(_budgetController.text.replaceAll(',', ''))
             : null,
-        // Optional upper bound. createJob has always accepted it; nothing ever
-        // sent one, so every job was filed with a single figure.
-        budgetMax:   _amountIsSet
-            ? double.tryParse(_budgetMaxController.text.replaceAll(',', ''))
-            : null,
+        // Nothing collects an upper bound any more: a job is priced at one
+        // figure. Posts made before this still render their range.
+        budgetMax:   null,
         location:    _locationController.text.trim(),
         // Structured location from the picker: the id normalizes filtering and
         // the coordinates power proximity search.

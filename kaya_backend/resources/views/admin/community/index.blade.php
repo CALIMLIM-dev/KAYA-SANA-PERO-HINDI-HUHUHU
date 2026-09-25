@@ -38,7 +38,7 @@
                             {{ $post->type === 'business' ? 'Business' : 'Worker' }}
                         </span>
                         @if ($post->status === 'pending')
-                            <span class="text-xs px-2 py-0.5 rounded-full bg-amber-50 text-amber-700">Waiting</span>
+                            <span class="text-xs px-2 py-0.5 rounded-full bg-slate-100 text-slate-600">Waiting</span>
                         @endif
                         <p class="font-medium text-slate-800">{{ $post->title }}</p>
                     </div>
@@ -91,7 +91,7 @@
                     @if ($post->status === 'pending')
                         <form method="POST" action="{{ route('admin.community.approve', $post) }}">
                             @csrf
-                            <button class="w-full px-3 py-2 bg-green-50 text-green-700 border border-green-200 rounded-lg text-sm hover:bg-green-100">Approve</button>
+                            <button class="w-full px-3 py-2 bg-green-600 text-white rounded-lg text-sm font-medium hover:bg-green-700">Approve</button>
                         </form>
                         <form method="POST" action="{{ route('admin.community.reject', $post) }}" onsubmit="return confirm('Refuse this post and return the Barya?')">
                             @csrf

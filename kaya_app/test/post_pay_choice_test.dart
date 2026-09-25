@@ -51,7 +51,7 @@ void main() {
     await tester.pump(const Duration(milliseconds: 300));
 
     // The amount is asked for by default.
-    expect(find.text('Salary from'), findsOneWidget);
+    expect(find.text('Amount'), findsOneWidget);
     expect(find.text('Payment period'), findsOneWidget);
 
     final choice = find.byWidgetPredicate(
@@ -68,7 +68,7 @@ void main() {
     await tester.pumpAndSettle();
 
     // No figure asked for, and the post says what will happen instead.
-    expect(find.text('Salary from'), findsNothing);
+    expect(find.text('Amount'), findsNothing);
     expect(find.text('Payment period'), findsNothing);
     expect(
       find.textContaining('Payment terms: to be discussed'),

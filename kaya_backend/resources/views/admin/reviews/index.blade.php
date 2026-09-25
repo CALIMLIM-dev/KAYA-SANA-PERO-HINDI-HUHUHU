@@ -49,9 +49,9 @@
         <div class="flex gap-1">
             @foreach (['all' => 'Everyone', 'worker' => 'Workers reviewed', 'employer' => 'Employers reviewed'] as $key => $label)
                 <a href="{{ route('admin.reviews.index', array_merge($carry, ['role' => $key === 'all' ? null : $key])) }}"
-                   class="px-3 py-1.5 rounded-lg text-sm {{ $role === $key ? 'bg-slate-800 text-white font-medium' : 'text-slate-500 hover:bg-slate-50 border border-slate-200' }}">
+                   class="px-3 py-1.5 rounded-lg text-sm {{ $role === $key ? 'bg-blue-50 text-blue-700 font-medium' : 'text-slate-500 hover:bg-slate-50' }}">
                     {{ $label }}
-                    <span class="text-xs {{ $role === $key ? 'text-slate-300' : 'text-slate-400' }}">{{ $roleCounts[$key] }}</span>
+                    <span class="text-xs text-slate-400">{{ $roleCounts[$key] }}</span>
                 </a>
             @endforeach
         </div>
@@ -95,7 +95,7 @@
                             <span class="text-slate-400">Deleted account</span>
                         @endif
                         <p class="mt-1">
-                            <span class="text-xs px-2 py-0.5 rounded-full {{ $review->reviewee_role === 'worker' ? 'bg-emerald-50 text-emerald-700' : 'bg-blue-50 text-blue-700' }}">
+                            <span class="text-xs px-2 py-0.5 rounded-full {{ $review->reviewee_role === 'worker' ? 'bg-slate-100 text-slate-600' : 'bg-blue-50 text-blue-700' }}">
                                 as {{ $review->reviewee_role }}
                             </span>
                         </p>
