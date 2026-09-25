@@ -1,7 +1,7 @@
 # kaya status
 
 what is fixed, what is not, and what is planned.
-last updated 2 september 2026.
+last updated 25 september 2026.
 
 
 ## fixed earlier
@@ -128,6 +128,39 @@ applicants
 message and mark complete repeated on every accepted applicant when the job
   card already had them
 
+
+## 1.11.0, the major update
+
+twenty-four items from testing, shipped as one release rather than a stream
+of small ones. nine pieces of work.
+
+m1. skill assessment removed entirely. saved jobs 403. duplicate workers
+    needed field gone, cap raised to twenty. profile loading state. one
+    picture on a hybrid account. setup prefill before the fetch. photo
+    preview on public profiles.
+m2. a job can be posted without naming a price. cards say payment terms to
+    be discussed.
+m3. ten kilometre limit on applying, inviting and accepting. search opens on
+    the account's town. word by word search that survives a typo, on jobs and
+    workers. the map stops drawing routes nobody would take.
+m4. a job has a deadline and mark as complete waits for it. finishing a job
+    hides the pair's conversation until a rehire. community threads close
+    when their post ends.
+m5. the worked with before screen is gone. reinvite sits on the finished job
+    in history at the reduced price, and the worker asks the same employer
+    for work again.
+m6. chat and the board are read before they are carried. swearing masked,
+    contact details and off-platform phrases refused, tagalog first.
+m7. board posts wait for an administrator. every live post has a thread
+    under it.
+m8. three kinds of administrator. reviews split by side. a report cannot be
+    closed as upheld without saying what happened to the account. badges pay
+    barya. support chat.
+m9. wording pass.
+
+needs on deploy: php artisan migrate --force. five migrations, including
+conversation visibility, the community review queue and comments, admin
+roles, badge rewards and support threads.
 
 ## not fixed yet
 

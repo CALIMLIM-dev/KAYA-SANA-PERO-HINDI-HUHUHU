@@ -11,6 +11,71 @@ minor release, and `feat!:` or a `BREAKING CHANGE:` footer for a major one.
 
 ---
 
+## 1.11.0 - 2026-09-25
+
+One release rather than a stream of small ones. Twenty-four items from
+testing, grouped into nine pieces of work.
+
+### Added
+
+- A job has a deadline. The schedule asks for a start date and a deadline,
+  and Mark as complete does not appear until that day arrives. A job booked
+  for next month could previously be declared finished the afternoon it was
+  posted.
+- Community posts are read by an administrator before they go up. The paid
+  days start on approval, and a refused post returns the Barya and says why.
+- Every live community post has a thread under it. Answering used to mean a
+  private message, so the same question was asked and answered many times
+  with nobody able to see it had been asked once.
+- Chat, the board and its comments are read before they are carried.
+  Swearing is masked and the message still sends; a phone number, an email,
+  an app to move to or a Tagalog "let us talk outside" phrase is refused.
+- Administrators come in three kinds. A super admin has everything, a
+  moderator gets the queues and the people in them, an analyst reads and
+  changes nothing.
+- Badges pay Barya the first time each one is earned, once and never again.
+- Support. One thread per account for writing to KAYA, reachable from the
+  FAQ, and it works while unverified and while suspended.
+- Search matches word by word across the title, description, category and
+  skills, and survives a misspelling, on both the job feed and the worker
+  directory.
+
+### Changed
+
+- Applying, inviting and accepting are refused past ten kilometres. A day
+  pays 400 to 650 pesos and a longer trip eats it.
+- A job can be posted without naming a price. Cards say "Payment terms: to
+  be discussed" instead.
+- Finishing a job hides the pair's conversation from both inboxes. Nothing
+  is deleted and it returns whole on a rehire. A community thread closes the
+  same way when its post ends.
+- Reinvite moved onto the finished job's card in History, at the reduced
+  price, and the worker's side of it asks the same employer for work again.
+  The separate "worked with before" screen is gone.
+- Closing a report as upheld now asks what happened to the account: suspend,
+  warn, or no action.
+- The reviews page separates who wrote a review from who it is about, and
+  filters by which side of the market was reviewed.
+- Search opens on the account's own town instead of asking for one.
+- Wording: success messages no longer carry exclamation marks, licence is
+  spelled one way, and the applicant rating draws a real star.
+
+### Removed
+
+- The skill assessment, entirely. The questions were not a credible test of
+  anything and anyone could answer them with a phone in the other hand.
+- The duplicate Workers Needed field on the post form. The cap is twenty.
+
+### Fixed
+
+- Saved jobs returned 403 to an employer.
+- A profile rendered empty until it was refreshed.
+- A hybrid account showed a different picture on each of its profiles.
+- The second profile on a hybrid account lagged on the name and lost the
+  location.
+- Profile photos on public profiles can be opened full size.
+- The tracking map stops drawing routes nobody would take.
+
 ## 1.10.24 - 2026-09-15
 
 Everything between 1.2.0 and here, in one entry. The version moved with each
