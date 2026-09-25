@@ -31,6 +31,7 @@ class PulseController extends Controller
         'jobs_posts',
         'applications',
         'community_posts',
+        'support_messages',
         'credit_transactions',
         'credit_payments',
         'admin_actions',
@@ -60,6 +61,11 @@ class PulseController extends Controller
                 'reports'       => Report::where('status', 'pending')->count(),
                 // Posts nobody outside KAYA can see until somebody looks.
                 'community'     => \App\Models\CommunityPost::where('status', \App\Models\CommunityPost::STATUS_PENDING)->count(),
+                // People who wrote in and have not been answered.
+                'support'       => \App\Models\SupportMessage::whereNull('read_at')
+                    ->where('from_admin', false)
+                    ->distinct('support_thread_id')
+                    ->count('support_thread_id'),
             ],
         ]);
     }

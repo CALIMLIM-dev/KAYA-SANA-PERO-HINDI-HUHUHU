@@ -15,6 +15,7 @@ use App\Http\Controllers\Admin\ReviewController as AdminReviewController;
 use App\Http\Controllers\Admin\AnalyticsController;
 use App\Http\Controllers\Admin\ReportExportController;
 use App\Http\Controllers\Admin\SettingsController;
+use App\Http\Controllers\Admin\SupportController as AdminSupportController;
 use App\Http\Controllers\Admin\UserManagementController;
 use App\Http\Controllers\Admin\VerificationController;
 use App\Http\Controllers\LegalController;
@@ -96,6 +97,10 @@ Route::prefix('admin')->name('admin.')->group(function () {
         });
 
         Route::middleware('admin.can:moderate')->group(function () {
+        Route::get('/support', [AdminSupportController::class, 'index'])->name('support.index');
+        Route::get('/support/{thread}', [AdminSupportController::class, 'show'])->name('support.show');
+        Route::post('/support/{thread}/reply', [AdminSupportController::class, 'reply'])->name('support.reply');
+
         Route::get('/reports', [ReportController::class, 'index'])->name('reports.index');
         Route::get('/reports/{report}', [ReportController::class, 'show'])->name('reports.show');
         Route::post('/reports/{report}/resolve', [ReportController::class, 'resolve'])->name('reports.resolve');

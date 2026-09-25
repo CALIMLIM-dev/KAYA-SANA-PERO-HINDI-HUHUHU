@@ -50,6 +50,7 @@
                         ['route' => 'admin.credits.index',       'label' => 'Barya',               'icon' => 'coins', 'can' => 'finance'],
                     ],
                     'Communication' => [
+                        ['route' => 'admin.support.index',       'label' => 'Support',             'icon' => 'life-buoy', 'can' => 'moderate', 'queue' => 'support'],
                         ['route' => 'admin.announcements.index', 'label' => 'Announcements',       'icon' => 'megaphone', 'can' => 'settings'],
                     ],
                     'System' => [

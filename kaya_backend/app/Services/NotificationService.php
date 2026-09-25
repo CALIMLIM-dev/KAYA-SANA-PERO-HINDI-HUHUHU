@@ -649,6 +649,18 @@ class NotificationService
             : UserNotification::AUDIENCE_WORKER;
     }
 
+    /** KAYA answered somebody who wrote to support. */
+    public function supportReplied(\App\Models\User $user): void
+    {
+        $this->push(
+            userId: $user->id,
+            audience: UserNotification::AUDIENCE_BOTH,
+            type: 'support.replied',
+            title: 'KAYA replied',
+            body: 'There is an answer waiting in Help and support.',
+        );
+    }
+
     /*
         A badge was earned, and it paid.
 

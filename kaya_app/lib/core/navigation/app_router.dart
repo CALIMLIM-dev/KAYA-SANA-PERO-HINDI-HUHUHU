@@ -55,6 +55,7 @@ import '../../features/employer/screens/edit_employer_profile_screen.dart';
 
 // Help Screens
 import '../../features/help/screens/faq_screen.dart';
+import '../../features/help/screens/support_chat_screen.dart';
 
 // Location
 import '../../features/location/screens/pin_location_screen.dart';
@@ -85,6 +86,7 @@ class AppRouter {
   static const String myEmployerProfile = '/my-employer-profile';
   static const String addSkills = '/add-skills';
   static const String faq = '/faq';
+  static const String support = '/support';
   static const String setupEmployerProfile = '/setup-employer-profile';
   static const String manageJobs = '/manage-jobs';
   static const String viewApplicants = '/view-applicants';
@@ -229,6 +231,8 @@ class AppRouter {
         return MaterialPageRoute(builder: (_) => AddSkillsScreen(initialSkills: initSkills));
       
 
+      case support:
+        return MaterialPageRoute(builder: (_) => const SupportChatScreen());
       case faq:
         return MaterialPageRoute(builder: (_) => const FAQScreen());
       

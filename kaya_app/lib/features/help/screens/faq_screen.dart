@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../../core/constants/app_colors.dart';
+import '../../../core/navigation/app_router.dart';
 
 /// Questions people actually ask, answered for the app as it is.
 ///
@@ -157,6 +158,59 @@ class FAQScreen extends StatelessWidget {
                     'A review cannot be edited once sent. An admin can hide a review that breaks the rules.',
               ),
             ],
+          ),
+          const SizedBox(height: 24),
+
+          /*
+              When the answer is not up there.
+
+              The FAQ covers the questions somebody thought of in advance. A
+              rejected verification nobody explained, or barya taken for a
+              post that vanished, is not one of them - and until this there
+              was nowhere to go but the app store review page.
+          */
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: AppColors.neutral200),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Still stuck?',
+                  style: TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w700,
+                      color: AppColors.neutral900),
+                ),
+                const SizedBox(height: 4),
+                const Text(
+                  'Write to KAYA and somebody will answer you here.',
+                  style: TextStyle(fontSize: 13.5, color: AppColors.neutral600),
+                ),
+                const SizedBox(height: 12),
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton.icon(
+                    onPressed: () =>
+                        Navigator.pushNamed(context, AppRouter.support),
+                    icon: const Icon(Icons.support_agent_outlined, size: 18),
+                    label: const Text('Message KAYA'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppColors.primary,
+                      foregroundColor: Colors.white,
+                      elevation: 0,
+                      padding: const EdgeInsets.symmetric(vertical: 13),
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10)),
+                    ),
+                  ),
+                ),
+              ],
+            ),
           ),
           const SizedBox(height: 32),
         ],

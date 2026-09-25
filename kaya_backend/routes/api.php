@@ -4,6 +4,7 @@ use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Api\V1\AuthController;
 use App\Http\Controllers\Api\V1\CommunityPostController;
 use App\Http\Controllers\Api\V1\RosterController;
+use App\Http\Controllers\Api\V1\SupportController;
 use App\Http\Controllers\Api\V1\WorkerProfileController;
 use App\Http\Controllers\Api\V1\EmployerProfileController;
 use App\Http\Controllers\Api\V1\JobController;
@@ -258,6 +259,25 @@ Route::prefix('v1')->group(function () {
         Route::post('/community/{post}/comments', [CommunityPostController::class, 'comment'])
             ->middleware('verified');
         Route::delete('/community/comments/{comment}', [CommunityPostController::class, 'removeComment']);
+
+        /*
+            Talking to KAYA. Open to any signed-in account, verified or not,
+            suspended or not: the people most likely to need it are the ones
+            something has gone wrong for, and gating support behind the
+            verification that is the problem would be the app refusing to
+            hear about its own faults.
+
+            The suspension gate is lifted deliberately, and it is the only
+            place that happens. Appealing a suspension is the main reason
+            somebody writes in, and a ban that also removes the way to argue
+            against it is a ban nobody can be wrong about.
+        */
+        Route::get('/support',         [SupportController::class, 'show'])
+            ->withoutMiddleware('not.suspended');
+        Route::get('/support/unread',  [SupportController::class, 'unread'])
+            ->withoutMiddleware('not.suspended');
+        Route::post('/support',        [SupportController::class, 'send'])
+            ->withoutMiddleware('not.suspended');
 
         // Saved Jobs
         Route::get('/saved-jobs', [JobController::class, 'savedJobs']);
