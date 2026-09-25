@@ -75,6 +75,27 @@ class CommunityBoardTest extends TestCase
         ], $extra));
     }
 
+    /*
+        Read and let up, which is what an administrator does.
+
+        A post now waits to be read before it reaches the board, and every
+        behaviour below is about a post that is already on it. Done here
+        rather than through the admin panel in each test, so these stay tests
+        of the board. CommunityThreadTest covers the queue itself.
+    */
+    private function approve(int $id): CommunityPost
+    {
+        $post = CommunityPost::findOrFail($id);
+
+        $post->forceFill([
+            'status'      => CommunityPost::STATUS_LIVE,
+            'reviewed_at' => now(),
+            'expires_at'  => now()->addDays((int) config('kaya.community.days'))->endOfDay(),
+        ])->save();
+
+        return $post->fresh();
+    }
+
     // ── Posting ──────────────────────────────────────────────────────────────
 
     #[Test]
@@ -85,8 +106,20 @@ class CommunityBoardTest extends TestCase
         $data = $this->notice($worker)->assertStatus(201)->json('data');
 
         $this->assertSame('worker', $data['type']);
-        $this->assertSame(7, $data['days_left']);
         $this->assertTrue($data['is_mine']);
+
+        // Paid for now, counted from the day it goes up.
+        $this->assertNull($data['days_left']);
+
+        $this->approve($data['id']);
+
+        $this->assertSame(
+            7,
+            $this->actingAs($worker, 'sanctum')
+                ->getJson("/api/v1/community/{$data['id']}")
+                ->assertOk()
+                ->json('data.days_left'),
+        );
         $this->assertSame(20 - config('kaya.credits.thread_ad_worker'), CreditWallet::where('user_id', $worker->id)->value('balance'));
 
         $line = CreditTransaction::where('user_id', $worker->id)->where('reason', 'thread_ad')->first();
@@ -166,8 +199,8 @@ class CommunityBoardTest extends TestCase
     {
         $worker = $this->worker();
         $company = $this->company();
-        $this->notice($worker)->assertStatus(201);
-        $this->notice($company, 'business')->assertStatus(201);
+        $this->approve($this->notice($worker)->assertStatus(201)->json('data.id'));
+        $this->approve($this->notice($company, 'business')->assertStatus(201)->json('data.id'));
 
         // An ended one is not on the board.
         CommunityPost::create([
@@ -214,7 +247,7 @@ class CommunityBoardTest extends TestCase
     public function answering_a_worker_post_opens_a_thread_with_the_reader_as_employer(): void
     {
         $worker = $this->worker();
-        $post = CommunityPost::find($this->notice($worker)->json('data.id'));
+        $post = $this->approve($this->notice($worker)->json('data.id'));
         $employer = $this->individual();
 
         $data = $this->actingAs($employer, 'sanctum')
@@ -241,7 +274,7 @@ class CommunityBoardTest extends TestCase
     public function answering_a_business_post_seats_the_reader_as_the_worker(): void
     {
         $company = $this->company();
-        $post = CommunityPost::find($this->notice($company, 'business')->json('data.id'));
+        $post = $this->approve($this->notice($company, 'business')->json('data.id'));
         $worker = $this->worker();
 
         $data = $this->actingAs($worker, 'sanctum')->postJson("/api/v1/community/{$post->id}/contact")->assertOk()->json('data');

@@ -51,6 +51,11 @@ class DashboardController extends Controller
                 'route' => route('admin.reports.index'),
             ],
             [
+                'label' => 'Community posts waiting',
+                'count' => \App\Models\CommunityPost::where('status', \App\Models\CommunityPost::STATUS_PENDING)->count(),
+                'route' => route('admin.community.index'),
+            ],
+            [
                 'label' => 'TINs not checked',
                 'count' => EmployerProfile::whereNotNull('tin')->whereNull('tin_verified_at')->count(),
                 'route' => route('admin.verifications.index', ['status' => 'pending']),

@@ -9,8 +9,13 @@ import '../../moderation/widgets/report_sheet.dart';
 import '../../../core/navigation/app_router.dart';
 
 /*
-    One post, in full, with the two things a reader can do: message the
-    poster, or report it. The poster sees a Take down button instead.
+    One notice, in full, and the thread under it.
+
+    A board post used to send every question into a private message, so
+    "magkano po" was asked and answered twenty times and nobody reading the
+    post could see it had been asked once. The thread is the public half;
+    messaging the poster is still there for the half that is nobody else's
+    business.
 */
 class CommunityPostScreen extends StatefulWidget {
   const CommunityPostScreen({super.key, required this.post});
@@ -24,6 +29,76 @@ class CommunityPostScreen extends StatefulWidget {
 class _CommunityPostScreenState extends State<CommunityPostScreen> {
   late Map<String, dynamic> _post = widget.post;
   bool _busy = false;
+
+  final TextEditingController _comment = TextEditingController();
+  bool _posting = false;
+
+  int get _postId => _post['id'] as int;
+
+  @override
+  void initState() {
+    super.initState();
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) context.read<CommunityProvider>().loadComments(_postId);
+    });
+  }
+
+  @override
+  void dispose() {
+    _comment.dispose();
+    super.dispose();
+  }
+
+  /*
+      Says something under the notice, in the open.
+
+      The board is read by the same filter the chat is, so a phone number or
+      "add mo ako sa fb" comes back refused. The words stay in the box for
+      editing rather than being thrown away with a toast.
+  */
+  Future<void> _sendComment() async {
+    final text = _comment.text.trim();
+    if (text.isEmpty || _posting) return;
+
+    setState(() => _posting = true);
+
+    final board = context.read<CommunityProvider>();
+    final ok = await board.addComment(_postId, text);
+
+    if (!mounted) return;
+    setState(() => _posting = false);
+
+    if (ok) {
+      _comment.clear();
+      FocusScope.of(context).unfocus();
+    } else {
+      AppToast.error(context, board.error ?? 'Could not post that.');
+    }
+  }
+
+  Future<void> _deleteComment(int commentId) async {
+    final yes = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Remove this comment?'),
+        content: const Text('It comes off the thread. Nothing else changes.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(dialogContext, false), child: const Text('Keep it')),
+          TextButton(onPressed: () => Navigator.pop(dialogContext, true), child: const Text('Remove')),
+        ],
+      ),
+    );
+
+    if (yes != true || !mounted) return;
+
+    final board = context.read<CommunityProvider>();
+    final ok = await board.removeComment(_postId, commentId);
+
+    if (!mounted || ok) return;
+
+    AppToast.error(context, board.error ?? 'Could not remove it.');
+  }
 
   Map<String, dynamic> get _poster =>
       (_post['poster'] as Map?)?.cast<String, dynamic>() ?? const {};
@@ -103,7 +178,11 @@ class _CommunityPostScreenState extends State<CommunityPostScreen> {
   Widget build(BuildContext context) {
     final isBusiness = _post['type'] == 'business';
     final isMine = _post['is_mine'] == true;
-    final live = (_post['status'] ?? 'live') == 'live';
+    final status = (_post['status'] ?? 'live').toString();
+    final live = status == 'live';
+    final waiting = status == 'pending';
+    final refused = status == 'rejected';
+    final reviewNote = (_post['review_note'] ?? '').toString();
     final photo = _post['photo_url'] as String?;
     final daysLeft = (_post['days_left'] as num?)?.toInt();
     final where = (_post['location'] ?? '').toString();
@@ -193,14 +272,23 @@ class _CommunityPostScreenState extends State<CommunityPostScreen> {
           ],
           const SizedBox(height: 14),
           Text(
-            !live
-                ? 'This post has ended.'
-                : daysLeft == null
-                    ? ''
-                    : daysLeft <= 0
-                        ? 'Last day on the board.'
-                        : '$daysLeft day${daysLeft == 1 ? '' : 's'} left on the board.',
-            style: const TextStyle(fontSize: 12.5, color: AppColors.neutral500),
+            waiting
+                ? 'Waiting for KAYA to read it. It goes on the board once it '
+                    'is approved, and your days start then.'
+                : refused
+                    ? 'This post was not approved.${reviewNote.isEmpty ? '' : ' $reviewNote'}'
+                        ' Your Barya was returned.'
+                    : !live
+                        ? 'This post has ended.'
+                        : daysLeft == null
+                            ? ''
+                            : daysLeft <= 0
+                                ? 'Last day on the board.'
+                                : '$daysLeft day${daysLeft == 1 ? '' : 's'} left on the board.',
+            style: TextStyle(
+              fontSize: 12.5,
+              color: refused ? AppColors.error : AppColors.neutral500,
+            ),
           ),
           const SizedBox(height: 20),
           if (isMine && live)
@@ -228,6 +316,152 @@ class _CommunityPostScreenState extends State<CommunityPostScreen> {
                   ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
                   : const Icon(Icons.chat_bubble_outline, size: 18),
               label: Text(isBusiness ? 'Message the business' : 'Message this worker'),
+            ),
+
+          // ── The thread ────────────────────────────────────────────────
+          if (live) ...[
+            const SizedBox(height: 24),
+            const Divider(height: 1),
+            const SizedBox(height: 16),
+            _thread(),
+          ],
+        ],
+      ),
+    );
+  }
+
+  /*
+      Everything said under the notice, oldest first, and a box to add to it.
+
+      Oldest first because a thread of five answers reads top to bottom; a
+      chat is reversed because it is a hundred and you only want the end.
+  */
+  Widget _thread() {
+    final board = context.watch<CommunityProvider>();
+    final comments = board.commentsFor(_postId);
+    final loading = board.isLoadingComments(_postId) && comments.isEmpty;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          comments.isEmpty
+              ? 'No comments yet'
+              : '${comments.length} comment${comments.length == 1 ? '' : 's'}',
+          style: const TextStyle(
+              fontSize: 14, fontWeight: FontWeight.w600, color: AppColors.neutral900),
+        ),
+        const SizedBox(height: 4),
+        const Text(
+          'Ask here and everyone reading can see the answer.',
+          style: TextStyle(fontSize: 12.5, color: AppColors.neutral500),
+        ),
+        const SizedBox(height: 12),
+
+        if (loading)
+          const Padding(
+            padding: EdgeInsets.symmetric(vertical: 12),
+            child: Center(
+              child: SizedBox(
+                width: 20, height: 20,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              ),
+            ),
+          ),
+
+        for (final comment in comments) _commentRow(comment),
+
+        const SizedBox(height: 8),
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.end,
+          children: [
+            Expanded(
+              child: TextField(
+                controller: _comment,
+                minLines: 1,
+                maxLines: 4,
+                maxLength: 500,
+                textInputAction: TextInputAction.newline,
+                decoration: InputDecoration(
+                  hintText: 'Write a comment',
+                  counterText: '',
+                  isDense: true,
+                  contentPadding:
+                      const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                  border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(24),
+                      borderSide: BorderSide(color: AppColors.neutral300)),
+                  enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(24),
+                      borderSide: BorderSide(color: AppColors.neutral300)),
+                  focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(24),
+                      borderSide: const BorderSide(color: AppColors.primary)),
+                ),
+              ),
+            ),
+            const SizedBox(width: 8),
+            IconButton(
+              onPressed: _posting ? null : _sendComment,
+              icon: _posting
+                  ? const SizedBox(
+                      width: 18, height: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2))
+                  : const Icon(Icons.send_rounded),
+              color: AppColors.primary,
+              tooltip: 'Post comment',
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _commentRow(Map<String, dynamic> comment) {
+    final author = (comment['author'] as Map?)?.cast<String, dynamic>() ?? const {};
+    // The author of the comment, and the author of the notice: somebody's
+    // post is their space and they should not have to report a comment to
+    // KAYA to get it off.
+    final canRemove = comment['is_mine'] == true || _post['is_mine'] == true;
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 14),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          ProfileAvatar(
+            imageUrl: author['avatar'] as String?,
+            name: author['name'] as String?,
+            radius: 15,
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  (author['name'] ?? 'Someone').toString(),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                      fontSize: 13, fontWeight: FontWeight.w600, color: AppColors.neutral900),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  (comment['body'] ?? '').toString(),
+                  style: const TextStyle(
+                      fontSize: 13.5, height: 1.45, color: AppColors.neutral700),
+                ),
+              ],
+            ),
+          ),
+          if (canRemove)
+            IconButton(
+              onPressed: () => _deleteComment(comment['id'] as int),
+              icon: const Icon(Icons.close, size: 16),
+              color: AppColors.neutral400,
+              visualDensity: VisualDensity.compact,
+              tooltip: 'Remove',
             ),
         ],
       ),

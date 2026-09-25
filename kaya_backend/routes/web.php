@@ -110,6 +110,9 @@ Route::prefix('admin')->name('admin.')->group(function () {
 
         Route::get('/community', [AdminCommunityController::class, 'index'])->name('community.index');
         Route::post('/community/{post}/remove', [AdminCommunityController::class, 'remove'])->name('community.remove');
+        Route::post('/community/{post}/approve', [AdminCommunityController::class, 'approve'])->name('community.approve');
+        Route::post('/community/{post}/reject', [AdminCommunityController::class, 'reject'])->name('community.reject');
+        Route::post('/community/comments/{comment}/remove', [AdminCommunityController::class, 'removeComment'])->name('community.comment.remove');
 
         Route::get('/reviews', [AdminReviewController::class, 'index'])->name('reviews.index');
         Route::post('/reviews/{id}/hide', [AdminReviewController::class, 'hide'])->whereNumber('id')->name('reviews.hide');

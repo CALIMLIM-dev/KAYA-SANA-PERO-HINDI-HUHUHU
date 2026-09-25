@@ -58,6 +58,8 @@ class PulseController extends Controller
             'queues' => [
                 'verifications' => Verification::where('status', 'pending')->count(),
                 'reports'       => Report::where('status', 'pending')->count(),
+                // Posts nobody outside KAYA can see until somebody looks.
+                'community'     => \App\Models\CommunityPost::where('status', \App\Models\CommunityPost::STATUS_PENDING)->count(),
             ],
         ]);
     }

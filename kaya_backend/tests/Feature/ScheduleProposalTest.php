@@ -379,10 +379,20 @@ class ScheduleProposalTest extends TestCase
 
         $body->assertJsonPath('data.worker_busy.0.date', $day);
 
-        $raw = $body->getContent();
+        $this->assertStringNotContainsString('Tile setting', $body->getContent());
 
-        $this->assertStringNotContainsString('Tile setting', $raw);
-        $this->assertStringNotContainsString((string) $other->id, $raw);
+        /*
+            A busy day says the day and nothing else.
+
+            Checked on the shape rather than by looking for the other
+            employer's id in the text: an id is a bare integer, and a date
+            with that digit in it made this pass or fail depending on what
+            day the suite ran. Asserting the row has exactly one key says
+            what the test means and cannot be satisfied by a coincidence.
+        */
+        foreach ($body->json('data.worker_busy') as $busy) {
+            $this->assertSame(['date'], array_keys($busy));
+        }
     }
 
     /*

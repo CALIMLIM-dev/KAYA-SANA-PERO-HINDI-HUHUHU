@@ -25,6 +25,7 @@ class CommunityPostCard extends StatelessWidget {
     final where = (post['location'] ?? '').toString();
     final category = (post['category'] ?? '').toString();
     final status = (post['status'] ?? 'live').toString();
+    final comments = (post['comment_count'] as num?)?.toInt() ?? 0;
 
     return GestureDetector(
       onTap: onTap,
@@ -93,16 +94,27 @@ class CommunityPostCard extends StatelessWidget {
                 ),
                 const SizedBox(width: 8),
                 _Pill(
-                  text: status != 'live'
-                      ? (status == 'removed' ? 'Removed' : 'Ended')
-                      : daysLeft == null
-                          ? ''
-                          : daysLeft <= 0
-                              ? 'Last day'
-                              : '$daysLeft day${daysLeft == 1 ? '' : 's'} left',
-                  tint: status != 'live'
-                      ? AppColors.neutral500
-                      : (isBusiness ? AppColors.primary : AppColors.success),
+                  // A post waits to be read before it reaches the board, so
+                  // its own author needs to be told that rather than shown a
+                  // blank where a countdown goes.
+                  text: status == 'pending'
+                      ? 'Waiting for review'
+                      : status == 'rejected'
+                          ? 'Not approved'
+                          : status != 'live'
+                              ? (status == 'removed' ? 'Removed' : 'Ended')
+                              : daysLeft == null
+                                  ? ''
+                                  : daysLeft <= 0
+                                      ? 'Last day'
+                                      : '$daysLeft day${daysLeft == 1 ? '' : 's'} left',
+                  tint: status == 'pending'
+                      ? AppColors.warning
+                      : status == 'rejected'
+                          ? AppColors.error
+                          : status != 'live'
+                              ? AppColors.neutral500
+                              : (isBusiness ? AppColors.primary : AppColors.success),
                 ),
               ],
             ),
@@ -125,6 +137,22 @@ class CommunityPostCard extends StatelessWidget {
               overflow: TextOverflow.ellipsis,
               style: const TextStyle(fontSize: 13, height: 1.4, color: AppColors.neutral700),
             ),
+            // How busy the thread is, so a notice with questions under it
+            // reads differently from one nobody has answered.
+            if (comments > 0) ...[
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                  const Icon(Icons.mode_comment_outlined,
+                      size: 13, color: AppColors.neutral400),
+                  const SizedBox(width: 5),
+                  Text(
+                    '$comments comment${comments == 1 ? '' : 's'}',
+                    style: const TextStyle(fontSize: 12, color: AppColors.neutral500),
+                  ),
+                ],
+              ),
+            ],
             if (photo != null && photo.isNotEmpty) ...[
               const SizedBox(height: 10),
               ClipRRect(

@@ -57,6 +57,8 @@ class CommunityPostController extends Controller
             ->when($search !== '', fn ($q) => $q->where(fn ($w) => $w
                 ->where('title', 'like', "%{$search}%")
                 ->orWhere('body', 'like', "%{$search}%")))
+            // One query for every thread's size, not one per row.
+            ->withCount(['comments as comments_count' => fn ($q) => $q->live()])
             ->latest('id')
             ->paginate(20);
 
@@ -72,6 +74,7 @@ class CommunityPostController extends Controller
             ->where('user_id', $request->user()->id)
             ->with(['user:id,name,avatar,is_verified', 'user.workerProfile:id,user_id,profile_photo_path',
                     'user.employerProfile:id,user_id,image_path,company_name', 'category:id,name'])
+            ->withCount(['comments as comments_count' => fn ($q) => $q->live()])
             ->latest('id')
             ->take(50)
             ->get()
@@ -87,13 +90,136 @@ class CommunityPostController extends Controller
         // A post that is over is still readable by its owner and an admin;
         // to everyone else it is gone.
         if (! $post->isLive() && $post->user_id !== $user->id && ! $user->isAdmin()) {
-            return $this->fail('This post has ended.', 404);
+            return $this->fail(
+                $post->isPending() ? 'This post is not on the board yet.' : 'This post has ended.',
+                404,
+            );
         }
 
         $post->load(['user:id,name,avatar,is_verified', 'user.workerProfile:id,user_id,profile_photo_path',
                      'user.employerProfile:id,user_id,image_path,company_name', 'category:id,name']);
 
         return $this->ok($this->present($post, $user));
+    }
+
+    /*
+        Everything said under a notice, oldest first.
+
+        A thread reads top to bottom, so it is not paginated backwards the way
+        a chat is. Removed comments are left out rather than shown as a
+        tombstone: on a board of five answers, four gaps saying "removed" is
+        more alarming than the thing that was removed.
+    */
+    public function comments(Request $request, CommunityPost $post)
+    {
+        $user = $request->user();
+
+        if (! $post->isLive() && $post->user_id !== $user->id && ! $user->isAdmin()) {
+            return $this->fail('This post is not on the board.', 404);
+        }
+
+        $comments = $post->comments()
+            ->live()
+            ->with(['user:id,name,avatar', 'user.workerProfile:id,user_id,profile_photo_path',
+                    'user.employerProfile:id,user_id,image_path'])
+            ->orderBy('id')
+            ->get()
+            ->map(fn ($c) => $this->presentComment($c, $user));
+
+        return $this->ok($comments);
+    }
+
+    /*
+        Answering in the open.
+
+        Free, unlike the post. The notice is what was paid for; a question
+        under it is what makes the notice worth paying for, and charging for
+        "magkano po" would empty the thread.
+
+        Read by the same filter chat is - swearing masked, a phone number or
+        an app to move to refused. A board is a more public place to leave a
+        number than a private thread, not a less public one.
+    */
+    public function comment(Request $request, CommunityPost $post)
+    {
+        $user = $request->user();
+
+        if (! $post->isLive()) {
+            return $this->fail('This post is not open for comments.', 422);
+        }
+
+        $data = $request->validate([
+            'body' => ['required', 'string', 'max:500'],
+        ]);
+
+        $read = app(\App\Services\MessageFilter::class)->inspect(trim($data['body']));
+
+        if ($read['refusal'] !== null) {
+            return $this->fail($read['refusal'], 422);
+        }
+
+        $comment = $post->comments()->create([
+            'user_id' => $user->id,
+            'body'    => $read['text'],
+            'status'  => \App\Models\CommunityComment::STATUS_LIVE,
+        ]);
+
+        // The poster hears about it. Nobody else does - a thread is not a
+        // conversation everybody who ever commented is subscribed to.
+        if ($post->user_id !== $user->id) {
+            app(\App\Services\NotificationService::class)->communityPostAnswered($post, $user);
+        }
+
+        $comment->load(['user:id,name,avatar', 'user.workerProfile:id,user_id,profile_photo_path',
+                        'user.employerProfile:id,user_id,image_path']);
+
+        return $this->ok($this->presentComment($comment, $user), 'Posted', 201);
+    }
+
+    /*
+        Taking back what you said.
+
+        The author of the comment, or the author of the post - somebody's
+        notice is their space, and they should not have to report a comment
+        to KAYA and wait to get something off it. Marked removed rather than
+        deleted, so a report still has something to point at.
+    */
+    public function removeComment(Request $request, \App\Models\CommunityComment $comment)
+    {
+        $user = $request->user();
+        $comment->loadMissing('post');
+
+        $mine = $comment->user_id === $user->id;
+        $myPost = $comment->post?->user_id === $user->id;
+
+        if (! $mine && ! $myPost && ! $user->isAdmin()) {
+            return $this->fail('Forbidden', 403);
+        }
+
+        if ($comment->isLive()) {
+            $comment->update([
+                'status'         => \App\Models\CommunityComment::STATUS_REMOVED,
+                'removed_reason' => $mine ? 'Deleted by the author' : 'Removed by the poster',
+                'removed_by'     => $user->id,
+            ]);
+        }
+
+        return $this->ok(null, 'Comment removed');
+    }
+
+    private function presentComment(\App\Models\CommunityComment $comment, $viewer): array
+    {
+        return [
+            'id'         => $comment->id,
+            'body'       => $comment->body,
+            'created_at' => $comment->created_at->toIso8601String(),
+            'is_mine'    => $viewer !== null && $comment->user_id === $viewer->id,
+            'author'     => [
+                'id'     => $comment->user_id,
+                'name'   => $comment->user?->name,
+                'avatar' => $comment->user?->resolvedAvatarUrl(),
+            ],
+        ];
     }
 
     /** What a post costs before it is written, so the price is on screen first. */
@@ -148,11 +274,21 @@ class CommunityPostController extends Controller
             }
         }
 
-        // A few live posts at a time. The board is a notice board, not a feed
-        // one account can fill; three covers a worker with three trades.
-        $live = CommunityPost::where('user_id', $user->id)->live()->count();
+        /*
+            A few posts at a time. The board is a notice board, not a feed one
+            account can fill; three covers a worker with three trades.
+
+            Waiting posts count against it. They are going up shortly and the
+            cap is about how much of the board one account holds - leaving
+            them out would let somebody queue thirty and have the cap apply to
+            none of them.
+        */
+        $live = CommunityPost::where('user_id', $user->id)
+            ->where(fn ($q) => $q->live()->orWhere('status', CommunityPost::STATUS_PENDING))
+            ->count();
+
         if ($live >= 3) {
-            return $this->fail('You already have three live posts. Take one down to post another.', 422);
+            return $this->fail('You already have three posts up or waiting. Take one down to post another.', 422);
         }
 
         $cost = (int) config($data['type'] === CommunityPost::TYPE_WORKER
@@ -194,8 +330,21 @@ class CommunityPostController extends Controller
             'photo_path'  => $photoPath,
             'location'    => $data['location'] ?? null,
             'location_id' => $data['location_id'] ?? null,
-            'status'      => CommunityPost::STATUS_LIVE,
-            'expires_at'  => now()->addDays($days)->endOfDay(),
+            /*
+                Waiting to be read, not up.
+
+                The board publishes when somebody at KAYA has looked at the
+                post. It used to publish on submit and rely on an
+                administrator noticing afterwards, which makes the window
+                between a bad notice going up and coming down however long
+                nobody was watching.
+
+                No end date yet either: the days are paid for and start when
+                it goes up, so a post that waits overnight has not spent one
+                of them. See the migration.
+            */
+            'status'      => CommunityPost::STATUS_PENDING,
+            'expires_at'  => null,
         ];
 
         try {
@@ -223,7 +372,12 @@ class CommunityPostController extends Controller
 
         $post->load(['user:id,name,avatar,is_verified', 'category:id,name']);
 
-        return $this->ok($this->present($post, $user), 'Posted', 201);
+        return $this->ok(
+            $this->present($post, $user),
+            'Sent for review. It goes on the board once KAYA has read it — '
+                . "usually within a day. Your " . $days . ' days start then.',
+            201,
+        );
     }
 
     /*
@@ -237,7 +391,7 @@ class CommunityPostController extends Controller
             return $this->fail('Forbidden', 403);
         }
 
-        if ($post->status === CommunityPost::STATUS_LIVE) {
+        if (in_array($post->status, [CommunityPost::STATUS_LIVE, CommunityPost::STATUS_PENDING], true)) {
             $post->update(['status' => CommunityPost::STATUS_ENDED]);
         }
 
@@ -319,9 +473,19 @@ class CommunityPostController extends Controller
             'location'    => $post->location,
             'location_id' => $post->location_id,
             'status'      => $post->isLive() ? 'live' : $post->status,
-            'expires_at'  => $post->expires_at->toIso8601String(),
+            // Null while it waits to be read: the paid days have not started,
+            // so there is no honest number to show yet.
+            'expires_at'  => $post->expires_at?->toIso8601String(),
             // Calendar days, so a post made today for a week says 7, not 8.
-            'days_left'   => max(0, (int) now()->startOfDay()->diffInDays($post->expires_at->copy()->startOfDay(), false)),
+            'days_left'   => $post->expires_at === null
+                ? null
+                : max(0, (int) now()->startOfDay()->diffInDays($post->expires_at->copy()->startOfDay(), false)),
+            // Why it was refused or taken down, to its author only. Being
+            // told no without being told why is the complaint that follows.
+            'review_note' => $viewer !== null && $post->user_id === $viewer->id
+                ? $post->removed_reason
+                : null,
+            'comment_count' => $post->comments_count ?? $post->comments()->live()->count(),
             'created_at'  => $post->created_at->toIso8601String(),
             'is_mine'     => $viewer !== null && $post->user_id === $viewer->id,
             'poster'      => [

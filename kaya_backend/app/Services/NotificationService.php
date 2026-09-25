@@ -593,6 +593,62 @@ class NotificationService
         }
     }
 
+    /** The board read the post and let it up. */
+    public function communityPostApproved(\App\Models\CommunityPost $post): void
+    {
+        $this->push(
+            userId: $post->user_id,
+            audience: $this->communityAudience($post),
+            type: 'community.approved',
+            title: 'Your community post is up',
+            body: '"' . $post->title . '" is on the board now.',
+            referenceType: 'community_post',
+            referenceId: $post->id,
+        );
+    }
+
+    /** Read and refused, before it ever went up. The barya went back. */
+    public function communityPostRejected(\App\Models\CommunityPost $post, string $reason): void
+    {
+        $this->push(
+            userId: $post->user_id,
+            audience: $this->communityAudience($post),
+            type: 'community.rejected',
+            title: 'Your community post was not approved',
+            body: '"' . $post->title . '" did not go up. Reason: ' . $reason
+                . '. Your Barya has been returned.',
+        );
+    }
+
+    /** Somebody answered under a notice. Only the poster is told. */
+    public function communityPostAnswered(\App\Models\CommunityPost $post, \App\Models\User $who): void
+    {
+        $this->push(
+            userId: $post->user_id,
+            audience: $this->communityAudience($post),
+            type: 'community.comment',
+            title: 'New comment on your post',
+            body: $who->name . ' commented on "' . $post->title . '".',
+            referenceType: 'community_post',
+            referenceId: $post->id,
+            actorId: $who->id,
+        );
+    }
+
+    /*
+        Which half of a hybrid account a community notification belongs to.
+
+        A business advert is employer business and a worker advert is worker
+        business, so the badge lands on the side of the account that wrote it
+        rather than on whichever one happens to be open.
+    */
+    private function communityAudience(\App\Models\CommunityPost $post): string
+    {
+        return $post->type === \App\Models\CommunityPost::TYPE_BUSINESS
+            ? UserNotification::AUDIENCE_EMPLOYER
+            : UserNotification::AUDIENCE_WORKER;
+    }
+
     /** An administrator took a community post down; the poster hears why. */
     public function communityPostRemoved(\App\Models\CommunityPost $post, string $reason): void
     {

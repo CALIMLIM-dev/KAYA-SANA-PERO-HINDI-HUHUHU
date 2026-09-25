@@ -247,6 +247,18 @@ Route::prefix('v1')->group(function () {
         Route::delete('/community/{post}',       [CommunityPostController::class, 'destroy']);
         Route::post('/community/{post}/contact', [CommunityPostController::class, 'contact']);
 
+        /*
+            The thread under a notice.
+
+            Reading is open to anyone signed in, the same as the board.
+            Commenting is free but gated like any other thing you say to
+            people here - an unverified account browses, it does not talk.
+        */
+        Route::get('/community/{post}/comments',  [CommunityPostController::class, 'comments']);
+        Route::post('/community/{post}/comments', [CommunityPostController::class, 'comment'])
+            ->middleware('verified');
+        Route::delete('/community/comments/{comment}', [CommunityPostController::class, 'removeComment']);
+
         // Saved Jobs
         Route::get('/saved-jobs', [JobController::class, 'savedJobs']);
 

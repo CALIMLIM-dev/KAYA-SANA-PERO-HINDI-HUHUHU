@@ -14,17 +14,30 @@ class CommunityPost extends Model
     public const TYPE_WORKER = 'worker';
     public const TYPE_BUSINESS = 'business';
 
+    /*
+        Written and paid for, waiting to be read by an administrator. Nobody
+        but its author can see it, and its paid days have not started.
+    */
+    public const STATUS_PENDING = 'pending';
+
     public const STATUS_LIVE = 'live';
     public const STATUS_ENDED = 'ended';
+
+    /** Read and refused. Never went up, and the barya went back. */
+    public const STATUS_REJECTED = 'rejected';
+
+    /** Was up, and taken down. */
     public const STATUS_REMOVED = 'removed';
 
     protected $fillable = [
         'user_id', 'type', 'category_id', 'title', 'body', 'photo_path',
         'location', 'location_id', 'status', 'expires_at', 'credit_transaction_id',
+        'reviewed_at', 'reviewed_by',
     ];
 
     protected $casts = [
-        'expires_at' => 'datetime',
+        'expires_at'  => 'datetime',
+        'reviewed_at' => 'datetime',
     ];
 
     protected $hidden = ['photo_path', 'removed_by'];
@@ -70,7 +83,15 @@ class CommunityPost extends Model
 
     public function isLive(): bool
     {
-        return $this->status === self::STATUS_LIVE && $this->expires_at->isFuture();
+        return $this->status === self::STATUS_LIVE
+            && $this->expires_at !== null
+            && $this->expires_at->isFuture();
+    }
+
+    /** Written, paid for, and not yet read by anybody at KAYA. */
+    public function isPending(): bool
+    {
+        return $this->status === self::STATUS_PENDING;
     }
 
     public function getPhotoUrlAttribute(): ?string
@@ -80,6 +101,8 @@ class CommunityPost extends Model
             : null;
     }
 
+    public function comments() { return $this->hasMany(CommunityComment::class); }
+    public function reviewer() { return $this->belongsTo(User::class, 'reviewed_by'); }
     public function user()     { return $this->belongsTo(User::class); }
     public function category() { return $this->belongsTo(Category::class); }
     public function location_row() { return $this->belongsTo(Location::class, 'location_id'); }

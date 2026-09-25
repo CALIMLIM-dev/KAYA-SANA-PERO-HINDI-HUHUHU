@@ -50,6 +50,40 @@ void main() {
         },
       };
 
+  /*
+      A thread under a notice, in the words people actually use.
+
+      Long enough to wrap: the row is an avatar, a name, the body and a
+      remove button, and the button is what runs out of room first on a
+      320px phone at text scale 1.3.
+  */
+  List<Map<String, dynamic>> comments() => [
+        {
+          'id': 901,
+          'body': 'Magkano po kada araw, at kasama na po ba ang pagkain at '
+              'sasakyan papuntang Villasis?',
+          'created_at': '2026-09-20T02:00:00Z',
+          'is_mine': false,
+          'author': {
+            'id': 501,
+            'name': 'Ricardo Bumanglag Dela Cruz Jr.',
+            'avatar': null,
+          },
+        },
+        {
+          'id': 902,
+          'body': 'May dala po akong sariling roller at brush. Available po ako '
+              'simula Lunes hanggang Sabado.',
+          'created_at': '2026-09-20T03:00:00Z',
+          'is_mine': true,
+          'author': {
+            'id': 502,
+            'name': 'Ma. Concepcion Villanueva-Santiago',
+            'avatar': null,
+          },
+        },
+      ];
+
   List<Map<String, dynamic>> posts() => [
         post(
           id: 1,
@@ -98,7 +132,11 @@ void main() {
       tester.view.devicePixelRatio = 2.0;
       addTearDown(tester.view.reset);
 
-      final board = CommunityProvider(ApiClient())..seedForTesting(posts());
+      final board = CommunityProvider(ApiClient())
+        ..seedForTesting(posts())
+        // The thread under the business notice, so the post screen is
+        // checked with comments on it rather than over an empty section.
+        ..seedComments(2, comments());
 
       await tester.pumpWidget(
         MediaQuery(
@@ -158,7 +196,10 @@ void main() {
             textScale: scale,
             width: width,
             screen: CommunityPostScreen(post: posts()[1]),
-            proof: find.text('Message the business'),
+            // A comment, not the button: the thread is the part that was
+            // added, and proving the button is on screen would pass over an
+            // empty one.
+            proof: find.textContaining('Magkano po kada araw'),
           );
 
           expect(complaints, isEmpty,

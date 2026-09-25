@@ -113,9 +113,15 @@ class _ComposeCommunityPostScreenState extends State<ComposeCommunityPostScreen>
       builder: (dialogContext) => AlertDialog(
         title: const Text('Post this?'),
         content: Text(
+          // Said before the charge, because the wait is the part people are
+          // not expecting. The days start on approval, so nothing is lost
+          // waiting, and a refusal returns the Barya.
           cost == null
-              ? 'Your post stays on the board for $days days.'
-              : 'Your post stays on the board for $days days. No refund once it is up.',
+              ? 'KAYA reads it first. Once approved it stays on the board for '
+                  '$days days.'
+              : 'KAYA reads it first. Once approved it stays on the board for '
+                  '$days days — your days start then, and you get the Barya '
+                  'back if it is not approved. No refund once it is up.',
         ),
         actions: [
           TextButton(onPressed: () => Navigator.pop(dialogContext, false), child: const Text('Cancel')),
@@ -149,7 +155,10 @@ class _ComposeCommunityPostScreenState extends State<ComposeCommunityPostScreen>
 
     await credits.refresh();
     if (!mounted) return;
-    AppToast.success(context, 'Posted. It stays up for $days days.');
+    AppToast.success(
+      context,
+      'Sent for review. It goes up once KAYA has read it, usually within a day.',
+    );
     Navigator.pop(context, true);
   }
 
