@@ -197,20 +197,15 @@ class ConversationController extends Controller
         ]);
 
         /*
-            Read before it is delivered. See MessageFilter.
+            Read before it is delivered, and masked rather than refused.
 
-            Swearing is masked and still sent; a phone number, an email, an
-            app to move to or "let us talk outside" is refused. The second
-            set is the loophole this whole release is about - a pair
-            introduced here arranging every later job somewhere else - and
-            contact details are something the app sells, so handing them over
-            free is the paid feature given away.
+            Swearing, a phone number, an email, an app to move to and "let us
+            talk outside" all come out as asterisks and the message still
+            goes. Bouncing it was worse: being unable to send at all just
+            teaches people to retype the number with a space in it, and the
+            conversation stalls over a rule they cannot see. See MessageFilter.
         */
         $read = app(\App\Services\MessageFilter::class)->inspect(trim($request->message_text));
-
-        if ($read['refusal'] !== null) {
-            return $this->fail($read['refusal'], 422);
-        }
 
         $message = $conversation->messages()->create([
             'sender_id'    => $user->id,

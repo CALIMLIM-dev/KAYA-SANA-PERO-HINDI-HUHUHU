@@ -37,32 +37,37 @@ class MessageFilter
     public const CONTACT_APP = 'app';
     public const CONTACT_EVASION = 'evasion';
 
-    /**
-     * What the filter made of one piece of text.
-     *
-     * @return array{text: string, masked: bool, refusal: ?string, reason: ?string}
-     */
+    /*
+        What the filter made of one piece of text.
+
+        Nothing is refused. An earlier version bounced a message that carried
+        a phone number, and being unable to send at all is a worse experience
+        than being sent with the number taken out - people retype it with a
+        space in the middle, or give up on the app. Masking gets the same
+        result without the dead end: the number does not arrive, and the
+        conversation carries on.
+
+        Swearing is masked for the same reason it always was. Contact details
+        and "let us talk somewhere else" are masked too, which is the change.
+
+        @return array{text: string, masked: bool, refusal: null, reason: ?string}
+    */
     public function inspect(string $text): array
     {
-        if ($reason = $this->contactReason($text)) {
-            return [
-                'text'    => $text,
-                'masked'  => false,
-                'refusal' => $this->refusalFor($reason),
-                'reason'  => $reason,
-            ];
-        }
+        $reason = $this->contactReason($text);
 
-        $masked = $this->maskProfanity($text);
+        $out = $this->maskContact($text);
+        $out = $this->maskProfanity($out);
 
         return [
-            'text'    => $masked,
-            'masked'  => $masked !== $text,
+            'text'    => $out,
+            'masked'  => $out !== $text,
+            // Kept null so every caller that checked it simply stops
+            // refusing, rather than each one needing its own edit.
             'refusal' => null,
-            'reason'  => null,
+            'reason'  => $reason,
         ];
     }
-
     /** What to tell somebody whose message was not delivered. */
     public function refusalFor(string $reason): string
     {
@@ -111,6 +116,156 @@ class MessageFilter
         return null;
     }
 
+    /*
+        Contact details and off-platform talk, blacked out in place.
+
+        Phone numbers and emails are matched on the text as typed, because
+        both are recognisable without normalising and doing it here keeps
+        every character position intact. App names and the "talk to me
+        somewhere else" phrases go through the word walk below, which reads
+        them the way the rest of this class does - so "f b", "bayber" and
+        "txt mo nlng aq" are caught as readily as the plain spellings.
+    */
+    public function maskContact(string $text): string
+    {
+        // Emails, as written.
+        $text = preg_replace_callback(
+            '/[\p{L}\p{N}._%+-]+@[\p{L}\p{N}.-]+\.[a-z]{2,}/ui',
+            fn ($m) => str_repeat('*', min(8, max(3, strlen($m[0])))),
+            $text,
+        ) ?? $text;
+
+        /*
+            Numbers long enough to be one.
+
+            Grouped the way people write them - 0 9xx xxx xxxx - so a
+            sentence holding three prices is left alone. See hasPhoneNumber
+            for why that distinction is the whole difference between a
+            filter and a nuisance.
+        */
+        foreach ([
+            '/(?:\+?63|0)[\s.-]?9\d{2}[\s.-]?\d{3}[\s.-]?\d{4}/u',
+            '/\d{10,}/u',
+        ] as $pattern) {
+            $text = preg_replace_callback(
+                $pattern,
+                fn ($m) => str_repeat('*', min(8, max(3, strlen($m[0])))),
+                $text,
+            ) ?? $text;
+        }
+
+        // Spelled out digits, which are a number typed to dodge a digit check.
+        if ($this->hasPhoneNumber($this->digitLine($text))) {
+            $words = 'zero|oh|one|two|three|four|five|six|seven|eight|nine';
+            $text = preg_replace(
+                '/\b(?:' . $words . ')(?:[\s-]+(?:' . $words . ')){6,}/ui',
+                '*****',
+                $text,
+            ) ?? $text;
+        }
+
+        /*
+            An email spelled out, which is an address typed to dodge a check
+            on the '@'. Masked whole: the name, the host and the domain are
+            one thing and leaving any part reads as a hint.
+        */
+        $hosts = 'gmail|yahoo|hotmail|outlook|proton|protonmail|icloud|aol';
+
+        $text = preg_replace(
+            '/\b[\p{L}\p{N}._-]+\s+(?:at\s+)?(?:' . $hosts . ')\s+(?:dot\s+)?(?:com|net|org|ph)\b/ui',
+            '********',
+            $text,
+        ) ?? $text;
+
+        // App names, colour-named apps, and the phrases.
+        $phrases = [];
+
+        foreach ((array) config('moderation.off_platform_apps') as $app) {
+            $phrases[] = $this->word($app);
+        }
+
+        foreach ((array) config('moderation.evasion_phrases') as $phrase) {
+            $phrases[] = $this->word($phrase);
+        }
+
+        foreach ((array) config('moderation.colours') as $colour) {
+            $phrases[] = $this->word($colour) . ' ap';
+            $phrases[] = $this->word($colour) . ' na ap';
+        }
+
+        return $this->maskPhrases($text, array_values(array_filter($phrases)));
+    }
+
+    /*
+        Blacks out any of the given phrases, however they were typed.
+
+        Walks the text's own words, normalises each the way the lists are
+        normalised, and tries the longest run first so "add mo ako sa fb"
+        is taken as one phrase rather than leaving "add mo ako sa" behind
+        once "fb" is removed.
+    */
+    private function maskPhrases(string $text, array $phrases): string
+    {
+        if ($phrases === []) {
+            return $text;
+        }
+
+        /*
+            A flat set rather than buckets by length.
+
+            Candidates are built from tokens and a token can expand into two
+            words - "nlng" becomes "na lang" - so a three token run can
+            produce a four word candidate. Bucketing by length looked for it
+            among the three word phrases, which is a bucket it was never in.
+        */
+        $set = array_flip($phrases);
+
+        $longest = 1;
+        foreach ($phrases as $phrase) {
+            $longest = max($longest, substr_count($phrase, ' ') + 1);
+        }
+
+        preg_match_all('/[\p{L}\p{N}@$!]+/u', $text, $matches, PREG_OFFSET_CAPTURE);
+        $tokens = $matches[0];
+
+        if ($tokens === []) {
+            return $text;
+        }
+
+        $hits = [];
+        $i = 0;
+
+        while ($i < count($tokens)) {
+            $matchedLength = 0;
+
+            for ($n = min($longest, count($tokens) - $i); $n >= 1; $n--) {
+                $parts = [];
+                for ($k = 0; $k < $n; $k++) {
+                    $parts[] = $this->word($tokens[$i + $k][0]);
+                }
+
+                $candidate = implode(' ', $parts);
+
+                if (isset($set[$candidate])) {
+                    [$firstWord, $firstOffset] = $tokens[$i];
+                    [$lastWord, $lastOffset] = $tokens[$i + $n - 1];
+
+                    $hits[] = [$firstOffset, ($lastOffset + strlen($lastWord)) - $firstOffset];
+                    $matchedLength = $n;
+
+                    break;
+                }
+            }
+
+            $i += $matchedLength > 0 ? $matchedLength : 1;
+        }
+
+        foreach (array_reverse($hits) as [$offset, $length]) {
+            $text = substr_replace($text, str_repeat('*', max(3, min(8, $length))), $offset, $length);
+        }
+
+        return $text;
+    }
     /*
         Every bad word replaced by asterisks, the rest of the text untouched.
 

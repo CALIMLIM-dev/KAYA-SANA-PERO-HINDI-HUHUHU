@@ -154,10 +154,6 @@ class CommunityPostController extends Controller
 
         $read = app(\App\Services\MessageFilter::class)->inspect(trim($data['body']));
 
-        if ($read['refusal'] !== null) {
-            return $this->fail($read['refusal'], 422);
-        }
-
         $comment = $post->comments()->create([
             'user_id' => $user->id,
             'body'    => $read['text'],
@@ -310,16 +306,6 @@ class CommunityPostController extends Controller
         $filter = app(\App\Services\MessageFilter::class);
         $title = $filter->inspect(trim($data['title']));
         $body = $filter->inspect(trim($data['body']));
-
-        foreach ([$title, $body] as $read) {
-            if ($read['refusal'] !== null) {
-                if ($photoPath) {
-                    Storage::disk(config('filesystems.media'))->delete($photoPath);
-                }
-
-                return $this->fail($read['refusal'], 422);
-            }
-        }
 
         $attributes = [
             'user_id'     => $user->id,

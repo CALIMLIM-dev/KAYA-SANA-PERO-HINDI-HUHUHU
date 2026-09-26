@@ -657,6 +657,7 @@ class _SearchScreenState extends State<SearchScreen> {
       distanceKm: worker.distance,
       rateLabel: worker.rateLabel,
       imageUrl: worker.profileImageUrl,
+      isBoosted: worker.isBoosted,
       onTap: () => AppRouter.push(context, '/worker-profile',
           arguments: {'workerId': worker.userId ?? worker.id}),
     );

@@ -11,6 +11,16 @@ class WorkerProfile {
   final int reviewCount;
   final bool isVerified;
 
+  /*
+      Paid placement, which browse() has been sending as is_boosted
+      since boosts were built and nothing ever read.
+
+      The ranking lifted a boosted worker to the top of the list and
+      then drew them identically to everybody else, so the thing
+      somebody paid for was invisible to them and to the employer.
+  */
+  final bool isBoosted;
+
   final bool isAvailable;
   final double? distance; // in kilometers
   final String? bio;
@@ -45,6 +55,7 @@ class WorkerProfile {
     required this.rating,
     required this.reviewCount,
     this.isVerified = false,
+    this.isBoosted = false,
     this.isAvailable = true,
     this.distance,
     this.bio,
@@ -87,6 +98,7 @@ class WorkerProfile {
       // Straight-line km from whoever is browsing, computed server-side.
       distance: asDoubleOrNull(json['distance_km']),
       isVerified: json['is_verified'] as bool? ?? false,
+      isBoosted: json['is_boosted'] == true || json['is_boosted'] == 1,
       isAvailable: (json['availability_status'] ?? 'available') == 'available',
       bio: json['bio'] as String?,
       profileImageUrl: json['avatar'] as String?,
@@ -109,6 +121,7 @@ class WorkerProfile {
       rating: json['rating']?.toDouble() ?? 0.0,
       reviewCount: json['review_count'] ?? 0,
       isVerified: json['is_verified'] ?? false,
+      isBoosted: json['is_boosted'] == true || json['is_boosted'] == 1,
       isAvailable: json['is_available'] ?? true,
       distance: json['distance_km']?.toDouble(),
       bio: json['bio'],

@@ -200,9 +200,13 @@ class CommunityThreadTest extends TestCase
         $comment = fn (string $body) => $this->actingAs($reader, 'sanctum')
             ->postJson("/api/v1/community/{$post->id}/comments", ['body' => $body]);
 
-        $comment('Text mo ako sa 0917 123 4567')->assertStatus(422);
+        // Masked and posted, the same as the chat - see MessageFilter.
+        $comment('Text mo ako sa 0917 123 4567')->assertCreated();
 
-        $this->assertSame(0, $post->comments()->count(), 'nothing refused may be stored');
+        $this->assertStringNotContainsString(
+            '0917',
+            (string) $post->comments()->latest('id')->value('body'),
+        );
 
         $comment('gago naman ang presyo')->assertCreated();
 

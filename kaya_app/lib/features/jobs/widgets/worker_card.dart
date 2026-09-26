@@ -42,7 +42,11 @@ class WorkerCard extends StatelessWidget {
     this.rateLabel,
     this.imageUrl,
     this.onTap,
+    this.isBoosted = false,
   });
+
+  /// Paid placement. See the border in build().
+  final bool isBoosted;
 
   Color get _matchColor {
     final p = matchScore ?? 0;
@@ -60,6 +64,16 @@ class WorkerCard extends StatelessWidget {
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(16),
+          /*
+              A boosted worker is above the ranking, so the card says
+              so. Quietly: an edge and a small chip, not a colour wash.
+              Somebody paying for placement should be able to see they
+              got it, and an employer should be able to see why this
+              person is first.
+          */
+          border: isBoosted
+              ? Border.all(color: AppColors.primary, width: 1.5)
+              : null,
           boxShadow: [
             BoxShadow(
               color: Colors.black.withValues(alpha: 0.06),
@@ -71,6 +85,24 @@ class WorkerCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            if (isBoosted) ...[
+              Row(
+                children: [
+                  const Icon(Icons.trending_up,
+                      size: 13, color: AppColors.primary),
+                  const SizedBox(width: 4),
+                  Text(
+                    'Featured',
+                    style: const TextStyle(
+                      fontSize: 11.5,
+                      fontWeight: FontWeight.w700,
+                      color: AppColors.primary,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+            ],
             // ── Row 1: avatar + info ────────────────────────────────────────
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,

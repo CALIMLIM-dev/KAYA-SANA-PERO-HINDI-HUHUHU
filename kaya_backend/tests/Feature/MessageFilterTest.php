@@ -145,11 +145,19 @@ class MessageFilterTest extends TestCase
         $send = fn (string $text) => $this->actingAs($worker, 'sanctum')
             ->postJson("/api/v1/conversations/{$thread->id}/messages", ['message_text' => $text]);
 
-        $send('Sir, text mo ako sa 09171234567')
-            ->assertStatus(422)
-            ->assertJsonPath('message', fn ($m) => str_contains($m, 'Phone numbers stay off the chat'));
+        /*
+            Masked, not refused.
 
-        $this->assertSame(0, $thread->messages()->count(), 'nothing refused may be stored');
+            Bouncing the message taught people to retype the number with a
+            space in it and left the conversation stalled over a rule they
+            could not see. It goes, with the number taken out of it.
+        */
+        $send('Sir, text mo ako sa 09171234567')->assertCreated();
+
+        $stored = (string) $thread->messages()->latest('id')->value('message_text');
+
+        $this->assertStringNotContainsString('09171234567', $stored);
+        $this->assertStringContainsString('*', $stored);
 
         $send('gago naman yung kasama ko kahapon')->assertCreated();
 
