@@ -86,8 +86,11 @@ void main() {
 
     expect(find.text('Mark as complete'), findsNothing,
         reason: 'the work is not due to be finished for another nine days');
-    expect(find.textContaining('mark complete opens that day'), findsWidgets,
-        reason: 'the card has to say when it will appear, not just omit it');
+    // Not just when, but the way out: somebody finished early needs to
+    // know agreeing today in the chat moves the day, which it does.
+    expect(find.textContaining('Finished early?'), findsWidgets,
+        reason: 'the card has to say when it appears and how to bring it forward');
+    expect(find.textContaining('Agree the day in the chat'), findsWidgets);
   });
 
   testWidgets('the deadline day itself offers completion', (tester) async {
@@ -95,7 +98,7 @@ void main() {
 
     expect(find.text('Mark as complete'), findsWidgets,
         reason: 'a one day job finishes during the day, not at midnight');
-    expect(find.textContaining('mark complete opens that day'), findsNothing);
+    expect(find.textContaining('Finished early?'), findsNothing);
   });
 
   testWidgets('a job posted before schedules existed is not held to a deadline',

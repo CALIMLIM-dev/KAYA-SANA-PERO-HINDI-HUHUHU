@@ -233,7 +233,33 @@ class ApplicationController extends Controller
             ->where(fn ($q) => $q->where('reviewer_id', $user->id)->orWhere('reviewee_id', $user->id))
             ->get(['job_id', 'reviewer_id', 'reviewee_id']);
 
-        $applications->each(function ($application) use ($conversations, $reviews, $user) {
+        /*
+            The agreed day for every job on the page, in one query.
+
+            The deadline a card gates Mark as complete on is the day the two
+            of them settled in the chat where there is one, and the post's own
+            date otherwise - see JobPost::deadline. Asked per row that would
+            be a query a card, which is the mistake that made messages slow.
+        */
+        $agreed = \App\Models\ScheduleProposal::whereIn('job_id', $applications->pluck('job_id')->filter()->unique())
+            ->where('status', 'accepted')
+            ->orderBy('id')
+            ->pluck('scheduled_date', 'job_id');
+
+        $applications->each(function ($application) use ($conversations, $reviews, $user, $agreed) {
+            if ($application->job) {
+                $day = $agreed[$application->job_id] ?? null;
+
+                $application->job->setAgreedDate(
+                    $day ? \Illuminate\Support\Carbon::parse($day) : null,
+                );
+
+                // The one date the app gates on, so it never has to work out
+                // which of the two wins for itself.
+                $application->job->deadline = $application->job->deadline()?->toDateString();
+                $application->job->agreed_day = $day ? \Illuminate\Support\Carbon::parse($day)->toDateString() : null;
+            }
+
             /*
                 Only where this application actually unlocked messaging.
 

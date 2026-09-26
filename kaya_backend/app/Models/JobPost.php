@@ -62,20 +62,75 @@ class JobPost extends Model
     /*
         The day the work is due to be finished.
 
-        The schedule says when the work runs, and the last day of it is the
-        deadline - end_date for a job that runs over several days, the start
-        date for a job that is one day. There is no separate column because
-        there is no separate fact, and a second date that always equalled the
-        first would only be something to keep in step.
+        Two dates can say this, and the one that wins is the one both people
+        agreed to.
+
+        The post's own dates are the employer's statement, made before anybody
+        was hired: end_date for a job running several days, start_date for a
+        job that is one day. They are a plan.
+
+        The chat's agreed day is the two of them settling it afterwards - a
+        ScheduleProposal one side offered and the other accepted. That is not
+        a plan, it is an arrangement, and it is what actually happens. So it
+        wins outright rather than being averaged against the post.
+
+        This is what stops the deadline gate trapping people. A job booked for
+        the tenth and finished on the third is completed on the third, because
+        the pair agree the third in the chat and the agreement moves the day.
+        A job that runs long moves the other way for the same reason. Neither
+        side can move it alone, which is the point - one person declaring the
+        work over is exactly what two-sided completion exists to prevent.
 
         Null for posts made before the schedule existed. Those have no
         deadline and are not held to one.
     */
     public function deadline(): ?\Illuminate\Support\Carbon
     {
+        if ($agreed = $this->agreedDate()) {
+            return $agreed->copy()->startOfDay();
+        }
+
         $last = $this->end_date ?? $this->start_date;
 
         return $last ? $last->copy()->startOfDay() : null;
+    }
+
+    /*
+        The day the two of them settled on in the chat, if they did.
+
+        The newest accepted proposal wins: a pair who agree Saturday and then
+        re-agree Monday have moved the day, and the older row is history.
+
+        Memoised on the instance because a list screen asks every row for its
+        deadline, and resolved from an eager-loaded relation when the caller
+        provided one - see the loadAgreedDates helper on the controllers.
+    */
+    private ?bool $agreedResolved = null;
+    private ?\Illuminate\Support\Carbon $agreedDate = null;
+
+    public function agreedDate(): ?\Illuminate\Support\Carbon
+    {
+        if ($this->agreedResolved === true) {
+            return $this->agreedDate;
+        }
+
+        $this->agreedResolved = true;
+
+        $row = ScheduleProposal::where('job_id', $this->id)
+            ->where('status', 'accepted')
+            ->latest('id')
+            ->first(['scheduled_date']);
+
+        $this->agreedDate = $row?->scheduled_date;
+
+        return $this->agreedDate;
+    }
+
+    /** Lets a caller that already batched the dates skip the per-row query. */
+    public function setAgreedDate(?\Illuminate\Support\Carbon $date): void
+    {
+        $this->agreedResolved = true;
+        $this->agreedDate = $date;
     }
 
     /*
@@ -102,7 +157,8 @@ class JobPost extends Model
         }
 
         return 'This job runs until ' . $this->deadline()->format('j M Y')
-            . '. It can be marked complete from that day.';
+            . '. It can be marked complete from that day - or agree an'
+            . ' earlier day in the chat if the work is already done.';
     }
 
     /** The exact place. Released to a party to the work, nobody else. */

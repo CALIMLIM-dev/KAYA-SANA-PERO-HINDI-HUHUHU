@@ -569,6 +569,22 @@ class JobController extends Controller
         */
         $rehireCost = (int) config('kaya.credits.rehire_invite');
 
+        // The agreed day for the whole page, one query - see the matching
+        // block in ApplicationController::myApplications.
+        $agreedDays = \App\Models\ScheduleProposal::whereIn('job_id', $jobs->pluck('id'))
+            ->where('status', 'accepted')
+            ->orderBy('id')
+            ->pluck('scheduled_date', 'job_id');
+
+        $jobs->each(function ($job) use ($agreedDays) {
+            $day = $agreedDays[$job->id] ?? null;
+
+            $job->setAgreedDate($day ? \Illuminate\Support\Carbon::parse($day) : null);
+
+            $job->deadline = $job->deadline()?->toDateString();
+            $job->agreed_day = $day ? \Illuminate\Support\Carbon::parse($day)->toDateString() : null;
+        });
+
         $jobs->each(function ($job) use ($hires, $reviewsGiven, $threads, $rehireCost) {
             // Only the single-hire case gets a card button. With two people on
             // one job the card cannot say who you mean, so those keep going

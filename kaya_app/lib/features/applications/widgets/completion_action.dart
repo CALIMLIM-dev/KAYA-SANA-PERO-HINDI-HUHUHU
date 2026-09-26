@@ -104,17 +104,20 @@ Future<void> refreshActivity(BuildContext context) async {
 }
 
 /*
-    When the work was due to be finished.
+    When the work is due to be finished.
 
-    The job's end date, or its start date when it is one day. Read straight
-    out of the job map because the activity lists hold maps rather than Job
-    models; it is the same fact as Job.lastDay and JobPost::deadline.
+    The server sends `deadline` already worked out, because two dates can
+    answer this and only it knows which won: the day the pair agreed in the
+    chat beats the date on the post, and the post's own date applies when
+    nothing was agreed. See JobPost::deadline.
 
-    Null for a post made before jobs had dates. Those have no deadline and are
-    not held to one.
+    The end_date fallback is for a payload from a server that has not been
+    updated yet, and for the job maps the app builds itself. Null for a post
+    made before jobs had dates - those have no deadline and are not held to
+    one.
 */
 DateTime? jobDeadline(Map<String, dynamic>? job) {
-  final raw = (job?['end_date'] ?? job?['start_date']) as String?;
+  final raw = (job?['deadline'] ?? job?['end_date'] ?? job?['start_date']) as String?;
   final parsed = raw == null ? null : DateTime.tryParse(raw);
 
   return parsed == null
@@ -141,7 +144,17 @@ bool completionHasOpened(Map<String, dynamic>? job) {
   return !deadline.isAfter(DateTime(now.year, now.month, now.day));
 }
 
-/// The line the card carries while the button is still to come.
+/*
+    The line the card carries while the button is still to come.
+
+    It names the way out as well as the date. Somebody who has finished the
+    work three days early does not want to be told to wait - they want to
+    know that agreeing today's date in the chat moves the deadline, which it
+    does, because an agreed day beats the posted one.
+
+    Where the day already came from the chat it says so, so nobody wonders
+    why the card disagrees with the post.
+*/
 String? completionWaitNote(Map<String, dynamic>? job) {
   final deadline = jobDeadline(job);
   if (deadline == null || completionHasOpened(job)) return null;
@@ -151,6 +164,10 @@ String? completionWaitNote(Map<String, dynamic>? job) {
     'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
   ];
 
-  return 'Due ${months[deadline.month - 1]} ${deadline.day}'
-      ' · mark complete opens that day';
+  final agreedInChat = job?['agreed_day'] != null;
+  final due = '${months[deadline.month - 1]} ${deadline.day}';
+
+  return agreedInChat
+      ? 'Agreed for $due in the chat. Mark complete opens that day.'
+      : 'Due $due. Finished early? Agree the day in the chat and it opens then.';
 }

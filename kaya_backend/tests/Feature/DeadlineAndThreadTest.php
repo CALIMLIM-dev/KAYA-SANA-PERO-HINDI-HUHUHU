@@ -110,6 +110,122 @@ class DeadlineAndThreadTest extends TestCase
         $this->assertNotNull($application->fresh()->worker_completed_at);
     }
 
+    /*
+        Finished early.
+
+        This is the case the deadline gate would otherwise trap. The post says
+        the work runs to the fifth; it is done on the first; and without a way
+        to move the day both people sit waiting on a button for four days over
+        a job that is finished.
+
+        The way out already existed and was not wired to anything: the two of
+        them agree a day in the chat. An agreed day beats the posted one, so
+        agreeing today opens completion today.
+    */
+    #[Test]
+    public function a_day_agreed_in_the_chat_moves_the_deadline_earlier(): void
+    {
+        $employer = $this->employer();
+        $worker = $this->worker();
+        $job = $this->job($employer, now()->addDay()->toDateString(), now()->addDays(5)->toDateString());
+        $application = $this->hire($employer, $worker, $job);
+
+        // Posted deadline is four days out, so completion is refused.
+        $this->actingAs($worker, 'sanctum')
+            ->patchJson("/api/v1/applications/{$application->id}/complete")
+            ->assertStatus(422);
+
+        $thread = Conversation::where('job_id', $job->id)->firstOrFail();
+
+        $proposal = $this->actingAs($worker, 'sanctum')
+            ->postJson("/api/v1/conversations/{$thread->id}/schedule", [
+                'scheduled_date' => now()->toDateString(),
+                'scheduled_time' => '08:00',
+                'note' => 'Natapos na po ngayon.',
+            ])
+            ->assertCreated()
+            ->json('data.id');
+
+        $this->actingAs($employer, 'sanctum')
+            ->postJson("/api/v1/conversations/{$thread->id}/schedule/{$proposal}/respond", ['accept' => true])
+            ->assertOk();
+
+        $this->assertSame(
+            now()->toDateString(),
+            $job->fresh()->deadline()->toDateString(),
+            'the day the pair agreed is the day the work is due',
+        );
+
+        $this->actingAs($worker, 'sanctum')
+            ->patchJson("/api/v1/applications/{$application->id}/complete")
+            ->assertOk();
+    }
+
+    /*
+        And the other way, so the rule is an agreement rather than a shortcut.
+
+        A pair who agree a later day have moved the work, and completion waits
+        for the day they named - not the one the post guessed at before
+        anybody was hired.
+    */
+    #[Test]
+    public function a_day_agreed_in_the_chat_also_moves_the_deadline_later(): void
+    {
+        $employer = $this->employer();
+        $worker = $this->worker();
+
+        // One day of work, today: completion would be open right now.
+        $job = $this->job($employer, now()->toDateString());
+        $application = $this->hire($employer, $worker, $job);
+
+        $thread = Conversation::where('job_id', $job->id)->firstOrFail();
+
+        $proposal = $this->actingAs($employer, 'sanctum')
+            ->postJson("/api/v1/conversations/{$thread->id}/schedule", [
+                'scheduled_date' => now()->addDays(3)->toDateString(),
+                'scheduled_time' => '08:00',
+            ])
+            ->assertCreated()
+            ->json('data.id');
+
+        $this->actingAs($worker, 'sanctum')
+            ->postJson("/api/v1/conversations/{$thread->id}/schedule/{$proposal}/respond", ['accept' => true])
+            ->assertOk();
+
+        $this->actingAs($worker, 'sanctum')
+            ->patchJson("/api/v1/applications/{$application->id}/complete")
+            ->assertStatus(422);
+    }
+
+    /*
+        A proposal nobody accepted changes nothing.
+
+        One side naming a day is an offer, not an arrangement - and if an
+        unanswered offer moved the deadline, either party could open
+        completion on their own, which is the whole thing two-sided
+        completion exists to prevent.
+    */
+    #[Test]
+    public function a_proposal_that_was_not_accepted_does_not_move_anything(): void
+    {
+        $employer = $this->employer();
+        $worker = $this->worker();
+        $job = $this->job($employer, now()->addDay()->toDateString(), now()->addDays(5)->toDateString());
+        $application = $this->hire($employer, $worker, $job);
+
+        $thread = Conversation::where('job_id', $job->id)->firstOrFail();
+
+        $this->actingAs($worker, 'sanctum')
+            ->postJson("/api/v1/conversations/{$thread->id}/schedule", [
+                'scheduled_date' => now()->toDateString(),
+                'scheduled_time' => '08:00',
+            ])
+            ->assertCreated();
+
+        $this->actingAs($worker, 'sanctum')
+            ->patchJson("/api/v1/applications/{$application->id}/complete")
+            ->assertStatus(422);
+    }
     #[Test]
     public function a_job_with_no_schedule_is_not_held_to_a_deadline(): void
     {
