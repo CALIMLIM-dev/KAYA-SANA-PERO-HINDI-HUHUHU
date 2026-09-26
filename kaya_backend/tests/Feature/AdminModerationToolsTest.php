@@ -167,36 +167,46 @@ class AdminModerationToolsTest extends TestCase
 
     // ── Chat behind a report ─────────────────────────────────────────────────
 
+    /*
+        The report page does not show their conversation.
+
+        It used to print the last forty messages between the pair so the
+        decision could be made on the words themselves, and two tests here
+        asserted that it did. Reading two users' private messages because one
+        of them complained is a power the panel should not hold, so the block
+        is gone and this is what replaces those tests.
+    */
     #[Test]
-    public function the_report_page_shows_the_messages_between_the_two(): void
+    public function the_report_page_never_shows_their_messages(): void
     {
-        $employer = User::factory()->create();
-        $worker = User::factory()->create(['name' => 'Ramon Bautista']);
-        $job = JobPost::create(['employer_id' => $employer->id, 'title' => 'x', 'description' => 'x', 'status' => 'open']);
-        $conversation = Conversation::create(['job_id' => $job->id, 'employer_id' => $employer->id, 'worker_id' => $worker->id, 'status' => 'unlocked']);
-        Message::create(['conversation_id' => $conversation->id, 'sender_id' => $worker->id, 'message_text' => 'Send 2000 deposit first via GCash', 'is_read' => true]);
-        Message::create(['conversation_id' => $conversation->id, 'sender_id' => $employer->id, 'message_text' => 'No, that is not how KAYA works', 'is_read' => true]);
+        $reporter = User::factory()->create(['name' => 'Ana Reyes']);
+        $reported = User::factory()->create(['name' => 'Ben Santos']);
 
-        $report = Report::create(['reporter_id' => $employer->id, 'reported_id' => $worker->id, 'reported_type' => 'user',
-            'reason_code' => 'scam', 'reason' => 'Scam', 'description' => 'Asked for a deposit', 'status' => 'pending']);
+        $thread = Conversation::create([
+            'employer_id' => $reporter->id,
+            'worker_id'   => $reported->id,
+            'status'      => 'unlocked',
+        ]);
 
-        $this->actingAs($this->admin())->get("/admin/reports/{$report->id}")
+        $thread->messages()->create([
+            'sender_id'    => $reported->id,
+            'message_text' => 'Susmaryosep ang bagal mo naman',
+            'is_read'      => false,
+        ]);
+
+        $report = Report::create([
+            'reporter_id' => $reporter->id,
+            'reported_id' => $reported->id,
+            'reported_type' => 'user',
+            'reason_code' => 'harassment',
+            'reason'      => 'Harassment',
+            'status'      => 'pending',
+        ]);
+
+        $this->actingAs($this->admin())
+            ->get("/admin/reports/{$report->id}")
             ->assertOk()
-            ->assertSee('Send 2000 deposit first via GCash')
-            ->assertSee('No, that is not how KAYA works')
-            ->assertSee('Ramon Bautista (reported)');
-    }
-
-    #[Test]
-    public function a_report_between_people_who_never_talked_says_so(): void
-    {
-        $a = User::factory()->create();
-        $b = User::factory()->create();
-        $report = Report::create(['reporter_id' => $a->id, 'reported_id' => $b->id, 'reported_type' => 'user',
-            'reason_code' => 'spam', 'reason' => 'Spam', 'status' => 'pending']);
-
-        $this->actingAs($this->admin())->get("/admin/reports/{$report->id}")
-            ->assertOk()
-            ->assertSee('never messaged each other');
+            ->assertDontSee('Susmaryosep ang bagal mo naman')
+            ->assertDontSee('Messages between them');
     }
 }

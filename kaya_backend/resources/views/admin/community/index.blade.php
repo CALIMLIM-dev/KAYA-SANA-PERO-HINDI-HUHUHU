@@ -77,8 +77,7 @@
                                     <form method="POST" action="{{ route('admin.community.comment.remove', $comment) }}"
                                           onsubmit="return confirm('Remove this comment?')" class="flex items-center gap-1">
                                         @csrf
-                                        <input type="text" name="reason" required maxlength="255" placeholder="Reason"
-                                               class="w-32 px-2 py-1 border border-slate-200 rounded text-xs">
+                                        @include('admin.partials.reason-picker', ['reasons' => ['Abusive or insulting', 'Spam or advertising', 'Contact details', 'Off topic', 'Misleading'], 'placeholder' => 'Reason'])
                                         <button class="px-2 py-1 text-xs text-red-600 border border-red-200 rounded hover:bg-red-50">Remove</button>
                                     </form>
                                 </div>
@@ -95,15 +94,13 @@
                         </form>
                         <form method="POST" action="{{ route('admin.community.reject', $post) }}" onsubmit="return confirm('Refuse this post and return the Barya?')">
                             @csrf
-                            <input type="text" name="reason" required maxlength="255" placeholder="Reason the poster will see"
-                                   class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm mb-2">
+                            @include('admin.partials.reason-picker', ['reasons' => ['Contact details in the post', 'Spam or advertising', 'Not a real job or service', 'Abusive or offensive', 'Duplicate post', 'Wrong category of post'], 'placeholder' => 'Reason the poster will see'])
                             <button class="w-full px-3 py-2 bg-red-50 text-red-600 border border-red-200 rounded-lg text-sm hover:bg-red-100">Refuse</button>
                         </form>
                     @elseif (! in_array($post->status, ['removed', 'rejected']))
                         <form method="POST" action="{{ route('admin.community.remove', $post) }}" onsubmit="return confirm('Remove this post?')">
                             @csrf
-                            <input type="text" name="reason" required maxlength="255" placeholder="Reason the poster will see"
-                                   class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm mb-2">
+                            @include('admin.partials.reason-picker', ['reasons' => ['Contact details in the post', 'Spam or advertising', 'Not a real job or service', 'Abusive or offensive', 'Duplicate post', 'Wrong category of post'], 'placeholder' => 'Reason the poster will see'])
                             <button class="w-full px-3 py-2 bg-red-50 text-red-600 border border-red-200 rounded-lg text-sm hover:bg-red-100">Remove</button>
                         </form>
                     @endif

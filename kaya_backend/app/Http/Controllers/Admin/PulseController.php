@@ -32,6 +32,7 @@ class PulseController extends Controller
         'applications',
         'community_posts',
         'support_messages',
+        'community_comments',
         'credit_transactions',
         'credit_payments',
         'admin_actions',

@@ -132,8 +132,7 @@
                         @else
                             <form method="POST" action="{{ route('admin.reviews.hide', $review->id) }}" onsubmit="return confirm('Hide this review?')">
                                 @csrf
-                                <input type="text" name="reason" required maxlength="255" placeholder="Reason"
-                                       class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm mb-2">
+                                @include('admin.partials.reason-picker', ['reasons' => ['Abusive or insulting', 'Not about the work', 'Appears fake', 'Contact details', 'Names a third party'], 'placeholder' => 'Reason'])
                                 <button class="w-full px-3 py-2 bg-red-50 text-red-600 border border-red-200 rounded-lg text-sm hover:bg-red-100">Hide review</button>
                             </form>
                         @endif

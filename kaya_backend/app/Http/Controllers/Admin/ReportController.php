@@ -4,7 +4,6 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\AdminAction;
-use App\Models\Conversation;
 use App\Models\Report;
 use App\Services\SuspensionService;
 use App\Support\ModerationReasons;
@@ -62,26 +61,17 @@ class ReportController extends Controller
         ];
 
         /*
-            What the two of them actually said.
+            Their messages are deliberately not loaded.
 
-            A report about messages used to show the reporter's description
-            and nothing else, so the decision rested on one side's account.
-            The last messages between the pair are shown here, and only here:
-            behind the admin session, on the page where the decision is made.
+            This used to fetch the last forty between the pair so the
+            decision could be made on the words themselves. Reading two
+            users' private conversation because one of them complained is a
+            power the panel should not hold, so it no longer does - see the
+            note in the view.
         */
-        $conversation = Conversation::where('pair_low', min($report->reporter_id, $report->reported_id))
-            ->where('pair_high', max($report->reporter_id, $report->reported_id))
-            ->first();
-
-        $messages = $conversation
-            ? $conversation->messages()->with('sender:id,name')->latest('id')->take(40)->get()->reverse()->values()
-            : collect();
-
         return view('admin.reports.show', [
             'report'           => $report,
             'history'          => $history,
-            'conversation'     => $conversation,
-            'messages'         => $messages,
             'reporterStats'    => $reporterStats,
             'suspensionReasons' => ModerationReasons::SUSPENSION,
             'suggested'        => ModerationReasons::suggestedSuspension($report->reason_code),

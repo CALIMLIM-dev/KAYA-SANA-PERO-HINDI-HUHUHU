@@ -1,6 +1,10 @@
 @extends('admin.layouts.app')
 @section('page-title', 'Support')
 
+{{-- A page that is only a conversation: refreshing it loses nothing,
+     so typing a reply must not stop it updating. --}}
+@push('body-attributes') data-live @endpush
+
 @section('content')
 <div class="max-w-3xl space-y-4">
     <div class="bg-white rounded-xl border border-slate-200 p-5 flex items-center gap-3">

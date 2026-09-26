@@ -106,60 +106,19 @@
             @endif
         </div>
 
-        {{-- ── What they said to each other ── --}}
-        <div class="bg-white rounded-xl border border-slate-200 p-6">
-            <h3 class="text-sm font-semibold text-slate-700">Messages between them</h3>
-            @if (! $conversation)
-                <p class="text-sm text-slate-400 mt-4">These two have never messaged each other on KAYA.</p>
-            @elseif ($messages->isEmpty())
-                <p class="text-sm text-slate-400 mt-4">They have a conversation but nothing was sent in it.</p>
-            @else
-                <p class="text-xs text-slate-400 mt-1">Last {{ $messages->count() }} messages. Read here only; this is not shown to either of them.</p>
-                <div class="mt-4 space-y-2 max-h-96 overflow-y-auto pr-1">
-                    @foreach ($messages as $m)
-                        @php $fromReported = $m->sender_id === $report->reported_id; @endphp
-                        <div class="flex {{ $fromReported ? 'justify-start' : 'justify-end' }}">
-                            <div class="max-w-[75%] rounded-lg px-3 py-2 text-sm {{ $fromReported ? 'bg-red-50 text-slate-800' : 'bg-slate-100 text-slate-700' }}">
-                                <p class="text-[11px] font-medium {{ $fromReported ? 'text-red-700' : 'text-slate-500' }}">
-                                    {{ $m->sender?->name ?? 'Deleted account' }}{{ $fromReported ? ' (reported)' : '' }}
-                                </p>
-                                <p class="whitespace-pre-line">{{ $m->message_text }}</p>
-                                <p class="text-[11px] text-slate-400 mt-0.5">{{ $m->created_at->format('M j, g:i A') }}</p>
-                            </div>
-                        </div>
-                    @endforeach
-                </div>
-            @endif
-        </div>
+        {{--
+            The conversation is not shown here.
 
-        {{-- ── Prior reports about the same person ── --}}
-        <div class="bg-white rounded-xl border border-slate-200 p-6">
-            <h3 class="text-sm font-semibold text-slate-700">History</h3>
+            It used to print the last forty messages between the two of them
+            so a decision could be made on what was actually said. That is a
+            real loss for moderation and it is the right call anyway: reading
+            two users' private messages because one of them complained is a
+            power the panel should not have, and "only admins can see it" is
+            the sentence every leak starts with.
 
-            @if ($history->isEmpty())
-                <p class="text-sm text-slate-400 mt-4">No other reports.</p>
-            @else
-                <ul class="mt-4 space-y-2">
-                    @foreach ($history as $prior)
-                        <li class="flex items-center gap-3 text-sm py-2 border-b border-slate-50 last:border-0">
-                            <span class="sev sev-{{ $prior->severity() }}">{{ $prior->severity() }}</span>
-                            <a href="{{ route('admin.reports.show', $prior) }}"
-                               class="text-slate-700 hover:text-blue-600">{{ $prior->reasonLabel() }}</a>
-                            <span class="text-xs text-slate-400">by {{ $prior->reporter->name ?? '—' }}</span>
-                            <span class="ml-auto text-xs text-slate-400">{{ $prior->created_at->diffForHumans() }}</span>
-                            <span class="text-xs px-2 py-0.5 rounded-full
-                                {{ $prior->status === 'resolved' ? 'badge-verified' : ($prior->status === 'dismissed' ? 'bg-slate-100 text-slate-500' : 'badge-pending') }}">
-                                {{ ucfirst($prior->status) }}
-                            </span>
-                        </li>
-                    @endforeach
-                </ul>
-            @endif
-        </div>
-    </div>
-
-    {{-- ── Decide ── --}}
-    <div class="space-y-5">
+            Decisions are made on the report, the reporter's own account of
+            it, and the pattern of prior reports above.
+        --}}
         @if ($report->status === 'pending')
             @if ($errors->any())
                 <div class="p-3 rounded-lg bg-red-50 border border-red-200 text-sm text-red-700">

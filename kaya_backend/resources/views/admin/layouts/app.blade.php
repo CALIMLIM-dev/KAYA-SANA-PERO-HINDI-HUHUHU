@@ -18,7 +18,7 @@
         .nav-icon { width:18px; height:18px; flex-shrink:0; stroke-width:1.75; }
     </style>
 </head>
-<body class="bg-slate-100 text-slate-800">
+<body class="bg-slate-100 text-slate-800" @stack('body-attributes')>
 <div class="flex min-h-screen">
 
     {{-- Sidebar --}}
@@ -149,6 +149,34 @@
 <script>lucide.createIcons();</script>
 <script>
 /*
+    Choosing a reason fills the box the form actually submits.
+
+    The select is not the field - it writes into a hidden input named
+    `reason`, so every controller keeps validating one string and none of
+    them had to learn about a dropdown. "Other" reveals the box instead.
+*/
+(function () {
+    document.querySelectorAll('[data-reason-picker]').forEach(function (picker) {
+        var select = picker.querySelector('[data-reason-select]');
+        var input = picker.querySelector('[data-reason-input]');
+        if (!select || !input) return;
+
+        select.addEventListener('change', function () {
+            if (select.value === '__other') {
+                input.value = '';
+                input.classList.remove('hidden');
+                input.focus();
+                return;
+            }
+
+            input.value = select.value;
+            input.classList.add('hidden');
+        });
+    });
+})();
+</script>
+<script>
+/*
     Keeps the page current without anyone pressing refresh.
 
     Every ten seconds it asks /admin/pulse for a stamp of the data the
@@ -166,7 +194,19 @@
     var dirty = false;
     var timer = null;
 
-    document.addEventListener('input', function () { dirty = true; }, true);
+    /*
+        Typing only protects the form being typed into.
+
+        This used to set a page-wide flag on the first keystroke, so one
+        character in a reply box stopped the whole panel refreshing for the
+        rest of the session - which is exactly the screen where you are
+        waiting for the other person's message to arrive. A page that only
+        holds a chat has nothing to lose by reloading, so it is allowed to.
+    */
+    document.addEventListener('input', function () {
+        if (document.body.hasAttribute('data-live')) return;
+        dirty = true;
+    }, true);
 
     function typing() {
         var el = document.activeElement;
