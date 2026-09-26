@@ -1,7 +1,10 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:geolocator/geolocator.dart';
 import 'package:provider/provider.dart';
+
+import '../../core/widgets/app_toast.dart';
 
 import '../../core/constants/app_colors.dart';
 import '../../data/models/location_model.dart';
@@ -102,6 +105,9 @@ class _LocationPickerFieldState extends State<LocationPickerField> {
   /// The place actually chosen from the dropdown, or null if the current text
   /// is just something the user typed.
   LocationModel? _selected;
+
+  /// True while the phone is being asked where it is.
+  bool _locating = false;
 
   /// Whatever the field was seeded with — an edit form pre-filling a saved
   /// location. Left untouched that stays valid; blocking someone from editing
@@ -236,6 +242,75 @@ class _LocationPickerFieldState extends State<LocationPickerField> {
     }
   }
 
+  /*
+      Fill the field from where the phone actually is.
+
+      Typing your own barangay is the most common thing anybody does on this
+      app and the most annoying: people misspell their own town, pick the
+      wrong one of two with the same name, or give up and leave it blank.
+      The phone already knows, so the field offers to ask it.
+
+      Deliberately the same flow the pin screen uses, refusals included: a
+      denied permission is not an error, it just means typing instead, and
+      saying so beats a geolocator stack trace nobody can act on.
+
+      It finishes through _select, the same path a tapped suggestion takes,
+      so every caller gets a real location_id and coordinates rather than a
+      string that looks right and matches nothing.
+  */
+  Future<void> _useMyLocation() async {
+    if (_locating) return;
+
+    setState(() => _locating = true);
+
+    try {
+      if (!await Geolocator.isLocationServiceEnabled()) {
+        if (mounted) {
+          AppToast.warning(context, 'Turn on Location in your phone settings.');
+        }
+        return;
+      }
+
+      var permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied) {
+        permission = await Geolocator.requestPermission();
+      }
+
+      if (permission == LocationPermission.denied ||
+          permission == LocationPermission.deniedForever) {
+        if (mounted) {
+          AppToast.warning(context, 'No problem - type your place instead.');
+        }
+        return;
+      }
+
+      final pos = await Geolocator.getCurrentPosition(
+        locationSettings: const LocationSettings(accuracy: LocationAccuracy.high),
+      );
+
+      if (!mounted) return;
+
+      final place = await context
+          .read<LocationProvider>()
+          .nearest(pos.latitude, pos.longitude);
+
+      if (!mounted) return;
+
+      if (place == null) {
+        AppToast.warning(context, 'Could not place you on the map. Type it instead.');
+        return;
+      }
+
+      _select(place);
+    } catch (e) {
+      debugPrint('[location field] lookup failed: $e');
+      if (mounted) {
+        AppToast.warning(context, 'Could not read your location. Type it instead.');
+      }
+    } finally {
+      if (mounted) setState(() => _locating = false);
+    }
+  }
   void _select(LocationModel location) {
     _suppressSearch = true;
     widget.controller.text = location.displayName;
@@ -419,22 +494,50 @@ class _LocationPickerFieldState extends State<LocationPickerField> {
           filled: true,
           fillColor: widget.fillColor ?? Colors.white,
           prefixIcon: Icon(widget.prefixIcon, color: AppColors.neutral400),
-          suffixIcon: widget.controller.text.isEmpty
-              ? null
-              : _hasSelectionFor(widget.controller.text.trim())
-                  ? const Icon(Icons.check_circle,
-                      size: 18, color: AppColors.success)
-                  : IconButton(
-                      icon: const Icon(Icons.clear, size: 18),
-                      onPressed: () {
-                        widget.controller.clear();
-                        _selected = null;
-                        widget.onCleared?.call();
-                        _matches = [];
-                        _removeOverlay();
-                        setState(() {});
-                      },
-                    ),
+          /*
+              Two things can live here, so it is a row rather than one icon.
+
+              The crosshair is always offered: it is the fastest way to fill
+              this field and it has to be reachable before anything is typed,
+              which is exactly when the field is empty and the old suffix
+              drew nothing at all.
+          */
+          suffixIcon: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (widget.controller.text.isNotEmpty)
+                _hasSelectionFor(widget.controller.text.trim())
+                    ? const Padding(
+                        padding: EdgeInsets.only(right: 4),
+                        child: Icon(Icons.check_circle,
+                            size: 18, color: AppColors.success),
+                      )
+                    : IconButton(
+                        icon: const Icon(Icons.clear, size: 18),
+                        tooltip: 'Clear',
+                        onPressed: () {
+                          widget.controller.clear();
+                          _selected = null;
+                          widget.onCleared?.call();
+                          _matches = [];
+                          _removeOverlay();
+                          setState(() {});
+                        },
+                      ),
+              IconButton(
+                icon: _locating
+                    ? const SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Icon(Icons.my_location, size: 18),
+                color: AppColors.primary,
+                tooltip: 'Use my location',
+                onPressed: widget.enabled && !_locating ? _useMyLocation : null,
+              ),
+            ],
+          ),
           // Borderless by default, because most callers sit it on a tinted
           // panel where an outline would be noise. Forms whose other fields
           // are outlined pass a colour so this one does not read as a
