@@ -246,7 +246,26 @@ class ApplicationController extends Controller
             ->orderBy('id')
             ->pluck('scheduled_date', 'job_id');
 
-        $applications->each(function ($application) use ($conversations, $reviews, $user, $agreed) {
+        /*
+            Whether each past employer has anything open right now.
+
+            "Ask for work again" used to open their profile whatever the
+            answer was, so a worker acting on it often landed on a page with
+            nothing to apply to and no explanation. One count for the page,
+            and the card can say so before it sends anybody anywhere.
+        */
+        $openJobs = \App\Models\JobPost::query()
+            ->whereIn('employer_id', $applications->pluck('job.employer_id')->filter()->unique())
+            ->where('status', \App\Models\JobPost::STATUS_OPEN)
+            ->where(fn ($q) => $q->whereNull('expires_at')->orWhere('expires_at', '>', now()))
+            ->selectRaw('employer_id, count(*) as total')
+            ->groupBy('employer_id')
+            ->pluck('total', 'employer_id');
+
+        $applications->each(function ($application) use ($conversations, $reviews, $user, $agreed, $openJobs) {
+            $application->employer_open_jobs =
+                (int) ($openJobs[$application->job->employer_id ?? null] ?? 0);
+
             if ($application->job) {
                 $day = $agreed[$application->job_id] ?? null;
 

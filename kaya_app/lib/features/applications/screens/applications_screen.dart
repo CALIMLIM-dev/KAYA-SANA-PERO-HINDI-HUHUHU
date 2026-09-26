@@ -764,6 +764,11 @@ class _ApplicationCard extends StatelessWidget {
     */
     final dueNote = completionWaitNote(job);
 
+    // How many jobs this employer has open, so the card can say whether
+    // asking them again leads anywhere.
+    final employerOpenJobs =
+        (application['employer_open_jobs'] as num?)?.toInt() ?? 0;
+
     final canConfirm =
         isHired && !workDone && !iConfirmed && completionHasOpened(job);
 
@@ -848,17 +853,35 @@ class _ApplicationCard extends StatelessWidget {
 
           The conversation is hidden the moment a job completes, so a worker
           who wants more work from somebody they already did a good job for
-          had nothing to press. Their profile lists the jobs they have open,
-          which is the ordinary way into applying again - and it is the
-          worker's half of the employer's Reinvite, both in History where
-          somebody thinking "that one went well" is already looking.
+          had nothing to press. This is the worker's half of the employer's
+          Reinvite, both in History where somebody thinking "that one went
+          well" is already looking.
+
+          It checks first. Opening their profile whatever the answer was sent
+          people to a page with nothing on it to apply to and no explanation,
+          which reads as the button being broken rather than as the employer
+          having nothing going.
       */
-      secondaryLabel: workDone ? 'Ask for work again' : 'Message',
+      secondaryLabel: workDone
+          ? (employerOpenJobs > 0 ? 'Ask for work again' : 'No open jobs')
+          : 'Message',
       secondaryIcon:
           workDone ? Icons.work_history_outlined : Icons.message_outlined,
       onMessage: workDone && employer != null
-          ? () => AppRouter.push(context, '/employer-profile',
-                arguments: {'employerId': employer['id']})
+          ? () {
+              if (employerOpenJobs == 0) {
+                AppToast.info(
+                  context,
+                  '${employer['name'] ?? 'They'} has nothing open right now. '
+                  'You will see it here when they post again.',
+                );
+
+                return;
+              }
+
+              AppRouter.push(context, '/employer-profile',
+                  arguments: {'employerId': employer['id']});
+            }
           : !canMessage
           ? null
           : () => AppRouter.push(context,

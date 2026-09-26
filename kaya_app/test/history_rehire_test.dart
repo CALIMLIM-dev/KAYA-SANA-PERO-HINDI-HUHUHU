@@ -24,9 +24,12 @@ import 'support/render_harness.dart';
     had no way back to them at all.
 */
 void main() {
-  Map<String, dynamic> finishedApplication() => {
+  Map<String, dynamic> finishedApplication({int openJobs = 2}) => {
         'id': 91,
         'status': 'completed',
+        // Whether asking them again leads anywhere. The card says so
+        // rather than opening a profile with nothing on it.
+        'employer_open_jobs': openJobs,
         'conversation_id': 12,
         'worker_completed_at': '2026-09-01T08:00:00Z',
         'employer_completed_at': '2026-09-01T09:00:00Z',
@@ -106,6 +109,15 @@ void main() {
         reason: 'there is no thread left to open on a finished job');
   });
 
+  testWidgets('an employer with nothing open says so instead of a dead end',
+      (tester) async {
+    await render(tester, screen([finishedApplication(openJobs: 0)]));
+    await openHistory(tester);
+
+    expect(find.text('No open jobs'), findsWidgets,
+        reason: 'opening a profile with nothing to apply to reads as a broken button');
+    expect(find.text('Ask for work again'), findsNothing);
+  });
   testWidgets('live work still offers the thread, not the detour',
       (tester) async {
     await render(tester, screen([liveApplication()]));
