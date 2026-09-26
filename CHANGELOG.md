@@ -11,6 +11,52 @@ minor release, and `feat!:` or a `BREAKING CHANGE:` footer for a major one.
 
 ---
 
+## 1.11.1 - 2026-09-26
+
+Fixes from testing 1.11.0.
+
+### Changed
+
+- The chat masks what it cannot carry instead of refusing it. A phone
+  number, an email, an app to move to or a "let us talk outside" phrase
+  comes out as asterisks and the message still sends. Bouncing it only
+  taught people to retype the number with a space in the middle.
+- A job is priced at one amount. The post form asked for "Salary from" and
+  "to (optional)", which is two boxes for one question; the edit form
+  matches, so a job cannot be edited into a range it could not be created
+  with.
+- The day agreed in the chat is the deadline. A job finished early is
+  completed the day both sides agree it, and one that runs long waits for
+  the day they agree. Neither side can move it alone.
+- Ask for work again checks whether that employer has anything open and
+  says so when they do not, instead of opening an empty profile.
+- A boosted worker says Featured in search. The ranking lifted them to the
+  top and then drew them like everyone else, so paid placement was
+  invisible.
+- Every place that asks for a location has a crosshair that reads the
+  phone's position, so nobody has to type their own town.
+- Moderation reasons in the admin panel are a list with Other, not a free
+  text box.
+- The post form's section is Duration again. Schedule already means the day
+  the two of them agree in the chat.
+
+### Removed
+
+- The report page no longer shows the messages between the two people.
+  Reading a private conversation because somebody complained is a power the
+  panel should not hold.
+
+### Fixed
+
+- Form validation clears as a field is corrected. It only ran on submit, so
+  the red sat there while you fixed it.
+- An admin page that is only a conversation refreshes even while a reply is
+  half typed. One character used to stop the whole panel updating.
+- `kaya:hide-finished-conversations` hides the threads of jobs that finished
+  before hiding was built; nothing had backfilled them.
+- Amber, green and emerald highlights in the admin panel are back to the
+  panel's own blue, red and slate.
+
 ## 1.11.0 - 2026-09-25
 
 One release rather than a stream of small ones. Twenty-four items from
