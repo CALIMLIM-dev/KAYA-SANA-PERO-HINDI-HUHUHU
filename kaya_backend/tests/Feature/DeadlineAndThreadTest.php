@@ -305,6 +305,15 @@ class DeadlineAndThreadTest extends TestCase
             ->assertOk()->assertJsonCount(1, 'data.data');
     }
 
+    /*
+        A board thread still closes with its notice.
+
+        There is no "message the poster" any more - the board is answered in
+        the open - so nothing creates one of these today. The rule stays for
+        the threads that were opened that way before the rework, which are
+        real conversations between real people and must not be left running
+        after the notice they came from is gone.
+    */
     #[Test]
     public function a_community_thread_closes_when_the_post_ends(): void
     {
@@ -312,17 +321,30 @@ class DeadlineAndThreadTest extends TestCase
         $reader = $this->employer();
 
         $post = CommunityPost::create([
-            'user_id' => $poster->id, 'type' => CommunityPost::TYPE_WORKER,
-            'title' => 'Mason available', 'body' => 'x', 'location' => 'Urdaneta City',
-            'status' => CommunityPost::STATUS_LIVE, 'expires_at' => now()->addDays(7),
+            'user_id' => $poster->id,
+            'type'    => CommunityPost::TYPE_WORKER,
+            'title'   => 'Mason available',
+            'body'    => 'x',
+            'status'  => CommunityPost::STATUS_LIVE,
+            'expires_at' => now()->addDays(7),
         ]);
 
-        $this->actingAs($reader, 'sanctum')
-            ->postJson("/api/v1/community/{$post->id}/contact")
-            ->assertOk();
+        // Opened the way they were opened before the rework.
+        $thread = Conversation::create([
+            'community_post_id' => $post->id,
+            'employer_id' => $reader->id,
+            'worker_id'   => $poster->id,
+            'status'      => 'unlocked',
+        ]);
 
-        $thread = Conversation::where('community_post_id', $post->id)->firstOrFail();
-        $this->assertNull($thread->archived_at);
+        $thread->messages()->create([
+            'sender_id'    => $reader->id,
+            'message_text' => 'Available pa po?',
+            'is_read'      => false,
+        ]);
+
+        $this->actingAs($reader, 'sanctum')->getJson('/api/v1/conversations')
+            ->assertOk()->assertJsonCount(1, 'data.data');
 
         $this->actingAs($poster, 'sanctum')
             ->deleteJson("/api/v1/community/{$post->id}")

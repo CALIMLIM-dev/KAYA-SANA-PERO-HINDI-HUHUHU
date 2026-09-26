@@ -11,8 +11,23 @@ use Illuminate\Support\Facades\Storage;
 */
 class CommunityPost extends Model
 {
+    /*
+        Who is talking, which is the only distinction anybody reading the
+        board actually makes. A category asked the poster to file their
+        own notice, which is a question about the software.
+    */
     public const TYPE_WORKER = 'worker';
+    public const TYPE_EMPLOYER = 'employer';
     public const TYPE_BUSINESS = 'business';
+
+    /** @return list<string> */
+    public static function types(): array
+    {
+        return [self::TYPE_WORKER, self::TYPE_EMPLOYER, self::TYPE_BUSINESS];
+    }
+
+    /** At most this many pictures on one notice. */
+    public const MAX_PHOTOS = 4;
 
     /*
         Written and paid for, waiting to be read by an administrator. Nobody
@@ -30,19 +45,20 @@ class CommunityPost extends Model
     public const STATUS_REMOVED = 'removed';
 
     protected $fillable = [
-        'user_id', 'type', 'category_id', 'title', 'body', 'photo_path',
-        'location', 'location_id', 'status', 'expires_at', 'credit_transaction_id',
+        'user_id', 'type', 'title', 'body', 'photo_path', 'photo_paths',
+        'status', 'expires_at', 'credit_transaction_id',
         'reviewed_at', 'reviewed_by',
     ];
 
     protected $casts = [
         'expires_at'  => 'datetime',
         'reviewed_at' => 'datetime',
+        'photo_paths' => 'array',
     ];
 
-    protected $hidden = ['photo_path', 'removed_by'];
+    protected $hidden = ['photo_path', 'photo_paths', 'removed_by'];
 
-    protected $appends = ['photo_url'];
+    protected $appends = ['photo_url', 'photo_urls'];
 
     /*
         A post that is no longer up takes its threads with it.
@@ -96,15 +112,25 @@ class CommunityPost extends Model
 
     public function getPhotoUrlAttribute(): ?string
     {
-        return $this->photo_path
-            ? Storage::disk(config('filesystems.media'))->url($this->photo_path)
-            : null;
+        return $this->photo_urls[0] ?? null;
+    }
+
+    /*
+        Every picture on the notice, in the order they were added.
+
+        photo_path is still read as a fallback so a row written before
+        the second picture existed still shows its one.
+    */
+    public function getPhotoUrlsAttribute(): array
+    {
+        $paths = $this->photo_paths ?: array_filter([$this->photo_path]);
+        $disk = Storage::disk(config('filesystems.media'));
+
+        return array_values(array_map(fn ($p) => $disk->url($p), $paths));
     }
 
     public function comments() { return $this->hasMany(CommunityComment::class); }
     public function reviewer() { return $this->belongsTo(User::class, 'reviewed_by'); }
     public function user()     { return $this->belongsTo(User::class); }
-    public function category() { return $this->belongsTo(Category::class); }
-    public function location_row() { return $this->belongsTo(Location::class, 'location_id'); }
     public function remover()  { return $this->belongsTo(User::class, 'removed_by'); }
 }

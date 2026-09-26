@@ -21,7 +21,7 @@ class CommunityController extends Controller
         $search = trim((string) $request->get('search'));
 
         $posts = CommunityPost::query()
-            ->with(['user:id,name,email', 'category:id,name', 'remover:id,name'])
+            ->with(['user:id,name,email', 'remover:id,name'])
             ->when($show === 'pending', fn ($q) => $q->where('status', CommunityPost::STATUS_PENDING))
             ->when($show === 'live', fn ($q) => $q->live())
             ->when($show === 'rejected', fn ($q) => $q->where('status', CommunityPost::STATUS_REJECTED))

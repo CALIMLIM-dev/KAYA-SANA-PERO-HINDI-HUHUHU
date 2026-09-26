@@ -4,7 +4,6 @@ namespace Tests\Feature;
 
 use App\Models\Category;
 use App\Models\CommunityPost;
-use App\Models\Conversation;
 use App\Models\CreditTransaction;
 use App\Models\CreditWallet;
 use App\Models\EmployerProfile;
@@ -146,9 +145,11 @@ class CommunityBoardTest extends TestCase
             ->assertStatus(422)
             ->assertJsonPath('message', fn ($m) => str_contains($m, 'documents'));
 
+        // An individual employer posts as an employer now - they simply
+        // cannot post under a company banner nobody has checked.
         $this->notice($this->individual(), 'business')
             ->assertStatus(422)
-            ->assertJsonPath('message', fn ($m) => str_contains($m, 'post a job'));
+            ->assertJsonPath('message', fn ($m) => str_contains($m, 'company accounts'));
 
         $this->assertSame(0, CommunityPost::count());
     }
@@ -242,62 +243,6 @@ class CommunityBoardTest extends TestCase
     }
 
     // ── Answering ────────────────────────────────────────────────────────────
-
-    #[Test]
-    public function answering_a_worker_post_opens_a_thread_with_the_reader_as_employer(): void
-    {
-        $worker = $this->worker();
-        $post = $this->approve($this->notice($worker)->json('data.id'));
-        $employer = $this->individual();
-
-        $data = $this->actingAs($employer, 'sanctum')
-            ->postJson("/api/v1/community/{$post->id}/contact")
-            ->assertOk()
-            ->json('data');
-
-        $conversation = Conversation::find($data['conversation_id']);
-        $this->assertSame('unlocked', $conversation->status);
-        $this->assertNull($conversation->job_id);
-        $this->assertSame($employer->id, $conversation->employer_id);
-        $this->assertSame($worker->id, $conversation->worker_id);
-        $this->assertSame('employer', $data['my_role']);
-
-        // Messaging works in it, and both sides see it in the inbox.
-        $this->actingAs($employer, 'sanctum')
-            ->postJson("/api/v1/conversations/{$conversation->id}/messages", ['message_text' => 'Are you free Monday?'])
-            ->assertStatus(201);
-        $this->actingAs($worker, 'sanctum')->getJson('/api/v1/conversations')->assertOk()
-            ->assertJsonPath('data.data.0.id', $conversation->id);
-    }
-
-    #[Test]
-    public function answering_a_business_post_seats_the_reader_as_the_worker(): void
-    {
-        $company = $this->company();
-        $post = $this->approve($this->notice($company, 'business')->json('data.id'));
-        $worker = $this->worker();
-
-        $data = $this->actingAs($worker, 'sanctum')->postJson("/api/v1/community/{$post->id}/contact")->assertOk()->json('data');
-
-        $conversation = Conversation::find($data['conversation_id']);
-        $this->assertSame($company->id, $conversation->employer_id);
-        $this->assertSame($worker->id, $conversation->worker_id);
-        $this->assertSame('worker', $data['my_role']);
-    }
-
-    #[Test]
-    public function you_cannot_answer_your_own_post_or_an_ended_one(): void
-    {
-        $worker = $this->worker();
-        $post = CommunityPost::find($this->notice($worker)->json('data.id'));
-
-        $this->actingAs($worker, 'sanctum')->postJson("/api/v1/community/{$post->id}/contact")->assertStatus(422);
-
-        $post->update(['status' => 'ended']);
-        $this->actingAs($this->individual(), 'sanctum')->postJson("/api/v1/community/{$post->id}/contact")->assertStatus(422);
-    }
-
-    // ── Coming down ──────────────────────────────────────────────────────────
 
     #[Test]
     public function the_poster_can_take_it_down_and_gets_nothing_back(): void

@@ -35,7 +35,7 @@
                 <div class="flex-1 min-w-0">
                     <div class="flex items-center gap-2">
                         <span class="text-xs px-2 py-0.5 rounded-full {{ $post->type === 'business' ? 'bg-blue-50 text-blue-700' : 'bg-slate-100 text-slate-600' }}">
-                            {{ $post->type === 'business' ? 'Business' : 'Worker' }}
+                            {{ ucfirst($post->type) }}
                         </span>
                         @if ($post->status === 'pending')
                             <span class="text-xs px-2 py-0.5 rounded-full bg-slate-100 text-slate-600">Waiting</span>
@@ -47,8 +47,6 @@
                         @if ($post->user)
                             <a href="{{ route('admin.users.show', $post->user) }}" class="text-slate-600 hover:text-blue-600">{{ $post->user->name }}</a>
                         @else Deleted account @endif
-                        @if ($post->category) &middot; {{ $post->category->name }} @endif
-                        @if ($post->location) &middot; {{ $post->location }} @endif
                         &middot; written {{ $post->created_at->format('M j') }}
                         @if ($post->isLive())
                             &middot; ends {{ $post->expires_at->format('M j') }}

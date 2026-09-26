@@ -246,7 +246,6 @@ Route::prefix('v1')->group(function () {
         Route::post('/community',                [CommunityPostController::class, 'store'])
             ->middleware('verified');
         Route::delete('/community/{post}',       [CommunityPostController::class, 'destroy']);
-        Route::post('/community/{post}/contact', [CommunityPostController::class, 'contact']);
 
         /*
             The thread under a notice.
