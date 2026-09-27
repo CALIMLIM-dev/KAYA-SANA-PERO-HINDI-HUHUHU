@@ -74,11 +74,14 @@ class _CommunityScreenState extends State<CommunityScreen> {
           preferredSize: const Size.fromHeight(48),
           child: Padding(
             padding: const EdgeInsets.fromLTRB(16, 0, 16, 10),
-            child: Row(
-              children: [
+            child: SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(
+                children: [
                 for (final entry in const [
                   ('all', 'All'),
                   ('worker', 'Workers'),
+                  ('employer', 'Employers'),
                   ('business', 'Businesses'),
                 ]) ...[
                   ChoiceChip(
@@ -99,7 +102,32 @@ class _CommunityScreenState extends State<CommunityScreen> {
                   ),
                   const SizedBox(width: 8),
                 ],
+
+                /*
+                    Newest, oldest, or whatever has been talked about
+                    most. Three is all a board of a few hundred notices
+                    needs, and "most discussed" is the one that finds the
+                    thread worth reading.
+                */
+                PopupMenuButton<String>(
+                  tooltip: 'Sort',
+                  icon: const Icon(Icons.swap_vert, size: 20),
+                  onSelected: board.setSort,
+                  itemBuilder: (context) => [
+                    for (final option in const [
+                      ('recent', 'Newest First'),
+                      ('oldest', 'Oldest First'),
+                      ('discussed', 'Most Discussed'),
+                    ])
+                      CheckedPopupMenuItem(
+                        value: option.$1,
+                        checked: board.sort == option.$1,
+                        child: Text(option.$2),
+                      ),
+                  ],
+                ),
               ],
+              ),
             ),
           ),
         ),

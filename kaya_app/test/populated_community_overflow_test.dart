@@ -35,10 +35,8 @@ void main() {
         'type': type,
         'title': title,
         'body': body,
-        'photo_url': photo,
-        'category': 'Appliance Repair',
-        'category_id': 1,
-        'location': 'Barangay Nancayasan, Urdaneta City, Pangasinan',
+        // Four, which is the ceiling and the row that has to fit.
+        'photo_urls': photo == null ? const [] : [photo, photo, photo, photo],
         'status': 'live',
         'days_left': 6,
         'is_mine': false,

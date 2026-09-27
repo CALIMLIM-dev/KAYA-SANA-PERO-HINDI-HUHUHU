@@ -24,8 +24,11 @@ class CommunityProvider with ChangeNotifier {
   bool _hasLoaded = false;
   String? _error;
 
-  /// all | worker | business
+  /// all | worker | employer | business
   String _type = 'all';
+
+  /// recent | oldest | discussed
+  String _sort = 'recent';
 
   int? _workerCost;
   int? _businessCost;
@@ -37,6 +40,7 @@ class CommunityProvider with ChangeNotifier {
   bool get hasLoaded => _hasLoaded;
   String? get error => _error;
   String get type => _type;
+  String get sort => _sort;
   int? get workerCost => _workerCost;
   int? get businessCost => _businessCost;
   int? get days => _days;
@@ -44,6 +48,13 @@ class CommunityProvider with ChangeNotifier {
   Future<void> setType(String type) async {
     if (_type == type) return;
     _type = type;
+    notifyListeners();
+    await load(force: true);
+  }
+
+  Future<void> setSort(String sort) async {
+    if (_sort == sort) return;
+    _sort = sort;
     notifyListeners();
     await load(force: true);
   }
@@ -58,7 +69,12 @@ class CommunityProvider with ChangeNotifier {
     notifyListeners();
 
     try {
-      final query = _type == 'all' ? '' : '?type=$_type';
+      final params = <String>[
+        if (_type != 'all') 'type=$_type',
+        if (_sort != 'recent') 'sort=$_sort',
+      ];
+
+      final query = params.isEmpty ? '' : '?${params.join('&')}';
       final res = await _api.get('/community$query');
       final data = res.data['data'];
       final rows = data is Map ? data['data'] : data;
@@ -113,10 +129,7 @@ class CommunityProvider with ChangeNotifier {
     required String type,
     required String title,
     required String body,
-    int? categoryId,
-    String? location,
-    int? locationId,
-    XFile? photo,
+    List<XFile> photos = const [],
   }) async {
     _error = null;
     try {
@@ -124,11 +137,12 @@ class CommunityProvider with ChangeNotifier {
         'type': type,
         'title': title,
         'body': body,
-        'category_id': ?categoryId,
-        if (location != null && location.isNotEmpty) 'location': location,
-        'location_id': ?locationId,
-        if (photo != null)
-          'photo': await MultipartFile.fromFile(photo.path, filename: photo.name),
+        // No category and no place: the board is a thread, not a map.
+        for (var i = 0; i < photos.length; i++)
+          'photos[$i]': await MultipartFile.fromFile(
+            photos[i].path,
+            filename: photos[i].name,
+          ),
       });
       final res = await _api.postMultipart('/community', form);
       final post = res.data['data'] as Map<String, dynamic>;
@@ -253,18 +267,8 @@ class CommunityProvider with ChangeNotifier {
     }
   }
 
-  /// Opens the thread with the poster. Returns what the chat screen needs.
-  Future<Map<String, dynamic>?> contact(int id) async {
-    _error = null;
-    try {
-      final res = await _api.post('/community/$id/contact');
-      return res.data['data'] as Map<String, dynamic>?;
-    } catch (e) {
-      _error = e.toString().replaceFirst('Exception: ', '');
-      notifyListeners();
-      return null;
-    }
-  }
+  // There is no "message the poster". A notice is answered under it,
+  // in the open, which is the whole point of the thread.
 
   @visibleForTesting
   void seedComments(int postId, List<Map<String, dynamic>> rows) {
@@ -291,6 +295,7 @@ class CommunityProvider with ChangeNotifier {
     _hasLoaded = false;
     _error = null;
     _type = 'all';
+    _sort = 'recent';
     notifyListeners();
   }
 }

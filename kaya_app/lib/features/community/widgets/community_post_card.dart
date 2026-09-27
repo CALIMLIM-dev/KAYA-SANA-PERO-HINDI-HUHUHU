@@ -20,10 +20,13 @@ class CommunityPostCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final poster = (post['poster'] as Map?)?.cast<String, dynamic>() ?? const {};
     final isBusiness = post['type'] == 'business';
-    final photo = post['photo_url'] as String?;
+    final photos = ((post['photo_urls'] as List?) ?? const [])
+        .map((p) => p.toString())
+        .where((p) => p.isNotEmpty)
+        .toList();
+
+    final photo = photos.isEmpty ? null : photos.first;
     final daysLeft = (post['days_left'] as num?)?.toInt();
-    final where = (post['location'] ?? '').toString();
-    final category = (post['category'] ?? '').toString();
     final status = (post['status'] ?? 'live').toString();
     final comments = (post['comment_count'] as num?)?.toInt() ?? 0;
 
@@ -82,8 +85,6 @@ class CommunityPostCard extends StatelessWidget {
                       Text(
                         [
                           isBusiness ? 'Hiring' : 'Available',
-                          if (category.isNotEmpty) category,
-                          if (where.isNotEmpty) where,
                         ].join(', '),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
@@ -148,6 +149,20 @@ class CommunityPostCard extends StatelessWidget {
                   const SizedBox(width: 5),
                   Text(
                     '$comments comment${comments == 1 ? '' : 's'}',
+                    style: const TextStyle(fontSize: 12, color: AppColors.neutral500),
+                  ),
+                ],
+              ),
+            ],
+            if (photos.length > 1) ...[
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                  const Icon(Icons.photo_library_outlined,
+                      size: 13, color: AppColors.neutral400),
+                  const SizedBox(width: 5),
+                  Text(
+                    '${photos.length} photos',
                     style: const TextStyle(fontSize: 12, color: AppColors.neutral500),
                   ),
                 ],

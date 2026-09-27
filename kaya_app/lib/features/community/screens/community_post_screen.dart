@@ -6,7 +6,6 @@ import '../../../core/widgets/app_toast.dart';
 import '../../../core/widgets/profile_avatar.dart';
 import '../../../providers/community_provider.dart';
 import '../../moderation/widgets/report_sheet.dart';
-import '../../../core/navigation/app_router.dart';
 
 /*
     One notice, in full, and the thread under it.
@@ -28,7 +27,6 @@ class CommunityPostScreen extends StatefulWidget {
 
 class _CommunityPostScreenState extends State<CommunityPostScreen> {
   late Map<String, dynamic> _post = widget.post;
-  bool _busy = false;
 
   final TextEditingController _comment = TextEditingController();
   bool _posting = false;
@@ -103,38 +101,8 @@ class _CommunityPostScreenState extends State<CommunityPostScreen> {
   Map<String, dynamic> get _poster =>
       (_post['poster'] as Map?)?.cast<String, dynamic>() ?? const {};
 
-  Future<void> _message() async {
-    if (_busy) return;
-    setState(() => _busy = true);
-
-    final board = context.read<CommunityProvider>();
-    final data = await board.contact(_post['id'] as int);
-
-    if (!mounted) return;
-    setState(() => _busy = false);
-
-    if (data == null) {
-      AppToast.error(context, board.error ?? 'Could not open the chat.');
-      return;
-    }
-
-    final other = (data['other'] as Map?)?.cast<String, dynamic>() ?? const {};
-    final myRole = (data['my_role'] ?? 'worker').toString();
-
-    AppRouter.push(context, '/chat', arguments: {
-      'conversationId': data['conversation_id'],
-      'name': (other['name'] ?? _poster['name'] ?? '').toString(),
-      'avatar': other['avatar'] ?? _poster['avatar'],
-      // No job behind a board thread. The chat hides its job card and the
-      // schedule button when there is none.
-      'jobTitle': null,
-      'jobId': data['job_id'],
-      'otherUserId': other['id'] ?? _poster['id'],
-      'isVerified': (other['is_verified'] as bool?) ?? false,
-      'myRole': myRole,
-      'otherRole': myRole == 'worker' ? 'employer' : 'worker',
-    });
-  }
+  // There is no "message the poster". A notice is answered under it,
+  // where everybody reading can see the answer.
 
   Future<void> _takeDown() async {
     final yes = await showDialog<bool>(
@@ -197,12 +165,45 @@ class _CommunityPostScreenState extends State<CommunityPostScreen> {
         title: Text(isBusiness ? 'Hiring' : 'Available for work',
             style: const TextStyle(fontWeight: FontWeight.w600)),
         actions: [
-          if (!isMine)
-            IconButton(
-              tooltip: 'Report',
-              icon: const Icon(Icons.flag_outlined),
-              onPressed: _report,
-            ),
+          /*
+              One menu rather than a row of icons and a button down the page.
+
+              Taking a notice down was a full width outlined button under the
+              body, which is a lot of screen for something done once. Report
+              and Delete are both "something about this post", so they live
+              in the same place a reader already looks for them.
+          */
+          PopupMenuButton<String>(
+            icon: const Icon(Icons.more_vert),
+            onSelected: (choice) {
+              if (choice == 'report') _report();
+              if (choice == 'delete') _takeDown();
+            },
+            itemBuilder: (context) => [
+              if (!isMine)
+                const PopupMenuItem(
+                  value: 'report',
+                  child: Row(
+                    children: [
+                      Icon(Icons.flag_outlined, size: 18),
+                      SizedBox(width: 10),
+                      Text('Report'),
+                    ],
+                  ),
+                ),
+              if (isMine && live)
+                const PopupMenuItem(
+                  value: 'delete',
+                  child: Row(
+                    children: [
+                      Icon(Icons.delete_outline, size: 18, color: AppColors.error),
+                      SizedBox(width: 10),
+                      Text('Delete', style: TextStyle(color: AppColors.error)),
+                    ],
+                  ),
+                ),
+            ],
+          ),
         ],
       ),
       body: ListView(
@@ -290,34 +291,6 @@ class _CommunityPostScreenState extends State<CommunityPostScreen> {
               color: refused ? AppColors.error : AppColors.neutral500,
             ),
           ),
-          const SizedBox(height: 20),
-          if (isMine && live)
-            OutlinedButton(
-              onPressed: _takeDown,
-              style: OutlinedButton.styleFrom(
-                foregroundColor: AppColors.error,
-                side: const BorderSide(color: AppColors.error),
-                padding: const EdgeInsets.symmetric(vertical: 14),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-              ),
-              child: const Text('Take Down'),
-            )
-          else if (!isMine && live)
-            ElevatedButton.icon(
-              onPressed: _busy ? null : _message,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.primary,
-                foregroundColor: Colors.white,
-                elevation: 0,
-                padding: const EdgeInsets.symmetric(vertical: 14),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-              ),
-              icon: _busy
-                  ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                  : const Icon(Icons.chat_bubble_outline, size: 18),
-              label: Text(isBusiness ? 'Message the business' : 'Message this worker'),
-            ),
-
           // ── The thread ────────────────────────────────────────────────
           if (live) ...[
             const SizedBox(height: 24),

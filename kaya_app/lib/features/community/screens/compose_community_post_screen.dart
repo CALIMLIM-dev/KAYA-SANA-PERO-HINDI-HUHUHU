@@ -9,12 +9,10 @@ import '../../../core/constants/credits.dart';
 import '../../../core/navigation/app_router.dart';
 import '../../../core/widgets/app_toast.dart';
 import '../../../core/widgets/verify_gate.dart';
-import '../../../data/models/location_model.dart';
 import '../../../providers/auth_provider.dart';
 import '../../../providers/community_provider.dart';
 import '../../../providers/credits_provider.dart';
 import '../../../providers/worker_profile_provider.dart';
-import '../../../shared/widgets/location_picker_field.dart';
 
 /*
     Writing a notice.
@@ -39,13 +37,16 @@ class ComposeCommunityPostScreen extends StatefulWidget {
 class _ComposeCommunityPostScreenState extends State<ComposeCommunityPostScreen> {
   final _titleCtrl = TextEditingController();
   final _bodyCtrl = TextEditingController();
-  final _locationCtrl = TextEditingController();
   final _formKey = GlobalKey<FormState>();
 
-  String? _type; // worker | business
-  int? _categoryId;
-  LocationModel? _place;
-  XFile? _photo;
+  /// worker | employer | business. No category and no place: the board
+  /// is a thread, and who is talking is the only thing a reader sorts by.
+  String? _type;
+
+  /// Up to four. One picture of one wall is the weakest version of this.
+  static const int _maxPhotos = 4;
+  final List<XFile> _photos = [];
+
   bool _posting = false;
 
   @override
@@ -55,11 +56,18 @@ class _ComposeCommunityPostScreenState extends State<ComposeCommunityPostScreen>
       if (!mounted) return;
       final auth = context.read<AuthProvider>();
       setState(() {
+        /*
+            A company posts as a business. Everyone else posts as what
+            they are, and a hybrid account defaults to worker - they can
+            switch below, which is the one choice worth offering.
+        */
         _type = auth.isCompanyEmployer
             ? 'business'
             : auth.workerProfileExists
                 ? 'worker'
-                : null;
+                : auth.employerProfileExists
+                    ? 'employer'
+                    : null;
       });
       context.read<CommunityProvider>().loadCosts();
       context.read<WorkerProfileProvider>().fetchCategories();
@@ -71,7 +79,6 @@ class _ComposeCommunityPostScreenState extends State<ComposeCommunityPostScreen>
   void dispose() {
     _titleCtrl.dispose();
     _bodyCtrl.dispose();
-    _locationCtrl.dispose();
     super.dispose();
   }
 
@@ -82,12 +89,23 @@ class _ComposeCommunityPostScreenState extends State<ComposeCommunityPostScreen>
       maxHeight: 1600,
       imageQuality: 80,
     );
-    if (picked != null && mounted) setState(() => _photo = picked);
+    if (picked != null && mounted) {
+      setState(() => _photos.add(picked));
+    }
   }
 
   int? get _cost {
     final board = context.read<CommunityProvider>();
     return _type == 'business' ? board.businessCost : board.workerCost;
+  }
+
+  /// Whether this account holds the profile that kind of notice speaks for.
+  bool _canPostAs(String kind) {
+    final auth = context.read<AuthProvider>();
+
+    return kind == 'worker'
+        ? auth.workerProfileExists
+        : auth.employerProfileExists;
   }
 
   Future<void> _submit() async {
@@ -140,10 +158,7 @@ class _ComposeCommunityPostScreenState extends State<ComposeCommunityPostScreen>
       type: _type!,
       title: _titleCtrl.text.trim(),
       body: _bodyCtrl.text.trim(),
-      categoryId: _categoryId,
-      location: _place?.displayName ?? (_locationCtrl.text.trim().isEmpty ? null : _locationCtrl.text.trim()),
-      locationId: _place?.id,
-      photo: _photo,
+      photos: _photos,
     );
     if (!mounted) return;
     setState(() => _posting = false);
@@ -165,7 +180,6 @@ class _ComposeCommunityPostScreenState extends State<ComposeCommunityPostScreen>
   @override
   Widget build(BuildContext context) {
     final board = context.watch<CommunityProvider>();
-    final categories = context.watch<WorkerProfileProvider>().categories;
     final cost = _type == 'business' ? board.businessCost : board.workerCost;
     final days = board.days ?? 7;
 
@@ -184,16 +198,34 @@ class _ComposeCommunityPostScreenState extends State<ComposeCommunityPostScreen>
               child: ListView(
                 padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
                 children: [
-                  // A company cannot hold a worker profile, so an account is
-                  // ever one kind of poster; there is nothing to choose.
-                  Text(
-                    _type == 'business'
-                        ? 'Posting as your business, to people looking for work.'
-                        : 'Posting as a worker, to people who are hiring.',
-                    style: const TextStyle(fontSize: 13, color: AppColors.neutral600, height: 1.4),
-                  ),
-                  const SizedBox(height: 16),
+                  /*
+                      Who you are posting as.
 
+                      A company only ever posts as a business. Everyone else
+                      picks, because a hybrid account genuinely is both and
+                      the board sorts by exactly this.
+                  */
+                  if (!context.read<AuthProvider>().isCompanyEmployer) ...[
+                    _label('Posting As'),
+                    Row(
+                      children: [
+                        for (final kind in const [
+                          ['worker', 'Worker'],
+                          ['employer', 'Employer'],
+                        ])
+                          if (_canPostAs(kind[0]))
+                            Padding(
+                              padding: const EdgeInsets.only(right: 8),
+                              child: ChoiceChip(
+                                label: Text(kind[1]),
+                                selected: _type == kind[0],
+                                onSelected: (_) => setState(() => _type = kind[0]),
+                              ),
+                            ),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+                  ],
                   _label('Title'),
                   TextFormField(
                     controller: _titleCtrl,
@@ -219,68 +251,59 @@ class _ComposeCommunityPostScreenState extends State<ComposeCommunityPostScreen>
                   ),
                   const SizedBox(height: 12),
 
-                  _label('Category'),
-                  DropdownButtonFormField<int?>(
-                    initialValue: _categoryId,
-                    decoration: _input('Pick one, or leave it'),
-                    items: [
-                      const DropdownMenuItem<int?>(value: null, child: Text('Any')),
-                      for (final c in categories)
-                        DropdownMenuItem<int?>(value: c.id, child: Text(c.name)),
-                    ],
-                    onChanged: (v) => setState(() => _categoryId = v),
-                  ),
-                  const SizedBox(height: 12),
-
-                  _label('Where'),
-                  LocationPickerField(
-                    controller: _locationCtrl,
-                    selection: _place,
-                    labelText: '',
-                    hintText: 'City or municipality',
-                    requireSelection: false,
-                    onSelected: (place) => setState(() => _place = place),
-                    onCleared: () => setState(() => _place = null),
-                  ),
-                  const SizedBox(height: 12),
-
-                  _label('Photo (optional)'),
-                  GestureDetector(
-                    onTap: _pickPhoto,
-                    child: Container(
-                      height: 120,
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: AppColors.neutral300),
-                      ),
-                      clipBehavior: Clip.antiAlias,
-                      child: _photo == null
-                          ? const Center(
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Icon(Icons.add_photo_alternate_outlined, color: AppColors.neutral500),
-                                  SizedBox(width: 8),
-                                  Text('Add a photo', style: TextStyle(color: AppColors.neutral600)),
-                                ],
+                  _label('Photos'),
+                  SizedBox(
+                    height: 96,
+                    child: ListView.separated(
+                      scrollDirection: Axis.horizontal,
+                      itemCount: _photos.length +
+                          (_photos.length < _maxPhotos ? 1 : 0),
+                      separatorBuilder: (_, _) => const SizedBox(width: 8),
+                      itemBuilder: (context, i) {
+                        if (i == _photos.length) {
+                          return GestureDetector(
+                            onTap: _pickPhoto,
+                            child: Container(
+                              width: 96,
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(color: AppColors.neutral300),
                               ),
-                            )
-                          : Stack(
+                              child: const Center(
+                                child: Icon(Icons.add_photo_alternate_outlined,
+                                    color: AppColors.neutral500),
+                              ),
+                            ),
+                          );
+                        }
+
+                        return ClipRRect(
+                          borderRadius: BorderRadius.circular(12),
+                          child: SizedBox(
+                            width: 96,
+                            child: Stack(
                               fit: StackFit.expand,
                               children: [
-                                Image.file(File(_photo!.path), fit: BoxFit.cover),
+                                Image.file(File(_photos[i].path), fit: BoxFit.cover),
                                 Positioned(
-                                  top: 6,
-                                  right: 6,
+                                  top: 4,
+                                  right: 4,
                                   child: IconButton.filled(
-                                    style: IconButton.styleFrom(backgroundColor: Colors.black54),
-                                    onPressed: () => setState(() => _photo = null),
-                                    icon: const Icon(Icons.close, color: Colors.white, size: 18),
+                                    style: IconButton.styleFrom(
+                                        backgroundColor: Colors.black54,
+                                        minimumSize: const Size(28, 28)),
+                                    onPressed: () =>
+                                        setState(() => _photos.removeAt(i)),
+                                    icon: const Icon(Icons.close,
+                                        color: Colors.white, size: 16),
                                   ),
                                 ),
                               ],
                             ),
+                          ),
+                        );
+                      },
                     ),
                   ),
                   const SizedBox(height: 24),
