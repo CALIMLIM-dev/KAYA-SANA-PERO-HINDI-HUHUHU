@@ -40,7 +40,7 @@ class AccountDeletionTest extends TestCase
     private function worker(): User
     {
         $user = User::factory()->create(['is_verified' => true, 'password' => Hash::make('secret123')]);
-        WorkerProfile::create(['user_id' => $user->id, 'location' => 'x']);
+        $this->seedWorkerProfile($user, ['location' => 'x']);
         WorkerSkill::create(['user_id' => $user->id, 'skill_id' => null, 'skill_name' => 'Masonry']);
         CreditWallet::updateOrCreate(['user_id' => $user->id], ['balance' => 20]);
 

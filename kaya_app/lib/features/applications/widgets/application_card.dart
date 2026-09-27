@@ -210,7 +210,7 @@ class ApplicationCard extends StatelessWidget {
           ElevatedButton.icon(
             onPressed: onReview,
             icon: const Icon(Icons.star_outline, size: 18),
-            label: const Text('Leave Review'),
+            label: const Text('Write a Review'),
             style: ElevatedButton.styleFrom(
               backgroundColor: AppColors.primary,
             ),

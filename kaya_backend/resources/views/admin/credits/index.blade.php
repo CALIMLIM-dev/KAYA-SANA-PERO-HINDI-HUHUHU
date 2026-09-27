@@ -35,7 +35,7 @@
 
 <div class="grid grid-cols-3 gap-4 mb-6">
     <div class="bg-white rounded-xl border border-slate-200 p-5">
-        <h3 class="text-sm font-semibold text-slate-700 mb-3">Where it went, last 30 days</h3>
+        <h3 class="text-sm font-semibold text-slate-700 mb-3">Barya spent, last 30 days</h3>
         @forelse ($spendByReason as $row)
             <div class="flex justify-between text-sm py-1.5 border-b border-slate-50">
                 <span class="text-slate-600">{{ $reasonLabel($row['reason']) }} <span class="text-xs text-slate-400">{{ $row['lines'] }}x</span></span>

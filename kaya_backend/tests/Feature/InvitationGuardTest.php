@@ -45,7 +45,7 @@ class InvitationGuardTest extends TestCase
     private function worker(): User
     {
         $user = User::factory()->create();
-        WorkerProfile::create(['user_id' => $user->id]);
+        $this->seedWorkerProfile($user);
 
         return $user;
     }

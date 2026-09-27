@@ -306,15 +306,33 @@ void main() {
   group('a half-finished profile resumes instead of displaying', () {
     /*
         A row is not a profile. One gets created the moment somebody starts
-        setting one up, so "exists" and "finished" are different questions and
-        the display screen is only correct for the second.
+        setting one up, so "exists" and "finished" are different questions.
 
-        The employer router carries this rule in a comment because it was
-        reported: an abandoned attempt opened a profile screen with no name,
-        no location, and no way to fill them in.
+        The employer router still answers an unfinished one with the setup
+        flow, and for a reason that has not changed: an employer profile's
+        type is chosen once on the first page and cannot be edited afterwards,
+        so an abandoned attempt genuinely cannot be repaired from the profile
+        screen.
+
+        The worker side is the opposite now, and deliberately - see below.
     */
-    testWidgets('worker: exists but unfinished goes back to the flow',
+    testWidgets('worker: an unfinished profile is shown, not sent back',
         (tester) async {
+      /*
+          The reversal, and why.
+
+          This used to assert the opposite, because an abandoned attempt once
+          opened a profile screen with no name, no location and no way to fill
+          them in. The screen has since grown all of them: InlineLocationRow
+          sets the town, /add-skills sets the skills, and the server fills the
+          trade in from the first skill added. Nothing is a dead end any more.
+
+          Meanwhile the old rule became a wall. worker_setup_completed is
+          computed - location, category and one skill - so any profile missing
+          one of them was answered with the seven-page wizard every single
+          time it was opened, which is what made adding a second profile to an
+          account impossible: it was created, and then never reachable.
+      */
       final auth = AuthProvider()
         ..seedUser({
           'id': 5,
@@ -328,8 +346,12 @@ void main() {
       await pumpRouter(tester, const WorkerProfileRouter(), auth: auth);
       await tester.pump(const Duration(milliseconds: 300));
 
-      expect(find.byType(MyWorkerProfileScreen), findsNothing,
-          reason: 'An unfinished worker profile opened the display screen.');
+      expect(
+        find.byType(WorkerSetupFlowScreen),
+        findsNothing,
+        reason: 'An existing worker profile was sent back into the setup '
+            'flow, which is the wall that made a second profile unreachable.',
+      );
     });
 
     testWidgets('employer: exists but unfinished goes back to the flow',

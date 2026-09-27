@@ -53,6 +53,93 @@ class EmployerProfileController extends Controller
         ]);
     }
 
+    /*
+        The employer profile of an account that already has a worker one.
+
+        The mirror of WorkerProfileController::storeFromAccount, and the easier
+        half of it. The setup flow asks a worker three more pages of questions
+        it already has the answers to: the name is locked and prefilled, the
+        town comes from the other profile, and the photo and the ID are the
+        account's, not the profile's. Walking them changes nothing.
+
+        Unlike the worker direction this needs no question at all. That one had
+        to ask for a trade, because browse() filters on the category and there
+        is nothing on the account that could supply it. Here the only two
+        required fields are the type and the location, and both are already
+        determined: an account that looks for work can only be an individual
+        employer, and it lives where its worker profile says it lives.
+    */
+    public function storeFromAccount(Request $request)
+    {
+        $user = $request->user();
+
+        if ($user->employerProfile !== null) {
+            return $this->fail('You already have an employer profile.');
+        }
+
+        /*
+            There is nothing to inherit without the other profile.
+
+            An account with neither has no town and no confirmed name, so it
+            belongs in the full setup flow - and a profile created here would
+            have a null location, which is the state that makes a profile
+            invisible to proximity search.
+        */
+        $worker = $user->workerProfile;
+
+        if ($worker === null) {
+            return $this->fail(
+                'Set up your worker profile first, or use the full employer setup.'
+            );
+        }
+
+        if (blank($worker->location)) {
+            return $this->fail('Add a location to your worker profile first.');
+        }
+
+        /*
+            Individual, and not offered as a choice.
+
+            The one exception to an account holding both profiles: a registered
+            business hiring through KAYA is not also a tradesperson looking for
+            work. store() and update() both refuse COMPANY on an account with a
+            worker profile, so a company created here would only be refused by
+            them a moment later.
+        */
+        $profile = EmployerProfile::create([
+            'user_id'       => $user->id,
+            'employer_type' => EmployerType::INDIVIDUAL->value,
+            // Inherited whole, coordinates included. A label with no id has no
+            // coordinates, and without those every distance on a job card this
+            // employer posts is measured from nowhere.
+            'location'      => $worker->location,
+            'location_id'   => $worker->location_id,
+            'latitude'      => $worker->latitude,
+            'longitude'     => $worker->longitude,
+        ]);
+
+        /*
+            And the account's own city follows, as it does on any other save.
+
+            The worker profile is the source here so nothing actually moves,
+            but going through the one service stops this path becoming the
+            exception that drifts.
+        */
+        app(\App\Services\SharedIdentity::class)->spreadLocation(
+            $user,
+            $profile->location,
+            $profile->location_id,
+            $profile->latitude === null ? null : (float) $profile->latitude,
+            $profile->longitude === null ? null : (float) $profile->longitude,
+        );
+
+        $verification = $this->verificationService->getEmployerVerification($user, $profile);
+
+        return $this->ok([
+            'profile'      => new EmployerProfileResource($profile),
+            'verification' => new EmployerVerificationResource($verification),
+        ], 'Employer profile created', 201);
+    }
     /**
      * Create employer profile (first-time setup)
      */

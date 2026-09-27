@@ -46,8 +46,23 @@
                         ['route' => 'admin.community.index',     'label' => 'Community',           'icon' => 'message-square', 'can' => 'moderate', 'queue' => 'community'],
                         ['route' => 'admin.categories.index',    'label' => 'Categories & Skills', 'icon' => 'tags',           'can' => 'settings'],
                     ],
+                    /*
+                        Pricing sits with the money, not under System.
+
+                        The page edits what each action costs in Barya and
+                        nothing else, so "Settings" under System both oversold
+                        it and hid it: somebody looking for what an application
+                        charges looks in Finance, beside the ledger those
+                        charges land in.
+
+                        It keeps the settings ability rather than finance. The
+                        ability is what the route enforces, so an admin who can
+                        read the ledger but not change prices sees Barya here
+                        and not Pricing.
+                    */
                     'Finance' => [
-                        ['route' => 'admin.credits.index',       'label' => 'Barya',               'icon' => 'coins', 'can' => 'finance'],
+                        ['route' => 'admin.credits.index',       'label' => 'Barya',               'icon' => 'coins',    'can' => 'finance'],
+                        ['route' => 'admin.settings.index',      'label' => 'Pricing',             'icon' => 'tag',      'can' => 'settings'],
                     ],
                     'Communication' => [
                         ['route' => 'admin.support.index',       'label' => 'Support',             'icon' => 'life-buoy', 'can' => 'moderate', 'queue' => 'support'],
@@ -56,7 +71,6 @@
                     'System' => [
                         ['route' => 'admin.admins.index',        'label' => 'Administrators',      'icon' => 'shield',       'can' => 'settings'],
                         ['route' => 'admin.audit.index',         'label' => 'Audit Log',           'icon' => 'scroll-text',  'can' => 'settings'],
-                        ['route' => 'admin.settings.index',      'label' => 'Settings',            'icon' => 'settings',     'can' => 'settings'],
                     ],
                 ];
 

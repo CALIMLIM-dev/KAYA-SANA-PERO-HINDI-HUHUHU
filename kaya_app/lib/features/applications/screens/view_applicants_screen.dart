@@ -224,7 +224,7 @@ class _ViewApplicantsScreenState extends State<ViewApplicantsScreen>
           children: [
             Icon(Icons.people_outline, size: 56, color: AppColors.neutral300),
             const SizedBox(height: 16),
-            const Text('No one is waiting here',
+            const Text('No applicants yet',
                 style: TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.w600,

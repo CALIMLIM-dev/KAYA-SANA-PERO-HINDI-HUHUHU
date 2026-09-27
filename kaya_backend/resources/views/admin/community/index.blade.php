@@ -6,7 +6,7 @@
     <div class="p-5 border-b border-slate-100 flex items-center gap-3">
         <div class="flex gap-1">
             {{-- Waiting first: those posters have paid and cannot be seen by anybody until this screen is looked at. --}}
-            @foreach (['pending' => 'Waiting', 'live' => 'Live', 'ended' => 'Ended', 'rejected' => 'Refused', 'removed' => 'Removed', 'all' => 'All'] as $key => $label)
+            @foreach (['pending' => 'Pending', 'live' => 'Live', 'ended' => 'Ended', 'rejected' => 'Rejected', 'removed' => 'Removed', 'all' => 'All'] as $key => $label)
                 <a href="{{ route('admin.community.index', array_filter(['show' => $key, 'search' => $search])) }}"
                    class="px-3 py-1.5 rounded-lg text-sm {{ $show === $key ? 'bg-blue-50 text-blue-700 font-medium' : 'text-slate-500 hover:bg-slate-50' }}">
                     {{ $label }}
@@ -58,7 +58,7 @@
                     </p>
                     @if (in_array($post->status, ['removed', 'rejected']))
                         <p class="text-xs text-red-600 mt-1">
-                            {{ $post->status === 'rejected' ? 'Refused' : 'Removed' }}
+                            {{ $post->status === 'rejected' ? 'Rejected' : 'Removed' }}
                             by {{ $post->remover?->name ?? 'admin' }}: {{ $post->removed_reason }}
                         </p>
                     @endif
@@ -90,10 +90,10 @@
                             @csrf
                             <button class="w-full px-3 py-2 bg-green-600 text-white rounded-lg text-sm font-medium hover:bg-green-700">Approve</button>
                         </form>
-                        <form method="POST" action="{{ route('admin.community.reject', $post) }}" onsubmit="return confirm('Refuse this post and return the Barya?')">
+                        <form method="POST" action="{{ route('admin.community.reject', $post) }}" onsubmit="return confirm('Reject this post and return the Barya?')">
                             @csrf
                             @include('admin.partials.reason-picker', ['reasons' => ['Contact details in the post', 'Spam or advertising', 'Not a real job or service', 'Abusive or offensive', 'Duplicate post', 'Wrong category of post'], 'placeholder' => 'Reason the poster will see'])
-                            <button class="w-full px-3 py-2 bg-red-50 text-red-600 border border-red-200 rounded-lg text-sm hover:bg-red-100">Refuse</button>
+                            <button class="w-full px-3 py-2 bg-red-50 text-red-600 border border-red-200 rounded-lg text-sm hover:bg-red-100">Reject</button>
                         </form>
                     @elseif (! in_array($post->status, ['removed', 'rejected']))
                         <form method="POST" action="{{ route('admin.community.remove', $post) }}" onsubmit="return confirm('Remove this post?')">

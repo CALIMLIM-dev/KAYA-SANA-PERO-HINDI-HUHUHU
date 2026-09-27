@@ -8,6 +8,7 @@ import '../../../providers/credits_provider.dart';
 import '../../../core/utils/end_session.dart';
 import '../../../core/widgets/profile_avatar.dart';
 import '../../legal/screens/legal_screen.dart';
+import 'add_second_profile_flow.dart';
 import 'badges_screen.dart';
 
 /// Profile / Account Screen
@@ -173,8 +174,24 @@ class ProfileScreen extends StatelessWidget {
                       trailing: auth.workerProfileExists
                           ? null
                           : const _AddChip(),
-                      onTap: () =>
-                          AppRouter.push(context, '/my-worker-profile'),
+                      /*
+                          An account that already has a profile does not walk
+                          the seven-page setup again.
+
+                          Its name, photo, location and verification are all
+                          on record, so it is asked for its trade and the
+                          server builds the rest. The full flow stays for an
+                          account with nothing behind it, which is what it was
+                          written for.
+                      */
+                      onTap: () {
+                        if (auth.canAddWorkerProfileFromAccount) {
+                          SecondProfileFlow.addWorker(context);
+                          return;
+                        }
+
+                        AppRouter.push(context, '/my-worker-profile');
+                      },
                     ),
                   _MenuItem(
                     icon: Icons.business_outlined,
@@ -185,8 +202,23 @@ class ProfileScreen extends StatelessWidget {
                     trailing: auth.employerProfileExists
                         ? null
                         : const _AddChip(),
-                    onTap: () =>
-                        AppRouter.push(context, '/my-employer-profile'),
+                    /*
+                        The same shortcut as the worker row above, and this
+                        direction asks nothing at all.
+
+                        A worker walked three more pages to get here - name,
+                        photo, ID - and the account already had every answer.
+                        The type is not a choice either: an account that looks
+                        for work can only be an individual employer.
+                    */
+                    onTap: () {
+                      if (auth.canAddEmployerProfileFromAccount) {
+                        SecondProfileFlow.addEmployer(context);
+                        return;
+                      }
+
+                      AppRouter.push(context, '/my-employer-profile');
+                    },
                   ),
 
                   /*

@@ -80,7 +80,7 @@ class _CommunityPostScreenState extends State<CommunityPostScreen> {
       context: context,
       builder: (dialogContext) => AlertDialog(
         title: const Text('Remove this comment?'),
-        content: const Text('It comes off the thread. Nothing else changes.'),
+        content: const Text('The comment is removed. Nothing else changes.'),
         actions: [
           TextButton(onPressed: () => Navigator.pop(dialogContext, false), child: const Text('Keep it')),
           TextButton(onPressed: () => Navigator.pop(dialogContext, true), child: const Text('Remove')),

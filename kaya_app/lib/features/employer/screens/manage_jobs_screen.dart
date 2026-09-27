@@ -855,7 +855,7 @@ class _ManageJobsScreenState extends State<ManageJobsScreen>
     showDialog(
       context: context,
       builder: (_) => AlertDialog(
-        title: const Text('Mark as Completed?'),
+        title: const Text('Mark this job complete?'),
         // Says what actually happens. Completion is two-sided now: this records
         // the employer's half and the worker still has to confirm.
         content: Text(

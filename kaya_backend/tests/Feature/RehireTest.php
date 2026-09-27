@@ -52,8 +52,9 @@ class RehireTest extends TestCase
     {
         $user = User::factory()->create(['name' => $name]);
 
-        WorkerProfile::create([
-            'user_id'     => $user->id,
+        // Through the shared helper, so the profile carries the skill that
+        // applying requires rather than only the columns this test reads.
+        $this->seedWorkerProfile($user, [
             'location'    => 'Urdaneta City',
             'category_id' => $this->category->id,
         ]);

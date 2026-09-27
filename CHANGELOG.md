@@ -11,6 +11,44 @@ minor release, and `feat!:` or a `BREAKING CHANGE:` footer for a major one.
 
 ---
 
+## 1.12.0 - 2026-09-28
+
+Adding the second profile takes one tap, and the wording is consistent.
+
+### Added
+
+- An account that already holds one profile no longer walks the setup flow to
+  add the other. The worker side asks for the trade and inherits the rest; the
+  employer side asks nothing. Both carry over the name, photo, location and
+  verification, and both create the whole profile in one request so a failure
+  cannot leave half of one behind.
+- Applying for work and accepting an invitation now need a trade and at least
+  one skill. A profile row exists from the moment setup starts, so an abandoned
+  attempt could put a card in front of an employer that said nothing about the
+  person behind it.
+
+### Changed
+
+- A worker profile that exists is shown whether or not it is finished. An
+  incomplete one used to be answered with the seven-page setup flow every time
+  it was opened, which is what made a second profile unreachable.
+- Pricing moved out of System into Finance, beside Barya, and is named for what
+  it edits.
+- Categories & Skills rebuilt. One card per category showing the name and what
+  depends on it, with renaming, skills, hiding and merging behind one panel.
+  Merging deletes a category and now says so before you use it.
+- The analytics headline figures say they are all-time. They sit above the
+  period picker, so an unlabelled total read as a total for the period.
+- Analytics panels are named the way other dashboards name them, and both rates
+  say what they are a share of.
+- One name per thing across the app and the panel. The pin dialog had four
+  labels for two buttons, the review screen called itself three things, and the
+  board and the verification queue used two different verbs for one decision.
+
+### Fixed
+
+- Five endpoints accepted worker credentials from a business account.
+
 ## 1.11.2 - 2026-09-27
 
 The community board reworked, and the fixes from testing 1.11.1.

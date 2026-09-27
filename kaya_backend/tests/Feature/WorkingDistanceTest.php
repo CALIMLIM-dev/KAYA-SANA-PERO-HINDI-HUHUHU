@@ -33,7 +33,7 @@ class WorkingDistanceTest extends TestCase
     private function worker(float $lat, float $lng): User
     {
         $user = User::factory()->create(['is_verified' => true]);
-        WorkerProfile::create(['user_id' => $user->id, 'location' => 'x', 'latitude' => $lat, 'longitude' => $lng]);
+        $this->seedWorkerProfile($user, ['location' => 'x', 'latitude' => $lat, 'longitude' => $lng]);
         CreditWallet::updateOrCreate(['user_id' => $user->id], ['balance' => 100]);
 
         return $user;
@@ -106,7 +106,7 @@ class WorkingDistanceTest extends TestCase
         $job = $this->job($employer, 15.9761, 120.5711);
 
         $noPlace = User::factory()->create(['is_verified' => true]);
-        WorkerProfile::create(['user_id' => $noPlace->id, 'location' => 'x']);
+        $this->seedWorkerProfile($noPlace, ['location' => 'x']);
 
         $this->assertTrue(app(WorkingDistance::class)->allows($job, $noPlace));
     }

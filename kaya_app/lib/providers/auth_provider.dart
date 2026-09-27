@@ -137,6 +137,26 @@ class AuthProvider with ChangeNotifier {
 
   bool get canCreateWorkerProfile => !isCompanyEmployer;
 
+  /*
+      Whether the worker profile can be made from what the account holds.
+
+      An account with an employer profile already has the name, the photo,
+      the verified ID and the town. It is asked for its trade and nothing
+      else; the seven-page flow is for somebody the app knows nothing about.
+  */
+  bool get canAddWorkerProfileFromAccount =>
+      !workerProfileExists && employerProfileExists && canCreateWorkerProfile;
+
+  /*
+      The same, the other way round, and it asks even less.
+
+      A worker adding the employer side has nothing left to answer: the type
+      cannot be chosen, because an account that looks for work can only be an
+      individual employer, and the town comes from the profile it already has.
+  */
+  bool get canAddEmployerProfileFromAccount =>
+      !employerProfileExists && workerProfileExists;
+
   /// Set by admin review of submitted documents. Gates posting, applying,
   /// inviting and topping up — see EnsureVerified on the server.
   bool get isVerified => _user?['is_verified'] as bool? ?? false;

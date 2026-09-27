@@ -111,7 +111,7 @@ Future<void> showInviteToJobSheet(
   final jobId = await showDialog<int>(
     context: context,
     builder: (dialogContext) => AlertDialog(
-      title: const Text('Invite to apply'),
+      title: const Text('Invite to Apply'),
       content: SizedBox(
         width: double.maxFinite,
         child: Column(

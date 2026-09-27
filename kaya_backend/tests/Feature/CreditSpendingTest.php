@@ -44,7 +44,7 @@ class CreditSpendingTest extends TestCase
     private function worker(int $balance = 50): User
     {
         $user = User::factory()->create();
-        WorkerProfile::create(['user_id' => $user->id]);
+        $this->seedWorkerProfile($user);
         CreditWallet::create(['user_id' => $user->id, 'balance' => $balance]);
 
         return $user;
@@ -292,7 +292,7 @@ class CreditSpendingTest extends TestCase
     public function a_new_account_is_owed_credits_and_claims_them()
     {
         $user = User::factory()->create();
-        WorkerProfile::create(['user_id' => $user->id]);
+        $this->seedWorkerProfile($user);
 
         $welcome = (int) config('kaya.credits.signup_grant');
         $monthly = (int) config('kaya.credits.monthly_grant');
@@ -340,7 +340,7 @@ class CreditSpendingTest extends TestCase
     public function claiming_twice_pays_once()
     {
         $user = User::factory()->create();
-        WorkerProfile::create(['user_id' => $user->id]);
+        $this->seedWorkerProfile($user);
 
         $this->actingAs($user, 'sanctum')
             ->postJson('/api/v1/credits/claim', ['type' => 'welcome'])

@@ -392,7 +392,7 @@ class _EmployerProfileScreenState extends State<EmployerProfileScreen> {
             child: _section(
               title: 'Reviews ($reviewCount)',
               child: reviews.isEmpty
-                  ? const Text('No reviews yet.',
+                  ? const Text('No reviews yet',
                       style: TextStyle(color: AppColors.neutral600, fontSize: 14))
                   : Column(
                       children: [

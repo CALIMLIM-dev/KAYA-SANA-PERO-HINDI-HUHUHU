@@ -58,6 +58,46 @@ abstract class TestCase extends BaseTestCase
         Cache::flush();
     }
 
+    /*
+        A worker profile complete enough to transact with.
+
+        Applying and accepting an invitation require a trade and at least one
+        skill: a profile row exists from the moment setup starts, so without
+        that check an abandoned attempt could put a card in front of an
+        employer that says nothing about the person behind it.
+
+        Most tests here only ever needed "this user is a worker" and wrote a
+        bare row to say so, which is a profile no employer could read. This is
+        that same intent, expressed as a profile that could really exist.
+    */
+    protected function seedWorkerProfile(
+        \App\Models\User $user,
+        array $attributes = [],
+    ): \App\Models\WorkerProfile {
+        $category = \App\Models\Category::firstOrCreate(
+            ['name' => 'General Labour'],
+            ['description' => 'Seeded by the test suite.'],
+        );
+
+        $profile = \App\Models\WorkerProfile::create(array_merge([
+            'user_id'     => $user->id,
+            'category_id' => $category->id,
+            // isSetupCompleted wants all three. A caller that cares about the
+            // place passes its own; one that does not still gets a profile
+            // that could exist, rather than a row with no town.
+            'location'    => 'Urdaneta City',
+        ], $attributes));
+
+        \App\Models\WorkerSkill::firstOrCreate([
+            'user_id'    => $user->id,
+            'skill_name' => 'General labour',
+        ], [
+            'category_id' => $category->id,
+        ]);
+
+        return $profile;
+    }
+
     /**
      * Refuses to run against anything but a designated test database.
      *

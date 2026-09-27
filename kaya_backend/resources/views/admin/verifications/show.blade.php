@@ -126,7 +126,7 @@
                     <div class="mt-1">
                         @include('admin.partials.reason-picker', ['reasons' => ['Photo is too blurry to read', 'ID is expired', 'Name does not match the profile', 'Document is cropped or incomplete', 'Selfie does not match the ID', 'Not an accepted government ID', 'Looks altered or not genuine'], 'placeholder' => 'Reason the person will see'])
                     </div>
-                    <button class="mt-2 px-4 py-2 bg-red-600 text-white rounded-lg text-sm font-medium">Confirm Rejection</button>
+                    <button class="mt-2 px-4 py-2 bg-red-600 text-white rounded-lg text-sm font-medium">Confirm Reject</button>
                 </form>
             </div>
         @elseif ($verification->rejection_reason)

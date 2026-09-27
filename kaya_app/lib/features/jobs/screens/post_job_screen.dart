@@ -1550,14 +1550,14 @@ class _PostJobScreenState extends State<PostJobScreen> {
             actions: [
               TextButton(
                 onPressed: () => Navigator.pop(context, false),
-                child: const Text('Discard Pin'),
+                child: const Text('Keep the Location'),
               ),
               ElevatedButton(
                 onPressed: () => Navigator.pop(context, true),
                 style: ElevatedButton.styleFrom(
                     backgroundColor: AppColors.primary,
                     foregroundColor: Colors.white),
-                child: const Text('Use Pinned'),
+                child: const Text('Use the Pin'),
               ),
             ],
           ),

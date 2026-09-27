@@ -49,7 +49,7 @@
     {{-- Signup trend --}}
     <div class="col-span-2 bg-white rounded-xl border border-slate-200 p-5">
         <div class="flex items-center justify-between mb-4">
-            <h3 class="text-sm font-semibold text-slate-700">Sign-ups, last 14 days</h3>
+            <h3 class="text-sm font-semibold text-slate-700">New accounts, last 14 days</h3>
             <span class="text-xs text-slate-400">{{ $stats['total_users'] }} users: {{ $stats['total_workers'] }} workers, {{ $stats['total_employers'] }} employers, {{ $stats['suspended_users'] }} suspended</span>
         </div>
         <canvas id="signupChart" height="110"></canvas>
@@ -68,7 +68,7 @@
 <div class="grid grid-cols-2 gap-4">
     {{-- What happened --}}
     <div class="bg-white rounded-xl border border-slate-200 p-5">
-        <h3 class="text-sm font-semibold text-slate-700 mb-4">On the platform</h3>
+        <h3 class="text-sm font-semibold text-slate-700 mb-4">Recent activity</h3>
         <div class="space-y-3">
             @forelse ($activity as $item)
                 @php

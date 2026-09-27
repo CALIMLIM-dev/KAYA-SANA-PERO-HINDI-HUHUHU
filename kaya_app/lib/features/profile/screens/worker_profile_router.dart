@@ -6,61 +6,14 @@ import '../../../core/constants/app_colors.dart';
 import 'my_worker_profile_screen.dart';
 import '../../worker/screens/worker_setup_flow_screen.dart';
 
-/// Pure Router for Worker Profile
-/// 
-/// Routes based on worker_profile_exists and worker_setup_completed from AuthProvider
-/// 
-/// Logic:
-/// - No profile → WorkerSetupFlowScreen (step 1)
-/// - Profile exists but incomplete → Resume setup at appropriate step
-/// - Profile complete → MyWorkerProfileScreen
+/// Decides whether to show the worker profile or the flow that creates one.
+///
+/// - No profile → WorkerSetupFlowScreen
+/// - A profile, finished or not → MyWorkerProfileScreen
+///
+/// Nothing is decided until /me has answered; see the note in build().
 class WorkerProfileRouter extends StatelessWidget {
   const WorkerProfileRouter({super.key});
-
-  /// Determine which step to resume based on existing profile data
-  /// 
-  /// Steps:
-  /// 0. Location (required)
-  /// 1. Category + Skills (required)
-  /// 2. Experience (optional)
-  /// 3. Certifications (optional)
-  /// 4. Licenses (optional)
-  /// 5. Profile Photo (optional)
-  /// 6. Verification (optional)
-  int _getResumeStep(WorkerProfileProvider provider) {
-    // If no location, start at step 0
-    if (provider.location == null || provider.location!.isEmpty) {
-      return 0;
-    }
-    
-    // If no skills, go to step 1 (category + skills)
-    if (provider.skills.isEmpty) {
-      return 1;
-    }
-    
-    // If no experience, go to step 2
-    if (provider.experiencesNew.isEmpty) {
-      return 2;
-    }
-    
-    // If no certifications, go to step 3
-    if (provider.certifications.isEmpty) {
-      return 3;
-    }
-    
-    // If no licenses, go to step 4
-    if (provider.licenses.isEmpty) {
-      return 4;
-    }
-    
-    // If no photo, go to step 5
-    if (provider.profilePhotoPath == null || provider.profilePhotoPath!.isEmpty) {
-      return 5;
-    }
-    
-    // Otherwise, go to verification step 6
-    return 6;
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -95,23 +48,36 @@ class WorkerProfileRouter extends StatelessWidget {
           return const WorkerSetupFlowScreen();
         }
 
-        // Profile exists but setup incomplete → Resume setup
-        if (!workerSetupCompleted) {
-          // Show loading while fetching profile data to determine resume step
-          if (workerProvider.isLoading && workerProvider.location == null) {
-            return Scaffold(
-              backgroundColor: AppColors.background,
-              body: const Center(
-                child: CircularProgressIndicator(),
-              ),
-            );
-          }
+        /*
+            A profile that exists is shown, finished or not.
 
-          final resumeStep = _getResumeStep(workerProvider);
-          return WorkerSetupFlowScreen(resumeStep: resumeStep);
+            This used to send an incomplete profile back into the setup flow,
+            and that was the wall the whole second-profile path kept hitting.
+            worker_setup_completed is computed - location, category and one
+            skill - so any profile missing one of them was answered with the
+            wizard again, every single time the screen was opened, with no way
+            past it but to walk the seven pages.
+
+            The profile screen is the better answer even for a half-made
+            profile: skills, experience, certifications, licences, the rate and
+            the photo all have their own edit controls there, and the
+            completeness prompt says which one is worth doing next. The wizard
+            stays for the case it was built for - an account with no profile at
+            all, which has nothing to show.
+
+            resumeStep therefore no longer has a caller. It is kept because the
+            flow still accepts one and a later screen may want to deep-link
+            into a step.
+        */
+        if (!workerSetupCompleted &&
+            workerProvider.isLoading &&
+            workerProvider.location == null) {
+          return const Scaffold(
+            backgroundColor: AppColors.background,
+            body: Center(child: CircularProgressIndicator()),
+          );
         }
 
-        // Profile complete → Show permanent profile screen
         return const MyWorkerProfileScreen();
       },
     );

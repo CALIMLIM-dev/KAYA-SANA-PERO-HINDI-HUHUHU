@@ -18,6 +18,165 @@ class WorkerProfileController extends Controller
 {
     // ==================== SETUP COMPLETION ====================
     
+    /*
+        The worker profile of an account that already has an employer one.
+
+        The seven-page setup flow exists to onboard somebody the app knows
+        nothing about. A second profile is the opposite case: the name, the
+        photo, the verified ID and the town are already on the account, and
+        asking for all of them again is how one person ends up with two
+        different pictures and two spellings of their own town.
+
+        So the app asks for the one thing it cannot inherit - the trade and
+        the skills - and this builds the rest from what is already there.
+
+        Written in a transaction on purpose. Doing it the way the setup flow
+        does, a PUT for the location and then one POST per skill, leaves a
+        real profile behind the moment any of those calls fails: no category
+        and no skills, which reads as a finished profile to the router and as
+        an empty one to every employer looking at it. Either the whole profile
+        exists or none of it does.
+    */
+    public function storeFromAccount(Request $request)
+    {
+        $user = $request->user();
+
+        if (WorkerProfile::where('user_id', $user->id)->exists()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'You already have a worker profile.',
+                'data'    => null,
+            ], 422);
+        }
+
+        /*
+            There is nothing to inherit without the other profile.
+
+            This is the second-profile path and nothing else. An account with
+            neither profile has no location, no confirmed name and no
+            verification to carry over, so it belongs in the full setup flow -
+            and letting it through here would create a profile with a null
+            location, which is invisible to every distance calculation on the
+            platform.
+        */
+        $employer = $user->employerProfile;
+
+        if ($employer === null) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Set up your employer profile first, or use the full worker setup.',
+                'data'    => null,
+            ], 422);
+        }
+
+        if (blank($employer->location)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Add a location to your employer profile first.',
+                'data'    => null,
+            ], 422);
+        }
+
+        $validator = Validator::make($request->all(), [
+            // The trade. Required here, unlike everywhere else that writes a
+            // worker profile, because a profile with no category is one
+            // nobody can be found by - browse() excludes it outright.
+            'category_id'          => 'required|integer|exists:categories,id',
+            'skills'               => 'required|array|min:1|max:30',
+            'skills.*.skill_name'  => 'required|string|max:255',
+            'skills.*.skill_id'    => 'nullable|integer|exists:skills,id',
+            'skills.*.category_id' => 'nullable|integer|exists:categories,id',
+        ], [
+            'category_id.required' => 'Choose the kind of work you do.',
+            'skills.required'      => 'Add at least one skill.',
+            'skills.min'           => 'Add at least one skill.',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'success' => false,
+                'message' => $validator->errors()->first(),
+                'data'    => null,
+            ], 422);
+        }
+
+        $data = $validator->validated();
+
+        $profile = DB::transaction(function () use ($user, $employer, $data) {
+            $profile = WorkerProfile::create([
+                'user_id'     => $user->id,
+                'category_id' => $data['category_id'],
+                // Inherited whole, coordinates included. A label without an
+                // id has no coordinates, and a worker without coordinates is
+                // absent from every proximity search and every distance
+                // figure on a job card.
+                'location'            => $employer->location,
+                'location_id'         => $employer->location_id,
+                'latitude'            => $employer->latitude,
+                'longitude'           => $employer->longitude,
+                'availability_status' => 'available',
+                'verification_status' => 'unverified',
+            ]);
+
+            /*
+                Duplicates are dropped rather than refused.
+
+                addSkill 422s on one, which is right when somebody is adding a
+                skill to a profile in front of them. Here the list arrives in
+                one go from a picker, and losing the whole profile over a
+                repeated name is a failure the user cannot act on.
+            */
+            $seen = [];
+
+            foreach ($data['skills'] as $skill) {
+                $key = mb_strtolower(trim($skill['skill_name']));
+
+                if ($key === '' || isset($seen[$key])) {
+                    continue;
+                }
+
+                $seen[$key] = true;
+
+                WorkerSkill::create([
+                    'user_id'     => $user->id,
+                    'skill_name'  => trim($skill['skill_name']),
+                    'skill_id'    => $skill['skill_id'] ?? null,
+                    'category_id' => $skill['category_id'] ?? $data['category_id'],
+                    // Not stated, rather than invented. See addSkill.
+                    'proficiency_level'   => null,
+                    'years_of_experience' => null,
+                ]);
+            }
+
+            return $profile;
+        });
+
+        /*
+            The account's own city follows, the same as any other save.
+
+            The employer profile is the source here so nothing actually moves,
+            but going through the one service keeps this path from becoming
+            the exception that drifts.
+        */
+        app(\App\Services\SharedIdentity::class)->spreadLocation(
+            $user,
+            $profile->location,
+            $profile->location_id,
+            $profile->latitude === null ? null : (float) $profile->latitude,
+            $profile->longitude === null ? null : (float) $profile->longitude,
+        );
+
+        return response()->json([
+            'success' => true,
+            'data'    => [
+                'location'       => $profile->location,
+                'category_id'    => $profile->category_id,
+                'setup_complete' => $profile->fresh()->isSetupCompleted(),
+            ],
+            'message' => 'Worker profile created',
+        ], 201);
+    }
+
     public function completeSetup(Request $request)
     {
         $user = $request->user();

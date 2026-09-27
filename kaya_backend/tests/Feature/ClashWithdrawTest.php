@@ -52,7 +52,7 @@ class ClashWithdrawTest extends TestCase
     {
         parent::setUp();
         $this->worker = User::factory()->create();
-        WorkerProfile::create(['user_id' => $this->worker->id]);
+        $this->seedWorkerProfile($this->worker);
     }
 
     private function job(?string $start, ?string $end = null): JobPost

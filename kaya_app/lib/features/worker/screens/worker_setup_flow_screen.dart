@@ -839,7 +839,7 @@ class _WorkerSetupFlowScreenState extends State<WorkerSetupFlowScreen> {
             actions: [
               TextButton(
                 onPressed: () => Navigator.pop(context, false),
-                child: const Text('Keep My Choice'),
+                child: const Text('Keep the Location'),
               ),
               ElevatedButton(
                 onPressed: () => Navigator.pop(context, true),

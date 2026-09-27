@@ -174,7 +174,7 @@ class _AddSkillsScreenState extends State<AddSkillsScreen> {
     final result = await showDialog<String>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Add Custom Job Category'),
+        title: const Text('New Category'),
         content: TextField(
           controller: controller,
           autofocus: true,
@@ -348,13 +348,13 @@ class _AddSkillsScreenState extends State<AddSkillsScreen> {
                   // Category selection
                   Row(
                     children: [
-                      const Text('1. Select Job Category',
+                      const Text('Job Category',
                           style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: AppColors.neutral900)),
                       const Spacer(),
                       TextButton.icon(
                         onPressed: _showAddCustomCategoryDialog,
                         icon: const Icon(Icons.add, size: 16),
-                        label: const Text('Add Custom Job', style: TextStyle(fontSize: 12)),
+                        label: const Text('New Category', style: TextStyle(fontSize: 12)),
                         style: TextButton.styleFrom(
                           foregroundColor: AppColors.primary,
                           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
@@ -410,7 +410,7 @@ class _AddSkillsScreenState extends State<AddSkillsScreen> {
 
                   // Skills for selected category
                   if (_selectedCategory != null) ...[
-                    const Text('2. Select Skills',
+                    const Text('Skills',
                         style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: AppColors.neutral900)),
                     const SizedBox(height: 8),
                     
@@ -461,7 +461,7 @@ class _AddSkillsScreenState extends State<AddSkillsScreen> {
                     const SizedBox(height: 20),
 
                     // Custom skill input
-                    const Text('3. Or Add Custom Skill',
+                    const Text('Add Your Own Skill',
                         style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: AppColors.neutral900)),
                     const SizedBox(height: 8),
                     Row(

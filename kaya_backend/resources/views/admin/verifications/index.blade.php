@@ -35,7 +35,7 @@
                         </span>
                     </td>
                     <td class="py-3 px-5 text-right">
-                        <a href="{{ route('admin.verifications.show', $v) }}" class="text-blue-600 text-xs font-medium">Review →</a>
+                        <a href="{{ route('admin.verifications.show', $v) }}" class="text-blue-600 text-xs font-medium">Review</a>
                     </td>
                 </tr>
             @endforeach

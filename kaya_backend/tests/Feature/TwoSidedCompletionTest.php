@@ -41,7 +41,7 @@ class TwoSidedCompletionTest extends TestCase
         EmployerProfile::create(['user_id' => $this->employer->id]);
 
         $this->worker = User::factory()->create();
-        WorkerProfile::create(['user_id' => $this->worker->id]);
+        $this->seedWorkerProfile($this->worker);
 
         $this->job = JobPost::create([
             'employer_id'       => $this->employer->id,
@@ -113,7 +113,7 @@ class TwoSidedCompletionTest extends TestCase
     public function test_a_stranger_cannot_mark_it_complete(): void
     {
         $stranger = User::factory()->create();
-        WorkerProfile::create(['user_id' => $stranger->id]);
+        $this->seedWorkerProfile($stranger);
 
         $this->markComplete($stranger)->assertStatus(403);
 

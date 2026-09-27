@@ -32,7 +32,7 @@
     </div>
 
     <div class="bg-white rounded-xl border border-slate-200 p-6">
-        <h3 class="text-sm font-semibold text-slate-700 mb-3">Sent before</h3>
+        <h3 class="text-sm font-semibold text-slate-700 mb-3">Past announcements</h3>
         <div class="space-y-3">
             @forelse ($sent as $item)
                 <div class="text-sm border-b border-slate-50 pb-3">

@@ -52,7 +52,7 @@ class _LeaveReviewScreenState extends State<LeaveReviewScreen> {
         backgroundColor: AppColors.primary,
         foregroundColor: Colors.white,
         elevation: 0,
-        title: const Text('Leave a Review',
+        title: const Text('Write a Review',
             style: TextStyle(fontWeight: FontWeight.w600)),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back, color: Colors.white),
@@ -239,7 +239,7 @@ class _LeaveReviewScreenState extends State<LeaveReviewScreen> {
                   const SizedBox(height: 24),
 
                   // ── Written review ──
-                  const Text('Write a Review',
+                  const Text('Your Review',
                       style: TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.w700,

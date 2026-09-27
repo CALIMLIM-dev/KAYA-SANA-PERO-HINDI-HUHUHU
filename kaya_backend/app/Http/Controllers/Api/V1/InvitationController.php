@@ -189,6 +189,31 @@ class InvitationController extends Controller
         if ($invitation->worker_id !== $user->id) return $this->fail('Forbidden', 403);
         if ($invitation->status !== 'pending') return $this->fail('Invitation status must be pending to accept', 422);
 
+        /*
+            An applicant an employer can actually read.
+
+            A profile row exists from the moment setup starts, so an abandoned
+            attempt is a profile with no trade and no skills. Applying with one
+            puts a card in front of an employer that says nothing about the
+            person behind it, and the employer has no way to ask - they are
+            choosing between named trades.
+
+            isSetupCompleted is the same three facts browse() filters on, so
+            this refuses exactly the profiles that are already absent from the
+            worker directory. Nothing that can be found is blocked here.
+
+            Refused on the server because the app can be out of date, and this
+            is what an employer is shown.
+        */
+        $workerProfile = $user->workerProfile;
+
+        if ($workerProfile === null || ! $workerProfile->isSetupCompleted()) {
+            return $this->fail(
+                'Add your trade and at least one skill to your worker profile first.',
+                422
+            );
+        }
+
         $job = $invitation->job;
         if (!$job || ! $job->isOpenForApplications()) return $this->fail('Job is no longer available', 422);
 

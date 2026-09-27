@@ -32,6 +32,31 @@ class ApplicationController extends Controller
     {
         $user = $request->user();
         if (!$user->isWorker()) return $this->fail('Forbidden', 403);
+
+        /*
+            An applicant an employer can actually read.
+
+            A profile row exists from the moment setup starts, so an abandoned
+            attempt is a profile with no trade and no skills. Applying with one
+            puts a card in front of an employer that says nothing about the
+            person behind it, and the employer has no way to ask - they are
+            choosing between named trades.
+
+            isSetupCompleted is the same three facts browse() filters on, so
+            this refuses exactly the profiles that are already absent from the
+            worker directory. Nothing that can be found is blocked here.
+
+            Refused on the server because the app can be out of date, and this
+            is what an employer is shown.
+        */
+        $workerProfile = $user->workerProfile;
+
+        if ($workerProfile === null || ! $workerProfile->isSetupCompleted()) {
+            return $this->fail(
+                'Add your trade and at least one skill to your worker profile first.',
+                422
+            );
+        }
         // Both questions, not just the status: the sweep is daily and the
         // date is exact, so a post can be past due and still marked open.
         // Charging somebody two barya to apply to it would be the worst

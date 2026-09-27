@@ -274,7 +274,7 @@ class _RosterScreenState extends State<RosterScreen> with RealtimeRefresh {
                               child: OutlinedButton.icon(
                                 onPressed: _busy ? null : _broadcast,
                                 icon: const Icon(Icons.campaign_outlined, size: 18),
-                                label: const Text('Message All'),
+                                label: const Text('Message Everyone'),
                                 style: OutlinedButton.styleFrom(
                                   foregroundColor: AppColors.primary,
                                   side: const BorderSide(color: AppColors.primary),

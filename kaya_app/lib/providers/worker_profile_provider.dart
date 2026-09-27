@@ -344,6 +344,64 @@ class WorkerProfileProvider with ChangeNotifier {
     }
   }
 
+  /*
+      Creates the worker profile of an account that already has an employer one.
+
+      One request, because the server writes the profile, its category and its
+      skills in a single transaction. Done the way the setup flow does it - a
+      PUT for the location, then one POST per skill - a failure part way
+      through leaves a profile with no category and no skills behind, which
+      reads as finished to the router and as empty to every employer.
+
+      The location is not sent: it is inherited from the profile the account
+      already has, so there is one answer to where this person is rather than
+      two that can disagree.
+  */
+  Future<bool> createFromAccount({
+    required int categoryId,
+    required List<SkillModel> skills,
+  }) async {
+    try {
+      final response = await _apiClient.post(
+        '/worker/profile/from-account',
+        data: {
+          'category_id': categoryId,
+          /*
+              A custom skill carries no real ids and must not pretend to.
+
+              AddSkillsScreen represents a skill the catalogue has never seen
+              as id -1 with category 0 — placeholders, not rows. Sent as-is
+              they fail the server's exists: rules and take the whole profile
+              down with them, so they go as null and the skill is stored by
+              name under the profile's own trade.
+          */
+          'skills': skills
+              .map((s) => {
+                    'skill_name': s.name,
+                    if (s.id > 0) 'skill_id': s.id,
+                    if (s.categoryId > 0) 'category_id': s.categoryId,
+                  })
+              .toList(),
+        },
+      );
+
+      final data = response.data as Map<String, dynamic>;
+
+      if (data['success'] == true) {
+        // Read back rather than assumed: the location came from the other
+        // profile and this is the first time this side has seen it.
+        await fetchProfile();
+        return true;
+      }
+
+      _errorMessage = data['message'] as String?;
+      return false;
+    } catch (e) {
+      _errorMessage = e.toString().replaceFirst('Exception: ', '');
+      return false;
+    }
+  }
+
   Future<bool> deleteProfile() async {
     try {
       final response = await _apiClient.delete('/worker/profile');

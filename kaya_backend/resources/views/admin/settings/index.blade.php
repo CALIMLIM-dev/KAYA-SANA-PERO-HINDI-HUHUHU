@@ -1,5 +1,5 @@
 @extends('admin.layouts.app')
-@section('page-title', 'Settings')
+@section('page-title', 'Pricing')
 
 @section('content')
 <form method="POST" action="{{ route('admin.settings.update') }}" class="max-w-3xl">
@@ -9,9 +9,8 @@
         <div class="mb-4 px-4 py-3 rounded-lg bg-red-50 text-red-700 text-sm border border-red-200">{{ $errors->first() }}</div>
     @endif
 
+    {{-- The page is titled Pricing; a "Pricing" heading inside it said it twice. --}}
     <div class="bg-white rounded-xl border border-slate-200 p-6">
-        <h3 class="text-sm font-semibold text-slate-700 mb-1">Pricing</h3>
-
         <div class="grid grid-cols-2 gap-x-8 gap-y-4">
             @foreach ($fields as $key => $field)
                 <label class="block">

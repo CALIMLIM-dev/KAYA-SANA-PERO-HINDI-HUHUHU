@@ -255,6 +255,46 @@ class AdminPanelTest extends TestCase
 
     // ── Categories and skills ────────────────────────────────────────────────
 
+    /*
+        The two pages that had no render test between them.
+
+        Every other case here posts to a route and checks the database, which
+        passes whether or not the page a human actually looks at builds. Both of
+        these were rewritten - one restructured, the other relabelled - with
+        nothing that would have caught a Blade typo.
+    */
+    #[Test]
+    public function the_categories_page_renders_with_a_category_and_its_skills(): void
+    {
+        $admin = $this->admin();
+        $category = Category::create(['name' => 'Carpentry', 'icon' => 'build', 'is_active' => false]);
+        Skill::create(['name' => 'Framing', 'category_id' => $category->id]);
+
+        $this->actingAs($admin)->get('/admin/categories')
+            ->assertOk()
+            ->assertSee('Carpentry')
+            ->assertSee('Framing')
+            // The state and the action say different things on purpose: the
+            // badge reports what is true, the button says what it will do.
+            ->assertSee('Hidden from the app')
+            ->assertSee('Show in the app');
+    }
+
+    #[Test]
+    public function the_analytics_page_says_which_figures_the_period_does_not_change(): void
+    {
+        /*
+            The headline tiles are all-time and sit directly above a 7/30/90-day
+            picker, so without a label "Jobs posted 412" under a selected "30
+            days" reads as 412 jobs in thirty days - a right number every reader
+            gets wrong.
+        */
+        $this->actingAs($this->admin())->get('/admin/analytics')
+            ->assertOk()
+            ->assertSee('Totals, all time')
+            ->assertSee('Not affected by the period below');
+    }
+
     #[Test]
     public function categories_can_be_added_renamed_switched_off_and_merged(): void
     {
@@ -350,7 +390,8 @@ class AdminPanelTest extends TestCase
             ->assertOk()
             ->assertSee('Verifications waiting')
             ->assertSee('TINs not checked')
-            ->assertSee('On the platform')
+            // "On the platform" named no list. It is the recent activity feed.
+            ->assertSee('Recent activity')
             ->assertSee('Admin Actions');
     }
 

@@ -147,7 +147,7 @@ class _CredentialsSectionState extends State<CredentialsSection> {
       context: context,
       builder: (_) => AlertDialog(
         title: Text(_isLicence ? 'Remove this license?' : 'Remove this certificate?'),
-        content: Text('"$label" comes off your profile, along with its document.'),
+        content: Text('"$label" is removed from your profile, along with its document.'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),

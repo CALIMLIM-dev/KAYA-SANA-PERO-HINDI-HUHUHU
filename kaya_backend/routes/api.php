@@ -138,6 +138,16 @@ Route::prefix('v1')->group(function () {
             have a worker profile made for it by the upload.
         */
         Route::post('/worker/profile/complete-setup',              [WorkerProfileController::class, 'completeSetup'])->middleware('not.company');
+        /*
+            The whole of a second profile in one request.
+
+            An account that already holds an employer profile does not
+            walk the seven-page setup again - it says what it does for a
+            living and inherits the rest. Creates the profile, its
+            category and its skills in one transaction, so a failure
+            cannot leave a profile with none of them.
+        */
+        Route::post('/worker/profile/from-account',                 [WorkerProfileController::class, 'storeFromAccount'])->middleware('not.company');
         Route::delete('/worker/profile',                           [WorkerProfileController::class, 'deleteProfile']);
         Route::put('/worker/profile',                              [WorkerProfileController::class, 'updateBasicInfo'])->middleware('not.company');
         Route::post('/worker/profile/photo',                       [WorkerProfileController::class, 'uploadPhoto'])->middleware('not.company');
@@ -145,7 +155,7 @@ Route::prefix('v1')->group(function () {
         // Resume. Stored privately and served only through the download route,
         // which checks the caller — a CV carries a phone number, home address
         // and full work history, so it is never a public storage URL.
-        Route::post('/worker/profile/resume',   [WorkerProfileController::class, 'uploadResume']);
+        Route::post('/worker/profile/resume',   [WorkerProfileController::class, 'uploadResume'])->middleware('not.company');
         Route::delete('/worker/profile/resume', [WorkerProfileController::class, 'deleteResume']);
         Route::get('/workers/{user}/resume',    [WorkerProfileController::class, 'downloadResume']);
         // NOTE: a parallel /worker-profile/* family used to live here. Six of its
@@ -166,25 +176,25 @@ Route::prefix('v1')->group(function () {
         
         // Worker Certifications
         Route::get('/worker/certifications',        [WorkerProfileController::class, 'getCertifications']);
-        Route::post('/worker/certifications',       [WorkerProfileController::class, 'addCertification']);
+        Route::post('/worker/certifications',       [WorkerProfileController::class, 'addCertification'])->middleware('not.company');
         Route::put('/worker/certifications/{id}',   [WorkerProfileController::class, 'updateCertification']);
         Route::delete('/worker/certifications/{id}', [WorkerProfileController::class, 'deleteCertification']);
         
         // Worker Licenses
         Route::get('/worker/licenses',          [WorkerProfileController::class, 'getLicenses']);
-        Route::post('/worker/licenses',         [WorkerProfileController::class, 'addLicense']);
+        Route::post('/worker/licenses',         [WorkerProfileController::class, 'addLicense'])->middleware('not.company');
         Route::put('/worker/licenses/{id}',     [WorkerProfileController::class, 'updateLicense']);
         Route::delete('/worker/licenses/{id}',  [WorkerProfileController::class, 'deleteLicense']);
         
         // Worker License Examinations
         Route::get('/worker/license-examinations',          [WorkerProfileController::class, 'getLicenseExaminations']);
-        Route::post('/worker/license-examinations',         [WorkerProfileController::class, 'addLicenseExamination']);
+        Route::post('/worker/license-examinations',         [WorkerProfileController::class, 'addLicenseExamination'])->middleware('not.company');
         Route::put('/worker/license-examinations/{id}',     [WorkerProfileController::class, 'updateLicenseExamination']);
         Route::delete('/worker/license-examinations/{id}',  [WorkerProfileController::class, 'deleteLicenseExamination']);
         
         // Worker Experiences
         Route::get('/worker/experiences',           [WorkerProfileController::class, 'getExperiences']);
-        Route::post('/worker/experiences',          [WorkerProfileController::class, 'addExperience']);
+        Route::post('/worker/experiences',          [WorkerProfileController::class, 'addExperience'])->middleware('not.company');
         Route::put('/worker/experiences/{id}',      [WorkerProfileController::class, 'updateExperience']);
         Route::delete('/worker/experiences/{id}',   [WorkerProfileController::class, 'deleteExperience']);
 
@@ -193,6 +203,16 @@ Route::prefix('v1')->group(function () {
         Route::delete('/employer-profile',              [EmployerProfileController::class, 'deleteProfile']);
         Route::get('/employer-profile',         [EmployerProfileController::class, 'index']);
         Route::post('/employer-profile',        [EmployerProfileController::class, 'store']);
+        /*
+            The whole of a second profile in one request, the other way round.
+
+            An account that already looks for work does not walk the employer
+            setup's three remaining pages - its name, town, photo and ID are
+            all on the account. Needs no question at all: an account with a
+            worker profile can only be an individual employer, and it lives
+            where its worker profile says it does.
+        */
+        Route::post('/employer-profile/from-account', [EmployerProfileController::class, 'storeFromAccount']);
         Route::put('/employer-profile',         [EmployerProfileController::class, 'update']);
         Route::post('/employer-profile/image',  [EmployerProfileController::class, 'uploadImage']);
         Route::get('/employers/{user}',         [EmployerProfileController::class, 'show']);

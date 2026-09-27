@@ -62,7 +62,7 @@ class _SavedJobsScreenState extends State<SavedJobsScreen>
                 TextButton(
                   onPressed: _clearing ? null : _confirmClearAll,
                   child: Text(
-                    'Clear all',
+                    'Clear All',
                     style: TextStyle(
                       color: _clearing ? AppColors.neutral400 : AppColors.error,
                       fontWeight: FontWeight.w600,
@@ -185,7 +185,7 @@ class _SavedJobsScreenState extends State<SavedJobsScreen>
           ElevatedButton(
             onPressed: () => Navigator.pop(dialogContext, true),
             style: ElevatedButton.styleFrom(backgroundColor: AppColors.error),
-            child: const Text('Clear all', style: TextStyle(color: Colors.white)),
+            child: const Text('Clear All', style: TextStyle(color: Colors.white)),
           ),
         ],
       ),

@@ -185,7 +185,7 @@
         ['Jobs posted',      $headline['jobs'],         'var(--series-1)', null],
         ['Applications',     $headline['applications'], 'var(--series-2)', $headline['jobs'] > 0
             ? round($headline['applications'] / $headline['jobs'], 1) . ' per job' : null],
-        ['Hired',            $headline['hires'],        'var(--series-3)', $headline['applications'] > 0
+        ['Workers hired',    $headline['hires'],        'var(--series-3)', $headline['applications'] > 0
             ? $headline['hire_rate'] . '% of applications' : null],
         ['Jobs completed',   $headline['completed'],    'var(--series-4)', $headline['jobs'] > 0
             ? $headline['completion_rate'] . '% of jobs' : null],
@@ -195,7 +195,7 @@
     // Part to whole.
     $breakdowns = [
         [
-            'title' => 'Who is on KAYA',
+            'title' => 'Account types',
             'id'    => 'compositionChart', 'centre' => 'Accounts',
             'href'  => $csv('admin.exports.users'), 'label' => 'Users',
             'items' => [
@@ -206,7 +206,7 @@
             ],
         ],
         [
-            'title' => 'Where jobs stand',
+            'title' => 'Jobs by status',
             'id'    => 'jobStatusChart', 'centre' => 'Jobs',
             'href'  => $csv('admin.exports.jobs'), 'label' => 'Jobs',
             'items' => [
@@ -218,7 +218,7 @@
             ],
         ],
         [
-            'title' => 'Identity verification',
+            'title' => 'Verification status',
             'id'    => 'verificationChart', 'centre' => 'Documents',
             'href'  => $csv('admin.exports.verifications'), 'label' => 'Verifications',
             'items' => [
@@ -231,12 +231,12 @@
 
     $rankings = [
         [
-            'title' => 'Busiest categories',
+            'title' => 'Top categories by jobs',
             'id'    => 'categoryChart',
             'href'  => $csv('admin.exports.categories', false), 'label' => 'Categories',
         ],
         [
-            'title' => 'Most hired workers',
+            'title' => 'Top workers by hires',
             'id'    => 'topWorkersChart',
             'href'  => $csv('admin.exports.top-workers', false), 'label' => 'Top workers',
         ],
@@ -245,15 +245,29 @@
 
 <div class="viz space-y-5">
 
-    {{-- Headline figures. A number is not a chart; these are stat tiles. --}}
+    {{--
+        Headline figures. A number is not a chart; these are stat tiles.
+
+        Said to be all time, because they are, and because the period picker
+        for the charts below sits a few pixels away. Unlabelled, "Jobs 412"
+        under a selected "30 days" reads as 412 jobs in thirty days - the
+        number is right and every reader gets it wrong.
+    --}}
+    <div class="flex items-baseline gap-2 mb-2">
+        <h3 class="text-sm font-semibold text-slate-700">Totals, all time</h3>
+        <span class="text-xs text-slate-400">Not affected by the period below</span>
+    </div>
     <div class="tiles">
         @foreach ([
             ['Users', number_format($headline['users'])],
-            ['Jobs', number_format($headline['jobs'])],
+            ['Jobs posted', number_format($headline['jobs'])],
             ['Applications', number_format($headline['applications'])],
-            ['Hires', number_format($headline['hires'])],
-            ['Hire rate', $headline['hire_rate'] . '%'],
-            ['Completed', $headline['completion_rate'] . '%'],
+            ['Workers hired', number_format($headline['hires'])],
+            // Both rates name what they are a share of. "Hire rate" alone does
+            // not say rate of what, and "Completed" as a percentage was the
+            // worst of them: it read as a count of finished jobs.
+            ['Applications hired', $headline['hire_rate'] . '%'],
+            ['Jobs completed', $headline['completion_rate'] . '%'],
         ] as [$label, $value])
             <div class="tile">
                 <p class="tile-value">{{ $value }}</p>
@@ -266,7 +280,7 @@
     <div class="card card-hero">
         <div class="flex flex-wrap items-start justify-between gap-4">
             <div class="min-w-0">
-                <h3 class="card-title">Marketplace activity</h3>
+                <h3 class="card-title">Jobs and applications over time</h3>
             </div>
             <div class="flex items-center gap-3">
                 <div class="period">
@@ -292,7 +306,8 @@
         <div class="card lg:col-span-3">
             <div class="flex items-start justify-between gap-3">
                 <div class="min-w-0">
-                    <h3 class="card-title">From posting to finished work</h3>
+                    <h3 class="card-title">Hiring funnel</h3>
+                    <p class="text-xs text-slate-400 mt-0.5">All time</p>
                 </div>
                 <a href="{{ $csv('admin.exports.hires') }}" class="csv">{!! $download !!} Hires</a>
             </div>
@@ -332,7 +347,8 @@
         <div class="card lg:col-span-2">
             <div class="flex items-start justify-between gap-3">
                 <div class="min-w-0">
-                    <h3 class="card-title">New profiles</h3>
+                    <h3 class="card-title">New accounts</h3>
+                    <p class="text-xs text-slate-400 mt-0.5">Selected period</p>
                 </div>
                 <a href="{{ $csv('admin.exports.users') }}" class="csv">{!! $download !!} Users</a>
             </div>
@@ -397,7 +413,8 @@
     <div class="card">
         <div class="flex items-start justify-between gap-3">
             <div class="min-w-0">
-                <h3 class="card-title">Skills: demand against supply</h3>
+                <h3 class="card-title">Skill demand and supply</h3>
+                <p class="text-xs text-slate-400 mt-0.5">Jobs asking for a skill against workers who list it</p>
             </div>
             <a href="{{ $csv('admin.exports.skill-demand', false) }}" class="csv">{!! $download !!} Skill demand</a>
         </div>
@@ -408,6 +425,7 @@
         <div class="flex items-start justify-between gap-3">
             <div class="min-w-0">
                 <h3 class="card-title">Hires over time</h3>
+                <p class="text-xs text-slate-400 mt-0.5">Selected period</p>
             </div>
             <a href="{{ $csv('admin.exports.hires') }}" class="csv">{!! $download !!} Hires</a>
         </div>

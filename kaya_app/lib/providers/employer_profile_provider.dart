@@ -256,6 +256,36 @@ class EmployerProfileProvider with ChangeNotifier {
     }
   }
 
+  /*
+      Creates the employer profile of an account that already has a worker one.
+
+      Nothing is sent, because there is nothing this side can add: an account
+      that looks for work can only be an individual employer, and it lives
+      where its worker profile says it lives. Sending either from here would be
+      a second answer to a question the account has already answered.
+  */
+  Future<bool> createFromAccount() async {
+    _setLoading(true);
+
+    try {
+      final res = await _api.post('/employer-profile/from-account');
+      final data = res.data['data'] as Map<String, dynamic>;
+
+      _profile =
+          EmployerProfile.fromJson(data['profile'] as Map<String, dynamic>);
+      _verification = EmployerVerification.fromJson(
+          data['verification'] as Map<String, dynamic>);
+
+      _error = null;
+      _setLoading(false);
+      return true;
+    } catch (e) {
+      _error = _parseError(e);
+      _setLoading(false);
+      return false;
+    }
+  }
+
   /// Complete profile setup
   Future<bool> completeSetup() async {
     try {
