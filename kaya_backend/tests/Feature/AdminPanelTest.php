@@ -351,7 +351,7 @@ class AdminPanelTest extends TestCase
             ->assertSee('Verifications waiting')
             ->assertSee('TINs not checked')
             ->assertSee('On the platform')
-            ->assertSee('Admin actions');
+            ->assertSee('Admin Actions');
     }
 
     #[Test]
