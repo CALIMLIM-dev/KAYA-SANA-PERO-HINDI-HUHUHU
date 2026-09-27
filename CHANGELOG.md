@@ -11,6 +11,52 @@ minor release, and `feat!:` or a `BREAKING CHANGE:` footer for a major one.
 
 ---
 
+## 1.11.2 - 2026-09-27
+
+The community board reworked, and the fixes from testing 1.11.1.
+
+### Added
+
+- Ordinary employers can post on the board. Three kinds of notice now:
+  worker, employer and business.
+- Up to four photos on a notice, and a sort by newest, oldest or most
+  discussed.
+- A screen that fails to build says so, with the reason, instead of going
+  blank. Flutter draws nothing in a release build, which is where every
+  blank screen report starts.
+
+### Changed
+
+- The board carries no category and no place. One asked people to file
+  their own notice; the other told the platform where they live.
+- Take down moved into the three dots beside Report.
+- Posting a job as urgent buys the placement it promises. The form charged
+  for urgency, the server stored a flag and bought nothing, and the feed has
+  always ordered on boosts, so every urgent post got a badge and identical
+  placement.
+- A hybrid account is one person. Saving a location on either profile writes
+  both, and the second profile setup skips the photo and verification it
+  already has.
+- Job posts go through the same filter as chat and the board.
+- The support thread in the admin panel updates in place instead of
+  reloading the whole page.
+- One capitalisation across the app and the panel: Title Case on buttons,
+  tabs and headings, sentences left as sentences.
+- The schedule card speaks plain English. Accept, Decline, Date, Time and
+  Send Proposal, in place of AGREED, NOT THIS TIME, "That works" and "I
+  can't".
+- Explanatory paragraphs under form headings are gone.
+- Moderation reasons are lists with Other everywhere, including the
+  verification rejection and the Barya adjustment.
+- The boost card disappears while a boost is running rather than asking for
+  more money for it.
+- Ask for Work Again keeps its name and answers on the tap.
+
+### Removed
+
+- Message the poster, on the board. A notice is answered under it, where
+  everybody reading can see the answer.
+
 ## 1.11.1 - 2026-09-26
 
 Fixes from testing 1.11.0.
