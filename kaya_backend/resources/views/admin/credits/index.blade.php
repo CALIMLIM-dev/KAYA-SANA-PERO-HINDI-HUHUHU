@@ -66,8 +66,9 @@
             </div>
             <div class="col-span-2">
                 <label class="text-xs text-slate-500">Note</label>
-                <input type="text" name="note" required maxlength="255" placeholder="Why"
-                       class="w-full mt-1 px-3 py-2 border border-slate-300 rounded-lg text-sm">
+                <div class="mt-1">
+                    @include('admin.partials.reason-picker', ['reasons' => ['Refund for a failed payment', 'Refund for a job that did not happen', 'Goodwill for a fault on our side', 'Correcting an earlier mistake', 'Reversing a duplicate charge', 'Testing'], 'name' => 'note', 'placeholder' => 'Why'])
+                </div>
             </div>
             <button class="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium h-[38px]">Apply</button>
         </form>

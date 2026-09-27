@@ -259,5 +259,6 @@
     if (!document.hidden) start();
 })();
 </script>
+@stack('scripts')
 </body>
 </html>

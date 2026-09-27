@@ -55,6 +55,42 @@ class SupportController extends Controller
         return view('admin.support.show', compact('thread'));
     }
 
+    /*
+        Anything said since the id the page already holds.
+
+        Polled by the thread view every few seconds. Returns rendered-safe
+        fields rather than the model, so a message cannot carry anything the
+        page will treat as markup.
+    */
+    public function since(Request $request, SupportThread $thread)
+    {
+        $after = (int) $request->query('after', 0);
+
+        $messages = $thread->messages()
+            ->where('id', '>', $after)
+            ->with('sender:id,name')
+            ->orderBy('id')
+            ->get();
+
+        // Reading the page is reading the messages on it.
+        $thread->messages()
+            ->where('from_admin', false)
+            ->whereNull('read_at')
+            ->update(['read_at' => now()]);
+
+        return response()->json([
+            'messages' => $messages->map(fn ($m) => [
+                'id'         => $m->id,
+                'body'       => $m->body,
+                'from_admin' => (bool) $m->from_admin,
+                'who'        => $m->from_admin
+                    ? ($m->sender?->name ?? 'KAYA')
+                    : ($thread->user?->name ?? 'Them'),
+                'at'         => $m->created_at->format('M j, g:ia'),
+            ])->values(),
+        ]);
+    }
+
     public function reply(Request $request, SupportThread $thread, NotificationService $notifications)
     {
         $data = $request->validate([

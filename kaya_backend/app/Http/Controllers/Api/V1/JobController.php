@@ -367,6 +367,19 @@ class JobController extends Controller
         $durations = app(\App\Services\JobDurationService::class);
         $start = \Carbon\CarbonImmutable::parse($data['start_date']);
         $end = \Carbon\CarbonImmutable::parse($data['end_date']);
+        /*
+            Read before it is posted, the same as chat and the board.
+
+            A job description was the last place somebody could leave a phone
+            number in the open, and the most public: a post is read by
+            everybody browsing, not by one person in a thread. Masked rather
+            than refused, so a post is never lost over it.
+        */
+        $filter = app(\App\Services\MessageFilter::class);
+
+        $data['title'] = $filter->inspect($data['title'])['text'];
+        $data['description'] = $filter->inspect($data['description'])['text'];
+
         $cost = $durations->costFor($start, $end);
 
         try {
@@ -813,6 +826,16 @@ class JobController extends Controller
 
         $skillIds = $data['required_skill_ids'] ?? null;
         unset($data['required_skill_ids']);
+
+        // Edited text is read the same way new text is, or the filter is a
+        // door with a window beside it.
+        $filter = app(\App\Services\MessageFilter::class);
+
+        foreach (['title', 'description'] as $field) {
+            if (isset($data[$field])) {
+                $data[$field] = $filter->inspect($data[$field])['text'];
+            }
+        }
 
         if ($request->hasFile('photos')) {
             $data['photos'] = array_map(

@@ -99,6 +99,7 @@ Route::prefix('admin')->name('admin.')->group(function () {
         Route::middleware('admin.can:moderate')->group(function () {
         Route::get('/support', [AdminSupportController::class, 'index'])->name('support.index');
         Route::get('/support/{thread}', [AdminSupportController::class, 'show'])->name('support.show');
+        Route::get('/support/{thread}/since', [AdminSupportController::class, 'since'])->name('support.since');
         Route::post('/support/{thread}/reply', [AdminSupportController::class, 'reply'])->name('support.reply');
 
         Route::get('/reports', [ReportController::class, 'index'])->name('reports.index');

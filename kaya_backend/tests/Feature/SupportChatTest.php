@@ -162,4 +162,63 @@ class SupportChatTest extends TestCase
         $this->actingAs($analyst)->get('/admin/support')
             ->assertRedirect(route('admin.dashboard'));
     }
+
+    /*
+        The thread view asks only for what it has not seen.
+
+        It used to rely on the panel reloading the whole page when anything
+        changed, which on a conversation loses the scroll position and
+        empties a half typed reply for the sake of one new line. That is
+        what reads as delay.
+    */
+    #[Test]
+    public function the_thread_returns_only_messages_after_the_one_the_page_holds(): void
+    {
+        $user = User::factory()->create(['is_verified' => true, 'name' => 'Ben Santos']);
+
+        $this->actingAs($user, 'sanctum')
+            ->postJson('/api/v1/support', ['body' => 'First message.'])
+            ->assertCreated();
+
+        $thread = SupportThread::where('user_id', $user->id)->firstOrFail();
+        $first = (int) $thread->messages()->max('id');
+
+        $admin = $this->admin();
+
+        $this->actingAs($admin)
+            ->get("/admin/support/{$thread->id}/since?after={$first}")
+            ->assertOk()
+            ->assertJsonCount(0, 'messages');
+
+        $this->actingAs($user, 'sanctum')
+            ->postJson('/api/v1/support', ['body' => 'Second message.'])
+            ->assertCreated();
+
+        $this->actingAs($admin)
+            ->get("/admin/support/{$thread->id}/since?after={$first}")
+            ->assertOk()
+            ->assertJsonCount(1, 'messages')
+            ->assertJsonPath('messages.0.body', 'Second message.')
+            ->assertJsonPath('messages.0.from_admin', false)
+            ->assertJsonPath('messages.0.who', 'Ben Santos');
+    }
+
+    #[Test]
+    public function an_analyst_cannot_poll_a_support_thread_either(): void
+    {
+        $user = User::factory()->create(['is_verified' => true]);
+
+        $this->actingAs($user, 'sanctum')
+            ->postJson('/api/v1/support', ['body' => 'Private problem.'])
+            ->assertCreated();
+
+        $thread = SupportThread::where('user_id', $user->id)->firstOrFail();
+
+        $analyst = User::factory()->create(['user_type' => 'admin']);
+        $analyst->forceFill(['admin_role' => 'analyst'])->save();
+
+        $this->actingAs($analyst)
+            ->get("/admin/support/{$thread->id}/since?after=0")
+            ->assertRedirect(route('admin.dashboard'));
+    }
 }

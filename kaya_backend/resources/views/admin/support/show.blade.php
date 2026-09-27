@@ -18,7 +18,9 @@
         @endif
     </div>
 
-    <div class="bg-white rounded-xl border border-slate-200 p-5 space-y-3">
+    <div id="thread" data-since="{{ $thread->messages->max('id') ?? 0 }}"
+         data-url="{{ route('admin.support.since', $thread) }}"
+         class="bg-white rounded-xl border border-slate-200 p-5 space-y-3">
         @forelse ($thread->messages as $message)
             <div class="flex {{ $message->from_admin ? 'justify-end' : 'justify-start' }}">
                 <div class="max-w-[75%] px-4 py-2.5 rounded-2xl {{ $message->from_admin ? 'bg-blue-600 text-white' : 'bg-slate-100 text-slate-800' }}">
@@ -45,3 +47,84 @@
     </form>
 </div>
 @endsection
+
+@push('scripts')
+<script>
+/*
+    New lines appear without the page moving.
+
+    The panel's own pulse reloads the whole page when data changes, which on
+    a conversation loses the scroll position and empties a half typed reply
+    for the sake of one new message. This asks only for what it has not seen
+    and appends it, every three seconds, and stops while the tab is hidden.
+*/
+(function () {
+    var thread = document.getElementById('thread');
+    if (!thread) return;
+
+    var since = parseInt(thread.dataset.since || '0', 10);
+    var url = thread.dataset.url;
+    var timer = null;
+
+    function bubble(m) {
+        var row = document.createElement('div');
+        row.className = 'flex ' + (m.from_admin ? 'justify-end' : 'justify-start');
+
+        var box = document.createElement('div');
+        box.className = 'max-w-[75%] px-4 py-2.5 rounded-2xl '
+            + (m.from_admin ? 'bg-blue-600 text-white' : 'bg-slate-100 text-slate-800');
+
+        var body = document.createElement('p');
+        body.className = 'text-sm whitespace-pre-line';
+        body.textContent = m.body;
+
+        var meta = document.createElement('p');
+        meta.className = 'text-[11px] mt-1 ' + (m.from_admin ? 'text-blue-200' : 'text-slate-400');
+        meta.textContent = m.who + ' · ' + m.at;
+
+        box.appendChild(body);
+        box.appendChild(meta);
+        row.appendChild(box);
+
+        return row;
+    }
+
+    function poll() {
+        fetch(url + '?after=' + since, { headers: { 'Accept': 'application/json' } })
+            .then(function (r) { return r.ok ? r.json() : null; })
+            .then(function (data) {
+                if (!data || !data.messages || !data.messages.length) return;
+
+                var empty = thread.querySelector('.text-slate-400');
+                if (empty && empty.textContent.indexOf('Nothing said yet') !== -1) {
+                    empty.remove();
+                }
+
+                data.messages.forEach(function (m) {
+                    thread.appendChild(bubble(m));
+                    since = Math.max(since, m.id);
+                });
+
+                thread.scrollIntoView({ block: 'end' });
+            })
+            .catch(function () { /* the next tick tries again */ });
+    }
+
+    function start() {
+        if (timer) return;
+        timer = setInterval(poll, 3000);
+    }
+
+    function stop() {
+        clearInterval(timer);
+        timer = null;
+    }
+
+    document.addEventListener('visibilitychange', function () {
+        document.hidden ? stop() : (poll(), start());
+    });
+
+    start();
+})();
+</script>
+@endpush
