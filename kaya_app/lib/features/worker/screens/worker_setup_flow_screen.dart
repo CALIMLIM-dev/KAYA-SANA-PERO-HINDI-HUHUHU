@@ -320,9 +320,56 @@ class _WorkerSetupFlowScreenState extends State<WorkerSetupFlowScreen> {
     AppToast.error(context, 'Could not finish setup: $message');
   }
 
+  /*
+      Steps this account has already answered on its other profile.
+
+      A hybrid account is one person: their face is their face and their ID
+      is verified once. Asking for both again on the second setup is how the
+      same person ended up with two different pictures, and it is two pages
+      of work for nothing.
+
+      Only the two that are genuinely account-wide. Location is prefilled
+      rather than skipped, because the two sides ask at different grains -
+      a worker picks a barangay, an employer a city - and the step is where
+      that gets confirmed.
+  */
+  bool _alreadyAnswered(int step) {
+    final auth = context.read<AuthProvider>();
+
+    if (!auth.isSecondProfile) return false;
+
+    if (step == 5) return auth.knowsPhoto;
+    if (step == 6) return auth.knowsVerification;
+
+    return false;
+  }
+
+  /// The next step worth showing, or 6 when there is nothing left.
+  int _stepAfter(int from) {
+    var next = from + 1;
+
+    while (next < 6 && _alreadyAnswered(next)) {
+      next++;
+    }
+
+    return next;
+  }
+
+  int _stepBefore(int from) {
+    var previous = from - 1;
+
+    while (previous > 0 && _alreadyAnswered(previous)) {
+      previous--;
+    }
+
+    return previous;
+  }
+
   void _nextStep() {
     if (_currentStep < 6) {
-      setState(() => _currentStep++);
+      final target = _stepAfter(_currentStep);
+
+      setState(() => _currentStep = target);
       _pageController.animateToPage(
         _currentStep,
         duration: const Duration(milliseconds: 300),
@@ -333,7 +380,9 @@ class _WorkerSetupFlowScreenState extends State<WorkerSetupFlowScreen> {
 
   void _previousStep() {
     if (_currentStep > 0) {
-      setState(() => _currentStep--);
+      final target = _stepBefore(_currentStep);
+
+      setState(() => _currentStep = target);
       _pageController.animateToPage(
         _currentStep,
         duration: const Duration(milliseconds: 300),

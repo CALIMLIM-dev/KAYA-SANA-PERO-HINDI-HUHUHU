@@ -352,6 +352,15 @@ class AuthController extends Controller
             'employer_setup_completed' => $employerProfile?->isSetupCompleted() ?? false,
 
             // Worker profile flags
+            /*
+                What the second profile setup does not have to ask for.
+
+                A hybrid account is one person: their name, face, verified ID
+                and town are the account's, not each profile's. Sent so the
+                setup flow can skip those steps and prefill the location,
+                rather than asking somebody to type their own town twice.
+            */
+            'known' => app(\App\Services\SharedIdentity::class)->known($user),
             'worker_profile_exists' => $workerProfile !== null,
             'worker_setup_completed' => $workerProfile?->isSetupCompleted() ?? false,
 

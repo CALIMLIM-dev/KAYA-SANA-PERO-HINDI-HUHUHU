@@ -40,6 +40,11 @@ class EmployerProfileController extends Controller
         $profile = $user->employerProfile;
 
         // Get verification status
+        /*
+            One person lives in one place. See SharedIdentity: a hybrid
+            account used to keep two locations, so moving town on one side
+            left the other advertising the old one.
+        */
         $verification = $this->verificationService->getEmployerVerification($user, $profile);
 
         return $this->ok([
@@ -122,6 +127,19 @@ class EmployerProfileController extends Controller
         });
 
         // Get verification status
+        /*
+            One person lives in one place. See SharedIdentity: a hybrid
+            account used to keep two locations, so moving town on one side
+            left the other advertising the old one.
+        */
+        app(\App\Services\SharedIdentity::class)->spreadLocation(
+            $user,
+            $profile->location,
+            $profile->location_id,
+            $profile->latitude === null ? null : (float) $profile->latitude,
+            $profile->longitude === null ? null : (float) $profile->longitude,
+        );
+
         $verification = $this->verificationService->getEmployerVerification($user, $profile);
 
         return $this->ok([
@@ -211,6 +229,19 @@ class EmployerProfileController extends Controller
         $profile->update($validated);
 
         // Get verification status
+        /*
+            One person lives in one place. See SharedIdentity: a hybrid
+            account used to keep two locations, so moving town on one side
+            left the other advertising the old one.
+        */
+        app(\App\Services\SharedIdentity::class)->spreadLocation(
+            $user,
+            $profile->location,
+            $profile->location_id,
+            $profile->latitude === null ? null : (float) $profile->latitude,
+            $profile->longitude === null ? null : (float) $profile->longitude,
+        );
+
         $verification = $this->verificationService->getEmployerVerification($user, $profile);
 
         return $this->ok([
@@ -302,6 +333,11 @@ class EmployerProfileController extends Controller
         $profile = $profile->fresh();
 
         // Get verification status
+        /*
+            One person lives in one place. See SharedIdentity: a hybrid
+            account used to keep two locations, so moving town on one side
+            left the other advertising the old one.
+        */
         $verification = $this->verificationService->getEmployerVerification($user, $profile);
 
         // Return consistent response shape

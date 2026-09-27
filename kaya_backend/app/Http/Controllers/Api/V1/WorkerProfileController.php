@@ -243,6 +243,21 @@ class WorkerProfileController extends Controller
 
         if ($profileDirty) {
             $profile->save();
+
+            /*
+                One person lives in one place.
+
+                A hybrid account holding two profiles used to keep two
+                locations, so moving town on one side left the other
+                advertising the old one. See SharedIdentity.
+            */
+            app(\App\Services\SharedIdentity::class)->spreadLocation(
+                $user,
+                $profile->location,
+                $profile->location_id,
+                $profile->latitude === null ? null : (float) $profile->latitude,
+                $profile->longitude === null ? null : (float) $profile->longitude,
+            );
         }
 
         return response()->json([

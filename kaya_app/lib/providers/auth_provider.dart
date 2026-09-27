@@ -88,6 +88,41 @@ class AuthProvider with ChangeNotifier {
   bool get hasAnyProfile => workerProfileExists || employerProfileExists;
 
   /*
+      What the account already knows about the person, so the second profile
+      setup does not ask again.
+
+      A hybrid account is one person with two roles. Their name is their
+      name, their face is their face, their ID is verified once and they
+      live in one place - and all four used to be asked for a second time on
+      the second setup, where answering differently left the same person
+      disagreeing with themselves.
+
+      Computed on the server (SharedIdentity) rather than here, so the rule
+      for "already answered" is one rule rather than two that drift.
+  */
+  Map<String, dynamic> get _known =>
+      (_user?['known'] as Map?)?.cast<String, dynamic>() ?? const {};
+
+  bool get knowsName => _known['name'] == true;
+  bool get knowsPhoto => _known['photo'] == true;
+  bool get knowsVerification => _known['verification'] == true;
+  bool get knowsLocation => _known['location'] == true;
+
+  /// The town already given, for saying which one rather than asking
+  /// again. The values the picker needs come from known_location, which
+  /// resolves the place to the grain each side of the app uses.
+  String? get knownLocationLabel => _known['location_label'] as String?;
+
+  /*
+      Whether this is the account's second profile.
+
+      The first setup asks everything because nothing is known yet. The
+      second skips what the first already answered, which is the whole point
+      of the two being one account.
+  */
+  bool get isSecondProfile => workerProfileExists || employerProfileExists;
+
+  /*
       A registered business hires only; it cannot also look for work.
 
       The one exception to "an account can hold both profiles". The server
