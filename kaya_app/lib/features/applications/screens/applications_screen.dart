@@ -863,7 +863,7 @@ class _ApplicationCard extends StatelessWidget {
           having nothing going.
       */
       secondaryLabel: workDone
-          ? (employerOpenJobs > 0 ? 'Ask for work again' : 'No open jobs')
+          ? (employerOpenJobs > 0 ? 'Ask for Work Again' : 'No open jobs')
           : 'Message',
       secondaryIcon:
           workDone ? Icons.work_history_outlined : Icons.message_outlined,
@@ -901,7 +901,7 @@ class _ApplicationCard extends StatelessWidget {
                 },
               ),
       actionLabel: canConfirm
-          ? 'Mark as complete'
+          ? 'Mark as Complete'
           : canReview
               ? 'Review employer'
               : null,
@@ -1064,7 +1064,7 @@ class _JobPostCard extends StatelessWidget {
       actionIcon: canConfirm ? Icons.check_circle_outline : Icons.star_outline,
       actionIsCompletion: canConfirm,
       actionLabel: canConfirm
-          ? 'Mark as complete'
+          ? 'Mark as Complete'
           : canReview
               ? 'Review ${hire['worker_name'] ?? 'worker'}'
               : null,

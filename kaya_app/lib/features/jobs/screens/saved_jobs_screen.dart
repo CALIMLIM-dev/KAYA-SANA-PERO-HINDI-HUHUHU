@@ -90,7 +90,7 @@ class _SavedJobsScreenState extends State<SavedJobsScreen>
         icon: Icons.cloud_off_rounded,
         title: 'Could not load your saved jobs',
         body: jobs.savedErrorMessage!,
-        action: TextButton(onPressed: _load, child: const Text('Try again')),
+        action: TextButton(onPressed: _load, child: const Text('Try Again')),
       );
     }
 

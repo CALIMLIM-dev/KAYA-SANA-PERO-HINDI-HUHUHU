@@ -329,7 +329,7 @@ class _ComposeCommunityPostScreenState extends State<ComposeCommunityPostScreen>
           const SizedBox(height: 16),
           TextButton(
             onPressed: () => Navigator.pushReplacementNamed(context, AppRouter.postJob),
-            child: const Text('Post a job'),
+            child: const Text('Post a Job'),
           ),
         ],
       ),

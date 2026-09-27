@@ -67,7 +67,7 @@
                         {{ $report->reported->name ?? 'Deleted account' }}
                     </a>
                     @if ($report->reported?->is_suspended)
-                        <p class="text-xs text-red-600 mt-1">Already suspended</p>
+                        <p class="text-xs text-red-600 mt-1">Already Suspended</p>
                     @endif
                 </div>
                 <div class="p-3 rounded-lg bg-slate-50">
@@ -194,7 +194,7 @@
                 queue emptied and the account never heard a word.
             --}}
             <div class="bg-white rounded-xl border border-slate-200 p-5">
-                <h3 class="text-sm font-semibold text-slate-700">Close without suspending</h3>
+                <h3 class="text-sm font-semibold text-slate-700">Close Without Suspending</h3>
 
                 <form method="POST" action="{{ route('admin.reports.resolve', $report) }}" class="mt-4 space-y-3">
                     @csrf
@@ -232,7 +232,7 @@
 
         @else
             <div class="bg-white rounded-xl border border-slate-200 p-5">
-                <p class="text-sm font-semibold text-slate-700">Already decided</p>
+                <p class="text-sm font-semibold text-slate-700">Already Decided</p>
             </div>
         @endif
     </div>

@@ -89,7 +89,7 @@ class _RosterScreenState extends State<RosterScreen> with RealtimeRefresh {
           ElevatedButton(
             style: ElevatedButton.styleFrom(backgroundColor: AppColors.success, foregroundColor: Colors.white),
             onPressed: () => Navigator.pop(dialogContext, true),
-            child: const Text('Mark complete'),
+            child: const Text('Mark Complete'),
           ),
         ],
       ),
@@ -167,7 +167,7 @@ class _RosterScreenState extends State<RosterScreen> with RealtimeRefresh {
                   if (t.isEmpty) return;
                   Navigator.pop(sheetContext, t);
                 },
-                child: const Text('Send to everyone'),
+                child: const Text('Send to Everyone'),
               ),
             ),
           ],
@@ -235,7 +235,7 @@ class _RosterScreenState extends State<RosterScreen> with RealtimeRefresh {
                       children: [
                         Text(_error!, textAlign: TextAlign.center, style: const TextStyle(color: AppColors.neutral600)),
                         const SizedBox(height: 12),
-                        TextButton(onPressed: _load, child: const Text('Try again')),
+                        TextButton(onPressed: _load, child: const Text('Try Again')),
                       ],
                     ),
                   ),
@@ -274,7 +274,7 @@ class _RosterScreenState extends State<RosterScreen> with RealtimeRefresh {
                               child: OutlinedButton.icon(
                                 onPressed: _busy ? null : _broadcast,
                                 icon: const Icon(Icons.campaign_outlined, size: 18),
-                                label: const Text('Message all'),
+                                label: const Text('Message All'),
                                 style: OutlinedButton.styleFrom(
                                   foregroundColor: AppColors.primary,
                                   side: const BorderSide(color: AppColors.primary),

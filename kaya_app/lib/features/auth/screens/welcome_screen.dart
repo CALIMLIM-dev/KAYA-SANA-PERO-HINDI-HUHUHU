@@ -171,7 +171,7 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                     elevation: 0,
                   ),
-                  child: const Text('Try again'),
+                  child: const Text('Try Again'),
                 ),
                 // No way to the login screen from here. Signing in needs the
                 // same server this screen just failed to reach, and a link

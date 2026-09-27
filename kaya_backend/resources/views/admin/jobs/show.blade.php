@@ -56,7 +56,7 @@
                 </dd></div>
                 <div><dt class="text-slate-400">Post ends</dt><dd class="text-slate-700">{{ $job->expires_at?->format('M j, Y') ?? 'No date' }}</dd></div>
                 <div><dt class="text-slate-400">Posted</dt><dd class="text-slate-700">{{ $job->created_at->format('M j, Y g:i A') }}</dd></div>
-                <div><dt class="text-slate-400">Address given</dt><dd class="text-slate-700">{{ $job->address_line ?: 'None' }}</dd></div>
+                <div><dt class="text-slate-400">Address Given</dt><dd class="text-slate-700">{{ $job->address_line ?: 'None' }}</dd></div>
                 <div><dt class="text-slate-400">Boosted</dt><dd class="text-slate-700">{{ $job->is_urgent ? 'Yes' : 'No' }}</dd></div>
             </dl>
         </div>
@@ -96,7 +96,7 @@
                 <p class="text-xs mt-2">
                     @if ($job->employer->is_suspended) <span class="badge-suspended px-2 py-0.5 rounded-full">Suspended</span>
                     @elseif ($job->employer->is_verified) <span class="badge-verified px-2 py-0.5 rounded-full">Verified</span>
-                    @else <span class="badge-pending px-2 py-0.5 rounded-full">Not verified</span> @endif
+                    @else <span class="badge-pending px-2 py-0.5 rounded-full">Not Verified</span> @endif
                 </p>
             @else
                 <p class="text-sm text-slate-400">Account deleted.</p>
@@ -129,7 +129,7 @@
 
         @if ($history->isNotEmpty())
             <div class="bg-white rounded-xl border border-slate-200 p-6">
-                <h3 class="text-sm font-semibold text-slate-700 mb-3">Admin history</h3>
+                <h3 class="text-sm font-semibold text-slate-700 mb-3">Admin History</h3>
                 @foreach ($history as $h)
                     <div class="text-sm py-1">
                         <p class="text-slate-700">{{ $h->summary }}</p>
@@ -141,5 +141,5 @@
     </div>
 </div>
 
-<a href="{{ route('admin.jobs.index') }}" class="inline-block mt-6 text-sm text-blue-600 font-medium">Back to jobs</a>
+<a href="{{ route('admin.jobs.index') }}" class="inline-block mt-6 text-sm text-blue-600 font-medium">Back to Jobs</a>
 @endsection

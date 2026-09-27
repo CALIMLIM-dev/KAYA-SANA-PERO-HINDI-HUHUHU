@@ -533,7 +533,7 @@ class _LocationPickerFieldState extends State<LocationPickerField> {
                       )
                     : const Icon(Icons.my_location, size: 18),
                 color: AppColors.primary,
-                tooltip: 'Use my location',
+                tooltip: 'Use My Location',
                 onPressed: widget.enabled && !_locating ? _useMyLocation : null,
               ),
             ],

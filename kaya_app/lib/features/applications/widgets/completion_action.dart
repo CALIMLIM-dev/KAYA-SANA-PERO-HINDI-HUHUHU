@@ -36,7 +36,7 @@ Future<void> confirmCompletion(
         ),
         ElevatedButton(
           onPressed: () => Navigator.pop(dialogContext, true),
-          child: const Text('Mark complete'),
+          child: const Text('Mark Complete'),
         ),
       ],
     ),

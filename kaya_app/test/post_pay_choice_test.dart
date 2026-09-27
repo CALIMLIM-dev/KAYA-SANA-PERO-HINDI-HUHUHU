@@ -52,10 +52,10 @@ void main() {
 
     // The amount is asked for by default.
     expect(find.text('Amount'), findsOneWidget);
-    expect(find.text('Payment period'), findsOneWidget);
+    expect(find.text('Payment Period'), findsOneWidget);
 
     final choice = find.byWidgetPredicate(
-      (w) => w is DropdownButton<String> && w.value == 'Set amount',
+      (w) => w is DropdownButton<String> && w.value == 'Set Amount',
     );
     expect(choice, findsOneWidget);
 
@@ -64,12 +64,12 @@ void main() {
     await tester.tap(choice);
     await tester.pumpAndSettle();
 
-    await tester.tap(find.text('Discuss payment terms').last);
+    await tester.tap(find.text('Discuss Payment Terms').last);
     await tester.pumpAndSettle();
 
     // No figure asked for, and the post says what will happen instead.
     expect(find.text('Amount'), findsNothing);
-    expect(find.text('Payment period'), findsNothing);
+    expect(find.text('Payment Period'), findsNothing);
     expect(
       find.textContaining('Payment terms: to be discussed'),
       findsOneWidget,

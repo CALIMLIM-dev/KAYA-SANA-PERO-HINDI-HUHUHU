@@ -271,7 +271,7 @@ void main() {
 
     await open(tester, const ApplicationsScreen(), token: workerToken);
 
-    expect(find.text('Mark as complete'), findsWidgets,
+    expect(find.text('Mark as Complete'), findsWidgets,
         reason: 'an accepted hire must offer completion to the worker');
     expect(find.text('Review employer'), findsNothing,
         reason: 'reviewing before the work is finished must not be offered');
@@ -307,7 +307,7 @@ void main() {
 
     expect(find.text('Review employer'), findsWidgets,
         reason: 'a finished job must offer the review');
-    expect(find.text('Mark as complete'), findsNothing,
+    expect(find.text('Mark as Complete'), findsNothing,
         reason: 'completion must stop being offered once it is done');
   }, timeout: const Timeout(Duration(minutes: 2)));
 

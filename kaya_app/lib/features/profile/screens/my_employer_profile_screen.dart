@@ -412,7 +412,7 @@ class _MyEmployerProfileScreenState extends State<MyEmployerProfileScreen>
                               SimpleDialogOption(
                                 onPressed: () =>
                                     Navigator.pop(dialogContext, 'view'),
-                                child: const Text('View photo'),
+                                child: const Text('View Photo'),
                               ),
                             SimpleDialogOption(
                               onPressed: () =>
@@ -424,7 +424,7 @@ class _MyEmployerProfileScreenState extends State<MyEmployerProfileScreen>
                             SimpleDialogOption(
                               onPressed: () =>
                                   Navigator.pop(dialogContext, 'camera'),
-                              child: const Text('Take a photo'),
+                              child: const Text('Take a Photo'),
                             ),
                           ],
                         ),

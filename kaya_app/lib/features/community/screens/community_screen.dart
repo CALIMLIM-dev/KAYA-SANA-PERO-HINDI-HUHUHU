@@ -134,7 +134,7 @@ class _CommunityScreenState extends State<CommunityScreen> {
           Center(
             child: TextButton(
               onPressed: () => board.load(force: true),
-              child: const Text('Try again'),
+              child: const Text('Try Again'),
             ),
           ),
         ],

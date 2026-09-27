@@ -684,7 +684,7 @@ class _WorkerSetupFlowScreenState extends State<WorkerSetupFlowScreen> {
               hasPin ? Icons.where_to_vote : Icons.add_location_alt_outlined,
               size: 18,
             ),
-            label: Text(hasPin ? 'Pinned' : 'Pin location'),
+            label: Text(hasPin ? 'Pinned' : 'Pin Location'),
             style: OutlinedButton.styleFrom(
               foregroundColor: tint,
               side: BorderSide(color: tint.withValues(alpha: 0.5)),
@@ -790,11 +790,11 @@ class _WorkerSetupFlowScreenState extends State<WorkerSetupFlowScreen> {
             actions: [
               TextButton(
                 onPressed: () => Navigator.pop(context, false),
-                child: const Text('Keep my choice'),
+                child: const Text('Keep My Choice'),
               ),
               ElevatedButton(
                 onPressed: () => Navigator.pop(context, true),
-                child: const Text('Use the pin'),
+                child: const Text('Use the Pin'),
               ),
             ],
           ),

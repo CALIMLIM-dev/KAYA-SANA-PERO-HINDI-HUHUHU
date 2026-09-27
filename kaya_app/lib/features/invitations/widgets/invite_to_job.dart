@@ -81,7 +81,7 @@ Future<void> showInviteToJobSheet(
           ),
           ElevatedButton(
             onPressed: () => Navigator.pop(dialogContext, true),
-            child: const Text('Post a job'),
+            child: const Text('Post a Job'),
           ),
         ],
       ),

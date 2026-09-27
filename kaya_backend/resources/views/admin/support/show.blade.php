@@ -14,7 +14,7 @@
         </div>
         @if ($thread->user)
             <a href="{{ route('admin.users.show', $thread->user) }}"
-               class="px-3 py-2 border border-slate-300 text-slate-600 rounded-lg text-sm hover:bg-slate-50">Open account</a>
+               class="px-3 py-2 border border-slate-300 text-slate-600 rounded-lg text-sm hover:bg-slate-50">Open Account</a>
         @endif
     </div>
 
@@ -41,7 +41,7 @@
                   class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm
                          focus:outline-none focus:ring-2 focus:ring-blue-500"
                   placeholder="Write a reply. They get a notification."></textarea>
-        <button class="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium">Send reply</button>
+        <button class="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium">Send Reply</button>
     </form>
 </div>
 @endsection

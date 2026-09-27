@@ -61,7 +61,7 @@
         <thead class="bg-slate-50 text-slate-500">
             <tr>
                 <th class="text-left font-medium px-5 py-3 w-16">Stars</th>
-                <th class="text-left font-medium px-5 py-3 w-48">Written by</th>
+                <th class="text-left font-medium px-5 py-3 w-48">Written By</th>
                 <th class="text-left font-medium px-5 py-3 w-48">About</th>
                 <th class="text-left font-medium px-5 py-3">Review</th>
                 <th class="text-left font-medium px-5 py-3 w-56">Action</th>
@@ -133,7 +133,7 @@
                             <form method="POST" action="{{ route('admin.reviews.hide', $review->id) }}" onsubmit="return confirm('Hide this review?')">
                                 @csrf
                                 @include('admin.partials.reason-picker', ['reasons' => ['Abusive or insulting', 'Not about the work', 'Appears fake', 'Contact details', 'Names a third party'], 'placeholder' => 'Reason'])
-                                <button class="w-full px-3 py-2 bg-red-50 text-red-600 border border-red-200 rounded-lg text-sm hover:bg-red-100">Hide review</button>
+                                <button class="w-full px-3 py-2 bg-red-50 text-red-600 border border-red-200 rounded-lg text-sm hover:bg-red-100">Hide Review</button>
                             </form>
                         @endif
                     </td>

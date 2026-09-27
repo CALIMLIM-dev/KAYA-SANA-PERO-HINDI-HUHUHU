@@ -421,7 +421,7 @@ class ScheduleComposer {
                   ),
                 ),
                 onPressed: () => Navigator.pop(sheetContext, true),
-                child: const Text('Send this to them'),
+                child: const Text('Send This to Them'),
               ),
             ),
           ],

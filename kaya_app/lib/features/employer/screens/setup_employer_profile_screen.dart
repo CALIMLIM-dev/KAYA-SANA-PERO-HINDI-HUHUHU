@@ -917,7 +917,7 @@ class _SetupEmployerProfileScreenState extends State<SetupEmployerProfileScreen>
                           children: [
                             ListTile(
                               leading: const Icon(Icons.photo_camera_outlined),
-                              title: const Text('Take a photo'),
+                              title: const Text('Take a Photo'),
                               onTap: () => Navigator.pop(sheet, true),
                             ),
                             ListTile(

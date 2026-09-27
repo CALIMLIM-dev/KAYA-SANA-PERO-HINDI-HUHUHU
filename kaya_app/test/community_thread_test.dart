@@ -89,7 +89,7 @@ void main() {
 
     expect(find.text('Magkano po kada araw?'), findsOneWidget);
     expect(find.text('1 comment'), findsOneWidget);
-    expect(find.text('Write a comment'), findsOneWidget,
+    expect(find.text('Write a Comment'), findsOneWidget,
         reason: 'a thread you cannot add to is just a list');
   });
 
@@ -97,7 +97,7 @@ void main() {
     await render(tester, post(), thread: const []);
 
     expect(find.text('No comments yet'), findsOneWidget);
-    expect(find.text('Write a comment'), findsOneWidget);
+    expect(find.text('Write a Comment'), findsOneWidget);
   });
 
   testWidgets('a post waiting to be read says so, and has no thread yet',
@@ -105,7 +105,7 @@ void main() {
     await render(tester, post(status: 'pending', mine: true));
 
     expect(find.textContaining('Waiting for KAYA to read it'), findsOneWidget);
-    expect(find.text('Write a comment'), findsNothing,
+    expect(find.text('Write a Comment'), findsNothing,
         reason: 'nobody can see the post, so nobody can answer it');
     expect(find.textContaining('Message this worker'), findsNothing);
   });

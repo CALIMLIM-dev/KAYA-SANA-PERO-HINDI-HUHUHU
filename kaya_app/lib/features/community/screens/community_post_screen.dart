@@ -144,7 +144,7 @@ class _CommunityPostScreenState extends State<CommunityPostScreen> {
         content: const Text('It leaves the board now. The Barya is not returned.'),
         actions: [
           TextButton(onPressed: () => Navigator.pop(dialogContext, false), child: const Text('Keep it')),
-          TextButton(onPressed: () => Navigator.pop(dialogContext, true), child: const Text('Take down')),
+          TextButton(onPressed: () => Navigator.pop(dialogContext, true), child: const Text('Take Down')),
         ],
       ),
     );
@@ -300,7 +300,7 @@ class _CommunityPostScreenState extends State<CommunityPostScreen> {
                 padding: const EdgeInsets.symmetric(vertical: 14),
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
               ),
-              child: const Text('Take down'),
+              child: const Text('Take Down'),
             )
           else if (!isMine && live)
             ElevatedButton.icon(
@@ -383,7 +383,7 @@ class _CommunityPostScreenState extends State<CommunityPostScreen> {
                 maxLength: 500,
                 textInputAction: TextInputAction.newline,
                 decoration: InputDecoration(
-                  hintText: 'Write a comment',
+                  hintText: 'Write a Comment',
                   counterText: '',
                   isDense: true,
                   contentPadding:
@@ -409,7 +409,7 @@ class _CommunityPostScreenState extends State<CommunityPostScreen> {
                       child: CircularProgressIndicator(strokeWidth: 2))
                   : const Icon(Icons.send_rounded),
               color: AppColors.primary,
-              tooltip: 'Post comment',
+              tooltip: 'Post Comment',
             ),
           ],
         ),

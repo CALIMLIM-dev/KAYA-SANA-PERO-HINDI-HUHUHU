@@ -58,7 +58,7 @@
             <div><dt class="text-slate-400">Phone</dt><dd class="text-slate-700">{{ $user->phone ?? '—' }}</dd></div>
             <div><dt class="text-slate-400">City</dt><dd class="text-slate-700">{{ $user->city ?? '—' }}</dd></div>
             <div><dt class="text-slate-400">Joined</dt><dd class="text-slate-700">{{ $user->created_at->format('M j, Y') }}</dd></div>
-            <div><dt class="text-slate-400">Last updated</dt><dd class="text-slate-700">{{ $user->updated_at->format('M j, Y') }}</dd></div>
+            <div><dt class="text-slate-400">Last Updated</dt><dd class="text-slate-700">{{ $user->updated_at->format('M j, Y') }}</dd></div>
             <div><dt class="text-slate-400">Barya</dt><dd class="text-slate-700">
                 {{ $balance }}
                 <a href="{{ route('admin.credits.index', ['user' => $user->id]) }}" class="text-xs text-blue-600 ml-1">ledger and adjust</a>
@@ -80,7 +80,7 @@
                                 <span class="badge-verified text-xs px-2.5 py-1 rounded-full">Checked on ORUS</span>
                                 <span class="text-xs text-slate-400 block mt-1">{{ $ep->tin_verified_at->format('M j, Y') }} by {{ $ep->tinVerifier?->name ?? 'admin' }}</span>
                             @elseif ($ep->tin)
-                                <span class="badge-pending text-xs px-2.5 py-1 rounded-full">Not checked yet</span>
+                                <span class="badge-pending text-xs px-2.5 py-1 rounded-full">Not Checked Yet</span>
                             @else
                                 <span class="text-slate-400">No TIN to check</span>
                             @endif

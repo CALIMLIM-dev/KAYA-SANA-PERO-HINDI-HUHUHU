@@ -111,7 +111,7 @@ class _JobTrackingPanelState extends State<JobTrackingPanel> {
                 style: ElevatedButton.styleFrom(
                     backgroundColor: AppColors.primary,
                     foregroundColor: Colors.white),
-                child: const Text('Share location'),
+                child: const Text('Share Location'),
               ),
             ],
           ),

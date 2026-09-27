@@ -4,7 +4,7 @@
 @section('content')
 <div class="mb-6 max-w-xl">
     <div class="bg-white rounded-xl border border-slate-200 p-5 flex-1">
-        <h3 class="text-sm font-semibold text-slate-700 mb-1">Add a category</h3>
+        <h3 class="text-sm font-semibold text-slate-700 mb-1">Add a Category</h3>
         <form method="POST" action="{{ route('admin.categories.store') }}" class="flex gap-2">
             @csrf
             <input type="text" name="name" required maxlength="60" placeholder="Category name"

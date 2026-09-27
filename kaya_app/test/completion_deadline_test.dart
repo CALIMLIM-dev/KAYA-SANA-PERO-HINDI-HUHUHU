@@ -84,7 +84,7 @@ void main() {
       (tester) async {
     await render(tester, screen(hire(start: day(3), end: day(9))));
 
-    expect(find.text('Mark as complete'), findsNothing,
+    expect(find.text('Mark as Complete'), findsNothing,
         reason: 'the work is not due to be finished for another nine days');
     // Not just when, but the way out: somebody finished early needs to
     // know agreeing today in the chat moves the day, which it does.
@@ -96,7 +96,7 @@ void main() {
   testWidgets('the deadline day itself offers completion', (tester) async {
     await render(tester, screen(hire(start: day(0), end: day(0))));
 
-    expect(find.text('Mark as complete'), findsWidgets,
+    expect(find.text('Mark as Complete'), findsWidgets,
         reason: 'a one day job finishes during the day, not at midnight');
     expect(find.textContaining('Finished early?'), findsNothing);
   });
@@ -105,7 +105,7 @@ void main() {
       (tester) async {
     await render(tester, screen(hire()));
 
-    expect(find.text('Mark as complete'), findsWidgets);
+    expect(find.text('Mark as Complete'), findsWidgets);
   });
 
   test('the Job model reads the deadline the same way', () {

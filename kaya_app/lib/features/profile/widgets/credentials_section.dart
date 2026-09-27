@@ -373,7 +373,7 @@ class _CredentialsSectionState extends State<CredentialsSection> {
   List<Widget> _fields() => [
         InlineField(
           controller: _name,
-          label: _isLicence ? 'License name' : 'Certificate name',
+          label: _isLicence ? 'License Name' : 'Certificate name',
         ),
         InlineField(
           controller: _issuer,
@@ -427,14 +427,14 @@ class _CredentialsSectionState extends State<CredentialsSection> {
               _existingDoc = e.doc;
               _showEditor(
                 id: e.id,
-                heading: _isLicence ? 'Edit license' : 'Edit certificate',
+                heading: _isLicence ? 'Edit License' : 'Edit certificate',
               );
             },
             onDelete: e.id == null ? null : () => _delete(e.id!, e.title),
           ),
         SectionAddRow(
           label: entries.isEmpty
-              ? (_isLicence ? 'Add a license' : 'Add a certificate')
+              ? (_isLicence ? 'Add a License' : 'Add a certificate')
               : 'Add another',
           onTap: () {
             _reset();

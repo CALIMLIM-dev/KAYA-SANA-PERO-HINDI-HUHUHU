@@ -591,7 +591,7 @@ class _ViewApplicantsScreenState extends State<ViewApplicantsScreen>
                 child: OutlinedButton.icon(
                   onPressed: () => _openResume(workerId),
                   icon: const Icon(Icons.description_outlined, size: 16),
-                  label: const Text('View resume'),
+                  label: const Text('View Resume'),
                   style: OutlinedButton.styleFrom(
                     foregroundColor: AppColors.primary,
                     side: const BorderSide(color: AppColors.primary),
@@ -751,7 +751,7 @@ class _ViewApplicantsScreenState extends State<ViewApplicantsScreen>
                                   ? Icons.check_circle_outline
                                   : Icons.star_outline,
                               size: 16),
-                          label: Text(canConfirm ? 'Mark complete' : 'Review'),
+                          label: Text(canConfirm ? 'Mark Complete' : 'Review'),
                           style: ElevatedButton.styleFrom(
                             backgroundColor: AppColors.accent,
                             foregroundColor: AppColors.neutral900,

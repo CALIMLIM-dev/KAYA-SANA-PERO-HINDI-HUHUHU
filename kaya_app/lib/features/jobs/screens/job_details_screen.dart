@@ -273,7 +273,7 @@ class _JobDetailsScreenState extends State<JobDetailsScreen>
                     // A job for several people says so, and how many spots
                     // are still open when the server counted them.
                     if (job.isCrew)
-                      _detailRow('Workers needed', _crewLine(job)),
+                      _detailRow('Workers Needed', _crewLine(job)),
                     if (job.postedAt != null)
                       _detailRow('Posted', _timeAgo(job.postedAt!)),
                     _detailRow(
@@ -868,7 +868,7 @@ class _JobDetailsScreenState extends State<JobDetailsScreen>
             ),
             ElevatedButton(
               onPressed: () => Navigator.pop(dialogContext, true),
-              child: const Text('Top up'),
+              child: const Text('Top Up'),
             ),
           ],
         ),

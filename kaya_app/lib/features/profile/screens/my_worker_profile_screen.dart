@@ -191,7 +191,7 @@ class _MyWorkerProfileScreenState extends State<MyWorkerProfileScreen> with Sing
           if (hasPhoto)
             SimpleDialogOption(
               onPressed: () => Navigator.pop(context, 'view'),
-              child: const Text('View photo'),
+              child: const Text('View Photo'),
             ),
           SimpleDialogOption(
             onPressed: () => Navigator.pop(context, 'gallery'),
@@ -199,7 +199,7 @@ class _MyWorkerProfileScreenState extends State<MyWorkerProfileScreen> with Sing
           ),
           SimpleDialogOption(
             onPressed: () => Navigator.pop(context, 'camera'),
-            child: const Text('Take a photo'),
+            child: const Text('Take a Photo'),
           ),
         ],
       ),
@@ -797,7 +797,7 @@ class _MyWorkerProfileScreenState extends State<MyWorkerProfileScreen> with Sing
             pinned ? Icons.where_to_vote : Icons.add_location_alt_outlined,
             size: 18,
           ),
-          label: Text(pinned ? 'Pinned' : 'Pin location'),
+          label: Text(pinned ? 'Pinned' : 'Pin Location'),
           style: OutlinedButton.styleFrom(
             foregroundColor: tint,
             side: BorderSide(color: tint.withValues(alpha: 0.5)),
@@ -892,7 +892,7 @@ class _MyWorkerProfileScreenState extends State<MyWorkerProfileScreen> with Sing
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(dialogContext, false),
-            child: const Text('Keep current name'),
+            child: const Text('Keep Current Name'),
           ),
           TextButton(
             onPressed: () => Navigator.pop(dialogContext, true),

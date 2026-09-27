@@ -216,7 +216,7 @@ class _UpdateDialogState extends State<_UpdateDialog> {
               foregroundColor: Colors.white,
             ),
             onPressed: (_busy || widget.url.isEmpty) ? null : _install,
-            child: Text(_error != null ? 'Try again' : 'Update now'),
+            child: Text(_error != null ? 'Try Again' : 'Update now'),
           ),
         ],
       ),

@@ -95,7 +95,7 @@
     {{-- What admins did --}}
     <div class="bg-white rounded-xl border border-slate-200 p-5">
         <div class="flex items-center justify-between mb-4">
-            <h3 class="text-sm font-semibold text-slate-700">Admin actions</h3>
+            <h3 class="text-sm font-semibold text-slate-700">Admin Actions</h3>
             <a href="{{ route('admin.audit.index') }}" class="text-xs text-blue-600 font-medium">Full log</a>
         </div>
         <div class="space-y-3">

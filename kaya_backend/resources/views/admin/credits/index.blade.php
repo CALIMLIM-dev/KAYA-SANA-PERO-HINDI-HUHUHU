@@ -47,7 +47,7 @@
     </div>
 
     <div class="col-span-2 bg-white rounded-xl border border-slate-200 p-5">
-        <h3 class="text-sm font-semibold text-slate-700 mb-1">Adjust a balance</h3>
+        <h3 class="text-sm font-semibold text-slate-700 mb-1">Adjust a Balance</h3>
         <form method="POST" action="{{ route('admin.credits.adjust') }}" class="grid grid-cols-6 gap-3 items-end">
             @csrf
             <div class="col-span-2">
@@ -106,7 +106,7 @@
                 <th class="py-3 px-5">User</th>
                 <th class="py-3 px-5">Reason</th>
                 <th class="py-3 px-5 text-right">Change</th>
-                <th class="py-3 px-5 text-right">Balance after</th>
+                <th class="py-3 px-5 text-right">Balance After</th>
                 <th class="py-3 px-5">Note</th>
             </tr>
         </thead>

@@ -217,7 +217,7 @@ class _ReportSheetState extends State<ReportSheet> {
                 });
                 _loadReasons();
               },
-              child: const Text('Try again'),
+              child: const Text('Try Again'),
             ),
           ],
         ),

@@ -102,7 +102,7 @@ void main() {
     await render(tester, screen([finishedApplication()]));
     await openHistory(tester);
 
-    expect(find.text('Ask for work again'), findsWidgets,
+    expect(find.text('Ask for Work Again'), findsWidgets,
         reason: 'the thread is hidden once the job is done, so History is the '
             'only route back to somebody you worked well for');
     expect(find.text('Message'), findsNothing,
@@ -116,13 +116,13 @@ void main() {
 
     expect(find.text('No open jobs'), findsWidgets,
         reason: 'opening a profile with nothing to apply to reads as a broken button');
-    expect(find.text('Ask for work again'), findsNothing);
+    expect(find.text('Ask for Work Again'), findsNothing);
   });
   testWidgets('live work still offers the thread, not the detour',
       (tester) async {
     await render(tester, screen([liveApplication()]));
 
     expect(find.text('Message'), findsWidgets);
-    expect(find.text('Ask for work again'), findsNothing);
+    expect(find.text('Ask for Work Again'), findsNothing);
   });
 }

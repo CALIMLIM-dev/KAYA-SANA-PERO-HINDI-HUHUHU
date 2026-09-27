@@ -170,7 +170,7 @@ class _WalletScreenState extends State<WalletScreen> with WidgetsBindingObserver
                   ),
                 ],
                 const SizedBox(height: 22),
-                Text('Top up', style: _sectionStyle),
+                Text('Top Up', style: _sectionStyle),
                 const SizedBox(height: 12),
                 if (credits.packages.isEmpty)
                   _emptyPackages()

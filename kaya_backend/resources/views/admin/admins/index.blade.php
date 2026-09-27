@@ -4,7 +4,7 @@
 @section('content')
 <div class="bg-white rounded-xl border border-slate-200">
     <div class="p-5 border-b border-slate-100">
-        <p class="font-medium text-slate-800">Who can do what</p>
+        <p class="font-medium text-slate-800">Who Can Do What</p>
         <p class="text-sm text-slate-500 mt-1">
             An administrator account is made the same way any account is made, then given
             one of these here.

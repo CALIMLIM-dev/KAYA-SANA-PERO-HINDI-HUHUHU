@@ -173,8 +173,8 @@ class _PostJobScreenState extends State<PostJobScreen> {
       terms" posts the job without one and the amount is agreed with the
       worker in the chat after hiring.
   */
-  static const String _paySetAmount = 'Set amount';
-  static const String _payDiscuss = 'Discuss payment terms';
+  static const String _paySetAmount = 'Set Amount';
+  static const String _payDiscuss = 'Discuss Payment Terms';
   String _payChoice = _paySetAmount;
 
   bool get _amountIsSet => _payChoice == _paySetAmount;
@@ -823,7 +823,7 @@ class _PostJobScreenState extends State<PostJobScreen> {
                       the split follows the meaning as well as the width.
                   */
                   if (_amountIsSet) ...[
-                    _buildLabel('Payment period'),
+                    _buildLabel('Payment Period'),
                     const SizedBox(height: 8),
                     _buildDropdown(
                       value: _salaryType,
@@ -898,7 +898,7 @@ class _PostJobScreenState extends State<PostJobScreen> {
 
               // How many people
               _buildSection(
-                title: 'Workers needed',
+                title: 'Workers Needed',
                 hint: 'The post stays open until this many are hired. Up to twenty.',
                 icon: Icons.group_outlined,
                 children: [_buildWorkersNeeded()],
@@ -965,7 +965,7 @@ class _PostJobScreenState extends State<PostJobScreen> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         _buildDateField(
-          label: 'Start date *',
+          label: 'Start Date *',
           value: _startDate,
           hint: 'Select date',
           onTap: _pickStartDate,
@@ -1389,7 +1389,7 @@ class _PostJobScreenState extends State<PostJobScreen> {
       child: OutlinedButton.icon(
         onPressed: canPin ? _openPinPicker : null,
         icon: const Icon(Icons.add_location_alt_outlined, size: 18),
-        label: const Text('Pin location'),
+        label: const Text('Pin Location'),
         style: OutlinedButton.styleFrom(
           foregroundColor: tint,
           side: BorderSide(color: tint.withValues(alpha: 0.5)),
@@ -1550,14 +1550,14 @@ class _PostJobScreenState extends State<PostJobScreen> {
             actions: [
               TextButton(
                 onPressed: () => Navigator.pop(context, false),
-                child: const Text('Discard pin'),
+                child: const Text('Discard Pin'),
               ),
               ElevatedButton(
                 onPressed: () => Navigator.pop(context, true),
                 style: ElevatedButton.styleFrom(
                     backgroundColor: AppColors.primary,
                     foregroundColor: Colors.white),
-                child: const Text('Use pinned'),
+                child: const Text('Use Pinned'),
               ),
             ],
           ),

@@ -133,7 +133,7 @@ class _BadgesScreenState extends State<BadgesScreen> {
                 style: const TextStyle(color: AppColors.neutral600),
               ),
               const SizedBox(height: 12),
-              TextButton(onPressed: _load, child: const Text('Try again')),
+              TextButton(onPressed: _load, child: const Text('Try Again')),
             ],
           ),
         ),

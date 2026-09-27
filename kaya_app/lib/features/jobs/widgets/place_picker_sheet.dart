@@ -104,7 +104,7 @@ class _PlacePickerSheetState extends State<_PlacePickerSheet> {
               onPressed: _selected == null
                   ? null
                   : () => Navigator.pop(context, _selected),
-              child: const Text('Show workers here'),
+              child: const Text('Show Workers Here'),
             ),
           ),
         ],
