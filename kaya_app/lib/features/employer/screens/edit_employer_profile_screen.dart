@@ -145,12 +145,6 @@ class _EditEmployerProfileScreenState
 
                   // ── Description ──
                   _fieldLabel('About Your Company'),
-                  const SizedBox(height: 4),
-                  const Text(
-                    'Tell workers what your company does and what makes you a great employer',
-                    style: TextStyle(
-                        fontSize: 12, color: AppColors.neutral500),
-                  ),
                   const SizedBox(height: 8),
                   TextField(
                     controller: _descriptionController,

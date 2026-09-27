@@ -99,7 +99,7 @@ void main() {
     await tester.tap(find.text('OK'));
     await tester.pumpAndSettle();
 
-    expect(find.text('What time?'), findsOneWidget);
+    expect(find.text('Time'), findsOneWidget);
   });
 
   testWidgets('opens on the first free day when today is taken',
@@ -121,7 +121,7 @@ void main() {
 
     expect(tester.takeException(), isNull);
     expect(find.byType(Dialog), findsOneWidget);
-    expect(find.textContaining('Greyed days are taken'), findsOneWidget);
+    expect(find.textContaining('already booked'), findsOneWidget);
   });
 
   testWidgets('says nothing about greyed days when none are', (tester) async {
@@ -131,7 +131,7 @@ void main() {
     await tester.tap(find.text('open'));
     await tester.pumpAndSettle();
 
-    expect(find.text('Which day?'), findsOneWidget);
+    expect(find.text('Date'), findsOneWidget);
     expect(find.textContaining('Greyed'), findsNothing);
   });
 }

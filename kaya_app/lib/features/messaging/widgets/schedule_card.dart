@@ -97,10 +97,10 @@ class ScheduleCard extends StatelessWidget {
                 const SizedBox(width: 6),
                 Text(
                   _agreed
-                      ? 'AGREED'
+                      ? 'Confirmed'
                       : _declined
-                          ? 'NOT THIS TIME'
-                          : 'SCHEDULE',
+                          ? 'Declined'
+                          : 'Proposed',
                   style: TextStyle(
                     fontSize: 10.5,
                     fontWeight: FontWeight.w700,
@@ -197,7 +197,7 @@ class ScheduleCard extends StatelessWidget {
               const SizedBox(height: 8),
               if (mine)
                 const Text(
-                  'Waiting for them to answer',
+                  'Waiting for a response',
                   style: TextStyle(fontSize: 12, color: AppColors.neutral500),
                 )
               else
@@ -218,7 +218,7 @@ class ScheduleCard extends StatelessWidget {
                           textStyle: const TextStyle(
                               fontSize: 12.5, fontWeight: FontWeight.w600),
                         ),
-                        child: const Text('That works'),
+                        child: const Text('Accept'),
                       ),
                     ),
                     const SizedBox(width: 8),
@@ -236,7 +236,7 @@ class ScheduleCard extends StatelessWidget {
                           textStyle: const TextStyle(
                               fontSize: 12.5, fontWeight: FontWeight.w600),
                         ),
-                        child: const Text("I can't"),
+                        child: const Text('Decline'),
                       ),
                     ),
                   ],
@@ -264,10 +264,10 @@ class ScheduleCard extends StatelessWidget {
     if (ok) {
       AppToast.success(
         context,
-        accept ? 'Schedule agreed' : 'Let them know what suits you instead',
+        accept ? 'Schedule confirmed' : 'Propose another time',
       );
     } else {
-      AppToast.error(context, schedule.errorMessage ?? 'Could not answer that.');
+      AppToast.error(context, schedule.errorMessage ?? 'Could not send your answer.');
     }
   }
 
@@ -343,7 +343,7 @@ class ScheduleComposer {
       firstDate: today,
       lastDate: last,
       selectableDayPredicate: free,
-      helpText: busyDays.isEmpty ? 'Which day?' : 'Which day?  Greyed days are taken.',
+      helpText: busyDays.isEmpty ? 'Date' : 'Date. Greyed days are already booked.',
     );
 
     if (date == null || !context.mounted) return;
@@ -351,7 +351,7 @@ class ScheduleComposer {
     final time = await showTimePicker(
       context: context,
       initialTime: const TimeOfDay(hour: 8, minute: 0),
-      helpText: 'What time?',
+      helpText: 'Time',
     );
 
     if (time == null || !context.mounted) return;
@@ -398,7 +398,7 @@ class ScheduleComposer {
               controller: noteController,
               maxLength: 280,
               decoration: InputDecoration(
-                hintText: 'Anything they should know (optional)',
+                hintText: 'Note (optional)',
                 counterText: '',
                 filled: true,
                 fillColor: AppColors.neutral100,
@@ -421,7 +421,7 @@ class ScheduleComposer {
                   ),
                 ),
                 onPressed: () => Navigator.pop(sheetContext, true),
-                child: const Text('Send This to Them'),
+                child: const Text('Send Proposal'),
               ),
             ),
           ],
@@ -442,9 +442,9 @@ class ScheduleComposer {
     if (!context.mounted) return;
 
     if (ok) {
-      AppToast.success(context, 'Sent. They can accept it or say no.');
+      AppToast.success(context, 'Proposal sent.');
     } else {
-      AppToast.error(context, schedule.errorMessage ?? 'Could not send that.');
+      AppToast.error(context, schedule.errorMessage ?? 'Could not send the proposal.');
     }
   }
 

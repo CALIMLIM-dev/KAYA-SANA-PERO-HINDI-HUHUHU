@@ -636,11 +636,6 @@ class _SetupEmployerProfileScreenState extends State<SetupEmployerProfileScreen>
               color: AppColors.neutral900,
             ),
           ),
-          const SizedBox(height: 8),
-          const Text(
-            'Choose whether you are hiring as a business or as an individual.',
-            style: TextStyle(fontSize: 14, color: AppColors.neutral600),
-          ),
           const SizedBox(height: 32),
           Container(
             padding: const EdgeInsets.all(4),
@@ -718,12 +713,6 @@ class _SetupEmployerProfileScreenState extends State<SetupEmployerProfileScreen>
               ),
             ),
             const SizedBox(height: 8),
-            Text(
-              _isCompany
-                  ? 'Workers will see these details when they view your jobs.'
-                  : 'Workers will see your name and location when you post jobs.',
-              style: const TextStyle(fontSize: 14, color: AppColors.neutral600),
-            ),
             const SizedBox(height: 32),
             if (_isCompany) ...[
               _textField(
