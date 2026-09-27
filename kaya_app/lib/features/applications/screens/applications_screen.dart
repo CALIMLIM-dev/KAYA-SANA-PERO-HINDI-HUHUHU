@@ -862,9 +862,9 @@ class _ApplicationCard extends StatelessWidget {
           which reads as the button being broken rather than as the employer
           having nothing going.
       */
-      secondaryLabel: workDone
-          ? (employerOpenJobs > 0 ? 'Ask for Work Again' : 'No open jobs')
-          : 'Message',
+      // The label does not change. A button that renames itself to say
+      // no reads as broken; it keeps its name and answers when pressed.
+      secondaryLabel: workDone ? 'Ask for Work Again' : 'Message',
       secondaryIcon:
           workDone ? Icons.work_history_outlined : Icons.message_outlined,
       onMessage: workDone && employer != null

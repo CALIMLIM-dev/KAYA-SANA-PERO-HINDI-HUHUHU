@@ -109,14 +109,23 @@ void main() {
         reason: 'there is no thread left to open on a finished job');
   });
 
-  testWidgets('an employer with nothing open says so instead of a dead end',
+  testWidgets('an employer with nothing open answers on the tap, not the label',
       (tester) async {
     await render(tester, screen([finishedApplication(openJobs: 0)]));
     await openHistory(tester);
 
-    expect(find.text('No open jobs'), findsWidgets,
-        reason: 'opening a profile with nothing to apply to reads as a broken button');
-    expect(find.text('Ask for Work Again'), findsNothing);
+    // The label does not change. A button that renames itself to say no
+    // reads as broken, so it keeps its name and answers when pressed.
+    expect(find.text('Ask for Work Again'), findsWidgets);
+
+    await tester.tap(find.text('Ask for Work Again').first);
+    await tester.pump(const Duration(milliseconds: 300));
+
+    expect(find.textContaining('nothing open'), findsWidgets,
+        reason: 'the tap has to say why nothing happened');
+
+    // Let the toast time out, or it leaves a pending timer behind it.
+    await tester.pump(const Duration(seconds: 6));
   });
   testWidgets('live work still offers the thread, not the detour',
       (tester) async {

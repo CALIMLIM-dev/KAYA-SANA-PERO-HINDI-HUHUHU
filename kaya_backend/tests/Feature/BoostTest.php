@@ -216,4 +216,85 @@ class BoostTest extends TestCase
 
         $this->assertCount(0, Boost::all(), 'A refused charge must not leave a boost behind.');
     }
+
+    /** A job posted as urgent, with everything the endpoint requires. */
+    private function postUrgentJob()
+    {
+        $location = \App\Models\Location::firstOrCreate(['psgc_code' => '015518000'], [
+            'name'          => 'Urdaneta City',
+            'type'          => 'city',
+            'province_name' => 'Pangasinan',
+            'region_name'   => 'Ilocos Region',
+        ]);
+
+        return $this->actingAs($this->employer, 'sanctum')->postJson('/api/v1/jobs', [
+            'title'         => 'Rewire a bungalow',
+            'description'   => 'Full house rewiring, two days of work.',
+            'category_id'   => $this->category->id,
+            'budget_min'    => 1500,
+            'budget_period' => 'daily',
+            'location'      => 'Urdaneta City',
+            'location_id'   => $location->id,
+            'photos'        => [\Illuminate\Http\UploadedFile::fake()->create('job.jpg', 32, 'image/jpeg')],
+            'start_date'    => now()->addDay()->toDateString(),
+            'end_date'      => now()->addDays(2)->toDateString(),
+            'is_urgent'     => true,
+        ]);
+    }
+
+    /*
+        Posting a job as urgent buys the placement it promises.
+
+        The form charged for placement, set is_urgent and sent it; the server
+        stored the flag and bought nothing, while the feed has always ordered
+        on boosts. So the badge said urgent and the post sat exactly where it
+        would have sat anyway - a paid promise that changed no ordering.
+    */
+    public function test_posting_an_urgent_job_actually_buys_the_boost(): void
+    {
+        $this->employer->forceFill(['is_verified' => true])->save();
+
+        $before = (int) CreditWallet::where('user_id', $this->employer->id)->value('balance');
+
+        $this->postUrgentJob()->assertCreated();
+
+        $job = JobPost::latest('id')->firstOrFail();
+
+        $this->assertTrue(
+            app(\App\Services\BoostService::class)->isBoosted(Boost::TYPE_JOB, $job->id),
+            'urgent has to buy the placement the badge claims',
+        );
+
+        $this->assertSame(
+            $before - (int) config('kaya.credits.boost'),
+            (int) CreditWallet::where('user_id', $this->employer->id)->value('balance'),
+            'and it has to be paid for',
+        );
+    }
+
+    /*
+        A wallet too thin for the boost still gets the job.
+
+        Taking the post back over an extra would be a worse answer than
+        posting it unboosted, so the job stands and the badge stands down.
+    */
+    public function test_a_job_is_still_posted_when_the_boost_cannot_be_afforded(): void
+    {
+        $this->employer->forceFill(['is_verified' => true])->save();
+
+        CreditWallet::where('user_id', $this->employer->id)->update(['balance' => 1]);
+
+        $this->postUrgentJob()->assertCreated();
+
+        $job = JobPost::latest('id')->firstOrFail();
+
+        $this->assertFalse(
+            app(\App\Services\BoostService::class)->isBoosted(Boost::TYPE_JOB, $job->id),
+        );
+
+        $this->assertFalse(
+            (bool) $job->is_urgent,
+            'the badge follows the boost, so an unboosted post must not claim it',
+        );
+    }
 }

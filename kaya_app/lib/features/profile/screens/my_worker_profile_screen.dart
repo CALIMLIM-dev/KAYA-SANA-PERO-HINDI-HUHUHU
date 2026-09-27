@@ -1145,7 +1145,15 @@ class _MyWorkerProfileScreenState extends State<MyWorkerProfileScreen> with Sing
           ),
         ),
 
-        _buildBoostCard(),
+        /*
+            Only while there is something to buy.
+
+            The card used to stay and offer Extend, so the one screen
+            that tells you the boost is running was also asking for
+            more money for it. A boost has days left or it does not;
+            while it does, there is nothing to decide.
+        */
+        if (!p.isBoosted) _buildBoostCard(),
 
         ProfileSectionHeading('About you'),
 

@@ -389,6 +389,34 @@ class JobController extends Controller
             return $this->fail($e->getMessage(), 422);
         }
 
+        /*
+            Urgent is a boost, or it is nothing.
+
+            The form charged for placement, set is_urgent, and the server
+            stored the flag and bought nothing - while the feed has always
+            ordered on boosts. So an employer paid attention to a promise
+            that changed no ordering anywhere, which is worse than not
+            offering it: the badge said urgent and the post sat where it
+            would have sat anyway.
+
+            Buying it here rather than trusting the flag means the thing the
+            badge claims is the thing that was purchased. A wallet too thin
+            for it loses the boost, not the job - the post is already made
+            and paid for, and taking it back over an extra would be a worse
+            answer than posting it unboosted and saying so.
+        */
+        if (($data['is_urgent'] ?? false) && ! app(\App\Services\BoostService::class)
+            ->isBoosted(\App\Models\Boost::TYPE_JOB, $job->id)) {
+            try {
+                app(\App\Services\BoostService::class)
+                    ->purchase($user, \App\Models\Boost::TYPE_JOB, $job->id);
+            } catch (\App\Exceptions\InsufficientCreditsException) {
+                // Posted, not boosted. The badge follows the boost, so the
+                // card simply will not claim it.
+                $job->forceFill(['is_urgent' => false])->save();
+            }
+        }
+
         app(RealtimeBroadcaster::class)->push(new JobPublished($job));
 
         /*

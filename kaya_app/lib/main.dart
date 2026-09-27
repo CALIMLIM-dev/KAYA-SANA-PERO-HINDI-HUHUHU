@@ -33,6 +33,59 @@ void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
   /*
+      A screen that fails to build says so instead of going blank.
+
+      Flutter's own handler draws a red panel in debug and, in a release
+      build, nothing at all - so a widget that throws while building gives
+      the user a plain empty screen with no back button and no clue, and
+      gives us nothing to go on when it is reported. Every "blank screen"
+      bug starts here and none of them can be diagnosed from the report.
+
+      This replaces it with something a tester can read out loud and a
+      screenshot we can act on. It is deliberately ugly: it should never be
+      seen, and looking like part of the app would be worse.
+  */
+  ErrorWidget.builder = (FlutterErrorDetails details) {
+    FlutterError.presentError(details);
+
+    return Material(
+      color: Colors.white,
+      child: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Icon(Icons.warning_amber_rounded, size: 48, color: Colors.orange),
+              const SizedBox(height: 16),
+              const Text(
+                'This screen could not open',
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
+              ),
+              const SizedBox(height: 8),
+              const Text(
+                'Go back and try again. If it keeps happening, send this to '
+                'KAYA from Help and support:',
+                style: TextStyle(fontSize: 13.5, height: 1.4),
+              ),
+              const SizedBox(height: 12),
+              Flexible(
+                child: SingleChildScrollView(
+                  child: SelectableText(
+                    details.exceptionAsString(),
+                    style: const TextStyle(fontSize: 11.5, height: 1.35),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  };
+
+  /*
       Use Android's own photo picker.
 
       image_picker defaults this to false, which routes gallery picking
