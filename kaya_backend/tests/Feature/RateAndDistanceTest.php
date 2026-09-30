@@ -209,9 +209,27 @@ class RateAndDistanceTest extends TestCase
         $this->assertContains('Nearby job', $titles);
         $this->assertNotContains('Distant job', $titles);
 
-        // Without a radius the old behaviour stands: everything open.
-        $all = collect($this->actingAs($worker)->getJson('/api/v1/jobs')->json('data.data'))->pluck('title');
-        $this->assertContains('Distant job', $all);
+        /*
+            Asking for a wide radius still gets one.
+
+            This used to assert that passing no radius returned everything
+            open, which it did - and that is exactly how a worker in
+            Pangasinan came to be shown jobs in Negros Occidental, under a
+            heading naming their own city and behind an Apply button
+            WorkingDistance refuses at ten kilometres. The default is now
+            that working distance; the endpoint still widens on request.
+        */
+        $wide = collect($this->actingAs($worker)
+            ->getJson('/api/v1/jobs?radius_km=500')
+            ->json('data.data'))->pluck('title');
+        $this->assertContains('Distant job', $wide);
+
+        // And the default leaves it out, because it cannot be taken.
+        $default = collect($this->actingAs($worker)
+            ->getJson('/api/v1/jobs')
+            ->json('data.data'))->pluck('title');
+        $this->assertContains('Nearby job', $default);
+        $this->assertNotContains('Distant job', $default);
 
         $this->assertNotNull($near->id);
         $this->assertNotNull($far->id);

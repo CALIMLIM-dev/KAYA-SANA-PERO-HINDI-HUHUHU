@@ -13,6 +13,18 @@ use App\Models\JobPost;
 use App\Models\CreditTransaction;
 use App\Models\User;
 use App\Services\CreditLedger;
+/*
+    Imported, which it was not - and the whole of "Ask for work again"
+    failed on that alone.
+
+    workAgain type-hints NotificationService to have it injected. Without
+    this line PHP resolved the name against this file namespace, so the
+    container was asked for App\Http\Controllers\Api\V1\NotificationService,
+    which does not exist. Every tap was a 500 raised while resolving the
+    method arguments, before a line of the body ran - which is why fixing
+    a bad column inside the body changed nothing.
+*/
+use App\Services\NotificationService;
 use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Http\Request;
 

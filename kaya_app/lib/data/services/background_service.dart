@@ -193,17 +193,35 @@ class _KayaTaskHandler extends TaskHandler {
       final list = (data is Map ? data['data'] : data) as List?;
       if (list == null || list.isEmpty) return;
 
+      /*
+          The first poll on this device learns the line, it does not
+          announce everything behind it.
+
+          The mark starts at zero, so a fresh install - or an upgrade
+          that cleared preferences - asked for everything newer than
+          nothing, was handed a page of twenty, and fired all twenty at
+          the phone in a row. None of them were news: the person had
+          been using the app before the reinstall.
+
+          So with no mark yet, adopt the newest id and show nothing.
+          Anything that arrives after this tick is genuinely new and is
+          announced normally.
+      */
+      final firstEverPoll = _lastNotificationId == 0;
+
       for (final raw in list) {
         if (raw is! Map) continue;
 
         final id = raw['id'];
         if (id is! int) continue;
 
-        await _show(
-          id: id,
-          title: '${raw['title'] ?? 'KAYA'}',
-          body: '${raw['body'] ?? ''}',
-        );
+        if (!firstEverPoll) {
+          await _show(
+            id: id,
+            title: '${raw['title'] ?? 'KAYA'}',
+            body: '${raw['body'] ?? ''}',
+          );
+        }
 
         if (id > _lastNotificationId) _lastNotificationId = id;
       }

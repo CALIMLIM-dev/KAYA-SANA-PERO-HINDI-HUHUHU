@@ -42,6 +42,35 @@ class JobPost extends Model
     public const STATUS_OPEN = 'open';
 
     /*
+        The last moment this post takes applicants.
+
+        expires_at when it has one - that is the listing clock the posting
+        form sets from the chosen dates. When it does not, the post's own
+        dates answer instead, which is the same order deadline() reads
+        them in: the end date, or the start date for a one-day job.
+
+        That fallback is the whole point. expires_at is only ever written
+        by the form, so every post made before the column existed has
+        none - and reading a null as "no end" kept all of them in the
+        feed and in search permanently, months past the date printed on
+        the card. The dates were sitting on the row the entire time.
+
+        Null only for a post carrying no dates at all. Those genuinely
+        predate scheduling and are not held to a day.
+    */
+    public function expiresAt(): ?\Illuminate\Support\Carbon
+    {
+        if ($this->expires_at !== null) {
+            return $this->expires_at;
+        }
+
+        $last = $this->end_date ?? $this->start_date;
+
+        // The day itself counts, the same as the completion gate.
+        return $last ? $last->copy()->endOfDay() : null;
+    }
+
+    /*
         Past its date, but not yet swept.
 
         The sweep runs daily and the date is exact, so for up to a day a post
@@ -51,7 +80,9 @@ class JobPost extends Model
     */
     public function hasExpired(): bool
     {
-        return $this->expires_at !== null && $this->expires_at->isPast();
+        $expiry = $this->expiresAt();
+
+        return $expiry !== null && $expiry->isPast();
     }
 
     public function isOpenForApplications(): bool
@@ -205,15 +236,37 @@ class JobPost extends Model
     /*
         Open posts that are still inside their date, for the feed.
 
-        expires_at is the end date the employer chose, set when the post is
-        created and moved when the end date is. One clock: there used to be
-        a second one counting thirty listing days beside it.
+        The SQL twin of expiresAt(), and it has to stay that way: a post
+        the feed shows and the apply endpoint then refuses is worse than
+        one that was never listed.
+
+        This used to accept any post with a null expires_at, which is
+        every post made before that column existed - so a job whose end
+        date had passed months ago was still in the feed and still in
+        search. The dates on the row answer when the listing clock
+        cannot.
     */
     public function scopeLive($query)
     {
         return $query->where('status', self::STATUS_OPEN)
             ->where(function ($q) {
-                $q->whereNull('expires_at')->orWhere('expires_at', '>', now());
+                // A listing clock that has not run out.
+                $q->where('expires_at', '>', now())
+                    // Or none, and then the post's own dates decide.
+                    ->orWhere(function ($noClock) {
+                        $noClock->whereNull('expires_at')->where(function ($d) {
+                            $d->whereDate('end_date', '>=', today())
+                                ->orWhere(function ($oneDay) {
+                                    $oneDay->whereNull('end_date')
+                                        ->whereDate('start_date', '>=', today());
+                                })
+                                // No dates at all predates scheduling.
+                                ->orWhere(function ($undated) {
+                                    $undated->whereNull('end_date')
+                                        ->whereNull('start_date');
+                                });
+                        });
+                    });
             });
     }
     protected $appends = ['photo_urls'];

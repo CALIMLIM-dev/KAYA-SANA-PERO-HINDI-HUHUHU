@@ -11,6 +11,40 @@ minor release, and `feat!:` or a `BREAKING CHANGE:` footer for a major one.
 
 ---
 
+## 1.14.2 - 2026-10-01
+
+### Fixed
+
+- Ended job posts leave the feed and search. A post's listing clock is only
+  written by the posting form, so every post made before that column existed
+  had none - and a missing clock was read as "no end", which kept those posts
+  in the feed and in search permanently, months past the date printed on their
+  own card. The dates were on the row the whole time; they are what answers
+  now when there is no clock.
+- The feed shows work that can actually be taken. Nothing filtered it by
+  distance unless the caller asked for a radius and the app never did, so a
+  worker in Pangasinan was shown posts in Negros Occidental - under a heading
+  naming their own city, behind an Apply button refused at ten kilometres. The
+  default is that same ten kilometres; asking for a wider radius still works.
+- "Ask for work again" works. The whole endpoint failed on a missing import:
+  the method asks for NotificationService to be injected, the class was never
+  imported, so the container was asked for one in the controllers' own
+  namespace and every tap was a server error raised before a line of the body
+  ran. That is why correcting a column inside the body changed nothing.
+- A notification already read is never raised on the phone again. The
+  background poll asked for everything newer than the last id it saw and
+  nothing else, so notifications that had been opened came back as fresh alerts
+  whenever that mark sat below them - after a reinstall, after clearing app
+  data, or any time the phone and the server had drifted.
+- Installing the app no longer fires a burst of old notifications. With no mark
+  yet, the first poll asked for everything newer than nothing, was handed
+  twenty rows and announced all of them. It learns where the line is instead
+  and announces nothing.
+- "Available now" means something. `availability_status` is written in four
+  places and all four write the same value, so the badge sat on every worker
+  in the directory permanently - including people mid-hire. It is read from an
+  unfinished accepted hire now, which is a fact with a row behind it.
+
 ## 1.14.1 - 2026-10-01
 
 ### Added

@@ -1419,6 +1419,15 @@ class WorkerProfileController extends Controller
         $page = (int) $request->input('page', 1);
         $paged = $profiles->forPage($page, $perPage)->values();
 
+        /*
+            Who is on a job right now, for the whole page at once.
+
+            One query rather than one per card. See availabilityOf for
+            why this is asked of the hires instead of read off the
+            profile column.
+        */
+        $onAJob = $this->workersOnAJob($paged->pluck('user_id')->all());
+
         return response()->json([
             'success' => true,
             'data' => [
@@ -1466,7 +1475,10 @@ class WorkerProfileController extends Controller
                     'rating_avg'   => (float) $p->rating_avg,
                     'rating_count' => (int) $p->rating_count,
                     'skills'       => $p->skills->pluck('skill_name')->filter()->values(),
-                    'availability_status' => $p->availability_status,
+                    // Derived, not read. See availabilityOf.
+                    'availability_status' => in_array($p->user_id, $onAJob, true)
+                        ? 'busy'
+                        : 'available',
                 ]),
                 'current_page' => $page,
                 'per_page'     => $perPage,
@@ -1523,6 +1535,48 @@ class WorkerProfileController extends Controller
     private function distanceLabel(?float $km): ?string
     {
         return \App\Support\DistanceBand::label($km);
+    }
+
+    /*
+        Whether this worker is on a job, in the only terms the platform
+        can actually answer.
+
+        worker_profiles.availability_status is written in four places and
+        all four write 'available'. Nothing ever wrote anything else, so
+        the card said "Available now" for every worker forever - for
+        somebody in the middle of a hire, and for an account that had not
+        been opened since it was made. An employer reading that badge was
+        being told nothing while believing they had been told something.
+
+        An accepted application that has not completed is a hire in
+        progress. That is a fact with a row behind it, and it is the
+        question an employer is really asking.
+    */
+    private function availabilityOf(int $userId): string
+    {
+        return $this->workersOnAJob([$userId]) === []
+            ? 'available'
+            : 'busy';
+    }
+
+    /**
+     * Which of these workers hold an unfinished accepted hire.
+     *
+     * @param  array<int>  $userIds
+     * @return array<int>
+     */
+    private function workersOnAJob(array $userIds): array
+    {
+        if ($userIds === []) {
+            return [];
+        }
+
+        return \App\Models\Application::whereIn('worker_id', $userIds)
+            ->where('status', 'accepted')
+            ->distinct()
+            ->pluck('worker_id')
+            ->map(fn ($id) => (int) $id)
+            ->all();
     }
 
     private function workerDistance(WorkerProfile $p, ?float $lat, ?float $lng): ?float
@@ -1665,7 +1719,8 @@ class WorkerProfileController extends Controller
                 'category'            => $profile->category?->name,
                 'category_id'         => $profile->category_id,
                 'bio'                 => $profile->bio,
-                'availability_status' => $profile->availability_status,
+                // Derived, not read. See availabilityOf.
+                'availability_status' => $this->availabilityOf($profile->user_id),
                 /*
                     Cast, because decimal:2 serialises as the STRING "5.00".
 

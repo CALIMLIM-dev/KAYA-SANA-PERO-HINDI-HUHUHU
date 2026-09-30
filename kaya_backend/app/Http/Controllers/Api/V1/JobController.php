@@ -158,10 +158,34 @@ class JobController extends Controller
             one arbitrary page rather than the search. Without them the
             original cheap paginate is kept.
         */
-        $needsDistancePass = $radius !== null || $nearestFirst;
-
         $profile = $request->user()?->workerProfile;
         $profile?->load(['skills', 'psgcLocation']);
+
+        /*
+            Near you, unless you asked otherwise.
+
+            The radius was only applied when a caller passed one and the
+            app never did, so this returned every open job in the country.
+            A worker in Pangasinan was shown posts in Negros Occidental -
+            under a heading naming their own city, and with an Apply
+            button that WorkingDistance refuses at ten kilometres. The
+            feed was advertising work nobody could be hired for.
+
+            The default is that same ten kilometres, so what is listed is
+            what can actually be taken. An explicit radius_km still wins,
+            including a larger one, so this narrows the default rather
+            than capping the endpoint.
+
+            Only when the viewer has somewhere to measure from: a pin of
+            their own, or a town with a centroid. Filtering on a distance
+            nothing can compute would empty the feed instead of narrowing
+            it.
+        */
+        if ($radius === null && $profile !== null && $this->hasPlace($profile)) {
+            $radius = \App\Services\WorkingDistance::LIMIT_KM;
+        }
+
+        $needsDistancePass = $radius !== null || $nearestFirst;
 
         $decorate = function (JobPost $job) use ($profile) {
             /*
@@ -564,6 +588,24 @@ class JobController extends Controller
         ->values();
 
         return $this->ok($scored);
+    }
+
+    /*
+        Whether this profile can be measured from at all.
+
+        Its own pin first, the town centroid second - the same order
+        JobMatchService resolves coordinates in, so the radius default
+        and the distance it filters on agree about who has a place.
+    */
+    private function hasPlace(\App\Models\WorkerProfile $profile): bool
+    {
+        if ($profile->latitude !== null && $profile->longitude !== null) {
+            return true;
+        }
+
+        $town = $profile->psgcLocation;
+
+        return $town?->latitude !== null && $town?->longitude !== null;
     }
 
     public function myJobs(Request $request)

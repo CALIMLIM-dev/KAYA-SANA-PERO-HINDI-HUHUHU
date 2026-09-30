@@ -56,6 +56,18 @@ class NotificationController extends Controller
             $fresh = UserNotification::where('user_id', $request->user()->id)
                 ->forAudience($data['audience'] ?? null)
                 ->where('id', '>', (int) $data['after_id'])
+                /*
+                    Unread only, and this is the important half.
+
+                    The id was the only condition, so a notification the
+                    person had already opened and read was raised on the
+                    shade again as soon as the mark on the phone sat below
+                    it - which it does after a reinstall, after clearing
+                    app data, and on any device where the mark and the
+                    server had drifted. Read means seen. There is no case
+                    where the phone should buzz about it a second time.
+                */
+                ->unread()
                 ->orderBy('id')
                 ->limit(20)
                 ->get()
