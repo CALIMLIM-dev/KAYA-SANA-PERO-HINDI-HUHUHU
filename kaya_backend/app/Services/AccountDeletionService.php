@@ -119,6 +119,7 @@ class AccountDeletionService
                 ->update(['status' => 'declined']);
 
             $job->update(['status' => 'closed']);
+            app(ConversationArchivist::class)->settleJob($job);
         }
     }
 

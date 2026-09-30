@@ -151,6 +151,10 @@ class JobProvider with ChangeNotifier {
   /// The id of the most recently created job. Null until one is posted.
   int? lastCreatedJobId;
 
+  /// Whether the last created post came back with its placement bought. See
+  /// createJob: the server buys it, so this is read rather than asked for.
+  bool lastCreatedWasBoosted = false;
+
   /*
       Buy three days at the top of the feed.
 
@@ -239,9 +243,17 @@ class JobProvider with ChangeNotifier {
 
       final job = res.data['data'] as Map<String, dynamic>;
       _jobs.insert(0, job);
-      // Kept so the caller can boost the post it just made — the boost
-      // endpoint needs an id, which only exists once the job is saved.
       lastCreatedJobId = job['id'] as int?;
+
+      /*
+          Whether the placement the employer asked for was actually bought.
+
+          The server buys it while creating the post, and sets is_urgent back
+          to false when the wallet could not cover it. So the flag on the row
+          that comes back is the answer, and the screen no longer has to make
+          a second call to find out - which is what was charging twice.
+      */
+      lastCreatedWasBoosted = job['is_urgent'] == true;
       _errorMessage = null;
       _setLoading(false);
       return true;

@@ -264,10 +264,23 @@ class ConversationController extends Controller
             // the vocabulary of a weekly pattern; two people settling one
             // job say an hour.
             'scheduled_time' => ['required', 'date_format:H:i'],
+            /*
+                When the work is due, which is not when it starts.
+
+                Date only - a deadline is a day, and an hour on it would
+                invite an argument about whether half past counted.
+
+                Optional, so a pair who only care about the start day are
+                not made to answer a second question: JobPost::deadline()
+                falls back to the work date exactly as it did before this
+                field existed.
+            */
+            'deadline'       => ['nullable', 'date', 'after_or_equal:scheduled_date'],
             'note'           => ['nullable', 'string', 'max:280'],
             'job_id'         => ['nullable', 'integer', 'exists:jobs_posts,id'],
         ], [
             'scheduled_date.after_or_equal' => 'Pick a day that has not passed.',
+            'deadline.after_or_equal' => 'The deadline cannot be before the work starts.',
         ]);
 
         $proposal = DB::transaction(function () use ($conversation, $user, $data) {
@@ -290,6 +303,7 @@ class ConversationController extends Controller
                 'job_id'          => $data['job_id'] ?? $conversation->job_id,
                 'proposed_by'     => $user->id,
                 'scheduled_date'  => $data['scheduled_date'],
+                'deadline'        => $data['deadline'] ?? null,
                 'scheduled_time'  => $data['scheduled_time'],
                 'note'            => $data['note'] ?? null,
                 'status'          => 'proposed',
@@ -414,6 +428,7 @@ class ConversationController extends Controller
             'job_id'         => $proposal->job_id,
             'proposed_by'    => $proposal->proposed_by,
             'scheduled_date' => $proposal->scheduled_date->toDateString(),
+            'deadline'       => $proposal->deadline?->toDateString(),
             'scheduled_time' => $proposal->timeLabel(),
             'note'           => $proposal->note,
             'status'         => $proposal->status,

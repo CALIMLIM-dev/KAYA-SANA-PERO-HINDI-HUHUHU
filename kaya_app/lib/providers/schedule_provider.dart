@@ -73,12 +73,26 @@ class ScheduleProvider with ChangeNotifier {
   }
 
   /// Offers a day. Either side may; the other side answers.
+  /// YYYY-MM-DD, which is the only shape the server's date rules accept.
+  String _apiDate(DateTime d) =>
+      '${d.year.toString().padLeft(4, '0')}-'
+      '${d.month.toString().padLeft(2, '0')}-'
+      '${d.day.toString().padLeft(2, '0')}';
   Future<bool> propose(
     int conversationId, {
     required DateTime date,
     /// 24-hour HH:mm. The phone's own formatter would send "8:00 AM" on a
     /// 12-hour device, which the server refuses.
     required String time,
+    /*
+        The day the work is due, which is not the day it starts.
+
+        Optional: a pair who only care about the start day are not made
+        to answer twice, and the server falls back to the work date for
+        a proposal without one - which is what every proposal accepted
+        before this field existed has.
+    */
+    DateTime? deadline,
     String? note,
     int? jobId,
   }) async {
@@ -87,11 +101,9 @@ class ScheduleProvider with ChangeNotifier {
 
     try {
       await _api.post('/conversations/$conversationId/schedule', data: {
-        'scheduled_date':
-            '${date.year.toString().padLeft(4, '0')}-'
-            '${date.month.toString().padLeft(2, '0')}-'
-            '${date.day.toString().padLeft(2, '0')}',
+        'scheduled_date': _apiDate(date),
         'scheduled_time': time,
+        if (deadline != null) 'deadline': _apiDate(deadline),
         if (note != null && note.trim().isNotEmpty) 'note': note.trim(),
         'job_id': ?jobId,
       });

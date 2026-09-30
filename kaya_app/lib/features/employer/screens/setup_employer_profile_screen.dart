@@ -63,6 +63,7 @@ class _SetupEmployerProfileScreenState extends State<SetupEmployerProfileScreen>
     return ((user?['name'] as String?) ?? '').trim().isNotEmpty;
   }
   final _companyNameController = TextEditingController();
+  final _tinController = TextEditingController();
   final _industryController = TextEditingController();
   final _websiteController = TextEditingController();
   final _locationController = TextEditingController();
@@ -266,6 +267,7 @@ class _SetupEmployerProfileScreenState extends State<SetupEmployerProfileScreen>
     _lastNameController.dispose();
     _suffixController.dispose();
     _companyNameController.dispose();
+    _tinController.dispose();
     _industryController.dispose();
     _websiteController.dispose();
     _locationController.dispose();
@@ -388,6 +390,7 @@ class _SetupEmployerProfileScreenState extends State<SetupEmployerProfileScreen>
       final success = await employerProvider.createProfile(
         employerType: _selectedType!,
         companyName: _isCompany ? _companyNameController.text.trim() : null,
+        tin: _isCompany ? _tinController.text.trim() : null,
         industry: _isCompany ? _industryController.text.trim() : null,
         website: _isCompany && _websiteController.text.trim().isNotEmpty
             ? _websiteController.text.trim()
@@ -715,10 +718,20 @@ class _SetupEmployerProfileScreenState extends State<SetupEmployerProfileScreen>
             const SizedBox(height: 8),
             const SizedBox(height: 32),
             if (_isCompany) ...[
+              /*
+                  No examples in the boxes.
+
+                  Every field had one sitting inside it - ABC
+                  Construction Co., Construction Retail Cleaning, a
+                  company.com URL - and a label that already said what
+                  the field was. Grey text inside an empty box is read
+                  as content before it is read as an example, so the
+                  form looked half filled in with somebody else's
+                  details.
+              */
               _textField(
                 controller: _companyNameController,
                 label: 'Business Name *',
-                hint: 'e.g., ABC Construction Co.',
                 icon: Icons.business,
                 requiredMessage: 'Business name is required',
               ),
@@ -726,15 +739,39 @@ class _SetupEmployerProfileScreenState extends State<SetupEmployerProfileScreen>
               _textField(
                 controller: _industryController,
                 label: 'Industry *',
-                hint: 'e.g., Construction, Retail, Cleaning',
                 icon: Icons.work_outline,
                 requiredMessage: 'Industry is required',
+              ),
+              const SizedBox(height: 16),
+              /*
+                  The TIN, asked for with the rest of the business.
+
+                  A company is verified by its papers rather than by
+                  anybody's face, and this is the number that identifies
+                  the business on them. It used to live only on the
+                  Business Registration upload screen, under the
+                  document picker, and only rendered when a provider
+                  happened to be loaded - so most companies never saw
+                  it, nothing was stored, and the ORUS check the admin
+                  panel refuses to approve without was waived every time
+                  for want of a number to check.
+              */
+              _textField(
+                controller: _tinController,
+                label: 'Business TIN *',
+                icon: Icons.badge_outlined,
+                keyboardType: TextInputType.number,
+                requiredMessage: 'Your business TIN is required',
+              ),
+              const SizedBox(height: 6),
+              const Text(
+                'As printed on your DTI certificate or BIR 2303.',
+                style: TextStyle(fontSize: 12, color: AppColors.neutral500),
               ),
               const SizedBox(height: 16),
               _textField(
                 controller: _websiteController,
                 label: 'Website',
-                hint: 'https://www.company.com',
                 icon: Icons.language,
                 keyboardType: TextInputType.url,
               ),

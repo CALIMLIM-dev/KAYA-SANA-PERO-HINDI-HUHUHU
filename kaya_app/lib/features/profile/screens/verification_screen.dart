@@ -82,6 +82,30 @@ class _VerificationScreenState extends State<VerificationScreen> {
     final user = context.read<AuthProvider>().user;
     _phoneCtrl.text = (user?['phone'] as String?) ?? '';
     _emailCtrl.text = (user?['email'] as String?) ?? '';
+
+    /*
+        And the employer profile, because the form branches on it.
+
+        Whether this account is a company decides what is asked for here, and
+        it was read straight out of a provider this screen never loaded. Open
+        it on a cold start and the answer was no, so a company saw the
+        individual form - which is how a business could submit its
+        registration with no TIN attached and nothing complain.
+    */
+    /*
+        After the frame, not during it.
+
+        didChangeDependencies runs inside build, and fetchProfile notifies its
+        listeners as soon as it sets the loading flag - which marks this very
+        subtree as needing to build while it is being built.
+    */
+    final employer = context.read<EmployerProfileProvider>();
+
+    if (employer.profile == null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) employer.fetchProfile();
+      });
+    }
   }
 
   void _startCooldown() {
@@ -308,7 +332,17 @@ class _VerificationScreenState extends State<VerificationScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           // Header WITHOUT icon
-          Text(subtitle, style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w700, color: AppColors.neutral900)),
+          /*
+              The heading names the document being uploaded.
+
+              It came from the route argument, and the screen behind it passed
+              whatever it liked - so a company uploading its registration could
+              be met by a heading about a government ID.
+          */
+          Text(
+            isBusiness ? 'Business Registration' : subtitle,
+            style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w700, color: AppColors.neutral900),
+          ),
           const SizedBox(height: 24),
 
           if (isGovID) ...[

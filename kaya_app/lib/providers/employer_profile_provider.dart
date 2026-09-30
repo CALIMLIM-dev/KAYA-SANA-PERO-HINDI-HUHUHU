@@ -220,6 +220,8 @@ class EmployerProfileProvider with ChangeNotifier {
     double? longitude,
     required EmployerType employerType,
     String? companyName,
+    /// Digits or as printed; the server strips the punctuation either way.
+    String? tin,
     String? industry,
     String? website,
     String? description,
@@ -230,6 +232,7 @@ class EmployerProfileProvider with ChangeNotifier {
       final res = await _api.post('/employer-profile', data: {
         'employer_type': employerType.value,
         'company_name': ?companyName,
+        'tin': ?tin,
         'industry': ?industry,
         'website': ?website,
         'description': ?description,
@@ -333,6 +336,7 @@ class EmployerProfileProvider with ChangeNotifier {
   /// prefill still used the old one's coordinates.
   Future<bool> updateProfile({
     String? companyName,
+    String? tin,
     String? industry,
     String? website,
     String? description,
@@ -354,6 +358,8 @@ class EmployerProfileProvider with ChangeNotifier {
     try {
       final res = await _api.put('/employer-profile', data: {
         'company_name': ?companyName,
+        // Correctable: a mistyped TIN is a profile nobody can approve.
+        'tin': ?tin,
         'industry': ?industry,
         'website': ?website,
         'description': ?description,

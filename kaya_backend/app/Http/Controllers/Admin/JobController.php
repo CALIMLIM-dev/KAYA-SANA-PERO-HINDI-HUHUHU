@@ -94,6 +94,10 @@ class JobController extends Controller
 
         DB::transaction(function () use ($job, $open) {
             $job->forceFill(['status' => 'closed'])->save();
+
+            // A closed post is not work anybody is waiting on, so the
+            // threads it opened close with it.
+            app(\App\Services\ConversationArchivist::class)->settleJob($job);
             Application::whereIn('id', $open->pluck('id'))->update(['status' => 'cancelled']);
         });
 

@@ -127,6 +127,10 @@ class ExpireJobPosts extends Command
             DB::transaction(function () use ($job, $open) {
                 $job->forceFill(['status' => 'expired'])->save();
 
+                // And the threads it opened, for the same reason a
+                // finished job closes its own.
+                app(\App\Services\ConversationArchivist::class)->settleJob($job);
+
                 Application::whereIn('id', $open->pluck('id'))
                     ->update(['status' => 'cancelled']);
             });

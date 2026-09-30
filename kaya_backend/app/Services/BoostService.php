@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\Boost;
 use App\Models\CreditTransaction;
+use App\Exceptions\AlreadyBoostedException;
 use App\Models\User;
 
 /*
@@ -19,16 +20,42 @@ use App\Models\User;
 class BoostService
 {
     /*
-        Extends rather than stacks.
+        Refused while one is already running.
 
-        Buying a boost while one is already running used to be an unasked
-        question. Two overlapping windows would be paid for twice and deliver
-        once, since placement is not doubly at the top. Adding the days onto
-        the end of the live window is what the buyer expects to have bought,
-        and it makes a second purchase worth exactly what the first one was.
+        This used to extend: a second purchase added its days onto the end of
+        the live window, on the reasoning that two overlapping windows would be
+        charged twice and delivered once. That is true, and extending was still
+        the wrong answer - because nothing ever asked for it.
+
+        A job posted as urgent buys a boost, and the Boost control on the job
+        afterwards bought another. Both charged. The employer had bought one
+        thing twice and been given days they never asked about, which is the
+        shape of a double charge whatever the ledger calls it.
+
+        So the second purchase is refused rather than reinterpreted. Nobody can
+        be charged twice for placement through any door, and a caller that
+        wants more days waits for the window to end - which is also the only
+        version of this a receipt can explain.
+
+        Reverses the decision recorded here previously, on the owner's
+        instruction after being charged twice on one post.
     */
     public function purchase(User $user, string $type, int $id): Boost
     {
+        /*
+            Checked here rather than in the two controllers that call it.
+
+            There are three doors to this - the Boost button on a job, the one
+            on a worker profile, and posting a job as urgent - and the first
+            two had no guard at all. Guarding the service means a fourth door
+            is covered the day somebody adds it.
+        */
+        if ($this->isBoosted($type, $id)) {
+            throw new AlreadyBoostedException(
+                $this->activeUntil($type, $id)
+            );
+        }
+
         $cost = (int) config('kaya.credits.boost');
         $days = (int) config('kaya.credits.boost_days');
 
@@ -39,9 +66,9 @@ class BoostService
             referenceType: $type,
             referenceId: $id,
             using: function (CreditTransaction $charge) use ($user, $type, $id, $days) {
-                $live = Boost::query()->for($type, $id)->active()->latest('ends_at')->first();
-
-                $startsAt = $live?->ends_at ?? now();
+                // Always now. The guard above means there is never a live
+                // window to begin after.
+                $startsAt = now();
 
                 return Boost::create([
                     'boostable_type'        => $type,

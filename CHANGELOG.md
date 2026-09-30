@@ -11,6 +11,65 @@ minor release, and `feat!:` or a `BREAKING CHANGE:` footer for a major one.
 
 ---
 
+## 1.13.0 - 2026-09-30
+
+A company is verified by its papers, placement stops outliving what was paid
+for it, and a job can end without everybody pressing a button.
+
+### Added
+
+- A schedule agreed in the chat carries its own deadline, separate from the day
+  the work starts. A fortnight's job agreed for the 1st is no longer due on the
+  1st. Date only, optional, and never earlier than the start.
+- The business TIN is asked for during company setup and shown on the profile.
+  It existed before, on an upload screen, behind a condition that was usually
+  false - so no company had one on file and the ORUS check an administrator
+  cannot approve without was waived every time for want of a number.
+
+### Changed
+
+- Company verification is the business registration and the TIN. A company is
+  no longer asked for anybody's government ID: what is being vouched for is the
+  business, and whoever holds the phone is staff. Individual employers are
+  unchanged.
+- The Verified badge on an employer profile reads the document that kind of
+  employer is judged on. A company with approved papers used to show Not
+  Verified, and one with a personal ID showed Verified with no papers at all.
+- Work finished early can be marked finished. Completion always needed both
+  sides, so refusing it before the deadline only stopped a pair agreeing that
+  the work was done; before the deadline the control asks the other side.
+- A hire left unconfirmed past its deadline now closes the job and the thread
+  with it. The hire was being closed and nothing above it was told, so the job
+  stayed in progress for good with Mark Complete still on the card.
+- That window is measured from the deadline instead of the first day of work. A
+  month of work had its hire closed on day seven, with both of them still on
+  site.
+- A finished job is not the only thing that closes a thread. Six other endings
+  do now, and the question asked is whether the two still have work together.
+- Boosting something already boosted is refused rather than added to the end.
+  Posting as urgent and the Boost button were the same purchase through two
+  doors, and the second one charged.
+- The Post button shows what it will charge, including the boost.
+- The Barya balance updates wherever it was spent. Only the wallet screen
+  refreshed it, so every other screen showed a stale number until you went
+  there and came back.
+
+### Fixed
+
+- The URGENT badge expired with the placement. The feed orders on a three-day
+  boost window and the cards read a column that is never cleared, so a post
+  dropped to its ordinary place on day four and went on calling itself urgent.
+- Editing a job to urgent buys the placement. It stored the flag and bought
+  nothing.
+
+### Removed
+
+- The description under Duration when posting a job. It said the post goes up
+  on the start date, which it does not, and hardcoded a free week that an
+  administrator can change.
+- The examples inside the company form's boxes, and "paid" from the badge
+  rewards.
+
 ## 1.12.0 - 2026-09-28
 
 Adding the second profile takes one tap, and the wording is consistent.

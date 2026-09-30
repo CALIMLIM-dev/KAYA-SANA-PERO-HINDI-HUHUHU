@@ -889,7 +889,6 @@ class _PostJobScreenState extends State<PostJobScreen> {
               */
               _buildSection(
                 title: 'Duration',
-                hint: 'Your post stays up from the start date to the deadline. The first week is free. Longer costs Barya.',
                 anchor: _scheduleKey,
                 icon: Icons.event_outlined,
                 children: [_buildScheduleFields()],
@@ -921,7 +920,7 @@ class _PostJobScreenState extends State<PostJobScreen> {
               _buildSection(
                 title: 'Job Priority (Optional)',
                 icon: Icons.flash_on_outlined,
-                hint: 'Top of the feed for ${JobBoost.days} days, ${JobBoost.cost} Barya.',
+                hint: 'Top of the feed for ${context.watch<CreditsProvider>().boostDays ?? JobBoost.days} days, ${context.watch<CreditsProvider>().boostCost ?? JobBoost.cost} Barya.',
                 children: [
                   Row(
                     children: [
@@ -1078,6 +1077,17 @@ class _PostJobScreenState extends State<PostJobScreen> {
       ],
     );
   }
+
+  /*
+      The Duration section carries no description.
+
+      It had one, and it was twice wrong: it said the post goes up on the
+      start date, which it does not - a post is live the moment it is made -
+      and it hardcoded a free week while the free period is a setting an
+      administrator can change. Rather than keep a sentence correct, the
+      section does without one: the dates are labelled, and the price is on
+      the Post button where it is decided.
+  */
 
   /// Days the post is up: start to end, both inclusive. One when they are
   /// the same day. Mirrors JobDurationService::spanDays on the server.
@@ -2154,12 +2164,28 @@ class _PostJobScreenState extends State<PostJobScreen> {
                     ),
                   )
                 : Builder(builder: (context) {
-                    // The cost on the button, where it is decided - the
-                    // same rule apply and invite follow.
+                    /*
+                        The whole cost on the button, where it is decided.
+
+                        This showed the duration alone. Turning Boost on added
+                        eight Barya the button never mentioned, so the employer
+                        read "Post for 3 Barya" and was charged eleven - the
+                        button understating the price, which is worse than
+                        showing none at all.
+
+                        The boost price comes from the server rather than the
+                        compiled-in constant, because it is editable from the
+                        admin panel and a stale number here would be the same
+                        bug in a new place.
+                    */
+                    final credits = context.watch<CreditsProvider>();
                     final days = _postDays;
-                    final cost = days == null
-                        ? null
-                        : context.watch<CreditsProvider>().postCostFor(days);
+                    final duration =
+                        days == null ? null : credits.postCostFor(days);
+                    final boost =
+                        _isUrgent ? (credits.boostCost ?? JobBoost.cost) : 0;
+                    final cost =
+                        duration == null ? null : duration + boost;
                     return Text(
                       cost == null || cost == 0
                           ? 'Post Job'
@@ -2317,20 +2343,24 @@ class _PostJobScreenState extends State<PostJobScreen> {
       if (!mounted) return;
       if (success) {
         /*
-            Boosted after the post exists, not as part of saving it.
+            The placement is bought by the save, not by a second call.
 
-            The endpoint needs a job id, and charging barya inside the save
-            would take credits as a side effect of posting. If the charge
-            fails — an empty wallet, most likely — the job is still posted
-            and the employer is told only the boost did not happen, which is
-            the truthful half of the outcome.
+            This used to post the job and then call the boost endpoint with
+            the new id, because at the time the server stored is_urgent and
+            bought nothing. That changed - creating a post now buys the
+            placement - and this call was left behind, so an urgent post was
+            charged twice: once by the save and once by this.
+
+            The answer is on the row that comes back. The server sets
+            is_urgent to false when the wallet could not cover it, so a post
+            that asked for placement and came back without it is the case
+            worth mentioning.
         */
-        final jobId = jobProvider.lastCreatedJobId;
-        var boosted = true;
+        final boosted = !_isUrgent || jobProvider.lastCreatedWasBoosted;
 
-        if (_isUrgent && jobId != null) {
-          boosted = await jobProvider.boostJob(jobId);
-        }
+        // The balance moved, and nothing else on the way out would refetch
+        // it - see CreditsProvider.afterSpending.
+        context.read<CreditsProvider>().afterSpending();
 
         if (!mounted) return;
 
@@ -2339,8 +2369,8 @@ class _PostJobScreenState extends State<PostJobScreen> {
         } else {
           AppToast.info(
             context,
-            'Job posted, but the boost could not be charged: '
-            '${jobProvider.errorMessage ?? 'not enough Barya'}',
+            'Job posted, but there was not enough Barya to put it at the '
+            'top of the feed.',
           );
         }
         Navigator.pop(context);

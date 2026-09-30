@@ -367,8 +367,10 @@ class _ViewApplicantsScreenState extends State<ViewApplicantsScreen>
     final job = context.watch<JobProvider>().selectedJob;
     final dueNote = job?.deadlineNote;
 
-    final canConfirm = status == 'accepted' && !iConfirmed
-        && (job?.completionHasOpened ?? true);
+    // See the note on the cards in My Activity: the control is there as
+    // soon as somebody is hired, and asks the other side when it is early.
+    final canConfirm = status == 'accepted' && !iConfirmed;
+    final early = !(job?.completionHasOpened ?? true);
 
     final String? reviewNote = !workDone && status != 'accepted'
         ? null
@@ -723,7 +725,8 @@ class _ViewApplicantsScreenState extends State<ViewApplicantsScreen>
                               ? () => confirmCompletion(context, applicationId,
                                   'worker', () => context
                                       .read<ApplicationProvider>()
-                                      .fetchApplicants(_jobId!))
+                                      .fetchApplicants(_jobId!),
+                                  early: early)
                               // Awaited and refreshed on success, same reason
                               // as the two review sites in My Activity: this
                               // pushed and forgot, so a submitted review left

@@ -356,6 +356,31 @@ class ScheduleComposer {
 
     if (time == null || !context.mounted) return;
 
+    /*
+        And the day it is due.
+
+        Its own question, because the day the work starts and the day it
+        has to be finished are not the same thing - and the second one is
+        what decides when the job can be marked complete. They used to be
+        one date, so a fortnight's work agreed for the 1st could be
+        marked finished on the 1st.
+
+        No time on it. A deadline is a day.
+
+        Skippable: cancelling leaves it unset and the work date stands as
+        the deadline, exactly as it did before. For a one-day job that is
+        the right answer and one question fewer.
+    */
+    final deadline = await showDatePicker(
+      context: context,
+      initialDate: date,
+      firstDate: date,
+      lastDate: last,
+      helpText: 'Deadline. Skip if it is one day.',
+    );
+
+    if (!context.mounted) return;
+
     final noteController = TextEditingController();
 
     final confirmed = await showModalBottomSheet<bool>(
@@ -435,6 +460,7 @@ class ScheduleComposer {
       conversationId,
       date: date,
       time: _apiTime(time),
+      deadline: deadline,
       note: noteController.text,
       jobId: jobId,
     );

@@ -95,11 +95,16 @@ class RosterController extends Controller
         $user = $request->user();
         if ($job->employer_id !== $user->id) return $this->fail('Forbidden', 403);
 
-        // Not before the work was due to finish. See JobPost::deadline.
-        if ($why = $job->completionRefusal()) {
-            return $this->fail($why, 422);
-        }
+        /*
+            The deadline does not refuse this either.
 
+            The third of the three routes, and it says so itself above: the
+            same two-sided rule as marking one. Each worker still confirms
+            their own side and the job settles when everyone has, so this
+            cannot finish anything on its own whatever the date - and leaving
+            it refusing while the other two allowed it would mean an employer
+            could confirm one worker early but not five.
+        */
         $open = $job->hires()->where('status', 'accepted')->get();
 
         if ($open->isEmpty()) {

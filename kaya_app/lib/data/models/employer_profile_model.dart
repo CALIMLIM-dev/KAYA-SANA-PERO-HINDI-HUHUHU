@@ -9,6 +9,12 @@ class EmployerProfile {
   final int userId;
   final EmployerType employerType;
   final String? companyName;
+
+  /// The TIN as the server chooses to show it, and whether an
+  /// administrator has checked it against ORUS. Never the raw number:
+  /// EmployerProfileResource masks it on the way out.
+  final String? tinMasked;
+  final bool tinVerified;
   final String? industry;
   final String? website;
   final String? description;
@@ -31,6 +37,8 @@ class EmployerProfile {
     required this.userId,
     required this.employerType,
     this.companyName,
+    this.tinMasked,
+    this.tinVerified = false,
     this.industry,
     this.website,
     this.description,
@@ -51,6 +59,8 @@ class EmployerProfile {
       userId: json['user_id'] as int,
       employerType: EmployerType.fromString(json['employer_type'] as String?) ?? EmployerType.individual,
       companyName: json['company_name'] as String?,
+      tinMasked: json['tin_masked'] as String?,
+      tinVerified: json['tin_verified'] == true,
       industry: json['industry'] as String?,
       website: json['website'] as String?,
       description: json['description'] as String?,

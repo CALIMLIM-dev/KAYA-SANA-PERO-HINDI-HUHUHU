@@ -50,7 +50,13 @@ class BoostController extends Controller
             return $this->fail('Only an open job post can be boosted.', 422);
         }
 
-        $boost = $boosts->purchase($user, Boost::TYPE_JOB, $job->id);
+        try {
+            $boost = $boosts->purchase($user, Boost::TYPE_JOB, $job->id);
+        } catch (\App\Exceptions\AlreadyBoostedException $e) {
+            // Already at the top. Buying a second window is refused rather
+            // than added to the end - see BoostService::purchase.
+            return $this->fail($e->getMessage(), 422);
+        }
 
         return $this->ok([
             'boost'      => $boost,
@@ -76,7 +82,11 @@ class BoostController extends Controller
             return $this->fail('Finish your profile first. Add your location, a job category and at least one skill.', 422);
         }
 
-        $boost = $boosts->purchase($user, Boost::TYPE_WORKER, $user->id);
+        try {
+            $boost = $boosts->purchase($user, Boost::TYPE_WORKER, $user->id);
+        } catch (\App\Exceptions\AlreadyBoostedException $e) {
+            return $this->fail($e->getMessage(), 422);
+        }
 
         return $this->ok([
             'boost'      => $boost,

@@ -25,6 +25,7 @@ class ScheduleProposal extends Model
         'proposed_by',
         'scheduled_date',
         'scheduled_time',
+        'deadline',
         'note',
         'status',
         'responded_at',
@@ -32,6 +33,8 @@ class ScheduleProposal extends Model
 
     protected $casts = [
         'scheduled_date' => 'date:Y-m-d',
+        // Date only. A deadline is a day, not an instant.
+        'deadline'       => 'date:Y-m-d',
         'responded_at'   => 'datetime',
     ];
 

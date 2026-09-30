@@ -38,6 +38,7 @@ Schedule::command('kaya:close-unconfirmed-hires')->dailyAt('04:00');
 */
 Schedule::command('kaya:expire-job-posts')->dailyAt('05:00');
 
+
 /*
     Catches payments PayMongo took but never told us about.
 

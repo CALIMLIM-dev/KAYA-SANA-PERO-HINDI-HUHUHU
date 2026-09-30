@@ -210,7 +210,9 @@ class _SearchScreenState extends State<SearchScreen> {
   List<Job> _applyJobFilters(List<Job> jobs) {
     return jobs.where((j) {
       if (_verifiedOnly && !j.requiresVerification) return false;
-      if (_urgentOnly && !j.isUrgent) return false;
+      // isBoosted, so the filter agrees with the badge and with the
+      // ordering. is_urgent never expires; the placement does.
+      if (_urgentOnly && !j.isBoosted) return false;
       final price = j.salaryMax ?? j.salaryMin;
       if (price != null && (price < _minSalary || price > _maxSalary)) {
         return false;

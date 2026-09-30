@@ -200,6 +200,18 @@ class EmployerProfileController extends Controller
                 [
                     'employer_type' => $validated['employer_type'],
                     'company_name' => $validated['company_name'] ?? null,
+                    /*
+                        The TIN, normalised.
+
+                        Stored here rather than waiting for the document
+                        upload, because the admin panel refuses to approve
+                        a business without checking this number on ORUS -
+                        and that check was being skipped for every company,
+                        since there was never a number on file to check.
+                    */
+                    'tin' => isset($validated['tin'])
+                        ? EmployerProfile::normaliseTin($validated['tin'])
+                        : null,
                     'industry' => $validated['industry'] ?? null,
                     'website' => $validated['website'] ?? null,
                     'description' => $validated['description'] ?? null,
@@ -248,6 +260,21 @@ class EmployerProfileController extends Controller
         }
 
         /*
+            Digits only, before the rules run.
+
+            Creating a profile goes through StoreEmployerProfileRequest, which
+            strips the punctuation in prepareForValidation. This endpoint
+            validates inline, so it has to do the same thing - otherwise the
+            number typed the way it is printed, 123-456-789-000, passes on the
+            way in and is refused on the way to correcting a typo.
+        */
+        if ($request->filled('tin')) {
+            $request->merge([
+                'tin' => preg_replace('/\D/', '', (string) $request->input('tin')),
+            ]);
+        }
+
+        /*
             Partial updates, because that is what this endpoint receives.
 
             The profile screen edits one row at a time - a description here, a
@@ -266,6 +293,9 @@ class EmployerProfileController extends Controller
         $validated = match ($profile->employer_type) {
             EmployerType::COMPANY => $request->validate([
                 'company_name' => ['sometimes', 'required', 'string', 'max:255'],
+                // Correctable: a mistyped TIN would otherwise be a
+                // profile nobody can ever get approved.
+                'tin' => ['sometimes', 'required', 'string', 'regex:/^\d{9}(\d{3})?$/'],
                 'industry' => ['sometimes', 'required', 'string', 'max:255'],
                 'location' => ['sometimes', 'required', 'string', 'max:255'],
                 'location_id' => ['nullable', 'exists:locations,id'],
@@ -312,7 +342,11 @@ class EmployerProfileController extends Controller
             );
         }
 
-        // Update profile
+        // Digits only, the same as creating one does.
+        if (isset($validated['tin'])) {
+            $validated['tin'] = EmployerProfile::normaliseTin($validated['tin']);
+        }
+
         $profile->update($validated);
 
         // Get verification status

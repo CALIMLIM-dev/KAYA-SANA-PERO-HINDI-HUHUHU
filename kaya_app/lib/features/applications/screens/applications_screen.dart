@@ -769,8 +769,17 @@ class _ApplicationCard extends StatelessWidget {
     final employerOpenJobs =
         (application['employer_open_jobs'] as num?)?.toInt() ?? 0;
 
-    final canConfirm =
-        isHired && !workDone && !iConfirmed && completionHasOpened(job);
+    /*
+        The deadline no longer decides whether this exists.
+
+        Completion takes both sides, so nobody can finish a job alone
+        whatever the date - and hiding the control meant a pair who had
+        finished the work early had no way to say so. It is here as soon
+        as they are hired; before the deadline it asks the other side
+        rather than declaring the job done.
+    */
+    final canConfirm = isHired && !workDone && !iConfirmed;
+    final early = !completionHasOpened(job);
 
     /*
         Dual review, from the worker's side.
@@ -907,7 +916,8 @@ class _ApplicationCard extends StatelessWidget {
               : null,
       onAction: canConfirm
           ? () => confirmCompletion(
-                context, application['id'] as int, 'employer', onChanged)
+                context, application['id'] as int, 'employer', onChanged,
+                early: early)
           : !canReview
               ? null
               /*
@@ -1000,8 +1010,9 @@ class _JobPostCard extends StatelessWidget {
     */
     final dueNote = completionWaitNote(job);
 
-    final canConfirm =
-        hire != null && !workDone && !iConfirmed && completionHasOpened(job);
+    // Same rule as the worker's card above.
+    final canConfirm = hire != null && !workDone && !iConfirmed;
+    final early = !completionHasOpened(job);
     final canReview = hire != null && workDone && hire['i_reviewed_them'] != true;
 
     final String? note = hire == null
@@ -1070,7 +1081,8 @@ class _JobPostCard extends StatelessWidget {
               : null,
       onAction: canConfirm
           ? () => confirmCompletion(
-                context, hire['application_id'] as int, 'worker', onChanged)
+                context, hire['application_id'] as int, 'worker', onChanged,
+                early: early)
           : !canReview
               ? null
               // Same fix as the worker's card above: awaited, and refreshed

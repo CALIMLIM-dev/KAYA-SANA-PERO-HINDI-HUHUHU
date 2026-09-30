@@ -423,6 +423,14 @@ class JobController extends Controller
             try {
                 app(\App\Services\BoostService::class)
                     ->purchase($user, \App\Models\Boost::TYPE_JOB, $job->id);
+            } catch (\App\Exceptions\AlreadyBoostedException) {
+                /*
+                    Already boosted, so the flag stands and nothing is charged.
+
+                    Reachable when the duplicate guard above returned an
+                    existing post: the boost was bought by the first attempt
+                    and the retry must not buy a second.
+                */
             } catch (\App\Exceptions\InsufficientCreditsException) {
                 // Posted, not boosted. The badge follows the boost, so the
                 // card simply will not claim it.
@@ -881,7 +889,34 @@ class JobController extends Controller
             return $this->fail($e->getMessage(), 422);
         }
 
-        return $this->ok($job->load(['category', 'skills']), 'Job updated');
+        /*
+            Turning urgent on here buys the placement, the same as posting does.
+
+            This endpoint validated is_urgent and stored it, and bought
+            nothing - so an employer who forgot to tick it on the form could
+            edit the post afterwards, get the badge, and be given a place in
+            the feed identical to every unboosted post. The flag was inert on
+            exactly the path where it looked most like a purchase.
+
+            Refusals leave the flag off rather than failing the edit: the rest
+            of the update has already been saved, and a whole edit lost over a
+            thin wallet is the worse outcome.
+        */
+        if (($data['is_urgent'] ?? false)) {
+            $boosts = app(\App\Services\BoostService::class);
+
+            if (! $boosts->isBoosted(\App\Models\Boost::TYPE_JOB, $job->id)) {
+                try {
+                    $boosts->purchase($user, \App\Models\Boost::TYPE_JOB, $job->id);
+                } catch (\App\Exceptions\AlreadyBoostedException) {
+                    // Bought between the check and here. Nothing owed.
+                } catch (\App\Exceptions\InsufficientCreditsException) {
+                    $job->forceFill(['is_urgent' => false])->save();
+                }
+            }
+        }
+
+        return $this->ok($job->fresh()->load(['category', 'skills']), 'Job updated');
     }
 
     public function changeStatus(Request $request, JobPost $job)
@@ -909,11 +944,18 @@ class JobController extends Controller
             fires exactly once.
         */
         if (! $wasCompleted && $request->status === 'completed') {
-            // Not before the work was due to finish. See JobPost::deadline.
-            if ($why = $job->completionRefusal()) {
-                return $this->fail($why, 422);
-            }
+            /*
+                The deadline does not refuse this, for the same reason it no
+                longer refuses the per-hire route.
 
+                This confirms as the employer and nothing more - the job
+                reaches 'completed' only once each worker has confirmed too -
+                so it could never finish a job on its own whatever the date.
+                Refusing it early only stopped an employer agreeing that work
+                genuinely finished early was finished, and it left the two
+                routes disagreeing: the worker's side allowed it and this one
+                did not.
+            */
             $service = app(\App\Services\JobCompletionService::class);
 
             $hires = Application::where('job_id', $job->id)

@@ -54,6 +54,9 @@ class EmployerProfileTest extends TestCase
                 'employer_type' => 'company',
                 'company_name' => 'Test Corp',
                 'industry' => 'Technology',
+                // A company is verified by its papers, so the TIN is part of
+                // what makes one.
+                'tin' => '123456789000',
                 'location' => 'Manila',
                 'website' => 'https://test.com',
                 'description' => 'Test company',
@@ -151,6 +154,7 @@ class EmployerProfileTest extends TestCase
                 'employer_type' => 'company',
                 'company_name' => 'Finished Corp',
                 'industry' => 'Technology',
+                'tin' => '123456789000',
                 'location' => 'Manila',
             ])
             ->assertSuccessful();

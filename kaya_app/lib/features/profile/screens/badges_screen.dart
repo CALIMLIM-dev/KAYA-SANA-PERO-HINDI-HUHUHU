@@ -293,7 +293,9 @@ class _BadgesScreenState extends State<BadgesScreen> {
                 borderRadius: BorderRadius.circular(20),
               ),
               child: Text(
-                rewardPaid ? '+$reward paid' : '+$reward',
+                // The colour already says whether it has been paid. The
+                // word turned a reward into a receipt.
+                '+$reward',
                 style: TextStyle(
                   fontSize: 11.5,
                   fontWeight: FontWeight.w600,

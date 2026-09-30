@@ -69,8 +69,20 @@ class DeadlineAndThreadTest extends TestCase
         return $application->fresh();
     }
 
+    /*
+        Before the deadline, one side alone cannot finish a job.
+
+        This used to assert a refusal: the call was rejected outright until the
+        deadline. That was the wrong shape of protection - it stopped a pair
+        who had genuinely finished early from saying so, while the thing it was
+        guarding against was already impossible, because completion takes both
+        sides.
+
+        So the call is accepted and records one half. What must not happen is
+        the job finishing on it, and that is what is asserted here.
+    */
     #[Test]
-    public function a_job_cannot_be_marked_complete_before_its_last_day(): void
+    public function one_side_alone_cannot_finish_a_job_before_its_last_day(): void
     {
         $employer = $this->employer();
         $worker = $this->worker();
@@ -79,17 +91,22 @@ class DeadlineAndThreadTest extends TestCase
 
         $this->actingAs($worker, 'sanctum')
             ->patchJson("/api/v1/applications/{$application->id}/complete")
-            ->assertStatus(422)
-            ->assertJsonPath('message', fn ($m) => str_contains($m, 'can be marked complete from that day'));
+            ->assertOk()
+            ->assertJsonPath('data.completion.complete', false);
 
-        $this->assertNull($application->fresh()->worker_completed_at);
+        $this->assertNotNull($application->fresh()->worker_completed_at);
+        $this->assertSame('accepted', $application->fresh()->status);
+        $this->assertSame('in_progress', $job->fresh()->status);
 
-        // The employer's whole-job route is closed the same way.
+        // And the employer's whole-job route is the same: it confirms as the
+        // employer, it does not finish the job.
         $this->actingAs($employer, 'sanctum')
             ->patchJson("/api/v1/jobs/{$job->id}/status", ['status' => 'completed'])
-            ->assertStatus(422);
+            ->assertOk();
 
-        $this->assertSame('in_progress', $job->fresh()->status);
+        // Both halves are in now, so this one does finish - by agreement,
+        // twelve days before the posted date, which is the point.
+        $this->assertSame('completed', $job->fresh()->status);
     }
 
     #[Test]
@@ -130,10 +147,11 @@ class DeadlineAndThreadTest extends TestCase
         $job = $this->job($employer, now()->addDay()->toDateString(), now()->addDays(5)->toDateString());
         $application = $this->hire($employer, $worker, $job);
 
-        // Posted deadline is four days out, so completion is refused.
-        $this->actingAs($worker, 'sanctum')
-            ->patchJson("/api/v1/applications/{$application->id}/complete")
-            ->assertStatus(422);
+        // The posted deadline is four days out.
+        $this->assertSame(
+            now()->addDays(5)->toDateString(),
+            $job->fresh()->deadline()->toDateString(),
+        );
 
         $thread = Conversation::where('job_id', $job->id)->firstOrFail();
 
@@ -192,9 +210,17 @@ class DeadlineAndThreadTest extends TestCase
             ->postJson("/api/v1/conversations/{$thread->id}/schedule/{$proposal}/respond", ['accept' => true])
             ->assertOk();
 
+        $this->assertSame(
+            now()->addDays(3)->toDateString(),
+            $job->fresh()->deadline()->toDateString(),
+            'the day the pair agreed is the day the work is due, later as well as earlier',
+        );
+
+        // And one side alone still cannot finish it.
         $this->actingAs($worker, 'sanctum')
             ->patchJson("/api/v1/applications/{$application->id}/complete")
-            ->assertStatus(422);
+            ->assertOk()
+            ->assertJsonPath('data.completion.complete', false);
     }
 
     /*
@@ -222,9 +248,11 @@ class DeadlineAndThreadTest extends TestCase
             ])
             ->assertCreated();
 
-        $this->actingAs($worker, 'sanctum')
-            ->patchJson("/api/v1/applications/{$application->id}/complete")
-            ->assertStatus(422);
+        $this->assertSame(
+            now()->addDays(5)->toDateString(),
+            $job->fresh()->deadline()->toDateString(),
+            'an offer nobody accepted moved the deadline',
+        );
     }
     #[Test]
     public function a_job_with_no_schedule_is_not_held_to_a_deadline(): void

@@ -51,25 +51,42 @@ class CloseUnconfirmedHires extends Command
         $closed = 0;
 
         /*
-            Measured from when the work started, not from the first
-            confirmation.
+            Measured from the deadline, not from the first day of work.
 
-            Timing it from a confirmation would mean a hire nobody ever
-            confirmed has no clock at all — the exact case that sits forever.
-            started_at is set when the hire begins; created_at is the fallback
-            for rows written before that column existed.
+            It used to run from started_at, which is stamped when the job goes
+            in progress - so a job with a month of work in it had its hire
+            marked unsuccessful on day seven, while the two of them were still
+            on site. The window was meant to catch silence after the work was
+            over and it was catching the work itself.
+
+            JobPost::deadline() is the day they are actually held to: the
+            deadline on an accepted schedule proposal, or the post's own last
+            day, and it is exactly what the app shows them. A post with no
+            dates at all has no deadline, and those fall back to the old
+            anchor so nothing sits forever.
+
+            The cutoff cannot be expressed in SQL because the deadline can
+            come from a proposal, so the query narrows it to hires that are
+            waiting on somebody and the window is applied per row.
         */
         Application::query()
             ->where('status', 'accepted')
             ->where(function ($q) {
                 $q->whereNull('employer_completed_at')->orWhereNull('worker_completed_at');
             })
-            ->where(function ($q) use ($cutoff) {
-                $q->where(fn ($q) => $q->whereNotNull('started_at')->where('started_at', '<=', $cutoff))
-                  ->orWhere(fn ($q) => $q->whereNull('started_at')->where('created_at', '<=', $cutoff));
-            })
-            ->chunkById(200, function ($applications) use ($dryRun, &$closed) {
+            ->with('job')
+            ->chunkById(200, function ($applications) use ($cutoff, $days, $dryRun, &$closed) {
                 foreach ($applications as $application) {
+                    $deadline = $application->job?->deadline();
+
+                    $due = $deadline
+                        ?? $application->started_at
+                        ?? $application->created_at;
+
+                    if ($due === null || $due->greaterThan($cutoff)) {
+                        continue;
+                    }
+
                     $waiting = $application->employer_completed_at === null
                         ? ($application->worker_completed_at === null ? 'neither side' : 'the employer')
                         : 'the worker';
@@ -81,6 +98,21 @@ class CloseUnconfirmedHires extends Command
                         DB::transaction(function () use ($application) {
                             $application->status = 'unsuccessful';
                             $application->save();
+
+                            /*
+                                And the job, and the thread.
+
+                                Closing the hire and stopping there is why a
+                                job never died: settleJob only runs inside a
+                                completion, so a post whose every hire had
+                                been closed as unsuccessful stayed in progress
+                                for good - on the employer's list, with Mark
+                                Complete still on the card, and the pair's
+                                thread still open. The hire was settled and
+                                nothing above it was told.
+                            */
+                            app(\App\Services\JobCompletionService::class)
+                                ->closeIfNothingLive($application->job);
                         });
                     }
 

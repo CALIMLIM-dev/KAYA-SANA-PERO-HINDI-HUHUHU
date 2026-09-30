@@ -149,7 +149,9 @@ class CompactJobCard extends StatelessWidget {
                   // a rendering fault rather than a badge. A pill, matching the
                   // match-percentage chip on the row below, says the same thing
                   // in one line and sits in the space that is actually there.
-                  if (job.isUrgent) ...[
+                  // isBoosted, not isUrgent: the badge has to expire with
+                  // the placement it advertises. See job_list_card.
+                  if (job.isBoosted) ...[
                     const SizedBox(width: 6),
                     Container(
                       padding: const EdgeInsets.symmetric(

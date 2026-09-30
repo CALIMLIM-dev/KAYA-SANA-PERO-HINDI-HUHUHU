@@ -132,6 +132,25 @@ class CreditsProvider with ChangeNotifier {
   int? get boostCost => _costs['boost'];
   int? get boostDays => _costs['boost_days'];
 
+  /// Days a post is listed for before it costs anything. Editable from the
+  /// admin panel, so it is read rather than compiled in.
+  int? get freePostDays => _costs['post_free_days'];
+
+  /*
+      Pulls the balance back from the server after something spent from it.
+
+      Separate from adopt() on purpose: adopt takes a number a response
+      already carried, and this is for the paths whose response carries none.
+      Both exist because load() will not do it - it returns early once it has
+      run, so every call after the first was a no-op and the balance on screen
+      went stale until something happened to force a refresh.
+
+      That something was the wallet screen, which is why the only way to see a
+      true balance was to walk to the wallet and come back. A spend now pulls
+      it here instead, wherever the spend happened.
+  */
+  Future<void> afterSpending() => refresh();
+
   /// Fills the price table for a test, which has no server to fetch from.
   @visibleForTesting
   void seedCosts(Map<String, int> costs) {

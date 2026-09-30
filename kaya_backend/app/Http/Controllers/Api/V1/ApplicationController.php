@@ -354,6 +354,17 @@ class ApplicationController extends Controller
 
         $application->update(['status' => 'withdrawn']);
 
+        /*
+            And the thread, if this was the last thing they had together.
+
+            Withdrawing ends the working relationship as surely as
+            finishing does, and only finishing used to close the thread -
+            so a worker could take a job, open a channel, withdraw, and
+            keep talking to that employer for good.
+        */
+        app(\App\Services\ConversationArchivist::class)
+            ->settlePair((int) $application->job->employer_id, (int) $application->worker_id);
+
         // Kept in step with the increment in apply(); without this the counter
         // only ever grows and permanently overstates interest in the job.
         JobPost::where('id', $application->job_id)
@@ -564,10 +575,38 @@ class ApplicationController extends Controller
             return $this->fail('Only an accepted hire can be marked complete', 422);
         }
 
-        // Not before the work was due to finish. See JobPost::deadline.
-        if ($application->job && $why = $application->job->completionRefusal()) {
-            return $this->fail($why, 422);
+        /*
+            Not on a post that has already been closed or has expired.
+
+            A job settled without both confirmations is closed rather than
+            completed - nobody claimed the work happened - and reopening that
+            by confirming afterwards would produce a completion, a review and
+            a badge for a job the platform has already written off. The pair
+            can be rehired, which starts a new application.
+        */
+        if (in_array($application->job?->status, ['closed', 'expired'], true)) {
+            return $this->fail('This job was closed, so it can no longer be marked complete.', 422);
         }
+
+        /*
+            The deadline no longer refuses this, and it never needed to.
+
+            Completion takes both sides: confirm() stamps one and the job
+            finishes only when both stamps are in. So a completion before the
+            deadline already required the other person to agree - and the
+            refusal here stopped them agreeing. A pair who finished on Tuesday
+            with a Friday deadline sat looking at a button that was not there,
+            with nothing to do but propose a new schedule to move a date that
+            was never the point.
+
+            What the deadline gates now is the *lone* confirmation, which is
+            the thing it was really protecting against: an employer leaning on
+            somebody to confirm, or a worker collecting a review early. Before
+            the deadline a single confirmation is a request and waits. After
+            the deadline plus the grace window, kaya:settle-overdue-jobs takes
+            it as agreed. Neither side can finish a job alone on the day they
+            were hired, which was the whole intent.
+        */
 
         $application = $service->confirm($application, $side);
         $recorded = $service->lastConfirmationWasNew;
@@ -721,6 +760,10 @@ class ApplicationController extends Controller
         if ($application->status !== 'pending') return $this->fail('Application status must be pending to reject', 422);
 
         $application->update(['status' => 'rejected']);
+
+        // Same rule as withdrawing, from the other side.
+        app(\App\Services\ConversationArchivist::class)
+            ->settlePair((int) $application->job->employer_id, (int) $application->worker_id);
 
         ApplicationRejected::dispatch($application->load(['job', 'worker']));
 

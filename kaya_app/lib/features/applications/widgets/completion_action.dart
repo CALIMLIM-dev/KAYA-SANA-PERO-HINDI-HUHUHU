@@ -20,14 +20,30 @@ Future<void> confirmCompletion(
   BuildContext context,
   int applicationId,
   String otherParty,
-  Future<void> Function() onChanged,
-) async {
+  Future<void> Function() onChanged, {
+  /*
+      Whether the deadline has arrived.
+
+      The control used to be absent until it had. Completion takes both
+      sides, so it was never possible to finish a job alone on the day
+      you were hired - and hiding the button meant a pair who finished
+      early could not agree that they had. Now it is there, and this is
+      what decides whether it reads as finishing the job or as asking
+      the other person whether it is finished.
+  */
+  bool early = false,
+}) async {
   final confirmed = await showDialog<bool>(
     context: context,
     builder: (dialogContext) => AlertDialog(
-      title: const Text('Mark this job complete?'),
+      title: Text(early
+          ? 'Finished early?'
+          : 'Mark this job complete?'),
       content: Text(
-        'The $otherParty has to confirm as well.',
+        early
+            ? 'The $otherParty will be asked to confirm. The job finishes '
+                'once they do.'
+            : 'The $otherParty has to confirm as well.',
       ),
       actions: [
         TextButton(
@@ -36,7 +52,7 @@ Future<void> confirmCompletion(
         ),
         ElevatedButton(
           onPressed: () => Navigator.pop(dialogContext, true),
-          child: const Text('Mark Complete'),
+          child: Text(early ? 'Yes, It Is Done' : 'Mark Complete'),
         ),
       ],
     ),
@@ -168,6 +184,6 @@ String? completionWaitNote(Map<String, dynamic>? job) {
   final due = '${months[deadline.month - 1]} ${deadline.day}';
 
   return agreedInChat
-      ? 'Agreed for $due in the chat. Mark complete opens that day.'
-      : 'Due $due. Finished early? Agree the day in the chat and it opens then.';
+      ? 'Due $due, agreed in the chat.'
+      : 'Due $due.';
 }

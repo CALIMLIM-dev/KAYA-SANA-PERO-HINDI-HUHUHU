@@ -142,7 +142,10 @@ void main() {
       // further down are reached by scrolling, which is the point.
       expect(find.text('Verified'), findsWidgets,
           reason: 'the catalogue never rendered, so nothing was checked');
-      expect(find.textContaining('+10 paid'), findsWidgets,
+      // '+10', not '+10 paid'. The word came off the pill - the colour
+      // already says whether it has been paid, and the wording turned a
+      // reward into a receipt.
+      expect(find.textContaining('+10'), findsWidgets,
           reason: 'the reward pill is the part this test exists for');
 
       for (var i = 0; i < 4; i++) {

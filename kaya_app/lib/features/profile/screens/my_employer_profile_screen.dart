@@ -615,8 +615,75 @@ class _MyEmployerProfileScreenState extends State<MyEmployerProfileScreen>
   /// This used a local field fixed at 'unverified', so an employer who had
   /// been approved still saw "Not Verified" forever. The worker profile
   /// already read the provider — see `my_worker_profile_screen`.
+  /*
+      The TIN, shown masked with whether an administrator has checked it.
+
+      Read only here. It is collected in setup and correctable from the
+      business details; a number that identifies the business is not something
+      to leave editable on a row beside its own verification state.
+  */
+  Widget _tinRow() {
+    final profile = context.watch<EmployerProfileProvider>().profile;
+    final tin = profile?.tinMasked;
+    final checked = profile?.tinVerified ?? false;
+
+    if (tin == null || tin.isEmpty) return const SizedBox.shrink();
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppColors.neutral200),
+      ),
+      child: Row(
+        children: [
+          Icon(
+            checked ? Icons.verified : Icons.badge_outlined,
+            size: 20,
+            color: checked ? AppColors.success : AppColors.neutral500,
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Business TIN',
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.neutral900,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  checked ? '$tin, checked' : tin,
+                  style: const TextStyle(
+                    fontSize: 13,
+                    color: AppColors.neutral600,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
   Widget _buildVerificationBadge() {
-    final status = context.watch<VerificationProvider>().statusFor('government_id');
+    /*
+        Whichever document this kind of employer is actually judged on.
+
+        This read the government ID for everybody, so a company that had
+        its registration approved still showed Not Verified - and one
+        that uploaded a personal ID showed Verified with no papers on
+        file at all. The badge has to name the thing that was checked.
+    */
+    final status = context.watch<VerificationProvider>().statusFor(
+          _role == 'Company' ? 'business_reg' : 'government_id',
+        );
 
     if (status == 'verified') {
       return _badge(Icons.verified, 'Verified', AppColors.success);
@@ -854,27 +921,41 @@ class _MyEmployerProfileScreenState extends State<MyEmployerProfileScreen>
             ),
           )
         else ...[
-          VerificationCard(
-            // Not "Government ID": the picker on the next screen offers a
-            // National ID, a license, a passport, a UMID, a PRC card, a
-            // Barangay ID and an Other box, so naming one of them told people
-            // we wanted that one and nothing else.
-            title: 'Valid ID',
-            subtitle: 'Any accepted ID, with a selfie',
-            icon: Icons.badge,
-            type: 'government_id',
-            status: vp.statusFor('government_id'),
-          ),
+          /*
+              A company is verified by its papers. An individual is
+              verified by their ID.
 
-          // A registered business is held to its papers. An individual
-          // householder was never asked for any.
-          if (_role == 'Company')
+              A company used to be asked for both, and the personal ID
+              came first - so opening a business profile showed a Valid
+              ID card above the registration, and tapping it opened a
+              screen headed Government ID Verification. A company is not
+              a person: what is being vouched for is the business, and
+              whoever is holding the phone is staff who may be gone next
+              month. Their face proves nothing about the company.
+
+              So the ID card is not shown to a company at all, and the
+              server agrees - see EmployerVerificationService.
+          */
+          if (_role == 'Company') ...[
             VerificationCard(
               title: 'Business Registration',
               subtitle: 'DTI, SEC, or Mayor permit',
               icon: Icons.business_center,
               type: 'business_reg',
               status: vp.statusFor('business_reg'),
+            ),
+            _tinRow(),
+          ] else
+            VerificationCard(
+              // Not "Government ID": the picker on the next screen offers
+              // a National ID, a license, a passport, a UMID, a PRC card,
+              // a Barangay ID and an Other box, so naming one of them told
+              // people we wanted that one and nothing else.
+              title: 'Valid ID',
+              subtitle: 'Any accepted ID, with a selfie',
+              icon: Icons.badge,
+              type: 'government_id',
+              status: vp.statusFor('government_id'),
             ),
 
           /*

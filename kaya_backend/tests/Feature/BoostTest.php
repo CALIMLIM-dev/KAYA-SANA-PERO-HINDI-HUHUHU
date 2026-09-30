@@ -142,36 +142,118 @@ class BoostTest extends TestCase
     }
 
     /*
-        A second purchase extends, it does not stack.
+        A second purchase is refused, not extended.
 
-        Two overlapping windows would be charged twice and delivered once,
-        because a post cannot be more than top of the feed. Adding the days to
-        the end is what the buyer thinks they are paying for.
+        This asserted the opposite, and the reasoning was sound as far as it
+        went: two overlapping windows would be charged twice and delivered
+        once, because a post cannot be more than top of the feed, so the days
+        were added to the end instead.
+
+        What that missed is that nobody asked. Posting a job as urgent buys a
+        boost and the Boost control on the job afterwards bought another, so an
+        employer paid twice for one thing and was given days they never chose.
+        Extending made the ledger defensible and the purchase no less of a
+        surprise. Refusing is the only version a receipt can explain.
     */
-    public function test_boosting_twice_extends_the_window_rather_than_overlapping(): void
+    public function test_boosting_twice_is_refused_rather_than_charged_again(): void
     {
         $job = $this->job('A job');
-        $days = (int) config('kaya.credits.boost_days');
 
         $this->actingAs($this->employer, 'sanctum')
             ->postJson("/api/v1/jobs/{$job->id}/boost")->assertOk();
+
+        $before = app(\App\Services\CreditLedger::class)->balance($this->employer->fresh());
+
         $this->actingAs($this->employer, 'sanctum')
-            ->postJson("/api/v1/jobs/{$job->id}/boost")->assertOk();
+            ->postJson("/api/v1/jobs/{$job->id}/boost")
+            ->assertStatus(422)
+            ->assertJsonPath('success', false);
 
-        $boosts = Boost::query()->for(Boost::TYPE_JOB, $job->id)->orderBy('starts_at')->get();
-
-        $this->assertCount(2, $boosts);
-        $this->assertTrue(
-            $boosts[1]->starts_at->equalTo($boosts[0]->ends_at),
-            'The second window has to begin where the first ends.'
+        $this->assertCount(
+            1,
+            Boost::query()->for(Boost::TYPE_JOB, $job->id)->get(),
+            'A refused purchase must not leave a second window behind.'
         );
-        $this->assertEqualsWithDelta(
-            $days * 2,
-            $boosts[0]->starts_at->diffInDays($boosts[1]->ends_at),
-            0.01
+
+        $this->assertSame(
+            $before,
+            app(\App\Services\CreditLedger::class)->balance($this->employer->fresh()),
+            'The refused purchase still took the money.'
         );
     }
 
+    /*
+        The two doors to one boost.
+
+        Posting as urgent buys placement, and the Boost control on the job
+        buys placement. They are the same product, and the second door charged
+        with nothing checking the first - which is how one post cost two
+        boosts.
+
+        The urgent half is exercised through the service rather than through
+        POST /jobs, because creating a job over HTTP requires a photo upload
+        and faking an image needs the GD extension - the reason three tests in
+        this suite already skip themselves. What is under test is the guard,
+        and the guard does not care which door knocked.
+    */
+    public function test_placement_already_bought_cannot_be_bought_again(): void
+    {
+        $job = $this->job('Urgent work');
+        $boosts = app(\App\Services\BoostService::class);
+        $ledger = app(\App\Services\CreditLedger::class);
+
+        // Door one: what posting with is_urgent does.
+        $boosts->purchase($this->employer, Boost::TYPE_JOB, $job->id);
+
+        $this->assertTrue($boosts->isBoosted(Boost::TYPE_JOB, $job->id));
+
+        $after = $ledger->balance($this->employer->fresh());
+
+        // Door two: the Boost control on the job afterwards.
+        $this->actingAs($this->employer, 'sanctum')
+            ->postJson("/api/v1/jobs/{$job->id}/boost")
+            ->assertStatus(422);
+
+        $this->assertSame(
+            $after,
+            $ledger->balance($this->employer->fresh()),
+            'The same post was charged for placement twice.'
+        );
+
+        $this->assertCount(1, Boost::query()->for(Boost::TYPE_JOB, $job->id)->get());
+    }
+
+    /*
+        And a worker profile is the same rule.
+
+        The other Boost control, which had no guard either.
+    */
+    public function test_a_boosted_profile_cannot_be_boosted_again(): void
+    {
+        $worker = User::factory()->create();
+        \App\Models\WorkerProfile::create([
+            'user_id'     => $worker->id,
+            'location'    => 'Urdaneta City',
+            'category_id' => $this->category->id,
+        ]);
+        \App\Models\WorkerSkill::create([
+            'user_id'     => $worker->id,
+            'skill_name'  => 'Repairs',
+            'category_id' => $this->category->id,
+        ]);
+        CreditWallet::updateOrCreate(['user_id' => $worker->id], ['balance' => 100]);
+
+        $this->actingAs($worker, 'sanctum')
+            ->postJson('/api/v1/worker-profile/boost')->assertOk();
+
+        $ledger = app(\App\Services\CreditLedger::class);
+        $after = $ledger->balance($worker->fresh());
+
+        $this->actingAs($worker, 'sanctum')
+            ->postJson('/api/v1/worker-profile/boost')->assertStatus(422);
+
+        $this->assertSame($after, $ledger->balance($worker->fresh()));
+    }
     public function test_only_the_owner_can_boost_a_job(): void
     {
         $job = $this->job('A job');

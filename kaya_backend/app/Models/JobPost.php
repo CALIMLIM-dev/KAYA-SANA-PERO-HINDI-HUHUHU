@@ -119,9 +119,18 @@ class JobPost extends Model
         $row = ScheduleProposal::where('job_id', $this->id)
             ->where('status', 'accepted')
             ->latest('id')
-            ->first(['scheduled_date']);
+            ->first(['scheduled_date', 'deadline']);
 
-        $this->agreedDate = $row?->scheduled_date;
+        /*
+            The deadline when the pair set one, the work date when they
+            did not.
+
+            Proposals accepted before the deadline column existed have
+            only a scheduled_date, and for those the old meaning still
+            applies - otherwise every job already running would lose
+            its deadline the moment this deployed.
+        */
+        $this->agreedDate = $row?->deadline ?? $row?->scheduled_date;
 
         return $this->agreedDate;
     }
@@ -134,32 +143,22 @@ class JobPost extends Model
     }
 
     /*
-        Whether the job may be marked complete yet.
+        deadlineHasArrived() and completionRefusal() were here.
 
-        Completion is not available until the deadline day arrives, so that
-        'done' means the work was actually due to be done. The day it arrives
-        counts - a one-day job booked for today is completable today, not at
-        midnight tonight, because the work finishes during the day and the two
-        of them should not have to wait until tomorrow to say so.
+        They existed to refuse a completion before the deadline, on all three
+        routes that record one. That refusal is gone: every one of those routes
+        confirms a single side and the job finishes only when both are in, so
+        none of them could ever complete a job alone - and refusing them early
+        stopped a pair who had genuinely finished the work from agreeing that
+        they had.
+
+        What the deadline governs now is the clock in
+        kaya:close-unconfirmed-hires, which is the thing that was really
+        needed: a lone confirmation waits, and a week after the deadline the
+        hire is closed as unsuccessful rather than completed. deadline()
+        itself is unchanged and is still the one answer to when the work is
+        due.
     */
-    public function deadlineHasArrived(): bool
-    {
-        $deadline = $this->deadline();
-
-        return $deadline === null || ! $deadline->isFuture();
-    }
-
-    /** Why completion is refused, or null when it is allowed. */
-    public function completionRefusal(): ?string
-    {
-        if ($this->deadlineHasArrived()) {
-            return null;
-        }
-
-        return 'This job runs until ' . $this->deadline()->format('j M Y')
-            . '. It can be marked complete from that day - or agree an'
-            . ' earlier day in the chat if the work is already done.';
-    }
 
     /** The exact place. Released to a party to the work, nobody else. */
     public const PRECISE_LOCATION = ['address_line', 'latitude', 'longitude'];

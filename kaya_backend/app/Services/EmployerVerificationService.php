@@ -9,17 +9,23 @@ use App\Models\Verification;
 
 class EmployerVerificationService
 {
-    /**
-     * Get employer verification status
-     * 
-     * Verification Hierarchy:
-     * - Account-level: Government ID (shared by worker + individual employer)
-     * - Profile-level: Business Registration (company employers only)
-     * 
-     * @param User $user
-     * @param EmployerProfile|null $profile
-     * @return array
-     */
+    /*
+        What each kind of employer has to prove.
+
+        An individual is a person, so they prove who they are: a
+        government ID, the same one the worker side asks for.
+
+        A company is not a person. What is being vouched for is the
+        business - its registration and its TIN - and the ID of
+        whoever happens to be holding the phone proves nothing about
+        it. That person is staff; they may leave next month, and the
+        business is still the business. So a company is verified by
+        its papers and is not asked for anybody's ID.
+
+        This used to require both of a company, which is why a company
+        profile showed a Valid ID card and a screen headed Government
+        ID Verification.
+    */
     public function getEmployerVerification(User $user, ?EmployerProfile $profile): array
     {
         // Fetch all relevant verifications in a SINGLE query
@@ -51,8 +57,17 @@ class EmployerVerificationService
             }
         }
 
-        // Determine overall verification status
-        $fullyVerified = $identityVerified && (!$requiresBusinessVerification || $businessVerified);
+        /*
+            A company's papers are the whole of it.
+
+            The identity fields are still reported, because the admin
+            panel shows what was submitted either way and an older
+            company account may have an approved ID on file - it just
+            no longer decides anything.
+        */
+        $fullyVerified = $requiresBusinessVerification
+            ? $businessVerified
+            : $identityVerified;
 
         return [
             'identity_verified' => $identityVerified,

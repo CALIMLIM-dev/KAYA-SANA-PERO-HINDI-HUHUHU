@@ -13,15 +13,26 @@ import 'package:kaya_app/providers/job_provider.dart';
 import 'support/render_harness.dart';
 
 /*
-    Mark as complete does not exist before the job's deadline.
+    Before the deadline, finishing a job takes the other side's agreement.
 
-    The button was available from the moment somebody was hired, so a job
-    booked for next month could be declared finished on the afternoon it was
-    posted. It now appears on the job's last day and not before, and the card
-    says when that is instead of leaving a gap.
+    This file used to assert that the control did not exist until the
+    deadline, and the reason was sound: the button was there from the moment
+    somebody was hired, so a job booked for next month could be declared
+    finished on the afternoon it was posted.
 
-    The server refuses the same call, so this is the screen agreeing with it
-    rather than the only thing holding the rule.
+    Hiding it was the wrong cure. Completion already takes both sides -
+    JobCompletionService stamps one and the job finishes only when both stamps
+    are in - so nobody could ever finish a job alone, whatever the date. What
+    hiding the control actually prevented was a pair who had finished the work
+    early agreeing that they had. A fortnight's job done in three days left
+    both of them looking at a button that was not there, with nothing to do
+    but propose a new schedule to move a date that was never the point.
+
+    So the control is there as soon as somebody is hired, and the deadline
+    decides what it says: before it, it asks the other side; on and after it,
+    it reads as it always did. A lone confirmation before the deadline waits
+    for agreement, and kaya:settle-overdue-jobs is what eventually takes
+    silence for it - a week after the deadline, not on the day of hire.
 */
 void main() {
   String day(int offset) => DateTime.now()
@@ -80,17 +91,19 @@ void main() {
     await tester.pump(const Duration(milliseconds: 300));
   }
 
-  testWidgets('a hire whose deadline is still ahead offers no completion',
+  testWidgets('a hire whose deadline is still ahead can still be finished',
       (tester) async {
+    /*
+        The reversal. The work might be done; the button is how they say so,
+        and the other side still has to agree before anything completes.
+    */
     await render(tester, screen(hire(start: day(3), end: day(9))));
 
-    expect(find.text('Mark as Complete'), findsNothing,
-        reason: 'the work is not due to be finished for another nine days');
-    // Not just when, but the way out: somebody finished early needs to
-    // know agreeing today in the chat moves the day, which it does.
-    expect(find.textContaining('Finished early?'), findsWidgets,
-        reason: 'the card has to say when it appears and how to bring it forward');
-    expect(find.textContaining('Agree the day in the chat'), findsWidgets);
+    expect(find.text('Mark as Complete'), findsWidgets,
+        reason: 'a pair who finished early had no way to say so');
+
+    // And the card still says when it is due, so nobody has to guess.
+    expect(find.textContaining('Due'), findsWidgets);
   });
 
   testWidgets('the deadline day itself offers completion', (tester) async {
@@ -98,7 +111,6 @@ void main() {
 
     expect(find.text('Mark as Complete'), findsWidgets,
         reason: 'a one day job finishes during the day, not at midnight');
-    expect(find.textContaining('Finished early?'), findsNothing);
   });
 
   testWidgets('a job posted before schedules existed is not held to a deadline',
@@ -124,7 +136,9 @@ void main() {
     final soon = today.add(const Duration(days: 4));
 
     expect(at(start: today, end: soon).completionHasOpened, isFalse);
-    expect(at(start: today, end: soon).deadlineNote, contains('opens that day'));
+    // The note says the date. It used to also tell people to go and move
+    // it in the chat, which is no longer what anybody has to do.
+    expect(at(start: today, end: soon).deadlineNote, contains('Due'));
 
     // One day, today. The last day counts.
     expect(at(start: today).completionHasOpened, isTrue);

@@ -125,6 +125,48 @@ class JobCompletionService
         return $application;
     }
 
+    /*
+        Closes a job that has nothing live left on it.
+
+        The other half of settleJob, and the half that was missing. settleJob
+        only ever runs inside a completion, so a job whose hires all ended some
+        other way - closed as unsuccessful by the timeout, withdrawn, rejected
+        - stayed in progress for good. It sat on the employer's list with Mark
+        Complete on the card and the pair's thread still open, because nothing
+        above the hire was ever told the hire had ended.
+
+        Deliberately not a completion. Nobody confirmed the work, so 'closed'
+        is the honest status: no review, no badge, no entry in anybody's
+        finished count beyond the unsuccessful hire itself.
+    */
+    public function closeIfNothingLive(?JobPost $job): void
+    {
+        if (! $job || in_array($job->status, ['completed', 'closed', 'expired'], true)) {
+            return;
+        }
+
+        $live = Application::where('job_id', $job->id)
+            ->where('status', 'accepted')
+            ->exists();
+
+        if ($live) {
+            return;
+        }
+
+        /*
+            An open post with no hires is not abandoned, it is advertising.
+            Only a job somebody was actually working on closes here; an open
+            one that nobody took is the expiry sweep's business.
+        */
+        if ($job->status === 'open') {
+            return;
+        }
+
+        $job->forceFill(['status' => 'closed'])->save();
+
+        app(ConversationArchivist::class)->settleJob($job);
+    }
+
     /**
      * A job is finished when every hire on it is.
      *
@@ -150,18 +192,13 @@ class JobCompletionService
         /*
             And the thread goes quiet.
 
-            The pair introduced by this job can no longer keep talking in it,
-            which is what stopped the next job being arranged outside KAYA.
-            Hidden from both inboxes, not deleted, and back the moment either
-            of them hires the other again - see the migration.
-
-            Every thread on the job, because a job can have several hires and
-            each has its own.
+            Through ConversationArchivist rather than a query here, because
+            this was the only ending that archived anything and there are
+            seven. It also asks the better question: not "did this job end"
+            but "do these two still have work together" - a pair on two
+            concurrent jobs keeps its thread until the second one finishes.
         */
-        \App\Models\Conversation::where('job_id', $job->id)
-            ->whereNull('archived_at')
-            ->get()
-            ->each->archive();
+        app(ConversationArchivist::class)->settleJob($job);
 
         // After the write, but still inside the caller's transaction — the
         // listener queue is what actually defers this, and a notification that

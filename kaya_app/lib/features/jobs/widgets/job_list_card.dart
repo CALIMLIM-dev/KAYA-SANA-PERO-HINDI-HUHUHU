@@ -135,13 +135,23 @@ class JobListCard extends StatelessWidget {
 
               // Urgent and match, as pills, only when there is something to
               // say. An empty row would leave a gap under every plain job.
-              if (job.isUrgent || job.matchScore != null) ...[
+              /*
+                  isBoosted, not isUrgent.
+
+                  The feed orders on is_boosted, a live window on the
+                  boosts table that closes after three days. is_urgent is
+                  a column that records what was bought and is never
+                  cleared, so reading it here meant a post sat in its
+                  ordinary place from day four and went on claiming to be
+                  urgent for ever.
+              */
+              if (job.isBoosted || job.matchScore != null) ...[
                 const SizedBox(height: 8),
                 Wrap(
                   spacing: 6,
                   runSpacing: 4,
                   children: [
-                    if (job.isUrgent)
+                    if (job.isBoosted)
                       _pill('URGENT', const Color(0xFF8A6D00),
                           AppColors.accent.withValues(alpha: 0.16)),
                     if (job.matchScore != null)

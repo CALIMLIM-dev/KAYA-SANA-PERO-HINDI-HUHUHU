@@ -47,7 +47,7 @@ class SecondProfileFlow {
     final agreed = await _confirm(
       context,
       title: 'Add a Worker Profile',
-      detail: 'You only need to say what kind of work you do.',
+      detail: 'Add your trade and skills to finish.',
     );
 
     if (agreed != true || !context.mounted) return false;
@@ -110,7 +110,7 @@ class SecondProfileFlow {
     final agreed = await _confirm(
       context,
       title: 'Add an Employer Profile',
-      detail: 'You hire as an individual, not as a registered business.',
+      detail: '',
     );
 
     if (agreed != true || !context.mounted) return false;
@@ -156,17 +156,6 @@ class SecondProfileFlow {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
-              'This account will be able to hire and to be hired. You keep one '
-              'profile for each, and you switch between them from the home '
-              'screen.',
-              style: TextStyle(
-                fontSize: 14,
-                height: 1.5,
-                color: AppColors.neutral700,
-              ),
-            ),
-            const SizedBox(height: 12),
             /*
                 The reason this is one tap instead of several pages.
 
@@ -175,7 +164,8 @@ class SecondProfileFlow {
                 bug.
             */
             Text(
-              'Your name, photo, location and verification carry over. $detail',
+              'Your name, photo, location and verification carry over.'
+              '${detail.isEmpty ? '' : ' '}$detail',
               style: const TextStyle(
                 fontSize: 14,
                 height: 1.5,
