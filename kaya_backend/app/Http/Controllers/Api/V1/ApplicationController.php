@@ -543,7 +543,6 @@ class ApplicationController extends Controller
                     // and, until now, no screen ever showed it to anybody.
                     // The download endpoint holds the access rule; this only
                     // says whether the button has anything to open.
-                    'has_resume'            => $profile?->hasResume() ?? false,
                     'skills'                => $profile?->skills->pluck('skill_name')->values() ?? [],
                 ];
             });

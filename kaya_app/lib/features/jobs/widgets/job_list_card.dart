@@ -202,10 +202,11 @@ class JobListCard extends StatelessWidget {
                         overflow: TextOverflow.ellipsis,
                       ),
                     ),
-                    if (job.distance != null) ...[
+                    if (distanceText(job.distanceLabel, job.distance)
+                        != null) ...[
                       const SizedBox(width: 8),
                       Text(
-                        formatDistance(job.distance!),
+                        distanceText(job.distanceLabel, job.distance)!,
                         style: const TextStyle(
                           fontSize: 12.5,
                           fontWeight: FontWeight.w600,

@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 import 'package:provider/provider.dart';
 
 import '../../../core/constants/app_colors.dart';
@@ -307,15 +306,6 @@ class SecondProfilePreparingScreen extends StatelessWidget {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              SvgPicture.asset(
-                'assets/images/logo.svg',
-                width: 88,
-                height: 88,
-                // A mark that fails to parse must not take the screen with it:
-                // this is the screen that exists so nothing looks broken.
-                placeholderBuilder: (_) => const SizedBox(width: 88, height: 88),
-              ),
-              const SizedBox(height: 32),
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 24),
                 child: Text(

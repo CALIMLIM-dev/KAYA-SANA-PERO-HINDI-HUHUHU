@@ -18,6 +18,10 @@ class WorkerCard extends StatelessWidget {
   final int? matchScore;
   final double? distanceKm;
 
+  /// The distance in words when the server sent a band rather than a
+  /// measurement. See distanceText in core/utils/format.dart.
+  final String? distanceLabel;
+
   /// The servers phrasing, e.g. "P500-P800/day - Open to offers".
   final String? rateLabel;
 
@@ -39,6 +43,7 @@ class WorkerCard extends StatelessWidget {
     this.skills = const [],
     this.matchScore,
     this.distanceKm,
+    this.distanceLabel,
     this.rateLabel,
     this.imageUrl,
     this.onTap,
@@ -163,9 +168,11 @@ class WorkerCard extends StatelessWidget {
                           const SizedBox(width: 2),
                           Expanded(
                             child: Text(
-                              distanceKm != null
-                                  ? '$location · ${formatDistance(distanceKm!)}'
-                                  : location,
+                              distanceText(distanceLabel, distanceKm)
+                                          == null
+                                  ? location
+                                  : '$location · '
+                                      '${distanceText(distanceLabel, distanceKm)}',
                               style: const TextStyle(
                                 fontSize: 12,
                                 color: AppColors.neutral400,

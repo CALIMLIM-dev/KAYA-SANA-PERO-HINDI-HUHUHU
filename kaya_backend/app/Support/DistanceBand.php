@@ -30,17 +30,26 @@ final class DistanceBand
         return 100;
     }
 
-    /** The band in words, so the app does not have to invent the phrasing. */
+    /*
+        The band in words, so the app does not have to invent the
+        phrasing - and it did invent it, badly: given the band's number
+        alone it drew "5.0 km away" for anything under five.
+
+        Short on purpose. These sit beside an address on a card two
+        hundred pixels wide, where every character taken here is one
+        the address loses, so the word "away" is left to the screens
+        that have room to put it around this.
+    */
     public static function label(?float $km): ?string
     {
         if ($km === null) return null;
 
-        if ($km < 1)  return 'Under 1 km away';
-        if ($km < 5)  return 'Under 5 km away';
-        if ($km < 15) return '5–15 km away';
-        if ($km < 30) return '15–30 km away';
-        if ($km < 50) return '30–50 km away';
+        if ($km < 1)  return 'Under 1 km';
+        if ($km < 5)  return 'Under 5 km';
+        if ($km < 15) return '5-15 km';
+        if ($km < 30) return '15-30 km';
+        if ($km < 50) return '30-50 km';
 
-        return 'Over 50 km away';
+        return 'Over 50 km';
     }
 }

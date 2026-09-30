@@ -255,7 +255,9 @@ class _JobDetailsScreenState extends State<JobDetailsScreen>
                         // Merged into the place it describes. On its own it
                         // read as a stray measurement of nothing in
                         // particular.
-                        if (job.distance != null) formatDistance(job.distance!),
+                        if (distanceText(job.distanceLabel, job.distance)
+                            != null)
+                          distanceText(job.distanceLabel, job.distance)!,
                       ].join('  ·  '),
                     ),
                     // "Duration", not "Schedule" - that word is the day two

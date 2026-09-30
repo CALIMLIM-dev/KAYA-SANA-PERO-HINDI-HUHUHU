@@ -78,6 +78,18 @@ class _KayaTaskHandler extends TaskHandler {
   */
   bool _tokenRejected = false;
 
+  /*
+      Whether a tick is still working.
+
+      The timer fires every five seconds whether or not the last one
+      finished. Two overlapping ticks read the same high-water mark,
+      fetch the same notifications and post them both - so one message
+      arrived several times over, which is worse than arriving late.
+      The mark is only advanced once a response comes back, so there is
+      nothing else holding the second tick off.
+  */
+  bool _busy = false;
+
   Future<void> _onUnauthorized() async {
     if (_tokenRejected) return;
     _tokenRejected = true;
@@ -107,6 +119,13 @@ class _KayaTaskHandler extends TaskHandler {
     if (_tokenRejected) return;
     if (_token == null || _token!.isEmpty || _baseUrl == null) return;
 
+    // See _busy: a slow network otherwise turns one notification into
+    // several.
+    if (_busy) return;
+    _busy = true;
+
+    try {
+
     /*
         Position only when there is a hire to report it for.
 
@@ -120,7 +139,10 @@ class _KayaTaskHandler extends TaskHandler {
       await _sendPosition();
     }
 
-    await _pollNotifications();
+      await _pollNotifications();
+    } finally {
+      _busy = false;
+    }
   }
 
   @override

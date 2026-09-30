@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../../../core/widgets/verify_gate.dart';
 
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_mode.dart';
@@ -301,9 +300,25 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
           nothing to offer somebody already in the queue.
       */
       case NotificationDestination.verification:
-        final submitted = hasSubmittedVerification(context);
+        /*
+            Read from the notification, not from a second lookup.
 
-        AppRouter.push(context, submitted ? AppRouter.profile : '/verification');
+            This asked hasSubmittedVerification(), which answers "is anything
+            pending or verified" - a different question, about a different
+            document, from state the screen may not have refreshed. So a
+            second rejection opened the profile instead of the form: an
+            account with one document still pending and another just rejected
+            counts as submitted, and so does a stale list that has not caught
+            up with the rejection.
+
+            The notification already says which it is. A rejection means send
+            a better photo, so it opens the form; an approval has nothing to
+            fill in, so it opens the profile where the badge is.
+        */
+        AppRouter.push(
+          context,
+          n.type == 'verification.rejected' ? '/verification' : AppRouter.profile,
+        );
 
       case NotificationDestination.none:
         break;

@@ -32,7 +32,7 @@
 - Change password, notification preferences; delete the account.
 
 ### Worker
-- Add trade, skills, work history, certificates, licences, board exams, photo, bio, location and pin, and a resume.
+- Add trade, skills, work history, certificates, licences, board exams, photo, bio, location and pin.
 - Take a skill check for a trade; retry after a week if failed.
 - Apply to a job (barya); withdraw within the grace period for a refund.
 - Accept or decline an invitation.
@@ -43,7 +43,7 @@
 
 ### Individual employer
 - Post a job with dates, pay, place, skills and how many workers it needs; extend past the free week (barya); boost it; edit, close or remove it.
-- See applicants with their profile, skills, rating, rehire count and resume; accept or reject.
+- See applicants with their profile, skills, rating and rehire count; accept or reject.
 - Invite a worker to a job; invite a past worker at half cost.
 - Manage a crew from the roster: message all, mark all done.
 - Mark a hire done.

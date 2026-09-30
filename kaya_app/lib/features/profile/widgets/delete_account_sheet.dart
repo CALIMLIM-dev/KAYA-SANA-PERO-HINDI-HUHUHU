@@ -89,7 +89,7 @@ class _DeleteAccountSheetState extends State<DeleteAccountSheet> {
                   color: AppColors.neutral900)),
           const SizedBox(height: 12),
           const Text(
-            'This cannot be undone. Your profile, photos, documents, resume, '
+            'This cannot be undone. Your profile, photos, documents, '
             'saved jobs and notifications are removed. Open job posts are '
             'closed and their applicants refunded. Remaining barya is '
             'forfeited. Messages you sent stay in the other person\'s chat '

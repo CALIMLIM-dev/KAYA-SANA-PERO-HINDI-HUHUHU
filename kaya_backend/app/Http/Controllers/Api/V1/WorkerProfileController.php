@@ -251,8 +251,7 @@ class WorkerProfileController extends Controller
             'rate_min'           => 'nullable|numeric|min:0',
             'rate_max'           => 'nullable|numeric|min:0|gte:rate_min',
             'rate_unit'          => 'nullable|in:hour,day,project',
-            // A few lines about the work. Scored by completeness() for as
-            // long as that has existed, and until now nothing could set it.
+            // A few lines about the work, shown on the public profile.
             'bio'                => 'nullable|string|max:500',
         ]);
         
@@ -1613,9 +1612,9 @@ class WorkerProfileController extends Controller
 
             The reasoning for showing scans at all is sound: a claimed licence
             with no scan is just a text field. But that argument applies to an
-            employer weighing a hire, not to every account in the app. Same
-            entitlement rule as the resume — the owner, or an employer this
-            worker has actually applied to.
+            employer weighing a hire, not to every account in the app. So the
+            rule is the owner, or an employer this worker has actually
+            applied to.
 
             Everyone else still learns the credential exists, who issued it and
             when, which is what a public profile is for.
@@ -1780,177 +1779,5 @@ class WorkerProfileController extends Controller
             ],
             'message' => 'Success',
         ]);
-    }
-
-    // ── Resume ──────────────────────────────────────────────────────────────
-
-    /**
-     * POST /worker/profile/resume
-     *
-     * Stored on the private disk, not `public`. Everything else this app
-     * uploads — avatars, job photos — is world-readable by design. A resume is
-     * not: it carries a phone number, a home address and a full employment
-     * history, and a public storage URL is guessable and permanent. It is
-     * served only through downloadResume(), which checks who is asking.
-     */
-    public function uploadResume(Request $request)
-    {
-        $validator = Validator::make($request->all(), [
-            // No images. A photo of a CV defeats the point for an employer
-            // trying to read it, and lets someone upload arbitrary media here.
-            'resume' => 'required|file|mimes:pdf,doc,docx|max:5120',
-        ]);
-
-        if ($validator->fails()) {
-            return response()->json([
-                'success' => false,
-                'message' => $validator->errors()->first(),
-                'data'    => null,
-            ], 422);
-        }
-
-        $profile = WorkerProfile::where('user_id', $request->user()->id)->first();
-
-        if (!$profile) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Set up your worker profile first',
-                'data'    => null,
-            ], 422);
-        }
-
-        // Replacing a resume removes the old file. Without this every re-upload
-        // leaves an orphan on disk that nothing will ever reference or clean up.
-        if ($profile->hasResume() && Storage::disk(config('filesystems.documents'))->exists($profile->resume_path)) {
-            Storage::disk(config('filesystems.documents'))->delete($profile->resume_path);
-        }
-
-        $file = $request->file('resume');
-        $path = $file->store('resumes', config('filesystems.documents'));
-
-        $profile->update([
-            'resume_path'          => $path,
-            'resume_original_name' => $file->getClientOriginalName(),
-            'resume_uploaded_at'   => now(),
-        ]);
-
-        return response()->json([
-            'success' => true,
-            'message' => 'Resume uploaded',
-            'data'    => $this->resumePayload($profile->fresh()),
-        ]);
-    }
-
-    /** DELETE /worker/profile/resume */
-    public function deleteResume(Request $request)
-    {
-        $profile = WorkerProfile::where('user_id', $request->user()->id)->first();
-
-        if (!$profile || !$profile->hasResume()) {
-            return response()->json([
-                'success' => false,
-                'message' => 'No resume to remove',
-                'data'    => null,
-            ], 404);
-        }
-
-        if (Storage::disk(config('filesystems.documents'))->exists($profile->resume_path)) {
-            Storage::disk(config('filesystems.documents'))->delete($profile->resume_path);
-        }
-
-        $profile->update([
-            'resume_path'          => null,
-            'resume_original_name' => null,
-            'resume_uploaded_at'   => null,
-        ]);
-
-        return response()->json([
-            'success' => true,
-            'message' => 'Resume removed',
-            'data'    => $this->resumePayload($profile->fresh()),
-        ]);
-    }
-
-    /**
-     * GET /workers/{user}/resume
-     *
-     * The access rule is the feature here. A resume is released to:
-     *
-     *   - the worker themselves, and
-     *   - an employer with a live application from this worker: pending or
-     *     accepted, on a job that is still open or in progress.
-     *
-     * Applying is the consent, and the consent ends with the application.
-     * The rule used to be "has ever applied", with no status and no expiry,
-     * so an employer kept the file after rejecting the person, after the
-     * worker withdrew, and years after the job closed - and a one-peso post
-     * that drew one applicant was a way to collect a resume for keeps.
-     *
-     * Browsing the worker directory is not consent either. Otherwise any
-     * account that can reach /workers could harvest home addresses and
-     * phone numbers in bulk, which is exactly the abuse RA 10173 exists to
-     * prevent.
-     */
-    public function downloadResume(Request $request, \App\Models\User $user)
-    {
-        $viewer  = $request->user();
-        $profile = WorkerProfile::where('user_id', $user->id)->first();
-
-        if (!$profile || !$profile->hasResume()) {
-            return response()->json([
-                'success' => false,
-                'message' => 'This worker has no resume on file',
-                'data'    => null,
-            ], 404);
-        }
-
-        $isOwner = $viewer->id === $user->id;
-
-        $hasApplicationToViewer = \App\Models\Application::where('worker_id', $user->id)
-            ->whereIn('status', ['pending', 'accepted'])
-            ->whereHas('job', fn ($q) => $q
-                ->where('employer_id', $viewer->id)
-                ->whereIn('status', ['open', 'in_progress']))
-            ->exists();
-
-        if (!$isOwner && !$hasApplicationToViewer) {
-            return response()->json([
-                'success' => false,
-                'message' => 'You can view this resume while this worker has an application open with you',
-                'data'    => null,
-            ], 403);
-        }
-
-        if (!Storage::disk(config('filesystems.documents'))->exists($profile->resume_path)) {
-            return response()->json([
-                'success' => false,
-                'message' => 'The file is missing',
-                'data'    => null,
-            ], 404);
-        }
-
-        // Downloads under the name the worker uploaded, not the random storage
-        // name — an employer saving three CVs shouldn't end up with three
-        // meaningless filenames.
-        return Storage::disk(config('filesystems.documents'))->download(
-            $profile->resume_path,
-            $profile->resume_original_name ?: 'resume.pdf',
-        );
-    }
-
-    /**
-     * What the client is told about a resume.
-     *
-     * Deliberately never includes `resume_path`. The client has no use for the
-     * storage path and shipping it invites someone to try building a URL from
-     * it — the download endpoint is the only way in.
-     */
-    private function resumePayload(WorkerProfile $profile): array
-    {
-        return [
-            'has_resume'  => $profile->hasResume(),
-            'file_name'   => $profile->resume_original_name,
-            'uploaded_at' => $profile->resume_uploaded_at?->toIso8601String(),
-        ];
     }
 }

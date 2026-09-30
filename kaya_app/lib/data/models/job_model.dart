@@ -13,6 +13,13 @@ class Job {
   final bool isUrgent;
   final bool requiresVerification;
   final double? distance; // in kilometers
+
+  /// The distance in words, as the server phrased it.
+  ///
+  /// Sent whenever [distance] is a band rather than a measurement, so
+  /// the app does not have to guess which it is holding. See
+  /// distanceText in core/utils/format.dart.
+  final String? distanceLabel;
   final DateTime? postedAt;
   final bool isActive;
 
@@ -213,6 +220,7 @@ class Job {
     this.isUrgent = false,
     this.requiresVerification = false,
     this.distance,
+    this.distanceLabel,
     this.postedAt,
     this.isActive = true,
     this.status = '',
@@ -300,6 +308,7 @@ class Job {
       // Straight-line km from the signed-in worker, computed server-side by
       // JobMatchService. Null when either side has no coordinates.
       distance: asDoubleOrNull(json['distance_km']),
+      distanceLabel: json['distance_label'] as String?,
       requiredSkills: skills == null
           ? const []
           : skills
@@ -354,6 +363,7 @@ class Job {
       isUrgent: json['is_urgent'] ?? false,
       requiresVerification: json['requires_verification'] ?? false,
       distance: json['distance_km']?.toDouble(),
+      distanceLabel: json['distance_label'] as String?,
       postedAt: json['posted_at'] != null ? DateTime.parse(json['posted_at']) : null,
       isActive: json['is_active'] ?? true,
       applicationStatus: json['application_status'] != null
@@ -381,6 +391,7 @@ class Job {
       'is_urgent': isUrgent,
       'requires_verification': requiresVerification,
       'distance_km': distance,
+      'distance_label': distanceLabel,
       'posted_at': postedAt?.toIso8601String(),
       'is_active': isActive,
       'application_status': applicationStatus?.name,
@@ -402,6 +413,7 @@ class Job {
     bool? isUrgent,
     bool? requiresVerification,
     double? distance,
+    String? distanceLabel,
     DateTime? postedAt,
     bool? isActive,
     bool? isSaved,
@@ -424,6 +436,7 @@ class Job {
       isUrgent: isUrgent ?? this.isUrgent,
       requiresVerification: requiresVerification ?? this.requiresVerification,
       distance: distance ?? this.distance,
+      distanceLabel: distanceLabel ?? this.distanceLabel,
       postedAt: postedAt ?? this.postedAt,
       isActive: isActive ?? this.isActive,
       isSaved: isSaved ?? this.isSaved,

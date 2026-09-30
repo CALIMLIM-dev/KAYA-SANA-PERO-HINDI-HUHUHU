@@ -193,9 +193,18 @@ class InvitationController extends Controller
             return $this->fail('You can only do this for someone you have finished a job for.', 422);
         }
 
+        /*
+            Matched on the reference, not on an actor column.
+
+            user_notifications has no actor_id - push() takes one only to skip
+            notifying somebody about themselves, and never stores it - so
+            asking for that column was a 500 on every tap. The reference is
+            the worker, which is exactly who this needs to be unique per.
+        */
         $alreadyAsked = \App\Models\UserNotification::where('user_id', $employer->id)
             ->where('type', \App\Models\UserNotification::WORK_AGAIN_REQUESTED)
-            ->where('actor_id', $user->id)
+            ->where('reference_type', 'user')
+            ->where('reference_id', $user->id)
             ->where('created_at', '>=', now()->subDay())
             ->exists();
 

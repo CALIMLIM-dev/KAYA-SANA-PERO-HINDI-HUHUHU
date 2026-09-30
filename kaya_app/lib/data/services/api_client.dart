@@ -1,4 +1,6 @@
+import 'dart:io' show SocketException;
 import 'package:dio/dio.dart';
+import '../../core/network/connection_status.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
@@ -134,6 +136,10 @@ class ApiClient {
           here, where every response passes through exactly once.
       */
       onResponse: (response, handler) {
+        // Any reply at all means the network is working, whatever the
+        // reply says. See ConnectionStatus.
+        ConnectionStatus.instance.markOnline();
+
         final body = response.data;
         if (body is String && body.trim().isNotEmpty) {
           return handler.reject(
@@ -353,11 +359,45 @@ class ApiClient {
 
   // ── Error handling ────────────────────────────────────────────────────────────
 
+  /// The failures that mean the request never got anywhere.
+  ///
+  /// connectionError is the one that was missing: a phone with no signal
+  /// at all fails this way immediately, so it never reached the timeout
+  /// branch below and fell through to the default case, which is how it
+  /// ended up on screen as "no reply from the server
+  /// (connectionError)".
+  static const _networkFailures = {
+    DioExceptionType.connectionError,
+    DioExceptionType.connectionTimeout,
+    DioExceptionType.sendTimeout,
+    DioExceptionType.receiveTimeout,
+  };
+
   Exception _handleError(DioException e) {
-    if (e.type == DioExceptionType.connectionTimeout ||
-        e.type == DioExceptionType.receiveTimeout) {
-      return Exception('No internet connection. Please check your network.');
+    /*
+        No signal, no route, or nothing listening.
+
+        An ApiException rather than a bare Exception, and carrying a code
+        rather than a sentence, because a screen has to be able to act on
+        this without matching on the wording: the words change and the
+        wording is not the same in every place it is shown.
+
+        The status is deliberately null. There was no response, and
+        inventing one would put this failure into the same shape as a
+        refusal that the server actually sent.
+    */
+    if (_networkFailures.contains(e.type) ||
+        e.error is SocketException) {
+      ConnectionStatus.instance.markOffline();
+      return const ApiException(
+        null,
+        ApiException.offlineCode,
+        'No internet connection.',
+      );
     }
+
+    // Something answered, so the connection itself is fine.
+    ConnectionStatus.instance.markOnline();
 
     final status = e.response?.statusCode;
 
@@ -520,6 +560,18 @@ class ApiException implements Exception {
   final int? balance;
 
   bool get isInsufficientCredits => code == 'insufficient_credits';
+
+  /// The code for a request that never reached the server.
+  static const String offlineCode = 'offline';
+
+  /*
+      Whether this was the network rather than the server.
+
+      The two need completely different screens - one is worth a Retry
+      button and nothing else, the other has a real reason to show - and
+      before this they arrived as the same sentence.
+  */
+  bool get isOffline => code == offlineCode;
 
   @override
   String toString() => message;

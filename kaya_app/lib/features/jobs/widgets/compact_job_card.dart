@@ -246,10 +246,11 @@ class CompactJobCard extends StatelessWidget {
                         maxLines: 1,
                       ),
                     ),
-                    if (job.distance != null) ...[
+                    if (distanceText(job.distanceLabel, job.distance)
+                        != null) ...[
                       const SizedBox(width: 6),
                       Text(
-                        formatDistance(job.distance!),
+                        distanceText(job.distanceLabel, job.distance)!,
                         style: Theme.of(context).textTheme.bodySmall?.copyWith(
                           color: AppColors.neutral600,
                           fontSize: 10,

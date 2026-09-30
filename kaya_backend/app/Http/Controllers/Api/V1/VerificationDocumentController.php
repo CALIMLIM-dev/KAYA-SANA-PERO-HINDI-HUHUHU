@@ -17,9 +17,8 @@ use Illuminate\Support\Facades\Storage;
  * and unrevocable URL to somebody's national ID. That pair is exactly the KYC
  * bundle used to open accounts elsewhere.
  *
- * The pattern here is copied from WorkerProfileController::downloadResume,
- * which the same codebase already gets right: private disk, streamed through a
- * controller that checks entitlement, path never serialised.
+ * So the pattern is: private disk, streamed through a controller that checks
+ * entitlement, path never serialised.
  *
  * Only two parties may read one: the person it belongs to, and an admin
  * reviewing it. Not employers, not the worker's clients, not anyone else.

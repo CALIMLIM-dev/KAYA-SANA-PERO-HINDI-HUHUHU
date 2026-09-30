@@ -11,6 +11,66 @@ minor release, and `feat!:` or a `BREAKING CHANGE:` footer for a major one.
 
 ---
 
+## 1.14.0 - 2026-10-01
+
+### Added
+
+- Losing the connection says so. A request that never reached the server came
+  back as "Something went wrong - no reply from the server
+  (connectionError)", in a red box under the home feed, because the one Dio
+  failure a phone with no signal actually produces was the one the error
+  handler did not name. It is told apart from a refusal now: a thin bar at the
+  top of the app while there is content to read, and a blocking screen with a
+  Try again where there is nothing to show. An empty feed no longer reads as
+  "there are no jobs" when the truth is that nothing loaded.
+- The home search bar searches the marketplace. It was wired and it did
+  filter, but only across the twenty or so rows the feed had already fetched,
+  so typing a trade none of them mentioned looked like a decorative box.
+  Typing still narrows what is on screen; pressing search hands the query to
+  the search that asks the server.
+
+### Changed
+
+- Profile completion and the resume are gone - the ring, the card, the upload,
+  the employer's View Resume, and the endpoints behind them. The three resume
+  columns stay on the table, unwritten, because dropping columns from a live
+  database mid-testing is the one migration that cannot be walked back.
+- The preparing screen for a second profile no longer draws a logo. It was the
+  only thing in the app that rendered that file, and it is not the mark KAYA
+  uses anywhere.
+
+### Fixed
+
+- "Ask for Work Again" no longer fails with a server error. The duplicate
+  check queried a column that does not exist on that table.
+- A rejected verification notification opens the form. It asked whether
+  anything had been submitted, which is a different question, so the second
+  rejection sent people to their profile instead.
+- One notification per notification. The service ticks every five seconds with
+  nothing stopping a tick from starting while the last was still waiting on
+  the network, so two of them read the same high-water mark and announced the
+  same rows. Harmless at fifteen-minute intervals; constant once it ran all
+  session.
+- Notifications make a sound again. Android fixes a channel's importance when
+  it is created and never raises it, so a channel created quieter stays quiet
+  for as long as the app is installed whatever the code asks for. A new
+  channel is the only way out.
+- The distance on a card and the distance on the screen it opens agree. The
+  feed sent a band and the details screen sent the exact figure, and the app
+  formatted both as measurements - so a job two kilometres away read "5.0 km
+  away" on the card and "2.3 km away" when opened. Both band now, and both
+  send the words for the band. A hired worker still gets the real number; they
+  have the address anyway.
+- The suggested-workers list for a job bands distance like the worker
+  directory already did, rather than handing back a figure precise enough to
+  locate somebody's home.
+- Renaming a skill no longer costs every worker holding it their match score.
+  The job reads its skills from the catalogue while a worker keeps the name
+  they picked, and the score credited the name rather than the skill - so an
+  admin tidying the catalogue quietly removed up to 45 of 100 points, and the
+  notification that goes out on a new job disagreed with it because that half
+  had always matched by id.
+
 ## 1.13.2 - 2026-09-30
 
 ### Added

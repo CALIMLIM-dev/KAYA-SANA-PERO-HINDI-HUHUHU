@@ -11,8 +11,16 @@ class WorkerProfile extends Model
         'profile_photo_path', 'rating_avg', 'rating_count', 'verification_status',
         // Structured location from the PSGC picker.
         'location_id', 'latitude', 'longitude',
-        // Resume. The path is never serialised to clients — see
-        // WorkerProfileController::downloadResume for why.
+        /*
+            The resume columns, kept and no longer written.
+
+            The feature is gone - no endpoint, no screen, nothing reads
+            these. They stay because dropping columns from a live table
+            mid-testing is the one migration that cannot be walked back,
+            and they cost nothing sitting there. AccountDeletionService
+            still clears the file on delete, so an old upload does not
+            outlive the account that made it.
+        */
         'resume_path', 'resume_original_name', 'resume_uploaded_at',
         // What the worker charges. Always a number or a range, never a word
         // standing in for one.
@@ -53,18 +61,6 @@ class WorkerProfile extends Model
             : $peso($this->rate_min ?? $this->rate_max);
 
         return $range . $unit;
-    }
-
-    /**
-     * Whether this worker has a CV on file.
-     *
-     * Callers should use this rather than reading `resume_path`, so the raw
-     * storage path stays inside the model and can't leak into a response by
-     * accident.
-     */
-    public function hasResume(): bool
-    {
-        return $this->resume_path !== null && $this->resume_path !== '';
     }
 
     // Relationships
@@ -155,65 +151,5 @@ class WorkerProfile extends Model
         return filled($this->location)
             && !is_null($this->category_id)
             && $hasSkills;
-    }
-
-    /**
-     * How complete this worker's profile is, and what is missing.
-     *
-     * On KAYA the profile *is* the CV — a mason has no PDF, but they do have
-     * skills, licences and photos of finished work, and that is richer than a
-     * document because an employer can filter and match on it. So this score
-     * measures the thing employers actually read, and the prompts it produces
-     * are the app's main lever for getting it filled in.
-     *
-     * Computed here, once, rather than in the app. Two clients doing their own
-     * arithmetic drift, and a number that differs between the profile header
-     * and the onboarding prompt is worse than no number at all.
-     *
-     * Weights reflect what an employer decides on, not what is easiest to
-     * collect. Location and category are heaviest because without them the
-     * worker cannot be matched or found at all; the resume is worth the least
-     * because most of this market does not have one and should never be made
-     * to feel their profile is deficient for that.
-     */
-    public function completeness(): array
-    {
-        $has = fn ($v) => !is_null($v) && $v !== '';
-
-        $items = [
-            'location'       => ['label' => 'Add your location',        'weight' => 20, 'done' => $has($this->location) && !is_null($this->location_id)],
-            'category'       => ['label' => 'Choose your job category', 'weight' => 20, 'done' => !is_null($this->category_id)],
-            'skills'         => ['label' => 'Add at least one skill',   'weight' => 15, 'done' => $this->skills()->exists()],
-            'photo'          => ['label' => 'Add a profile photo',      'weight' => 10, 'done' => $has($this->profile_photo_path)],
-            'bio'            => ['label' => 'Write a short bio',        'weight' => 10, 'done' => $has($this->bio)],
-            'experience'     => ['label' => 'Add work experience',      'weight' => 10, 'done' => $this->experiences()->exists()],
-            'certifications' => ['label' => 'Add a certificate',        'weight' => 5,  'done' => $this->certifications()->exists()],
-            'licenses'       => ['label' => 'Add a licence',            'weight' => 5,  'done' => $this->licenses()->exists()],
-            'verified'       => ['label' => 'Verify your ID',           'weight' => 5,  'done' => $this->verification_status === 'verified'],
-        ];
-
-        $score = 0;
-        $missing = [];
-
-        foreach ($items as $key => $item) {
-            if ($item['done']) {
-                $score += $item['weight'];
-                continue;
-            }
-            $missing[] = ['key' => $key, 'label' => $item['label'], 'weight' => $item['weight']];
-        }
-
-        // Heaviest first, so "Add your location" is suggested before
-        // "Add a licence" — the prompt should point at whatever moves the
-        // number most, not whatever happens to come first alphabetically.
-        usort($missing, fn ($a, $b) => $b['weight'] <=> $a['weight']);
-
-        return [
-            'percent' => $score,
-            'missing' => $missing,
-            // The single next thing to do. A list of nine tasks reads as a
-            // chore; one clear next step gets acted on.
-            'next'    => $missing[0]['label'] ?? null,
-        ];
     }
 }

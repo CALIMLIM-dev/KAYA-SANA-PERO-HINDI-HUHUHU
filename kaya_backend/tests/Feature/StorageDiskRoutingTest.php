@@ -25,7 +25,7 @@ use Tests\TestCase;
 
     The second thing under test is the split itself. Media and documents must
     never share a disk: a profile photo is meant to be fetched by URL, and a
-    government ID and a resume must never be.
+    government ID and a business document must never be.
 */
 class StorageDiskRoutingTest extends TestCase
 {
@@ -71,27 +71,31 @@ class StorageDiskRoutingTest extends TestCase
         Storage::disk('public')->assertMissing($stored);
     }
 
-    public function test_a_resume_goes_to_the_documents_disk_and_never_to_media(): void
+    public function test_a_business_document_goes_to_the_documents_disk_and_never_to_media(): void
     {
-        $worker = User::factory()->create();
-        WorkerProfile::create(['user_id' => $worker->id]);
+        $employer = User::factory()->create();
+        \App\Models\EmployerProfile::create([
+            'user_id'       => $employer->id,
+            'employer_type' => 'company',
+            'company_name'  => 'Garin Hardware',
+        ]);
 
-        $response = $this->actingAs($worker, 'sanctum')->post(
-            '/api/v1/worker/profile/resume',
-            ['resume' => UploadedFile::fake()->create('cv.pdf', 32, 'application/pdf')]
-        );
+        $this->actingAs($employer, 'sanctum')->post('/api/v1/verifications', [
+            'type'     => 'business_reg',
+            'tin'      => '123456789000',
+            'document' => UploadedFile::fake()->create('dti.pdf', 32, 'application/pdf'),
+        ])->assertCreated();
 
-        $response->assertOk();
-
-        $path = WorkerProfile::where('user_id', $worker->id)->value('resume_path');
-        $this->assertNotEmpty($path, 'the upload recorded no resume path');
+        $path = \App\Models\Verification::where('user_id', $employer->id)
+            ->value('document_front_url');
+        $this->assertNotEmpty($path, 'the upload recorded no document path');
 
         Storage::disk('documents_under_test')->assertExists($path);
 
         /*
-            The important half. If a resume ever lands on the media disk it
-            becomes reachable by URL, and a resume carries a phone number, a home
-            address and a full employment history.
+            The important half. A business document that lands on the media
+            disk is reachable by URL, and it carries a registered address and
+            a tax number.
         */
         Storage::disk('media_under_test')->assertMissing($path);
         Storage::disk('local')->assertMissing($path);

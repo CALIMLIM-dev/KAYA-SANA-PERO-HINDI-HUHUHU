@@ -4,6 +4,8 @@ import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_mode.dart';
 import '../../../core/constants/credits.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/network/connection_status.dart';
+import '../../../core/widgets/offline_notice.dart';
 import '../../../core/navigation/app_router.dart';
 import '../../../data/models/job_model.dart';
 import '../../../data/models/worker_profile_model.dart';
@@ -44,6 +46,16 @@ class _UnifiedHomeScreenState extends State<UnifiedHomeScreen>
   String _searchQuery = '';
   bool _isLoading = false;
   String? _errorMessage;
+
+  /*
+      Whether the last load failed for want of a connection.
+
+      Read from ConnectionStatus after the fetch rather than kept up to
+      date live: this decides what the feed draws, and a feed that
+      rearranges itself the instant a signal flickers is worse than one
+      that waits to be pulled.
+  */
+  bool _offline = false;
   // (The old _isOpenToWork / _isOpenToHire booleans lived here. They were
   // hardcoded and never mutated, so the header badges were purely decorative.
   // The badges are now driven by AppModeProvider — see _statusBadges.)
@@ -233,6 +245,7 @@ class _UnifiedHomeScreenState extends State<UnifiedHomeScreen>
       _allJobs = jobProvider.publicJobs;
       _allWorkers = workerBrowse.workers;
       _errorMessage = jobProvider.publicErrorMessage ?? workerBrowse.errorMessage;
+      _offline = ConnectionStatus.instance.isOffline;
       _isLoading = false;
       _applyFilters();
     });
@@ -691,6 +704,7 @@ class _UnifiedHomeScreenState extends State<UnifiedHomeScreen>
                 child: UnifiedSearchBar(
                   currentFilter: currentFilter,
                   onSearch: _updateSearchQuery,
+                  onSubmit: _onSearchSubmit,
                   onFilterChanged: _updateSearchFilter,
                   // Restricted to what this account may browse. A worker-only
                   // account sees only the Jobs chip, an employer-only account
@@ -699,6 +713,27 @@ class _UnifiedHomeScreenState extends State<UnifiedHomeScreen>
                 ),
               ),
             ),
+
+            /*
+                Nothing loaded, because nothing could.
+
+                An empty feed with a red strip under it reads as "there
+                are no jobs", which is a different and much worse thing
+                to tell somebody than "you are offline". Only when the
+                feed is genuinely empty: a cached list stays on screen
+                and keeps the bar at the top for the news.
+            */
+            if (_offline && !_isLoading
+                && _allJobs.isEmpty && _allWorkers.isEmpty)
+              SliverFillRemaining(
+                hasScrollBody: false,
+                child: OfflineNotice(
+                  what: currentFilter == SearchFilter.showWorkers
+                      ? 'workers'
+                      : 'jobs',
+                  onRetry: _refreshData,
+                ),
+              ),
 
             const SliverToBoxAdapter(child: SizedBox(height: 20)),
 
@@ -953,8 +988,16 @@ class _UnifiedHomeScreenState extends State<UnifiedHomeScreen>
               ],
             ],
 
-            // Error message if any
-            if (_errorMessage != null)
+            /*
+                Only what the server said.
+
+                A dropped connection used to land here as "Something went
+                wrong — no reply from the server (connectionError)", in a
+                red box, below a feed the person could still read. The bar
+                at the top of the app says that once now, so this is left
+                for refusals that carry a reason worth reading.
+            */
+            if (_errorMessage != null && !_offline)
               SliverToBoxAdapter(
                 child: Padding(
                   padding: const EdgeInsets.all(16),
@@ -1089,6 +1132,26 @@ class _UnifiedHomeScreenState extends State<UnifiedHomeScreen>
     AppRouter.toSearchJobs(
       context,
       categoryId: categoryId,
+      searchType: showingWorkers ? 'Workers' : 'Jobs',
+    );
+  }
+
+  /*
+      Hands the typed query to the search that asks the server.
+
+      _updateSearchQuery can only narrow what the feed has loaded - a
+      couple of dozen rows - so a trade none of them mention looked
+      like a search box that did nothing. Same route and same side as
+      a category tap, so both ways into search behave alike.
+  */
+  void _onSearchSubmit(String query) {
+    final showingWorkers =
+        _getFilterForMode(context.read<AppModeProvider>()) ==
+            SearchFilter.showWorkers;
+
+    AppRouter.toSearchJobs(
+      context,
+      query: query,
       searchType: showingWorkers ? 'Workers' : 'Jobs',
     );
   }

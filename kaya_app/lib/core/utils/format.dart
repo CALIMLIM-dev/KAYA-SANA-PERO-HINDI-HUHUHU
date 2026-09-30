@@ -12,3 +12,20 @@ String formatDistance(double km) {
   if (km < 10) return '${km.toStringAsFixed(1)} km away';
   return '${km.round()} km away';
 }
+
+/// Distance for display, preferring what the server called it.
+///
+/// Most distances leave the server as a band rather than a
+/// measurement - an exact figure read from a few chosen positions is
+/// somebody's address - and the band arrives with the words for it.
+/// Running the band's number through [formatDistance] instead turned
+/// "under 5 km" into "5.0 km away", which is wrong by up to four
+/// kilometres and wrong in the confident direction.
+///
+/// The number is still used on its own where the server sends a real
+/// one: a job you have been hired for comes with the address anyway.
+String? distanceText(String? label, double? km) {
+  if (label != null && label.isNotEmpty) return label;
+  if (km != null) return formatDistance(km);
+  return null;
+}

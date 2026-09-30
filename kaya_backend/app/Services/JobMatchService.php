@@ -49,25 +49,65 @@ class JobMatchService
     ];
 
     /**
-     * @return array{score:int, matched_skills:array<string>, reasons:array<string>}
+     * @return array{score:int, matched_skills:array<string>, reasons:array<string>, distance_km:?float}
      */
     public static function score(JobPost $job, WorkerProfile $profile): array
     {
-        $required = $job->relationLoaded('skills')
-            ? $job->skills->pluck('name')
-            : $job->skills()->pluck('name');
+        /*
+            What the job asks for: the catalogue row, id and name together.
 
-        $required = $required->filter()->map(fn ($n) => mb_strtolower($n))->values();
+            The name alone was the whole of this, on both sides, and the two
+            sides store it differently - the job points at a skills row and
+            reads its name live, while a worker keeps a copy of that name
+            taken when they picked it. Rename a skill in the admin panel and
+            every worker holding it silently stops matching, losing up to the
+            full 45 points with nothing on any screen to say why.
 
-        $held = ($profile->relationLoaded('skills')
-                ? $profile->skills
-                : $profile->skills()->get())
-            ->pluck('skill_name')
-            ->filter()
-            ->map(fn ($n) => mb_strtolower($n))
+            The id is the one thing both sides agree on, and the notification
+            that goes out on a new job already picks its candidates by it
+            (NotificationService::jobMatched) - so a worker could be chosen
+            for the notification by id and then score zero on skills by name.
+        */
+        $required = ($job->relationLoaded('skills')
+                ? $job->skills
+                : $job->skills()->get())
+            ->map(fn ($skill) => [
+                'id'   => $skill->id === null ? null : (int) $skill->id,
+                'name' => mb_strtolower(trim((string) $skill->name)),
+            ])
+            ->filter(fn ($r) => $r['name'] !== '')
             ->values();
 
-        $matched = $required->intersect($held)->values();
+        $heldSkills = $profile->relationLoaded('skills')
+            ? $profile->skills
+            : $profile->skills()->get();
+
+        $heldIds = $heldSkills
+            ->pluck('skill_id')
+            ->filter(fn ($id) => $id !== null)
+            ->map(fn ($id) => (int) $id)
+            ->values();
+
+        // A skill typed rather than picked has no id, and a row saved before
+        // the picker existed has none either. The name still has to work.
+        $heldNames = $heldSkills
+            ->pluck('skill_name')
+            ->filter()
+            ->map(fn ($n) => mb_strtolower(trim((string) $n)))
+            ->reject(fn ($n) => $n === '')
+            ->values();
+
+        /*
+            Counted against what the job asked for, not against what the
+            worker holds, so a worker carrying the same skill twice - once by
+            id, once as a stale name - still counts for one.
+        */
+        $matched = $required
+            ->filter(fn ($r) => ($r['id'] !== null && $heldIds->contains($r['id']))
+                || $heldNames->contains($r['name']))
+            ->pluck('name')
+            ->unique()
+            ->values();
 
         $score = 0.0;
         $reasons = [];

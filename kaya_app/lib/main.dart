@@ -6,6 +6,7 @@ import 'package:provider/provider.dart';
 import 'core/theme/app_theme.dart';
 import 'core/navigation/app_router.dart';
 import 'core/widgets/notification_banner.dart';
+import 'core/widgets/offline_notice.dart';
 import 'providers/auth_provider.dart';
 import 'providers/app_mode_provider.dart';
 import 'providers/worker_profile_provider.dart';
@@ -304,9 +305,21 @@ class KayaApp extends StatelessWidget {
             // outlive whichever screen happens to be on top.
             builder: (context, child) => NotificationBannerHost(
               navigatorKey: _navigatorKey,
+              /*
+                  One bar for the whole app, here rather than on each
+                  screen.
+
+                  It reads one value, so every tab and every pushed
+                  route is covered at once and no two screens can
+                  disagree about whether the app is offline. Inside the
+                  text clamp, because the bar is text and has to obey
+                  the same ceiling as the rest of it.
+              */
               child: MediaQuery.withClampedTextScaling(
                 maxScaleFactor: 1.3,
-                child: child ?? const SizedBox.shrink(),
+                child: ConnectionBanner(
+                  child: child ?? const SizedBox.shrink(),
+                ),
               ),
             ),
             // On Android this becomes the task description in the app switcher,

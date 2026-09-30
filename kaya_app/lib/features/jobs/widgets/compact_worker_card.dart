@@ -244,8 +244,9 @@ class CompactWorkerCard extends StatelessWidget {
     if (worker.location != null) {
       parts.add(worker.location!);
     }
-    if (worker.distance != null) {
-      parts.add(formatDistance(worker.distance!));
+    final distance = distanceText(worker.distanceLabel, worker.distance);
+    if (distance != null) {
+      parts.add(distance);
     }
     return parts.join(' • ');
   }

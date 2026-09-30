@@ -16,7 +16,7 @@ use Tests\TestCase;
 /*
     What the worker's own profile screen reads and writes: the pin, the bio,
     the boost. /user is the endpoint that screen loads, so this is where the
-    pin and the resume have to come back from.
+    pin has to come back from.
 */
 class OwnWorkerProfileTest extends TestCase
 {
@@ -52,7 +52,6 @@ class OwnWorkerProfileTest extends TestCase
             ->assertOk()
             ->assertJsonPath('data.latitude', 15.976)
             ->assertJsonPath('data.longitude', 120.571)
-            ->assertJsonPath('data.resume.has_resume', false)
             ->assertJsonPath('data.boosted_until', null);
     }
 
@@ -97,11 +96,9 @@ class OwnWorkerProfileTest extends TestCase
     }
 
     #[Test]
-    public function a_bio_can_be_written_and_counts_toward_completeness(): void
+    public function a_bio_can_be_written_and_read_back(): void
     {
         $user = $this->worker();
-
-        $before = $this->actingAs($user, 'sanctum')->getJson('/api/v1/me')->json('data.worker_profile_completeness.percent');
 
         $this->actingAs($user, 'sanctum')
             ->putJson('/api/v1/worker/profile', ['bio' => '  Ten years laying block and finishing walls.  '])
@@ -112,9 +109,6 @@ class OwnWorkerProfileTest extends TestCase
         // cached the relation before the write. A real request is fresh.
         $this->actingAs($user->fresh(), 'sanctum')->getJson('/api/v1/user')
             ->assertJsonPath('data.bio', 'Ten years laying block and finishing walls.');
-
-        $after = $this->actingAs($user->fresh(), 'sanctum')->getJson('/api/v1/me')->json('data.worker_profile_completeness.percent');
-        $this->assertSame($before + 10, $after);
 
         // An empty bio clears it.
         $this->actingAs($user, 'sanctum')->putJson('/api/v1/worker/profile', ['bio' => ''])->assertOk();

@@ -30,7 +30,7 @@ Everything KAYA is built on that was not written for KAYA, with its licence. All
 | flutter_foreground_task | Location sharing service during a hire | MIT |
 | flutter_local_notifications | Notifications on the shade | BSD 3-Clause |
 | workmanager | Background notification poll | MIT |
-| image_picker, file_picker | Photos, documents, resume | Apache 2.0, MIT |
+| image_picker, file_picker | Photos and documents | Apache 2.0, MIT |
 | open_filex, url_launcher | Opening files and links | BSD 3-Clause |
 | cached_network_image, flutter_svg | Images and the logo | MIT |
 | shimmer, badges, flutter_rating_bar, fl_chart | UI pieces | MIT |

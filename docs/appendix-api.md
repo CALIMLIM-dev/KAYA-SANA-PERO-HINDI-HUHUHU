@@ -58,7 +58,7 @@ Every endpoint the mobile app uses, generated from the route table. Access: publ
 | GET | /api/v1/jobs/{job} | signed in | One job with employer and applicant state |
 | PUT | /api/v1/jobs/{job} | signed in | Edit an open job |
 | DELETE | /api/v1/jobs/{job} | signed in | Remove a job; pending applicants refunded |
-| GET | /api/v1/jobs/{job}/applicants | signed in | Applicants to a job, with rehire count and resume flag |
+| GET | /api/v1/jobs/{job}/applicants | signed in | Applicants to a job, with rehire count |
 | POST | /api/v1/jobs/{job}/apply | verified | Apply to a job; barya charged |
 | POST | /api/v1/jobs/{job}/boost | verified | Boost a job post for three days |
 | POST | /api/v1/jobs/{job}/invite | verified | Invite a worker to a job; barya charged, half for a rehire |
@@ -100,7 +100,7 @@ Every endpoint the mobile app uses, generated from the route table. Access: publ
 | GET | /api/v1/saved-jobs | signed in | Bookmarked jobs |
 | GET | /api/v1/skills | signed in | Skills |
 | POST | /api/v1/skills | signed in | Propose a skill |
-| GET | /api/v1/user | signed in | The signed-in account with location, bio and resume |
+| GET | /api/v1/user | signed in | The signed-in account with location and bio |
 | GET | /api/v1/verifications | signed in | The account's verification documents and status |
 | POST | /api/v1/verifications | signed in | Submit an ID and selfie, or a business document |
 | GET | /api/v1/verifications/{verification}/document/{side} | signed in | Stream one of your own documents |
@@ -128,15 +128,12 @@ Every endpoint the mobile app uses, generated from the route table. Access: publ
 | PUT | /api/v1/worker/profile | signed in | Edit trade, bio, location and pin |
 | POST | /api/v1/worker/profile/complete-setup | signed in | Finish worker setup |
 | POST | /api/v1/worker/profile/photo | signed in | Profile photo |
-| POST | /api/v1/worker/profile/resume | signed in | Upload or replace the resume |
-| DELETE | /api/v1/worker/profile/resume | signed in | Remove the resume |
 | GET | /api/v1/worker/skills | signed in | Own skills |
 | POST | /api/v1/worker/skills | signed in | Add a skill |
 | PUT | /api/v1/worker/skills/{id} | signed in | Edit a skill |
 | DELETE | /api/v1/worker/skills/{id} | signed in | Remove a skill |
 | GET | /api/v1/workers | signed in | The worker directory, ranked and filtered |
 | GET | /api/v1/workers/{user} | signed in | A worker's public profile |
-| GET | /api/v1/workers/{user}/resume | signed in | Open a resume, gated to open applications |
 
 ## Admin panel routes
 

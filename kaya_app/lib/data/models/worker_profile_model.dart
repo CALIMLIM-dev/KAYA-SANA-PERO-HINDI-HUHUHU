@@ -23,6 +23,12 @@ class WorkerProfile {
 
   final bool isAvailable;
   final double? distance; // in kilometers
+
+  /// The distance in words, as the server phrased it.
+  ///
+  /// The browse endpoint has always sent this beside the band and
+  /// nothing read it. See distanceText in core/utils/format.dart.
+  final String? distanceLabel;
   final String? bio;
   final int yearsOfExperience;
   final double? hourlyRate;
@@ -58,6 +64,7 @@ class WorkerProfile {
     this.isBoosted = false,
     this.isAvailable = true,
     this.distance,
+    this.distanceLabel,
     this.bio,
     this.yearsOfExperience = 0,
     this.hourlyRate,
@@ -97,6 +104,7 @@ class WorkerProfile {
       reviewCount: asInt(json['rating_count']),
       // Straight-line km from whoever is browsing, computed server-side.
       distance: asDoubleOrNull(json['distance_km']),
+      distanceLabel: json['distance_label'] as String?,
       isVerified: json['is_verified'] as bool? ?? false,
       isBoosted: json['is_boosted'] == true || json['is_boosted'] == 1,
       isAvailable: (json['availability_status'] ?? 'available') == 'available',
@@ -124,6 +132,7 @@ class WorkerProfile {
       isBoosted: json['is_boosted'] == true || json['is_boosted'] == 1,
       isAvailable: json['is_available'] ?? true,
       distance: json['distance_km']?.toDouble(),
+      distanceLabel: json['distance_label'] as String?,
       bio: json['bio'],
       yearsOfExperience: json['years_of_experience'] ?? 0,
       hourlyRate: json['hourly_rate']?.toDouble(),
@@ -149,6 +158,7 @@ class WorkerProfile {
       'is_verified': isVerified,
       'is_available': isAvailable,
       'distance_km': distance,
+      'distance_label': distanceLabel,
       'bio': bio,
       'years_of_experience': yearsOfExperience,
       'hourly_rate': hourlyRate,
@@ -170,6 +180,7 @@ class WorkerProfile {
     bool? isVerified,
     bool? isAvailable,
     double? distance,
+    String? distanceLabel,
     String? bio,
     int? yearsOfExperience,
     double? hourlyRate,
@@ -189,6 +200,7 @@ class WorkerProfile {
       isVerified: isVerified ?? this.isVerified,
       isAvailable: isAvailable ?? this.isAvailable,
       distance: distance ?? this.distance,
+      distanceLabel: distanceLabel ?? this.distanceLabel,
       bio: bio ?? this.bio,
       yearsOfExperience: yearsOfExperience ?? this.yearsOfExperience,
       hourlyRate: hourlyRate ?? this.hourlyRate,

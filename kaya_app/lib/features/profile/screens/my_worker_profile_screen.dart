@@ -11,9 +11,7 @@ import '../widgets/inline_edit_row.dart';
 import '../widgets/inline_location_row.dart';
 import '../../../core/widgets/hint_bubble.dart';
 import '../widgets/contact_verify_row.dart';
-import '../widgets/profile_completeness_header.dart';
 import '../widgets/profile_section_card.dart';
-import '../widgets/resume_card.dart';
 import '../../../data/services/api_client.dart';
 import '../../../data/models/location_model.dart';
 import '../../../data/models/worker_skill_model.dart';
@@ -1128,24 +1126,6 @@ class _MyWorkerProfileScreenState extends State<MyWorkerProfileScreen> with Sing
       children: [
         _buildViewsBanner(),
         /*
-            The heading here used to be the words "Complete Your Profile" and
-            nothing else — no sense of how complete, or of what was missing.
-
-            The server has computed both since profile completeness was built,
-            and nothing read it. A ring that is visibly short of closing does
-            what a heading cannot: it gives somebody a reason to finish.
-        */
-        Consumer<AuthProvider>(
-          builder: (context, auth, _) => Padding(
-            padding: const EdgeInsets.only(bottom: 6),
-            child: ProfileCompletenessHeader(
-              percent: auth.workerCompletenessPercent,
-              next: auth.workerCompletenessNext,
-            ),
-          ),
-        ),
-
-        /*
             Only while there is something to buy.
 
             The card used to stay and offer Extend, so the one screen
@@ -1266,9 +1246,6 @@ class _MyWorkerProfileScreenState extends State<MyWorkerProfileScreen> with Sing
             code, confirm it.
         */
         ProfileSectionHeading('Your work'),
-
-        // Upload, open, replace or remove. Employers see it once applied to.
-        const ResumeCard(),
 
         // Skills Card - Using Selector to prevent unnecessary rebuilds
         Selector<WorkerProfileProvider, List<WorkerSkillModel>>(

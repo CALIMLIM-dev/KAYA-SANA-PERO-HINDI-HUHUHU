@@ -155,9 +155,6 @@ Route::prefix('v1')->group(function () {
         // Resume. Stored privately and served only through the download route,
         // which checks the caller — a CV carries a phone number, home address
         // and full work history, so it is never a public storage URL.
-        Route::post('/worker/profile/resume',   [WorkerProfileController::class, 'uploadResume'])->middleware('not.company');
-        Route::delete('/worker/profile/resume', [WorkerProfileController::class, 'deleteResume']);
-        Route::get('/workers/{user}/resume',    [WorkerProfileController::class, 'downloadResume']);
         // NOTE: a parallel /worker-profile/* family used to live here. Six of its
         // routes were bound to controller methods that never existed (show, update,
         // attachSkill, detachSkill, createExperience, createCertification) and one

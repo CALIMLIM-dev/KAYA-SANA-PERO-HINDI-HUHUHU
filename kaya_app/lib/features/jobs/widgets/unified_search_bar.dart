@@ -11,6 +11,17 @@ enum SearchFilter { all, showJobs, showWorkers }
 /// Replaces mode switching with simple search filtering
 class UnifiedSearchBar extends StatefulWidget {
   final Function(String) onSearch;
+
+  /*
+      Called when search is pressed on the keyboard.
+
+      onSearch narrows the rows already on screen as you type, which is
+      all this bar can do on its own. A query that nothing loaded
+      happens to match needs the search that talks to the server, and
+      this is how the screen is told to open it. Optional, because the
+      search screen uses this bar too and is already the answer there.
+  */
+  final void Function(String)? onSubmit;
   final Function(SearchFilter) onFilterChanged;
   final SearchFilter currentFilter;
   final String? hintText;
@@ -19,6 +30,7 @@ class UnifiedSearchBar extends StatefulWidget {
   const UnifiedSearchBar({
     super.key,
     required this.onSearch,
+    this.onSubmit,
     required this.onFilterChanged,
     this.currentFilter = SearchFilter.all,
     this.hintText,
@@ -67,8 +79,15 @@ class _UnifiedSearchBarState extends State<UnifiedSearchBar> {
           child: TextField(
             controller: _controller,
             focusNode: _focusNode,
+            textInputAction: TextInputAction.search,
             onChanged: (value) {
               widget.onSearch(value);
+            },
+            onSubmitted: (value) {
+              final query = value.trim();
+              if (query.isEmpty) return;
+
+              widget.onSubmit?.call(query);
             },
             decoration: InputDecoration(
               hintText: widget.hintText ?? _getHintText(),

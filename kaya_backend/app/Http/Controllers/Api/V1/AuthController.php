@@ -233,7 +233,7 @@ class AuthController extends Controller
 
     /*
         The account as the app needs it: the flags that say which profiles
-        exist and whether they are set up, the resume, the picture.
+        exist and whether they are set up, and the picture.
 
         Served by /me and, since the same fields decide the first screen after
         signing in, returned by login, register and Google sign-in as well. The
@@ -370,30 +370,6 @@ class AuthController extends Controller
             'known' => app(\App\Services\SharedIdentity::class)->known($user),
             'worker_profile_exists' => $workerProfile !== null,
             'worker_setup_completed' => $workerProfile?->isSetupCompleted() ?? false,
-
-            // How complete the profile employers actually read is, plus the
-            // single next thing worth doing. Served from /me so every screen
-            // shows the same number — see WorkerProfile::completeness().
-            'worker_profile_completeness' => $workerProfile?->completeness(),
-
-            /*
-                Whether a resume is on file.
-
-                The upload and delete endpoints returned this and nothing else
-                did, so the app had no way to know a resume existed and no way
-                to show one - the whole feature was reachable only by an
-                account that had just uploaded, and then only until the screen
-                rebuilt.
-
-                The path is deliberately absent. A resume carries a phone
-                number, a home address and an employment history, and it is
-                served through a gated download rather than by URL.
-            */
-            'resume' => $workerProfile === null ? null : [
-                'has_resume'  => $workerProfile->hasResume(),
-                'file_name'   => $workerProfile->resume_original_name,
-                'uploaded_at' => $workerProfile->resume_uploaded_at?->toIso8601String(),
-            ],
         ];
     }
 
@@ -932,12 +908,12 @@ class AuthController extends Controller
     /*
         What the worker's own profile screen loads.
 
-        It read latitude, longitude and the resume off this response, and
-        none of them were in it - they were on /me, which that screen never
-        calls. So a pin saved fine and then never showed as saved: the
-        button went back to "Pin location" and the map reopened on the
-        centre of town. The resume vanished the same way. They are here now,
-        with the bio and the boost, which that screen also needs.
+        It read latitude and longitude off this response and neither was in
+        it - they were on /me, which that screen never calls. So a pin
+        saved fine and then never showed as saved: the button went back to
+        "Pin location" and the map reopened on the centre of town. They
+        are here now, with the bio and the boost, which that screen also
+        needs.
     */
     public function user(Request $request)
     {
@@ -962,11 +938,6 @@ class AuthController extends Controller
             'longitude' => $worker?->longitude === null ? null : (float) $worker->longitude,
             'bio' => $worker?->bio,
             'boosted_until' => $boostedUntil?->toIso8601String(),
-            'resume' => $worker === null ? null : [
-                'has_resume'  => $worker->hasResume(),
-                'file_name'   => $worker->resume_original_name,
-                'uploaded_at' => $worker->resume_uploaded_at?->toIso8601String(),
-            ],
         ], 'User retrieved successfully');
     }
 }

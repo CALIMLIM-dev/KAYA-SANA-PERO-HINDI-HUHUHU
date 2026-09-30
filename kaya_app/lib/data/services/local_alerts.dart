@@ -18,7 +18,21 @@ import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 class LocalAlerts {
   LocalAlerts._();
 
-  static const String channelId = 'kaya_alerts';
+  /*
+      Versioned, because a channel's importance cannot be changed.
+
+      Android fixes importance when a channel is first created and
+      ignores every later attempt to raise it - so a phone that once
+      created kaya_alerts at a lower importance would show these
+      silently for as long as the app stayed installed, no matter what
+      the code below asks for. A new id is the only way to get a
+      channel that actually pops up.
+
+      The old one is left behind rather than deleted: deleting a
+      channel wipes the choices somebody made about it, and an empty
+      unused channel costs nothing.
+  */
+  static const String channelId = 'kaya_alerts_v2';
 
   static final FlutterLocalNotificationsPlugin _plugin =
       FlutterLocalNotificationsPlugin();

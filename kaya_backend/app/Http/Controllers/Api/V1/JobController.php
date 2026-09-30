@@ -198,6 +198,17 @@ class JobController extends Controller
         $redact = function (JobPost $job) {
             $job->makeHidden(JobPost::PRECISE_LOCATION);
             if ($job->distance_km !== null) {
+                /*
+                    The words as well as the number.
+
+                    A band of 5 is not a measurement of 5 km, but that
+                    is all the app could read, so it drew "5.0 km away"
+                    for everything between one and five - false to the
+                    tenth in both directions. The worker feed has sent a
+                    label beside the band from the start; this is the
+                    same thing for jobs.
+                */
+                $job->distance_label = DistanceBand::label((float) $job->distance_km);
                 $job->distance_km = DistanceBand::bucket((float) $job->distance_km);
             }
             return $job;
@@ -528,9 +539,21 @@ class JobController extends Controller
                 'matched_skills' => $match['matched_skills'],
                 'match_reasons'  => $match['reasons'],
                 'match_score'    => $match['score'],
-                'distance_km'    => $match['distance_km'] === null
-                    ? null
-                    : round($match['distance_km'], 1),
+                /*
+                    Banded, the same as browsing workers.
+
+                    These are workers this employer has not hired, and
+                    the exact figure is their home to within a hundred
+                    metres once it is read from a second position. The
+                    browse endpoint has always banded it; this list of
+                    the same people did not.
+                */
+                'distance_km'    => \App\Support\DistanceBand::bucket(
+                    $match['distance_km'],
+                ),
+                'distance_label' => \App\Support\DistanceBand::label(
+                    $match['distance_km'],
+                ),
             ];
         })
         // A same-category worker always clears this, even with no exact skill
@@ -779,9 +802,28 @@ class JobController extends Controller
             $job->match_score = $match['score'];
             $job->matched_skills = $match['matched_skills'];
             $job->match_reasons = $match['reasons'];
-            $job->distance_km = $match['distance_km'] === null
-                ? null
-                : round($match['distance_km'], 1);
+            /*
+                Exact only for somebody already on this job.
+
+                forViewer below hides the address, the latitude and the
+                longitude from anybody who is not a party to the post -
+                and this sent the distance to a tenth of a kilometre
+                regardless, which is the same information one step
+                removed. It also disagreed with the feed, which bands:
+                a job two kilometres away said "5 km" on the card and
+                "2.3 km" when opened.
+
+                A hired worker needs to get there, so they keep the
+                real number along with the address.
+            */
+            if ($job->isPartyTo($user)) {
+                $job->distance_km = $match['distance_km'] === null
+                    ? null
+                    : round($match['distance_km'], 1);
+            } else {
+                $job->distance_km = DistanceBand::bucket($match['distance_km']);
+                $job->distance_label = DistanceBand::label($match['distance_km']);
+            }
         }
 
         $job->has_applied = $job->applications()->where('worker_id', $user->id)->exists();
