@@ -33,8 +33,25 @@ class SupportController extends Controller
 
         $thread = SupportThread::where('user_id', $user->id)->first();
 
+        /*
+            Everything, or only what came after the id the caller holds.
+
+            The screen polls every few seconds. Without a cursor each poll
+            re-sent the whole conversation to add one line, which on a long
+            thread is the entire history over mobile data, several times a
+            minute.
+
+            `after` is optional, so a cold open still gets everything, and the
+            response says which mode it answered in - the screen appends after
+            a cursored call and replaces after a full one.
+        */
+        $after = (int) $request->query('after', 0);
+
         $messages = $thread
-            ? $thread->messages()->orderBy('id')->get()
+            ? $thread->messages()
+                ->when($after > 0, fn ($q) => $q->where('id', '>', $after))
+                ->orderBy('id')
+                ->get()
             : collect();
 
         // Opening the thread is reading it. Only KAYA's side: a person does
@@ -47,8 +64,10 @@ class SupportController extends Controller
         }
 
         return $this->ok([
-            'messages' => $messages->map(fn ($m) => $this->present($m))->values(),
-            'unread'   => 0,
+            'messages'    => $messages->map(fn ($m) => $this->present($m))->values(),
+            'unread'      => 0,
+            // So the screen knows whether to append or replace.
+            'incremental' => $after > 0,
         ]);
     }
 

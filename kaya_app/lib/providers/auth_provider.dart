@@ -120,7 +120,21 @@ class AuthProvider with ChangeNotifier {
       second skips what the first already answered, which is the whole point
       of the two being one account.
   */
-  bool get isSecondProfile => workerProfileExists || employerProfileExists;
+  /*
+      Only the worker setup asks this, and only the employer profile can
+      answer it.
+
+      It used to be "either profile exists", which is true of a worker who
+      is part way through setting up their own first profile - the row is
+      written the moment a photo is uploaded. So resuming an unfinished
+      first setup counted as a second one, and the steps it skips were
+      skipped: somebody with a Google avatar was never asked for a photo on
+      the only profile they had.
+
+      The worker flow only ever runs when there is no worker profile, so the
+      question is simply whether the account already has the other side.
+  */
+  bool get isSecondProfile => employerProfileExists;
 
   /*
       A registered business hires only; it cannot also look for work.

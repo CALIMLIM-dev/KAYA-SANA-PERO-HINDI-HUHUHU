@@ -37,6 +37,13 @@
     -->
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE"/>
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_LOCATION"/>
+    <!-- The service also runs without a hire, polling for messages and
+         notifications, and that is a data sync rather than a location
+         job. Declaring it is not a formality: from Android 14 the type
+         must match what the service is actually doing, and running a
+         notification poll under "location" would be both untrue and a
+         Play rejection. -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC"/>
     <uses-permission android:name="android.permission.ACCESS_BACKGROUND_LOCATION"/>
 
     <!-- Keeps the CPU and WiFi awake long enough for a position fix and a ping
@@ -106,17 +113,30 @@
             android:name="flutterEmbedding"
             android:value="2" />
 
-        <!-- The foreground service that keeps reporting position after the app
-             is swiped out of recents.
+        <!-- The foreground service. It does two jobs and declares both.
 
-             foregroundServiceType is mandatory from Android 14: a service that
-             does not declare one is refused at start with a
-             SecurityException. "location" is the honest declaration, and it is
-             the reason this service is permitted to exist at all — a service
-             justified as "polls for chat" would not be. -->
+             foregroundServiceType is mandatory from Android 14: a service
+             that does not declare one is refused at start with a
+             SecurityException, and the type has to match the work.
+
+             "location" covers reporting position during a hire, and needs
+             location permission granted before the service will start.
+
+             "dataSync" covers the rest of the time, when it is polling for
+             messages and notifications - which is why it can now run for a
+             whole session instead of only during a job. It is declared
+             rather than sheltering under "location" because the type has
+             to be true: the note that used to sit here said a service
+             justified as "polls for chat" would not be permitted, and it
+             was right that claiming location for it is not allowed.
+
+             What dataSync does not buy is forever. Android 15 caps it at
+             roughly six hours a day, after which the system stops the
+             service - so BackgroundPoll stays as the fallback and real
+             push still needs FCM. -->
         <service
             android:name="com.pravera.flutter_foreground_task.service.ForegroundService"
-            android:foregroundServiceType="location"
+            android:foregroundServiceType="location|dataSync"
             android:exported="false"
             android:stopWithTask="false" />
     </application>

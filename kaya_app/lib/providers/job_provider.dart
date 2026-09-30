@@ -76,6 +76,9 @@ class JobProvider with ChangeNotifier {
     /// `location` string above is a LIKE on a label and cannot.
     int? locationId,
     List<int>? skillIds,
+    /// Boosted posts only, asked of the server rather than filtered out of
+    /// a page it has already cut - see the note in search_screen.
+    bool urgentOnly = false,
     /// Orders by distance from the signed-in worker's location. Ignored by the
     /// server for anyone without a worker profile — there is nowhere to
     /// measure from.
@@ -96,6 +99,7 @@ class JobProvider with ChangeNotifier {
         'location_id': ?locationId,
         if (skillIds != null && skillIds.isNotEmpty) 'skill_ids': skillIds,
         if (nearestFirst) 'sort': 'nearest',
+        if (urgentOnly) 'urgent_only': true,
         'radius_km': ?radiusKm,
       });
 

@@ -120,6 +120,31 @@ class JobController extends Controller
         $nearestFirst = $request->get('sort') === 'nearest';
 
         /*
+            Boosted posts only, when the filter asks for them.
+
+            The app filtered its own already-fetched pages for this, so "Urgent
+            only" hid rows from the page in front of you rather than asking for
+            the boosted ones - twenty results in with one of them urgent, and
+            the list showed a single item and stopped. Paging cannot work when
+            the filter runs after the page has been cut.
+
+            Asked of the boosts table rather than the is_urgent column, so it
+            agrees with the ordering and with the badge: is_urgent records what
+            was bought and is never cleared, while placement is a live window
+            that closes after three days.
+        */
+        if ($request->boolean('urgent_only')) {
+            $query->whereExists(function ($q) {
+                $q->selectRaw('1')
+                    ->from('boosts')
+                    ->whereColumn('boosts.boostable_id', 'jobs_posts.id')
+                    ->where('boosts.boostable_type', \App\Models\Boost::TYPE_JOB)
+                    ->where('boosts.starts_at', '<=', now())
+                    ->where('boosts.ends_at', '>', now());
+            });
+        }
+
+        /*
             "Jobs near you" was not near you.
 
             The home screen headed this list with "Open jobs in {city}" while

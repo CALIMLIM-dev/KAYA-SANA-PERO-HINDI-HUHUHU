@@ -1,4 +1,5 @@
 import 'package:flutter/gestures.dart';
+import '../../../core/utils/password_check.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../../core/constants/app_colors.dart';
@@ -89,11 +90,16 @@ class _SignupScreenState extends State<SignupScreen> {
       }
     }
 
-    if (password.isEmpty) {
-      passErr = 'Password is required';
-    } else if (password.length < 8) {
-      passErr = 'Password must be at least 8 characters';
-    }
+    /*
+        The server's rule, asked here so the form does not accept
+        something the server will refuse. It is more than a length now:
+        a letter, a digit, and not one of the passwords everybody tries
+        or the person's own name.
+    */
+    // One field holds either an email or a phone number here. A phone
+    // contributes nothing to the personal-words check, which splits on
+    // digits, so it is safe to pass whichever was typed.
+    passErr = PasswordCheck.problem(password, email: input);
 
     if (confirm.isEmpty) {
       confirmErr = 'Please confirm your password';

@@ -176,6 +176,7 @@ class _SearchScreenState extends State<SearchScreen> {
             search: query,
             categoryId: _selectedCategoryId,
             locationId: _placeId,
+            urgentOnly: _urgentOnly,
           );
     } else {
       // Pay is a column on the worker profile, so it filters server-side.
@@ -210,9 +211,14 @@ class _SearchScreenState extends State<SearchScreen> {
   List<Job> _applyJobFilters(List<Job> jobs) {
     return jobs.where((j) {
       if (_verifiedOnly && !j.requiresVerification) return false;
-      // isBoosted, so the filter agrees with the badge and with the
-      // ordering. is_urgent never expires; the placement does.
-      if (_urgentOnly && !j.isBoosted) return false;
+      /*
+          Urgent is not filtered here any more.
+
+          It dropped rows out of a page the server had already chosen, so
+          twenty results in with one of them urgent left a list holding a
+          single item that would not page any further. urgent_only goes to the
+          query instead, which is the only place a filter and paging agree.
+      */
       final price = j.salaryMax ?? j.salaryMin;
       if (price != null && (price < _minSalary || price > _maxSalary)) {
         return false;

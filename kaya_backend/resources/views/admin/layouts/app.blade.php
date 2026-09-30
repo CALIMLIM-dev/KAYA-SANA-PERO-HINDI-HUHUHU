@@ -205,22 +205,39 @@
     var url = @json(route('admin.pulse'));
     var every = 10000;
     var stamp = null;
-    var dirty = false;
+    /*
+        When somebody last typed, not whether they ever did.
+
+        This was a boolean that was set on the first keystroke and never
+        cleared, so one character in a filter box stopped the page
+        refreshing for good.
+    */
+    var lastTyped = 0;
+    var typingGrace = 30000;
     var timer = null;
 
     /*
         Typing only protects the form being typed into.
 
-        This used to set a page-wide flag on the first keystroke, so one
-        character in a reply box stopped the whole panel refreshing for the
-        rest of the session - which is exactly the screen where you are
-        waiting for the other person's message to arrive. A page that only
-        holds a chat has nothing to lose by reloading, so it is allowed to.
+        This set a page-wide flag on the first keystroke and never cleared
+        it, so one character in any box stopped that page refreshing for
+        the rest of its life - and a new verification or report only moved
+        the sidebar badge while the list sat still. It is a timestamp now,
+        so the protection lasts as long as somebody is actually typing.
+
+        A page that only holds a chat has nothing to lose by reloading, so
+        it opts out of even that.
     */
     document.addEventListener('input', function () {
         if (document.body.hasAttribute('data-live')) return;
-        dirty = true;
+        lastTyped = Date.now();
     }, true);
+
+    /// Typed in the last half minute. Older than that is not "in the
+    /// middle of something", it is a page somebody is watching.
+    function recentlyTyped() {
+        return lastTyped > 0 && (Date.now() - lastTyped) < typingGrace;
+    }
 
     function typing() {
         var el = document.activeElement;
@@ -246,7 +263,7 @@
                 if (stamp === null) { stamp = data.stamp; return; }
                 if (data.stamp === stamp) return;
                 stamp = data.stamp;
-                if (dirty || typing()) {
+                if (recentlyTyped() || typing()) {
                     document.getElementById('pulse-banner').style.display = 'flex';
                 } else {
                     location.reload();

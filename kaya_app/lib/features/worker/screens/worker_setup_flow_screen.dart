@@ -655,9 +655,13 @@ class _WorkerSetupFlowScreenState extends State<WorkerSetupFlowScreen> {
               ),
               const SizedBox(width: 12),
               Expanded(
+                // '(optional)', the same as the employer form and the same
+                // as the middle name beside it. The comment above has claimed
+                // for months that it said so; it did not, so a field nothing
+                // requires looked required.
                 child: _nameField(
                   _suffixController,
-                  'Suffix',
+                  'Suffix (optional)',
                   capitalization: TextCapitalization.characters,
                 ),
               ),

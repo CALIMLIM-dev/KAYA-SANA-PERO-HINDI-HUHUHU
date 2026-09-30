@@ -11,6 +11,50 @@ minor release, and `feat!:` or a `BREAKING CHANGE:` footer for a major one.
 
 ---
 
+## 1.13.2 - 2026-09-30
+
+### Added
+
+- Notifications arrive when they happen. The foreground service already
+  checked every five seconds but only ran while a hire was being tracked, so
+  the rest of the time notifications fell to a background job that Android
+  defers - a sleeping phone holds one for hours and then delivers everything
+  at once, which is a notification arriving now and stamped four hours ago. It
+  runs for the whole session now, and declares the data sync it is actually
+  doing rather than sheltering under the location permission.
+- A password has to be more than eight characters of anything. All four places
+  that set one asked only for a length, so "password", "12345678" and the
+  account holder's own name were accepted on an account that holds a wallet
+  and an approved government ID. One rule now, in one place: a letter, a
+  number, and not one of the passwords everybody tries or anything built from
+  your own name or email.
+- Removing the worker profile from Settings. The endpoint and the provider
+  method had both existed for months with no screen calling either, which
+  matters because a worker profile is what stops an account becoming a
+  registered business - there was no way back from that except deleting the
+  whole account.
+- `kaya:wipe-test-data`, for emptying the accounts and everything they did
+  without touching locations, categories, skills, prices or administrators.
+
+### Fixed
+
+- The admin panel refreshes itself again after somebody has typed. One
+  character in any box - a search, a filter, a rejection reason - stopped that
+  page auto-refreshing for the rest of its life, so a new verification only
+  moved the sidebar badge while the list sat still and the only way to see it
+  was a manual refresh.
+- "Urgent only" asks the server. It filtered the page it had already been
+  given, so twenty results in with one of them urgent left a list holding a
+  single item that would not page any further.
+- The support thread asks for what it has not seen. It re-sent the whole
+  conversation on every poll, and moving the poll from ten seconds to four
+  made that worse rather than better.
+- A worker part way through setting up their own first profile was treated as
+  having a second one, so the steps a second profile skips were skipped -
+  anybody with a Google picture was never asked for a photo on the only
+  profile they had.
+- Suffix says it is optional in worker setup, which it always was.
+
 ## 1.13.1 - 2026-09-30
 
 ### Fixed

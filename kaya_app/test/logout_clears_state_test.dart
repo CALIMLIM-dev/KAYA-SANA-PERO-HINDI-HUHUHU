@@ -62,7 +62,7 @@ void main() {
   test('a balance does not survive a logout', () {
     final credits = CreditsProvider();
 
-    credits.adopt(250);
+    credits.seedBalance(250);
     expect(credits.balance, 250);
 
     credits.clear();

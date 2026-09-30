@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../core/utils/password_check.dart';
 
 import '../../../core/constants/app_colors.dart';
 import '../../../core/widgets/app_toast.dart';
@@ -116,9 +117,10 @@ class ChangePasswordSheetState extends State<ChangePasswordSheet> {
               label: 'New password',
               validator: (v) {
                 if (v == null || v.isEmpty) return 'Enter a new password';
-                if (v.length < 8) return 'Use at least 8 characters';
                 if (v == _current.text) return 'Choose a different password';
-                return null;
+
+                // The same rule the server holds it to; see PasswordCheck.
+                return PasswordCheck.problem(v);
               },
             ),
             const SizedBox(height: 12),

@@ -91,7 +91,9 @@ void main() {
       'Last Name *',
       'First Name *',
       'Middle Name (optional)',
-      'Suffix',
+      // Says optional now, like the middle name beside it and like the
+      // employer form. Nothing required it; only the label implied it did.
+      'Suffix (optional)',
     ]) {
       expect(find.text(label), findsOneWidget);
       expect(takesTyping(tester, label), isFalse,

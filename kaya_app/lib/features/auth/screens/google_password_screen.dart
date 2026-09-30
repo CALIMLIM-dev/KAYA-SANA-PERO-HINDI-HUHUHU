@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../core/utils/password_check.dart';
 import 'package:provider/provider.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../providers/auth_provider.dart';
@@ -76,11 +77,8 @@ class _GooglePasswordScreenState extends State<GooglePasswordScreen> {
     final confirmPassword = _confirmPasswordController.text;
     String? passErr, confirmErr;
 
-    if (password.isEmpty) {
-      passErr = 'Password is required';
-    } else if (password.length < 8) {
-      passErr = 'Password must be at least 8 characters';
-    }
+    // The same rule as everywhere else; see PasswordCheck.
+    passErr = PasswordCheck.problem(password);
 
     if (confirmPassword.isEmpty) {
       confirmErr = 'Please confirm your password';

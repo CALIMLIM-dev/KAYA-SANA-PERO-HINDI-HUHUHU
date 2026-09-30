@@ -45,7 +45,14 @@ class AuthController extends Controller
             'last_name'   => ['nullable', 'string', 'max:100'],
             'suffix'      => ['nullable', 'string', 'max:20'],
             'email'    => ['required', 'string'],
-            'password' => ['required', 'string', 'min:8', 'confirmed'],
+            // One rule for every password in this file - see
+            // PasswordRules. All four used to be min:8 and nothing else.
+            'password' => \App\Support\PasswordRules::for(
+                $request->input('email'),
+                $request->input('name') ?? trim(
+                    $request->input('first_name', '') . ' ' . $request->input('last_name', '')
+                ),
+            ),
             'phone'    => ['nullable', 'string', 'max:20'],
             'city'     => ['nullable', 'string', 'max:255'],
             'terms_accepted' => ['required', 'boolean', 'accepted'],
@@ -464,7 +471,10 @@ class AuthController extends Controller
     {
         $data = $request->validate([
             'current_password' => ['required', 'string'],
-            'password'         => ['required', 'string', 'min:8', 'confirmed'],
+            'password'         => \App\Support\PasswordRules::for(
+                $request->user()?->email,
+                $request->user()?->name,
+            ),
         ]);
 
         $user = $request->user();
@@ -631,7 +641,11 @@ class AuthController extends Controller
     {
         $request->validate([
             'id_token'  => ['required', 'string'],
-            'password'  => ['nullable', 'string', 'min:8'],
+            // Nullable, so the rules only apply when one is actually set:
+            // an existing Google account signs in without sending one.
+            'password'  => $request->filled('password')
+                ? \App\Support\PasswordRules::unconfirmed()
+                : ['nullable'],
             'is_signup' => ['nullable', 'boolean'],
             /*
                 Consent, same as the email form asks for.
@@ -881,7 +895,7 @@ class AuthController extends Controller
         $request->validate([
             'email'    => ['required', 'email'],
             'code'     => ['required', 'string', 'size:6'],
-            'password' => ['required', 'string', 'min:8', 'confirmed'],
+            'password' => \App\Support\PasswordRules::for($request->input('email')),
         ]);
 
         $user = User::where('email', $request->email)->first();

@@ -78,10 +78,27 @@ class BackgroundController {
     return true;
   }
 
-  /// Starts reporting position for an active hire, and watching for
-  /// notifications while it does.
-  Future<bool> start({required int applicationId}) async {
+  /*
+      Starts the service.
+
+      With an applicationId it also reports position for that hire.
+      Without one it only watches for notifications, which is what it
+      does for most of the time anybody has the app installed.
+
+      It used to require a hire, so outside an active job nothing held
+      the app awake and notifications fell to a WorkManager job that
+      Doze can defer for hours.
+  */
+  Future<bool> start({int? applicationId}) async {
+    /*
+        A tracked hire outranks a notifications-only run.
+
+        Both want the one service Android allows, so starting the
+        notifications one must not tear down a hire that is reporting
+        position - the hire carries both jobs anyway.
+    */
     if (await isRunning) {
+      if (applicationId == null) return true;
       await stop();
     }
 
@@ -94,13 +111,19 @@ class BackgroundController {
         key: BackgroundKeys.token, value: token);
     await FlutterForegroundTask.saveData(
         key: BackgroundKeys.baseUrl, value: ApiClient.root);
+    // Cleared when there is no hire, so a restarted service does not
+    // resume reporting position for a job that has finished.
     await FlutterForegroundTask.saveData(
-        key: BackgroundKeys.applicationId, value: applicationId);
+        key: BackgroundKeys.applicationId, value: applicationId ?? 0);
 
     try {
       await FlutterForegroundTask.startService(
-        notificationTitle: 'KAYA is sharing your location',
-        notificationText: 'Tap to open. Stop sharing any time.',
+        notificationTitle: applicationId == null
+            ? 'KAYA'
+            : 'KAYA is sharing your location',
+        notificationText: applicationId == null
+            ? 'Watching for new messages and notifications.'
+            : 'Tap to open. Stop sharing any time.',
         callback: startBackgroundCallback,
       );
 

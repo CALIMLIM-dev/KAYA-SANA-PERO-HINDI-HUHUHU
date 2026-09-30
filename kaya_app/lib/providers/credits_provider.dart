@@ -314,12 +314,37 @@ class CreditsProvider with ChangeNotifier {
     _claimableMonthly = (claimable['monthly'] as num?)?.toInt() ?? 0;
   }
 
-  /// Adopts a balance the server reported alongside some other response.
-  void adopt(int? balance) {
-    if (balance == null || balance == _balance) return;
+  /*
+      Puts a balance on the provider, for a test with no server to fetch one.
+
+      This was adopt(), and it was written for something else: taking a
+      balance a spend response had carried so the number could be corrected
+      without another request. No endpoint ever returned one and nothing in
+      the app ever called it - its only caller in the whole repository is the
+      logout test, which needs a balance to prove clear() wipes it.
+
+      So it is named for what it actually does. The staleness it was meant
+      for is handled by afterSpending() above.
+  */
+  @visibleForTesting
+  void seedBalance(int balance) {
     _balance = balance;
     notifyListeners();
   }
+
+  /*
+      adopt() was here.
+
+      It took a balance a response had carried alongside something else, so a
+      spend could correct the number without a second request. Nothing ever
+      called it - not once, in the whole app - and the staleness it was
+      written for is handled by afterSpending() above, which refetches at the
+      point of the spend.
+
+      Removed rather than left waiting for a caller. If the spending
+      endpoints are ever changed to return the new balance, this is three
+      lines to bring back.
+  */
 
   void clear() {
     _balance = 0;

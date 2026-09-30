@@ -1,4 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+
+import '../../../providers/auth_provider.dart';
+import '../../../providers/worker_profile_provider.dart';
 import '../widgets/change_password_sheet.dart';
 import '../widgets/delete_account_sheet.dart';
 
@@ -117,6 +121,23 @@ class _SettingsScreenState extends State<SettingsScreen> {
           const SizedBox(height: 24),
           _sectionHeader('Leaving'),
           const SizedBox(height: 10),
+          /*
+              Only when there is one, and only when it is not the only one.
+
+              An account with a worker profile alone would be left signed in
+              with nothing, which is what Delete account below is for.
+          */
+          if (context.watch<AuthProvider>().workerProfileExists &&
+              context.watch<AuthProvider>().employerProfileExists) ...[
+            _menuItem(
+              icon: Icons.work_off_outlined,
+              title: 'Remove worker profile',
+              subtitle: 'Keeps your account and your employer profile',
+              onTap: () => _removeWorkerProfile(context),
+            ),
+            const SizedBox(height: 10),
+          ],
+
           _menuItem(
             icon: Icons.person_remove_outlined,
             title: 'Delete account',
@@ -199,6 +220,61 @@ class _SettingsScreenState extends State<SettingsScreen> {
         thing the finger is touching, and clipping it to the same radius keeps
         the splash inside the rounded corners instead of squaring them off.
     */
+  /*
+      Removes the worker side and leaves the account alone.
+
+      Confirmed first and named plainly: the skills, experience, credentials
+      and reviews on that profile go with it, and a worker profile is also
+      what prevents the account becoming a registered business - so somebody
+      doing this to take that path should be told what they are giving up
+      rather than discovering it afterwards.
+  */
+  Future<void> _removeWorkerProfile(BuildContext context) async {
+    final yes = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Remove your worker profile?'),
+        content: const Text(
+          'Your skills, experience, credentials and reviews as a worker are '
+          'removed. Your account and your employer profile stay. You can set '
+          'a worker profile up again later.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: const Text(
+              'Remove',
+              style: TextStyle(color: AppColors.error),
+            ),
+          ),
+        ],
+      ),
+    );
+
+    if (yes != true || !context.mounted) return;
+
+    final worker = context.read<WorkerProfileProvider>();
+    final ok = await worker.deleteProfile();
+
+    if (!context.mounted) return;
+
+    if (!ok) {
+      AppToast.error(context, worker.errorMessage ?? 'Could not remove it.');
+      return;
+    }
+
+    // The flags decide what the whole app shows, so they are refetched before
+    // anything renders against the old ones.
+    await context.read<AuthProvider>().fetchMe();
+
+    if (!context.mounted) return;
+
+    AppToast.success(context, 'Your worker profile has been removed.');
+  }
   Widget _menuItem({
     required IconData icon,
     required String title,

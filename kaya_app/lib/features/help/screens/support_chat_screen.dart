@@ -85,14 +85,49 @@ class _SupportChatScreenState extends State<SupportChatScreen> {
     }
 
     try {
-      final res = await _api.get('/support');
+      /*
+          Only what has not been seen, once there is something to compare to.
+
+          This fetched the whole conversation on every poll. Speeding the poll
+          up from ten seconds to four made that worse rather than better: the
+          entire history was being re-sent every four seconds, over mobile
+          data, to draw one new line. The admin side has asked this way since
+          its polling was written.
+
+          A cold open still asks for everything - `after` is only sent once a
+          message id is known - and the server says which it answered, so
+          there is no guessing about appending against replacing.
+      */
+      final since = _messages.isEmpty ? 0 : (_messages.last['id'] as int? ?? 0);
+
+      final res = await _api.get(
+        '/support',
+        queryParameters: since > 0 ? {'after': since} : null,
+      );
+
       final data = res.data['data'] as Map<String, dynamic>;
 
       if (!mounted) return;
 
+      final incoming =
+          ((data['messages'] as List?) ?? []).cast<Map<String, dynamic>>();
+      final incremental = data['incremental'] == true;
+
+      // Nothing new on a cursored poll: leave the list alone rather than
+      // rebuilding it, which would fight the scroll position.
+      if (incremental && incoming.isEmpty) {
+        if (_loading || _error != null) {
+          setState(() {
+            _loading = false;
+            _error = null;
+          });
+        }
+
+        return;
+      }
+
       setState(() {
-        _messages = ((data['messages'] as List?) ?? [])
-            .cast<Map<String, dynamic>>();
+        _messages = incremental ? [..._messages, ...incoming] : incoming;
         _loading = false;
         _error = null;
       });

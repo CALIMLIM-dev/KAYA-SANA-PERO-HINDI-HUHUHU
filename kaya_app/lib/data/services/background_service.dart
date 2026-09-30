@@ -107,7 +107,15 @@ class _KayaTaskHandler extends TaskHandler {
     if (_tokenRejected) return;
     if (_token == null || _token!.isEmpty || _baseUrl == null) return;
 
-    if (DateTime.now().difference(_lastPing) >= _pingEvery) {
+    /*
+        Position only when there is a hire to report it for.
+
+        The service runs for notifications alone most of the time, and
+        an id of zero is how the controller says there is no job - it
+        cannot store a null.
+    */
+    if ((_applicationId ?? 0) > 0 &&
+        DateTime.now().difference(_lastPing) >= _pingEvery) {
       _lastPing = DateTime.now();
       await _sendPosition();
     }

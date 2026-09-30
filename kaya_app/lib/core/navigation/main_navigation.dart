@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -8,6 +10,7 @@ import '../../features/messaging/screens/messages_list_screen.dart';
 import '../../features/profile/screens/profile_screen.dart';
 import '../../providers/messaging_provider.dart';
 import '../../providers/notification_provider.dart';
+import '../../data/services/background_controller.dart';
 import '../../data/services/background_poll.dart';
 import '../../data/services/local_alerts.dart';
 import '../widgets/version_gate.dart';
@@ -135,6 +138,27 @@ class _MainNavigationState extends State<MainNavigation>
       // job that checks for them after the app is closed.
       LocalAlerts.requestPermission();
       BackgroundPoll.register();
+
+      /*
+          And the service that makes them arrive when they happen.
+
+          BackgroundPoll is a WorkManager job, and WorkManager is subject to
+          Doze: fifteen minutes is its minimum period, not a promise. A
+          sleeping phone can hold a queued job for hours and then fire
+          everything at once, which is a notification arriving now and
+          stamped four hours ago.
+
+          A foreground service is exempt from Doze, ticks every five seconds
+          and already polls notifications - it simply only ran while a hire
+          was being tracked. Now it runs for the session. The WorkManager job
+          stays as the fallback for when Android stops the service anyway,
+          and the two share one high-water mark so neither repeats the
+          other's notifications.
+
+          Not awaited: it asks for permissions of its own and must not hold
+          up the first frame.
+      */
+      unawaited(BackgroundController.instance.start());
 
       /*
           Asked once a session, here, where a session actually begins.
