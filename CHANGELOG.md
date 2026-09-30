@@ -11,7 +11,7 @@ minor release, and `feat!:` or a `BREAKING CHANGE:` footer for a major one.
 
 ---
 
-## 1.14.0 - 2026-10-01
+## 1.14.1 - 2026-10-01
 
 ### Added
 
@@ -40,6 +40,20 @@ minor release, and `feat!:` or a `BREAKING CHANGE:` footer for a major one.
   uses anywhere.
 
 ### Fixed
+
+- A job post stops showing as active once it has ended. The sweep that
+  marks a post expired runs once a day, so between a job's end date and
+  five the next morning the status column still said open - the feed had
+  already dropped the post while the employer's own profile still filed
+  it under Active. Both ask the same question now, answered once on the
+  server.
+- A post the sweep marked expired is in History rather than nowhere.
+  Active listed open and in progress, History listed completed and
+  closed, so an expired post belonged to neither and disappeared from
+  the screen altogether.
+- The home feed reloads when something happens to it. It was fetched once
+  when the screen was built and then left alone until somebody pulled it
+  down, so a job that had ended stayed on the card already drawn.
 
 - "Ask for Work Again" no longer fails with a server error. The duplicate
   check queried a column that does not exist on that table.

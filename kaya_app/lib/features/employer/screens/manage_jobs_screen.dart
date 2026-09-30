@@ -57,17 +57,21 @@ class _ManageJobsScreenState extends State<ManageJobsScreen>
 
   String _statusOf(Map<String, dynamic> job) => (job['status'] ?? '').toString();
 
+  // JobProvider owns the rule, so this screen and the home card cannot
+  // disagree about which posts are running. See JobProvider.jobIsActive.
   List<Map<String, dynamic>> _activeJobs(List<Map<String, dynamic>> jobs) =>
-      jobs.where((j) {
-        final s = _statusOf(j);
-        return s == 'open' || s == 'in_progress';
-      }).toList();
+      jobs.where(JobProvider.jobIsActive).toList();
 
+  /*
+      Everything that is not running, rather than a list of endings.
+
+      This named completed and closed, and Active named open and
+      in_progress - so a post the sweep marked expired belonged to
+      neither and disappeared from this screen altogether. An employer
+      could not find a job they had posted.
+  */
   List<Map<String, dynamic>> _historyJobs(List<Map<String, dynamic>> jobs) =>
-      jobs.where((j) {
-        final s = _statusOf(j);
-        return s == 'completed' || s == 'closed';
-      }).toList();
+      jobs.where((j) => !JobProvider.jobIsActive(j)).toList();
 
   @override
   Widget build(BuildContext context) {

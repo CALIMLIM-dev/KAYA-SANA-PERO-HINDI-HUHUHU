@@ -27,9 +27,31 @@ class JobProvider with ChangeNotifier {
       card's did not, and the card then showed a number the list disagreed
       with. One definition cannot drift from itself.
   */
-  List<Map<String, dynamic>> get activeJobs => _jobs
-      .where((j) => ['open', 'in_progress'].contains(j['status']))
-      .toList();
+  List<Map<String, dynamic>> get activeJobs =>
+      _jobs.where(jobIsActive).toList();
+
+  /*
+      Whether one of the signed-in employer's posts is still running.
+
+      The status column is not enough on its own. A post whose end date
+      has passed still says open until the daily sweep rewrites it, so
+      reading the column alone filed a finished job under Active - for
+      most of a day, and while the feed had already dropped it. The
+      server answers this with is_live, using the same rule the feed
+      filters on, so the two cannot give different answers about the
+      same post.
+
+      The status is still read when is_live is absent, which is what an
+      older server sends. A phone that updates before the server should
+      behave as it did before rather than show an empty list.
+  */
+  static bool jobIsActive(Map<String, dynamic> job) {
+    final live = job['is_live'];
+    if (live is bool) return live;
+    if (live is num) return live != 0;
+
+    return ['open', 'in_progress'].contains(job['status']);
+  }
 
   // ── Public job feed (worker-mode home + search) ─────────────────────────────
 

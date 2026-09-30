@@ -140,8 +140,25 @@ class _UnifiedHomeScreenState extends State<UnifiedHomeScreen>
   @override
   List<String> get refreshOn => const ['application.', 'invitation.', 'job.'];
 
+  /*
+      The counts and the feed, not just the counts.
+
+      This reloaded the counts alone, so the job list was whatever had
+      been fetched when the screen was built. A job that ended is gone
+      from the server's answer straight away - the feed filters on the
+      date, not only the status - but the card it had already drawn
+      stayed there until a pull-to-refresh, which reads as a finished
+      job still being advertised.
+
+      Safe to do here because this fires on an event, not a timer: a
+      relevant notification, or coming back to the app. See
+      RealtimeRefresh and refreshOn above.
+  */
   @override
-  void onRealtimeRefresh() => _loadActivityCounts();
+  void onRealtimeRefresh() {
+    _loadActivityCounts();
+    _initializeData();
+  }
 
   VoidCallback? _disposeJobsListener;
 

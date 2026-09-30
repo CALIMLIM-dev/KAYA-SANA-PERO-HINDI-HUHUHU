@@ -616,6 +616,18 @@ class JobController extends Controller
                 // Overwrite the stored tally with the true figure, under the
                 // name the app already reads, so no client change is needed.
                 $job->application_count = $job->applications_count;
+
+                /*
+                    Whether this post is still taking applicants.
+
+                    Sent rather than left to the app, which was deciding it
+                    from the status alone and so filed a post whose date had
+                    passed under Active - for up to a day, until the sweep
+                    ran. The feed has always answered to the date; this is
+                    the same answer, from the same place.
+                */
+                $job->is_live = $job->isOpenForApplications();
+
                 return $job;
             });
 
