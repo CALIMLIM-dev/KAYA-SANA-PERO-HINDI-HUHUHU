@@ -105,6 +105,20 @@ class Job {
   final DateTime? endDate;
   final String? startTime;
 
+  /*
+      The day the work is due, as the server settled it.
+
+      Not the same as endDate. The post's dates are the employer's plan,
+      made before anybody was hired; an accepted schedule proposal in
+      the chat is the two of them arranging it afterwards, and that
+      wins. JobPost::deadline resolves the two, so the app reads its
+      answer rather than picking a date itself and disagreeing with the
+      completion gate.
+
+      Null for a post with no dates at all, which predates scheduling.
+  */
+  final DateTime? deadline;
+
   /// The schedule as one short line, or null when the job predates scheduling.
   ///
   /// Defined here rather than in each screen so the job card, the details page
@@ -115,7 +129,17 @@ class Job {
     final start = startDate;
     if (start == null) return null;
 
-    final end = endDate;
+    /*
+        The deadline closes the range when there is one.
+
+        This read endDate alone, so a card showed the start date and
+        nothing else on every post where the end was not filled in - and
+        it kept showing the employer's original plan after a pair had
+        agreed a different day in the chat. The deadline is the day that
+        actually governs the work, and it is the one the completion
+        button answers to.
+    */
+    final end = deadline ?? endDate;
     if (end != null && !_sameDay(end, start)) {
       // Same month reads better collapsed: "Aug 20 – 27", not "Aug 20 – Aug 27".
       return end.year == start.year && end.month == start.month
@@ -247,6 +271,7 @@ class Job {
     this.startDate,
     this.endDate,
     this.startTime,
+    this.deadline,
   });
 
   /// Maps a raw `jobs_posts` row from the Laravel API (GET /jobs, /jobs/my,
@@ -286,6 +311,7 @@ class Job {
       // rather than with a made-up one.
       startDate: DateTime.tryParse((json['start_date'] ?? '').toString()),
       endDate: DateTime.tryParse((json['end_date'] ?? '').toString()),
+      deadline: DateTime.tryParse((json['deadline'] ?? '').toString()),
       // MySQL TIME arrives as "08:30:00"; the seconds are never meaningful
       // here. Trimmed by splitting rather than by substring, which would throw
       // on anything shorter than five characters.

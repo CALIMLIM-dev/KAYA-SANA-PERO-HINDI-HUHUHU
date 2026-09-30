@@ -11,6 +11,21 @@ minor release, and `feat!:` or a `BREAKING CHANGE:` footer for a major one.
 
 ---
 
+## 1.14.3 - 2026-10-01
+
+### Fixed
+
+- Saved Jobs stops listing work that is over. It filtered on nothing, so a
+  job bookmarked months ago that has since completed, closed or run past
+  its date was still there with an Apply the server refuses. The bookmark
+  is kept; the listing just stops advertising it.
+- A job card says when the work is due. The deadline has been computed
+  since scheduling landed and was sent on one screen only, the employer own
+  job list, so a worker saw the day the work starts and nothing about the
+  day it ends. The card date range closes on the deadline now, which also
+  means a day the two of them agreed in the chat shows instead of the
+  employer original plan.
+
 ## 1.14.2 - 2026-10-01
 
 ### Fixed

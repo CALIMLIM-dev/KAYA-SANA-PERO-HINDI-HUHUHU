@@ -221,6 +221,25 @@ class JobController extends Controller
         */
         $redact = function (JobPost $job) {
             $job->makeHidden(JobPost::PRECISE_LOCATION);
+
+            /*
+                When the work is due, on the card.
+
+                deadline() has been the one answer to this since
+                scheduling landed and it was only ever sent on the
+                employer's own job list - so a worker reading a card in
+                the feed saw the day it starts and nothing about the day
+                it is due.
+
+                The agreed day is set to null rather than looked up,
+                which is not a shortcut: an accepted ScheduleProposal
+                means somebody was hired, and a job with a hire is no
+                longer open, so nothing in this feed can have one. Saying
+                so explicitly keeps deadline() from firing a query per
+                row to learn the same thing.
+            */
+            $job->setAgreedDate(null);
+            $job->deadline = $job->deadline()?->toDateString();
             if ($job->distance_km !== null) {
                 /*
                     The words as well as the number.
@@ -880,6 +899,15 @@ class JobController extends Controller
             }
         }
 
+        /*
+            The deadline, resolved properly here.
+
+            Unlike the feed, a party to the work can open this - and for
+            them the agreed day in the chat is the deadline and beats the
+            post's own dates. deadline() does that lookup itself.
+        */
+        $job->deadline = $job->deadline()?->toDateString();
+
         $job->has_applied = $job->applications()->where('worker_id', $user->id)->exists();
         $job->application_status = $job->applications()
             ->where('worker_id', $user->id)
@@ -1214,7 +1242,23 @@ class JobController extends Controller
     {
         $user = $request->user();
 
-        $jobs = $user->savedJobs()->with(['employer:id,name,avatar,is_verified', 'category', 'skills'])->latest()->get();
+        /*
+            Still open, and still inside its date.
+
+            This filtered on nothing, so a job saved months ago that has
+            since completed, closed or run past its end date was still
+            listed here - offering an Apply that the apply endpoint
+            refuses. The same rule the feed uses, so a bookmark cannot
+            show work the feed has already dropped.
+
+            The saved_jobs row is left alone. Nothing is unsaved; the
+            listing just stops advertising it.
+        */
+        $jobs = $user->savedJobs()
+            ->live()
+            ->with(['employer:id,name,avatar,is_verified', 'category', 'skills'])
+            ->latest()
+            ->get();
         return $this->ok($jobs);
     }
 }
