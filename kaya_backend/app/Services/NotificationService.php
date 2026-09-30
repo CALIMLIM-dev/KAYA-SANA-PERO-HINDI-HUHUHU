@@ -479,6 +479,28 @@ class NotificationService
      * The employer's shortlist just got shorter without them touching it, and
      * an unexplained disappearance reads as a bug in the app.
      */
+    /*
+        A past worker is available again.
+
+        Reference is the worker, not a job: there is no job yet, and the
+        point of the notification is the person. Tapping it opens their
+        profile, where the employer can invite them.
+    */
+    public function workAgainRequested(\App\Models\User $worker, int $employerId): void
+    {
+        $this->push(
+            userId: $employerId,
+            audience: UserNotification::AUDIENCE_EMPLOYER,
+            type: UserNotification::WORK_AGAIN_REQUESTED,
+            title: 'Available for work again',
+            body: ($worker->name ?? 'A worker')
+                . ' worked with you before and is looking for work again.',
+            referenceType: 'user',
+            referenceId: $worker->id,
+            actorId: $worker->id,
+        );
+    }
+
     public function applicationWithdrawn(Application $application): void
     {
         $application->loadMissing(['job', 'worker']);

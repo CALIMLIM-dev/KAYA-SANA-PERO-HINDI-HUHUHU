@@ -74,6 +74,17 @@ class UserNotification extends Model
     /** An applicant pulled out, so the employer's shortlist just changed. */
     public const APPLICATION_WITHDRAWN = 'application.withdrawn';
 
+    /*
+        A past worker saying they are free again.
+
+        The one thing a worker can send an employer after a job is
+        finished. The thread is archived by then - deliberately, so the
+        next job is not arranged outside KAYA - so this is a single
+        notification rather than a message, and the employer answers it
+        by inviting them, which is what reopens the thread.
+    */
+    public const WORK_AGAIN_REQUESTED = 'work_again.requested';
+
     /** Somebody reviewed you. */
     public const REVIEW_RECEIVED = 'review.received';
 

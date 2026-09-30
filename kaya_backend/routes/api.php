@@ -223,7 +223,20 @@ Route::prefix('v1')->group(function () {
             ->middleware('verified:employer');
         Route::get('/jobs/my',                  [JobController::class, 'myJobs']);
         Route::get('/jobs/{job}',               [JobController::class, 'show']);
-        Route::put('/jobs/{job}',               [JobController::class, 'update']);
+        /*
+            Gated like posting, because editing a post now spends.
+
+            Turning a post urgent from the edit form buys its placement - the
+            flag used to be stored and nothing bought - so this endpoint takes
+            Barya, and CLAUDE.md holds spending to the same rule as posting.
+            Ungated, an employer who was never verified could edit a post made
+            before the gate existed and buy a boost with it.
+
+            Closing a job is changeStatus below and stays open, so nobody is
+            trapped with a post they cannot take down.
+        */
+        Route::put('/jobs/{job}',               [JobController::class, 'update'])
+            ->middleware('verified:employer');
         Route::patch('/jobs/{job}/status',      [JobController::class, 'changeStatus']);
         Route::delete('/jobs/{job}',            [JobController::class, 'destroy']);
         Route::post('/jobs/{job}/save',         [JobController::class, 'save']);
@@ -323,6 +336,15 @@ Route::prefix('v1')->group(function () {
         // Reading who you have worked with is not spending, so it is not
         // gated - the invite itself already is.
         Route::get('/past-workers',                         [InvitationController::class, 'pastWorkers']);
+        /*
+            The worker's side of a rehire.
+
+            Past-workers is how an employer finds somebody again; this is
+            how a worker raises their hand. Verified, because it puts a
+            notification in somebody else's list.
+        */
+        Route::post('/employers/{employer}/work-again',      [InvitationController::class, 'workAgain'])
+            ->middleware('verified:worker');
         Route::patch('/invitations/{invitation}/accept',    [InvitationController::class, 'accept'])
             ->middleware('verified:worker');
         Route::patch('/invitations/{invitation}/decline',   [InvitationController::class, 'decline']);

@@ -11,6 +11,43 @@ minor release, and `feat!:` or a `BREAKING CHANGE:` footer for a major one.
 
 ---
 
+## 1.13.1 - 2026-09-30
+
+### Fixed
+
+- A boosted worker profile leads every order, not only the default one.
+  Choosing Highest rated, Most jobs, Nearest or Newest dropped the boost out
+  of the sort entirely, so a worker who had just paid for placement landed
+  wherever their rating or their age put them - at the bottom of the page they
+  paid to be at the top of.
+- The URGENT badge expires with the placement. The feed orders on a three-day
+  boost window and the cards read a column that is never cleared, so a post
+  slid back to its ordinary place on the fourth day and went on calling itself
+  urgent.
+- The business TIN box takes a TIN. It accepted any characters, any length,
+  and asked for two of them - so a company could type its name in, pass the
+  form and be refused by the server with nothing pointing at the field. It now
+  groups as it is typed, stops at twelve digits, and says what a TIN is.
+- Ask for Work Again asks. It opened the employer's profile, and when they had
+  nothing posted it said so and went nowhere. It now sends them one
+  notification saying you are available - the thread stays closed, which is
+  the point of closing it, and they answer by inviting you.
+- The support thread in the admin panel no longer shows a message twice. Two
+  requests could be in flight at once carrying the same cursor, and both
+  appended what they were told about.
+- And it no longer stops updating in silence. When an admin session lapsed the
+  poll was answered with the login page, which failed to parse and was
+  swallowed - the thread sat there looking fine and never moved again. It says
+  so now.
+- A company posting a job was told to upload a government ID, which is the one
+  document a company is never asked for. It names the business registration
+  and opens that instead.
+- Editing a job needs the same verification as posting one. Turning a post
+  urgent from the edit form buys its placement, so the endpoint spends Barya
+  and was not behind the gate.
+- Support chat updates every four seconds rather than ten.
+- "neither side never confirmed" in the hire sweep's output.
+
 ## 1.13.0 - 2026-09-30
 
 A company is verified by its papers, placement stops outliving what was paid

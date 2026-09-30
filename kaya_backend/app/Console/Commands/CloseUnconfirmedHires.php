@@ -87,12 +87,18 @@ class CloseUnconfirmedHires extends Command
                         continue;
                     }
 
+                    // Written as a whole clause, because the three cases do
+                    // not share one. "neither side" plus "never confirmed"
+                    // read as a double negative: "neither side never
+                    // confirmed".
                     $waiting = $application->employer_completed_at === null
-                        ? ($application->worker_completed_at === null ? 'neither side' : 'the employer')
-                        : 'the worker';
+                        ? ($application->worker_completed_at === null
+                            ? 'neither side confirmed'
+                            : 'the employer never confirmed')
+                        : 'the worker never confirmed';
 
                     $this->line(($dryRun ? '[dry-run] ' : '')
-                        . "application {$application->id}: unsuccessful, {$waiting} never confirmed");
+                        . "application {$application->id}: unsuccessful, {$waiting}");
 
                     if (! $dryRun) {
                         DB::transaction(function () use ($application) {

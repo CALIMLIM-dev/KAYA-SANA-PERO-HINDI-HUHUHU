@@ -19,6 +19,7 @@
     </div>
 
     <div id="thread" data-since="{{ $thread->messages->max('id') ?? 0 }}"
+         data-ids="{{ $thread->messages->pluck('id')->implode(',') }}"
          data-url="{{ route('admin.support.since', $thread) }}"
          class="bg-white rounded-xl border border-slate-200 p-5 space-y-3">
         @forelse ($thread->messages as $message)
@@ -35,6 +36,12 @@
             <p class="text-sm text-slate-400 text-center py-4">Nothing said yet.</p>
         @endforelse
     </div>
+
+    {{-- Shown only when the poller has stopped getting answers. --}}
+    <p id="thread-stale" style="display:none"
+       class="px-4 py-3 rounded-lg bg-amber-50 text-amber-800 text-sm border border-amber-200">
+        Not receiving new messages. Reload the page.
+    </p>
 
     <form method="POST" action="{{ route('admin.support.reply', $thread) }}"
           class="bg-white rounded-xl border border-slate-200 p-5 space-y-3">
@@ -66,6 +73,27 @@
     var url = thread.dataset.url;
     var timer = null;
 
+    /*
+        One request at a time, and every id remembered.
+
+        setInterval fires every three seconds whether or not the last
+        request came back. On a slow connection two of them were in
+        flight at once, both carrying the same `since` - because it is
+        only advanced when a reply arrives - so both were told about the
+        same new message and both appended it. That is the duplicated
+        line.
+
+        The id set is the belt to that brace: whatever else ever appends
+        to this thread, a message already on screen cannot be drawn a
+        second time.
+    */
+    var inFlight = false;
+    var seen = {};
+
+    (thread.dataset.ids || '').split(',').forEach(function (id) {
+        if (id) seen[id] = true;
+    });
+
     function bubble(m) {
         var row = document.createElement('div');
         row.className = 'flex ' + (m.from_admin ? 'justify-end' : 'justify-start');
@@ -90,9 +118,33 @@
     }
 
     function poll() {
-        fetch(url + '?after=' + since, { headers: { 'Accept': 'application/json' } })
-            .then(function (r) { return r.ok ? r.json() : null; })
+        if (inFlight) return;
+        inFlight = true;
+
+        fetch(url + '?after=' + since, {
+            headers: { 'Accept': 'application/json' },
+            credentials: 'same-origin',
+        })
+            .then(function (r) {
+                /*
+                    A session that has lapsed answers with the login page,
+                    and fetch follows the redirect - so this used to get a
+                    200 full of HTML, throw inside json(), and be swallowed
+                    by the catch below. The thread then sat there looking
+                    fine and never updated again, which is why the only
+                    thing that worked was reloading the page.
+                */
+                var type = r.headers.get('content-type') || '';
+
+                if (!r.ok || type.indexOf('json') === -1) {
+                    throw new Error('not signed in');
+                }
+
+                return r.json();
+            })
             .then(function (data) {
+                stale(false);
+
                 if (!data || !data.messages || !data.messages.length) return;
 
                 var empty = thread.querySelector('.text-slate-400');
@@ -101,13 +153,28 @@
                 }
 
                 data.messages.forEach(function (m) {
-                    thread.appendChild(bubble(m));
                     since = Math.max(since, m.id);
+
+                    if (seen[m.id]) return;
+                    seen[m.id] = true;
+
+                    thread.appendChild(bubble(m));
                 });
 
                 thread.scrollIntoView({ block: 'end' });
             })
-            .catch(function () { /* the next tick tries again */ });
+            .catch(function () {
+                // Said out loud rather than hidden. A chat that has
+                // quietly stopped listening is worse than one that says
+                // it has.
+                stale(true);
+            })
+            .then(function () { inFlight = false; });
+    }
+
+    function stale(on) {
+        var note = document.getElementById('thread-stale');
+        if (note) note.style.display = on ? 'block' : 'none';
     }
 
     function start() {

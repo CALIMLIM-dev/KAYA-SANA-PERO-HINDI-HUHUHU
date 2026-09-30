@@ -1,7 +1,12 @@
+import 'dart:convert';
+import 'dart:typed_data';
+
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:provider/provider.dart';
 
+import 'package:kaya_app/data/services/api_client.dart';
 import 'package:kaya_app/features/applications/screens/applications_screen.dart';
 import 'package:kaya_app/providers/app_mode_provider.dart';
 import 'package:kaya_app/providers/application_provider.dart';
@@ -24,6 +29,22 @@ import 'support/render_harness.dart';
     had no way back to them at all.
 */
 void main() {
+  /*
+      Asking for work again is a request now, not a page push, so the tap
+      has to reach something. This records where it went and answers
+      successfully, which is all these tests need.
+  */
+  late _RecordingAdapter adapter;
+
+  setUp(() {
+    adapter = _RecordingAdapter();
+    ApiClient.testAdapter = adapter;
+  });
+
+  tearDown(() {
+    ApiClient.testAdapter = null;
+  });
+
   Map<String, dynamic> finishedApplication({int openJobs = 2}) => {
         'id': 91,
         'status': 'completed',
@@ -109,8 +130,19 @@ void main() {
         reason: 'there is no thread left to open on a finished job');
   });
 
-  testWidgets('an employer with nothing open answers on the tap, not the label',
+  testWidgets('the tap asks the employer rather than opening their page',
       (tester) async {
+    /*
+        This used to assert a toast saying the employer had nothing open, and
+        before that the tap pushed their profile. Neither was asking anybody
+        anything, which is what the button says it does - and it could not
+        message them either, because finishing a job archives the pair's
+        thread on purpose.
+
+        So the tap now sends one request, and having nothing open no longer
+        stops it: an employer with nothing posted today is exactly who should
+        hear that somebody they rated well is free again.
+    */
     await render(tester, screen([finishedApplication(openJobs: 0)]));
     await openHistory(tester);
 
@@ -121,8 +153,11 @@ void main() {
     await tester.tap(find.text('Ask for Work Again').first);
     await tester.pump(const Duration(milliseconds: 300));
 
-    expect(find.textContaining('nothing open'), findsWidgets,
-        reason: 'the tap has to say why nothing happened');
+    expect(
+      adapter.asked,
+      contains('/employers/9/work-again'),
+      reason: 'the tap has to reach the employer, not a page',
+    );
 
     // Let the toast time out, or it leaves a pending timer behind it.
     await tester.pump(const Duration(seconds: 6));
@@ -134,4 +169,34 @@ void main() {
     expect(find.text('Message'), findsWidgets);
     expect(find.text('Ask for Work Again'), findsNothing);
   });
+}
+
+/*
+    Records the paths asked for and answers every one successfully.
+
+    ApiClient reads a token from secure storage on each request, so these
+    tests also stub the platform channels through RenderHarness.
+*/
+class _RecordingAdapter implements HttpClientAdapter {
+  final List<String> asked = [];
+
+  @override
+  Future<ResponseBody> fetch(
+    RequestOptions options,
+    Stream<Uint8List>? requestStream,
+    Future<void>? cancelFuture,
+  ) async {
+    asked.add(options.path);
+
+    return ResponseBody.fromString(
+      jsonEncode({'success': true, 'message': 'ok', 'data': {}}),
+      200,
+      headers: {
+        Headers.contentTypeHeader: [Headers.jsonContentType],
+      },
+    );
+  }
+
+  @override
+  void close({bool force = false}) {}
 }

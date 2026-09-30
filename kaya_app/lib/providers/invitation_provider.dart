@@ -105,6 +105,31 @@ class InvitationProvider with ChangeNotifier {
     }
   }
 
+  /*
+      Tells a past employer this worker is free again.
+
+      Lives here rather than with applications because it is the worker's
+      half of a rehire - the mirror of sendInvitation above. Nothing is
+      created locally: the result is a notification in somebody else's list,
+      and the server answers with the sentence to show.
+  */
+  Future<bool> askForWorkAgain(int employerId) async {
+    try {
+      final res = await _api.post('/employers/$employerId/work-again');
+      _lastMessage = res.data['message'] as String?;
+      _errorMessage = null;
+      return true;
+    } catch (e) {
+      _errorMessage = e.toString().replaceFirst('Exception: ', '');
+      notifyListeners();
+      return false;
+    }
+  }
+
+  /// What the server said about the last ask, for the screen to show.
+  String? _lastMessage;
+  String? get lastMessage => _lastMessage;
+
   Future<bool> decline(int invitationId) async {
     try {
       await _api.patch('/invitations/$invitationId/decline');

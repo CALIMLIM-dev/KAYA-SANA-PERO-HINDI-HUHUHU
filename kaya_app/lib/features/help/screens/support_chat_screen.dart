@@ -32,7 +32,16 @@ class SupportChatScreen extends StatefulWidget {
 }
 
 class _SupportChatScreenState extends State<SupportChatScreen> {
-  static const Duration _pollEvery = Duration(seconds: 10);
+  /*
+      Four seconds, not ten.
+
+      Ten is how long somebody waiting for KAYA to answer sat looking at
+      nothing, and it read as the message never arriving. The admin side of
+      the same conversation polls every three; notifications poll every
+      eight. This was the slowest thing in the app and the one with a person
+      waiting at both ends.
+  */
+  static const Duration _pollEvery = Duration(seconds: 4);
 
   final _api = ApiClient();
   final _controller = TextEditingController();

@@ -1372,13 +1372,43 @@ class WorkerProfileController extends Controller
 
         $sort = $data['sort'] ?? 'best';
 
+        /*
+            A paid boost leads whichever order the viewer chose.
+
+            It used to lead only this list's default. Pick Highest rated, Most
+            jobs, Nearest or Newest and the boost was not in the key at all -
+            so a boosted profile fell exactly where its rating or its distance
+            put it, and a new worker who had just paid for placement landed at
+            the bottom of the page they had paid to be at the top of.
+
+            That is the same failure the urgent flag had: money taken, nothing
+            delivered. The jobs feed already guards its own distance sort this
+            way; the directory did not.
+
+            The boost is the first element of every key, so it sits above the
+            ranking rather than inside it - three days of placement cannot be
+            undone by one bad week, and within the boosted group the chosen
+            order still applies.
+
+            Ascending for 'nearest', so 0 comes first there and 1 comes first
+            in the descending sorts.
+        */
         $withDistance = match ($sort) {
-            'rating'  => $withDistance->sortByDesc(fn (WorkerProfile $p) => [$p->rating_avg, $p->rating_count]),
-            'jobs'    => $withDistance->sortByDesc(fn (WorkerProfile $p) => $p->jobs_completed),
-            'nearest' => $withDistance->sortBy(fn (WorkerProfile $p) => $p->computed_distance_km ?? PHP_FLOAT_MAX),
-            'newest'  => $withDistance->sortByDesc(fn (WorkerProfile $p) => $p->created_at),
-            // A paid boost sits above the ranking, not inside it, so three
-            // days of placement cannot be undone by one bad week.
+            'rating'  => $withDistance->sortByDesc(
+                fn (WorkerProfile $p) => [$p->is_boosted ? 1 : 0, $p->rating_avg, $p->rating_count]
+            ),
+            'jobs'    => $withDistance->sortByDesc(
+                fn (WorkerProfile $p) => [$p->is_boosted ? 1 : 0, $p->jobs_completed]
+            ),
+            'nearest' => $withDistance->sortBy(
+                fn (WorkerProfile $p) => [
+                    $p->is_boosted ? 0 : 1,
+                    $p->computed_distance_km ?? PHP_FLOAT_MAX,
+                ]
+            ),
+            'newest'  => $withDistance->sortByDesc(
+                fn (WorkerProfile $p) => [$p->is_boosted ? 1 : 0, $p->created_at]
+            ),
             default   => $withDistance->sortByDesc(
                 fn (WorkerProfile $p) => [$p->is_boosted ? 1 : 0, $p->rank_score]
             ),

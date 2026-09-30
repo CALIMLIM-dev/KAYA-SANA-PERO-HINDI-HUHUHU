@@ -254,6 +254,69 @@ class BoostTest extends TestCase
 
         $this->assertSame($after, $ledger->balance($worker->fresh()));
     }
+    /*
+        A boosted profile leads whichever order the viewer chose.
+
+        It led the default one only. Pick Highest rated, Most jobs, Nearest or
+        Newest and the boost was not in the sort key at all, so a boosted
+        profile fell exactly where its rating or its age put it - and a new
+        worker who had just paid for placement landed at the bottom of the
+        page they paid to be at the top of. Money taken, nothing delivered,
+        which is the same failure the urgent flag had.
+    */
+    #[Test]
+    public function test_a_boosted_profile_leads_every_sort(): void
+    {
+        $boosted = $this->directoryWorker('Boosted Ben', 5.0, oldest: true);
+        $plain = $this->directoryWorker('Plain Pedro', 5.0);
+
+        CreditWallet::updateOrCreate(['user_id' => $boosted->id], ['balance' => 100]);
+
+        app(\App\Services\BoostService::class)
+            ->purchase($boosted, Boost::TYPE_WORKER, $boosted->id);
+
+        // 'newest' is the sharpest case: the boosted account is the oldest, so
+        // without the boost in the key it is last by definition.
+        foreach (['best', 'rating', 'jobs', 'nearest', 'newest'] as $sort) {
+            $ids = collect(
+                $this->actingAs($plain, 'sanctum')
+                    ->getJson('/api/v1/workers?sort=' . $sort)
+                    ->assertOk()
+                    ->json('data.data') ?? []
+            )->pluck('user_id')->all();
+
+            $this->assertSame(
+                $boosted->id,
+                $ids[0] ?? null,
+                "the boosted profile was not first when sorted by {$sort}",
+            );
+        }
+    }
+
+    /** A worker the directory will actually list: category, skill, location. */
+    private function directoryWorker(string $name, float $rating, bool $oldest = false): User
+    {
+        $user = User::factory()->create([
+            'name'       => $name,
+            'created_at' => $oldest ? now()->subYear() : now(),
+        ]);
+
+        \App\Models\WorkerProfile::create([
+            'user_id'     => $user->id,
+            'location'    => 'Urdaneta City',
+            'category_id' => $this->category->id,
+            'rating_avg'  => $rating,
+            'created_at'  => $oldest ? now()->subYear() : now(),
+        ]);
+
+        \App\Models\WorkerSkill::create([
+            'user_id'     => $user->id,
+            'skill_name'  => 'Repairs',
+            'category_id' => $this->category->id,
+        ]);
+
+        return $user;
+    }
     public function test_only_the_owner_can_boost_a_job(): void
     {
         $job = $this->job('A job');

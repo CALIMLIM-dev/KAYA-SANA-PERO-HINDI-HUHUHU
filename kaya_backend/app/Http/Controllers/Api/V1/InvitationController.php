@@ -151,6 +151,68 @@ class InvitationController extends Controller
      * discount is the whole point of the screen and a price the app has to
      * work out for itself is a price the two sides can disagree about.
      */
+    /*
+        A past worker telling an employer they are free again.
+
+        The "Ask for Work Again" button used to open the employer's profile.
+        The label promises to ask somebody something, and opening a page is not
+        asking - which is why it read as broken. It could not do better on its
+        own: completing a job archives the pair's thread deliberately, so the
+        worker has no way to message a past employer at all.
+
+        So this is the ask. One notification, nothing reopened, and the
+        employer answers it by inviting them - which is the path that
+        unarchives the thread and charges the rehire rate.
+
+        Only somebody who actually worked for them. Without that this is a
+        cold-contact endpoint: any account could notify any employer, which is
+        the kind of thing that turns into spam the week after it ships.
+
+        Once a day per employer. A worker who taps it twice is being eager,
+        not sending two pieces of news, and the second notification would
+        teach the employer to ignore the first.
+    */
+    public function workAgain(Request $request, \App\Models\User $employer, NotificationService $notifications)
+    {
+        $user = $request->user();
+
+        if (! $user->isWorker()) {
+            return $this->fail('You need a worker profile to do that.', 403);
+        }
+
+        if ($employer->id === $user->id) {
+            return $this->fail('That is your own account.', 422);
+        }
+
+        $workedBefore = \App\Models\Application::where('worker_id', $user->id)
+            ->where('status', 'completed')
+            ->whereHas('job', fn ($q) => $q->where('employer_id', $employer->id))
+            ->exists();
+
+        if (! $workedBefore) {
+            return $this->fail('You can only do this for someone you have finished a job for.', 422);
+        }
+
+        $alreadyAsked = \App\Models\UserNotification::where('user_id', $employer->id)
+            ->where('type', \App\Models\UserNotification::WORK_AGAIN_REQUESTED)
+            ->where('actor_id', $user->id)
+            ->where('created_at', '>=', now()->subDay())
+            ->exists();
+
+        if ($alreadyAsked) {
+            return $this->ok(
+                ['already_sent' => true],
+                'You already told them today. They have it.',
+            );
+        }
+
+        $notifications->workAgainRequested($user, $employer->id);
+
+        return $this->ok(
+            ['already_sent' => false],
+            ($employer->name ?? 'They') . ' has been told you are available.',
+        );
+    }
     public function pastWorkers(Request $request)
     {
         $user = $request->user();

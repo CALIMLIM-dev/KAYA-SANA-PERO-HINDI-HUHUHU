@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:image_picker/image_picker.dart';
 import '../../../core/constants/app_colors.dart';
@@ -761,7 +762,20 @@ class _SetupEmployerProfileScreenState extends State<SetupEmployerProfileScreen>
                 label: 'Business TIN *',
                 icon: Icons.badge_outlined,
                 keyboardType: TextInputType.number,
-                requiredMessage: 'Your business TIN is required',
+                inputFormatters: const [TinInputFormatter()],
+                validator: (value) {
+                  final digits = TinInputFormatter.digitsOf(value ?? '');
+
+                  if (digits.isEmpty) return 'Your business TIN is required';
+
+                  // The same shape the server holds it to, said here so
+                  // it is said before the whole form is refused.
+                  if (digits.length != 9 && digits.length != 12) {
+                    return 'A TIN is 9 digits, or 12 with the branch code';
+                  }
+
+                  return null;
+                },
               ),
               const SizedBox(height: 6),
               const Text(
@@ -1338,12 +1352,17 @@ class _SetupEmployerProfileScreenState extends State<SetupEmployerProfileScreen>
     TextInputType? keyboardType,
     TextCapitalization textCapitalization = TextCapitalization.none,
     bool readOnly = false,
+    List<TextInputFormatter>? inputFormatters,
+    /// Replaces the default "not empty, at least 2 characters" check for
+    /// a field that has a real shape, like a TIN.
+    String? Function(String?)? validator,
   }) {
     return TextFormField(
       controller: controller,
       readOnly: readOnly,
       maxLines: maxLines,
       keyboardType: keyboardType,
+      inputFormatters: inputFormatters,
       textCapitalization: textCapitalization,
       decoration: InputDecoration(
         labelText: label,
@@ -1361,7 +1380,8 @@ class _SetupEmployerProfileScreenState extends State<SetupEmployerProfileScreen>
           borderSide: const BorderSide(color: AppColors.primary, width: 2),
         ),
       ),
-      validator: requiredMessage == null
+      validator: validator ??
+          (requiredMessage == null
           ? null
           : (value) {
               if (value == null || value.trim().isEmpty) {
@@ -1371,7 +1391,51 @@ class _SetupEmployerProfileScreenState extends State<SetupEmployerProfileScreen>
                 return 'Please enter at least 2 characters';
               }
               return null;
-            },
+            }),
+    );
+  }
+}
+
+/*
+    Types a TIN the way a TIN is printed.
+
+    The box used to take anything, any length: letters, a hundred
+    digits, two characters and nothing to say it was wrong until the
+    server refused the whole form. A TIN is nine digits, or twelve with
+    a branch code, and it is printed in threes - so it is typed in
+    threes, the dashes appear on their own, and the thirteenth digit
+    simply does not go in.
+*/
+class TinInputFormatter extends TextInputFormatter {
+  const TinInputFormatter();
+
+  static const int maxDigits = 12;
+
+  /// The digits alone, for validating and for anything that stores it.
+  static String digitsOf(String value) => value.replaceAll(RegExp(r'\D'), '');
+
+  @override
+  TextEditingValue formatEditUpdate(
+    TextEditingValue oldValue,
+    TextEditingValue newValue,
+  ) {
+    final digits = digitsOf(newValue.text);
+    final capped = digits.length > maxDigits
+        ? digits.substring(0, maxDigits)
+        : digits;
+
+    final groups = <String>[];
+    for (var i = 0; i < capped.length; i += 3) {
+      groups.add(capped.substring(i, (i + 3).clamp(0, capped.length)));
+    }
+
+    final text = groups.join('-');
+
+    // The caret goes to the end: this only ever reformats what was just
+    // typed, and putting it anywhere else fights the keyboard.
+    return TextEditingValue(
+      text: text,
+      selection: TextSelection.collapsed(offset: text.length),
     );
   }
 }

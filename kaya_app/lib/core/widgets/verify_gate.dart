@@ -95,12 +95,24 @@ Future<bool> ensureVerified(
     return false;
   }
 
+  /*
+      A company is never asked for a government ID.
+
+      This told every account to upload one, so a business trying to
+      post work was sent to a screen for a document it is not asked for
+      and cannot be verified by - while the registration it actually
+      needs went unmentioned.
+  */
+  final isCompany = context.read<AuthProvider>().isCompanyEmployer;
+
   final goNow = await showDialog<bool>(
     context: context,
     builder: (dialogContext) => AlertDialog(
       title: const Text('Verify your account'),
       content: Text(
-        'Upload a government ID to $action.',
+        isCompany
+            ? 'Upload your business registration to $action.'
+            : 'Upload a government ID to $action.',
       ),
       actions: [
         TextButton(
@@ -120,7 +132,23 @@ Future<bool> ensureVerified(
   );
 
   if (goNow == true && context.mounted) {
-    await AppRouter.push(context, '/verification');
+    /*
+        And straight to the right upload, rather than the screen's
+        default. With no arguments it opens the government ID form,
+        which for a company is the one document that will never
+        verify it.
+    */
+    await AppRouter.push(
+      context,
+      '/verification',
+      arguments: isCompany
+          ? {
+              'type': 'business_reg',
+              'title': 'Business Registration',
+              'subtitle': 'Business Registration',
+            }
+          : null,
+    );
   }
 
   return false;

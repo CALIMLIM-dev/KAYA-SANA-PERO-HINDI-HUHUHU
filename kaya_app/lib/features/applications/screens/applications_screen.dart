@@ -876,20 +876,52 @@ class _ApplicationCard extends StatelessWidget {
       secondaryLabel: workDone ? 'Ask for Work Again' : 'Message',
       secondaryIcon:
           workDone ? Icons.work_history_outlined : Icons.message_outlined,
-      onMessage: workDone && employer != null
-          ? () {
-              if (employerOpenJobs == 0) {
-                AppToast.info(
-                  context,
-                  '${employer['name'] ?? 'They'} has nothing open right now. '
-                  'You will see it here when they post again.',
-                );
+      /*
+          Ask for Work Again asks. It used to open a page.
 
+          Tapping it pushed the employer's profile, which is not asking
+          anybody anything - and when they had nothing open it said so and
+          went nowhere, so the button either did the wrong thing or nothing.
+
+          It could not message them either: finishing a job archives the
+          pair's thread on purpose, so a worker has no way to write to a past
+          employer. So the ask is its own thing - one notification saying this
+          person is free again, which the employer answers by inviting them.
+
+          The open-jobs count still decides the wording, because "they have
+          nothing open" is worth knowing, but it no longer stops the ask: an
+          employer with nothing posted today is exactly who should hear that
+          somebody good is free.
+      */
+      onMessage: workDone && employer != null
+          ? () async {
+              final id = employer['id'] as int?;
+              if (id == null) return;
+
+              final provider = context.read<InvitationProvider>();
+              final sent = await provider.askForWorkAgain(id);
+
+              if (!context.mounted) return;
+
+              if (!sent) {
+                AppToast.error(
+                  context,
+                  provider.errorMessage ?? 'Could not send that.',
+                );
                 return;
               }
 
-              AppRouter.push(context, '/employer-profile',
-                  arguments: {'employerId': employer['id']});
+              AppToast.success(
+                context,
+                employerOpenJobs == 0
+                    ? '${employer['name'] ?? 'They'} has been told you are '
+                        'available. Nothing is open right now, so watch for '
+                        'their next post.'
+                    : '${employer['name'] ?? 'They'} has been told you are '
+                        'available.',
+              );
+
+              await onChanged();
             }
           : !canMessage
           ? null
