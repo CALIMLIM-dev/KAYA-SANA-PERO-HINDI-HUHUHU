@@ -39,6 +39,25 @@ class _EditJobScreenState extends State<EditJobScreen> {
   String? _selectedCategory;
   String _salaryType = 'Daily';
 
+  /*
+      What the picker shows, against what the server stores.
+
+      These used to be the same string, converted with toLowerCase() on
+      the way out - so renaming a label renamed the stored value and
+      failed the server's in:daily,hourly,project rule. The column keeps
+      'project'; only the word on screen became Contract, which is what a
+      one-off trade job actually is.
+  */
+  static const Map<String, String> _periodValues = {
+    'Daily': 'daily',
+    'Hourly': 'hourly',
+    'Contract': 'project',
+  };
+
+  /// The stored value for whatever the picker is showing.
+  String get _periodValue => _periodValues[_salaryType] ?? 'daily';
+
+
   /// Real skill ids, so the job's requirements can be matched against the
   /// skills workers picked during onboarding. The old `List<String>` of names
   /// came from a hardcoded map and could never be sent — the server takes ids.
@@ -304,11 +323,11 @@ class _EditJobScreenState extends State<EditJobScreen> {
     });
   }
 
-  /// The server stores `daily` / `hourly` / `project`; the picker shows
-  /// Daily / Hourly / Project.
+  /// The label for a stored value. The inverse of _periodValues, so a
+  /// post saved as 'project' opens on Contract.
   String _periodToLabel(String? period) => switch (period) {
         'hourly'  => 'Hourly',
-        'project' => 'Project',
+        'project' => 'Contract',
         _         => 'Daily',
       };
 
@@ -467,7 +486,7 @@ class _EditJobScreenState extends State<EditJobScreen> {
                             const SizedBox(height: 8),
                             _dropdown(
                               value: _salaryType,
-                              items: ['Daily', 'Hourly', 'Project'],
+                              items: _periodValues.keys.toList(),
                               onChanged: (v) =>
                                   setState(() => _salaryType = v!),
                             ),
@@ -910,12 +929,12 @@ class _EditJobScreenState extends State<EditJobScreen> {
 
           The server has accepted all of them from the start — they were just
           never put in the body. So the urgent toggle, the negotiable toggle,
-          the Daily/Hourly/Project picker, the maximum budget and the skill
+          the Daily/Hourly/Contract picker, the maximum budget and the skill
           chips all moved on screen, reported "Job updated successfully!", and
           changed nothing.
       */
       'budget_max': ?budgetMax,
-      'budget_period': _salaryType.toLowerCase(),
+      'budget_period': _periodValue,
       'is_urgent': _isUrgent,
       'required_skill_ids': _selectedSkillIds,
       'location': _locationController.text.trim(),

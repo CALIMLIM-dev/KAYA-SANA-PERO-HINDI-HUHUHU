@@ -166,6 +166,25 @@ class _PostJobScreenState extends State<PostJobScreen> {
   String _salaryType = 'Daily';
 
   /*
+      What the picker shows, against what the server stores.
+
+      These used to be the same string, converted with toLowerCase() on
+      the way out - so renaming a label renamed the stored value and
+      failed the server's in:daily,hourly,project rule. The column keeps
+      'project'; only the word on screen became Contract, which is what a
+      one-off trade job actually is.
+  */
+  static const Map<String, String> _periodValues = {
+    'Daily': 'daily',
+    'Hourly': 'hourly',
+    'Contract': 'project',
+  };
+
+  /// The stored value for whatever the picker is showing.
+  String get _periodValue => _periodValues[_salaryType] ?? 'daily';
+
+
+  /*
       Whether the post carries a figure at all.
 
       An employer who does not know the going rate for a trade had no way
@@ -827,7 +846,7 @@ class _PostJobScreenState extends State<PostJobScreen> {
                     const SizedBox(height: 8),
                     _buildDropdown(
                       value: _salaryType,
-                      items: const ['Daily', 'Hourly', 'Project'],
+                      items: _periodValues.keys.toList(),
                       onChanged: (value) => setState(() => _salaryType = value!),
                     ),
                   ],
@@ -2327,7 +2346,7 @@ class _PostJobScreenState extends State<PostJobScreen> {
         isUrgent:    _isUrgent,
         // The Daily/Hourly/Project picker used to be decorative — nothing
         // stored it and job details hardcoded "/ project".
-        budgetPeriod: _salaryType.toLowerCase(),
+        budgetPeriod: _periodValue,
         photos:      _selectedImages,
         startDate:   _startDate!,
         // Only sent when the employer said the job runs over several days, so

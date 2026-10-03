@@ -53,7 +53,9 @@ class WorkerProfile extends Model
             return null;
         }
 
-        $unit = ['hour' => '/hr', 'day' => '/day', 'project' => ' per project'][$this->rate_unit] ?? '/day';
+        // 'project' is still the stored value; Contract is the word for it,
+        // the same rename the job pickers got.
+        $unit = ['hour' => '/hr', 'day' => '/day', 'project' => ' per contract'][$this->rate_unit] ?? '/day';
         $peso = fn ($n) => '₱' . number_format((float) $n, 0);
 
         $range = (!is_null($this->rate_min) && !is_null($this->rate_max) && $this->rate_min != $this->rate_max)

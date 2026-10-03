@@ -11,6 +11,28 @@ minor release, and `feat!:` or a `BREAKING CHANGE:` footer for a major one.
 
 ---
 
+## 1.14.4 - 2026-10-03
+
+### Changed
+
+- A payment period reads Contract where it read Project. A one-off trade
+  job is a contract; project is office language. The stored value is still
+  project, so every job already posted is untouched.
+- The label stopped being the stored value. Both job pickers held the word
+  on screen and sent it lowercased as the column value, so renaming the
+  label would have renamed the value and failed the server own rule -
+  posting a job would have broken outright. Mapped explicitly both ways
+  now, so the words on screen and the words in the column can move apart.
+
+### Fixed
+
+- The unavailable dates notice is off the applicant card. It appeared on
+  every applicant who had agreed to anything and could never say anything
+  useful - capped at two dates it read "on 5 Oct and 3 other days", which
+  an employer choosing between people cannot act on. The greyed days in the
+  chat date picker, which is where somebody is actually choosing a day, are
+  untouched.
+
 ## 1.14.3 - 2026-10-01
 
 ### Fixed

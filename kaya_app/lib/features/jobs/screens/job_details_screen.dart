@@ -901,10 +901,11 @@ class _JobDetailsScreenState extends State<JobDetailsScreen>
     }
   }
 
+  /// 'project' is still the stored value; Contract is the word for it.
   String _periodLabel(String period) => switch (period) {
         'daily' => '/ day',
         'hourly' => '/ hour',
-        _ => '/ project',
+        _ => '/ contract',
       };
 
   String _formatSalary(double? min, double? max) {
