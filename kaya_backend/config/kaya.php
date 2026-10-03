@@ -313,4 +313,79 @@ return [
         'update_check' => filter_var(env('APP_UPDATE_CHECK', true), FILTER_VALIDATE_BOOLEAN),
     ],
 
+    /*
+    |---------------------------------------------------------------------
+    | Skill matching
+    |---------------------------------------------------------------------
+    |
+    | Two workers describing the same trade differently have to match, and
+    | they cannot be listed in advance - somebody types a word nobody
+    | anticipated and it still has to work. So a skill name is turned into
+    | a vector once, when it is first saved, and two names are compared by
+    | how close those vectors sit.
+    |
+    | Measured against the live API on 3 Oct 2026: gemini-embedding-001
+    | returns 768 values when outputDimensionality asks for it, and the
+    | body comes back as embedding.values.
+    |
+    | 768 and not the 3072 default: a vector is stored as JSON and the
+    | cosine is computed in PHP, so four times the numbers is four times
+    | the storage and four times the arithmetic, for no accuracy worth
+    | having on a two word trade name.
+    */
+    'matching' => [
+        /*
+            No key, no semantic matching - and nothing breaks.
+
+            Every path falls back to SkillMatcher's string layers, which
+            are what run offline and what explain themselves. The semantic
+            layer is an improvement on top, never a dependency.
+        */
+        'embeddings_enabled' => filter_var(
+            env('EMBEDDINGS_ENABLED', true),
+            FILTER_VALIDATE_BOOLEAN,
+        ),
+
+        'api_key' => env('EMBEDDING_API_KEY'),
+
+        // Pinned deliberately. A provider silently moving the model would
+        // make every stored vector incomparable with every new one, and
+        // the failure would be silent - scores quietly going wrong.
+        'model' => env('EMBEDDING_MODEL', 'gemini-embedding-001'),
+
+        'endpoint' => env(
+            'EMBEDDING_ENDPOINT',
+            'https://generativelanguage.googleapis.com/v1beta/models',
+        ),
+
+        'dimensions' => (int) env('EMBEDDING_DIMENSIONS', 768),
+
+        /*
+            Two seconds, on a save the user is already waiting through.
+
+            Short on purpose. A new skill has to match immediately or the
+            feature looks broken to the person who just typed it, so the
+            call happens while they wait - but a slow provider must never
+            be able to hold up saving a profile. Past the timeout the
+            vector is left null and kaya:embed-skills picks it up later;
+            the save itself always succeeds.
+        */
+        'timeout_seconds' => (int) env('EMBEDDING_TIMEOUT', 2),
+
+        /*
+            How close two names have to sit to count as the same skill.
+
+            Needs tuning against real pairs, including the ones that must
+            NOT match: a carpenter is not a plumber. Starting at 0.80,
+            which is conservative - it will miss some true pairs before it
+            invents a false one, and a missed match costs less than a
+            wrong one.
+        */
+        'similarity_threshold' => (float) env('EMBEDDING_THRESHOLD', 0.80),
+
+        // A semantic match is real but inferred, so it scores below an id
+        // or a shared stem. See SkillMatcher.
+        'semantic_confidence' => (float) env('EMBEDDING_CONFIDENCE', 0.85),
+    ],
+
 ];

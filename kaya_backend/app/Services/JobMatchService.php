@@ -82,32 +82,33 @@ class JobMatchService
             ? $profile->skills
             : $profile->skills()->get();
 
-        $heldIds = $heldSkills
-            ->pluck('skill_id')
-            ->filter(fn ($id) => $id !== null)
-            ->map(fn ($id) => (int) $id)
-            ->values();
-
-        // A skill typed rather than picked has no id, and a row saved before
-        // the picker existed has none either. The name still has to work.
-        $heldNames = $heldSkills
-            ->pluck('skill_name')
-            ->filter()
-            ->map(fn ($n) => mb_strtolower(trim((string) $n)))
-            ->reject(fn ($n) => $n === '')
+        $held = $heldSkills
+            ->map(fn ($row) => [
+                'id'   => $row->skill_id === null ? null : (int) $row->skill_id,
+                'name' => (string) $row->skill_name,
+            ])
+            ->filter(fn ($h) => $h['id'] !== null || trim($h['name']) !== '')
             ->values();
 
         /*
-            Counted against what the job asked for, not against what the
-            worker holds, so a worker carrying the same skill twice - once by
-            id, once as a stale name - still counts for one.
+            Asked of SkillMatcher rather than compared here.
+
+            This used to be exact equality on the id or the lowercased
+            name, which meant Embalming missed Embalmer, a bracketed
+            qualifier missed everything, a typo missed everything, and the
+            worker directory and this score disagreed about the same pair
+            on the same screen - TextSearch matches a skill name with LIKE
+            while this demanded the whole string.
+
+            One matcher now, for both, so they cannot drift again. Each
+            requirement contributes how confident the match was rather than
+            one or nothing, so an inferred match counts and still scores
+            below a certain one.
         */
-        $matched = $required
-            ->filter(fn ($r) => ($r['id'] !== null && $heldIds->contains($r['id']))
-                || $heldNames->contains($r['name']))
-            ->pluck('name')
-            ->unique()
-            ->values();
+        $coverage = app(\App\Services\SkillMatcher::class)
+            ->coverage($required->all(), $held->all());
+
+        $matched = collect($coverage['matched']);
 
         $score = 0.0;
         $reasons = [];
@@ -120,9 +121,16 @@ class JobMatchService
             $reasons[] = 'Same work category';
         }
 
-        if ($required->isNotEmpty() && $matched->isNotEmpty()) {
-            $score += self::WEIGHT_SKILLS * ($matched->count() / $required->count());
+        if ($required->isNotEmpty() && $coverage['score'] > 0.0) {
+            $score += self::WEIGHT_SKILLS * $coverage['score'];
             $reasons[] = $matched->count() . ' of ' . $required->count() . ' skills matched';
+
+            // Why, for the ones that were not a plain match. An employer
+            // reading "Embalming is a form of Embalmer" can check it; a
+            // percentage on its own cannot be checked at all.
+            foreach ($coverage['reasons'] as $why) {
+                $reasons[] = $why;
+            }
         } elseif ($required->isEmpty() && $sameCategory) {
             // Job listed no specific skills, so category is the whole story.
             $score += self::WEIGHT_SKILLS;

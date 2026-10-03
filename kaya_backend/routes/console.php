@@ -38,6 +38,19 @@ Schedule::command('kaya:close-unconfirmed-hires')->dailyAt('04:00');
 */
 Schedule::command('kaya:expire-job-posts')->dailyAt('05:00');
 
+/*
+    Catches up any skill name that has no vector yet.
+
+    A new skill is normally embedded while the worker is saving it, so
+    this is the backstop for the ones where that call timed out or the
+    provider was down - and the first run after the feature ships, which
+    is what fills in every name that already existed.
+
+    Skips anything already embedded, so a run with nothing to do costs
+    one query and no API calls.
+*/
+Schedule::command('kaya:embed-skills')->dailyAt('04:30');
+
 
 /*
     Catches payments PayMongo took but never told us about.
