@@ -271,6 +271,119 @@ b6. done. the community board, a fifth tab. a worker posts that they are
     not under the notice.
 
 
+## panel feedback, capstone defense
+
+the sheet is two major and seven minor. checked against the code before
+being written down, because three were already partly built and one is
+built and unreachable.
+
+the reasoning, with every file and line, is in
+PLAN-matching-and-panel-feedback.md. p3 is the matching overhaul and that
+file is its spec.
+
+p11 and p12 are not from the panel. p11 is the double booking warning at
+accept, which got wider when the unavailable dates banner came off the
+applicant card. p12 is the free versus barya comparison screen, with
+real limits decided: one boost a month and one live advert on a free
+account, the free seven post days only, and nothing at all capped on the
+path from finding work to being paid for it. premium means the ledger has a
+topup row, derived like everything else, with no expiry. both are specced in
+that same file, p12 as part 3.
+
+not started
+
+p1. play store. three blockers and only one was known. release builds are
+    signed with the debug key - build.gradle.kts has signingConfig
+    debug with a TODO over it - and play refuses a debug signed upload,
+    so an upload keystore has to be made and kept. play also wants an
+    aab and we have only ever built an apk. and the self update has to
+    go: delete REQUEST_INSTALL_PACKAGES, set APP_UPDATE_CHECK=false on
+    the server so builds already out stop prompting, and VersionGate
+    never fires. the manifest comment at that permission already says
+    this. also needed, a hosted privacy policy url - the text is in the
+    app, nowhere else - the data safety form and listing assets.
+
+p2. the hirer's matched worker list. the panel asked for it and it is
+    already built: GET /jobs/{job}/matches scores every candidate
+    through JobMatchService, drops anything under MIN_VISIBLE_SCORE,
+    sorts by score and bands the distance. no dart file calls it. the
+    only mention in the app is a comment describing the shape it
+    returns. so this is a screen, not an algorithm, and it is a no inert
+    anything violation of the opposite kind - capability with no way in.
+    the sheet says the list comes when the hirer avails of points;
+    showing it should stay free, because unlocking contact is already
+    charged and charging to see who matches and again to reach them is
+    the same fee twice.
+
+p3. custom skills, and matching without the category walls. the panel
+    asked for custom skills to be matched by algorithm rather than
+    carried as a label, and reported that a typed trade - embalmer -
+    cannot be found. four separate faults behind that.
+
+    a typed skill becomes a catalogue row on one path and a loose string
+    on another. add_skills_screen calls createCustomSkill, which posts
+    to /skills and creates a real row under a category. the second
+    profile path sends skill_id null and keeps the name only, which its
+    own comment states. the same word is a skill or a string depending
+    on which screen it was typed on.
+
+    search is not the broken part. TextSearch::workers already matches
+    worker_skills_new.skill_name, word by word and forgiving of a
+    misspelling, so the name is findable. the picker is what hides it:
+    SkillController::index filters by category and post a job loads
+    /skills?category_id=, so a skill is only ever offered under the one
+    category it was first filed under. browse's own filter is skill_id
+    exact, so a name cannot be filtered on at all.
+
+    that partitioning is in three places at once - the picker, the
+    browse filter, and JobMatchService, where category is forty of a
+    hundred and skills only refine inside it. a niche trade is
+    quarantined in whichever category it landed in.
+
+    and the two halves disagree. search is fuzzy; JobMatchService is
+    exact - skill_id equal, else trimmed lowercase name equal. embalmer
+    against embalming scores zero while search returns the worker, so
+    the directory and the score describe the same pair differently.
+
+    so: one path that always promotes a typed skill to a row, a skill
+    that can sit in more than one category or a picker that searches all
+    of them, the fuzzy matching TextSearch already has moved behind
+    JobMatchService so both sides agree, and a browse filter that takes
+    a name as well as an id.
+
+p4. web analytics. the totals block already prints users. what is
+    missing is n per chart - the doughnuts show proportions with no
+    denominator.
+
+p5. reports need evidence. the report row carries reason_code,
+    description and resolution_note and no attachment, and the admin
+    view does not show the reported message or post beside the report.
+    the largest of the minors.
+
+p6. post a job says project where it means contract. label only -
+    rate_unit stores 'project' and the server validates
+    in:hour,day,project, so changing the stored value breaks every row
+    that has one.
+
+p7. verified and unverified, said plainly. the badge is on worker_card,
+    compact_worker_card and the worker profile already. missing on job
+    cards and everywhere on the employer side.
+
+p8. registration and the worker profile. signup hard requires only the
+    email or phone and the password. making more of it mandatory argues
+    with the second profile flow, which skips steps on purpose, so this
+    needs a decision before any code.
+
+p9. the yellow. accent is #FFD600 against white, about 1.4 to 1 where
+    wcag asks 4.5, and it is used thirty two times including as a text
+    colour and as a button fill. keep the yellow for marks that carry no
+    text and darken anything that does. golden tests need re-blessing
+    after.
+
+p10. ongoing jobs on the home page. there is no feature by that name -
+    work in progress lives in the applications screen and manage jobs -
+    so this is a new section on home, not a widget moved.
+
 ## notes on phase 13
 
 the only phase below the overhaul that is still open and unabsorbed.
