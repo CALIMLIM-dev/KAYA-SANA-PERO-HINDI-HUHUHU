@@ -101,6 +101,79 @@ class SkillMatcherTest extends TestCase
     }
 
     #[Test]
+    #[DataProvider('elaborations')]
+    public function a_worker_who_said_more_still_matches(string $asked, string $typed): void
+    {
+        /*
+            The commonest shape a custom skill takes, and it matched nothing
+            before containment: the job asks for one word and the worker typed
+            that word plus a qualifier. Jaccard scores one token against two
+            at 0.5, under the 0.6 floor, so every one of these fell through
+            every layer.
+        */
+        $result = $this->compare($asked, $typed);
+
+        $this->assertSame(
+            SkillMatcher::RULE_CONTAINS,
+            $result['rule'],
+            "$asked / $typed",
+        );
+        $this->assertSame(0.8, $result['confidence']);
+    }
+
+    public static function elaborations(): array
+    {
+        return [
+            'services suffix'  => ['Embalmer', 'Embalming Services'],
+            'slashed synonym'  => ['Embalmer', 'Embalmer / Mortician'],
+            'second trade'     => ['Welding', 'Welder Fabricator'],
+            // The job asking for more than the worker typed. Enough extra
+            // words that token overlap falls under its floor, so this
+            // reaches containment rather than being settled earlier.
+            'the other way'    => ['Tile Setting and Grouting and Sealing', 'Tile Setting'],
+        ];
+    }
+
+    #[Test]
+    public function containment_scores_below_a_shared_stem(): void
+    {
+        // Saying more is good evidence. Being the same word is better.
+        $contains = $this->compare('Embalmer', 'Embalming Services');
+        $stem = $this->compare('Embalmer', 'Embalming');
+
+        $this->assertLessThan($stem['confidence'], $contains['confidence']);
+    }
+
+    #[Test]
+    #[DataProvider('mustNotContain')]
+    public function containment_does_not_match_on_a_generic_word(string $a, string $b): void
+    {
+        /*
+            The risk this layer carries. "Cleaning" appears in a dozen
+            unrelated trades, so a shared token has to be substantial before
+            it can carry a match on its own - and two terms of the same length
+            are the stem case, not this one.
+        */
+        $result = $this->compare($a, $b);
+
+        $this->assertNotSame(
+            SkillMatcher::RULE_CONTAINS,
+            $result['rule'],
+            "$a must not contain-match $b",
+        );
+    }
+
+    public static function mustNotContain(): array
+    {
+        return [
+            // Three letters cannot carry a match: CONTAINMENT_MIN_TOKEN.
+            'car / car wash'   => ['Car', 'Car Wash'],
+            // Equal token counts are settled by stem or tokens, not here.
+            'two and two'      => ['Pool Cleaning', 'Gun Cleaning'],
+            'unrelated'        => ['Carpenter', 'Plumber Fitter'],
+        ];
+    }
+    #[Test]
     public function a_typo_still_matches(): void
     {
         $result = $this->compare('Embalmer', 'Enbalmer');

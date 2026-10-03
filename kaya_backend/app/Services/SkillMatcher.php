@@ -25,6 +25,7 @@ namespace App\Services;
                         words sharing neither spelling nor sound
         stem      0.90  one is a form of the other
         tokens    ~     the same words in a different order
+        contains  0.80  everything asked for, plus more said about it
         sounds    0.75  spelled differently, pronounced alike
         typo      0.70  one edit apart, scaled to length
         (none)    0.00
@@ -45,6 +46,7 @@ class SkillMatcher
     public const RULE_ALIAS    = 'alias';
     public const RULE_STEM     = 'stem';
     public const RULE_TOKENS   = 'tokens';
+    public const RULE_CONTAINS = 'contains';
     public const RULE_SEMANTIC = 'semantic';
     public const RULE_SOUNDS   = 'sounds';
     public const RULE_TYPO     = 'typo';
@@ -61,6 +63,15 @@ class SkillMatcher
         does not catch it. Six does.
     */
     private const PHONETIC_MIN_LENGTH = 6;
+
+    /*
+        A containment match has to rest on a real word.
+
+        Without this, a job asking for "Car" would match "Car Wash",
+        "Car Repair" and "Carpentry Car Park" alike on three letters.
+        Four is the shortest token worth trusting on its own.
+    */
+    private const CONTAINMENT_MIN_TOKEN = 4;
 
     /*
         Below this, a typo is indistinguishable from a different word.
@@ -128,6 +139,11 @@ class SkillMatcher
             return $this->hit(round($overlap, 2), self::RULE_TOKENS);
         }
 
+        // ── contains ──────────────────────────────────────────────────────
+        if (self::contains($sa, $sb)) {
+            return $this->hit(0.8, self::RULE_CONTAINS);
+        }
+
         // ── sounds ────────────────────────────────────────────────────────
         if ($this->soundsAlike($a, $b, $sa, $sb)) {
             return $this->hit(0.75, self::RULE_SOUNDS);
@@ -188,6 +204,7 @@ class SkillMatcher
             if (in_array($best['rule'], [
                 self::RULE_STEM,
                 self::RULE_SEMANTIC,
+                self::RULE_CONTAINS,
                 self::RULE_SOUNDS,
                 self::RULE_TYPO,
             ], true) && $bestHeld !== null) {
@@ -212,6 +229,7 @@ class SkillMatcher
             self::RULE_SEMANTIC => "$held counts as $required",
             self::RULE_SOUNDS   => "$held sounds like $required",
             self::RULE_TYPO     => "$held looks like $required",
+            self::RULE_CONTAINS => "$held includes $required",
             default             => "$held is a form of $required",
         };
     }
@@ -299,6 +317,61 @@ class SkillMatcher
         sort($stems);
 
         return implode(' ', $stems);
+    }
+
+    /**
+     * Whether one term's words all appear in the other's.
+     *
+     * "Embalmer" against "Embalming Services": the stems are `embalm` and
+     * `embalm service`, so everything the job asked for is there and the
+     * worker simply said more. Jaccard scores that 0.5 and rejects it,
+     * which is the wrong answer to the wrong question.
+     *
+     * Direction does not matter - a job asking for more than the worker
+     * typed, or less, is the same relationship seen from either end.
+     */
+    private static function contains(string $a, string $b): bool
+    {
+        $tokens = static fn (string $t): array => array_values(array_unique(array_filter(
+            explode(' ', $t),
+            static fn (string $w) => $w !== '' && ! in_array($w, self::STOP_WORDS, true),
+        )));
+
+        $ta = $tokens($a);
+        $tb = $tokens($b);
+
+        if ($ta === [] || $tb === []) {
+            return false;
+        }
+
+        // Equal length is the stem case, already settled above. Without
+        // this, two one-word terms would reach here and compare as sets.
+        if (count($ta) === count($tb)) {
+            return false;
+        }
+
+        [$shorter, $longer] = count($ta) < count($tb) ? [$ta, $tb] : [$tb, $ta];
+
+        foreach ($shorter as $word) {
+            if (! in_array($word, $longer, true)) {
+                return false;
+            }
+        }
+
+        /*
+            At least one of the shared words has to be substantial.
+
+            Otherwise "Cleaning" matches "Teeth Cleaning" and "Pool
+            Cleaning" and "Gun Cleaning" through a word that says nothing
+            about the trade on its own.
+        */
+        foreach ($shorter as $word) {
+            if (mb_strlen($word) >= self::CONTAINMENT_MIN_TOKEN) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /** Jaccard overlap of the stemmed words, stop words dropped. */
