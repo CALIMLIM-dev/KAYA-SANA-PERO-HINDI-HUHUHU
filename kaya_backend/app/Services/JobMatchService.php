@@ -35,6 +35,15 @@ class JobMatchService
     /** Below this a result is noise and is not shown at all. */
     public const MIN_VISIBLE_SCORE = 15;
 
+    /*
+        What a different category can earn on the strength of the skills.
+
+        Three quarters, so a worker in the job's own category always
+        outscores one from another category holding the same skills - the
+        category is still evidence, just no longer the only evidence.
+    */
+    private const CROSS_CATEGORY_CAP = 0.75;
+
     /**
      * Distance bands, in km, and the share of WEIGHT_LOCATION they earn.
      * Tuned for on-site trade work: a tricycle ride away is as good as
@@ -113,13 +122,14 @@ class JobMatchService
         $score = 0.0;
         $reasons = [];
 
-        $sameCategory = $job->category_id
-            && $profile->category_id === $job->category_id;
+        [$categoryScore, $categoryReason, $sameCategory] = self::scoreCategory(
+            $job,
+            $profile,
+            (float) $coverage['score'],
+        );
 
-        if ($sameCategory) {
-            $score += self::WEIGHT_CATEGORY;
-            $reasons[] = 'Same work category';
-        }
+        $score += $categoryScore;
+        if ($categoryReason) $reasons[] = $categoryReason;
 
         if ($required->isNotEmpty() && $coverage['score'] > 0.0) {
             $score += self::WEIGHT_SKILLS * $coverage['score'];
@@ -131,9 +141,16 @@ class JobMatchService
             foreach ($coverage['reasons'] as $why) {
                 $reasons[] = $why;
             }
-        } elseif ($required->isEmpty() && $sameCategory) {
-            // Job listed no specific skills, so category is the whole story.
-            $score += self::WEIGHT_SKILLS;
+        } elseif ($required->isEmpty() && $categoryScore > 0.0) {
+            /*
+                No skills named, so the trade is the whole story - and the
+                skills weight follows how well the trade matched rather
+                than demanding the identical category id. A job posted
+                under a custom category with no skills listed used to
+                score nothing here for everybody.
+            */
+            $score += self::WEIGHT_SKILLS
+                * ($categoryScore / self::WEIGHT_CATEGORY);
             $reasons[] = 'No specific skills required';
         }
 
@@ -147,6 +164,79 @@ class JobMatchService
             'reasons' => $reasons,
             'distance_km' => self::distanceKm($job, $profile),
         ];
+    }
+
+    /**
+     * How close the two trades are, and why.
+     *
+     * See the note at the top of this method's commit: category was 40
+     * points on an exact id, so a job under a category the employer made
+     * themselves scored zero for every worker alive.
+     *
+     * @return array{0: float, 1: string|null, 2: bool}  points, reason, exact
+     */
+    private static function scoreCategory(
+        JobPost $job,
+        WorkerProfile $profile,
+        float $skillCoverage,
+    ): array {
+        if (! $job->category_id || ! $profile->category_id) {
+            return [0.0, null, false];
+        }
+
+        // ── the same row ─────────────────────────────────────────────
+        if ($profile->category_id === $job->category_id) {
+            return [(float) self::WEIGHT_CATEGORY, 'Same work category', true];
+        }
+
+        /*
+            Two names for one trade.
+
+            Masonry and Pagmamason are the same work, and an employer who
+            typed their own category has no way of knowing which spelling
+            the catalogue happened to use. The same matcher that compares
+            skills compares these, so the two cannot disagree about what
+            counts as the same word.
+
+            Only when both names are loaded - this must not fire a query
+            per row in a feed. The controllers eager-load category.
+        */
+        $jobName = $job->relationLoaded('category') ? ($job->category?->name ?? '') : '';
+        $workerName = $profile->relationLoaded('category') ? ($profile->category?->name ?? '') : '';
+
+        if ($jobName !== '' && $workerName !== '') {
+            $match = app(\App\Services\SkillMatcher::class)->compare(
+                ['id' => null, 'name' => $jobName],
+                ['id' => null, 'name' => $workerName],
+            );
+
+            if ($match['confidence'] > 0.0) {
+                return [
+                    self::WEIGHT_CATEGORY * $match['confidence'],
+                    trim($workerName).' counts as '.trim($jobName),
+                    false,
+                ];
+            }
+        }
+
+        /*
+            Different trades on paper, and the skills say otherwise.
+
+            A worker holding the skills a job asks for can do that job
+            whatever the two categories are called - which is the whole of
+            the custom category bug. Proportional to how much of the job
+            they cover, and capped below an exact match so the identical
+            category still wins when the skills are equal.
+        */
+        if ($skillCoverage > 0.0) {
+            return [
+                self::WEIGHT_CATEGORY * self::CROSS_CATEGORY_CAP * $skillCoverage,
+                'Different trade, matching skills',
+                false,
+            ];
+        }
+
+        return [0.0, null, false];
     }
 
     /** @return array{0: float, 1: string|null} */
