@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api\V1;
 
 use App\Http\Controllers\Controller;
 use App\Models\Location;
+use App\Models\LocationBoundary;
 use Illuminate\Http\Request;
 
 /**
@@ -97,6 +98,32 @@ class LocationController extends Controller
 
         $lat = (float) $data['lat'];
         $lng = (float) $data['lng'];
+
+        /*
+            The barangay whose outline holds the pin, where outlines exist.
+
+            The nearest centre point is often the wrong barangay near a
+            border - a pin in St. Domingo came back as Palina East. The
+            centroid search below stays as the answer where no outline has
+            been imported (kaya:import-boundaries).
+        */
+        $containing = LocationBoundary::query()
+            ->where('min_lat', '<=', $lat)->where('max_lat', '>=', $lat)
+            ->where('min_lng', '<=', $lng)->where('max_lng', '>=', $lng)
+            ->with('location')
+            ->get()
+            ->first(fn (LocationBoundary $b) => $b->location !== null && $b->contains($lat, $lng));
+
+        if ($containing !== null) {
+            $place = $containing->location;
+
+            return $this->ok([
+                ...$this->present($place),
+                'distance_km' => $place->latitude !== null
+                    ? round(Location::distanceKm($lat, $lng, (float) $place->latitude, (float) $place->longitude), 2)
+                    : 0.0,
+            ]);
+        }
 
         // Widen the search box until something is found — a fix out at sea or in
         // a sparse province should still resolve.

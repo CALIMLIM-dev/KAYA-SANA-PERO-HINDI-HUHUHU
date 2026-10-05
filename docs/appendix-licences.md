@@ -58,13 +58,13 @@ Everything KAYA is built on that was not written for KAYA, with its licence. All
 |---|---|---|
 | Philippine Standard Geographic Code (Philippine Statistics Authority) | Regions, provinces, cities, municipalities, barangays | Open government data, PSA |
 | GeoNames Philippines dataset | Coordinates for the places above | Creative Commons Attribution 4.0. Attribution: "Data from GeoNames (geonames.org), CC BY 4.0" |
+| philippines-json-maps (faeldon), 2023 PSA boundaries | Barangay outlines, so a pin is named by the barangay that contains it | MIT License |
 | OpenStreetMap tiles | Every map in the app | Open Database License (ODbL). Attribution "OpenStreetMap contributors" is shown on every map, as the OSM tile usage policy requires. The app identifies itself to the tile server with its package name |
 
 ## Services
 
 | Service | Data it receives | Terms |
 |---|---|---|
-| PayMongo | Barya purchases; the buyer pays PayMongo directly | PayMongo merchant terms |
 | Google Identity | Google sign-in tokens | Google APIs Terms of Service |
 | Resend | Outgoing email (verification and reset codes) | Resend terms |
 | Semaphore | Outgoing SMS (phone verification codes) | Semaphore terms |

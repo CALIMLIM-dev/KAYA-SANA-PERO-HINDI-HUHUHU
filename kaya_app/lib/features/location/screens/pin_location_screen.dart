@@ -49,15 +49,11 @@ class _PinLocationScreenState extends State<PinLocationScreen> {
       name was after it had been written, and a pin dropped in St. Domingo
       came back labelled Palina East with nothing on screen to question.
 
-      The reason it can be wrong is worth stating: /locations/nearest picks
-      the location whose *centroid* is closest, because barangay rows carry
-      one point and no boundary. Near a border, the nearest centre point is
-      frequently not the barangay you are standing in, and no amount of
-      matching logic fixes that without polygons.
-
-      So the fix is to stop it being invisible: resolve as the pin moves and
-      put the name under it, where it can be read and corrected before it is
-      committed to anything.
+      /locations/nearest names the barangay whose outline holds the pin
+      (kaya:import-boundaries on the server), and falls back to the nearest
+      centre point only where no outline exists. Resolving as the pin moves
+      and putting the name under it keeps it readable and correctable before
+      it is committed to anything.
   */
   LocationModel? _resolvedPreview;
   Timer? _resolveDebounce;

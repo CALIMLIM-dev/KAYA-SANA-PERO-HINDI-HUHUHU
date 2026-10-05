@@ -164,9 +164,9 @@ roles, badge rewards and support threads.
 
 ## not fixed yet
 
-pin names the wrong barangay near a boundary. the server matches the closest
-  centroid, not the area that contains the pin. it is visible now but still
-  wrong. needs boundary data.
+manila pins still use the nearest centre point. its boundary file is empty
+  because its barangays sit under districts. every other city resolves by
+  outline since kaya:import-boundaries.
 
 photo upload limit needs a server change. nginx client_max_body_size is 1mb
   and raising it needs root, which the deploy user does not have.
@@ -180,8 +180,8 @@ composer-setup.php still sitting in the backend folder
 
 1. delete the qa account
 2. nginx upload limit, needs the server owner
-3. payment provider. there is no paymongo account; play store needs
-   google play billing for barya anyway
+3. google play billing for barya, once the app is on the play store.
+   until then top-ups are free and count as premium
 
 
 ## phases
@@ -192,11 +192,9 @@ done
 2. active mode. the worker and employer toggle
 3. real data end to end
 4. session, notifications, resume, profile completeness
-5. credits and wallet. wallets, ledger, packages, paymongo top up and
-   webhook, contact unlocks, monthly and signup grants, the reconciler.
-   paymongo keys are not set: the account is not business verified and
-   gcash needs that. the integration is built and tested against test
-   mode and switches over by changing three env values.
+5. credits and wallet. wallets, ledger, packages, top up, contact
+   unlocks, monthly and signup grants. there is no payment provider:
+   top-ups are free while testing, google play billing comes later.
 8. matching and discovery. profile views, badges, ranking, city filter
 11. deployment. live at kayaadmin.ucucite.tech
 1. security. resume gate, address privacy, tin on file and checked on orus
