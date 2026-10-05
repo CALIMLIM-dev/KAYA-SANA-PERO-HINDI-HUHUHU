@@ -3,65 +3,51 @@ import 'package:provider/provider.dart';
 
 import '../../../core/constants/app_colors.dart';
 import '../../../core/navigation/app_router.dart';
-import '../../../data/models/job_model.dart';
 import '../../../providers/application_provider.dart';
 import '../../../providers/job_provider.dart';
 import '../../applications/widgets/completion_action.dart';
 
 /*
-    The job you are actually doing, on the home screen.
+    Active work, on the home screen.
 
-    Confirming a finished job lived three taps in - home, My Activity, the
-    right tab, then the card - and the panel asked for it on the home page.
-    It is the one action in the app with a deadline attached, so burying it
-    behind navigation is how a job sits unconfirmed for a week and then gets
-    closed as unsuccessful by kaya:close-unconfirmed-hires.
+    This is My Activity's Active tab moved, which is what was asked for and
+    not what the first version did. That one listed only hires that already
+    existed, so an employer with an open post and nobody hired yet saw
+    nothing, and a worker whose application was still unanswered saw nothing.
+    Both of those are active work and both belong here.
 
-    Reuses confirmCompletion and completionHasOpened rather than carrying its
-    own copy: three surfaces already offer this and a fourth rule would be
-    the fourth chance for them to disagree about whose turn it is.
+    Compact on purpose. It sits above the feed on the screen people open
+    first, so a row is one line of what it is, one line of where it stands,
+    and a button only when there is something to press.
+
+    Mark as complete is the reason it exists: it was three taps deep in My
+    Activity, and kaya:close-unconfirmed-hires closes a hire a week past its
+    deadline as unsuccessful - so a confirmation nobody can find costs
+    somebody their completion.
 */
 class WorkInProgressSection extends StatelessWidget {
   const WorkInProgressSection({
     super.key,
     required this.onChanged,
-    this.maxRows = 2,
+    this.maxRows = 3,
   });
 
-  /// Refetches whatever the host screen is showing, after a confirmation.
+  /// Refetches whatever the host screen shows, after a confirmation.
   final Future<void> Function() onChanged;
 
-  /*
-      How many to show here.
-
-      This is a prompt, not a list. An employer running five jobs at once
-      should not have the home screen become Manage Jobs - so the rest sit
-      behind "See all" where they always were.
-  */
+  /// A prompt, not a list. The rest stay in My Activity.
   final int maxRows;
 
   @override
   Widget build(BuildContext context) {
-    /*
-        Both sides, because both sides have to confirm.
-
-        liveWork is the worker's accepted applications. Reading only
-        that meant an employer - who confirms the same job from the
-        other end - saw nothing here at all, and had to go back to My
-        Activity for the one action this section exists to surface.
-
-        The employer's half comes from their own posts: a job still
-        running with a hire on it. Normalised into the same shape as an
-        application so one card draws both.
-    */
-    final live = [
-      ...context.watch<ApplicationProvider>().liveWork,
-      ..._employerHires(context.watch<JobProvider>()),
+    final rows = [
+      ..._workerRows(context.watch<ApplicationProvider>()),
+      ..._employerRows(context.watch<JobProvider>()),
     ];
 
-    if (live.isEmpty) return const SizedBox.shrink();
+    if (rows.isEmpty) return const SizedBox.shrink();
 
-    final shown = live.take(maxRows).toList();
+    final shown = rows.take(maxRows).toList();
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -72,7 +58,7 @@ class WorkInProgressSection extends StatelessWidget {
             children: [
               const Expanded(
                 child: Text(
-                  'Work in progress',
+                  'Active',
                   style: TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.w600,
@@ -80,96 +66,123 @@ class WorkInProgressSection extends StatelessWidget {
                   ),
                 ),
               ),
-              if (live.length > shown.length)
-                TextButton(
-                  onPressed: () =>
-                      AppRouter.push(context, AppRouter.applications),
-                  style: TextButton.styleFrom(
-                    foregroundColor: AppColors.primary,
-                    padding: EdgeInsets.zero,
-                    minimumSize: const Size(0, 0),
-                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                    textStyle: const TextStyle(
-                        fontSize: 13, fontWeight: FontWeight.w600),
-                  ),
-                  child: Text('See all ${live.length}'),
+              TextButton(
+                onPressed: () =>
+                    AppRouter.push(context, AppRouter.applications),
+                style: TextButton.styleFrom(
+                  foregroundColor: AppColors.primary,
+                  padding: EdgeInsets.zero,
+                  minimumSize: const Size(0, 0),
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  textStyle: const TextStyle(
+                      fontSize: 13, fontWeight: FontWeight.w600),
                 ),
+                child: Text(rows.length > shown.length
+                    ? 'See all ${rows.length}'
+                    : 'See all'),
+              ),
             ],
           ),
         ),
-        for (final application in shown)
+        for (final row in shown)
           Padding(
-            padding: const EdgeInsets.fromLTRB(16, 0, 16, 10),
-            child: _card(context, application),
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+            child: _card(context, row),
           ),
       ],
     );
   }
 
   /*
-      The employer's unfinished hires, shaped like applications.
+      The worker's side: everything in flight.
 
-      myJobs returns the hire nested on the job; this flips it so the
-      card can read one shape. Only a job still running: a closed or
-      swept job cannot be completed - JobCompletionService refuses it -
-      and offering it would be the same inert button that was reported
-      in History.
+      ApplicationProvider.active is pending plus accepted, the same
+      definition My Activity's Active tab uses - so the two cannot disagree
+      about what counts as active.
   */
-  List<Map<String, dynamic>> _employerHires(JobProvider jobs) {
-    final out = <Map<String, dynamic>>[];
+  List<_ActiveRow> _workerRows(ApplicationProvider applications) {
+    return applications.active.map((application) {
+      final job = application['job'];
+      final jobMap = job is Map<String, dynamic> ? job : null;
+      final employer = jobMap?['employer'];
 
-    for (final job in jobs.jobs) {
-      final hire = job['hire'];
+      final accepted = application['status'] == 'accepted';
 
-      if (hire is! Map<String, dynamic>) continue;
-      if (hire['status'] != 'accepted') continue;
-      if (!JobProvider.jobIsActive(job)) continue;
-
-      out.add({
-        'id': hire['application_id'],
-        'status': 'accepted',
-        'worker_completed_at': hire['employer_completed_at'],
-        'employer_completed_at': hire['worker_completed_at'],
-        // Whose name to put on the card: for an employer it is the
-        // worker they hired, not their own company.
-        '_other': hire['worker_name'] ?? 'the worker',
-        'job': job,
-      });
-    }
-
-    return out;
+      return _ActiveRow(
+        title: '${jobMap?['title'] ?? 'A job'}',
+        otherParty: '${jobMap?['company'] ?? (employer is Map ? employer['name'] : null) ?? 'the employer'}',
+        job: jobMap,
+        applicationId: accepted ? (application['id'] as num?)?.toInt() : null,
+        iConfirmed: application['worker_completed_at'] != null,
+        theyConfirmed: application['employer_completed_at'] != null,
+        notHiredYet: !accepted,
+      );
+    }).toList();
   }
 
-  Widget _card(BuildContext context, Map<String, dynamic> application) {
-    final applicationId = (application['id'] as num?)?.toInt();
-    final jobMap = application['job'];
-    final job = jobMap is Map<String, dynamic> ? Job.fromJson(jobMap) : null;
+  /*
+      The employer's side: their own posts that are still running.
 
-    final title = job?.title ?? '${jobMap is Map ? jobMap['title'] ?? 'A job' : 'A job'}';
+      JobProvider.activeJobs is the one definition of that, and it answers to
+      is_live from the server rather than the status column - the expiry sweep
+      runs once a day, so a post past its date still reads open until it does.
+  */
+  List<_ActiveRow> _employerRows(JobProvider jobs) {
+    return jobs.activeJobs.map((job) {
+      final hire = job['hire'];
+      final hireMap = hire is Map<String, dynamic> ? hire : null;
+      final hired = hireMap?['status'] == 'accepted';
+
+      return _ActiveRow(
+        title: '${job['title'] ?? 'A job'}',
+        otherParty: '${hireMap?['worker_name'] ?? 'the worker'}',
+        job: job,
+        /*
+            Only a live hire can be completed.
+
+            Null here when nobody is hired yet or it is already confirmed,
+            which is what keeps the button off a row where pressing it would
+            do nothing - the same inert control that turned up in History.
+        */
+        applicationId:
+            hired ? (hireMap?['application_id'] as num?)?.toInt() : null,
+        // From this side, my stamp is the employer's and theirs is the
+        // worker's.
+        iConfirmed: hireMap?['employer_completed_at'] != null,
+        theyConfirmed: hireMap?['worker_completed_at'] != null,
+        notHiredYet: !hired,
+        applicants: (job['application_count'] as num?)?.toInt() ?? 0,
+      );
+    }).toList();
+  }
+
+  Widget _card(BuildContext context, _ActiveRow row) {
+    final early = !completionHasOpened(row.job);
+    final waitNote = completionWaitNote(row.job);
+
     /*
-        The other party, whichever side this is.
+        One line saying where this stands.
 
-        _other is set when the row came from the employer's own jobs;
-        otherwise the worker is looking at it and the other party is
-        the company that posted it.
+        The half-state is what people get stuck in: one side has confirmed
+        and the other has no idea they are being waited on. Saying it here is
+        most of why this section earns the room.
     */
-    final employer = (application['_other'] as String?)
-        ?? job?.company
-        ?? 'the other side';
+    final String standing = row.notHiredYet
+        ? row.applicants == null
+            ? 'Waiting for a reply'
+            : row.applicants == 0
+                ? 'No applicants yet'
+                : '${row.applicants} applicant${row.applicants == 1 ? '' : 's'} waiting on you'
+        : row.iConfirmed
+            ? 'You marked this done. Waiting for ${row.otherParty}.'
+            : row.theyConfirmed
+                ? '${row.otherParty} marked this done. Confirm to finish it.'
+                : waitNote ?? 'In progress with ${row.otherParty}';
 
-    final iConfirmed = application['worker_completed_at'] != null;
-    final theyConfirmed = application['employer_completed_at'] != null;
-
-    // Same rule as My Activity: the control is always there once hired, and
-    // the deadline only decides whether it reads as finishing the job or as
-    // asking the other side whether it is finished.
-    // These take the raw job map, the same shape My Activity passes them.
-    final rawJob = jobMap is Map<String, dynamic> ? jobMap : null;
-    final early = !completionHasOpened(rawJob);
-    final waitNote = completionWaitNote(rawJob);
+    final canConfirm = row.applicationId != null && !row.iConfirmed;
 
     return Container(
-      padding: const EdgeInsets.all(13),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(12),
@@ -186,88 +199,63 @@ class WorkInProgressSection extends StatelessWidget {
         children: [
           Row(
             children: [
-              Container(
-                padding: const EdgeInsets.all(7),
-                decoration: BoxDecoration(
-                  color: AppColors.primary.withValues(alpha: 0.09),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: const Icon(Icons.handyman_outlined,
-                    size: 16, color: AppColors.primary),
+              Icon(
+                row.notHiredYet
+                    ? Icons.hourglass_empty
+                    : Icons.handyman_outlined,
+                size: 16,
+                color: AppColors.primary,
               ),
-              const SizedBox(width: 10),
+              const SizedBox(width: 9),
               Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      title,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w600,
-                        color: AppColors.neutral900,
-                      ),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      employer,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                          fontSize: 12.5, color: AppColors.neutral600),
-                    ),
-                  ],
+                child: Text(
+                  row.title,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.neutral900,
+                  ),
                 ),
               ),
             ],
           ),
-
-          /*
-              What the two of you are waiting on.
-
-              The half-state is the thing people get stuck in: one side has
-              confirmed and the other has no idea they are being waited on.
-              Saying it here is most of why this section is worth the room.
-          */
-          if (iConfirmed || theyConfirmed || waitNote != null) ...[
-            const SizedBox(height: 9),
-            Text(
-              iConfirmed
-                  ? 'You marked this done. Waiting for $employer to confirm.'
-                  : theyConfirmed
-                      ? '$employer marked this done. Confirm to finish it.'
-                      : waitNote!,
+          const SizedBox(height: 5),
+          Padding(
+            padding: const EdgeInsets.only(left: 25),
+            child: Text(
+              standing,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
               style: const TextStyle(
                 fontSize: 12,
-                height: 1.35,
+                height: 1.3,
                 color: AppColors.neutral600,
               ),
             ),
-          ],
-
-          if (applicationId != null && !iConfirmed) ...[
-            const SizedBox(height: 11),
+          ),
+          if (canConfirm) ...[
+            const SizedBox(height: 10),
             SizedBox(
               width: double.infinity,
               child: FilledButton(
                 onPressed: () => confirmCompletion(
                   context,
-                  applicationId,
-                  employer,
+                  row.applicationId!,
+                  row.otherParty,
                   onChanged,
                   early: early,
                 ),
                 style: FilledButton.styleFrom(
                   backgroundColor: AppColors.primary,
-                  padding: const EdgeInsets.symmetric(vertical: 10),
+                  padding: const EdgeInsets.symmetric(vertical: 9),
                   shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(8)),
                   textStyle: const TextStyle(
-                      fontSize: 13.5, fontWeight: FontWeight.w600),
+                      fontSize: 13, fontWeight: FontWeight.w600),
                 ),
-                child: Text(theyConfirmed
+                child: Text(row.theyConfirmed
                     ? 'Confirm it is done'
                     : early
                         ? 'Finished early?'
@@ -279,4 +267,36 @@ class WorkInProgressSection extends StatelessWidget {
       ),
     );
   }
+}
+
+/// One active thing, from either side, in the shape this card draws.
+class _ActiveRow {
+  const _ActiveRow({
+    required this.title,
+    required this.otherParty,
+    required this.job,
+    required this.applicationId,
+    required this.iConfirmed,
+    required this.theyConfirmed,
+    required this.notHiredYet,
+    this.applicants,
+  });
+
+  final String title;
+  final String otherParty;
+
+  /// The raw job map, which completionHasOpened and completionWaitNote read.
+  final Map<String, dynamic>? job;
+
+  /// Null when there is nothing to complete - nobody hired, or already done.
+  final int? applicationId;
+
+  final bool iConfirmed;
+  final bool theyConfirmed;
+
+  /// Nobody hired yet, so this is waiting rather than working.
+  final bool notHiredYet;
+
+  /// Employer side only: how many people are waiting on a decision.
+  final int? applicants;
 }

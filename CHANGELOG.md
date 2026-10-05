@@ -11,6 +11,17 @@ minor release, and `feat!:` or a `BREAKING CHANGE:` footer for a major one.
 
 ---
 
+## 1.15.2 - 2026-10-05
+
+### Fixed
+
+- The home screen shows all active work, not only jobs with a hire. It
+  listed hires that already existed, so an open post with nobody hired yet
+  and an application still waiting for a reply both showed nothing. It is
+  My Activity Active tab now, moved to home and made compact: one line for
+  what it is, one for where it stands, and Mark as complete only when
+  there is a live hire to complete.
+
 ## 1.15.1 - 2026-10-05
 
 ### Changed

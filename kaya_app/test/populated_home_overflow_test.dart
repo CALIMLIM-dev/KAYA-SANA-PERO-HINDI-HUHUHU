@@ -227,7 +227,7 @@ void main() {
           part of what is being measured.
       */
       expect(
-        find.text('Work in progress'),
+        find.text('Active'),
         findsOneWidget,
         reason: 'The work in progress section never rendered, so the '
             'completion card was not measured.',
