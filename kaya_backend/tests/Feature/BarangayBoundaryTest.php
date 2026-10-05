@@ -144,7 +144,12 @@ class BarangayBoundaryTest extends TestCase
         $added = Location::where('name', 'Camantiles')->firstOrFail();
         $this->assertSame('barangay', $added->type);
         $this->assertSame($this->city->id, $added->parent_id);
-        $this->assertSame('PSGC0105546011', $added->psgc_code);
+        $this->assertSame('P0105546011', $added->psgc_code);
+
+        // SQLite ignores column lengths; MySQL refuses anything past twelve.
+        foreach (Location::pluck('psgc_code') as $code) {
+            $this->assertLessThanOrEqual(12, strlen($code), $code);
+        }
         $this->assertEqualsWithDelta(16.05, (float) $added->latitude, 0.001);
 
         $this->nearest(16.05, 120.50)->assertJsonPath('data.id', $added->id);

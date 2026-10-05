@@ -146,7 +146,8 @@ class ImportBoundaries extends Command
                 continue;
             }
 
-            $ownCode = $adm4 !== '' ? 'PSGC' . str_pad($adm4, 10, '0', STR_PAD_LEFT) : null;
+            // psgc_code is twelve characters: P and the 10 digit code.
+            $ownCode = $adm4 !== '' ? 'P' . str_pad($adm4, 10, '0', STR_PAD_LEFT) : null;
 
             $location = ($ownCode ? $unmatched->firstWhere('psgc_code', $ownCode) : null)
                 ?? $this->match($unmatched, $name, $polygons);
@@ -194,7 +195,7 @@ class ImportBoundaries extends Command
         [$lat, $lng] = $this->centre($polygons);
 
         return Location::updateOrCreate(
-            ['psgc_code' => $code ?? 'PSGC-' . $parent->id . '-' . md5($name)],
+            ['psgc_code' => $code ?? 'X' . substr(md5($parent->id . '|' . $name), 0, 11)],
             [
                 'name'          => $name,
                 'search_name'   => self::searchName($name),
