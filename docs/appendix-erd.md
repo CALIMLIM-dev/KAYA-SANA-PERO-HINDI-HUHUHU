@@ -174,16 +174,6 @@ erDiagram
         datetime created_at
         datetime updated_at
     }
-    credit_webhook_events {
-        integer id PK
-        varchar provider
-        varchar provider_event_id
-        varchar event_type
-        text payload
-        datetime received_at
-        datetime created_at
-        datetime updated_at
-    }
     employer_profiles {
         integer id PK
         integer user_id FK

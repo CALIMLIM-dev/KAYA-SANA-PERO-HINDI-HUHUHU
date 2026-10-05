@@ -159,15 +159,6 @@ Route::prefix('admin')->name('admin.')->group(function () {
 });
 
 /*
-    Where PayMongo sends the browser after paying.
-
-    Grants nothing — see the note in the view. The credits arrive through the
-    webhook or the reconciler, so this page can be opened by anyone, at any
-    time, without effect.
-*/
-Route::view('/pay/return', 'pay.return');
-
-/*
     Where the version dialog sends people.
 
     A stable URL the app can be built against, pointing at wherever the APK

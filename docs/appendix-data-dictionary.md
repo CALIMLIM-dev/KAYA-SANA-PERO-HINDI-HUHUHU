@@ -217,19 +217,6 @@ Every table in the KAYA database as migrated, with each column's type, whether i
 | created_at | datetime | yes |  |  |
 | updated_at | datetime | yes |  |  |
 
-## credit_webhook_events
-
-| Column | Type | Null | Default | Notes |
-|---|---|---|---|---|
-| id | integer | no |  | primary key |
-| provider | varchar | no |  |  |
-| provider_event_id | varchar | no |  |  |
-| event_type | varchar | no |  |  |
-| payload | text | no |  |  |
-| received_at | datetime | no |  |  |
-| created_at | datetime | yes |  |  |
-| updated_at | datetime | yes |  |  |
-
 ## employer_profiles
 
 | Column | Type | Null | Default | Notes |

@@ -10,65 +10,26 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
 /**
- * Buying credits: opening a checkout, and granting once it is paid.
+ * Topping up credits.
  *
- * Both the webhook and the reconciler call {@see markPaid}, which is the whole
- * design. There is exactly one path that grants credits, so "did the webhook
- * arrive" stops being a question anybody has to answer — a missed webhook
- * becomes a delay of minutes rather than a payment that vanished.
+ * There is no payment provider while the app is in testing. Purchases will go
+ * through Google Play Billing once KAYA is on the Play Store; until then a
+ * package is credited the moment it is chosen. The row and the ledger entry
+ * are the same ones a paid top-up will write, so the wallet history, the
+ * admin ledger and the topped-up status all read it the same way.
  */
 class CreditPurchase
 {
     public function __construct(
-        private PayMongoClient $paymongo,
         private CreditLedger $ledger,
     ) {}
 
     /**
-     * Starts a purchase and returns where to send the buyer.
+     * Credits a package with no payment behind it.
      *
-     * The row is written first, with the price copied from the package, so
-     * there is a record of the attempt even if PayMongo never answers. The
-     * amount is never read from the request — a tampered payload changes
-     * nothing about what is charged or what is granted.
-     *
-     * @return array{payment: CreditPayment, checkout_url: string}|null
-     */
-    public function start(User $user, CreditPackage $package): ?array
-    {
-        $payment = CreditPayment::create([
-            'user_id' => $user->id,
-            // Ours, not theirs. Generated before anyone external is involved.
-            'reference' => (string) Str::ulid(),
-            'credit_package_id' => $package->id,
-            'credits' => $package->credits,
-            'amount_centavos' => $package->amount_centavos,
-            'status' => CreditPayment::STATUS_PENDING,
-        ]);
-
-        $checkout = $this->paymongo->createCheckout(
-            $payment,
-            sprintf('%d %s', $package->credits, config('kaya.credits.currency_name_plural')),
-        );
-
-        if ($checkout === null) {
-            $payment->update(['status' => CreditPayment::STATUS_FAILED]);
-
-            return null;
-        }
-
-        $payment->update(['provider_session_id' => $checkout['id']]);
-
-        return ['payment' => $payment, 'checkout_url' => $checkout['url']];
-    }
-
-    /**
-     * A top-up with no payment behind it, for testing without a provider.
-     *
-     * Goes through the same row and the same grant as a paid one, so the
-     * ledger, the admin's revenue page and the wallet history all show it
-     * the way they would show a real purchase, marked "free" so it can be
-     * told apart and never counted as revenue.
+     * The amount is recorded as zero so a test top-up is never counted as
+     * revenue. The price and credits come from the package row, never from
+     * the request.
      */
     public function grantFree(User $user, CreditPackage $package): CreditPayment
     {
@@ -91,10 +52,7 @@ class CreditPurchase
      * Grants the credits for a payment, exactly once, however often it is called.
      *
      * The guarantee is the conditional UPDATE below, not a check beforehand.
-     * Only the caller that actually flips pending to paid goes on to grant, so
-     * this is correct against a redelivered webhook, two webhooks arriving
-     * together, and the reconciler racing a webhook — because all three come
-     * through this one method and only one of them can win the update.
+     * Only the caller that actually flips pending to paid goes on to grant.
      *
      * Returns whether this call was the one that granted.
      */
@@ -108,7 +66,6 @@ class CreditPurchase
             ]);
 
         if ($claimed === 0) {
-            // Somebody else already handled it. A normal outcome, not an error.
             return false;
         }
 
@@ -127,35 +84,5 @@ class CreditPurchase
         });
 
         return true;
-    }
-
-    /**
-     * Finds the payment a webhook is talking about.
-     *
-     * Matched on our own reference first, because that is the one value we
-     * generated ourselves and PayMongo only echoes back. The session id is the
-     * fallback for payloads that carry it instead.
-     */
-    public function findPayment(array $payload): ?CreditPayment
-    {
-        $attributes = $payload['data']['attributes'] ?? [];
-        $inner = $attributes['data']['attributes'] ?? [];
-
-        $reference = $inner['reference_number']
-            ?? $attributes['reference_number']
-            ?? null;
-
-        if (filled($reference)) {
-            $found = CreditPayment::where('reference', $reference)->first();
-            if ($found !== null) {
-                return $found;
-            }
-        }
-
-        $sessionId = $payload['data']['attributes']['data']['id'] ?? null;
-
-        return filled($sessionId)
-            ? CreditPayment::where('provider_session_id', $sessionId)->first()
-            : null;
     }
 }

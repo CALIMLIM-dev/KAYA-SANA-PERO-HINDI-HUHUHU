@@ -8,8 +8,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 /**
  * One attempt to buy credits.
  *
- * The row is written before PayMongo is called, with the price and the credit
- * count copied from the package at that moment. Nothing later reads the
+ * The price and the credit count are copied from the package at that moment. Nothing later reads the
  * package again — a price edited next month must not change what somebody was
  * charged today, and a deactivated package must still explain an old payment.
  */

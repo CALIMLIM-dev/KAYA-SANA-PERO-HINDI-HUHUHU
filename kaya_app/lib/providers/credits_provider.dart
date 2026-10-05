@@ -287,37 +287,19 @@ class CreditsProvider with ChangeNotifier {
     }
   }
 
-  /// Set when a top-up was credited without a payment page; read once by
-  /// the wallet screen and cleared.
-  String? _grantedMessage;
-  String? takeGrantedMessage() {
-    final m = _grantedMessage;
-    _grantedMessage = null;
-    return m;
-  }
-
-  /// Starts a purchase and returns the page to send the buyer to.
+  /// Tops up a package and returns the server's message, or null on failure.
   ///
-  /// Nothing is granted here. The credits arrive through the webhook or the
-  /// reconciler, so after the browser closes the app simply refetches — which
-  /// is why there is no "confirm" call and no local balance change.
-  Future<String?> startTopUp(int packageId) async {
+  /// Free while the app is in testing: the server credits the package at
+  /// once, and the account counts as topped up from then on. The balance is
+  /// refetched rather than changed locally.
+  Future<String?> topUp(int packageId) async {
     try {
       final response = await _api.post('/credits/checkout', data: {
         'package_id': packageId,
       });
 
-      final data = response.data['data'] as Map<String, dynamic>;
-
-      // Testing: the server credited the package outright. Nothing to open;
-      // the balance is refetched and the server's message is shown.
-      if (data['granted'] == true) {
-        _grantedMessage = response.data['message'] as String?;
-        await load(force: true);
-        return null;
-      }
-
-      return data['checkout_url'] as String?;
+      await load(force: true);
+      return response.data['message'] as String? ?? 'Top-up added.';
     } catch (e) {
       _error = e.toString().replaceFirst('Exception: ', '');
       notifyListeners();

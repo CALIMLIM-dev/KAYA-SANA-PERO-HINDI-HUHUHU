@@ -57,7 +57,6 @@ class ResetTestData extends Command
         'credit_transactions',
         'credit_payments',
         'credit_unlocks',
-        'credit_webhook_events',
         'credit_wallets',
         'worker_skills',
         'worker_skills_new',

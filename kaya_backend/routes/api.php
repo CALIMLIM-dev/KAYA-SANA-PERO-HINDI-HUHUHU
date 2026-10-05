@@ -41,19 +41,6 @@ Route::prefix('v1')->group(function () {
     // version in the path. Both hit one controller; there is one rule.
     Route::get('/app-version', [\App\Http\Controllers\Api\V1\AppVersionController::class, 'show']);
 
-    /*
-        PayMongo tells us a payment succeeded. Public, because it is called by
-        PayMongo rather than by anyone signed in — the signature is what
-        authenticates it, checked against the raw body.
-
-        Its own rate limit, well above normal traffic. The global API limit
-        would throttle PayMongo's retries during a burst, and a throttled
-        retry looks exactly like a provider outage while quietly costing
-        somebody the credits they paid for.
-    */
-    Route::post('/webhooks/paymongo', [CreditCheckoutController::class, 'webhook'])
-        ->middleware('throttle:paymongo-webhook');
-
     // ── Auth (public) ─────────────────────────────────────────────────────────
     // Throttled per IP. Credential-guessing endpoints get the tighter limit;
     // verify-reset-code especially, since the code is only 6 digits and is valid
@@ -394,15 +381,6 @@ Route::prefix('v1')->group(function () {
             ->middleware('verified:any');
         Route::post('/credits/checkout',    [CreditCheckoutController::class, 'checkout'])
             ->middleware(['throttle:credits-checkout', 'verified:any']);
-
-        /*
-            There is deliberately no /credits/confirm.
-
-            An endpoint the app could call to say "I paid" would be a way to
-            mint credits for free, however carefully it checked. Only the
-            webhook and the reconciler grant, and both verify with PayMongo
-            rather than trusting anyone.
-        */
 
         // Notifications. `audience` mirrors the app's worker/employer mode, so
         // a hybrid account doesn't see the other side's alerts.

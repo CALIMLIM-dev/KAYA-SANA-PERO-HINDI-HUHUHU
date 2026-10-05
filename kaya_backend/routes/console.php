@@ -53,19 +53,6 @@ Schedule::command('kaya:embed-skills')->dailyAt('04:30');
 
 
 /*
-    Catches payments PayMongo took but never told us about.
-
-    Every fifteen minutes, because the failure it covers — a webhook that was
-    delayed, blocked or misrouted — ends with somebody having paid real money
-    and received nothing. Fifteen minutes is the worst case anyone waits, and
-    the webhook still makes the normal case instant.
-
-    Without a scheduler running in the deployed environment this never fires,
-    which is the one deployment step that costs users money if it is missed.
-*/
-Schedule::command('kaya:reconcile-credit-payments')->everyFifteenMinutes();
-
-/*
     The free monthly credits are CLAIMED in the app, not deposited on a
     schedule, so nothing is scheduled here on purpose.
 

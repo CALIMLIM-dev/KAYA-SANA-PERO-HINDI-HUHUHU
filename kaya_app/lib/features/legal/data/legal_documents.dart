@@ -119,7 +119,7 @@ class LegalDocuments {
       ),
       LegalSection(
         'Who We Share Your Data With',
-        'We do not sell your personal information and we do not share it with advertisers.\n\nWe use these providers to run the service, each receiving only what its job needs: PayMongo processes barya payments and receives your payment details directly; Google verifies Google sign-ins; an email service sends verification and password reset codes; an SMS service sends phone verification codes; maps are drawn from OpenStreetMap tiles, which receive the map area you look at but not your identity; place names come from the Philippine Standard Geographic Code and the GeoNames dataset. The TIN of a business account is checked against the BIR\'s public ORUS registry.\n\nWe will disclose information when required by law or a lawful order, and to investigate fraud or a threat to someone\'s safety.',
+        'We do not sell your personal information and we do not share it with advertisers.\n\nWe use these providers to run the service, each receiving only what its job needs: Google verifies Google sign-ins and, once paid top-ups open, Google Play will process barya purchases; an email service sends verification and password reset codes; an SMS service sends phone verification codes; maps are drawn from OpenStreetMap tiles, which receive the map area you look at but not your identity; place names come from the Philippine Standard Geographic Code and the GeoNames dataset. The TIN of a business account is checked against the BIR\'s public ORUS registry.\n\nWe will disclose information when required by law or a lawful order, and to investigate fraud or a threat to someone\'s safety.',
       ),
       LegalSection(
         'Verification Documents',
@@ -127,7 +127,7 @@ class LegalDocuments {
       ),
       LegalSection(
         'Payments',
-        'When you buy barya, the payment is taken by PayMongo. KAYA never sees your card or e-wallet number. We keep a record of each purchase: the package, the amount, the date and the payment reference, because it is a financial record. KAYA does not handle the pay for a job; that is between the worker and the employer.',
+        'Topping up barya is free while KAYA is in testing. When paid top-ups open, the payment will be taken by Google Play and KAYA will never see your card or e-wallet number. We keep a record of each top-up: the package, the amount, the date and the reference, because it is a financial record. KAYA does not handle the pay for a job; that is between the worker and the employer.',
       ),
       LegalSection(
         'How We Store and Protect Your Data',

@@ -14,10 +14,10 @@ KAYA is two programs and one database.
 |  background: 15 min |                            |  scheduler: 5 daily jobs    |
 +---------------------+                            +--------------+--------------+
                                                                   |
-        +------------------+   +------------------+   +-----------+-----------+
-        |  PayMongo        |   |  Google Identity |   |  MySQL                |
-        |  barya purchases |   |  Google sign-in  |   |  43 tables            |
-        +------------------+   +------------------+   +-----------------------+
+                               +------------------+   +-----------+-----------+
+                               |  Google Identity |   |  MySQL                |
+                               |  Google sign-in  |   |  43 tables            |
+                               +------------------+   +-----------------------+
         +------------------+   +------------------+   +-----------------------+
         |  Resend (email)  |   |  Semaphore (SMS) |   |  Storage (private and |
         |  codes           |   |  codes           |   |  public files)        |
@@ -57,17 +57,17 @@ Laravel 12 on PHP 8.2 behind nginx. Layers:
 | `app/Http/Controllers/Admin` | The admin panel, server rendered with Blade |
 | `app/Services` | The rules: credits ledger, matching, badges, pricing, verification, job completion, account deletion, chat events, notifications |
 | `app/Models` | Eloquent models over the 43 tables |
-| `app/Console/Commands` | Scheduled work: expiring posts, closing unconfirmed hires, pruning location pings, lifting suspensions, reconciling payments, monthly grants |
+| `app/Console/Commands` | Scheduled work: expiring posts, closing unconfirmed hires, pruning location pings, lifting suspensions, monthly grants |
 
-Money never passes through KAYA. Barya is bought from KAYA through PayMongo; job pay is settled between the two people.
+Money never passes through KAYA. Barya top-ups are free while the app is in testing and will go through Google Play Billing on the Play Store; job pay is settled between the two people.
 
 ## Security
 
-- Every API route except sign-in, sign-up, password reset, the version check and the payment webhook requires a bearer token. Tokens expire after ninety days.
+- Every API route except sign-in, sign-up, password reset, and the version check requires a bearer token. Tokens expire after ninety days.
 - Sign-in, sign-up and password reset are limited to ten attempts a minute per address. The admin sign-in has the same limit.
 - Every write checks that the caller owns the record or is party to it. Resumes, ID documents and business documents are served through gated endpoints, never by URL.
 - Passwords are hashed with bcrypt. Reset codes are six random digits, expire in fifteen minutes and are rate limited.
-- The PayMongo webhook is verified by HMAC over the raw body and a five-minute timestamp window; credits are granted by a conditional update so a replayed webhook grants nothing twice.
+- Top-up credits are granted by a conditional update, so the same top-up is never credited twice. The amount always comes from the package on the server, never from the request.
 - All responses carry `X-Content-Type-Options`, `X-Frame-Options: DENY`, `Referrer-Policy`, `Permissions-Policy` and HSTS.
 - Every admin action is written to an append-only audit log.
 - Live location pings are deleted daily; trails are deleted when sharing stops.

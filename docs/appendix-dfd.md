@@ -29,12 +29,6 @@ Level 0 (context), Level 1 (the twelve processes), Level 2 for each process, and
 │          │◀──balance──────│                  │──directory────▶│            │
 │          │◀──notice───────│                  │──receipt──────▶│            │
 └──────────┘                ╰──────────────────╯                └────────────┘
-                                   ▲   │
-                             result │   │checkout
-                                    │   ▼
-                            ┌───────┴──────┐
-                            │   PAYMONGO   │
-                            └──────────────┘
 ```
 
 ---
@@ -89,10 +83,10 @@ Level 0 (context), Level 1 (the twelve processes), Level 2 for each process, and
                               │            ▲
                        charge │            │ balance, refund
                               ▼            │
-┌──────────┐                ╭──────────────────────╮        ┌────┬──────────────────┐
-│ PAYMONGO │──result───────▶│  6.0                 │───────▶│ D9 │ credit_wallets   │
-│          │◀──checkout─────│  Manage Barya        │◀───────│    │                  │
-└──────────┘                │                      │        └────┴──────────────────┘
+                            ╭──────────────────────╮        ┌────┬──────────────────┐
+                            │  6.0                 │───────▶│ D9 │ credit_wallets   │
+                            │  Manage Barya        │◀───────│    │                  │
+                            │                      │        └────┴──────────────────┘
 ┌──────────┐                │                      │───────▶┌────┬──────────────────┐
 │  WORKER  │──top-up───────▶│                      │◀───────│D10 │credit_transactions│
 │    +     │                │                      │        └────┴──────────────────┘
@@ -301,18 +295,7 @@ Level 0 (context), Level 1 (the twelve processes), Level 2 for each process, and
 │  WORKER  │──top-up─────▶╭──────────────────╮        balance │   │
 │    +     │              │ 6.2 Top up       │────────────────┘   │
 │ EMPLOYER │◀──balance────╰──────────────────╯                    │
-└──────────┘                   │        ▲                         │
-                     checkout  │        │ result                  │
-                               ▼        │                         │
-                          ┌──────────────────┐                    │
-                          │    PAYMONGO      │                    │
-                          └──────────────────┘                    │
-                                   │                              │
-                                   │ webhook                      │
-                                   ▼                              │
-                          ╭──────────────────╮                    │
-                          │ 6.5 Reconcile    │──settled──▶ D9, D10│
-                          ╰──────────────────╯                    │
+└──────────┘                                                      │
                                                                   │
      apply, invite ──────▶╭──────────────────╮◀───────────────────┘
      boost, duration      │ 6.3 Charge       │──line────▶┌────┬───────────────┐

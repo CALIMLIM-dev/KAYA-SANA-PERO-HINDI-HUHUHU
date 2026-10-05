@@ -9,7 +9,6 @@
 | Individual employer | An account with an individual employer profile. Hires for personal or household work. May also hold a worker profile. |
 | Business employer | An account with a company employer profile and approved business documents. Cannot hold a worker profile. |
 | Admin | Staff on the admin panel. |
-| PayMongo | External. Takes barya payments and calls back when paid. |
 
 ## Use cases by actor
 
@@ -64,5 +63,3 @@
 - Adjust a wallet, with a reason.
 - Read the dashboard queues, analytics and the audit log; export CSVs.
 
-### PayMongo (system)
-- Receive a checkout for a barya package; call the webhook when paid; answer the reconciler about a session that never called back.

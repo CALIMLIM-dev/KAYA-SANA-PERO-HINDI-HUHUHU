@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:url_launcher/url_launcher.dart';
 
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/credits.dart';
@@ -41,14 +40,8 @@ class _WalletScreenState extends State<WalletScreen> with WidgetsBindingObserver
     super.dispose();
   }
 
-  /*
-      Paying happens in a browser, so the app hears nothing while it is gone.
-
-      Credits are granted server side by the webhook, or by the reconciler if
-      that never arrives — so coming back to the app is exactly when to ask
-      again. No confirm call, no local balance change, nothing the client could
-      lie about.
-  */
+  // The balance can change while the app is away (a grant, a refund), so
+  // coming back is when to ask again.
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed && mounted) {
@@ -80,43 +73,24 @@ class _WalletScreenState extends State<WalletScreen> with WidgetsBindingObserver
   Future<void> _buy(CreditPackage package) async {
     if (_buying) return;
 
-    // Topping up is spending, and the server refuses it unverified. Asked
-    // before the browser opens, not after the payment page loads.
+    // Topping up is spending, and the server refuses it unverified.
     if (!await ensureVerified(context, action: 'top up')) return;
     if (!mounted) return;
     setState(() => _buying = true);
 
     final credits = context.read<CreditsProvider>();
-    final url = await credits.startTopUp(package.id);
+    final message = await credits.topUp(package.id);
 
     if (!mounted) return;
     setState(() => _buying = false);
 
-    if (url == null) {
-      final granted = credits.takeGrantedMessage();
-      if (granted != null) {
-        AppToast.success(context, granted);
-        return;
-      }
-      AppToast.error(context, credits.error ?? 'Could not start the payment.');
+    if (message == null) {
+      AppToast.error(context, credits.error ?? 'Could not top up. Please try again.');
       return;
     }
 
-    final opened = await launchUrl(
-      Uri.parse(url),
-      // Externally on purpose: an in-app webview for a payment page is both a
-      // worse experience and something people are right to distrust.
-      mode: LaunchMode.externalApplication,
-    );
-
-    if (!mounted) return;
-
-    if (!opened) {
-      AppToast.error(context, 'Could not open the payment page.');
-      return;
-    }
-
-    AppToast.info(context, 'Finish paying, then come back to this screen.');
+    AppToast.success(context, message);
+    await credits.loadHistory();
   }
 
   @override

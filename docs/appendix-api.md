@@ -38,7 +38,7 @@ Every endpoint the mobile app uses, generated from the route table. Access: publ
 | GET | /api/v1/conversations/{conversation}/schedule | signed in | The pending, agreed and current schedule for a thread |
 | POST | /api/v1/conversations/{conversation}/schedule | signed in | Propose a day and time |
 | POST | /api/v1/conversations/{conversation}/schedule/{proposal}/respond | signed in | Accept or decline a proposal |
-| POST | /api/v1/credits/checkout | verified | Open a PayMongo checkout for a package |
+| POST | /api/v1/credits/checkout | verified | Top up a package (free while in testing) |
 | POST | /api/v1/credits/claim | verified | Claim the sign-up or monthly grant |
 | GET | /api/v1/credits/transactions | signed in | The barya ledger |
 | GET | /api/v1/credits/wallet | signed in | Balance and prices |
@@ -106,7 +106,6 @@ Every endpoint the mobile app uses, generated from the route table. Access: publ
 | GET | /api/v1/verifications/{verification}/document/{side} | signed in | Stream one of your own documents |
 | POST | /api/v1/verify-reset-code | public | Check a reset code |
 | GET | /api/v1/version/{version?} | public | Latest app version and download link |
-| POST | /api/v1/webhooks/paymongo | public | PayMongo calls back; credits granted once |
 | POST | /api/v1/worker-profile/boost | verified | Boost a worker profile for three days |
 | GET | /api/v1/worker/certifications | signed in | Own certificates |
 | POST | /api/v1/worker/certifications | signed in | Add a certificate with its scan |

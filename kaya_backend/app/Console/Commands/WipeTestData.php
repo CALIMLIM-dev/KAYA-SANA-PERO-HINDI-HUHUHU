@@ -64,7 +64,6 @@ class WipeTestData extends Command
         'credit_transactions',
         'credit_payments',
         'credit_wallets',
-        'credit_webhook_events',
         'boosts',
         'badge_rewards',
         // Profiles and their parts

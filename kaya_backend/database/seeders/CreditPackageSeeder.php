@@ -69,8 +69,7 @@ class CreditPackageSeeder extends Seeder
                 The individual curve runs 2.00 down to 1.25 a credit; these
                 continue it to 1.00, 0.90 and 0.80. A business posting
                 steadily and boosting spends at a rate that would mean buying
-                the 400 bundle over and over, which is a worse deal for them
-                and more PayMongo fees for us.
+                the 400 bundle over and over, which is a worse deal for them.
             */
             [
                 'name' => 'Business Starter',

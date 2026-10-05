@@ -38,8 +38,7 @@ class CreditPackage extends Model
 
     protected $casts = [
         'credits' => 'integer',
-        // Centavos, matching what PayMongo expects, so nothing multiplies by
-        // 100 on the way out and no rounding error can creep in.
+        // Centavos, so no rounding error can creep in.
         'amount_centavos' => 'integer',
         'is_active' => 'boolean',
     ];
