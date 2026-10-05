@@ -3,7 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:provider/provider.dart';
 
 import 'package:kaya_app/data/models/job_model.dart';
-import 'package:kaya_app/features/applications/screens/applications_screen.dart';
+import 'package:kaya_app/features/applications/screens/active_screen.dart';
 import 'package:kaya_app/features/applications/widgets/completion_action.dart';
 import 'package:kaya_app/providers/app_mode_provider.dart';
 import 'package:kaya_app/providers/application_provider.dart';
@@ -77,7 +77,7 @@ void main() {
         ),
         ChangeNotifierProvider<JobProvider>.value(value: JobProvider()..seedMyJobs([])),
       ],
-      child: const MaterialApp(home: ApplicationsScreen()),
+      child: const MaterialApp(home: ActiveScreen()),
     );
   }
 

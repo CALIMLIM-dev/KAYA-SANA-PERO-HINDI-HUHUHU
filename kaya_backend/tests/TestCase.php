@@ -70,6 +70,27 @@ abstract class TestCase extends BaseTestCase
         bare row to say so, which is a profile no employer could read. This is
         that same intent, expressed as a profile that could really exist.
     */
+    /*
+        An account that has bought barya once.
+
+        Boosting, a post past the free week and a second board post are for
+        topped-up accounts now. Tests about how those features behave start
+        from an account that may use them; FreeVsTopUpTest covers the refusal.
+        Delta zero: only the fact of the purchase counts, never the amount,
+        and a balance the test set up stays the balance it set up.
+    */
+    protected function topUp(\App\Models\User $user): \App\Models\User
+    {
+        \App\Models\CreditTransaction::create([
+            'user_id'       => $user->id,
+            'delta'         => 0,
+            'balance_after' => 0,
+            'reason'        => \App\Models\CreditTransaction::REASON_TOPUP,
+        ]);
+
+        return $user;
+    }
+
     protected function seedWorkerProfile(
         \App\Models\User $user,
         array $attributes = [],

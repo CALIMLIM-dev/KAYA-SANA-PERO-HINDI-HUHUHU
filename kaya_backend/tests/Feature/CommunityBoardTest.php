@@ -183,7 +183,8 @@ class CommunityBoardTest extends TestCase
     #[Test]
     public function three_live_posts_is_the_ceiling(): void
     {
-        $worker = $this->worker(100);
+        // Three is the topped-up ceiling; a free account gets one.
+        $worker = $this->topUp($this->worker(100));
 
         foreach (range(1, 3) as $i) {
             $this->notice($worker, 'worker', ['title' => "Post {$i}"])->assertStatus(201);

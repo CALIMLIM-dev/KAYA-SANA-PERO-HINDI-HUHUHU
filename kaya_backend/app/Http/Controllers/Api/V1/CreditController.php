@@ -55,6 +55,46 @@ class CreditController extends Controller
         return (bool) ($status['business_verified'] ?? false);
     }
 
+    /*
+        Free vs Top-up, as rows the app draws and never composes.
+
+        Every figure is read from config here, so a price change moves the
+        checklist with it - a 10 typed into the app that disagrees with
+        CREDIT_COST_APPLY would be the next bug. Free gets the marketplace,
+        top-up gets promotion; the first eight rows are the job flow and are
+        the same on both sides on purpose.
+    */
+    private function comparison(): array
+    {
+        $grant = (int) config('kaya.credits.monthly_grant');
+        $apply = (int) config('kaya.credits.apply');
+        $invite = (int) config('kaya.credits.invite');
+        $unlock = (int) config('kaya.credits.unlock');
+        $freeDays = (int) config('kaya.jobs.free_days');
+        $perBarya = (int) config('kaya.credits.post_days_per_barya');
+        $boost = (int) config('kaya.credits.boost');
+        $boostDays = (int) config('kaya.credits.boost_days');
+
+        $row = fn (string $label, bool $free) => [
+            'label' => $label, 'free' => $free, 'topped_up' => true,
+        ];
+
+        return [
+            $row("{$grant} free barya every month", true),
+            $row('Browse jobs and workers', true),
+            $row("Post a job, first {$freeDays} days free", true),
+            $row('Receive applications', true),
+            $row(sprintf('Apply to a job (%d barya, about %d a month on free barya)', $apply, intdiv($grant, max(1, $apply))), true),
+            $row("Invite a worker ({$invite} barya)", true),
+            $row("Unlock a contact ({$unlock} barya)", true),
+            $row('Chat, schedule, complete and review a hire', true),
+            $row("Keep a job post up past {$freeDays} days (1 barya per {$perBarya} days)", false),
+            $row("Boost a job or profile to the top ({$boost} barya, {$boostDays} days)", false),
+            $row('More than 1 community board post at once (up to 3)', false),
+            $row('Your full profile shown to employers when you apply', false),
+        ];
+    }
+
     public function wallet(Request $request)
     {
         $user = $request->user();
@@ -77,6 +117,10 @@ class CreditController extends Controller
                 'post_days_per_barya' => (int) config('kaya.credits.post_days_per_barya'),
             ],
             'monthly_grant' => (int) config('kaya.credits.monthly_grant'),
+
+            // Any top-up, ever. What the Top-up column of the checklist means.
+            'has_topped_up' => $user->hasToppedUp(),
+            'comparison'    => $this->comparison(),
             /*
                 What is sitting there waiting to be collected.
 

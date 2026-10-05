@@ -103,27 +103,38 @@ void main() {
     );
   });
 
-  test('the completion nudge splits by side', () {
+  /*
+      Live work opens the Active screen, from either side.
+
+      It opened My Activity, which only keeps what is over now - a hired
+      worker would land on History looking for a job still running. The
+      employer's copy went to Manage Jobs, which has no Mark as complete.
+  */
+  test('hired and completion nudges open Active for both sides', () {
+    for (final type in ['application.accepted', 'application.completion_pending']) {
+      for (final audience in ['worker', 'employer']) {
+        expect(
+          destinationFor(
+            type: type,
+            audience: audience,
+            referenceType: 'application',
+            referenceId: 3,
+          ),
+          'active',
+          reason: '$type for $audience',
+        );
+      }
+    }
+
+    // Anything else about an application is not live work.
     expect(
       destinationFor(
-        type: 'application.completion_pending',
+        type: 'application.rejected',
         audience: 'worker',
         referenceType: 'application',
         referenceId: 3,
       ),
       'applications',
-    );
-
-    // The employer's copy used to go to My Applications, a worker screen,
-    // which an employer-only account is then refused entry to.
-    expect(
-      destinationFor(
-        type: 'application.completion_pending',
-        audience: 'employer',
-        referenceType: 'application',
-        referenceId: 3,
-      ),
-      'manageJobs',
     );
   });
 

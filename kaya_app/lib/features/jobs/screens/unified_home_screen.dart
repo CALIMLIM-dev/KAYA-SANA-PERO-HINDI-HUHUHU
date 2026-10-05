@@ -20,8 +20,8 @@ import '../../../providers/worker_browse_provider.dart';
 import '../../help/screens/faq_screen.dart';
 import '../widgets/place_picker_sheet.dart';
 import '../widgets/recommendation_row.dart';
-import '../widgets/matches_for_your_job_section.dart';
-import '../widgets/work_in_progress_section.dart';
+import '../widgets/active_section.dart';
+import '../widgets/applicants_section.dart';
 import '../widgets/unified_search_bar.dart';
 import '../widgets/jobs_near_you_section.dart';
 import '../widgets/people_who_can_help_section.dart';
@@ -737,29 +737,19 @@ class _UnifiedHomeScreenState extends State<UnifiedHomeScreen>
                 The job you are already doing, before the ones you might
                 apply for.
 
-                Marking a job complete was three taps away in My
-                Activity, and it is the one action with a clock on it -
-                a hire a week past its deadline is closed as
-                unsuccessful by kaya:close-unconfirmed-hires, so a
-                confirmation nobody can find costs somebody their
-                completion. The section renders nothing when there is no
-                live work, so it costs an account with none nothing at
-                all.
+                My Activity's Active tab, moved here: Mark as complete is
+                the one action with a clock on it - a hire a week past its
+                deadline is closed as unsuccessful by
+                kaya:close-unconfirmed-hires - so it belongs on the screen
+                people open. Renders nothing when there is no active work.
             */
             SliverToBoxAdapter(
-              child: WorkInProgressSection(onChanged: _refreshData),
+              child: ActiveSection(onChanged: _refreshData),
             ),
 
-            /*
-                And who fits the job you are staffing.
-
-                The matches endpoint has scored every candidate since it
-                shipped and the only way in was Manage Jobs, a job card,
-                then a button. This is the screen an employer opens.
-                Draws nothing for a worker, and nothing for an employer
-                with no running job.
-            */
-            const SliverToBoxAdapter(child: MatchesForYourJobSection()),
+            // People who applied to your newest running job, best fit first.
+            // Draws nothing for a worker or with nobody waiting.
+            const SliverToBoxAdapter(child: ApplicantsSection()),
 
             /*
                 Nothing loaded, because nothing could.

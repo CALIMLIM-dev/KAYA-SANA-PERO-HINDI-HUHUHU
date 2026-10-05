@@ -52,7 +52,7 @@ class BoostController extends Controller
 
         try {
             $boost = $boosts->purchase($user, Boost::TYPE_JOB, $job->id);
-        } catch (\App\Exceptions\AlreadyBoostedException $e) {
+        } catch (\App\Exceptions\AlreadyBoostedException|\App\Exceptions\TopUpRequiredException $e) {
             // Already at the top. Buying a second window is refused rather
             // than added to the end - see BoostService::purchase.
             return $this->fail($e->getMessage(), 422);
@@ -84,7 +84,7 @@ class BoostController extends Controller
 
         try {
             $boost = $boosts->purchase($user, Boost::TYPE_WORKER, $user->id);
-        } catch (\App\Exceptions\AlreadyBoostedException $e) {
+        } catch (\App\Exceptions\AlreadyBoostedException|\App\Exceptions\TopUpRequiredException $e) {
             return $this->fail($e->getMessage(), 422);
         }
 

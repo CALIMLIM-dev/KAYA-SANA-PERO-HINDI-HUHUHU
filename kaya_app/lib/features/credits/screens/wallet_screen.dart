@@ -8,6 +8,7 @@ import '../../../core/widgets/app_toast.dart';
 import '../../../core/widgets/hint_bubble.dart';
 import '../../../core/widgets/verify_gate.dart';
 import '../../../providers/credits_provider.dart';
+import '../widgets/plan_comparison.dart';
 
 /// The wallet: what you have, what it costs, and how to get more.
 class WalletScreen extends StatefulWidget {
@@ -167,6 +168,15 @@ class _WalletScreenState extends State<WalletScreen> with WidgetsBindingObserver
                     title: 'Free this month',
                     subtitle: 'Yours every month',
                     needsVerification: credits.claimNeedsVerification,
+                  ),
+                ],
+                if (credits.comparison.isNotEmpty) ...[
+                  const SizedBox(height: 22),
+                  Text('Free and Top-up', style: _sectionStyle),
+                  const SizedBox(height: 12),
+                  PlanComparison(
+                    rows: credits.comparison,
+                    hasToppedUp: credits.hasToppedUp,
                   ),
                 ],
                 const SizedBox(height: 22),

@@ -61,6 +61,28 @@ class CreditTransaction extends Model
         return $this->belongsTo(User::class);
     }
 
+    /*
+        Which of these accounts have ever topped up.
+
+        That is all "Top-up" means on the comparison screen: one purchase of
+        any size, once, and it never lapses. Derived from the ledger rather
+        than stored, like badges and times_hired_before, so an account that
+        bought before this shipped already counts. One query for a whole
+        list - the applicant list asks it for every row at once.
+    */
+    public static function toppedUpAmong(iterable $userIds): \Illuminate\Support\Collection
+    {
+        $ids = collect($userIds)->filter()->unique()->values();
+
+        if ($ids->isEmpty()) return collect();
+
+        return static::query()
+            ->where('reason', self::REASON_TOPUP)
+            ->whereIn('user_id', $ids)
+            ->distinct()
+            ->pluck('user_id');
+    }
+
     /** The administrator behind an adjustment, when there was one. */
     public function actor(): BelongsTo
     {

@@ -71,6 +71,21 @@ class JobDurationService
             return $using(null);
         }
 
+        /*
+            The free week is for everybody; longer is for a topped-up account.
+
+            Only reached when there is something to charge, so a post inside
+            the free days never asks. Both callers - posting and moving the
+            end date later - already turn this family of exception into a
+            422 with its message.
+        */
+        if (! $employer->hasToppedUp()) {
+            throw new \App\Exceptions\TopUpRequiredException(sprintf(
+                'A post stays up %d days free. Top up any amount to keep posts up longer.',
+                (int) config('kaya.jobs.free_days'),
+            ));
+        }
+
         return app(CreditLedger::class)->charge(
             user: $employer,
             amount: $amount,

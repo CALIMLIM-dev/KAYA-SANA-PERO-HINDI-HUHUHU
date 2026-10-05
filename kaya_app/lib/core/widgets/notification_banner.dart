@@ -285,7 +285,14 @@ class _NotificationBannerHostState extends State<NotificationBannerHost> {
           return;
         }
       case 'application':
-        navigator.pushNamed(AppRouter.applications);
+        // Hired, or asked to confirm: live work, which is on Active now.
+        final type = '${notification['type'] ?? ''}';
+        navigator.pushNamed(
+          type == 'application.accepted' ||
+                  type == 'application.completion_pending'
+              ? AppRouter.active
+              : AppRouter.applications,
+        );
         return;
       case 'invitation':
         navigator.pushNamed('/my-invitations');

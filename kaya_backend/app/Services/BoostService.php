@@ -56,6 +56,19 @@ class BoostService
             );
         }
 
+        /*
+            Promotion is what a top-up buys.
+
+            Checked here, after the already-boosted guard, so every door gets
+            it: the two Boost buttons refuse with this message, and posting
+            as urgent catches it like a thin wallet and posts unboosted.
+        */
+        if (! $user->hasToppedUp()) {
+            throw new \App\Exceptions\TopUpRequiredException(
+                'Boosting is for accounts that have topped up. Top up any amount to boost as often as you like.'
+            );
+        }
+
         $cost = (int) config('kaya.credits.boost');
         $days = (int) config('kaya.credits.boost_days');
 

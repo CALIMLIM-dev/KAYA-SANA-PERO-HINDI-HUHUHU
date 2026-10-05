@@ -1068,6 +1068,44 @@ class _MyWorkerProfileScreenState extends State<MyWorkerProfileScreen> with Sing
       );
     }
   }
+  /*
+      The one place a worker hears what a top-up does for them.
+
+      Employers see a topped-up applicant's resume open on their home screen;
+      everyone else's is a tap away. One quiet line and a link, never a
+      banner, and gone once they have topped up - there is nothing left to
+      find out.
+  */
+  Widget _buildResumeLink() {
+    final credits = context.watch<CreditsProvider>();
+    if (!credits.hasLoadedOnce || credits.hasToppedUp) {
+      return const SizedBox.shrink();
+    }
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 16),
+      child: Row(
+        children: [
+          const Expanded(
+            child: Text(
+              'Workers who have topped up show their full profile to employers.',
+              style: TextStyle(fontSize: 12.5, color: AppColors.neutral600),
+            ),
+          ),
+          TextButton(
+            onPressed: () => AppRouter.push(context, AppRouter.wallet),
+            style: TextButton.styleFrom(
+              foregroundColor: AppColors.primary,
+              textStyle:
+                  const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600),
+            ),
+            child: const Text('Find out more'),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildViewsBanner() {
     final views = context.watch<ProfileViewProvider>();
 
@@ -1125,6 +1163,7 @@ class _MyWorkerProfileScreenState extends State<MyWorkerProfileScreen> with Sing
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 96),
       children: [
         _buildViewsBanner(),
+        _buildResumeLink(),
         /*
             Only while there is something to buy.
 

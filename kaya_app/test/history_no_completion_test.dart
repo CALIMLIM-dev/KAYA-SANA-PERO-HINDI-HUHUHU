@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:provider/provider.dart';
 
+import 'package:kaya_app/features/applications/screens/active_screen.dart';
 import 'package:kaya_app/features/applications/screens/applications_screen.dart';
 import 'package:kaya_app/providers/app_mode_provider.dart';
 import 'package:kaya_app/providers/application_provider.dart';
@@ -51,7 +52,7 @@ void main() {
         },
       };
 
-  Widget screen(Map<String, dynamic> job) {
+  Widget screen(Map<String, dynamic> job, {bool active = false}) {
     return MultiProvider(
       providers: [
         ChangeNotifierProvider<AppModeProvider>.value(
@@ -68,7 +69,8 @@ void main() {
           value: JobProvider()..seedMyJobs([job]),
         ),
       ],
-      child: const MaterialApp(home: ApplicationsScreen()),
+      child: MaterialApp(
+          home: active ? const ActiveScreen() : const ApplicationsScreen()),
     );
   }
 
@@ -85,10 +87,6 @@ void main() {
   for (final over in <String>['closed', 'expired', 'completed']) {
     testWidgets('a $over job does not offer Mark as Complete', (tester) async {
       await render(tester, screen(jobWithHire(over)));
-
-      // The screen opens on Active; a finished job lives in History.
-      await tester.tap(find.textContaining('History').first);
-      await tester.pumpAndSettle();
 
       // The row has to be on screen, or this passes over a blank History tab
       // and proves nothing.
@@ -113,7 +111,7 @@ void main() {
         live case alone - otherwise the fix for a dead button is a missing
         one.
     */
-    await render(tester, screen(jobWithHire('in_progress')));
+    await render(tester, screen(jobWithHire('in_progress'), active: true));
 
     expect(find.textContaining('Mark as Complete'), findsWidgets);
   });

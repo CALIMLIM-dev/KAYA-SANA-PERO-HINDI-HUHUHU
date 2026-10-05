@@ -100,6 +100,46 @@ class ApplicationProvider with ChangeNotifier {
     notifyListeners();
   }
 
+  /*
+      The applicants on the employer's home screen, kept apart.
+
+      Home is still built underneath the Applicants screen, and both reading
+      one list meant whichever asked last won: opening job B's applicants
+      while home showed job A's would have refetched A on the next rebuild,
+      under B's header - the exact mix-up the job id above exists to stop.
+  */
+  List<Map<String, dynamic>> _homeApplicants = [];
+  int? _homeApplicantsJobId;
+
+  /// Still waiting on a decision, best match first - the server's order.
+  List<Map<String, dynamic>> get homeApplicants => _homeApplicants
+      .where((a) => a['application_status'] == 'pending')
+      .toList();
+
+  int? get homeApplicantsJobId => _homeApplicantsJobId;
+
+  @visibleForTesting
+  void seedHomeApplicants(List<Map<String, dynamic>> rows, {int jobId = 1}) {
+    _homeApplicants = rows;
+    _homeApplicantsJobId = jobId;
+    notifyListeners();
+  }
+
+  Future<void> fetchHomeApplicants(int jobId) async {
+    if (_homeApplicantsJobId != jobId) _homeApplicants = [];
+    _homeApplicantsJobId = jobId;
+
+    try {
+      final res = await _api.get('/jobs/$jobId/applicants');
+      _homeApplicants = (res.data['data'] as List).cast<Map<String, dynamic>>();
+    } catch (_) {
+      // Home is a shortcut, not the place to report it: the Applicants
+      // screen behind See all says what went wrong.
+      _homeApplicants = [];
+    }
+    notifyListeners();
+  }
+
   /// Accepts/rejects by application_id and reflects the change in the local
   /// applicants list (separate from the my-applications list above).
   Future<bool> respondToApplicant(int applicationId, {required bool accept}) async {
@@ -117,11 +157,13 @@ class ApplicationProvider with ChangeNotifier {
         if (cancelled is List) lastAcceptCancelledCount = cancelled.length;
       }
 
-      final idx = _applicants.indexWhere((a) => a['application_id'] == applicationId);
-      if (idx != -1) {
-        _applicants[idx]['application_status'] = accept ? 'accepted' : 'rejected';
-        notifyListeners();
+      final status = accept ? 'accepted' : 'rejected';
+      for (final list in [_applicants, _homeApplicants]) {
+        for (final a in list) {
+          if (a['application_id'] == applicationId) a['application_status'] = status;
+        }
       }
+      notifyListeners();
       return true;
     } catch (e) {
       _applicantsError = e.toString().replaceFirst('Exception: ', '');

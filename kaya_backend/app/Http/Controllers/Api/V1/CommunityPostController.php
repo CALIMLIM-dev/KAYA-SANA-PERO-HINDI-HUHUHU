@@ -300,8 +300,19 @@ class CommunityPostController extends Controller
             ->where(fn ($q) => $q->live()->orWhere('status', CommunityPost::STATUS_PENDING))
             ->count();
 
-        if ($live >= 3) {
-            return $this->fail('You already have three posts up or waiting. Take one down to post another.', 422);
+        /*
+            One for a free account, three once it has topped up.
+
+            Extra reach on the board is promotion, and promotion is what a
+            top-up buys - see the Free vs Top-up checklist.
+        */
+        $toppedUp = $user->hasToppedUp();
+        $cap = $toppedUp ? 3 : 1;
+
+        if ($live >= $cap) {
+            return $this->fail($toppedUp
+                ? 'You already have three posts up or waiting. Take one down to post another.'
+                : 'Free accounts can have one post up at a time. Top up any amount to have up to three.', 422);
         }
 
         /*

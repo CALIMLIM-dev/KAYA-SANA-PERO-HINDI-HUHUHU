@@ -32,7 +32,7 @@ class BoostTest extends TestCase
     {
         parent::setUp();
 
-        $this->employer = User::factory()->create();
+        $this->employer = $this->topUp(User::factory()->create());
         EmployerProfile::create([
             'user_id'       => $this->employer->id,
             'employer_type' => 'individual',
@@ -230,7 +230,7 @@ class BoostTest extends TestCase
     */
     public function test_a_boosted_profile_cannot_be_boosted_again(): void
     {
-        $worker = User::factory()->create();
+        $worker = $this->topUp(User::factory()->create());
         \App\Models\WorkerProfile::create([
             'user_id'     => $worker->id,
             'location'    => 'Urdaneta City',
@@ -296,10 +296,10 @@ class BoostTest extends TestCase
     /** A worker the directory will actually list: category, skill, location. */
     private function directoryWorker(string $name, float $rating, bool $oldest = false): User
     {
-        $user = User::factory()->create([
+        $user = $this->topUp(User::factory()->create([
             'name'       => $name,
             'created_at' => $oldest ? now()->subYear() : now(),
-        ]);
+        ]));
 
         \App\Models\WorkerProfile::create([
             'user_id'     => $user->id,

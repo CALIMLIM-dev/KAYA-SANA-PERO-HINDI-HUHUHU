@@ -465,11 +465,47 @@ class ApplicationController extends Controller
             ->groupBy('applications.worker_id')
             ->pluck('total', 'applications.worker_id');
 
-        $applicants = $job->applications()
-            ->with(['worker.workerProfile.skills'])
+        /*
+            Ranked against the job, best fit first.
+
+            This came back latest() and was never scored, so an employer with
+            twelve applicants had no ordering but arrival - while the same
+            employer's Matches list, of people who had not even applied, was
+            sorted by fit. The people who raised their hand deserve at least
+            the treatment strangers get.
+
+            The job loads what JobMatchService reads, and each profile loads
+            what the resume card shows, in one go rather than per row.
+        */
+        $job->load(['skills', 'psgcLocation', 'category']);
+
+        $applications = $job->applications()
+            ->with([
+                'worker.workerProfile.skills',
+                'worker.workerProfile.category:id,name',
+                'worker.workerProfile.psgcLocation',
+                'worker.workerProfile.licenses:id,user_id,license_name',
+                'worker.workerProfile.certifications:id,user_id,certification_name',
+                'worker.workerProfile.experiences',
+            ])
             ->latest()
-            ->get()
-            ->map(function ($app) use ($conversations, $reviewedByMe, $reviewedMe, $previousHires) {
+            ->get();
+
+        /*
+            Who has ever topped up, for the whole list in one query.
+
+            Ranking is free and presentation is premium: a worker who bought
+            barya shows to the employer as the open resume card, a free one as
+            the compact card - in the same place, in the same order, one tap
+            from the same profile. This flag never touches the sort.
+        */
+        $premium = CreditTransaction::toppedUpAmong($applications->pluck('worker_id'))
+            ->flip();
+
+        $experience = app(\App\Services\ExperienceTotal::class);
+
+        $applicants = $applications
+            ->map(function ($app) use ($conversations, $reviewedByMe, $reviewedMe, $previousHires, $job, $premium, $experience) {
                 $worker  = $app->worker;
                 $profile = $worker->workerProfile;
 
@@ -486,6 +522,10 @@ class ApplicationController extends Controller
                     of them without a second trip to the database.
                 */
                 $profile?->setRelation('user', $worker);
+
+                $match = $profile
+                    ? \App\Services\JobMatchService::score($job, $profile)
+                    : ['score' => 0];
 
                 return [
                     'application_id'        => $app->id,
@@ -530,8 +570,27 @@ class ApplicationController extends Controller
                     // The download endpoint holds the access rule; this only
                     // says whether the button has anything to open.
                     'skills'                => $profile?->skills->pluck('skill_name')->values() ?? [],
+
+                    // For the order only. The card shows no percentage.
+                    'match_score'           => (int) $match['score'],
+                    'is_premium'            => isset($premium[$worker->id]),
+
+                    // The resume block. Names, never scans - see
+                    // JobController::matches for why.
+                    'category'              => $profile?->category?->name,
+                    'location'              => $profile?->location,
+                    'licenses'              => $profile?->licenses->pluck('license_name')->filter()->values() ?? [],
+                    'certifications'        => $profile?->certifications->pluck('certification_name')->filter()->values() ?? [],
+                    'experience_label'      => $profile ? $experience->label($profile->experiences) : null,
+                    'jobs_completed'        => (int) ($profile?->jobs_completed ?? 0),
                 ];
-            });
+            })
+            /*
+                Best fit first. A stable sort, so applicants who score the
+                same keep the newest-first order they arrived in.
+            */
+            ->sortByDesc('match_score')
+            ->values();
 
         return $this->ok($applicants);
     }

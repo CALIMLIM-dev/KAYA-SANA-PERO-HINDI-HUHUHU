@@ -20,7 +20,8 @@ import '../../../core/navigation/app_router.dart';
     or is this work?**
 
       Shortcuts (the strip at the top)  →  a decision is outstanding
-      Tabs (Active / History)           →  work, live or finished
+      History                           →  work that is over
+      (live work is on the home screen and the Active screen)
 
     That is the whole model, and it is what the previous version got wrong. It
     had Applications and Invitations as shortcuts and everything else as tabs,
@@ -137,7 +138,7 @@ class _ApplicationsScreenState extends State<ApplicationsScreen>
       itemsBuilder: (context) => context
           .watch<ApplicationProvider>()
           .awaitingReply,
-      cardBuilder: (a) => _ApplicationCard(application: a, onChanged: _load),
+      cardBuilder: (a) => ApplicationCard(application: a, onChanged: _load),
     );
   }
 
@@ -374,7 +375,7 @@ class _ApplicationsScreenState extends State<ApplicationsScreen>
               */
               bottom: PreferredSize(
                 preferredSize: Size.fromHeight(
-                  _tabBarHeight +
+                  (tabs.length > 1 ? _tabBarHeight : 0) +
                       (shortcuts.isEmpty
                           ? 0
                           : _ShortcutStrip.heightFor(context, shortcuts.length)),
@@ -383,6 +384,9 @@ class _ApplicationsScreenState extends State<ApplicationsScreen>
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     if (shortcuts.isNotEmpty) _ShortcutStrip(items: shortcuts),
+                    // A bar with one tab in it is a label that looks like a
+                    // control, so it is not drawn.
+                    if (tabs.length > 1)
                     TabBar(
                       isScrollable: tabs.length > 3,
                       tabAlignment: tabs.length > 3
@@ -471,31 +475,15 @@ class _ApplicationsScreenState extends State<ApplicationsScreen>
         Every row carries `_isJob` — not just History's — because both tabs can
         now hold a mix and a per-tab flag cannot say which kind a row is.
     */
-    return [
-      _ActivityTab(
-        label: 'Active',
-        includesApplications: hasWorker,
-        includesJobs: hasEmployer,
-        emptyTitle: 'Nothing running',
-        emptyBody: hasEmployer && hasWorker
-            ? 'Jobs you are hired for and job posts you have open appear here'
-            : hasEmployer
-                ? 'Post a job to start receiving applicants'
-                : 'Jobs you are hired for appear here while you work on them',
-        items: [
-          // Worker side: hired and not finished. Pending applications are not
-          // here on purpose — they are the Applications shortcut, because
-          // nothing is happening yet.
-          if (hasWorker)
-            ...applications.liveWork.map((a) => {...a, '_isJob': false}),
-          // Employer side: jobs you posted that are still running.
-          if (hasEmployer)
-            ...myJobs
-                .where((j) => const {'open', 'in_progress'}.contains(statusOf(j)))
-                .map((j) => {...j, '_isJob': true}),
-        ],
-      ),
+    /*
+        Active moved to the home screen.
 
+        It is the work happening now, and the home screen is the one people
+        open - so it lives there, with an Active screen behind See all, and
+        this screen keeps what is over. activeItems below is the rule both
+        of those read; History here is everything it leaves out.
+    */
+    return [
       /*
           Completed folded into History, rather than sitting beside it.
 
@@ -542,7 +530,7 @@ class _ApplicationsScreenState extends State<ApplicationsScreen>
           */
           if (hasEmployer)
             ...myJobs
-                .where((j) => !const {'open', 'in_progress'}.contains(statusOf(j)))
+                .where((j) => !JobProvider.jobIsActive(j))
                 .map((j) => {...j, '_isJob': true}),
         ],
       ),
@@ -589,6 +577,49 @@ class _ApplicationsScreenState extends State<ApplicationsScreen>
 }
 
 /// One tab's definition and its rows.
+/*
+    What counts as active work, for one account.
+
+    One definition read by the home section and the Active screen, so the
+    two cannot disagree about it. Worker side: hired and not finished -
+    pending applications are not here, they are the Applied shortcut,
+    because nothing is happening yet. Employer side: posts still running,
+    by is_live from the server, so a post past its date leaves the moment it
+    ends rather than when the daily sweep gets to it.
+
+    Gated on the mode the person is in, the same as everywhere else.
+    Worker rows first. Every row is stamped `_isJob` so a mixed list can
+    be drawn by kind - see activeCard.
+*/
+List<Map<String, dynamic>> activeItems(
+  AppModeProvider appMode,
+  ApplicationProvider applications,
+  JobProvider jobs,
+) {
+  final hasWorker =
+      appMode.hasWorkerProfile && appMode.effectiveMode.showsWorkerSide;
+  final hasEmployer =
+      appMode.hasEmployerProfile && appMode.effectiveMode.showsEmployerSide;
+
+  return [
+    if (hasWorker)
+      ...applications.liveWork.map((a) => {...a, '_isJob': false}),
+    if (hasEmployer)
+      ...jobs.activeJobs.map((j) => {...j, '_isJob': true}),
+  ];
+}
+
+/// The card for one row of [activeItems]: the same two cards History uses.
+Widget activeCard(
+  Map<String, dynamic> row,
+  Future<void> Function() onChanged,
+) {
+  final isJob = row['_isJob'] as bool? ?? false;
+  return isJob
+      ? JobPostCard(job: row, onChanged: onChanged)
+      : ApplicationCard(application: row, onChanged: onChanged);
+}
+
 class _ActivityTab {
   const _ActivityTab({
     required this.label,
@@ -669,11 +700,7 @@ class _TabBody extends StatelessWidget {
         // posts sit in the same list on both tabs now, so the only reliable
         // answer is the flag stamped on the row itself.
         itemBuilder: (_, i) {
-          final row = tab.items[i];
-          final isJob = row['_isJob'] as bool? ?? false;
-          return isJob
-              ? _JobPostCard(job: row, onChanged: onRefresh)
-              : _ApplicationCard(application: row, onChanged: onRefresh);
+          return activeCard(tab.items[i], onRefresh);
         },
       ),
     );
@@ -729,8 +756,8 @@ class _TabBody extends StatelessWidget {
 }
 
 /// Worker side — a job you applied to.
-class _ApplicationCard extends StatelessWidget {
-  const _ApplicationCard({required this.application, required this.onChanged});
+class ApplicationCard extends StatelessWidget {
+  const ApplicationCard({super.key, required this.application, required this.onChanged});
 
   final Map<String, dynamic> application;
 
@@ -991,8 +1018,8 @@ class _ApplicationCard extends StatelessWidget {
 }
 
 /// Employer side — a job you posted.
-class _JobPostCard extends StatelessWidget {
-  const _JobPostCard({required this.job, required this.onChanged});
+class JobPostCard extends StatelessWidget {
+  const JobPostCard({super.key, required this.job, required this.onChanged});
 
   final Map<String, dynamic> job;
   final Future<void> Function() onChanged;

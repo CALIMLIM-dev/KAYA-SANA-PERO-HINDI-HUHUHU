@@ -241,6 +241,9 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
           );
         }
 
+      case NotificationDestination.active:
+        AppRouter.push(context, AppRouter.active);
+
       case NotificationDestination.applications:
         if (!_allow(employerSide: false)) return;
         AppRouter.push(context, AppRouter.applications);

@@ -33,6 +33,9 @@ enum NotificationDestination {
   /// The worker's own applications.
   applications,
 
+  /// Work happening now, from either side.
+  active,
+
   invitations,
 
   /// A chat thread, or the inbox when there is no id.
@@ -86,6 +89,13 @@ NotificationDestination notificationDestination({
     return referenceId != null
         ? NotificationDestination.applicants
         : NotificationDestination.manageJobs;
+  }
+
+  // Hired, or asked to confirm a finished job: both are live work, and live
+  // work is no longer in My Activity.
+  if (type == 'application.accepted' ||
+      type == 'application.completion_pending') {
+    return NotificationDestination.active;
   }
 
   return switch (referenceType) {

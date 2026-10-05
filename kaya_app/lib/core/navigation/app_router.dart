@@ -26,6 +26,7 @@ import '../../features/jobs/screens/saved_jobs_screen.dart';
 import '../../features/worker_profile/screens/worker_profile_screen.dart';
 
 // Application Screens
+import '../../features/applications/screens/active_screen.dart';
 import '../../features/applications/screens/applications_screen.dart';
 
 // Messaging Screens
@@ -78,6 +79,7 @@ class AppRouter {
   static const String postJob = '/post-job';
   static const String savedJobs = '/saved-jobs';
   static const String applications = '/applications';
+  static const String active = '/active';
   static const String messages = '/messages';
   static const String chat = '/chat';
   static const String notifications = '/notifications';
@@ -221,6 +223,9 @@ class AppRouter {
       
       case applications:
         return MaterialPageRoute(builder: (_) => const ApplicationsScreen());
+
+      case active:
+        return MaterialPageRoute(builder: (_) => const ActiveScreen());
       
       case messages:
         return MaterialPageRoute(builder: (_) => const MessagesListScreen());

@@ -7,6 +7,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:provider/provider.dart';
 
 import 'package:kaya_app/data/services/api_client.dart';
+import 'package:kaya_app/features/applications/screens/active_screen.dart';
 import 'package:kaya_app/features/applications/screens/applications_screen.dart';
 import 'package:kaya_app/providers/app_mode_provider.dart';
 import 'package:kaya_app/providers/application_provider.dart';
@@ -84,7 +85,8 @@ void main() {
         },
       };
 
-  Widget screen(List<Map<String, dynamic>> applications) => MultiProvider(
+  Widget screen(List<Map<String, dynamic>> applications, {bool active = false}) =>
+      MultiProvider(
         providers: [
           ChangeNotifierProvider<AppModeProvider>.value(
             value: AppModeProvider()..reconcile(hasWorker: true, hasEmployer: false),
@@ -97,7 +99,8 @@ void main() {
           ),
           ChangeNotifierProvider<JobProvider>.value(value: JobProvider()..seedMyJobs([])),
         ],
-        child: const MaterialApp(home: ApplicationsScreen()),
+        child: MaterialApp(
+            home: active ? const ActiveScreen() : const ApplicationsScreen()),
       );
 
   Future<void> render(WidgetTester tester, Widget widget) async {
@@ -110,9 +113,8 @@ void main() {
     await tester.pump(const Duration(milliseconds: 300));
   }
 
-  /// History is the second tab. The live work sits on the first.
+  /// My Activity is History now; live work moved to the Active screen.
   Future<void> openHistory(WidgetTester tester) async {
-    await tester.tap(find.byType(Tab).last);
     for (var i = 0; i < 6; i++) {
       await tester.pump(const Duration(milliseconds: 150));
     }
@@ -164,7 +166,7 @@ void main() {
   });
   testWidgets('live work still offers the thread, not the detour',
       (tester) async {
-    await render(tester, screen([liveApplication()]));
+    await render(tester, screen([liveApplication()], active: true));
 
     expect(find.text('Message'), findsWidgets);
     expect(find.text('Ask for Work Again'), findsNothing);

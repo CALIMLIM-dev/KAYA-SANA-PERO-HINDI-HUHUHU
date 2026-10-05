@@ -323,22 +323,25 @@ void main() {
     /*
         The hole this rebuild was for.
 
-        A hired worker used to see nothing but History: their live job sat
-        inside a popup labelled Applications, filed with applications they had
-        only sent, so the Message and Mark as complete buttons on it were
-        three taps behind a button nobody had a reason to press.
+        Live work moved to the home screen.
+
+        My Activity keeps what is over. A hired worker's job showing here as
+        well would be the same card in two places that can drift apart -
+        home_active_section_test covers where it went.
     */
-    testWidgets('a hired worker sees their job on Active', (tester) async {
+    testWidgets('live work is not in My Activity any more', (tester) async {
       await render(tester, width: 412, textScale: 1.0);
 
-      // The tab wears its row count — "Active (2)" for a hybrid account with
-      // one accepted application and one open job post.
-      expect(find.textContaining('Active'), findsOneWidget);
+      // The screen drew - otherwise the absences below prove nothing.
+      expect(find.text('Applied'), findsOneWidget);
+
+      expect(find.textContaining('Active ('), findsNothing);
       expect(
         find.textContaining('Experienced mason'),
-        findsWidgets,
-        reason: 'The accepted application is the worker\'s live work and has '
-            'to be on the Active tab, not hidden in a shortcut sheet.',
+        // Seeded pending, accepted and completed under one title: only the
+        // completed one belongs here. Two would mean the hire leaked back in.
+        findsOneWidget,
+        reason: 'An accepted application is active work, which is on home.',
       );
     });
   });

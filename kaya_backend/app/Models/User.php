@@ -352,6 +352,15 @@ class User extends Authenticatable
      */
     public function isAdmin(): bool { return $this->user_type === 'admin'; }
 
+    /** Bought barya at least once. See CreditTransaction::toppedUpAmong. */
+    public function hasToppedUp(): bool
+    {
+        return CreditTransaction::query()
+            ->where('user_id', $this->id)
+            ->where('reason', CreditTransaction::REASON_TOPUP)
+            ->exists();
+    }
+
     /*
         Which kind of administrator, and what that kind may do.
 

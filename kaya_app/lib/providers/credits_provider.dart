@@ -66,6 +66,19 @@ class CreditEntry {
 /// the server is the only thing that knows what it is, and a number that is
 /// wrong by one is worse than a number that arrives a moment late — this is
 /// the one figure in the app people will check against their own arithmetic.
+/// One line of the Free vs Top-up checklist.
+class ComparisonRow {
+  const ComparisonRow({
+    required this.label,
+    required this.free,
+    required this.toppedUp,
+  });
+
+  final String label;
+  final bool free;
+  final bool toppedUp;
+}
+
 class CreditsProvider with ChangeNotifier {
   final ApiClient _api = ApiClient();
 
@@ -76,6 +89,26 @@ class CreditsProvider with ChangeNotifier {
   int _claimableMonthly = 0;
   bool _claimNeedsVerification = false;
   List<CreditPackage> _packages = const [];
+
+  /*
+      Free vs Top-up, as the server words it.
+
+      Rows, not numbers: every price in a label is read from config on the
+      server, so a price change moves the checklist without a build.
+  */
+  bool _hasToppedUp = false;
+  List<ComparisonRow> _comparison = const [];
+
+  bool get hasToppedUp => _hasToppedUp;
+  List<ComparisonRow> get comparison => _comparison;
+
+  @visibleForTesting
+  void seedComparison(List<ComparisonRow> rows, {bool hasToppedUp = false}) {
+    _comparison = rows;
+    _hasToppedUp = hasToppedUp;
+    _hasLoadedOnce = true;
+    notifyListeners();
+  }
 
   bool _isLoading = false;
   bool _hasLoadedOnce = false;
@@ -204,6 +237,17 @@ class CreditsProvider with ChangeNotifier {
         for (final entry in costs.entries)
           '${entry.key}': (entry.value as num?)?.toInt() ?? 0,
       };
+
+      _hasToppedUp = data['has_topped_up'] == true;
+      _comparison = ((data['comparison'] as List?) ?? const [])
+          .whereType<Map>()
+          .map((r) => ComparisonRow(
+                label: '${r['label'] ?? ''}',
+                free: r['free'] == true,
+                toppedUp: r['topped_up'] == true,
+              ))
+          .where((r) => r.label.isNotEmpty)
+          .toList();
 
       _packages = ((data['packages'] as List?) ?? const [])
           .whereType<Map>()
@@ -350,6 +394,8 @@ class CreditsProvider with ChangeNotifier {
     _balance = 0;
     _costs = const {};
     _packages = const [];
+    _hasToppedUp = false;
+    _comparison = const [];
     _entries = const [];
     _claimableWelcome = 0;
     _claimableMonthly = 0;

@@ -49,7 +49,8 @@ class JobExpiryTest extends TestCase
 
     private function employer(): User
     {
-        $user = User::factory()->create(['is_verified' => true]);
+        // Topped up: a post past the free week is a topped-up feature.
+        $user = $this->topUp(User::factory()->create(['is_verified' => true]));
 
         EmployerProfile::create([
             'user_id'         => $user->id,

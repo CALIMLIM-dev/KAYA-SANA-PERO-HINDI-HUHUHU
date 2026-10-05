@@ -2,27 +2,58 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:provider/provider.dart';
 
-import 'package:kaya_app/features/jobs/widgets/work_in_progress_section.dart';
+import 'package:kaya_app/features/jobs/widgets/active_section.dart';
+import 'package:kaya_app/providers/app_mode_provider.dart';
 import 'package:kaya_app/providers/application_provider.dart';
 import 'package:kaya_app/providers/job_provider.dart';
 
 import 'support/render_harness.dart';
 
 /*
-    The Active section on home is My Activity's Active tab, moved.
+    The Active section on home is My Activity's Active tab, moved whole.
 
-    Reported: "the work in progress is not here even though there is a job -
-    I said move the ACTIVE there." The first version listed only hires that
-    already existed, so an open post with nobody hired, and an application
-    still waiting for a reply, both showed nothing. Both are active work.
+    Reported: the compact card that stood in for it was not what was asked
+    for - "the active job tabs UI for both". So these check the real cards
+    turn up on home, for a worker and an employer, under the same rule the
+    tab used: hired work and running posts, not pending applications.
 */
 void main() {
+  Map<String, dynamic> hire(int id, String title) => {
+        'id': id,
+        'status': 'accepted',
+        'worker_completed_at': null,
+        'employer_completed_at': null,
+        'job': {
+          'id': id + 100,
+          'title': title,
+          'company': 'Villanueva Hardware',
+          'status': 'in_progress',
+          'start_date': '2026-09-01',
+          'end_date': '2026-09-02',
+        },
+      };
+
+  Map<String, dynamic> post(int id, String title, {bool live = true}) => {
+        'id': id,
+        'title': title,
+        'status': 'open',
+        'is_live': live,
+        'application_count': 0,
+        'hire': null,
+      };
+
   Widget host({
+    bool worker = true,
+    bool employer = false,
     List<Map<String, dynamic>> applications = const [],
     List<Map<String, dynamic>> jobs = const [],
   }) {
     return MultiProvider(
       providers: [
+        ChangeNotifierProvider<AppModeProvider>.value(
+          value: AppModeProvider()
+            ..reconcile(hasWorker: worker, hasEmployer: employer),
+        ),
         ChangeNotifierProvider<ApplicationProvider>.value(
           value: ApplicationProvider()..seedApplications(applications),
         ),
@@ -33,7 +64,7 @@ void main() {
       child: MaterialApp(
         home: Scaffold(
           body: SingleChildScrollView(
-            child: WorkInProgressSection(onChanged: () async {}),
+            child: ActiveSection(onChanged: () async {}),
           ),
         ),
       ),
@@ -42,109 +73,79 @@ void main() {
 
   Future<void> pump(WidgetTester tester, Widget widget) async {
     RenderHarness.stubPlatformChannels(tester);
+    tester.view.physicalSize = const Size(1080, 6000);
+    tester.view.devicePixelRatio = 3.0;
+    addTearDown(tester.view.reset);
     await tester.pumpWidget(widget);
     await tester.pump();
   }
 
-  testWidgets('an open post with nobody hired yet is shown', (tester) async {
-    await pump(
-      tester,
-      host(jobs: [
-        {
-          'id': 1,
-          'title': 'Repaint a steel gate',
-          'status': 'open',
-          'is_live': true,
-          'application_count': 0,
-          'hire': null,
-        },
-      ]),
-    );
+  testWidgets('a hired worker sees the job, with Mark as Complete',
+      (tester) async {
+    await pump(tester, host(applications: [hire(5, 'Tile setter for a bathroom')]));
 
     expect(find.text('Active'), findsOneWidget);
-    expect(find.text('Repaint a steel gate'), findsOneWidget);
-    expect(find.text('No applicants yet'), findsOneWidget);
-    // Nothing to complete, so no button.
-    expect(find.textContaining('complete'), findsNothing);
+    expect(find.textContaining('Tile setter for a bathroom'), findsWidgets);
+    expect(find.textContaining('Mark as Complete'), findsOneWidget);
   });
 
-  testWidgets('applicants waiting are counted', (tester) async {
-    await pump(
-      tester,
-      host(jobs: [
-        {
-          'id': 1,
-          'title': 'Repaint a steel gate',
-          'status': 'open',
-          'is_live': true,
-          'application_count': 3,
-          'hire': null,
-        },
-      ]),
-    );
-
-    expect(find.text('3 applicants waiting on you'), findsOneWidget);
-  });
-
-  testWidgets('an application still waiting for a reply is shown',
-      (tester) async {
+  testWidgets('a pending application is not active work', (tester) async {
     await pump(
       tester,
       host(applications: [
         {
-          'id': 5,
+          'id': 6,
           'status': 'pending',
-          'job': {'id': 9, 'title': 'Tile setter for a bathroom'},
+          'job': {'id': 9, 'title': 'Roof leak repair'},
         },
       ]),
     );
 
-    expect(find.text('Tile setter for a bathroom'), findsOneWidget);
-    expect(find.text('Waiting for a reply'), findsOneWidget);
+    expect(find.textContaining('Roof leak repair'), findsNothing);
+    expect(find.text('Active'), findsNothing);
   });
 
-  testWidgets('a live hire offers Mark as complete, from either side',
-      (tester) async {
+  testWidgets('an employer sees their running post', (tester) async {
+    await pump(
+      tester,
+      host(worker: false, employer: true, jobs: [post(1, 'Repaint a steel gate')]),
+    );
+
+    expect(find.text('Active'), findsOneWidget);
+    expect(find.textContaining('Repaint a steel gate'), findsWidgets);
+  });
+
+  testWidgets('a post past its date is not active', (tester) async {
     await pump(
       tester,
       host(
-        applications: [
-          {
-            'id': 5,
-            'status': 'accepted',
-            'worker_completed_at': null,
-            'employer_completed_at': null,
-            'job': {
-              'id': 9,
-              'title': 'Tile setter for a bathroom',
-              'status': 'in_progress',
-              'start_date': '2026-09-01',
-              'end_date': '2026-09-02',
-            },
-          },
-        ],
+        worker: false,
+        employer: true,
+        jobs: [post(1, 'Repaint a steel gate', live: false)],
+      ),
+    );
+
+    expect(find.textContaining('Repaint a steel gate'), findsNothing);
+  });
+
+  testWidgets('four items: three cards and See all', (tester) async {
+    await pump(
+      tester,
+      host(
+        worker: false,
+        employer: true,
         jobs: [
-          {
-            'id': 1,
-            'title': 'Repaint a steel gate',
-            'status': 'in_progress',
-            'is_live': true,
-            'start_date': '2026-09-01',
-            'end_date': '2026-09-02',
-            'hire': {
-              'application_id': 77,
-              'status': 'accepted',
-              'worker_name': 'Mang Tonyo',
-              'employer_completed_at': null,
-              'worker_completed_at': null,
-            },
-          },
+          post(1, 'First post'),
+          post(2, 'Second post'),
+          post(3, 'Third post'),
+          post(4, 'Fourth post'),
         ],
       ),
     );
 
-    // One button per live hire: the worker's and the employer's.
-    expect(find.text('Mark as complete'), findsNWidgets(2));
+    expect(find.textContaining('Third post'), findsWidgets);
+    expect(find.textContaining('Fourth post'), findsNothing);
+    expect(find.text('See all 4'), findsOneWidget);
   });
 
   testWidgets('nothing active means nothing drawn', (tester) async {

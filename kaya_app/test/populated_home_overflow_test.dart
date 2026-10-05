@@ -182,7 +182,7 @@ void main() {
                 value: AppModeProvider()
                   ..reconcile(hasWorker: true, hasEmployer: !workerMode),
               ),
-              // Seeded, so WorkInProgressSection actually renders. Created
+              // Seeded, so ActiveSection actually renders. Created
               // empty it drew nothing and the sweep measured a blank box.
               ChangeNotifierProvider<ApplicationProvider>.value(
                 value: ApplicationProvider()..seedApplications([liveHire()]),
@@ -211,16 +211,21 @@ void main() {
       // show four fixed tiles - Skilled, Verified, Top Rated, Available -
       // which are things a worker is rather than work anyone is looking for,
       // and each one ran a text search for its own label.
-      expect(
-        find.text('Appliance Repair'),
-        findsWidgets,
-        reason: 'The category tiles never rendered, so nothing was checked.',
-      );
+      /*
+          Seen at some point in the scroll below, not necessarily at rest.
+
+          The Active section above them is the full My Activity card now,
+          tall enough to push the tiles under the fold at 320px - so the
+          tiles are looked for on every step of the scroll, the same way
+          the recommendation row is.
+      */
+      final categoryTile = find.text('Appliance Repair');
+      var sawCategories = categoryTile.evaluate().isNotEmpty;
 
       /*
           And the work-in-progress card, for the same reason.
 
-          WorkInProgressSection renders nothing when there is no live
+          ActiveSection renders nothing when there is no live
           hire, so a sweep with an unseeded ApplicationProvider measured a
           zero-height box and called it a pass. The seeded hire above is
           what makes the Mark as complete button and the long job title
@@ -256,7 +261,14 @@ void main() {
         await tester.pump(const Duration(milliseconds: 120));
 
         sawRow = sawRow || rowHeading.evaluate().isNotEmpty;
+        sawCategories = sawCategories || categoryTile.evaluate().isNotEmpty;
       }
+
+      expect(
+        sawCategories,
+        isTrue,
+        reason: 'The category tiles never rendered, so nothing was checked.',
+      );
 
       expect(
         sawRow,

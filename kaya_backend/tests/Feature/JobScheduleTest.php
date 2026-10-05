@@ -35,7 +35,8 @@ class JobScheduleTest extends TestCase
 
     private function employer(): User
     {
-        $user = User::factory()->create();
+        // Topped up: a post past the free week is a topped-up feature.
+        $user = $this->topUp(User::factory()->create());
         EmployerProfile::create(['user_id' => $user->id]);
 
         return $user;

@@ -140,7 +140,7 @@ class OwnWorkerProfileTest extends TestCase
     #[Test]
     public function a_boosted_profile_says_until_when(): void
     {
-        $user = $this->worker();
+        $user = $this->topUp($this->worker());
 
         $this->actingAs($user, 'sanctum')->postJson('/api/v1/worker-profile/boost')->assertOk();
 

@@ -193,7 +193,6 @@ void main() {
 
     await tester.pumpWidget(screen(worker: false, employer: true));
     await tester.pump(const Duration(milliseconds: 300));
-    await tester.tap(find.byType(Tab).last);
     for (var i = 0; i < 6; i++) {
       await tester.pump(const Duration(milliseconds: 150));
     }
@@ -247,10 +246,6 @@ void main() {
     await tester.pumpWidget(screen(worker: true, employer: false));
     await tester.pump(const Duration(milliseconds: 300));
 
-    // The tab, not the label inside it: tapping the Text hits a child that
-    // does not carry the gesture, and the view stays on Active while the test
-    // happily screenshots the wrong tab.
-    await tester.tap(find.byType(Tab).last);
     // TabBarView animates, and one pump lands mid-transition. Several fixed
     // pumps rather than pumpAndSettle, which hangs on the loading spinner.
     for (var i = 0; i < 6; i++) {
