@@ -266,12 +266,22 @@ class CreditsProvider with ChangeNotifier {
 
   Future<void> refresh() => load(force: true);
 
+  /// Lines fetched for the wallet history, the server's maximum page.
+  static const int historyPageSize = 50;
+
+  @visibleForTesting
+  void seedHistory(List<CreditEntry> entries) {
+    _entries = entries;
+    notifyListeners();
+  }
+
   Future<void> loadHistory() async {
     _isHistoryLoading = true;
     notifyListeners();
 
     try {
-      final response = await _api.get('/credits/transactions');
+      final response = await _api.get('/credits/transactions',
+          queryParameters: {'per_page': historyPageSize});
       final payload = response.data['data'];
       final rows = payload is Map ? payload['data'] : payload;
 

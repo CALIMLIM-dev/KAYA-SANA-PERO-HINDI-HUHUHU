@@ -42,12 +42,39 @@ class Credits {
     return switch (reason) {
       'application' => 'Applied to a job',
       'invitation' => 'Invited a worker',
+      'rehire_invite' => 'Invited a past worker',
       'unlock' => 'Unlocked contact details',
+      'boost' => 'Boosted to the top',
+      'job_duration' => 'Kept a job post up longer',
+      'thread_ad' => 'Community board post',
       'topup' => 'Topped up',
       'monthly_grant' => 'Free monthly $plural',
       'launch_grant' => 'Welcome $plural',
+      'badge_reward' => 'Badge reward',
+      'refund' => 'Refunded',
       'admin_adjustment' => 'Adjusted by support',
-      _ => reason,
+      _ => 'Other',
+    };
+  }
+
+  /// The icon beside a ledger line in the wallet history.
+  static IconData iconFor(String reason, {bool isRefund = false}) {
+    if (isRefund) return Icons.undo;
+
+    return switch (reason) {
+      'application' => Icons.send_outlined,
+      'invitation' => Icons.mail_outline,
+      'rehire_invite' => Icons.replay,
+      'unlock' => Icons.lock_open_outlined,
+      'boost' => Icons.trending_up,
+      'job_duration' => Icons.schedule,
+      'thread_ad' => Icons.campaign_outlined,
+      'topup' => Icons.add_card_outlined,
+      'monthly_grant' || 'launch_grant' => Icons.card_giftcard,
+      'badge_reward' => Icons.military_tech_outlined,
+      'refund' => Icons.undo,
+      'admin_adjustment' => Icons.support_agent,
+      _ => icon,
     };
   }
 }

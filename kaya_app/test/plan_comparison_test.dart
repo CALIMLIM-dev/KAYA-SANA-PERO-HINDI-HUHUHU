@@ -60,7 +60,7 @@ void main() {
           home: Scaffold(
             body: SingleChildScrollView(
               padding: EdgeInsets.all(16),
-              child: PlanComparison(rows: rows, hasToppedUp: false),
+              child: PlanComparison(rows: rows),
             ),
           ),
         ),

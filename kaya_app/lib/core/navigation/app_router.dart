@@ -35,6 +35,7 @@ import '../../features/messaging/screens/chat_screen.dart';
 
 // Notification Screens
 import '../../features/credits/screens/wallet_screen.dart';
+import '../../features/credits/screens/wallet_history_screen.dart';
 import '../../features/notifications/screens/notifications_screen.dart';
 
 // Profile Screens
@@ -84,6 +85,7 @@ class AppRouter {
   static const String chat = '/chat';
   static const String notifications = '/notifications';
   static const String wallet = '/wallet';
+  static const String walletHistory = '/wallet/history';
   static const String profile = '/profile';
   static const String myWorkerProfile = '/my-worker-profile';
   static const String setupWorkerProfile = '/setup-worker-profile';
@@ -241,6 +243,8 @@ class AppRouter {
 
       case wallet:
         return MaterialPageRoute(builder: (_) => const WalletScreen());
+      case walletHistory:
+        return MaterialPageRoute(builder: (_) => const WalletHistoryScreen());
 
       
       case profile:

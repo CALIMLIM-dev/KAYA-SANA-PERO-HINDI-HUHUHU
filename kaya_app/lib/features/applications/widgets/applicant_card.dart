@@ -128,169 +128,9 @@ class ApplicantCard extends StatelessWidget {
                         ? 'They reviewed you — yours unlocks theirs'
                         : null;
 
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.05),
-            blurRadius: 10,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      // The whole identity block opens the profile, so the card no longer
-      // needs a full-width "View full profile" button under a divider. That
-      // button, the divider and their padding were roughly a third of the
-      // card's height for something a tap on the person's own name does more
-      // naturally.
-      child: InkWell(
-        onTap: workerId == null
-            ? null
-            : () => AppRouter.push(context, '/worker-profile',
-                arguments: {'workerId': workerId}),
-        borderRadius: BorderRadius.circular(16),
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  CircleAvatar(
-                    radius: 22,
-                    backgroundColor: AppColors.primary.withValues(alpha: 0.1),
-                    backgroundImage:
-                        photoUrl.isNotEmpty ? NetworkImage(photoUrl) : null,
-                    child: photoUrl.isNotEmpty
-                        ? null
-                        : Text(
-                            name.isNotEmpty ? name[0].toUpperCase() : '?',
-                            style: const TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.bold,
-                              color: AppColors.primary,
-                            ),
-                          ),
-                  ),
-                  const SizedBox(width: 11),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          children: [
-                            Flexible(
-                              child: Text(name,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: const TextStyle(
-                                    fontSize: 15,
-                                    fontWeight: FontWeight.w700,
-                                    color: AppColors.neutral900,
-                                  )),
-                            ),
-                            if (isVerified) ...[
-                              const SizedBox(width: 5),
-                              const Icon(Icons.verified,
-                                  size: 15, color: AppColors.success),
-                            ],
-                            // Beside the name, because it is a fact about this
-                            // person and it is the single most useful thing an
-                            // employer can know when choosing between
-                            // applicants: they have already done work for you.
-                            if (timesHiredBefore > 0) ...[
-                              const SizedBox(width: 6),
-                              Container(
-                                padding: const EdgeInsets.symmetric(
-                                    horizontal: 7, vertical: 2),
-                                decoration: BoxDecoration(
-                                  color: AppColors.success
-                                      .withValues(alpha: 0.12),
-                                  borderRadius: BorderRadius.circular(10),
-                                ),
-                                child: Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    const Icon(Icons.replay,
-                                        size: 11, color: AppColors.success),
-                                    const SizedBox(width: 3),
-                                    Text(
-                                      /*
-                                          "Hired 2x" sat next to the Accept
-                                          button and read as an instruction —
-                                          hire them twice — rather than as
-                                          history. The word "before" is what
-                                          makes it past tense at a glance.
-                                      */
-                                      timesHiredBefore == 1
-                                          ? 'Hired before'
-                                          : 'Hired ${timesHiredBefore}x before',
-                                      style: const TextStyle(
-                                          fontSize: 10,
-                                          fontWeight: FontWeight.w700,
-                                          color: AppColors.success),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ],
-                          ],
-                        ),
-                        const SizedBox(height: 2),
-                        // Rating and applied-time share one line instead of
-                        // stacking, and an unrated worker says so rather than
-                        // leaving a gap that reads as missing data.
-                        // The star is an icon, like everywhere else in the
-                        // app. It used to be the character U+2605, which
-                        // renders in whatever the device has for it - a
-                        // different weight and size from the real one, and a
-                        // box on a handset that has neither.
-                        Row(
-                          children: [
-                            if (reviewCount > 0) ...[
-                              const Icon(Icons.star,
-                                  size: 13, color: AppColors.accent),
-                              const SizedBox(width: 3),
-                            ],
-                            Flexible(
-                              child: Text(
-                                reviewCount > 0
-                                    ? '${rating.toStringAsFixed(1)} · $reviewCount review'
-                                        '${reviewCount == 1 ? '' : 's'}'
-                                    : 'No reviews yet',
-                                overflow: TextOverflow.ellipsis,
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  color: reviewCount > 0
-                                      ? AppColors.neutral600
-                                      : AppColors.neutral400,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
-                  ),
-                  if (status != 'pending') _statusBadge(status),
-                  if (workerId != null)
-                    const Padding(
-                      padding: EdgeInsets.only(left: 4),
-                      child: Icon(Icons.chevron_right,
-                          size: 20, color: AppColors.neutral400),
-                    ),
-                ],
-              ),
-              if (skills.isNotEmpty) ...[
-                const SizedBox(height: 9),
-                _skillChips(skills, limit: premium ? null : 3),
-              ],
-              // What a top-up buys a worker: their resume, open on the
-              // employer's screen. Everybody else's is one tap away on
-              // the profile, in the same place in the same list.
-              if (premium) _ResumeBlock(applicant: applicant),
+    // Accept and Reject, then Message and Mark complete or Review once
+    // hired. The same rows under either layout.
+    final actions = <Widget>[
             if (showActions) ...[
               const SizedBox(height: 6),
               Row(
@@ -465,7 +305,188 @@ class ApplicantCard extends StatelessWidget {
                   ),
                 ],
               ],
-            ],
+      ];
+
+    if (premium) {
+      return _ResumeCard(
+        applicant: applicant,
+        name: name,
+        photoUrl: photoUrl,
+        isVerified: isVerified,
+        rating: rating,
+        reviewCount: reviewCount,
+        timesHiredBefore: timesHiredBefore,
+        skills: skills,
+        statusBadge: status != 'pending' ? _statusBadge(status) : null,
+        onOpen: workerId == null
+            ? null
+            : () => AppRouter.push(context, '/worker-profile',
+                arguments: {'workerId': workerId}),
+        actions: actions,
+      );
+    }
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.05),
+            blurRadius: 10,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      // The whole identity block opens the profile, so the card no longer
+      // needs a full-width "View full profile" button under a divider. That
+      // button, the divider and their padding were roughly a third of the
+      // card's height for something a tap on the person's own name does more
+      // naturally.
+      child: InkWell(
+        onTap: workerId == null
+            ? null
+            : () => AppRouter.push(context, '/worker-profile',
+                arguments: {'workerId': workerId}),
+        borderRadius: BorderRadius.circular(16),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  CircleAvatar(
+                    radius: 22,
+                    backgroundColor: AppColors.primary.withValues(alpha: 0.1),
+                    backgroundImage:
+                        photoUrl.isNotEmpty ? NetworkImage(photoUrl) : null,
+                    child: photoUrl.isNotEmpty
+                        ? null
+                        : Text(
+                            name.isNotEmpty ? name[0].toUpperCase() : '?',
+                            style: const TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                              color: AppColors.primary,
+                            ),
+                          ),
+                  ),
+                  const SizedBox(width: 11),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Flexible(
+                              child: Text(name,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(
+                                    fontSize: 15,
+                                    fontWeight: FontWeight.w700,
+                                    color: AppColors.neutral900,
+                                  )),
+                            ),
+                            if (isVerified) ...[
+                              const SizedBox(width: 5),
+                              const Icon(Icons.verified,
+                                  size: 15, color: AppColors.success),
+                            ],
+                            // Beside the name, because it is a fact about this
+                            // person and it is the single most useful thing an
+                            // employer can know when choosing between
+                            // applicants: they have already done work for you.
+                            if (timesHiredBefore > 0) ...[
+                              const SizedBox(width: 6),
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 7, vertical: 2),
+                                decoration: BoxDecoration(
+                                  color: AppColors.success
+                                      .withValues(alpha: 0.12),
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    const Icon(Icons.replay,
+                                        size: 11, color: AppColors.success),
+                                    const SizedBox(width: 3),
+                                    Text(
+                                      /*
+                                          "Hired 2x" sat next to the Accept
+                                          button and read as an instruction —
+                                          hire them twice — rather than as
+                                          history. The word "before" is what
+                                          makes it past tense at a glance.
+                                      */
+                                      timesHiredBefore == 1
+                                          ? 'Hired before'
+                                          : 'Hired ${timesHiredBefore}x before',
+                                      style: const TextStyle(
+                                          fontSize: 10,
+                                          fontWeight: FontWeight.w700,
+                                          color: AppColors.success),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ],
+                        ),
+                        const SizedBox(height: 2),
+                        // Rating and applied-time share one line instead of
+                        // stacking, and an unrated worker says so rather than
+                        // leaving a gap that reads as missing data.
+                        // The star is an icon, like everywhere else in the
+                        // app. It used to be the character U+2605, which
+                        // renders in whatever the device has for it - a
+                        // different weight and size from the real one, and a
+                        // box on a handset that has neither.
+                        Row(
+                          children: [
+                            if (reviewCount > 0) ...[
+                              const Icon(Icons.star,
+                                  size: 13, color: AppColors.accent),
+                              const SizedBox(width: 3),
+                            ],
+                            Flexible(
+                              child: Text(
+                                reviewCount > 0
+                                    ? '${rating.toStringAsFixed(1)} · $reviewCount review'
+                                        '${reviewCount == 1 ? '' : 's'}'
+                                    : 'No reviews yet',
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: reviewCount > 0
+                                      ? AppColors.neutral600
+                                      : AppColors.neutral400,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                  if (status != 'pending') _statusBadge(status),
+                  if (workerId != null)
+                    const Padding(
+                      padding: EdgeInsets.only(left: 4),
+                      child: Icon(Icons.chevron_right,
+                          size: 20, color: AppColors.neutral400),
+                    ),
+                ],
+              ),
+              if (skills.isNotEmpty) ...[
+                const SizedBox(height: 9),
+                _skillChips(skills),
+              ],
+              ...actions,
+          ],
           ),
         ),
       ),
@@ -590,17 +611,44 @@ required bool accept,
 }
 
 /*
-    The open resume, for a worker who has topped up.
+    A worker who has topped up, as a resume.
 
-    The same facts the profile page holds, so nothing here is information a
-    free worker's employer cannot reach - it is just already on screen.
+    Ranking is free; this is what a top-up buys a worker. Their card arrives
+    as a resume in the app's primary blue: who they are and where, the three
+    numbers an employer weighs first, every skill, then licences and
+    certificates as their own sections. A free worker's card stays as it was,
+    in the same place in the list, one tap from the same profile - premium
+    adds, it never removes.
+
     Licence and certificate names only; the scans carry a date of birth and
     an address and stay behind the profile's own access rule.
 */
-class _ResumeBlock extends StatelessWidget {
-  const _ResumeBlock({required this.applicant});
+class _ResumeCard extends StatelessWidget {
+  const _ResumeCard({
+    required this.applicant,
+    required this.name,
+    required this.photoUrl,
+    required this.isVerified,
+    required this.rating,
+    required this.reviewCount,
+    required this.timesHiredBefore,
+    required this.skills,
+    required this.statusBadge,
+    required this.onOpen,
+    required this.actions,
+  });
 
   final Map<String, dynamic> applicant;
+  final String name;
+  final String photoUrl;
+  final bool isVerified;
+  final double rating;
+  final int reviewCount;
+  final int timesHiredBefore;
+  final List<String> skills;
+  final Widget? statusBadge;
+  final VoidCallback? onOpen;
+  final List<Widget> actions;
 
   List<String> _names(String key) =>
       (applicant[key] as List?)
@@ -611,46 +659,324 @@ class _ResumeBlock extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final category = (applicant['category'] ?? '').toString();
+    final location = (applicant['location'] ?? '').toString();
     final experience = (applicant['experience_label'] ?? '').toString();
     final jobsDone = asInt(applicant['jobs_completed']);
     final licenses = _names('licenses');
     final certifications = _names('certifications');
 
-    final rows = <(IconData, String)>[
-      if (experience.isNotEmpty) (Icons.work_history_outlined, experience),
-      if (jobsDone > 0)
-        (Icons.task_alt, '$jobsDone job${jobsDone == 1 ? '' : 's'} done on KAYA'),
-      for (final l in licenses) (Icons.badge_outlined, l),
-      for (final c in certifications) (Icons.workspace_premium_outlined, c),
-    ];
-
-    if (rows.isEmpty) return const SizedBox.shrink();
-
-    return Padding(
-      padding: const EdgeInsets.only(top: 10),
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppColors.primary.withValues(alpha: 0.25)),
+        boxShadow: [
+          BoxShadow(
+            color: AppColors.primary.withValues(alpha: 0.1),
+            blurRadius: 14,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      clipBehavior: Clip.antiAlias,
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          for (final (icon, text) in rows)
-            Padding(
-              padding: const EdgeInsets.only(bottom: 5),
+          InkWell(
+            onTap: onOpen,
+            child: Container(
+              padding: const EdgeInsets.fromLTRB(14, 14, 10, 14),
+              decoration: const BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [AppColors.primary, AppColors.primaryDark],
+                ),
+              ),
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Icon(icon, size: 15, color: AppColors.neutral500),
-                  const SizedBox(width: 7),
+                  Container(
+                    padding: const EdgeInsets.all(2),
+                    decoration: const BoxDecoration(
+                      color: Colors.white,
+                      shape: BoxShape.circle,
+                    ),
+                    child: CircleAvatar(
+                      radius: 25,
+                      backgroundColor: AppColors.primary.withValues(alpha: 0.12),
+                      backgroundImage:
+                          photoUrl.isNotEmpty ? NetworkImage(photoUrl) : null,
+                      child: photoUrl.isNotEmpty
+                          ? null
+                          : Text(
+                              name.isNotEmpty ? name[0].toUpperCase() : '?',
+                              style: const TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold,
+                                color: AppColors.primary,
+                              ),
+                            ),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
                   Expanded(
-                    child: Text(
-                      text,
-                      style: const TextStyle(
-                          fontSize: 12.5, color: AppColors.neutral700),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Flexible(
+                              child: Text(
+                                name,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w700,
+                                  color: Colors.white,
+                                ),
+                              ),
+                            ),
+                            if (isVerified) ...[
+                              const SizedBox(width: 5),
+                              const Icon(Icons.verified, size: 16, color: Colors.white),
+                            ],
+                          ],
+                        ),
+                        if (category.isNotEmpty) ...[
+                          const SizedBox(height: 2),
+                          Text(
+                            category,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              fontSize: 12.5,
+                              fontWeight: FontWeight.w500,
+                              color: Colors.white.withValues(alpha: 0.92),
+                            ),
+                          ),
+                        ],
+                        if (location.isNotEmpty) ...[
+                          const SizedBox(height: 3),
+                          Row(
+                            children: [
+                              Icon(Icons.place_outlined,
+                                  size: 13, color: Colors.white.withValues(alpha: 0.8)),
+                              const SizedBox(width: 3),
+                              Expanded(
+                                child: Text(
+                                  location,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color: Colors.white.withValues(alpha: 0.8),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                        const SizedBox(height: 8),
+                        Wrap(
+                          spacing: 6,
+                          runSpacing: 6,
+                          children: [
+                            _pill(Icons.workspace_premium_outlined, 'Full profile'),
+                            if (timesHiredBefore > 0)
+                              _pill(
+                                Icons.replay,
+                                timesHiredBefore == 1
+                                    ? 'Hired before'
+                                    : 'Hired ${timesHiredBefore}x before',
+                              ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                  if (statusBadge != null)
+                    Padding(
+                      padding: const EdgeInsets.only(left: 6),
+                      child: DecoratedBox(
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: statusBadge,
+                      ),
+                    ),
+                  if (onOpen != null)
+                    Icon(Icons.chevron_right,
+                        size: 22, color: Colors.white.withValues(alpha: 0.85)),
+                ],
+              ),
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(14, 14, 14, 12),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Expanded(
+                      child: _stat(
+                        experience.isNotEmpty ? experience : 'Not listed',
+                        'Experience',
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(child: _stat('$jobsDone', 'Jobs done')),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: _stat(
+                        reviewCount > 0 ? rating.toStringAsFixed(1) : 'New',
+                        reviewCount > 0
+                            ? '$reviewCount review${reviewCount == 1 ? '' : 's'}'
+                            : 'No reviews',
+                        star: reviewCount > 0,
+                      ),
+                    ),
+                  ],
+                ),
+                if (skills.isNotEmpty) ...[
+                  _sectionLabel('Skills'),
+                  Wrap(
+                    spacing: 6,
+                    runSpacing: 6,
+                    children: [
+                      for (final s in skills)
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
+                          decoration: BoxDecoration(
+                            color: AppColors.primary.withValues(alpha: 0.08),
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: Text(
+                            s,
+                            style: const TextStyle(
+                              fontSize: 11.5,
+                              fontWeight: FontWeight.w500,
+                              color: AppColors.primary,
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
+                ],
+                if (licenses.isNotEmpty) ...[
+                  _sectionLabel('Licences'),
+                  for (final l in licenses) _line(Icons.badge_outlined, l),
+                ],
+                if (certifications.isNotEmpty) ...[
+                  _sectionLabel('Certificates'),
+                  for (final c in certifications)
+                    _line(Icons.workspace_premium_outlined, c),
+                ],
+                const SizedBox(height: 4),
+                ...actions,
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _pill(IconData icon, String text) => Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+        decoration: BoxDecoration(
+          color: Colors.white.withValues(alpha: 0.18),
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: Colors.white.withValues(alpha: 0.35)),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 12, color: Colors.white),
+            const SizedBox(width: 4),
+            Text(
+              text,
+              style: const TextStyle(
+                fontSize: 10.5,
+                fontWeight: FontWeight.w700,
+                color: Colors.white,
+              ),
+            ),
+          ],
+        ),
+      );
+
+  Widget _stat(String value, String label, {bool star = false}) => Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 9),
+        decoration: BoxDecoration(
+          color: AppColors.neutral50,
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: AppColors.neutral200),
+        ),
+        child: Column(
+          children: [
+            FittedBox(
+              fit: BoxFit.scaleDown,
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (star) ...[
+                    const Icon(Icons.star, size: 14, color: AppColors.accent),
+                    const SizedBox(width: 3),
+                  ],
+                  Text(
+                    value,
+                    style: const TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w800,
+                      color: AppColors.neutral900,
                     ),
                   ),
                 ],
               ),
             ),
-        ],
-      ),
-    );
-  }
+            const SizedBox(height: 2),
+            Text(
+              label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(fontSize: 11, color: AppColors.neutral500),
+            ),
+          ],
+        ),
+      );
+
+  Widget _sectionLabel(String text) => Padding(
+        padding: const EdgeInsets.only(top: 14, bottom: 7),
+        child: Text(
+          text.toUpperCase(),
+          style: const TextStyle(
+            fontSize: 11,
+            fontWeight: FontWeight.w700,
+            letterSpacing: 0.8,
+            color: AppColors.neutral500,
+          ),
+        ),
+      );
+
+  Widget _line(IconData icon, String text) => Padding(
+        padding: const EdgeInsets.only(bottom: 6),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Icon(icon, size: 16, color: AppColors.primary),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                text,
+                style: const TextStyle(fontSize: 13, color: AppColors.neutral800),
+              ),
+            ),
+          ],
+        ),
+      );
 }

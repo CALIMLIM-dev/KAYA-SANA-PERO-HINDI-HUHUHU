@@ -11,98 +11,119 @@ import '../../../providers/credits_provider.dart';
     purpose - free gets the marketplace, a top-up gets promotion - and that
     is the honest shape of the product, so it is not hidden below the fold.
 
-    The labels come from the server with their prices already in them. Plain
-    on purpose: no highlight colour and no sales line, the same as the rest
-    of the wallet.
+    Drawn as a pricing table: the Top-up column is one continuous band in the
+    app's primary blue, so the eye reads down what a top-up adds. The labels
+    come from the server with their prices already in them.
 */
 class PlanComparison extends StatelessWidget {
   const PlanComparison({
     super.key,
     required this.rows,
-    required this.hasToppedUp,
   });
 
   final List<ComparisonRow> rows;
-  final bool hasToppedUp;
 
-  static const double _cell = 58;
+  static const double _freeWidth = 52;
+  static const double _topUpWidth = 64;
+  static const Radius _bandRadius = Radius.circular(12);
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.fromLTRB(14, 12, 6, 6),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.neutral200),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              const Expanded(child: SizedBox.shrink()),
-              _heading('Free'),
-              _heading('Top-up'),
-            ],
-          ),
-          const SizedBox(height: 6),
-          for (var i = 0; i < rows.length; i++) ...[
-            if (i > 0) const Divider(height: 1, color: AppColors.neutral100),
-            Padding(
-              padding: const EdgeInsets.symmetric(vertical: 8),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: Text(
-                      rows[i].label,
-                      style: const TextStyle(
-                        fontSize: 13,
-                        height: 1.3,
-                        color: AppColors.neutral700,
-                      ),
-                    ),
-                  ),
-                  _mark(rows[i].free),
-                  _mark(rows[i].toppedUp),
-                ],
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        _row(
+          label: const SizedBox.shrink(),
+          free: _heading('Free', AppColors.neutral600),
+          topUp: _heading('Top-up', Colors.white),
+          topUpColor: AppColors.primary,
+          topUpRadius: const BorderRadius.only(
+              topLeft: _bandRadius, topRight: _bandRadius),
+          verticalPadding: 9,
+        ),
+        for (var i = 0; i < rows.length; i++)
+          _row(
+            label: Text(
+              rows[i].label,
+              style: TextStyle(
+                fontSize: 13,
+                height: 1.3,
+                color: rows[i].free ? AppColors.neutral700 : AppColors.neutral900,
+                fontWeight: rows[i].free ? FontWeight.w400 : FontWeight.w600,
               ),
             ),
-          ],
-          Padding(
-            padding: const EdgeInsets.fromLTRB(0, 6, 8, 8),
-            child: Text(
-              hasToppedUp
-                  ? 'You have topped up, so everything in the Top-up column is yours. It does not expire.'
-                  : 'Top-up means buying any package once. It does not expire.',
-              style: const TextStyle(fontSize: 12, color: AppColors.neutral500),
+            free: _mark(rows[i].free, AppColors.neutral500),
+            topUp: _mark(rows[i].toppedUp, AppColors.primary),
+            topUpColor: AppColors.primary.withValues(alpha: 0.07),
+            topUpRadius: i == rows.length - 1
+                ? const BorderRadius.only(
+                    bottomLeft: _bandRadius, bottomRight: _bandRadius)
+                : BorderRadius.zero,
+            divider: i < rows.length - 1,
+          ),
+      ],
+    );
+  }
+
+  /// One line of the table. The Top-up cell stretches to the row's height so
+  /// the band runs unbroken from the heading to the last row.
+  Widget _row({
+    required Widget label,
+    required Widget free,
+    required Widget topUp,
+    required Color topUpColor,
+    required BorderRadius topUpRadius,
+    double verticalPadding = 11,
+    bool divider = false,
+  }) {
+    return IntrinsicHeight(
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Expanded(
+            child: Container(
+              padding: EdgeInsets.fromLTRB(0, verticalPadding, 10, verticalPadding),
+              decoration: BoxDecoration(
+                border: divider
+                    ? const Border(bottom: BorderSide(color: AppColors.neutral200))
+                    : null,
+              ),
+              alignment: Alignment.centerLeft,
+              child: label,
             ),
+          ),
+          Container(
+            width: _freeWidth,
+            decoration: BoxDecoration(
+              border: divider
+                  ? const Border(bottom: BorderSide(color: AppColors.neutral200))
+                  : null,
+            ),
+            alignment: Alignment.center,
+            child: free,
+          ),
+          Container(
+            width: _topUpWidth,
+            decoration: BoxDecoration(color: topUpColor, borderRadius: topUpRadius),
+            alignment: Alignment.center,
+            child: topUp,
           ),
         ],
       ),
     );
   }
 
-  Widget _heading(String text) => SizedBox(
-        width: _cell,
-        child: Text(
-          text,
-          textAlign: TextAlign.center,
-          style: const TextStyle(
-            fontSize: 12.5,
-            fontWeight: FontWeight.w600,
-            color: AppColors.neutral900,
-          ),
-        ),
+  Widget _heading(String text, Color color) => Text(
+        text,
+        textAlign: TextAlign.center,
+        maxLines: 1,
+        style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700, color: color),
       );
 
-  Widget _mark(bool yes) => SizedBox(
-        width: _cell,
-        child: Icon(
-          yes ? Icons.check : Icons.close,
-          size: 18,
-          color: yes ? AppColors.success : AppColors.neutral400,
-          semanticLabel: yes ? 'Included' : 'Not included',
-        ),
+  Widget _mark(bool yes, Color color) => Icon(
+        yes ? Icons.check : Icons.close,
+        size: 18,
+        color: yes ? color : AppColors.neutral400,
+        semanticLabel: yes ? 'Included' : 'Not included',
       );
 }
