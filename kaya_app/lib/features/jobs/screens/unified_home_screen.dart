@@ -20,6 +20,7 @@ import '../../../providers/worker_browse_provider.dart';
 import '../../help/screens/faq_screen.dart';
 import '../widgets/place_picker_sheet.dart';
 import '../widgets/recommendation_row.dart';
+import '../widgets/work_in_progress_section.dart';
 import '../widgets/unified_search_bar.dart';
 import '../widgets/jobs_near_you_section.dart';
 import '../widgets/people_who_can_help_section.dart';
@@ -729,6 +730,23 @@ class _UnifiedHomeScreenState extends State<UnifiedHomeScreen>
                   visibleFilters: _allowedFilters(appMode),
                 ),
               ),
+            ),
+
+            /*
+                The job you are already doing, before the ones you might
+                apply for.
+
+                Marking a job complete was three taps away in My
+                Activity, and it is the one action with a clock on it -
+                a hire a week past its deadline is closed as
+                unsuccessful by kaya:close-unconfirmed-hires, so a
+                confirmation nobody can find costs somebody their
+                completion. The section renders nothing when there is no
+                live work, so it costs an account with none nothing at
+                all.
+            */
+            SliverToBoxAdapter(
+              child: WorkInProgressSection(onChanged: _refreshData),
             ),
 
             /*

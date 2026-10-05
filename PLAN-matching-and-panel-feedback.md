@@ -287,6 +287,14 @@ down.
 
 ## Not code
 
+- [ ] **The ERD, data dictionary and DFD are out of date and the user calls
+      them a major flaw.** docs/appendix-erd.md and
+      docs/appendix-data-dictionary.md were generated before several schema
+      changes and do not know about skill_vectors at all; the resume columns
+      are still documented as a live feature. A grader reads these next to
+      the code. Regenerate from the migrations rather than editing by hand,
+      and check every table in the dictionary still exists
+
 - [ ] Part 4: fix the approval sheet - page 2 of the manuscript is still
       the e-Support template, wrong project and wrong authors
 - [ ] Part 4: "Filled Job Net" is PhilJobNet, misspelled four times in

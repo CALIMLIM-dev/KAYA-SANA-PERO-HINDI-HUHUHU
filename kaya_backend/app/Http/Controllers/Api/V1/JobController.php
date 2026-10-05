@@ -556,17 +556,54 @@ class JobController extends Controller
         $user = $request->user();
         if ($job->employer_id !== $user->id) return $this->fail('Forbidden', 403);
 
-        $job->load(['skills', 'psgcLocation']);
+        // category as well: JobMatchService compares the two category
+        // names when the ids differ, and will not fire a query per row
+        // to do it.
+        $job->load(['skills', 'psgcLocation', 'category']);
 
+        /*
+            Licences, certificates and work history come down with the
+            list.
+
+            Eager-loaded rather than counted per row: this scores every
+            candidate on the platform, so a lazy relation here is one
+            query per worker per relation.
+        */
         $candidates = \App\Models\WorkerProfile::query()
-            ->with(['user:id,name,avatar,is_verified,city', 'skills', 'category:id,name', 'psgcLocation'])
+            ->with([
+                'user:id,name,avatar,is_verified,city',
+                'skills',
+                'category:id,name',
+                'psgcLocation',
+                'licenses:id,user_id,license_name',
+                'certifications:id,user_id,certification_name',
+                'experiences',
+            ])
             // Never suggest the employer their own worker profile.
             ->where('user_id', '!=', $user->id)
             ->get()
             // Only workers who finished setup are contactable.
             ->filter(fn ($p) => $p->isSetupCompleted());
 
-        $scored = $candidates->map(function ($profile) use ($job) {
+        /*
+            Who this employer has finished a job with before.
+
+            One query for every candidate rather than one each. "Hired
+            before" is the strongest signal on the card and the applicant
+            list already shows it; a shortlist that left it out would be
+            worse than the screen it replaces.
+        */
+        $hiredBefore = \App\Models\Application::query()
+            ->join('jobs_posts', 'jobs_posts.id', '=', 'applications.job_id')
+            ->where('jobs_posts.employer_id', $user->id)
+            ->where('applications.status', 'completed')
+            ->groupBy('applications.worker_id')
+            ->selectRaw('applications.worker_id, COUNT(*) as total')
+            ->pluck('total', 'applications.worker_id');
+
+        $experience = app(\App\Services\ExperienceTotal::class);
+
+        $scored = $candidates->map(function ($profile) use ($job, $hiredBefore, $experience) {
             $match = \App\Services\JobMatchService::score($job, $profile);
 
             return [
@@ -582,6 +619,25 @@ class JobController extends Controller
                 'matched_skills' => $match['matched_skills'],
                 'match_reasons'  => $match['reasons'],
                 'match_score'    => $match['score'],
+
+                /*
+                    What the employer is really deciding on.
+
+                    Licence names, not scans. A scan carries a date of
+                    birth, a signature and a home address, and is released
+                    only to the owner and an employer with a live
+                    application - see WorkerProfileController. A shortlist
+                    is not a live application and does not loosen that.
+                */
+                'licenses'       => $profile->licenses->pluck('license_name')->filter()->values(),
+                'certifications' => $profile->certifications->pluck('certification_name')->filter()->values(),
+
+                // Overlapping jobs counted once - two concurrent years is
+                // two years, not four. See ExperienceTotal.
+                'experience_label' => $experience->label($profile->experiences),
+
+                'jobs_completed' => (int) $profile->jobs_completed,
+                'times_hired_before' => (int) ($hiredBefore[$profile->user_id] ?? 0),
                 /*
                     Banded, the same as browsing workers.
 

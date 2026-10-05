@@ -130,6 +130,73 @@ class WorkerBrowseProvider with ChangeNotifier {
         .toList();
   }
 
+  /*
+      Workers ranked against one job.
+
+      The rows are raw maps, not WorkerProfile, and that is deliberate: this
+      endpoint answers a question about a *pair* - which of the job's skills
+      this worker has, why they scored where they did, how many times this
+      employer has hired them - and none of that belongs on a model that
+      describes a person on their own.
+
+      GET /jobs/{job}/matches has scored and sorted since the day it shipped
+      and no screen ever called it. This is that screen's data.
+  */
+  List<Map<String, dynamic>> _matches = [];
+  bool _matchesLoading = false;
+  String? _matchesError;
+
+  /*
+      Which job the rows in hand belong to.
+
+      A shortlist is about a pair, so the same list means nothing
+      against a different job. Holding the id lets the screen skip a
+      fetch it does not need and stops it showing one job's matches
+      under another job's title for the instant before the new ones
+      land.
+  */
+  int? _matchesJobId;
+
+  List<Map<String, dynamic>> get matches => _matches;
+  bool get matchesLoading => _matchesLoading;
+  String? get matchesError => _matchesError;
+  int? get matchesJobId => _matchesJobId;
+
+  /// Lets a test render the screen with something in it.
+  @visibleForTesting
+  void seedMatches(List<Map<String, dynamic>> rows, {int jobId = 1}) {
+    _matches = rows;
+    _matchesJobId = jobId;
+    _matchesLoading = false;
+    notifyListeners();
+  }
+
+  Future<void> fetchMatches(int jobId) async {
+    // A different job's rows must not linger under this job's title.
+    if (_matchesJobId != jobId) {
+      _matches = [];
+    }
+
+    _matchesJobId = jobId;
+    _matchesLoading = true;
+    _matchesError = null;
+    notifyListeners();
+
+    try {
+      final res = await _api.get('/jobs/$jobId/matches');
+      final rows = res.data['data'] as List;
+
+      _matches = rows.cast<Map<String, dynamic>>();
+    } catch (e) {
+      // Same rule as the directory: a failed load is not an empty shortlist,
+      // so whatever was on screen stays there with the error beside it.
+      _matchesError = e.toString().replaceFirst('Exception: ', '');
+    }
+
+    _matchesLoading = false;
+    notifyListeners();
+  }
+
   Future<void> fetchWorkers({
     String? q,
     int? categoryId,

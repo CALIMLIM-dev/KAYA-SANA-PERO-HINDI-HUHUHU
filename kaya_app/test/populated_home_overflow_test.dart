@@ -84,6 +84,31 @@ void main() {
         isBoosted: boosted,
       );
 
+  /*
+      A hire in progress, as myApplications returns one.
+
+      Long on purpose: the longest real job title, a company name with a
+      suffix, and a deadline already past so the card shows the Mark as
+      complete button rather than the shorter waiting note. That button plus
+      the half-state sentence is the tallest this card gets.
+  */
+  Map<String, dynamic> liveHire() => {
+        'id': 9001,
+        'status': 'accepted',
+        'worker_completed_at': null,
+        'employer_completed_at': null,
+        'conversation_id': 55,
+        'job': {
+          'id': 4001,
+          'title': 'Experienced mason needed for a two storey residential build',
+          'company': 'Villanueva-Santos Construction Supply and Hardware',
+          'location': 'Brgy. Nancayasan, Urdaneta City, Pangasinan',
+          'start_date': '2026-09-01',
+          'end_date': '2026-09-03',
+          'status': 'in_progress',
+        },
+      };
+
   Future<List<String>> overflowsIn(
     WidgetTester tester, {
     required double textScale,
@@ -157,7 +182,11 @@ void main() {
                 value: AppModeProvider()
                   ..reconcile(hasWorker: true, hasEmployer: !workerMode),
               ),
-              ChangeNotifierProvider(create: (_) => ApplicationProvider()),
+              // Seeded, so WorkInProgressSection actually renders. Created
+              // empty it drew nothing and the sweep measured a blank box.
+              ChangeNotifierProvider<ApplicationProvider>.value(
+                value: ApplicationProvider()..seedApplications([liveHire()]),
+              ),
               ChangeNotifierProvider(create: (_) => InvitationProvider()),
               ChangeNotifierProvider(create: (_) => MessagingProvider()),
               ChangeNotifierProvider(create: (_) => NotificationProvider()),
@@ -186,6 +215,22 @@ void main() {
         find.text('Appliance Repair'),
         findsWidgets,
         reason: 'The category tiles never rendered, so nothing was checked.',
+      );
+
+      /*
+          And the work-in-progress card, for the same reason.
+
+          WorkInProgressSection renders nothing when there is no live
+          hire, so a sweep with an unseeded ApplicationProvider measured a
+          zero-height box and called it a pass. The seeded hire above is
+          what makes the Mark as complete button and the long job title
+          part of what is being measured.
+      */
+      expect(
+        find.text('Work in progress'),
+        findsOneWidget,
+        reason: 'The work in progress section never rendered, so the '
+            'completion card was not measured.',
       );
 
       /*

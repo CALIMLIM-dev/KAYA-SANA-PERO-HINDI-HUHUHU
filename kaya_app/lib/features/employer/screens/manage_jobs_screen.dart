@@ -450,6 +450,37 @@ class _ManageJobsScreenState extends State<ManageJobsScreen>
                       ),
                     ),
                     const SizedBox(width: 10),
+                    /*
+                        Find workers, next to waiting for them.
+
+                        Applicants is who came to you; this is who the
+                        server thinks fits the post. The scoring has
+                        existed all along with no way to reach it.
+                    */
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        onPressed: () => AppRouter.push(
+                          context,
+                          AppRouter.matchedWorkers,
+                          arguments: {
+                            'jobId': jobId,
+                            'jobTitle': job['title'] as String?,
+                          },
+                        ),
+                        icon: const Icon(Icons.person_search, size: 16),
+                        label: const Text('Find workers'),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: AppColors.primary,
+                          side: const BorderSide(color: AppColors.primary),
+                          padding: const EdgeInsets.symmetric(vertical: 10),
+                          shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8)),
+                          textStyle: const TextStyle(
+                              fontSize: 13.5, fontWeight: FontWeight.w600),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
                     OutlinedButton(
                       onPressed: () => _showManageSheet(job),
                       style: OutlinedButton.styleFrom(

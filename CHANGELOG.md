@@ -11,6 +11,34 @@ minor release, and `feat!:` or a `BREAKING CHANGE:` footer for a major one.
 
 ---
 
+## 1.15.0 - 2026-10-05
+
+### Added
+
+- Suggested workers for a job. The server has scored and ranked every
+  candidate against a post since the day that endpoint shipped and no
+  screen ever called it - a feature with no way in. Manage Jobs, an open
+  job, Find workers. Each row says which of the skills you asked for this
+  worker has and which they do not, why they are ranked where they are, and
+  their licences and certificates first, because a licence is the only
+  claim on the card that somebody other than the worker checked. Licence
+  names only; the scan stays behind the rule that releases it to the owner
+  and an employer with a live application.
+- Work in progress on the home screen, with Mark as complete on it.
+  Confirming a finished job was three taps away in My Activity, and it is
+  the one action in the app with a clock on it: a hire a week past its
+  deadline is closed as unsuccessful, so a confirmation nobody could find
+  cost somebody their completion. It also says what the two of you are
+  waiting on, which is the half-state people got stuck in.
+
+### Fixed
+
+- A skill chip no longer runs off the card. Real trade names reach forty
+  characters and the chips were given unbounded width, so on a 320px phone
+  the chip overflowed instead of wrapping.
+- Opening the suggested workers screen twice no longer asks the server
+  twice, and one job never shows another job list under its title.
+
 ## 1.14.4 - 2026-10-03
 
 ### Changed
