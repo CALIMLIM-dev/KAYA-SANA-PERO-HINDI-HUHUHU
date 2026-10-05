@@ -2,14 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../../core/constants/app_colors.dart';
-import '../../../core/constants/app_mode.dart';
-import '../../../core/widgets/app_toast.dart';
-import '../../../core/navigation/app_router.dart';
 import '../../../providers/app_mode_provider.dart';
-import '../../../providers/auth_provider.dart';
-import '../../../providers/job_provider.dart';
 import '../../../providers/notification_provider.dart';
-import '../notification_destination.dart';
+import '../open_notification.dart';
 import '../widgets/notification_item.dart';
 
 /// The notification centre.
@@ -133,199 +128,18 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     );
   }
 
-  /*
-      A notification is a route only if this account can actually open it.
-
-      _open read the notification's own fields and pushed, full stop. Nothing
-      asked whether the person tapping had the profile the destination belongs
-      to — so "someone applied to your job" sent whoever tapped it to
-      /view-applicants, an employer screen, and an account with no employer
-      profile landed on a screen the server answers with 403. It looked like
-      the app was throwing people at a random screen, which is what it was
-      doing.
-
-      The list on this screen is filtered by the active mode, and that filter
-      was doing just enough work to hide the problem: it is a display filter,
-      and a notification that arrives while the mode is elsewhere, or an
-      account whose profiles changed since, walks straight past it. The guard
-      belongs on the tap, where the destination is actually known.
-
-      For a hybrid the answer is not to refuse but to follow: they hold both
-      profiles, so switch to the side the notification belongs to and then go.
-      Landing on the employer's applicant list while the rest of the app still
-      says "worker" is the other half of what made hybrid accounts feel broken.
-  */
-  bool _allow({required bool employerSide}) {
-    final mode = context.read<AppModeProvider>();
-
-    if (employerSide ? !mode.hasEmployerProfile : !mode.hasWorkerProfile) {
-      AppToast.info(
-        context,
-        employerSide
-            ? 'That is about a job post. Set up an employer profile to see applicants.'
-            : 'That is about applying for work. Set up a worker profile to open it.',
-      );
-      return false;
-    }
-
-    final target = employerSide ? AppMode.employer : AppMode.worker;
-    final showing = employerSide
-        ? mode.effectiveMode.showsEmployerSide
-        : mode.effectiveMode.showsWorkerSide;
-
-    if (!showing && mode.canActivate(target)) mode.setMode(target);
-
-    return true;
-  }
-  /*
-      Marks read, then jumps to whatever the notification is about.
-
-      Where that is comes from notificationDestination(), which reads the type
-      and the audience together rather than the reference alone - see the note
-      in that file for the two classes of notification that used to open the
-      wrong screen. This method only knows how to open things.
-  */
+  /// Marks read, then opens whatever the notification is about. The rules
+  /// live in openNotification, shared with the banner and the phone's shade.
   void _open(AppNotification n) {
     context.read<NotificationProvider>().markRead(n.id);
 
-    final where = notificationDestination(
+    openNotification(
+      context,
       type: n.type,
       audience: n.audience,
       referenceType: n.referenceType,
       referenceId: n.referenceId,
     );
-
-    switch (where) {
-      case NotificationDestination.applicants:
-        if (!_allow(employerSide: true)) return;
-
-        /*
-            A notification outlives the applicant it announced.
-
-            It stays in the list after the person withdraws, or after the
-            employer accepts or declines them, and tapping it then opened an
-            applicant list with nobody on it - which reads as the screen
-            failing to load rather than as nothing being there.
-
-            Only refused when the jobs list is actually loaded and says this
-            job has nobody pending. With no data the tap goes through, because
-            guessing "empty" from a list that was never fetched would block a
-            real applicant.
-        */
-        if (n.type == 'application.received') {
-          final jobs = context.read<JobProvider>().jobs;
-          final job = jobs.where((j) => j['id'] == n.referenceId).firstOrNull;
-          final pending = job?['pending_application_count'];
-
-          if (job != null && pending is int && pending == 0) {
-            AppToast.info(context,
-                'Nobody is waiting on that job any more — they withdrew, or you already answered them.');
-            return;
-          }
-        }
-
-        AppRouter.push(context,
-          AppRouter.viewApplicants,
-          arguments: {'jobId': n.referenceId},
-        );
-
-      case NotificationDestination.manageJobs:
-        if (!_allow(employerSide: true)) return;
-        AppRouter.push(context, AppRouter.manageJobs);
-
-      case NotificationDestination.jobDetails:
-        if (n.referenceId != null) {
-          AppRouter.push(context,
-            AppRouter.jobDetails,
-            arguments: {'jobId': n.referenceId},
-          );
-        }
-
-      case NotificationDestination.active:
-        AppRouter.push(context, AppRouter.active);
-
-      case NotificationDestination.applications:
-        if (!_allow(employerSide: false)) return;
-        AppRouter.push(context, AppRouter.applications);
-
-      case NotificationDestination.invitations:
-        if (!_allow(employerSide: false)) return;
-        AppRouter.push(context, '/my-invitations');
-
-      case NotificationDestination.chat:
-        AppRouter.push(context,
-          AppRouter.chat,
-          arguments: {'conversationId': n.referenceId},
-        );
-
-      case NotificationDestination.messages:
-        AppRouter.push(context, AppRouter.messages);
-
-      /*
-          The public view of yourself, not the profile tab.
-
-          Reviews are only drawn on the public profile - the page somebody
-          else opens - so sending a review notification to the account's own
-          profile screen landed on a page with no review on it at all.
-      */
-      case NotificationDestination.workerProfile:
-        if (!_allow(employerSide: false)) return;
-
-        final workerId = context.read<AuthProvider>().user?['id'];
-        if (workerId == null) return;
-
-        AppRouter.push(context,
-          AppRouter.workerProfile,
-          arguments: {'workerId': workerId},
-        );
-
-      case NotificationDestination.employerProfile:
-        if (!_allow(employerSide: true)) return;
-
-        final employerId = context.read<AuthProvider>().user?['id'];
-        if (employerId == null) return;
-
-        AppRouter.push(context,
-          AppRouter.employerProfile,
-          arguments: {'employerId': employerId},
-        );
-
-      /*
-          Approved or rejected identity check.
-
-          Both used to open the upload screen, so being told you were verified
-          sent you to a form asking you to verify - and submitting from there
-          put a duplicate of an approved document in the admin queue.
-
-          Verified goes to the profile, where the card shows the real state.
-          Rejected still goes to the form, because sending a better photo is
-          the point of that state. Waiting counts as submitted: the form has
-          nothing to offer somebody already in the queue.
-      */
-      case NotificationDestination.verification:
-        /*
-            Read from the notification, not from a second lookup.
-
-            This asked hasSubmittedVerification(), which answers "is anything
-            pending or verified" - a different question, about a different
-            document, from state the screen may not have refreshed. So a
-            second rejection opened the profile instead of the form: an
-            account with one document still pending and another just rejected
-            counts as submitted, and so does a stale list that has not caught
-            up with the rejection.
-
-            The notification already says which it is. A rejection means send
-            a better photo, so it opens the form; an approval has nothing to
-            fill in, so it opens the profile where the badge is.
-        */
-        AppRouter.push(
-          context,
-          n.type == 'verification.rejected' ? '/verification' : AppRouter.profile,
-        );
-
-      case NotificationDestination.none:
-        break;
-    }
   }
   static NotificationType _typeOf(String type) {
     if (type.startsWith('message.')) return NotificationType.message;

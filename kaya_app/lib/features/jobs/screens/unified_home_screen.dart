@@ -21,7 +21,6 @@ import '../../help/screens/faq_screen.dart';
 import '../widgets/place_picker_sheet.dart';
 import '../widgets/recommendation_row.dart';
 import '../widgets/active_section.dart';
-import '../widgets/applicants_section.dart';
 import '../widgets/unified_search_bar.dart';
 import '../widgets/jobs_near_you_section.dart';
 import '../widgets/people_who_can_help_section.dart';
@@ -734,24 +733,6 @@ class _UnifiedHomeScreenState extends State<UnifiedHomeScreen>
             ),
 
             /*
-                The job you are already doing, before the ones you might
-                apply for.
-
-                My Activity's Active tab, moved here: Mark as complete is
-                the one action with a clock on it - a hire a week past its
-                deadline is closed as unsuccessful by
-                kaya:close-unconfirmed-hires - so it belongs on the screen
-                people open. Renders nothing when there is no active work.
-            */
-            SliverToBoxAdapter(
-              child: ActiveSection(onChanged: _refreshData),
-            ),
-
-            // People who applied to your newest running job, best fit first.
-            // Draws nothing for a worker or with nobody waiting.
-            const SliverToBoxAdapter(child: ApplicantsSection()),
-
-            /*
                 Nothing loaded, because nothing could.
 
                 An empty feed with a red strip under it reads as "there
@@ -927,6 +908,18 @@ class _UnifiedHomeScreenState extends State<UnifiedHomeScreen>
               ),
 
               const SliverToBoxAdapter(child: SizedBox(height: 32)),
+
+              /*
+                  The work already under way: My Activity's Active tab,
+                  moved here because Mark as complete is the one action with
+                  a clock on it. Below the categories and the activity
+                  counts rather than above them - on top it pushed the
+                  categories off the first screen for anyone with a hire.
+                  Renders nothing when there is no active work.
+              */
+              SliverToBoxAdapter(
+                child: ActiveSection(onChanged: _refreshData),
+              ),
 
               // Jobs Near You Section (conditional based on filter)
               if (_showJobsSection(currentFilter)) ...[

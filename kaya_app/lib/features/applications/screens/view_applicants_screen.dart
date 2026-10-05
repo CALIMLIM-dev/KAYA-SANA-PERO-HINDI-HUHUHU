@@ -251,7 +251,7 @@ class _ViewApplicantsScreenState extends State<ViewApplicantsScreen>
 
     // A job for several people says how many are still open above the
     // pending list, and Accept stops once they are all taken.
-    final header = showActions && spots > 1
+    final spotsLine = showActions && spots > 1
         ? Padding(
             padding: const EdgeInsets.only(bottom: 12),
             child: Row(
@@ -274,6 +274,42 @@ class _ViewApplicantsScreenState extends State<ViewApplicantsScreen>
           )
         : null;
 
+    /*
+        The pending list is a ranking - the server sorts it by fit - so it
+        says so, and each card carries its place.
+    */
+    final header = showActions
+        ? Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              ?spotsLine,
+              Container(
+                width: double.infinity,
+                margin: const EdgeInsets.only(bottom: 12),
+                padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
+                decoration: BoxDecoration(
+                  color: AppColors.primary.withValues(alpha: 0.06),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: AppColors.primary.withValues(alpha: 0.15)),
+                ),
+                child: const Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Icon(Icons.leaderboard_outlined, size: 17, color: AppColors.primary),
+                    SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'Ranked by best fit for this job: the trade, the skills it needs, and how close they are.',
+                        style: TextStyle(fontSize: 12.5, height: 1.35, color: AppColors.neutral700),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          )
+        : null;
+
     return RefreshIndicator(
       onRefresh: () =>
           context.read<ApplicationProvider>().fetchApplicants(_jobId!),
@@ -282,8 +318,10 @@ class _ViewApplicantsScreenState extends State<ViewApplicantsScreen>
         itemCount: applicants.length + (header == null ? 0 : 1),
         itemBuilder: (context, index) {
           if (header != null && index == 0) return header;
+          final position = index - (header == null ? 0 : 1);
           return ApplicantCard(
-            applicant: applicants[index - (header == null ? 0 : 1)],
+            applicant: applicants[position],
+            rank: showActions ? position + 1 : null,
             showActions: showActions,
             perWorkerActions: perWorkerActions,
             full: full,

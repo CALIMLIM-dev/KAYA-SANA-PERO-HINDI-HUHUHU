@@ -259,9 +259,75 @@ class InvitationController extends Controller
         if (!$user->isWorker()) return $this->fail('Forbidden', 403);
 
         $invitations = $user->invitationsReceived()
-            ->with(['job.employer:id,name,avatar,is_verified', 'job.employer.employerProfile', 'employer:id,name,avatar,is_verified'])
+            ->with(['job.category:id,name', 'employer:id,name,avatar,is_verified', 'employer.employerProfile'])
             ->latest()
             ->paginate(20);
+
+        // The thread for each accepted invitation, so Message opens it
+        // rather than the inbox. One query for the page.
+        $employerIds = $invitations->getCollection()
+            ->where('status', 'accepted')
+            ->pluck('employer_id')
+            ->unique();
+        $threads = $employerIds->isEmpty()
+            ? collect()
+            : Conversation::query()
+                ->whereNull('archived_at')
+                ->where(fn ($q) => $q
+                    ->where(fn ($p) => $p->whereIn('pair_low', $employerIds)->where('pair_high', $user->id))
+                    ->orWhere(fn ($p) => $p->where('pair_low', $user->id)->whereIn('pair_high', $employerIds)))
+                ->get(['id', 'pair_low', 'pair_high'])
+                ->mapWithKeys(fn ($c) => [($c->pair_low === $user->id ? $c->pair_high : $c->pair_low) => $c->id]);
+
+        /*
+            An explicit shape, not the models.
+
+            This sent the job and the employer's profile as stored, which
+            carried the job's street address and coordinates and the
+            employer's own pin to every worker invited - before they had
+            accepted anything. The exact place is released on hire, the same
+            rule as the feed (JobPost::forViewer).
+        */
+        $invitations->getCollection()->transform(function (Invitation $inv) use ($threads) {
+            $job = $inv->job;
+            $employer = $inv->employer;
+            $profile = $employer?->employerProfile;
+            $isCompany = $profile?->employer_type === \App\Enums\EmployerType::COMPANY;
+
+            return [
+                'id'              => $inv->id,
+                'status'          => $inv->status,
+                'created_at'      => $inv->created_at,
+                'conversation_id' => $inv->status === 'accepted' ? ($threads[$inv->employer_id] ?? null) : null,
+                'employer'        => $employer ? [
+                    'id'          => $employer->id,
+                    'name'        => $isCompany && filled($profile?->company_name) ? $profile->company_name : $employer->name,
+                    'person_name' => $employer->name,
+                    'is_company'  => $isCompany,
+                    'avatar'      => $employer->avatar,
+                    'is_verified' => (bool) $employer->is_verified,
+                    'rating'      => $profile?->rating_avg !== null ? (float) $profile->rating_avg : null,
+                    'rating_count'=> (int) ($profile?->rating_count ?? 0),
+                ] : null,
+                'job'             => $job ? [
+                    'id'             => $job->id,
+                    'title'          => $job->title,
+                    'description'    => $job->description,
+                    'status'         => $job->status,
+                    'is_open'        => $job->isOpenForApplications(),
+                    'category'       => $job->category?->name,
+                    'location'       => $job->location,
+                    'city'           => $job->city,
+                    'budget_min'     => $job->budget_min,
+                    'budget_max'     => $job->budget_max,
+                    'budget_period'  => $job->budget_period,
+                    'start_date'     => $job->start_date?->format('Y-m-d'),
+                    'end_date'       => $job->end_date?->format('Y-m-d'),
+                    'start_time'     => $job->start_time,
+                    'workers_needed' => (int) ($job->workers_needed ?? 1),
+                ] : null,
+            ];
+        });
 
         return $this->ok($invitations);
     }

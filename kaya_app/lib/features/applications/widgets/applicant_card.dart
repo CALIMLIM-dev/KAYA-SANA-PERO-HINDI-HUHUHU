@@ -33,9 +33,14 @@ class ApplicantCard extends StatelessWidget {
     this.jobTitle = 'this job',
     this.jobStatus = '',
     this.job,
+    this.rank,
   });
 
   final Map<String, dynamic> applicant;
+
+  /// Place in the best-fit order, 1 first. Null where the list is not a
+  /// ranking (accepted and rejected).
+  final int? rank;
   final bool showActions;
   final bool perWorkerActions;
   final bool full;
@@ -318,6 +323,7 @@ class ApplicantCard extends StatelessWidget {
         timesHiredBefore: timesHiredBefore,
         skills: skills,
         statusBadge: status != 'pending' ? _statusBadge(status) : null,
+        rank: rank,
         onOpen: workerId == null
             ? null
             : () => AppRouter.push(context, '/worker-profile',
@@ -355,6 +361,10 @@ class ApplicantCard extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              if (rank != null) ...[
+                RankPill(rank: rank!),
+                const SizedBox(height: 8),
+              ],
               Row(
                 children: [
                   CircleAvatar(
@@ -636,8 +646,10 @@ class _ResumeCard extends StatelessWidget {
     required this.statusBadge,
     required this.onOpen,
     required this.actions,
+    this.rank,
   });
 
+  final int? rank;
   final Map<String, dynamic> applicant;
   final String name;
   final String photoUrl;
@@ -784,6 +796,7 @@ class _ResumeCard extends StatelessWidget {
                           spacing: 6,
                           runSpacing: 6,
                           children: [
+                            if (rank != null) RankPill(rank: rank!, onDark: true),
                             _pill(Icons.workspace_premium_outlined, 'Full profile'),
                             if (timesHiredBefore > 0)
                               _pill(
@@ -979,4 +992,48 @@ class _ResumeCard extends StatelessWidget {
           ],
         ),
       );
+}
+
+/*
+    Where an applicant stands in the best-fit order.
+
+    The Applicants list was already sorted by fit - trade, skills, distance -
+    with nothing on screen saying so, so it read as arrival order. The place
+    is shown instead of a score: a percentage invites arguing about the
+    number, and the order is the useful part.
+*/
+class RankPill extends StatelessWidget {
+  const RankPill({super.key, required this.rank, this.onDark = false});
+
+  final int rank;
+  final bool onDark;
+
+  @override
+  Widget build(BuildContext context) {
+    final best = rank == 1;
+    final Color fg = onDark ? (best ? AppColors.primary : Colors.white) : (best ? Colors.white : AppColors.primary);
+    final Color bg = onDark
+        ? (best ? Colors.white : Colors.white.withValues(alpha: 0.18))
+        : (best ? AppColors.primary : AppColors.primary.withValues(alpha: 0.08));
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      decoration: BoxDecoration(
+        color: bg,
+        borderRadius: BorderRadius.circular(20),
+        border: onDark && !best ? Border.all(color: Colors.white.withValues(alpha: 0.35)) : null,
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(best ? Icons.emoji_events_outlined : Icons.leaderboard_outlined, size: 12, color: fg),
+          const SizedBox(width: 4),
+          Text(
+            best ? '#1 Best fit' : '#$rank',
+            style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.w800, color: fg),
+          ),
+        ],
+      ),
+    );
+  }
 }

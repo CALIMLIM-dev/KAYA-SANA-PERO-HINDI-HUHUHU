@@ -2,14 +2,13 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'verify_gate.dart';
 
 import '../../data/services/realtime_service.dart';
 import '../../data/services/local_alerts.dart';
 import '../../providers/messaging_provider.dart';
 import '../../providers/notification_provider.dart';
 import '../constants/app_colors.dart';
-import '../navigation/app_router.dart';
+import '../../features/notifications/open_notification.dart';
 
 /*
     Notifications you can actually see arrive.
@@ -248,79 +247,21 @@ class _NotificationBannerHostState extends State<NotificationBannerHost> {
     }
 
     /*
-        Same destinations as tapping the row in the notification centre.
+        Same destinations as tapping the row in the notification centre,
+        from the same function. This had its own copy of the rules, and it
+        had drifted: an accepted invitation opened the employer's own public
+        advert here and the applicants from the list.
 
-        These two used to disagree: the banner opened the chat, the list opened
-        the inbox, and everything that was not a message landed here on the
-        centre regardless. Tapping "You're hired" and arriving at a list of
-        notifications — including the one just tapped — reads as a dead link.
+        The overlay's context, because it sits under the navigator - a push
+        from it lands on this navigator - and above every screen.
     */
-    // Type before reference_type, matching the notification centre. "Someone
-    // applied to your job" points at the job but belongs on the applicant
-    // list — see the note there.
-    if ('${notification['type'] ?? ''}' == 'application.received' &&
-        referenceId != null) {
-      navigator.pushNamed(
-        AppRouter.viewApplicants,
-        arguments: {'jobId': referenceId},
-      );
-      return;
-    }
-
-    switch (referenceType) {
-      case 'conversation':
-        if (referenceId != null) {
-          navigator.pushNamed(
-            AppRouter.chat,
-            arguments: {'conversationId': referenceId},
-          );
-          return;
-        }
-      case 'job':
-        if (referenceId != null) {
-          navigator.pushNamed(
-            AppRouter.jobDetails,
-            arguments: {'jobId': referenceId},
-          );
-          return;
-        }
-      case 'application':
-        // Hired, or asked to confirm: live work, which is on Active now.
-        final type = '${notification['type'] ?? ''}';
-        navigator.pushNamed(
-          type == 'application.accepted' ||
-                  type == 'application.completion_pending'
-              ? AppRouter.active
-              : AppRouter.applications,
-        );
-        return;
-      case 'invitation':
-        navigator.pushNamed('/my-invitations');
-        return;
-      /*
-          A verification notification is not always "go and upload something".
-
-          Every one of them opened the upload form, including the message
-          saying the document had just been approved - so being told you were
-          verified sent you straight to a screen asking you to verify, which
-          reads as the approval not having counted. Worse, submitting from
-          there put a duplicate of an approved document into the admin queue.
-
-          Approved and rejected both go to the profile, where the card shows
-          the real state and rejected still offers a retry. Only an account
-          with nothing submitted is sent to the form.
-      */
-      case 'verification':
-        // Same rule as the list screen: pending is not "nothing sent".
-        final submitted = hasSubmittedVerification(navigator.context);
-
-        navigator.pushNamed(submitted ? AppRouter.profile : '/verification');
-        return;
-    }
-
-    // Anything without a usable reference falls back to the centre, which can
-    // explain itself better than a guess at the right screen would.
-    navigator.pushNamed(AppRouter.notifications);
+    openNotification(
+      navigator.overlay?.context ?? navigator.context,
+      type: '${notification['type'] ?? ''}',
+      audience: '${notification['audience'] ?? ''}',
+      referenceType: referenceType.isEmpty ? null : referenceType,
+      referenceId: referenceId,
+    );
   }
 
   @override

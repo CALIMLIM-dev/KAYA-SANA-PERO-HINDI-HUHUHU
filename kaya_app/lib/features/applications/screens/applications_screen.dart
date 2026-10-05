@@ -5,10 +5,10 @@ import '../../../core/utils/realtime_refresh.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/utils/job_summary.dart';
 import '../../../core/widgets/app_toast.dart';
-import '../../../core/widgets/verify_gate.dart';
 import '../../../providers/app_mode_provider.dart';
 import '../../../providers/application_provider.dart';
 import '../../../providers/invitation_provider.dart';
+import '../../invitations/widgets/invitation_card.dart';
 import '../../../providers/job_provider.dart';
 import '../widgets/completion_action.dart';
 import '../../../core/navigation/app_router.dart';
@@ -151,7 +151,7 @@ class _ApplicationsScreenState extends State<ApplicationsScreen>
       itemsBuilder: (context) => context
           .watch<InvitationProvider>()
           .pending,
-      cardBuilder: (i) => _InvitationCard(invitation: i),
+      cardBuilder: (i) => InvitationCard(key: ValueKey(i['id']), invitation: i),
     );
   }
 
@@ -311,7 +311,7 @@ class _ApplicationsScreenState extends State<ApplicationsScreen>
             _Shortcut(
               icon: Icons.mark_email_unread_outlined,
               label: 'Invited',
-              count: invitations.errorMessage != null && invitations.invitations.isEmpty
+              count: invitations.loadError != null && invitations.invitations.isEmpty
                   ? null
                   : invitations.pending.length,
               yourMove: true,
@@ -1819,207 +1819,6 @@ class _EmptyState extends StatelessWidget {
                     fontSize: 14, color: AppColors.neutral400)),
           ],
         ),
-      ),
-    );
-  }
-}
-
-/*
-    A pending invitation, with real accept and decline.
-
-    This used to just navigate to /my-invitations - the same list again, on a
-    different screen, where accept and decline actually lived - so opening the
-    Invitations button and then acting on one was two hops through one list.
-    The actions live here now, matching what /my-invitations already does:
-    same confirm dialogs, same wording, same "Message" action on the success
-    toast once accepted.
-
-    The sheet is reactive (see itemsBuilder in _showListSheet), so a
-    successful accept or decline needs nothing extra to make this card
-    disappear — the item's status changes, it stops matching "pending", and
-    the next rebuild simply does not include it.
-*/
-class _InvitationCard extends StatefulWidget {
-  const _InvitationCard({required this.invitation});
-
-  final Map<String, dynamic> invitation;
-
-  @override
-  State<_InvitationCard> createState() => _InvitationCardState();
-}
-
-class _InvitationCardState extends State<_InvitationCard> {
-  bool _busy = false;
-
-  Map<String, dynamic>? get _job =>
-      widget.invitation['job'] as Map<String, dynamic>?;
-  Map<String, dynamic>? get _employer =>
-      widget.invitation['employer'] as Map<String, dynamic>?;
-  String get _jobTitle => (_job?['title'] ?? 'this job').toString();
-
-  Future<void> _confirmAccept() async {
-    final accept = await showDialog<bool>(
-      context: context,
-      builder: (_) => AlertDialog(
-        title: const Text('Accept Invitation?'),
-        content: Text(
-            'You can message the employer after.'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancel'),
-          ),
-          ElevatedButton(
-            onPressed: () => Navigator.pop(context, true),
-            style: ElevatedButton.styleFrom(backgroundColor: AppColors.success),
-            child: const Text('Accept', style: TextStyle(color: Colors.white)),
-          ),
-        ],
-      ),
-    );
-    if (accept != true || !mounted) return;
-
-    // Accepting is gated server side, so ask before the spinner rather than
-    // after the refusal.
-    if (!await ensureVerified(context, action: 'accept an invitation')) return;
-    if (!mounted) return;
-
-    setState(() => _busy = true);
-    final conversationId = await context
-        .read<InvitationProvider>()
-        .accept(widget.invitation['id'] as int);
-    if (!mounted) return;
-    setState(() => _busy = false);
-
-    if (conversationId == null) {
-      AppToast.error(
-        context,
-        context.read<InvitationProvider>().errorMessage ??
-            'Failed to accept invitation',
-      );
-      return;
-    }
-
-    final employer = _employer;
-    final job = _job;
-    AppToast.show(
-      context,
-      'Invitation accepted',
-      type: ToastType.success,
-      duration: const Duration(seconds: 4),
-      actionLabel: 'Message',
-      onAction: () => AppRouter.push(context,
-        '/chat',
-        arguments: {
-          'conversationId': conversationId,
-          'name': employer?['name'] ?? 'Employer',
-          'jobTitle': _jobTitle,
-          'jobId': job?['id'],
-          'otherUserId': employer?['id'],
-          'isVerified': employer?['is_verified'] ?? false,
-          'otherRole': 'employer',
-        },
-      ),
-    );
-  }
-
-  Future<void> _confirmDecline() async {
-    final decline = await showDialog<bool>(
-      context: context,
-      builder: (_) => AlertDialog(
-        title: const Text('Decline Invitation?'),
-        content: Text('Decline the invitation for "$_jobTitle"?'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancel'),
-          ),
-          ElevatedButton(
-            onPressed: () => Navigator.pop(context, true),
-            style:
-                ElevatedButton.styleFrom(backgroundColor: AppColors.neutral600),
-            child: const Text('Decline', style: TextStyle(color: Colors.white)),
-          ),
-        ],
-      ),
-    );
-    if (decline != true || !mounted) return;
-
-    setState(() => _busy = true);
-    final success = await context
-        .read<InvitationProvider>()
-        .decline(widget.invitation['id'] as int);
-    if (!mounted) return;
-    setState(() => _busy = false);
-
-    AppToast.info(
-      context,
-      success
-          ? 'Invitation declined'
-          : (context.read<InvitationProvider>().errorMessage ??
-              'Failed to decline invitation'),
-    );
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final employerName = (_employer?['name'] ?? 'An employer').toString();
-
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.neutral200),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(_jobTitle,
-              style:
-                  const TextStyle(fontSize: 14.5, fontWeight: FontWeight.w700)),
-          const SizedBox(height: 4),
-          Text('$employerName invited you to apply',
-              style:
-                  const TextStyle(fontSize: 13, color: AppColors.neutral600)),
-          const SizedBox(height: 12),
-          if (_busy)
-            const Center(
-                child: SizedBox(
-                    height: 20,
-                    width: 20,
-                    child: CircularProgressIndicator(strokeWidth: 2)))
-          else
-            Row(
-              children: [
-                Expanded(
-                  child: OutlinedButton(
-                    onPressed: _confirmDecline,
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: AppColors.neutral600,
-                      side: const BorderSide(color: AppColors.neutral300),
-                      padding: const EdgeInsets.symmetric(vertical: 10),
-                    ),
-                    child: const Text('Decline'),
-                  ),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: ElevatedButton(
-                    onPressed: _confirmAccept,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppColors.success,
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(vertical: 10),
-                      elevation: 0,
-                    ),
-                    child: const Text('Accept'),
-                  ),
-                ),
-              ],
-            ),
-        ],
       ),
     );
   }

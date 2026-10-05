@@ -231,12 +231,27 @@ void main() {
           what makes the Mark as complete button and the long job title
           part of what is being measured.
       */
-      expect(
-        find.text('Active'),
-        findsOneWidget,
-        reason: 'The work in progress section never rendered, so the '
-            'completion card was not measured.',
-      );
+      final activeHeading = find.text('Active');
+      var sawActive = activeHeading.evaluate().isNotEmpty;
+
+      /*
+          Categories first, then the work in progress.
+
+          Active sat above the categories and pushed them off the first
+          screen for anyone with a hire. Checked whenever both are laid out
+          at once.
+      */
+      var orderChecked = false;
+      void checkOrder() {
+        if (categoryTile.evaluate().isEmpty || activeHeading.evaluate().isEmpty) return;
+        expect(
+          tester.getTopLeft(categoryTile.first).dy,
+          lessThan(tester.getTopLeft(activeHeading).dy),
+          reason: 'Active is above the categories again.',
+        );
+        orderChecked = true;
+      }
+      checkOrder();
 
       /*
           The recommendation row for this side has to appear at some point.
@@ -262,7 +277,18 @@ void main() {
 
         sawRow = sawRow || rowHeading.evaluate().isNotEmpty;
         sawCategories = sawCategories || categoryTile.evaluate().isNotEmpty;
+        sawActive = sawActive || activeHeading.evaluate().isNotEmpty;
+        checkOrder();
       }
+
+      expect(
+        sawActive,
+        isTrue,
+        reason: 'The work in progress section never rendered, so the '
+            'completion card was not measured.',
+      );
+      expect(orderChecked, isTrue,
+          reason: 'Categories and Active were never on screen together, so their order was not checked.');
 
       expect(
         sawCategories,

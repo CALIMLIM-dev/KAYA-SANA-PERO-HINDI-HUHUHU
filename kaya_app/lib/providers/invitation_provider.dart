@@ -12,10 +12,29 @@ class InvitationProvider with ChangeNotifier {
 
   bool _isLoading = false;
   String? _errorMessage;
+  String? _loadError;
   List<Map<String, dynamic>> _invitations = [];
 
   bool get isLoading => _isLoading;
-  String? get errorMessage => _errorMessage;
+
+  /*
+      Two kinds of failure, kept apart.
+
+      One field held both, so a refused Accept ("job is no longer
+      available") was indistinguishable from the list failing to load: My
+      Invitations swapped the whole list for an error page with Retry, and
+      My Activity's Invited count turned to a dash. loadError is the list;
+      errorMessage is the last thing tapped, falling back to the list's.
+  */
+  String? get loadError => _loadError;
+  String? get errorMessage => _errorMessage ?? _loadError;
+
+  /// The last action's failure, once - read by the card that showed it.
+  String? takeActionError() {
+    final m = _errorMessage;
+    _errorMessage = null;
+    return m;
+  }
   List<Map<String, dynamic>> get invitations => _invitations;
 
   /// Still waiting on the worker's answer — the only ones worth counting or
@@ -44,7 +63,7 @@ class InvitationProvider with ChangeNotifier {
       final res = await _api.get('/my-invitations');
       final page = res.data['data'] as Map<String, dynamic>;
       _invitations = (page['data'] as List).cast<Map<String, dynamic>>();
-      _errorMessage = null;
+      _loadError = null;
     } catch (e) {
       /*
           The last known list survives a failed refresh.
@@ -58,7 +77,7 @@ class InvitationProvider with ChangeNotifier {
           empty list plus an error means we genuinely could not ask, and is
           drawn as a dash rather than a zero.
       */
-      _errorMessage = e.toString().replaceFirst('Exception: ', '');
+      _loadError = e.toString().replaceFirst('Exception: ', '');
     } finally {
       _setLoading(false);
     }
@@ -159,5 +178,7 @@ class InvitationProvider with ChangeNotifier {
     _invitations = [];
     _isLoading = false;
     _errorMessage = null;
+    _loadError = null;
     notifyListeners();
-  }}
+  }
+}
