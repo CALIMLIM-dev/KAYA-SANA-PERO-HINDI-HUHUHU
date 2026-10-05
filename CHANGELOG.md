@@ -11,6 +11,31 @@ minor release, and `feat!:` or a `BREAKING CHANGE:` footer for a major one.
 
 ---
 
+## 1.15.1 - 2026-10-05
+
+### Changed
+
+- Both new features are on the home screen, which is where they were
+  asked for. Matched workers was reachable only through Manage Jobs, a job
+  card and then a button - three taps past the screen an employer actually
+  opens. The newest running job now shows its top two matches on home with
+  a way through to the rest.
+- Work in progress covers the employer as well. It read the worker side
+  only, so an employer - who confirms the same job from the other end -
+  saw nothing there at all and had to go back to My Activity for the one
+  action the section exists to surface.
+- The shortlist is called Matches in both places. The button said Find
+  workers while the screen said Suggested workers: two names for one
+  thing, and neither was the word the matching uses everywhere else.
+
+### Fixed
+
+- Mark as Complete no longer appears on a job that is over. The card asked
+  whether the hire was finished and never whether the job was, so a job
+  closed by hand or swept past its end date while still carrying an
+  unconfirmed hire offered the button in History - and pressing it did
+  nothing, because completion is refused on a job that has ended.
+
 ## 1.15.0 - 2026-10-05
 
 ### Added

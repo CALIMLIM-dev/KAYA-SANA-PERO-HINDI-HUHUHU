@@ -20,6 +20,7 @@ import '../../../providers/worker_browse_provider.dart';
 import '../../help/screens/faq_screen.dart';
 import '../widgets/place_picker_sheet.dart';
 import '../widgets/recommendation_row.dart';
+import '../widgets/matches_for_your_job_section.dart';
 import '../widgets/work_in_progress_section.dart';
 import '../widgets/unified_search_bar.dart';
 import '../widgets/jobs_near_you_section.dart';
@@ -748,6 +749,17 @@ class _UnifiedHomeScreenState extends State<UnifiedHomeScreen>
             SliverToBoxAdapter(
               child: WorkInProgressSection(onChanged: _refreshData),
             ),
+
+            /*
+                And who fits the job you are staffing.
+
+                The matches endpoint has scored every candidate since it
+                shipped and the only way in was Manage Jobs, a job card,
+                then a button. This is the screen an employer opens.
+                Draws nothing for a worker, and nothing for an employer
+                with no running job.
+            */
+            const SliverToBoxAdapter(child: MatchesForYourJobSection()),
 
             /*
                 Nothing loaded, because nothing could.

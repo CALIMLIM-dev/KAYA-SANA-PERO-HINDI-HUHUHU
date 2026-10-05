@@ -5,6 +5,7 @@ import '../../../core/constants/app_colors.dart';
 import '../../../core/navigation/app_router.dart';
 import '../../../data/models/job_model.dart';
 import '../../../providers/application_provider.dart';
+import '../../../providers/job_provider.dart';
 import '../../applications/widgets/completion_action.dart';
 
 /*
@@ -41,8 +42,22 @@ class WorkInProgressSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final applications = context.watch<ApplicationProvider>();
-    final live = applications.liveWork;
+    /*
+        Both sides, because both sides have to confirm.
+
+        liveWork is the worker's accepted applications. Reading only
+        that meant an employer - who confirms the same job from the
+        other end - saw nothing here at all, and had to go back to My
+        Activity for the one action this section exists to surface.
+
+        The employer's half comes from their own posts: a job still
+        running with a hire on it. Normalised into the same shape as an
+        application so one card draws both.
+    */
+    final live = [
+      ...context.watch<ApplicationProvider>().liveWork,
+      ..._employerHires(context.watch<JobProvider>()),
+    ];
 
     if (live.isEmpty) return const SizedBox.shrink();
 
@@ -91,13 +106,56 @@ class WorkInProgressSection extends StatelessWidget {
     );
   }
 
+  /*
+      The employer's unfinished hires, shaped like applications.
+
+      myJobs returns the hire nested on the job; this flips it so the
+      card can read one shape. Only a job still running: a closed or
+      swept job cannot be completed - JobCompletionService refuses it -
+      and offering it would be the same inert button that was reported
+      in History.
+  */
+  List<Map<String, dynamic>> _employerHires(JobProvider jobs) {
+    final out = <Map<String, dynamic>>[];
+
+    for (final job in jobs.jobs) {
+      final hire = job['hire'];
+
+      if (hire is! Map<String, dynamic>) continue;
+      if (hire['status'] != 'accepted') continue;
+      if (!JobProvider.jobIsActive(job)) continue;
+
+      out.add({
+        'id': hire['application_id'],
+        'status': 'accepted',
+        'worker_completed_at': hire['employer_completed_at'],
+        'employer_completed_at': hire['worker_completed_at'],
+        // Whose name to put on the card: for an employer it is the
+        // worker they hired, not their own company.
+        '_other': hire['worker_name'] ?? 'the worker',
+        'job': job,
+      });
+    }
+
+    return out;
+  }
+
   Widget _card(BuildContext context, Map<String, dynamic> application) {
     final applicationId = (application['id'] as num?)?.toInt();
     final jobMap = application['job'];
     final job = jobMap is Map<String, dynamic> ? Job.fromJson(jobMap) : null;
 
     final title = job?.title ?? '${jobMap is Map ? jobMap['title'] ?? 'A job' : 'A job'}';
-    final employer = job?.company ?? 'the employer';
+    /*
+        The other party, whichever side this is.
+
+        _other is set when the row came from the employer's own jobs;
+        otherwise the worker is looking at it and the other party is
+        the company that posted it.
+    */
+    final employer = (application['_other'] as String?)
+        ?? job?.company
+        ?? 'the other side';
 
     final iConfirmed = application['worker_completed_at'] != null;
     final theyConfirmed = application['employer_completed_at'] != null;

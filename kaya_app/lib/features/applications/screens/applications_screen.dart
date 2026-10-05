@@ -1042,8 +1042,24 @@ class _JobPostCard extends StatelessWidget {
     */
     final dueNote = completionWaitNote(job);
 
-    // Same rule as the worker's card above.
-    final canConfirm = hire != null && !workDone && !iConfirmed;
+    /*
+        The job has to still be running, not just the hire unfinished.
+
+        This asked whether the hire was done and never whether the job
+        was. History lists jobs that are not open or running, and a job
+        can be closed by the employer or swept past its date while still
+        carrying an accepted hire nobody confirmed - so those rows offered
+        Mark as Complete on work that had already ended. Pressing it did
+        nothing: JobCompletionService returns early for a completed,
+        closed or expired job, so the control could only ever fail
+        silently.
+    */
+    final jobStillRunning =
+        const {'open', 'in_progress'}.contains(status);
+
+    // Same rule as the worker's card above, plus the job's own state.
+    final canConfirm =
+        hire != null && !workDone && !iConfirmed && jobStillRunning;
     final early = !completionHasOpened(job);
     final canReview = hire != null && workDone && hire['i_reviewed_them'] != true;
 

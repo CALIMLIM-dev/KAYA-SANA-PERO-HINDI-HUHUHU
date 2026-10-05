@@ -468,7 +468,7 @@ class _ManageJobsScreenState extends State<ManageJobsScreen>
                           },
                         ),
                         icon: const Icon(Icons.person_search, size: 16),
-                        label: const Text('Find workers'),
+                        label: const Text('Matches'),
                         style: OutlinedButton.styleFrom(
                           foregroundColor: AppColors.primary,
                           side: const BorderSide(color: AppColors.primary),
