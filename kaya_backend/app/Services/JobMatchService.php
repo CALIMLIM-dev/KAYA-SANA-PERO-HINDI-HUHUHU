@@ -126,6 +126,7 @@ class JobMatchService
             $job,
             $profile,
             (float) $coverage['score'],
+            $heldSkills->pluck('category_id')->filter()->map(fn ($id) => (int) $id)->all(),
         );
 
         $score += $categoryScore;
@@ -166,6 +167,68 @@ class JobMatchService
         ];
     }
 
+    /** The most profile strength can add to a rank, out of a fit of 100. */
+    public const STRENGTH_MAX = 20;
+
+    /*
+        How strong a worker's profile is, 0 to STRENGTH_MAX.
+
+        Fit says whether somebody can do this job; this says how much there
+        is to trust about them. It was not counted at all, so a profile
+        opened yesterday with one skill and no reviews tied one with years of
+        experience, licences and a run of good ratings - and a tie went to
+        whoever applied last.
+
+        Reviews count by how many as well as how good, so one five-star
+        review does not outweigh twenty fours. Topping up is not in here and
+        never will be: premium changes how a card looks, never where it sits.
+
+        Reads only relations already loaded, so it adds no query per row.
+    */
+    public static function strength(WorkerProfile $profile, ?int $experienceYears = null): float
+    {
+        $points = 0.0;
+
+        // Rating, weighed by how many reviews stand behind it: 6.
+        $count = (int) ($profile->rating_count ?? 0);
+        if ($count > 0) {
+            $points += 6 * ((float) $profile->rating_avg / 5) * min($count, 10) / 10;
+        }
+
+        // Finished work on KAYA: 5.
+        $points += 5 * min((int) ($profile->jobs_completed ?? 0), 10) / 10;
+
+        // Years of experience: 4.
+        if ($experienceYears !== null) {
+            $points += 4 * min($experienceYears, 5) / 5;
+        }
+
+        // Licences and certificates: 3.
+        $papers = ($profile->relationLoaded('licenses') ? $profile->licenses->count() : 0)
+            + ($profile->relationLoaded('certifications') ? $profile->certifications->count() : 0);
+        $points += 3 * min($papers, 2) / 2;
+
+        // Verified identity: 2.
+        $user = $profile->relationLoaded('user') ? $profile->user : null;
+        if ($user?->is_verified) {
+            $points += 2;
+        }
+
+        return round(min(self::STRENGTH_MAX, $points), 2);
+    }
+
+    /*
+        The order a list is shown in: fit first, strength second.
+
+        Fit is out of 100 and strength out of 20, so a clearly better fit
+        still wins, while two people who fit about equally are separated by
+        who has more to show for it.
+    */
+    public static function rank(int $fit, float $strength): float
+    {
+        return $fit + $strength;
+    }
+
     /**
      * How close the two trades are, and why.
      *
@@ -179,14 +242,35 @@ class JobMatchService
         JobPost $job,
         WorkerProfile $profile,
         float $skillCoverage,
+        array $skillCategoryIds = [],
     ): array {
-        if (! $job->category_id || ! $profile->category_id) {
+        if (! $job->category_id) {
             return [0.0, null, false];
         }
 
         // ── the same row ─────────────────────────────────────────────
         if ($profile->category_id === $job->category_id) {
             return [(float) self::WEIGHT_CATEGORY, 'Same work category', true];
+        }
+
+        /*
+            The trade one of their skills is filed under.
+
+            A worker picks one category at setup and it is never moved, so
+            someone who later added phone repair skills to a profile that
+            began as something else lost all 40 points on every phone
+            repair job - while a newcomer who picked the category and holds
+            no matching skill at all kept them. The skills say what a
+            person does as plainly as the setup choice does.
+        */
+        if (in_array((int) $job->category_id, $skillCategoryIds, true)) {
+            return [(float) self::WEIGHT_CATEGORY, 'Has skills in this work category', true];
+        }
+
+        if (! $profile->category_id) {
+            return $skillCoverage > 0.0
+                ? [self::WEIGHT_CATEGORY * self::CROSS_CATEGORY_CAP * $skillCoverage, 'Different trade, matching skills', false]
+                : [0.0, null, false];
         }
 
         /*

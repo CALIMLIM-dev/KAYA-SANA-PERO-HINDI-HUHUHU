@@ -619,6 +619,10 @@ class JobController extends Controller
                 'matched_skills' => $match['matched_skills'],
                 'match_reasons'  => $match['reasons'],
                 'match_score'    => $match['score'],
+                'rank_score'     => \App\Services\JobMatchService::rank(
+                    (int) $match['score'],
+                    \App\Services\JobMatchService::strength($profile, $experience->years($profile->experiences)),
+                ),
 
                 /*
                     What the employer is really deciding on.
@@ -658,7 +662,7 @@ class JobController extends Controller
         // A same-category worker always clears this, even with no exact skill
         // overlap — they can still do the job.
         ->filter(fn ($m) => $m['match_score'] >= \App\Services\JobMatchService::MIN_VISIBLE_SCORE)
-        ->sortByDesc('match_score')
+        ->sortByDesc('rank_score')
         ->take((int) $request->input('limit', 20))
         ->values();
 

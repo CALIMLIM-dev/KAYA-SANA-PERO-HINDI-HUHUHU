@@ -344,6 +344,40 @@ class _PostJobScreenState extends State<PostJobScreen> {
     return match['icon'] as IconData;
   }
 
+  /*
+      Every required skill as a catalogue id, typed ones included.
+
+      A skill typed into "Add a custom skill" was kept as a name only, and
+      the ids sent with the job came from the category's existing list - so
+      a typed skill was dropped without a word. Under a custom category
+      every skill is typed, and the job went up with no required skills at
+      all: nothing on the job page, and nothing for the match to compare.
+
+      Each typed name is made a row under the job's category first
+      (POST /skills answers with the existing row when the name is already
+      there), then sent with the rest. Null when one could not be saved,
+      so the post stops instead of going up without it.
+  */
+  Future<List<int>?> _resolveSkillIds(int categoryId) async {
+    final taxonomy = context.read<WorkerProfileProvider>();
+    final ids = <int>{..._selectedSkillIds};
+    final known = taxonomy.availableSkills.map((s) => s.name).toSet();
+
+    for (final name in _selectedSkills.where((s) => !known.contains(s))) {
+      final created = await taxonomy.createCustomSkill(name, categoryId);
+      if (created == null) {
+        if (mounted) {
+          AppToast.error(context,
+              'Could not save the skill "$name". ${taxonomy.errorMessage ?? 'Please try again.'}');
+        }
+        return null;
+      }
+      ids.add(created.id);
+    }
+
+    return ids.toList();
+  }
+
   /// Resolves the chosen skill names back to their database ids for the API.
   List<int> get _selectedSkillIds {
     final all = context.read<WorkerProfileProvider>().availableSkills;
@@ -2320,6 +2354,13 @@ class _PostJobScreenState extends State<PostJobScreen> {
       setState(() => _isLoading = true);
 
       final categoryId = _selectedCategoryId!;
+      final skillIds = await _resolveSkillIds(categoryId);
+      if (!mounted) return;
+      if (skillIds == null) {
+        setState(() => _isLoading = false);
+        return;
+      }
+
       final jobProvider = context.read<JobProvider>();
       final success = await jobProvider.createJob(
         title:       _titleController.text.trim(),
@@ -2327,7 +2368,7 @@ class _PostJobScreenState extends State<PostJobScreen> {
         categoryId:  categoryId,
         // Real skill ids, so a job's requirements can be matched against the
         // skills workers picked during onboarding.
-        skillIds:    _selectedSkillIds,
+        skillIds:    skillIds,
         budgetMin:   _amountIsSet
             ? double.tryParse(_budgetController.text.replaceAll(',', ''))
             : null,

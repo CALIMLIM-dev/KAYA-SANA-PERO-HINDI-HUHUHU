@@ -349,6 +349,16 @@ class _JobDetailsScreenState extends State<JobDetailsScreen>
             ),
 
           // ── Required skills ──
+          // Said even when there are none: an absent section read as the
+          // skills having failed to load.
+          if (job.requiredSkills.isEmpty)
+            _section(
+              title: 'Required Skills',
+              child: const Text(
+                'No specific skills listed.',
+                style: TextStyle(fontSize: 14, color: AppColors.neutral500),
+              ),
+            ),
           if (job.requiredSkills.isNotEmpty)
             _section(
               title: 'Required Skills',

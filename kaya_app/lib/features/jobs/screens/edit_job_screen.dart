@@ -62,6 +62,8 @@ class _EditJobScreenState extends State<EditJobScreen> {
   /// skills workers picked during onboarding. The old `List<String>` of names
   /// came from a hardcoded map and could never be sent — the server takes ids.
   List<int> _selectedSkillIds = [];
+  final _customSkillController = TextEditingController();
+  bool _addingSkill = false;
 
   bool _isLoading = false;
   // Prefilled from the job being edited — see the note in didChangeDependencies.
@@ -146,6 +148,7 @@ class _EditJobScreenState extends State<EditJobScreen> {
   void dispose() {
     _titleController.dispose();
     _descriptionController.dispose();
+    _customSkillController.dispose();
     _budgetController.dispose();
     _locationController.dispose();
     _workersNeededController.dispose();
@@ -412,12 +415,21 @@ class _EditJobScreenState extends State<EditJobScreen> {
                         v?.isEmpty ?? true ? 'Required' : null,
                   ),
 
-                  if (_selectedCategory != null &&
-                      _availableSkills.isNotEmpty) ...[
+                  /*
+                      Shown for every category, not only one that already
+                      has skills listed. A custom category starts with none,
+                      so the section never appeared and a job posted under
+                      one could never be given a required skill.
+                  */
+                  if (_selectedCategory != null && _categoryId != null) ...[
                     const SizedBox(height: 16),
                     _label('Required Skills'),
                     const SizedBox(height: 8),
-                    _skillChips(),
+                    if (_availableSkills.isNotEmpty) ...[
+                      _skillChips(),
+                      const SizedBox(height: 10),
+                    ],
+                    _customSkillInput(),
                   ],
                 ],
               ),
@@ -779,6 +791,67 @@ class _EditJobScreenState extends State<EditJobScreen> {
           ],
         ),
       ),
+    );
+  }
+
+  /// Adds a skill that is not on the list yet, under this job's category,
+  /// and selects it. The server answers with the existing row when the name
+  /// is already there.
+  Future<void> _addCustomSkill() async {
+    final name = _customSkillController.text.trim();
+    final categoryId = _categoryId;
+    if (name.isEmpty || categoryId == null || _addingSkill) return;
+
+    setState(() => _addingSkill = true);
+    final taxonomy = context.read<WorkerProfileProvider>();
+    final created = await taxonomy.createCustomSkill(name, categoryId);
+    if (!mounted) return;
+    setState(() => _addingSkill = false);
+
+    if (created == null) {
+      AppToast.error(context,
+          'Could not add "$name". ${taxonomy.errorMessage ?? 'Please try again.'}');
+      return;
+    }
+
+    setState(() {
+      if (!_selectedSkillIds.contains(created.id)) _selectedSkillIds.add(created.id);
+      _customSkillController.clear();
+    });
+  }
+
+  Widget _customSkillInput() {
+    return Row(
+      children: [
+        Expanded(
+          child: TextField(
+            controller: _customSkillController,
+            textCapitalization: TextCapitalization.words,
+            onSubmitted: (_) => _addCustomSkill(),
+            decoration: _inputDeco(
+              hint: 'Add a skill, e.g. LCD Replacement',
+              icon: Icons.add_circle_outline,
+            ),
+          ),
+        ),
+        const SizedBox(width: 10),
+        ElevatedButton(
+          onPressed: _addingSkill ? null : _addCustomSkill,
+          style: ElevatedButton.styleFrom(
+            backgroundColor: AppColors.primary,
+            foregroundColor: Colors.white,
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+          ),
+          child: _addingSkill
+              ? const SizedBox(
+                  width: 16,
+                  height: 16,
+                  child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                )
+              : const Text('Add'),
+        ),
+      ],
     );
   }
 

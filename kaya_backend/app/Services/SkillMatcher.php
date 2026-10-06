@@ -26,6 +26,8 @@ namespace App\Services;
         stem      0.90  one is a form of the other
         tokens    ~     the same words in a different order
         contains  0.80  everything asked for, plus more said about it
+        shares    0.75  the same distinctive word, different generic ones
+                        ("LCD Repair" and "LCD Replacement")
         sounds    0.75  spelled differently, pronounced alike
         typo      0.70  one edit apart, scaled to length
         (none)    0.00
@@ -47,6 +49,7 @@ class SkillMatcher
     public const RULE_STEM     = 'stem';
     public const RULE_TOKENS   = 'tokens';
     public const RULE_CONTAINS = 'contains';
+    public const RULE_SHARES   = 'shares';
     public const RULE_SEMANTIC = 'semantic';
     public const RULE_SOUNDS   = 'sounds';
     public const RULE_TYPO     = 'typo';
@@ -82,6 +85,22 @@ class SkillMatcher
         must not match either.
     */
     private const FUZZY_MIN_LENGTH = 6;
+
+    /*
+        Words that name the kind of work rather than the work itself.
+
+        "Brake Service" and "Phone Service" share a word and nothing else,
+        and "LCD Repair" and "LCD Replacement" differ only in one of these.
+        The shares rule ignores them on both sides, so it fires on the word
+        that actually says what the trade is.
+    */
+    private const GENERIC_WORDS = [
+        'service', 'services', 'serbisyo', 'repair', 'repairs', 'repairing',
+        'replacement', 'replace', 'replacing', 'installation', 'install',
+        'installing', 'maintenance', 'work', 'works', 'job', 'jobs', 'general',
+        'basic', 'advanced', 'fix', 'fixing', 'technician', 'tech', 'expert',
+        'specialist', 'cleaning', 'and', 'with',
+    ];
 
     /** Dropped before token overlap, English and Tagalog. */
     private const STOP_WORDS = ['of', 'and', 'the', 'for', 'ng', 'sa', 'na', 'at', 'ang'];
@@ -142,6 +161,12 @@ class SkillMatcher
         // ── contains ──────────────────────────────────────────────────────
         if (self::contains($sa, $sb)) {
             return $this->hit(0.8, self::RULE_CONTAINS);
+        }
+
+        // ── shares ────────────────────────────────────────────────────────
+        $shares = self::sharedCore($a, $b);
+        if ($shares > 0.0) {
+            return $this->hit(round(0.75 * $shares, 2), self::RULE_SHARES);
         }
 
         // ── sounds ────────────────────────────────────────────────────────
@@ -205,6 +230,7 @@ class SkillMatcher
                 self::RULE_STEM,
                 self::RULE_SEMANTIC,
                 self::RULE_CONTAINS,
+                self::RULE_SHARES,
                 self::RULE_SOUNDS,
                 self::RULE_TYPO,
             ], true) && $bestHeld !== null) {
@@ -230,6 +256,7 @@ class SkillMatcher
             self::RULE_SOUNDS   => "$held sounds like $required",
             self::RULE_TYPO     => "$held looks like $required",
             self::RULE_CONTAINS => "$held includes $required",
+            self::RULE_SHARES   => "$held covers $required",
             default             => "$held is a form of $required",
         };
     }
@@ -366,12 +393,60 @@ class SkillMatcher
             about the trade on its own.
         */
         foreach ($shorter as $word) {
-            if (mb_strlen($word) >= self::CONTAINMENT_MIN_TOKEN) {
+            if (mb_strlen($word) >= self::CONTAINMENT_MIN_TOKEN || self::isAbbreviation($word)) {
                 return true;
             }
         }
 
         return false;
+    }
+
+    /*
+        An abbreviation: two to five letters and no vowel.
+
+        LCD, CCTV, PC and TV are whole trades in three letters, and the
+        four-letter floor on containment threw every one of them away - so
+        a worker who wrote "LCD" never matched a job asking for "LCD
+        Replacement". No vowel is what separates them from short words
+        like car or tile that really are too common to trust alone.
+    */
+    private static function isAbbreviation(string $word): bool
+    {
+        return (bool) preg_match('/^[bcdfghjklmnpqrstvwxz]{2,5}$/', $word);
+    }
+
+    /**
+     * How much of the required term's distinctive words the held term has,
+     * 0 to 1, with generic and stop words left out of both.
+     *
+     * Only distinctive words count: four letters or more, or an
+     * abbreviation. Compared by stem, so "screens" meets "screen".
+     */
+    private static function sharedCore(string $required, string $held): float
+    {
+        $core = static function (string $term): array {
+            $words = array_filter(
+                explode(' ', $term),
+                static fn (string $w) => $w !== ''
+                    && ! in_array($w, self::STOP_WORDS, true)
+                    && ! in_array($w, self::GENERIC_WORDS, true)
+                    && (mb_strlen($w) >= self::CONTAINMENT_MIN_TOKEN || self::isAbbreviation($w)),
+            );
+
+            return array_values(array_unique(array_map(
+                static fn (string $w) => self::stem($w),
+                $words,
+            )));
+        };
+
+        $want = $core($required);
+        $have = $core($held);
+
+        if ($want === [] || $have === []) {
+            return 0.0;
+        }
+
+        return count(array_intersect($want, $have)) / count($want);
     }
 
     /** Jaccard overlap of the stemmed words, stop words dropped. */

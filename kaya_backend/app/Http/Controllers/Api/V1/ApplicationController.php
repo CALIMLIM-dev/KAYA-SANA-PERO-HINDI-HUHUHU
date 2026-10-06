@@ -583,13 +583,22 @@ class ApplicationController extends Controller
                     'certifications'        => $profile?->certifications->pluck('certification_name')->filter()->values() ?? [],
                     'experience_label'      => $profile ? $experience->label($profile->experiences) : null,
                     'jobs_completed'        => (int) ($profile?->jobs_completed ?? 0),
+
+                    // Fit first, profile strength second. See JobMatchService::rank.
+                    'rank_score'            => $profile
+                        ? \App\Services\JobMatchService::rank(
+                            (int) $match['score'],
+                            \App\Services\JobMatchService::strength($profile, $experience->years($profile->experiences)),
+                        )
+                        : 0.0,
                 ];
             })
             /*
-                Best fit first. A stable sort, so applicants who score the
-                same keep the newest-first order they arrived in.
+                Best fit first, then the stronger profile. A stable sort, so
+                applicants equal on both keep the newest-first order they
+                arrived in.
             */
-            ->sortByDesc('match_score')
+            ->sortByDesc('rank_score')
             ->values();
 
         return $this->ok($applicants);
