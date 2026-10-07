@@ -59,6 +59,8 @@ class MatchedWorkersPayloadTest extends TestCase
             'setup_completed' => true,
         ]);
         CreditWallet::updateOrCreate(['user_id' => $user->id], ['balance' => 100]);
+        // The list is a Top-up benefit; these tests are about what is in it.
+        $this->topUp($user);
 
         return $user;
     }

@@ -679,10 +679,31 @@ class JobController extends Controller
         // overlap — they can still do the job.
         ->filter(fn ($m) => $m['match_score'] >= \App\Services\JobMatchService::MIN_VISIBLE_SCORE)
         ->sortByDesc('rank_score')
-        ->take((int) $request->input('limit', 20))
         ->values();
 
-        return $this->ok($scored);
+        /*
+            The list is for a hirer who has availed of points.
+
+            The panel's requirement, as worded: "a hirer who avails of i-Kaya
+            Points automatically receives a list of job seekers whose
+            profiles match". Availing means topping up, the same rule as
+            every other Top-up benefit (User::hasToppedUp). Everyone is told
+            how many match, so nobody tops up blind; only a hirer who has
+            topped up is told who.
+        */
+        $unlocked = $user->hasToppedUp();
+
+        return response()->json([
+            'success'     => true,
+            'data'        => $unlocked
+                ? $scored->take((int) $request->input('limit', 20))->values()
+                : [],
+            'locked'      => ! $unlocked,
+            'match_count' => $scored->count(),
+            'message'     => $unlocked
+                ? 'Matched job seekers'
+                : 'Top up any amount to see the job seekers who match this job.',
+        ]);
     }
 
     /*

@@ -5,6 +5,8 @@ import '../../../core/utils/realtime_refresh.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../providers/application_provider.dart';
 import '../../../providers/job_provider.dart';
+import '../../../providers/worker_browse_provider.dart';
+import '../../employer/screens/matched_workers_screen.dart';
 import '../widgets/applicant_card.dart';
 
 /// View Applicants Screen — employer sees everyone who actually applied to a
@@ -25,6 +27,16 @@ class _ViewApplicantsScreenState extends State<ViewApplicantsScreen>
   late TabController _tabController;
   int? _jobId;
   bool _initialized = false;
+
+  /*
+      Jobs whose matched workers have already popped up this session.
+
+      The panel asked that a hirer who avails of points "automatically
+      receives" the list, so it opens by itself the first time a job's
+      applicants are viewed - once, not every visit. The banner above the
+      tabs opens it again whenever it is wanted.
+  */
+  static final Set<int> _matchesShown = {};
 
   /// Job status and title, needed to decide whether reviewing is possible.
   ///
@@ -71,11 +83,79 @@ class _ViewApplicantsScreenState extends State<ViewApplicantsScreen>
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!mounted) return;
         context.read<ApplicationProvider>().fetchApplicants(_jobId!);
-        // Needed for the job's status and title — callers only pass the id.
-        context.read<JobProvider>().fetchJobDetail(_jobId!);
         bindRealtimeRefresh();
+        // The job (status, title) and its matched workers together.
+        _loadJobAndMatches(_jobId!);
       });
     }
+  }
+
+  Future<void> _loadJobAndMatches(int jobId) async {
+    final jobs = context.read<JobProvider>();
+    final browse = context.read<WorkerBrowseProvider>();
+
+    await Future.wait([jobs.fetchJobDetail(jobId), browse.fetchMatches(jobId)]);
+    if (!mounted) return;
+
+    // Only while the job is still looking for people, and only once.
+    final open = jobs.selectedJob?.status == 'open';
+    if (open && browse.matchCount > 0 && _matchesShown.add(jobId)) {
+      showMatchedWorkersSheet(context, jobId: jobId, jobTitle: jobs.selectedJob?.title);
+    }
+  }
+
+  /// "8 workers match this job", above the tabs, while the job is open.
+  Widget _matchesBanner() {
+    final browse = context.watch<WorkerBrowseProvider>();
+    final open = context.watch<JobProvider>().selectedJob?.status == 'open';
+
+    if (!open || browse.matchesJobId != _jobId || browse.matchCount == 0) {
+      return const SizedBox.shrink();
+    }
+
+    final count = browse.matchCount;
+    final locked = browse.matchesLocked;
+
+    return Material(
+      color: Colors.white,
+      child: InkWell(
+        onTap: () => showMatchedWorkersSheet(context, jobId: _jobId!, jobTitle: _jobTitle),
+        child: Container(
+          padding: const EdgeInsets.fromLTRB(16, 12, 12, 12),
+          decoration: const BoxDecoration(
+            border: Border(bottom: BorderSide(color: AppColors.neutral200)),
+          ),
+          child: Row(
+            children: [
+              Icon(locked ? Icons.lock_outline : Icons.person_search_outlined,
+                  size: 20, color: AppColors.primary),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  locked
+                      ? '$count worker${count == 1 ? '' : 's'} match this job. Top up to see them.'
+                      : '$count worker${count == 1 ? '' : 's'} match this job',
+                  style: const TextStyle(
+                    fontSize: 13.5,
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.neutral900,
+                  ),
+                ),
+              ),
+              const Text(
+                'See',
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w700,
+                  color: AppColors.primary,
+                ),
+              ),
+              const Icon(Icons.chevron_right, size: 20, color: AppColors.primary),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 
   @override
@@ -155,7 +235,11 @@ class _ViewApplicantsScreenState extends State<ViewApplicantsScreen>
               ? const Center(child: CircularProgressIndicator())
               : provider.applicantsErrorMessage != null && all.isEmpty
                   ? _errorState(provider.applicantsErrorMessage!)
-                  : TabBarView(
+                  : Column(
+                      children: [
+                        _matchesBanner(),
+                        Expanded(
+                          child: TabBarView(
                       controller: _tabController,
                       children: [
                         _buildList(pending,
@@ -170,6 +254,9 @@ class _ViewApplicantsScreenState extends State<ViewApplicantsScreen>
                         _buildList(rejected,
                             showActions: false,
                             perWorkerActions: perWorkerActions),
+                      ],
+                    ),
+                        ),
                       ],
                     ),
         );

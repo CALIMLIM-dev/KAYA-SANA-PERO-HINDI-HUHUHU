@@ -41,7 +41,7 @@ class MatchingStrengthTest extends TestCase
         $this->auto = Category::create(['name' => 'Automotive', 'is_active' => true]);
         $lcd = Skill::create(['name' => 'LCD Replacement', 'category_id' => $this->phone->id]);
 
-        $this->employer = User::factory()->create(['is_verified' => true]);
+        $this->employer = $this->topUp(User::factory()->create(['is_verified' => true]));
         EmployerProfile::create(['user_id' => $this->employer->id, 'employer_type' => 'individual',
             'location' => 'Urdaneta City', 'setup_completed' => true]);
 

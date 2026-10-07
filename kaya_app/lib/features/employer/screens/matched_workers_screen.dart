@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../../core/constants/app_colors.dart';
+import '../../../core/navigation/app_router.dart';
 import '../../../core/widgets/app_toast.dart';
 import '../../../core/widgets/offline_notice.dart';
 import '../../../providers/invitation_provider.dart';
@@ -11,24 +12,24 @@ import '../widgets/matched_worker_card.dart';
 /*
     Workers who fit one job, best first.
 
-    The server has scored and sorted this since the day it shipped and no
-    screen ever called it - a capability with no way in, which is the
-    no-inert-UI rule read from the other end.
-
     **A decision card, not a profile card.** A profile answers "who is this
     person"; a row here answers "should I invite them for *this* job", so it
-    is organised around the job. The skills the job asked for and this worker
-    has are filled chips; the ones they lack are outline chips. That line is
-    the whole feature, and a public profile cannot show it at any size,
-    because it does not know which job is being filled.
+    is organised around the job: the skills it asked for and this worker has
+    are filled chips, the ones they lack are outline chips.
 
-    No percentage anywhere. The score orders the list and is never printed:
-    category is 0 or 40, location is one of five bands, and skills with three
-    requirements can only land on four values - so the number repeats across a
-    screenful of people and distinguishes nobody. The reasons say the same
-    thing in words that can be checked.
+    No percentage anywhere. The order is the ranking, and the reasons say why
+    in words that can be checked.
+
+    **A Top-up benefit.** The panel's requirement: "a hirer who avails of
+    i-Kaya Points automatically receives a list of job seekers whose profiles
+    match". A hirer who has topped up gets the list; anyone else is told how
+    many match and how to see them, never shown an empty screen that reads as
+    "nobody fits".
+
+    Shown two ways from one widget: this screen, from My Jobs, and a pop-up
+    on the Applicants screen (showMatchedWorkersSheet).
 */
-class MatchedWorkersScreen extends StatefulWidget {
+class MatchedWorkersScreen extends StatelessWidget {
   const MatchedWorkersScreen({
     super.key,
     required this.jobId,
@@ -39,10 +40,106 @@ class MatchedWorkersScreen extends StatefulWidget {
   final String? jobTitle;
 
   @override
-  State<MatchedWorkersScreen> createState() => _MatchedWorkersScreenState();
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: AppColors.background,
+      appBar: AppBar(
+        backgroundColor: AppColors.primary,
+        foregroundColor: Colors.white,
+        title: const Text('Matched workers'),
+      ),
+      body: MatchedWorkersList(jobId: jobId, jobTitle: jobTitle),
+    );
+  }
 }
 
-class _MatchedWorkersScreenState extends State<MatchedWorkersScreen> {
+/// The matched list as a pop-up over the Applicants screen.
+Future<void> showMatchedWorkersSheet(
+  BuildContext context, {
+  required int jobId,
+  String? jobTitle,
+}) {
+  return showModalBottomSheet<void>(
+    context: context,
+    isScrollControlled: true,
+    backgroundColor: Colors.transparent,
+    builder: (_) => DraggableScrollableSheet(
+      initialChildSize: 0.75,
+      minChildSize: 0.4,
+      maxChildSize: 0.95,
+      expand: false,
+      builder: (sheetContext, controller) => Container(
+        decoration: const BoxDecoration(
+          color: AppColors.background,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        ),
+        child: Column(
+          children: [
+            const SizedBox(height: 10),
+            Container(
+              width: 40,
+              height: 4,
+              decoration: BoxDecoration(
+                color: AppColors.neutral300,
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 10, 8, 4),
+              child: Row(
+                children: [
+                  const Expanded(
+                    child: Text(
+                      'Matched workers',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w700,
+                        color: AppColors.neutral900,
+                      ),
+                    ),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.close, size: 22),
+                    color: AppColors.neutral600,
+                    onPressed: () => Navigator.pop(sheetContext),
+                  ),
+                ],
+              ),
+            ),
+            Expanded(
+              child: MatchedWorkersList(
+                jobId: jobId,
+                jobTitle: jobTitle,
+                controller: controller,
+              ),
+            ),
+          ],
+        ),
+      ),
+    ),
+  );
+}
+
+/// The list itself, with its invite handling and its locked state.
+class MatchedWorkersList extends StatefulWidget {
+  const MatchedWorkersList({
+    super.key,
+    required this.jobId,
+    this.jobTitle,
+    this.controller,
+  });
+
+  final int jobId;
+  final String? jobTitle;
+
+  /// The sheet's scroll controller, so dragging the list drags the sheet.
+  final ScrollController? controller;
+
+  @override
+  State<MatchedWorkersList> createState() => _MatchedWorkersListState();
+}
+
+class _MatchedWorkersListState extends State<MatchedWorkersList> {
   /// Workers already invited in this session, so the button settles rather
   /// than inviting twice while the list is still on screen.
   final Set<int> _invited = {};
@@ -52,20 +149,12 @@ class _MatchedWorkersScreenState extends State<MatchedWorkersScreen> {
   void initState() {
     super.initState();
 
-    /*
-        After the frame: a provider write during build throws, and this
-        screen is pushed from a card that is mid-build when it happens.
-
-        And only when the rows in hand are not already this job's -
-        opening the screen twice should not ask the server twice for a
-        list that has not changed. Pull-to-refresh is the deliberate
-        reload.
-    */
+    // After the frame: a provider write during build throws. Only when the
+    // rows in hand are not this job's - pull-to-refresh is the deliberate
+    // reload.
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
-
       final provider = context.read<WorkerBrowseProvider>();
-
       if (provider.matchesJobId != widget.jobId) {
         provider.fetchMatches(widget.jobId);
       }
@@ -97,72 +186,67 @@ class _MatchedWorkersScreenState extends State<MatchedWorkersScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: AppColors.background,
-      appBar: AppBar(
-        backgroundColor: AppColors.primary,
-        foregroundColor: Colors.white,
-        title: const Text('Matched workers'),
-      ),
-      body: Consumer<WorkerBrowseProvider>(
-        builder: (context, provider, _) {
-          if (provider.matchesLoading && provider.matches.isEmpty) {
-            return const Center(child: CircularProgressIndicator());
-          }
+    return Consumer<WorkerBrowseProvider>(
+      builder: (context, provider, _) {
+        final forThisJob = provider.matchesJobId == widget.jobId;
 
-          if (provider.matches.isEmpty) {
-            return RefreshIndicator(
-              onRefresh: () => provider.fetchMatches(widget.jobId),
-              child: ListView(
-                children: [
-                  SizedBox(
-                    height: MediaQuery.of(context).size.height * 0.7,
-                    child: provider.matchesError != null
-                        ? OfflineNotice(
-                            what: 'suggested workers',
-                            onRetry: () => provider.fetchMatches(widget.jobId),
-                          )
-                        : _empty(),
-                  ),
-                ],
-              ),
-            );
-          }
+        if (!forThisJob || (provider.matchesLoading && provider.matches.isEmpty && !provider.matchesLocked)) {
+          return const Center(child: CircularProgressIndicator());
+        }
 
+        if (provider.matchesLocked) {
+          return ListView(
+            controller: widget.controller,
+            children: [_locked(provider.matchCount)],
+          );
+        }
+
+        if (provider.matches.isEmpty) {
           return RefreshIndicator(
             onRefresh: () => provider.fetchMatches(widget.jobId),
-            child: ListView.separated(
-              padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
-              itemCount: provider.matches.length + 1,
-              separatorBuilder: (_, _) => const SizedBox(height: 10),
-              itemBuilder: (context, index) {
-                if (index == 0) return _header(provider.matches.length);
-
-                final row = provider.matches[index - 1];
-                final workerId = (row['user_id'] as num?)?.toInt();
-
-                return MatchedWorkerCard(
-                  row: row,
-                  onInvite: _invite,
-                  inviting: workerId != null && _inviting == workerId,
-                  alreadyInvited:
-                      workerId != null && _invited.contains(workerId),
-                );
-              },
+            child: ListView(
+              controller: widget.controller,
+              children: [
+                SizedBox(
+                  height: MediaQuery.of(context).size.height * 0.5,
+                  child: provider.matchesError != null
+                      ? OfflineNotice(
+                          what: 'matched workers',
+                          onRetry: () => provider.fetchMatches(widget.jobId),
+                        )
+                      : _empty(),
+                ),
+              ],
             ),
           );
-        },
-      ),
+        }
+
+        return RefreshIndicator(
+          onRefresh: () => provider.fetchMatches(widget.jobId),
+          child: ListView.separated(
+            controller: widget.controller,
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+            itemCount: provider.matches.length + 1,
+            separatorBuilder: (_, _) => const SizedBox(height: 10),
+            itemBuilder: (context, index) {
+              if (index == 0) return _header(provider.matches.length);
+
+              final row = provider.matches[index - 1];
+              final workerId = (row['user_id'] as num?)?.toInt();
+
+              return MatchedWorkerCard(
+                row: row,
+                onInvite: _invite,
+                inviting: workerId != null && _inviting == workerId,
+                alreadyInvited: workerId != null && _invited.contains(workerId),
+              );
+            },
+          ),
+        );
+      },
     );
   }
 
-  /*
-      What the ranking was computed from.
-
-      Without this the order is magic. The panel asked for a list that helps
-      an employer decide, and an order nobody can account for does the
-      opposite.
-  */
   Widget _header(int count) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 4),
@@ -180,7 +264,8 @@ class _MatchedWorkersScreenState extends State<MatchedWorkersScreen> {
           ),
           const SizedBox(height: 3),
           const Text(
-            'Ranked on the trade, the skills you asked for, and how near they are.',
+            'Ranked on the skills you asked for, the trade, how near they are, '
+            'and how strong their profile is.',
             style: TextStyle(fontSize: 12.5, color: AppColors.neutral600),
           ),
         ],
@@ -188,18 +273,77 @@ class _MatchedWorkersScreenState extends State<MatchedWorkersScreen> {
     );
   }
 
+  /// A hirer who has not topped up: how many, and the way to see them.
+  Widget _locked(int count) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(24, 32, 24, 24),
+      child: Column(
+        children: [
+          Container(
+            width: 64,
+            height: 64,
+            decoration: BoxDecoration(
+              color: AppColors.primary.withValues(alpha: 0.08),
+              shape: BoxShape.circle,
+            ),
+            child: const Icon(Icons.lock_outline, size: 30, color: AppColors.primary),
+          ),
+          const SizedBox(height: 16),
+          Text(
+            count == 0
+                ? 'Nobody matches this job yet'
+                : '$count worker${count == 1 ? '' : 's'} match this job',
+            textAlign: TextAlign.center,
+            style: const TextStyle(
+              fontSize: 17,
+              fontWeight: FontWeight.w700,
+              color: AppColors.neutral900,
+            ),
+          ),
+          const SizedBox(height: 8),
+          const Text(
+            'Top up any amount of Barya once to see who they are, ranked for '
+            'this job. It never expires.',
+            textAlign: TextAlign.center,
+            style: TextStyle(fontSize: 13.5, height: 1.4, color: AppColors.neutral600),
+          ),
+          const SizedBox(height: 20),
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton(
+              onPressed: () async {
+                await AppRouter.push(context, AppRouter.wallet);
+                if (!mounted) return;
+                // Back from the wallet, possibly topped up: ask again.
+                context.read<WorkerBrowseProvider>().fetchMatches(widget.jobId);
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.primary,
+                foregroundColor: Colors.white,
+                elevation: 0,
+                padding: const EdgeInsets.symmetric(vertical: 13),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                textStyle: const TextStyle(fontSize: 14.5, fontWeight: FontWeight.w700),
+              ),
+              child: const Text('Top up'),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _empty() {
-    return Center(
+    return const Center(
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 32),
+        padding: EdgeInsets.symmetric(horizontal: 32),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(Icons.person_search_outlined,
-                size: 44, color: AppColors.neutral400),
-            const SizedBox(height: 16),
-            const Text(
+            Icon(Icons.person_search_outlined, size: 44, color: AppColors.neutral400),
+            SizedBox(height: 16),
+            Text(
               'Nobody matches yet',
               style: TextStyle(
                 fontSize: 16,
@@ -207,13 +351,12 @@ class _MatchedWorkersScreenState extends State<MatchedWorkersScreen> {
                 color: AppColors.neutral900,
               ),
             ),
-            const SizedBox(height: 6),
-            const Text(
+            SizedBox(height: 6),
+            Text(
               'Workers appear here as they set up profiles in your area. '
               'Your post is still open and people can apply to it.',
               textAlign: TextAlign.center,
-              style: TextStyle(
-                  fontSize: 13.5, height: 1.4, color: AppColors.neutral600),
+              style: TextStyle(fontSize: 13.5, height: 1.4, color: AppColors.neutral600),
             ),
           ],
         ),

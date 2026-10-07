@@ -52,7 +52,7 @@ class MatchingDecisionsTest extends TestCase
         $this->auto = Category::create(['name' => 'Automotive', 'is_active' => true]);
         $this->lcd = Skill::create(['name' => 'LCD Replacement', 'category_id' => $this->phone->id]);
 
-        $this->employer = User::factory()->create(['is_verified' => true]);
+        $this->employer = $this->topUp(User::factory()->create(['is_verified' => true]));
         EmployerProfile::create(['user_id' => $this->employer->id, 'employer_type' => 'individual',
             'location' => 'Urdaneta City', 'setup_completed' => true]);
     }
@@ -294,5 +294,23 @@ class MatchingDecisionsTest extends TestCase
         ])->assertCreated();
 
         $this->assertSame(1, $this->notified($worker, $job));
+    }
+    // ── the list is a Top-up benefit ────────────────────────────────────────
+
+    #[Test]
+    public function a_hirer_who_has_not_topped_up_is_told_how_many_match_but_not_who(): void
+    {
+        $hirer = User::factory()->create(['is_verified' => true]);
+        EmployerProfile::create(['user_id' => $hirer->id, 'employer_type' => 'individual', 'location' => 'Urdaneta City']);
+        $job = $this->job([$this->lcd->id], ['employer_id' => $hirer->id]);
+        $this->worker('Seeker', $this->phone->id, [['LCD Replacement', $this->phone->id]]);
+
+        $locked = $this->actingAs($hirer, 'sanctum')->getJson("/api/v1/jobs/{$job->id}/matches")->assertOk();
+        $locked->assertJsonPath('locked', true)->assertJsonPath('match_count', 1)->assertJsonPath('data', []);
+
+        $this->topUp($hirer);
+
+        $open = $this->actingAs($hirer, 'sanctum')->getJson("/api/v1/jobs/{$job->id}/matches")->assertOk();
+        $open->assertJsonPath('locked', false)->assertJsonPath('data.0.name', 'Seeker');
     }
 }

@@ -162,11 +162,22 @@ class WorkerBrowseProvider with ChangeNotifier {
   String? get matchesError => _matchesError;
   int? get matchesJobId => _matchesJobId;
 
+  /// The list is a Top-up benefit: locked means the hirer has not topped
+  /// up, and only [matchCount] - how many match - is known.
+  bool _matchesLocked = false;
+  int _matchCount = 0;
+  bool get matchesLocked => _matchesLocked;
+  int get matchCount => _matchCount;
+
+
   /// Lets a test render the screen with something in it.
   @visibleForTesting
-  void seedMatches(List<Map<String, dynamic>> rows, {int jobId = 1}) {
+  void seedMatches(List<Map<String, dynamic>> rows,
+      {int jobId = 1, bool locked = false, int? count}) {
     _matches = rows;
     _matchesJobId = jobId;
+    _matchesLocked = locked;
+    _matchCount = count ?? rows.length;
     _matchesLoading = false;
     notifyListeners();
   }
@@ -187,6 +198,8 @@ class WorkerBrowseProvider with ChangeNotifier {
       final rows = res.data['data'] as List;
 
       _matches = rows.cast<Map<String, dynamic>>();
+      _matchesLocked = res.data['locked'] == true;
+      _matchCount = (res.data['match_count'] as num?)?.toInt() ?? _matches.length;
     } catch (e) {
       // Same rule as the directory: a failed load is not an empty shortlist,
       // so whatever was on screen stays there with the error beside it.
