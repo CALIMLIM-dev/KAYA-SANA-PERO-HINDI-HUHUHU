@@ -75,6 +75,31 @@ class Job {
   /// Null when the account has no worker profile to score against.
   final int? matchScore;
   final List<String> matchedSkills;
+
+  /// Where this job sits for the signed-in worker: 2 holds a required skill
+  /// (or, for a job naming none, works in its trade), 1 the trade only, 0
+  /// neither. Null without a worker profile. Orders the feed; never shown.
+  final int? matchTier;
+
+  /// How many skills the job asks for, and how many of them this worker has.
+  final int requiredCount;
+  final int matchedCount;
+
+  /*
+      What the card says about fit, as a fact rather than a score.
+
+      "72% match" was a number nobody could check, and it could disagree
+      with the order the list was in. "You have 1 of 2 required skills" is
+      checkable and cannot. Null when there is nothing true to say.
+  */
+  String? get fitLine {
+    if (matchTier == null) return null;
+    if (requiredCount > 0) {
+      return 'You have $matchedCount of $requiredCount required skill${requiredCount == 1 ? '' : 's'}';
+    }
+    return matchTier == 2 ? 'Matches your trade' : null;
+  }
+
   final int? jobId;
   final int? categoryId;
   final int? locationId;
@@ -258,6 +283,9 @@ class Job {
     this.workersFilled,
     this.matchScore,
     this.matchedSkills = const [],
+    this.matchTier,
+    this.requiredCount = 0,
+    this.matchedCount = 0,
     this.jobId,
     this.categoryId,
     this.locationId,
@@ -345,6 +373,9 @@ class Job {
       workersNeeded: (json['workers_needed'] as num?)?.toInt() ?? 1,
       workersFilled: (json['workers_filled'] as num?)?.toInt(),
       matchScore: (json['match_score'] as num?)?.toInt(),
+      matchTier: (json['match_tier'] as num?)?.toInt(),
+      requiredCount: (json['required_count'] as num?)?.toInt() ?? 0,
+      matchedCount: (json['matched_count'] as num?)?.toInt() ?? 0,
       matchedSkills: (json['matched_skills'] as List?)
               ?.map((s) => s.toString())
               .toList() ??

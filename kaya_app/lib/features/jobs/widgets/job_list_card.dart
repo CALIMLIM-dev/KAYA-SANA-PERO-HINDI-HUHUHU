@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'fit_line.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/utils/format.dart';
 import '../../../data/models/job_model.dart';
@@ -22,13 +23,6 @@ class JobListCard extends StatelessWidget {
     this.onTap,
     this.onToggleSave,
   });
-
-  Color get _matchColor {
-    final p = job.matchScore ?? 0;
-    if (p >= 80) return AppColors.success;
-    if (p >= 50) return AppColors.warning;
-    return AppColors.neutral600;
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -145,20 +139,14 @@ class JobListCard extends StatelessWidget {
                   ordinary place from day four and went on claiming to be
                   urgent for ever.
               */
-              if (job.isBoosted || job.matchScore != null) ...[
+              if (job.isBoosted) ...[
                 const SizedBox(height: 8),
-                Wrap(
-                  spacing: 6,
-                  runSpacing: 4,
-                  children: [
-                    if (job.isBoosted)
-                      _pill('URGENT', const Color(0xFF8A6D00),
-                          AppColors.accent.withValues(alpha: 0.16)),
-                    if (job.matchScore != null)
-                      _pill('${job.matchScore}% match', _matchColor,
-                          _matchColor.withValues(alpha: 0.12)),
-                  ],
-                ),
+                _pill('URGENT', const Color(0xFF8A6D00),
+                    AppColors.accent.withValues(alpha: 0.16)),
+              ],
+              if (job.fitLine != null) ...[
+                const SizedBox(height: 8),
+                FitLine(text: job.fitLine!, strong: job.matchTier == 2),
               ],
 
               const SizedBox(height: 10),

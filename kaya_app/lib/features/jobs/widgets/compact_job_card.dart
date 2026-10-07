@@ -13,46 +13,13 @@ class CompactJobCard extends StatelessWidget {
   final Job job;
   final VoidCallback? onTap;
   final VoidCallback? onContact;
-  final List<String> workerSkills;
 
   const CompactJobCard({
     super.key,
     required this.job,
     this.onTap,
     this.onContact,
-    this.workerSkills = const [],
   });
-
-  // ─── match calculation ────────────────────────────────────────────────────
-  //
-  // Prefers the server's match_score (JobMatchService — category-first, so a
-  // same-trade worker with no exact skill overlap still scores well and stays
-  // visible). The client-side skill-overlap calculation below is only a
-  // fallback for a Job that was not loaded from GET /jobs (e.g. still mocked
-  // in a screen this card hasn't been wired into yet), where matchScore is
-  // always null and skills-only was the entire signal — it would have hidden
-  // a valid same-category worker with zero exact skill matches.
-  bool get _showMatch =>
-      job.matchScore != null ||
-      (workerSkills.isNotEmpty && job.requiredSkills.isNotEmpty);
-
-  int get _matchPercent {
-    if (job.matchScore != null) return job.matchScore!;
-    if (workerSkills.isEmpty || job.requiredSkills.isEmpty) return 0;
-
-    final wLower = workerSkills.map((s) => s.toLowerCase()).toSet();
-    final matched = job.requiredSkills
-        .where((s) => wLower.contains(s.toLowerCase()))
-        .length;
-    return ((matched / job.requiredSkills.length) * 100).round();
-  }
-
-  Color get _matchColor {
-    final p = _matchPercent;
-    if (p >= 80) return AppColors.success;
-    if (p >= 50) return AppColors.warning;
-    return AppColors.neutral600;
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -193,21 +160,16 @@ class CompactJobCard extends StatelessWidget {
                     ),
                   ),
                   const Spacer(),
-                  if (_showMatch)
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 6, vertical: 2),
-                      decoration: BoxDecoration(
-                        color: _matchColor.withValues(alpha: 0.12),
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      child: Text(
-                        '$_matchPercent%',
-                        style: TextStyle(
-                          fontSize: 10,
-                          fontWeight: FontWeight.w700,
-                          color: _matchColor,
-                        ),
+                  // The short form of the fit line: "1 of 2 skills".
+                  if (job.matchTier != null && job.requiredCount > 0)
+                    Text(
+                      '${job.matchedCount} of ${job.requiredCount} skills',
+                      style: TextStyle(
+                        fontSize: 10,
+                        fontWeight: FontWeight.w700,
+                        color: job.matchedCount > 0
+                            ? AppColors.primary
+                            : AppColors.neutral500,
                       ),
                     ),
                 ],

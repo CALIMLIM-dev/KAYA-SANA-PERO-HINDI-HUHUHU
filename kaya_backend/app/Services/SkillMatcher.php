@@ -138,6 +138,11 @@ class SkillMatcher
             return $this->hit(1.0, self::RULE_EXACT);
         }
 
+        // ── alias, confirmed by an administrator ─────────────────────────
+        if ($this->aliased($a, $b)) {
+            return $this->hit(1.0, self::RULE_ALIAS);
+        }
+
         // ── stem ──────────────────────────────────────────────────────────
         $sa = self::stem($a);
         $sb = self::stem($b);
@@ -286,6 +291,21 @@ class SkillMatcher
             (float) config('kaya.matching.semantic_confidence'),
             self::RULE_SEMANTIC,
         );
+    }
+
+    /*
+        A pair a person confirmed in the admin panel.
+
+        Fails closed: with no table to read (a unit test with no database, a
+        migration not yet run) it says no rather than breaking every match.
+    */
+    private function aliased(string $a, string $b): bool
+    {
+        try {
+            return \App\Models\SkillAlias::confirms($a, $b);
+        } catch (\Throwable) {
+            return false;
+        }
     }
 
     /*

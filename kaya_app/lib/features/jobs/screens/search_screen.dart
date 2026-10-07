@@ -661,7 +661,6 @@ class _SearchScreenState extends State<SearchScreen> {
       isAvailable: worker.isAvailable,
       isVerified: worker.isVerified,
       skills: worker.skills,
-      matchScore: worker.matchScore,
       distanceKm: worker.distance,
       distanceLabel: worker.distanceLabel,
       rateLabel: worker.rateLabel,

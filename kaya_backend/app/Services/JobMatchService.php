@@ -32,6 +32,14 @@ class JobMatchService
     public const WEIGHT_SKILLS   = 45;
     public const WEIGHT_LOCATION = 15;
 
+    /** Holds a required skill, or, for a job naming none, works in its trade. */
+    public const TIER_MEETS = 2;
+
+    /** The right trade, none of the skills asked for. */
+    public const TIER_TRADE = 1;
+
+    public const TIER_NONE = 0;
+
     /** Below this a result is noise and is not shown at all. */
     public const MIN_VISIBLE_SCORE = 15;
 
@@ -159,8 +167,29 @@ class JobMatchService
         $score += $locationScore;
         if ($locationReason) $reasons[] = $locationReason;
 
+        /*
+            Which tier, before anything is weighed.
+
+            A job that names skills is asking for those skills. Somebody who
+            holds none of them is not the best fit however well their trade
+            lines up - so whoever holds at least one required skill sits
+            above everyone who holds none, and only then does the score
+            order people inside each tier. A job naming no skills asks for
+            the trade, so the trade is what puts somebody in the top tier.
+        */
+        $sameTrade = $sameCategory
+            || ($categoryScore > 0.0 && $categoryReason !== 'Different trade, matching skills');
+
+        $tier = $required->isNotEmpty()
+            ? ($matched->isNotEmpty() ? self::TIER_MEETS : ($sameTrade ? self::TIER_TRADE : self::TIER_NONE))
+            : ($sameTrade ? self::TIER_MEETS : self::TIER_NONE);
+
         return [
             'score' => (int) round(min(100, $score)),
+            'tier' => $tier,
+            'required_count' => $required->count(),
+            'matched_count' => $matched->count(),
+            'same_trade' => $sameTrade,
             'matched_skills' => $matched->all(),
             'reasons' => $reasons,
             'distance_km' => self::distanceKm($job, $profile),
@@ -218,15 +247,23 @@ class JobMatchService
     }
 
     /*
-        The order a list is shown in: fit first, strength second.
+        The order a list is shown in: tier, then fit, then strength.
 
-        Fit is out of 100 and strength out of 20, so a clearly better fit
-        still wins, while two people who fit about equally are separated by
-        who has more to show for it.
+        The tier is a wall - nobody without a required skill passes
+        somebody with one. Inside a tier, fit is out of 100 and strength out
+        of 20, so a clearly better fit still wins while two people who fit
+        about equally are separated by who has more to show for it.
     */
-    public static function rank(int $fit, float $strength): float
+    public static function rank(int $tier, int $fit, float $strength): float
     {
-        return $fit + $strength;
+        return $tier * 1000 + $fit + $strength;
+    }
+
+    /** No reviews and no finished jobs yet: shown as New on KAYA, never pushed up or down for it. */
+    public static function isNew(WorkerProfile $profile): bool
+    {
+        return (int) ($profile->rating_count ?? 0) === 0
+            && (int) ($profile->jobs_completed ?? 0) === 0;
     }
 
     /**

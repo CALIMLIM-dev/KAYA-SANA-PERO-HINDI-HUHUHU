@@ -13,7 +13,6 @@ class JobsNearYouSection extends StatelessWidget {
   final VoidCallback? onSeeAll;
   final Function(Job)? onJobTap;
   final Function(Job)? onJobContact;
-  final List<String> workerSkills;
 
   const JobsNearYouSection({
     super.key,
@@ -23,7 +22,6 @@ class JobsNearYouSection extends StatelessWidget {
     this.onSeeAll,
     this.onJobTap,
     this.onJobContact,
-    this.workerSkills = const [],
   });
 
   /// What this list actually is, rather than what we wish it were.
@@ -188,7 +186,6 @@ class JobsNearYouSection extends StatelessWidget {
             job: job,
             onTap: () => onJobTap?.call(job),
             onContact: () => onJobContact?.call(job),
-            workerSkills: workerSkills,
           ),
         );
       },

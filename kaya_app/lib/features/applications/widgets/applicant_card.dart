@@ -8,6 +8,8 @@ import '../../../core/widgets/app_toast.dart';
 import '../../../data/models/job_model.dart';
 import '../../../providers/application_provider.dart';
 import 'completion_action.dart';
+import 'fit_facts.dart';
+import '../../jobs/widgets/fit_line.dart';
 
 /*
     One applicant, as an employer sees them.
@@ -279,9 +281,13 @@ class ApplicantCard extends StatelessWidget {
                                   : Icons.star_outline,
                               size: 16),
                           label: Text(canConfirm ? 'Mark Complete' : 'Review'),
+                          // Finishing in green and rating in the primary
+                          // blue, the same as the Active and History cards.
+                          // Both were a yellow fill here.
                           style: ElevatedButton.styleFrom(
-                            backgroundColor: AppColors.accent,
-                            foregroundColor: AppColors.neutral900,
+                            backgroundColor:
+                                canConfirm ? AppColors.success : AppColors.primary,
+                            foregroundColor: Colors.white,
                             elevation: 0,
                             padding: const EdgeInsets.symmetric(vertical: 9),
                             shape: RoundedRectangleBorder(
@@ -361,8 +367,15 @@ class ApplicantCard extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              if (rank != null) ...[
-                RankPill(rank: rank!),
+              if (rank != null || applicant['is_new'] == true) ...[
+                Wrap(
+                  spacing: 6,
+                  runSpacing: 6,
+                  children: [
+                    if (rank != null) RankPill(rank: rank!),
+                    if (applicant['is_new'] == true) const NewOnKayaTag(),
+                  ],
+                ),
                 const SizedBox(height: 8),
               ],
               Row(
@@ -494,6 +507,14 @@ class ApplicantCard extends StatelessWidget {
               if (skills.isNotEmpty) ...[
                 const SizedBox(height: 9),
                 _skillChips(skills),
+              ],
+              // Why they sit where they do, in checkable words.
+              if (employerFitLine(applicant) != null) ...[
+                const SizedBox(height: 9),
+                FitLine(
+                  text: employerFitLine(applicant)!,
+                  strong: meetsRequirements(applicant),
+                ),
               ],
               ...actions,
           ],
@@ -798,6 +819,7 @@ class _ResumeCard extends StatelessWidget {
                           children: [
                             if (rank != null) RankPill(rank: rank!, onDark: true),
                             _pill(Icons.workspace_premium_outlined, 'Full profile'),
+                            if (applicant['is_new'] == true) const NewOnKayaTag(onDark: true),
                             if (timesHiredBefore > 0)
                               _pill(
                                 Icons.replay,
@@ -833,6 +855,13 @@ class _ResumeCard extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                if (employerFitLine(applicant) != null) ...[
+                  FitLine(
+                    text: employerFitLine(applicant)!,
+                    strong: meetsRequirements(applicant),
+                  ),
+                  const SizedBox(height: 12),
+                ],
                 Row(
                   children: [
                     Expanded(

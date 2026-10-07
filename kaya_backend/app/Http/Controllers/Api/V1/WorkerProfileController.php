@@ -166,6 +166,10 @@ class WorkerProfileController extends Controller
             $profile->longitude === null ? null : (float) $profile->longitude,
         );
 
+        // Open jobs this worker now fits, the moment the profile can be
+        // matched at all. See NotificationService::workerMatched.
+        app(\App\Services\NotificationService::class)->workerMatched($profile->fresh());
+
         return response()->json([
             'success' => true,
             'data'    => [
@@ -600,7 +604,10 @@ class WorkerProfileController extends Controller
             $profile->category_id = $request->category_id;
             $profile->save();
         }
-        
+
+        // A new skill can make this worker the fit for a job already open.
+        app(\App\Services\NotificationService::class)->workerMatched($profile->fresh());
+
         return response()->json([
             'success' => true,
             'data' => $skill,

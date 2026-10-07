@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\AdminAction;
 use App\Models\Category;
 use App\Models\Skill;
+use App\Models\SkillAlias;
 use App\Models\WorkerSkill;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -43,7 +44,9 @@ class CategoryController extends Controller
         $jobsBySkill = DB::table('job_skills')->selectRaw('skill_id, COUNT(*) as total')
             ->groupBy('skill_id')->pluck('total', 'skill_id');
 
-        return view('admin.categories.index', compact('categories', 'workersByCategory', 'workersBySkill', 'jobsBySkill'));
+        $aliases = SkillAlias::with('creator:id,name')->orderBy('term_a')->orderBy('term_b')->get();
+
+        return view('admin.categories.index', compact('categories', 'workersByCategory', 'workersBySkill', 'jobsBySkill', 'aliases'));
     }
 
     public function store(Request $request)
@@ -172,5 +175,48 @@ class CategoryController extends Controller
         AdminAction::record('skill.deleted', 'skill', null, "Removed unused skill {$name}");
 
         return back()->with('success', "Skill {$name} removed.");
+    }
+
+    /*
+        Two names for the same work, confirmed by a person.
+
+        The matcher cannot know that Screen Replacement and LCD Replacement
+        are one job: they share no word, no root and no sound. Confirmed
+        here once, every match, ranking and notification treats them as the
+        same skill. Nothing is guessed; only an administrator adds a pair.
+    */
+    public function storeAlias(Request $request)
+    {
+        $data = $request->validate([
+            'term_a' => ['required', 'string', 'max:120'],
+            'term_b' => ['required', 'string', 'max:120'],
+        ]);
+
+        [$a, $b] = SkillAlias::orderedPair($data['term_a'], $data['term_b']);
+
+        if ($a === '' || $b === '' || $a === $b) {
+            return back()->with('error', 'Enter two different skill names.');
+        }
+
+        $alias = SkillAlias::firstOrCreate(
+            ['term_a' => $a, 'term_b' => $b],
+            ['created_by' => $request->user()->id],
+        );
+
+        if ($alias->wasRecentlyCreated) {
+            AdminAction::record('skill_alias.created', 'skill_alias', $alias->id, "Linked {$a} and {$b} as the same skill");
+        }
+
+        return back()->with('success', "{$a} and {$b} now match each other.");
+    }
+
+    public function destroyAlias(SkillAlias $alias)
+    {
+        $label = "{$alias->term_a} and {$alias->term_b}";
+        $alias->delete();
+
+        AdminAction::record('skill_alias.deleted', 'skill_alias', null, "Unlinked {$label}");
+
+        return back()->with('success', "{$label} no longer match each other.");
     }
 }

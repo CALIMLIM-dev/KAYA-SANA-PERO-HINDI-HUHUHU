@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../widgets/fit_line.dart';
 import 'package:provider/provider.dart';
 
 import '../../../core/constants/app_colors.dart';
@@ -226,9 +227,12 @@ class _JobDetailsScreenState extends State<JobDetailsScreen>
                             ),
                           ],
                         ),
-                        if (job.matchScore != null) _matchPill(job.matchScore!),
                       ],
                     ),
+                    if (job.fitLine != null) ...[
+                      const SizedBox(height: 10),
+                      FitLine(text: job.fitLine!, strong: job.matchTier == 2),
+                    ],
 
                     const SizedBox(height: 14),
                     const Divider(height: 1, color: AppColors.neutral200),
@@ -603,23 +607,6 @@ class _JobDetailsScreenState extends State<JobDetailsScreen>
             style: const TextStyle(
                 fontSize: 10, fontWeight: FontWeight.bold, color: Colors.white)),
       );
-
-  Widget _matchPill(int score) {
-    final color = score >= 70
-        ? AppColors.success
-        : score >= 40
-            ? AppColors.warning
-            : AppColors.neutral500;
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.12),
-        borderRadius: BorderRadius.circular(20),
-      ),
-      child: Text('$score% match',
-          style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: color)),
-    );
-  }
 
   /// The action bar at the bottom of the screen — what it shows depends
   /// entirely on the real state of the job, not a static button.

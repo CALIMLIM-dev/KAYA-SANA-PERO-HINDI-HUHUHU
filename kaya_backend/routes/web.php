@@ -128,6 +128,8 @@ Route::prefix('admin')->name('admin.')->group(function () {
         Route::post('/categories/{category}/skills', [AdminCategoryController::class, 'storeSkill'])->name('categories.skills.store');
         Route::post('/skills/{skill}', [AdminCategoryController::class, 'updateSkill'])->name('skills.update');
         Route::post('/skills/{skill}/delete', [AdminCategoryController::class, 'destroySkill'])->name('skills.destroy');
+        Route::post('/skill-aliases', [AdminCategoryController::class, 'storeAlias'])->name('skill-aliases.store');
+        Route::post('/skill-aliases/{alias}/delete', [AdminCategoryController::class, 'destroyAlias'])->name('skill-aliases.destroy');
         });
 
         Route::middleware('admin.can:moderate')->group(function () {

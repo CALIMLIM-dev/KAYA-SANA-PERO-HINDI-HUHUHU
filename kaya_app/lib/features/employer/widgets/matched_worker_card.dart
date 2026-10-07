@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/navigation/app_router.dart';
 import '../../../core/utils/format.dart';
+import '../../applications/widgets/fit_facts.dart';
+import '../../jobs/widgets/fit_line.dart';
 
 /*
     One worker, judged against one job.
@@ -183,7 +185,18 @@ class MatchedWorkerCard extends StatelessWidget {
             _skillChips(skills, matchedSkills),
           ],
 
-          // ── Why it is here ──
+          // ── How they fit, then why ──
+          if ((row['required_count'] as num? ?? 0) > 0) ...[
+            const SizedBox(height: 9),
+            FitLine(
+              text: 'Required skills: ${row['matched_count'] ?? 0} of ${row['required_count']}',
+              strong: meetsRequirements(row),
+            ),
+          ],
+          if (row['is_new'] == true) ...[
+            const SizedBox(height: 8),
+            const NewOnKayaTag(),
+          ],
           if (reasons.isNotEmpty) ...[
             const SizedBox(height: 9),
             Text(

@@ -35,6 +35,37 @@
     </div>
 </div>
 
+<div class="mb-6 max-w-3xl">
+    <div class="bg-white rounded-xl border border-slate-200 p-5">
+        <h3 class="text-sm font-semibold text-slate-700 mb-1">Skill synonyms</h3>
+        <p class="text-xs text-slate-400 mb-3">Two names for the same work, such as Screen Replacement and LCD Replacement. Once linked, jobs and workers using either name match each other.</p>
+        <form method="POST" action="{{ route('admin.skill-aliases.store') }}" class="flex flex-wrap gap-2">
+            @csrf
+            <input type="text" name="term_a" required maxlength="120" placeholder="e.g. Screen Replacement"
+                   class="flex-1 min-w-[10rem] px-3 py-2 border border-slate-300 rounded-lg text-sm">
+            <input type="text" name="term_b" required maxlength="120" placeholder="e.g. LCD Replacement"
+                   class="flex-1 min-w-[10rem] px-3 py-2 border border-slate-300 rounded-lg text-sm">
+            <button class="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700">
+                Link
+            </button>
+        </form>
+
+        @if ($aliases->isNotEmpty())
+            <ul class="mt-4 divide-y divide-slate-100 border-t border-slate-100">
+                @foreach ($aliases as $alias)
+                    <li class="py-2 flex items-center justify-between gap-3 text-sm">
+                        <span class="text-slate-700">{{ $alias->term_a }} <span class="text-slate-400">=</span> {{ $alias->term_b }}</span>
+                        <form method="POST" action="{{ route('admin.skill-aliases.destroy', $alias) }}">
+                            @csrf
+                            <button class="text-xs text-slate-500 hover:text-red-600">Unlink</button>
+                        </form>
+                    </li>
+                @endforeach
+            </ul>
+        @endif
+    </div>
+</div>
+
 @if ($errors->any())
     <div class="mb-4 px-4 py-3 rounded-lg bg-red-50 text-red-700 text-sm border border-red-200">{{ $errors->first() }}</div>
 @endif

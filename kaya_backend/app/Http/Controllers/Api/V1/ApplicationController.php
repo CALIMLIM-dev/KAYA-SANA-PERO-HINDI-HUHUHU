@@ -584,13 +584,28 @@ class ApplicationController extends Controller
                     'experience_label'      => $profile ? $experience->label($profile->experiences) : null,
                     'jobs_completed'        => (int) ($profile?->jobs_completed ?? 0),
 
-                    // Fit first, profile strength second. See JobMatchService::rank.
+                    // Tier, then fit, then profile strength. See JobMatchService::rank.
                     'rank_score'            => $profile
                         ? \App\Services\JobMatchService::rank(
+                            (int) ($match['tier'] ?? 0),
                             (int) $match['score'],
                             \App\Services\JobMatchService::strength($profile, $experience->years($profile->experiences)),
                         )
                         : 0.0,
+
+                    /*
+                        The facts the card states instead of a score:
+                        "Required skills: 1 of 2 (LCD Replacement) · Same
+                        trade · About 3 km away". Checkable by the employer,
+                        and they cannot contradict the order.
+                    */
+                    'match_tier'            => (int) ($match['tier'] ?? 0),
+                    'required_count'        => (int) ($match['required_count'] ?? 0),
+                    'matched_count'         => (int) ($match['matched_count'] ?? 0),
+                    'matched_skills'        => $match['matched_skills'] ?? [],
+                    'same_trade'            => (bool) ($match['same_trade'] ?? false),
+                    'distance_label'        => \App\Support\DistanceBand::label($match['distance_km'] ?? null),
+                    'is_new'                => $profile ? \App\Services\JobMatchService::isNew($profile) : true,
                 ];
             })
             /*

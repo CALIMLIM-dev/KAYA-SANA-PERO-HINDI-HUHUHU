@@ -159,7 +159,9 @@ class JobController extends Controller
             original cheap paginate is kept.
         */
         $profile = $request->user()?->workerProfile;
-        $profile?->load(['skills', 'psgcLocation']);
+        // category too: JobMatchService compares trade names when the ids
+        // differ, and only reads a loaded relation.
+        $profile?->load(['skills', 'psgcLocation', 'category']);
 
         /*
             Near you, unless you asked otherwise.
@@ -203,6 +205,10 @@ class JobController extends Controller
 
             $match = \App\Services\JobMatchService::score($job, $profile);
             $job->match_score = $match['score'];
+            // For "You have 1 of 2 required skills", and the feed's order.
+            $job->match_tier = $match['tier'];
+            $job->required_count = $match['required_count'];
+            $job->matched_count = $match['matched_count'];
             $job->matched_skills = $match['matched_skills'];
             $job->match_reasons = $match['reasons'];
             // Exact here, because the radius filter and the nearest sort
@@ -303,21 +309,25 @@ class JobController extends Controller
             );
         }
 
-        if ($nearestFirst) {
-            /*
-                Boosted first, then nearest.
+        /*
+            Paid boosts first, then the jobs this worker fits.
 
-                This sorted on distance alone, which would undo the boost
-                ordering the query just applied - a paid post would drop back
-                down the moment somebody asked for nearest-first, which is the
-                default the home feed uses. Sorting on the pair keeps what was
-                paid for while still answering the question that was asked.
-            */
-            $scored = $scored->sortBy(fn (JobPost $j) => [
-                $j->is_boosted ? 0 : 1,
-                $j->distance_km ?? PHP_FLOAT_MAX,
-            ]);
-        }
+            Boosts were sold as "to the top", so they stay there. Below
+            them, the same tier order the employer's lists use - a job
+            asking for a skill this worker holds before one they only share
+            a trade with - then fit, then nearest when that was asked for.
+            The query's newest-first order survives underneath, because the
+            sort is stable.
+
+            This sorted on boost and distance alone, so a job the worker
+            was the perfect fit for sat wherever its distance put it.
+        */
+        $scored = $scored->sortBy(fn (JobPost $j) => [
+            $j->is_boosted ? 0 : 1,
+            -((int) ($j->match_tier ?? 0)),
+            -((int) ($j->match_score ?? 0)),
+            $nearestFirst ? ($j->distance_km ?? PHP_FLOAT_MAX) : 0,
+        ]);
 
         $scored = $scored->values();
         $perPage = 20;
@@ -619,7 +629,13 @@ class JobController extends Controller
                 'matched_skills' => $match['matched_skills'],
                 'match_reasons'  => $match['reasons'],
                 'match_score'    => $match['score'],
+                'match_tier'     => $match['tier'],
+                'required_count' => $match['required_count'],
+                'matched_count'  => $match['matched_count'],
+                'same_trade'     => $match['same_trade'],
+                'is_new'         => \App\Services\JobMatchService::isNew($profile),
                 'rank_score'     => \App\Services\JobMatchService::rank(
+                    $match['tier'],
                     (int) $match['score'],
                     \App\Services\JobMatchService::strength($profile, $experience->years($profile->experiences)),
                 ),
@@ -933,6 +949,10 @@ class JobController extends Controller
             $profile->load(['skills', 'psgcLocation']);
             $match = \App\Services\JobMatchService::score($job, $profile);
             $job->match_score = $match['score'];
+            // For "You have 1 of 2 required skills", and the feed's order.
+            $job->match_tier = $match['tier'];
+            $job->required_count = $match['required_count'];
+            $job->matched_count = $match['matched_count'];
             $job->matched_skills = $match['matched_skills'];
             $job->match_reasons = $match['reasons'];
             /*
@@ -1086,6 +1106,8 @@ class JobController extends Controller
             : 0;
         $owed = max(0, $durations->costFor($start, $end) - $paid);
 
+        $skillsBefore = $job->skills()->pluck('skills.id')->all();
+
         try {
             $durations->charge($user, $owed, function ($line) use ($job, $data, $skillIds, $end) {
                 $job->update(array_merge($data, ['expires_at' => $end->endOfDay()]));
@@ -1123,6 +1145,18 @@ class JobController extends Controller
                     $job->forceFill(['is_urgent' => false])->save();
                 }
             }
+        }
+
+        /*
+            A skill added to an open job finds the people who have it.
+
+            Matching ran once, at posting, so a job given its skills
+            afterwards - including every job whose typed skills were dropped
+            before that was fixed - never reached anyone. Workers already
+            told about this job are not told again.
+        */
+        if ($skillIds !== null && array_diff($skillIds, $skillsBefore) !== []) {
+            app(NotificationService::class)->jobMatched($job->fresh());
         }
 
         return $this->ok($job->fresh()->load(['category', 'skills']), 'Job updated');

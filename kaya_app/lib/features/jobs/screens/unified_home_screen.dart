@@ -934,7 +934,6 @@ class _UnifiedHomeScreenState extends State<UnifiedHomeScreen>
                     // Match % now comes from each Job's server-computed
                     // matchScore (JobMatchService), not a client-side skill
                     // comparison — see CompactJobCard._matchPercent.
-                    workerSkills: const [],
                   ),
                 ),
                 const SliverToBoxAdapter(child: SizedBox(height: 32)),

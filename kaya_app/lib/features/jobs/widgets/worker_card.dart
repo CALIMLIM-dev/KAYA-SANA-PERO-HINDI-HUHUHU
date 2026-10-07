@@ -15,7 +15,6 @@ class WorkerCard extends StatelessWidget {
   final bool isAvailable;
   final bool isVerified;
   final List<String> skills;
-  final int? matchScore;
   final double? distanceKm;
 
   /// The distance in words when the server sent a band rather than a
@@ -41,7 +40,6 @@ class WorkerCard extends StatelessWidget {
     required this.isAvailable,
     this.isVerified = false,
     this.skills = const [],
-    this.matchScore,
     this.distanceKm,
     this.distanceLabel,
     this.rateLabel,
@@ -53,12 +51,6 @@ class WorkerCard extends StatelessWidget {
   /// Paid placement. See the border in build().
   final bool isBoosted;
 
-  Color get _matchColor {
-    final p = matchScore ?? 0;
-    if (p >= 80) return AppColors.success;
-    if (p >= 50) return AppColors.warning;
-    return AppColors.neutral600;
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -278,24 +270,6 @@ class WorkerCard extends StatelessWidget {
                   Text(
                     '$rating $reviews',
                     style: const TextStyle(fontSize: 12, color: AppColors.neutral500),
-                  ),
-                ],
-                if (matchScore != null) ...[
-                  const SizedBox(width: 10),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                    decoration: BoxDecoration(
-                      color: _matchColor.withValues(alpha: 0.1),
-                      borderRadius: BorderRadius.circular(20),
-                    ),
-                    child: Text(
-                      '$matchScore% match',
-                      style: TextStyle(
-                        fontSize: 11,
-                        fontWeight: FontWeight.w600,
-                        color: _matchColor,
-                      ),
-                    ),
                   ),
                 ],
               ],
