@@ -655,7 +655,7 @@ Widget activeCard(
 }) {
   final isJob = row['_isJob'] as bool? ?? false;
   return isJob
-      ? JobPostCard(job: row, onChanged: onChanged)
+      ? JobPostCard(job: row, onChanged: onChanged, compact: compact)
       : ApplicationCard(application: row, onChanged: onChanged, compact: compact);
 }
 
@@ -805,7 +805,7 @@ class ApplicationCard extends StatelessWidget {
 
   final Map<String, dynamic> application;
 
-  /// The home screen's tighter card: no category or place rows.
+  /// The home screen's tighter card. See _cardShell.
   final bool compact;
 
   /// Called after a completion is recorded, so the list reloads and both cards
@@ -924,8 +924,9 @@ class ApplicationCard extends StatelessWidget {
       subtitle: (employer?['name'] ?? 'Employer').toString(),
       status: status,
       trailing: null,
-      category: compact ? null : category,
-      place: compact || place.isEmpty ? null : place,
+      category: category,
+      place: place.isEmpty ? null : place,
+      compact: compact,
       budget: job == null ? null : formatBudget(job),
       age: timeAgo(job?['created_at'] as String?),
       note: reviewNote,
@@ -1073,9 +1074,13 @@ class JobPostCard extends StatelessWidget {
     super.key,
     required this.job,
     required this.onChanged,
+    this.compact = false,
   });
 
   final Map<String, dynamic> job;
+
+  /// The home screen's tighter card. See _cardShell.
+  final bool compact;
   final Future<void> Function() onChanged;
 
   @override
@@ -1171,12 +1176,25 @@ class JobPostCard extends StatelessWidget {
     */
     final conversationId = hire?['conversation_id'] as int?;
 
+    // Somebody is on this job, or it is under way.
+    final hired = hire != null ||
+        status == 'in_progress' ||
+        ((job['hire_count'] as num?)?.toInt() ?? 0) > 0;
+
     return _cardShell(
       title: (job['title'] ?? 'Job').toString(),
-      // Location moved into the meta row below, beside the category.
-      subtitle: '',
+      // Who is doing it, once somebody is. The location is in the meta row.
+      subtitle: hire != null && workerName.isNotEmpty ? 'Hired: $workerName' : '',
       status: status,
-      trailing: '$applicants applicant${applicants == 1 ? '' : 's'}',
+      /*
+          The applicant count only while people are still applying.
+
+          Once somebody is hired the job is under way, and a row saying
+          "3 applicants - View" beside Message and Mark as complete was
+          noise about a decision already made.
+      */
+      trailing: hired ? null : '$applicants applicant${applicants == 1 ? '' : 's'}',
+      compact: compact,
       category: (job['category'] as Map<String, dynamic>?)?['name']?.toString(),
       place: (job['city'] ?? job['location'] ?? '').toString().isEmpty
           ? null
@@ -1237,8 +1255,12 @@ class JobPostCard extends StatelessWidget {
                     if (context.mounted) await onChanged();
                   }
                 },
-      onTap: () => AppRouter.push(context, '/view-applicants',
-          arguments: {'jobId': job['id']}),
+      // A hired job opens the job itself; the applicant list is done with.
+      onTap: hired
+          ? () => AppRouter.push(context, '/job-details',
+              arguments: {'jobId': job['id']})
+          : () => AppRouter.push(context, '/view-applicants',
+              arguments: {'jobId': job['id']}),
     );
   }
 }
@@ -1300,6 +1322,15 @@ Widget _cardShell({
   /// was announced with a pencil-and-paper mark — the icon said review while
   /// the sentence said completion.
   bool noteIsCompletion = false,
+  /*
+      The home screen's card: the same facts and actions, tighter.
+
+      Active on home showed the full History card, so two jobs filled the
+      screen. Compact drops the category and place lines, sets the title on
+      one line, and trims the padding and buttons. The full card is one
+      tap away.
+  */
+  bool compact = false,
 }) {
   final (bg, fg, label) = _statusStyle(status);
 
@@ -1315,7 +1346,7 @@ Widget _cardShell({
         apart with no reason for the difference just reads as grubby.
     */
     color: Colors.white,
-    margin: const EdgeInsets.only(bottom: 12),
+    margin: EdgeInsets.only(bottom: compact ? 8 : 12),
     shape: RoundedRectangleBorder(
       borderRadius: BorderRadius.circular(12),
       side: BorderSide(color: AppColors.neutral200),
@@ -1324,7 +1355,7 @@ Widget _cardShell({
       onTap: onTap,
       borderRadius: BorderRadius.circular(12),
       child: Padding(
-        padding: const EdgeInsets.all(16),
+        padding: EdgeInsets.all(compact ? 12 : 16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -1332,10 +1363,10 @@ Widget _cardShell({
               children: [
                 Expanded(
                   child: Text(title,
-                      maxLines: 2,
+                      maxLines: compact ? 1 : 2,
                       overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                          fontSize: 15,
+                      style: TextStyle(
+                          fontSize: compact ? 14 : 15,
                           fontWeight: FontWeight.w600,
                           color: AppColors.neutral900)),
                 ),
@@ -1356,12 +1387,14 @@ Widget _cardShell({
               ],
             ),
             if (subtitle.isNotEmpty) ...[
-              const SizedBox(height: 6),
+              SizedBox(height: compact ? 3 : 6),
               Text(subtitle,
-                  style: const TextStyle(
-                      fontSize: 13.5, color: AppColors.neutral600)),
+                  maxLines: compact ? 1 : null,
+                  overflow: compact ? TextOverflow.ellipsis : null,
+                  style: TextStyle(
+                      fontSize: compact ? 12.5 : 13.5, color: AppColors.neutral600)),
             ],
-            if (category != null || place != null) ...[
+            if (!compact && (category != null || place != null)) ...[
               const SizedBox(height: 8),
               // Wrap, not Row: a long category beside a barangay-city-
               // province address overflows a 320dp card, and these two are
@@ -1376,7 +1409,7 @@ Widget _cardShell({
               ),
             ],
             if (budget != null || age != null) ...[
-              const SizedBox(height: 8),
+              SizedBox(height: compact ? 6 : 8),
               /*
                   Both sides give way, because both grow with the text size.
 
@@ -1395,8 +1428,8 @@ Widget _cardShell({
                       child: Text(budget,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                              fontSize: 15,
+                          style: TextStyle(
+                              fontSize: compact ? 13.5 : 15,
                               fontWeight: FontWeight.w700,
                               color: AppColors.primary)),
                     ),
@@ -1412,9 +1445,11 @@ Widget _cardShell({
             ],
             if (onMessage != null || (actionLabel != null && onAction != null)) ...[
               // The rule My Jobs draws between the facts and the actions.
-              const SizedBox(height: 12),
-              const Divider(height: 1, color: AppColors.neutral200),
-              const SizedBox(height: 12),
+              SizedBox(height: compact ? 10 : 12),
+              if (!compact) ...[
+                const Divider(height: 1, color: AppColors.neutral200),
+                const SizedBox(height: 12),
+              ],
               /*
                   The two buttons match heights, and their labels never wrap.
 
@@ -1449,7 +1484,7 @@ Widget _cardShell({
                         style: OutlinedButton.styleFrom(
                           foregroundColor: AppColors.primary,
                           side: const BorderSide(color: AppColors.primary),
-                          padding: const EdgeInsets.symmetric(vertical: 10),
+                          padding: EdgeInsets.symmetric(vertical: compact ? 7 : 10),
                           shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(8)),
                           textStyle: const TextStyle(
@@ -1473,8 +1508,8 @@ Widget _cardShell({
                                 backgroundColor: AppColors.success,
                                 foregroundColor: Colors.white,
                                 elevation: 0,
-                                padding:
-                                    const EdgeInsets.symmetric(vertical: 10),
+                                padding: EdgeInsets.symmetric(
+                                    vertical: compact ? 7 : 10),
                                 shape: RoundedRectangleBorder(
                                     borderRadius: BorderRadius.circular(8)),
                                 textStyle: const TextStyle(
@@ -1499,8 +1534,8 @@ Widget _cardShell({
                                 foregroundColor: AppColors.primary,
                                 side: const BorderSide(
                                     color: AppColors.primary),
-                                padding:
-                                    const EdgeInsets.symmetric(vertical: 10),
+                                padding: EdgeInsets.symmetric(
+                                    vertical: compact ? 7 : 10),
                                 shape: RoundedRectangleBorder(
                                     borderRadius: BorderRadius.circular(8)),
                                 textStyle: const TextStyle(
@@ -1514,7 +1549,7 @@ Widget _cardShell({
               ),
             ],
             if (note != null) ...[
-              const SizedBox(height: 10),
+              SizedBox(height: compact ? 8 : 10),
               Row(
                 children: [
                   Icon(
@@ -1533,7 +1568,7 @@ Widget _cardShell({
               ),
             ],
             if (trailing != null) ...[
-              const SizedBox(height: 10),
+              SizedBox(height: compact ? 8 : 10),
               Row(
                 children: [
                   const Icon(Icons.people_outline,
