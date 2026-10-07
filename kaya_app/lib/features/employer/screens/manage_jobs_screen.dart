@@ -700,9 +700,10 @@ class _ManageJobsScreenState extends State<ManageJobsScreen>
                     label: Text(hire == null
                         ? 'View applicants to review'
                         : 'Review ${hire['worker_name'] ?? 'worker'}'),
+                    // The primary blue outline every review button uses.
                     style: OutlinedButton.styleFrom(
-                      foregroundColor: AppColors.accent,
-                      side: const BorderSide(color: AppColors.accent),
+                      foregroundColor: AppColors.primary,
+                      side: const BorderSide(color: AppColors.primary),
                       padding: const EdgeInsets.symmetric(vertical: 11),
                       shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(10)),

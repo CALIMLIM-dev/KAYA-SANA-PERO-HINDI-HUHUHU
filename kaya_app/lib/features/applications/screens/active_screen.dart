@@ -89,7 +89,7 @@ class _ActiveScreenState extends State<ActiveScreen> with RealtimeRefresh {
               )
             : ListView(
                 padding: const EdgeInsets.all(16),
-                children: [for (final row in items) activeCard(row, _load)],
+                children: [for (final row in items) activeCard(row, _load, live: true)],
               ),
       ),
     );

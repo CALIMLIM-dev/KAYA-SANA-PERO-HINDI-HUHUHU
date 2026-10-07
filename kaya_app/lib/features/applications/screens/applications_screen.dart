@@ -610,14 +610,19 @@ List<Map<String, dynamic>> activeItems(
 }
 
 /// The card for one row of [activeItems]: the same two cards History uses.
+///
+/// [live] is the Active list on home and its See all screen: work in
+/// progress, where the card offers Message and Mark as complete and never
+/// Review. Reviewing belongs to finished work, in History.
 Widget activeCard(
   Map<String, dynamic> row,
-  Future<void> Function() onChanged,
-) {
+  Future<void> Function() onChanged, {
+  bool live = false,
+}) {
   final isJob = row['_isJob'] as bool? ?? false;
   return isJob
-      ? JobPostCard(job: row, onChanged: onChanged)
-      : ApplicationCard(application: row, onChanged: onChanged);
+      ? JobPostCard(job: row, onChanged: onChanged, live: live)
+      : ApplicationCard(application: row, onChanged: onChanged, live: live);
 }
 
 class _ActivityTab {
@@ -757,9 +762,17 @@ class _TabBody extends StatelessWidget {
 
 /// Worker side — a job you applied to.
 class ApplicationCard extends StatelessWidget {
-  const ApplicationCard({super.key, required this.application, required this.onChanged});
+  const ApplicationCard({
+    super.key,
+    required this.application,
+    required this.onChanged,
+    this.live = false,
+  });
 
   final Map<String, dynamic> application;
+
+  /// Shown in Active rather than History: no Review here.
+  final bool live;
 
   /// Called after a completion is recorded, so the list reloads and both cards
   /// pick up the new timestamps.
@@ -823,7 +836,7 @@ class ApplicationCard extends StatelessWidget {
     final iReviewed = application['i_reviewed_them'] == true;
     final theyReviewed = application['they_reviewed_me'] == true;
 
-    final canReview = workDone && employer != null && !iReviewed;
+    final canReview = !live && workDone && employer != null && !iReviewed;
 
     final String? reviewNote = !isHired
         ? null
@@ -1019,9 +1032,17 @@ class ApplicationCard extends StatelessWidget {
 
 /// Employer side — a job you posted.
 class JobPostCard extends StatelessWidget {
-  const JobPostCard({super.key, required this.job, required this.onChanged});
+  const JobPostCard({
+    super.key,
+    required this.job,
+    required this.onChanged,
+    this.live = false,
+  });
 
   final Map<String, dynamic> job;
+
+  /// Shown in Active rather than History: no Review here.
+  final bool live;
   final Future<void> Function() onChanged;
 
   @override
@@ -1088,7 +1109,7 @@ class JobPostCard extends StatelessWidget {
     final canConfirm =
         hire != null && !workDone && !iConfirmed && jobStillRunning;
     final early = !completionHasOpened(job);
-    final canReview = hire != null && workDone && hire['i_reviewed_them'] != true;
+    final canReview = !live && hire != null && workDone && hire['i_reviewed_them'] != true;
 
     final String? note = hire == null
         ? null
@@ -1432,10 +1453,16 @@ Widget _cardShell({
                                 fit: BoxFit.scaleDown,
                                 child: Text(actionLabel, maxLines: 1),
                               ),
+                              /*
+                                  The app's primary blue, like every other
+                                  outlined action. This was a dark yellow
+                                  outline and text on white, which read as a
+                                  warning rather than an invitation to rate.
+                              */
                               style: OutlinedButton.styleFrom(
-                                foregroundColor: AppColors.accentDark,
+                                foregroundColor: AppColors.primary,
                                 side: const BorderSide(
-                                    color: AppColors.accentDark),
+                                    color: AppColors.primary),
                                 padding:
                                     const EdgeInsets.symmetric(vertical: 10),
                                 shape: RoundedRectangleBorder(
