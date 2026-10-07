@@ -158,13 +158,20 @@ class WorkerCard extends StatelessWidget {
                           const Icon(Icons.location_on_outlined,
                               size: 12, color: AppColors.neutral400),
                           const SizedBox(width: 2),
-                          Expanded(
+                          /*
+                              The place gives way, the distance never does.
+
+                              They were one string, so a long barangay-city-
+                              province address ran the line out and the
+                              ellipsis took the distance - the part an
+                              employer choosing between workers reads first.
+                              Now the place shrinks and the distance keeps
+                              its full width beside it.
+                          */
+                          Flexible(
                             child: Text(
-                              distanceText(distanceLabel, distanceKm)
-                                          == null
-                                  ? location
-                                  : '$location · '
-                                      '${distanceText(distanceLabel, distanceKm)}',
+                              location,
+                              maxLines: 1,
                               style: const TextStyle(
                                 fontSize: 12,
                                 color: AppColors.neutral400,
@@ -172,6 +179,16 @@ class WorkerCard extends StatelessWidget {
                               overflow: TextOverflow.ellipsis,
                             ),
                           ),
+                          if (distanceText(distanceLabel, distanceKm) != null)
+                            Text(
+                              ' · ${distanceText(distanceLabel, distanceKm)}',
+                              maxLines: 1,
+                              style: const TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600,
+                                color: AppColors.neutral600,
+                              ),
+                            ),
                         ],
                       ),
                       // What they charge, straight from the server so this
