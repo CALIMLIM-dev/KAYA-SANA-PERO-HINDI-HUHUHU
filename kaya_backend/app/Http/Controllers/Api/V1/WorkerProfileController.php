@@ -1578,10 +1578,27 @@ class WorkerProfileController extends Controller
             return [];
         }
 
-        return \App\Models\Application::whereIn('worker_id', $userIds)
-            ->where('status', 'accepted')
+        /*
+            On a job today, not merely holding a hire.
+
+            Any accepted application used to count, whatever its dates - so
+            a worker hired for next week showed Unavailable today, and a hire
+            nobody ever marked complete kept somebody Unavailable for months.
+            Busy now means a hire whose job runs today: from its start date
+            to its end date, or the start date alone for a one-day job. A
+            job with no dates predates scheduling and says nothing about
+            today, so it does not count.
+        */
+        $today = now()->toDateString();
+
+        return \App\Models\Application::whereIn('applications.worker_id', $userIds)
+            ->where('applications.status', 'accepted')
+            ->join('jobs_posts', 'jobs_posts.id', '=', 'applications.job_id')
+            ->whereNotNull('jobs_posts.start_date')
+            ->whereDate('jobs_posts.start_date', '<=', $today)
+            ->whereRaw('COALESCE(jobs_posts.end_date, jobs_posts.start_date) >= ?', [$today])
             ->distinct()
-            ->pluck('worker_id')
+            ->pluck('applications.worker_id')
             ->map(fn ($id) => (int) $id)
             ->all();
     }
