@@ -207,7 +207,21 @@ class _EditJobScreenState extends State<EditJobScreen> {
       // (icons only, no ids) and no skill chip can appear.
       final taxonomy = context.read<WorkerProfileProvider>();
       if (taxonomy.categories.isEmpty) taxonomy.fetchCategories();
-      if (taxonomy.availableSkills.isEmpty) taxonomy.fetchSkills();
+      /*
+          This category's skills, so the job's current required skills show
+          as chips and can be changed. It called fetchSkills(), which loads
+          the signed-in user's own worker skills into a different list - so
+          the chips this screen draws came from whatever category was last
+          loaded anywhere in the app, usually none, and a job's existing
+          skills never appeared.
+      */
+      final categoryId = _categoryId;
+      if (categoryId != null) {
+        // After the frame: a provider that notifies mid-build throws.
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) taxonomy.fetchSkillsByCategory(categoryId);
+        });
+      }
     }
   }
 
@@ -341,8 +355,9 @@ class _EditJobScreenState extends State<EditJobScreen> {
   /// payload while the chips looked like they were doing something.
   List<SkillModel> get _availableSkills {
     if (_categoryId == null) return const [];
+    // Watched, so the chips appear when the category's skills arrive.
     return context
-        .read<WorkerProfileProvider>()
+        .watch<WorkerProfileProvider>()
         .availableSkills
         .where((s) => s.categoryId == _categoryId)
         .toList();
@@ -360,6 +375,9 @@ class _EditJobScreenState extends State<EditJobScreen> {
       _selectedCategory = category;
       _categoryId = categoryId;
     });
+    if (categoryId != null) {
+      context.read<WorkerProfileProvider>().fetchSkillsByCategory(categoryId);
+    }
   }
 
   @override
@@ -559,13 +577,13 @@ class _EditJobScreenState extends State<EditJobScreen> {
 
               // ── Job Priority ──
               _section(
-                title: 'Job Priority (Optional)',
+                title: 'Boost this job (optional)',
                 children: [
                   Row(
                     children: [
                       Expanded(
                         child: _toggleButton(
-                          label: 'Urgent',
+                          label: 'Boost to the top of the feed',
                           icon: Icons.flash_on,
                           isActive: _isUrgent,
                           onTap: () =>

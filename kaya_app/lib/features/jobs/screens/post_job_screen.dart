@@ -971,7 +971,7 @@ class _PostJobScreenState extends State<PostJobScreen> {
               */
               // Job Priority
               _buildSection(
-                title: 'Job Priority (Optional)',
+                title: 'Boost this job (optional)',
                 icon: Icons.flash_on_outlined,
                 hint: 'Top of the feed for ${context.watch<CreditsProvider>().boostDays ?? JobBoost.days} days, ${context.watch<CreditsProvider>().boostCost ?? JobBoost.cost} Barya.',
                 children: [
@@ -979,7 +979,7 @@ class _PostJobScreenState extends State<PostJobScreen> {
                     children: [
                       Expanded(
                         child: _buildToggleButton(
-                          label: 'Boost',
+                          label: 'Boost to the top of the feed',
                           icon: Icons.flash_on,
                           isActive: _isUrgent,
                           onTap: _handleUrgentToggle,
