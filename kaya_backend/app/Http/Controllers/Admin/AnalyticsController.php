@@ -61,7 +61,18 @@ class AnalyticsController extends Controller
         $hires     = Application::where('status', 'accepted')->count();
 
         return [
+            /*
+                Whose numbers these are, said outright.
+
+                The panel asked for the actual number of users the dashboard
+                represents, and "Users" on its own could not say whether the
+                administrators were in it - an admin is a user row too. App
+                users are the people on the marketplace, admins never; the
+                admins are counted separately so the two add up to every
+                account.
+            */
             'users'           => User::where('user_type', '!=', 'admin')->count(),
+            'admins'          => User::where('user_type', 'admin')->count(),
             'jobs'            => $jobs,
             'applications'    => $apps,
             'hires'           => $hires,

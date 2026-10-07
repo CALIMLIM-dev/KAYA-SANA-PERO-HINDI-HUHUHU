@@ -122,4 +122,25 @@ class AnalyticsTest extends TestCase
             ->get('/admin/analytics')
             ->assertRedirect();
     }
+    /** @test */
+    public function the_dashboard_says_whose_numbers_it_shows()
+    {
+        // The panel asked for the actual number of users. Admins are user rows
+        // too, so they are counted apart and never inside the app users.
+        $admin = $this->admin();
+        $this->admin();
+        $hirer = User::factory()->create();
+        \App\Models\EmployerProfile::create(['user_id' => $hirer->id]);
+        $seeker = User::factory()->create();
+        $this->seedWorkerProfile($seeker);
+
+        $response = $this->actingAs($admin)->get('/admin/analytics')->assertOk();
+
+        $this->assertSame(2, $response->viewData('headline')['users']);
+        $this->assertSame(2, $response->viewData('headline')['admins']);
+        $response->assertSee('App users (admins not counted)')
+            ->assertSee('Hirers')
+            ->assertSee('Job seekers')
+            ->assertSee('Based on 2 app users (admins not counted)');
+    }
 }

@@ -197,10 +197,11 @@
         [
             'title' => 'Account types',
             'id'    => 'compositionChart', 'centre' => 'Accounts',
+            'basis' => 'app users (admins not counted)',
             'href'  => $csv('admin.exports.users'), 'label' => 'Users',
             'items' => [
-                ['Worker only',   $composition['worker_only'],   '#2a78d6'],
-                ['Employer only', $composition['employer_only'], '#eb6834'],
+                ['Job seeker only', $composition['worker_only'],   '#2a78d6'],
+                ['Hirer only',      $composition['employer_only'], '#eb6834'],
                 ['Both',          $composition['hybrid'],        '#1baf7a'],
                 ['No profile',    $composition['no_profile'],    '#cbd5e1'],
             ],
@@ -208,6 +209,7 @@
         [
             'title' => 'Jobs by status',
             'id'    => 'jobStatusChart', 'centre' => 'Jobs',
+            'basis' => 'jobs posted',
             'href'  => $csv('admin.exports.jobs'), 'label' => 'Jobs',
             'items' => [
                 ['Open',        $jobStatus['open'],        '#2a78d6'],
@@ -220,6 +222,7 @@
         [
             'title' => 'Verification status',
             'id'    => 'verificationChart', 'centre' => 'Documents',
+            'basis' => 'documents submitted',
             'href'  => $csv('admin.exports.verifications'), 'label' => 'Verifications',
             'items' => [
                 ['Verified', $verifications['verified'], '#1baf7a'],
@@ -259,7 +262,12 @@
     </div>
     <div class="tiles">
         @foreach ([
-            ['Users', number_format($headline['users'])],
+            ['App users (admins not counted)', number_format($headline['users'])],
+            // A hybrid account is both, so these two can add up to more than
+            // the app users above - each is a count of people, not a share.
+            ['Hirers', number_format($composition['employer_only'] + $composition['hybrid'])],
+            ['Job seekers', number_format($composition['worker_only'] + $composition['hybrid'])],
+            ['Admins', number_format($headline['admins'])],
             ['Jobs posted', number_format($headline['jobs'])],
             ['Applications', number_format($headline['applications'])],
             ['Workers hired', number_format($headline['hires'])],
@@ -364,6 +372,8 @@
                 <div class="flex items-start justify-between gap-3">
                     <div class="min-w-0">
                         <h3 class="card-title">{{ $b['title'] }}</h3>
+                        {{-- The actual number behind the proportions. --}}
+                        <p class="text-xs text-slate-500 mt-0.5">Based on {{ number_format($total) }} {{ $b['basis'] }}</p>
                     </div>
                     <a href="{{ $b['href'] }}" class="csv">{!! $download !!} {{ $b['label'] }}</a>
                 </div>
