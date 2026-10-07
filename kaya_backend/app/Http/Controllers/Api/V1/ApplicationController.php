@@ -327,6 +327,8 @@ class ApplicationController extends Controller
 
             $application->i_reviewed_them   = $forJob->contains('reviewer_id', $user->id);
             $application->they_reviewed_me  = $forJob->contains('reviewee_id', $user->id);
+            // The Review button goes when the window does. See Application::reviewClosesAt.
+            $application->review_closes_at  = $application->reviewClosesAt()?->toIso8601String();
         });
 
         return $this->ok($applications);

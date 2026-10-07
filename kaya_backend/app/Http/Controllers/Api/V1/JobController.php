@@ -851,6 +851,8 @@ class JobController extends Controller
                         'employer_completed_at' => $hire->employer_completed_at,
                         'worker_completed_at'   => $hire->worker_completed_at,
                         'i_reviewed_them'       => isset($reviewsGiven[$job->id]),
+                        // The Review button goes when the window does.
+                        'review_closes_at'      => $hire->reviewClosesAt()?->toIso8601String(),
                         // History is where an employer decides to work with
                         // somebody again, so the price of doing it belongs on
                         // the card. Only meaningful once the hire finished.
@@ -862,6 +864,21 @@ class JobController extends Controller
                 : null;
 
             $job->hire_count = $forJob->count();
+
+            /*
+                Running, not only open to applicants.
+
+                is_live was isOpenForApplications() alone, so the moment an
+                employer accepted the one person a job needed - the job
+                turns in_progress - it stopped being live and left Active on
+                the home screen, exactly when the work started. A job is
+                still running while it is in progress, or while somebody
+                hired on it has not been confirmed finished.
+            */
+            $job->is_live = $job->is_live
+                || $job->status === 'in_progress'
+                || (! in_array($job->status, ['completed', 'closed'], true)
+                    && $forJob->contains('status', 'accepted'));
         });
 
         return $this->ok($jobs);

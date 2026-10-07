@@ -29,4 +29,24 @@ class Application extends Model
     {
         return $this->belongsTo(User::class, 'worker_id');
     }
+
+    /*
+        When reviewing this hire stops being possible.
+
+        ReviewController refuses a review kaya.reviews.window_days after both
+        sides confirmed, and the app never knew - so a Review button sat on a
+        card for months, refused every time it was pressed. Sent with the
+        card, the button goes when the window does. Null while the work is
+        not finished, or when there is no window.
+    */
+    public function reviewClosesAt(): ?\Illuminate\Support\Carbon
+    {
+        $days = (int) config('kaya.reviews.window_days');
+
+        if ($this->completed_at === null || $days <= 0) {
+            return null;
+        }
+
+        return $this->completed_at->copy()->addDays($days);
+    }
 }

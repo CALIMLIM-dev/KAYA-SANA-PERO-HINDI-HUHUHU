@@ -73,7 +73,7 @@ class ActiveSection extends StatelessWidget {
               ],
             ),
           ),
-          for (final row in items.take(maxRows)) activeCard(row, onChanged, live: true),
+          for (final row in items.take(maxRows)) activeCard(row, onChanged, compact: true),
         ],
       ),
     );

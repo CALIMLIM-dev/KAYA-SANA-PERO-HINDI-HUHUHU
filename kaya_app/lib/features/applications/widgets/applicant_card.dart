@@ -7,6 +7,7 @@ import '../../../core/utils/json_parse.dart';
 import '../../../core/widgets/app_toast.dart';
 import '../../../data/models/job_model.dart';
 import '../../../providers/application_provider.dart';
+import '../../../providers/job_provider.dart';
 import 'completion_action.dart';
 import 'fit_facts.dart';
 import '../../jobs/widgets/fit_line.dart';
@@ -616,6 +617,12 @@ required bool accept,
             final provider = context.read<ApplicationProvider>();
             final ok = await provider.respondToApplicant(applicationId,
                 accept: accept);
+            if (!context.mounted) return;
+
+            // The job's state just changed - a hire puts it in progress -
+            // and home's Active list reads the employer's jobs. Without this
+            // the hire did not appear there until something else refetched.
+            if (ok) await context.read<JobProvider>().fetchMyJobs();
             if (!context.mounted) return;
 
             // Say when the hire cleared the worker's clashing applications.

@@ -601,28 +601,62 @@ List<Map<String, dynamic>> activeItems(
   final hasEmployer =
       appMode.hasEmployerProfile && appMode.effectiveMode.showsEmployerSide;
 
+  /*
+      Finished, and still yours to review.
+
+      Mark as complete happens on this card, so the Review that follows it
+      belongs on the same card rather than somewhere else to go and find.
+      The job stays here until you have reviewed it or the review window
+      closes - never longer, which is what left a months-old Review sitting
+      on screens before the app knew reviews close.
+  */
+  final toReviewWork = applications.completed.where((a) =>
+      a['i_reviewed_them'] != true && reviewWindowOpen(a['review_closes_at']));
+
+  final activeIds = jobs.activeJobs.map((j) => j['id']).toSet();
+  final toReviewJobs = jobs.jobs.where((j) {
+    if (activeIds.contains(j['id'])) return false;
+    final hire = j['hire'] as Map<String, dynamic>?;
+    return hire != null &&
+        hire['status'] == 'completed' &&
+        hire['i_reviewed_them'] != true &&
+        reviewWindowOpen(hire['review_closes_at']);
+  });
+
   return [
-    if (hasWorker)
+    if (hasWorker) ...[
       ...applications.liveWork.map((a) => {...a, '_isJob': false}),
-    if (hasEmployer)
+      ...toReviewWork.map((a) => {...a, '_isJob': false}),
+    ],
+    if (hasEmployer) ...[
       ...jobs.activeJobs.map((j) => {...j, '_isJob': true}),
+      ...toReviewJobs.map((j) => {...j, '_isJob': true}),
+    ],
   ];
+}
+
+/// Whether a review can still be left, from the server's closing time.
+/// Absent means an older server that did not send one: left open, as before.
+bool reviewWindowOpen(Object? closesAt) {
+  if (closesAt == null) return true;
+  final at = DateTime.tryParse(closesAt.toString());
+  return at == null || at.isAfter(DateTime.now());
 }
 
 /// The card for one row of [activeItems]: the same two cards History uses.
 ///
-/// [live] is the Active list on home and its See all screen: work in
-/// progress, where the card offers Message and Mark as complete and never
-/// Review. Reviewing belongs to finished work, in History.
+/// [compact] is the home screen's Active list, where a worker's card drops
+/// the category and place rows - the job title and the actions are what
+/// matter there, and the full card is one tap away.
 Widget activeCard(
   Map<String, dynamic> row,
   Future<void> Function() onChanged, {
-  bool live = false,
+  bool compact = false,
 }) {
   final isJob = row['_isJob'] as bool? ?? false;
   return isJob
-      ? JobPostCard(job: row, onChanged: onChanged, live: live)
-      : ApplicationCard(application: row, onChanged: onChanged, live: live);
+      ? JobPostCard(job: row, onChanged: onChanged)
+      : ApplicationCard(application: row, onChanged: onChanged, compact: compact);
 }
 
 class _ActivityTab {
@@ -766,13 +800,13 @@ class ApplicationCard extends StatelessWidget {
     super.key,
     required this.application,
     required this.onChanged,
-    this.live = false,
+    this.compact = false,
   });
 
   final Map<String, dynamic> application;
 
-  /// Shown in Active rather than History: no Review here.
-  final bool live;
+  /// The home screen's tighter card: no category or place rows.
+  final bool compact;
 
   /// Called after a completion is recorded, so the list reloads and both cards
   /// pick up the new timestamps.
@@ -836,7 +870,10 @@ class ApplicationCard extends StatelessWidget {
     final iReviewed = application['i_reviewed_them'] == true;
     final theyReviewed = application['they_reviewed_me'] == true;
 
-    final canReview = !live && workDone && employer != null && !iReviewed;
+    final canReview = workDone &&
+        employer != null &&
+        !iReviewed &&
+        reviewWindowOpen(application['review_closes_at']);
 
     final String? reviewNote = !isHired
         ? null
@@ -887,8 +924,8 @@ class ApplicationCard extends StatelessWidget {
       subtitle: (employer?['name'] ?? 'Employer').toString(),
       status: status,
       trailing: null,
-      category: category,
-      place: place.isEmpty ? null : place,
+      category: compact ? null : category,
+      place: compact || place.isEmpty ? null : place,
       budget: job == null ? null : formatBudget(job),
       age: timeAgo(job?['created_at'] as String?),
       note: reviewNote,
@@ -1036,13 +1073,9 @@ class JobPostCard extends StatelessWidget {
     super.key,
     required this.job,
     required this.onChanged,
-    this.live = false,
   });
 
   final Map<String, dynamic> job;
-
-  /// Shown in Active rather than History: no Review here.
-  final bool live;
   final Future<void> Function() onChanged;
 
   @override
@@ -1109,7 +1142,10 @@ class JobPostCard extends StatelessWidget {
     final canConfirm =
         hire != null && !workDone && !iConfirmed && jobStillRunning;
     final early = !completionHasOpened(job);
-    final canReview = !live && hire != null && workDone && hire['i_reviewed_them'] != true;
+    final canReview = hire != null &&
+        workDone &&
+        hire['i_reviewed_them'] != true &&
+        reviewWindowOpen(hire['review_closes_at']);
 
     final String? note = hire == null
         ? null
