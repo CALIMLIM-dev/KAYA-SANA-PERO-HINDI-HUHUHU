@@ -983,7 +983,7 @@ class _PostJobScreenState extends State<PostJobScreen> {
                           icon: Icons.flash_on,
                           isActive: _isUrgent,
                           onTap: _handleUrgentToggle,
-                          color: AppColors.accent,
+                          color: AppColors.primary,
                         ),
                       ),
                     ],
@@ -2199,7 +2199,7 @@ class _PostJobScreenState extends State<PostJobScreen> {
           child: ElevatedButton(
             onPressed: _isLoading ? null : _submitJob,
             style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.accent,
+              backgroundColor: AppColors.primary,
               foregroundColor: Colors.white,
               disabledBackgroundColor: AppColors.neutral300,
               shape: RoundedRectangleBorder(

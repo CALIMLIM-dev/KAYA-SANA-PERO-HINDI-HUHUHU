@@ -887,7 +887,7 @@ class _SetupEmployerProfileScreenState extends State<SetupEmployerProfileScreen>
           Icon(
             _isCompany ? Icons.add_business : Icons.add_a_photo,
             size: 64,
-            color: AppColors.accent,
+            color: AppColors.primary,
           ),
           const SizedBox(height: 24),
           Text(

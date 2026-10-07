@@ -357,8 +357,8 @@ class _MyWorkerProfileScreenState extends State<MyWorkerProfileScreen> with Sing
       */
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () => Navigator.pushNamedAndRemoveUntil(context, '/home', (r) => false),
-        backgroundColor: AppColors.accent,
-        foregroundColor: AppColors.neutral900,
+        backgroundColor: AppColors.primary,
+        foregroundColor: Colors.white,
         elevation: 2,
         icon: const Icon(Icons.check, size: 20),
         label: const Text('Done', style: TextStyle(fontWeight: FontWeight.w700)),
@@ -487,7 +487,7 @@ class _MyWorkerProfileScreenState extends State<MyWorkerProfileScreen> with Sing
                                         width: 22,
                                         height: 22,
                                         decoration: BoxDecoration(
-                                          color: AppColors.accent,
+                                          color: AppColors.primary,
                                           shape: BoxShape.circle,
                                           border: Border.all(color: Colors.white, width: 1.5),
                                         ),
@@ -690,21 +690,23 @@ class _MyWorkerProfileScreenState extends State<MyWorkerProfileScreen> with Sing
                               } else {
                                 return Container(
                                   padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                                  // White on the blue header: it was yellow,
+                                  // and the theme blue would vanish into it.
                                   decoration: BoxDecoration(
-                                    color: AppColors.accent,
+                                    color: Colors.white,
                                     borderRadius: BorderRadius.circular(20),
                                   ),
                                   child: const Row(
                                     mainAxisSize: MainAxisSize.min,
                                     children: [
-                                      Icon(Icons.visibility, size: 13, color: Colors.white),
+                                      Icon(Icons.visibility, size: 13, color: AppColors.primary),
                                       SizedBox(width: 5),
                                       Text(
                                         'Set your profile visibility',
                                         style: TextStyle(
                                           fontSize: 11,
                                           fontWeight: FontWeight.w600,
-                                          color: Colors.white,
+                                          color: AppColors.primary,
                                         ),
                                       ),
                                     ],
@@ -1303,7 +1305,7 @@ class _MyWorkerProfileScreenState extends State<MyWorkerProfileScreen> with Sing
             return _buildInfoCard(
               title: 'Skills',
               icon: Icons.build_circle,
-              iconColor: AppColors.accent,
+              iconColor: AppColors.primary,
               content: hasSkills
                   ? Column(
                       crossAxisAlignment: CrossAxisAlignment.start,

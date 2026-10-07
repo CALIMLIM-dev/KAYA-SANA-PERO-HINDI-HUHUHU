@@ -309,7 +309,7 @@ class _LeaveReviewScreenState extends State<LeaveReviewScreen> {
                           )
                       : null,
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.accent,
+                    backgroundColor: AppColors.primary,
                     foregroundColor: Colors.white,
                     disabledBackgroundColor: AppColors.neutral300,
                     disabledForegroundColor: AppColors.neutral500,

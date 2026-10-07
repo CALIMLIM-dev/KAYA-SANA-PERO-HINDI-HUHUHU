@@ -588,7 +588,7 @@ class _EditJobScreenState extends State<EditJobScreen> {
                           isActive: _isUrgent,
                           onTap: () =>
                               setState(() => _isUrgent = !_isUrgent),
-                          color: AppColors.accent,
+                          color: AppColors.primary,
                         ),
                       ),
                     ],
@@ -965,7 +965,7 @@ class _EditJobScreenState extends State<EditJobScreen> {
           child: ElevatedButton(
             onPressed: _isLoading ? null : _saveChanges,
             style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.accent,
+              backgroundColor: AppColors.primary,
               foregroundColor: Colors.white,
               disabledBackgroundColor: AppColors.neutral300,
               shape: RoundedRectangleBorder(

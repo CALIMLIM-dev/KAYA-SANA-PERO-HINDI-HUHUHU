@@ -127,7 +127,7 @@ class _ManageJobsScreenState extends State<ManageJobsScreen>
                     ),
           floatingActionButton: FloatingActionButton.extended(
             onPressed: () => AppRouter.push(context, '/post-job'),
-            backgroundColor: AppColors.accent,
+            backgroundColor: AppColors.primary,
             foregroundColor: Colors.white,
             icon: const Icon(Icons.add),
             label: const Text('Post a Job',

@@ -877,7 +877,7 @@ class _WorkerSetupFlowScreenState extends State<WorkerSetupFlowScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Icon(Icons.build_circle, size: 64, color: AppColors.accent),
+          const Icon(Icons.build_circle, size: 64, color: AppColors.primary),
           const SizedBox(height: 24),
           const Text(
             'What are your skills?',
@@ -1556,7 +1556,7 @@ class _WorkerSetupFlowScreenState extends State<WorkerSetupFlowScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Icon(Icons.camera_alt, size: 64, color: AppColors.accent),
+          const Icon(Icons.camera_alt, size: 64, color: AppColors.primary),
           const SizedBox(height: 24),
           const Text(
             'Add a profile photo',

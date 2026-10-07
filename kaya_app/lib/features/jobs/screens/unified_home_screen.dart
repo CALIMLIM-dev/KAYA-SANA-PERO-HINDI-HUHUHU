@@ -861,7 +861,7 @@ class _UnifiedHomeScreenState extends State<UnifiedHomeScreen>
                             Expanded(
                               child: _ActivityCard(
                                 icon: Icons.work,
-                                iconColor: AppColors.accent,
+                                iconColor: AppColors.primary,
                                 // Same rule the manage-jobs screen filters by,
                                 // held in one place so the two cannot part
                                 // company the way the applications pair did.
@@ -1323,16 +1323,16 @@ class _UnifiedHomeScreenState extends State<UnifiedHomeScreen>
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
           gradient: LinearGradient(
-            colors: [AppColors.accent.withValues(alpha: 0.1), Colors.transparent],
+            colors: [AppColors.primary.withValues(alpha: 0.1), Colors.transparent],
             begin: Alignment.centerLeft,
             end: Alignment.centerRight,
           ),
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: AppColors.accent.withValues(alpha: 0.2)),
+          border: Border.all(color: AppColors.primary.withValues(alpha: 0.2)),
         ),
         child: Row(
           children: [
-            Icon(Icons.work_outline, color: AppColors.accent, size: 24),
+            Icon(Icons.work_outline, color: AppColors.primary, size: 24),
             const SizedBox(width: 12),
             Expanded(
               child: Column(
@@ -1358,7 +1358,7 @@ class _UnifiedHomeScreenState extends State<UnifiedHomeScreen>
             ElevatedButton(
               onPressed: () => AppRouter.toPostJob(context),
               style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.accent,
+                backgroundColor: AppColors.primary,
                 foregroundColor: Colors.white,
                 padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
               ),
@@ -1375,7 +1375,7 @@ class _UnifiedHomeScreenState extends State<UnifiedHomeScreen>
             child: ElevatedButton(
               onPressed: () => AppRouter.toPostJob(context),
               style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.accent,
+                backgroundColor: AppColors.primary,
                 foregroundColor: Colors.white,
                 padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
                 shape: RoundedRectangleBorder(

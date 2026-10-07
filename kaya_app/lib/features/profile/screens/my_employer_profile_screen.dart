@@ -500,7 +500,7 @@ class _MyEmployerProfileScreenState extends State<MyEmployerProfileScreen>
                               width: 22,
                               height: 22,
                               decoration: BoxDecoration(
-                                color: AppColors.accent,
+                                color: AppColors.primary,
                                 shape: BoxShape.circle,
                                 border: Border.all(
                                     color: Colors.white, width: 1.5),
