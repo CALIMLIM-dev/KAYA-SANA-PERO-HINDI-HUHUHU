@@ -303,6 +303,7 @@ class CommunityBoardTest extends TestCase
             'reason_code'  => 'spam',
             'subject_type' => 'community_post',
             'subject_id'   => $post->id,
+            'description'  => 'The same advert posted over and over today.',
         ])->assertStatus(201);
     }
 }

@@ -50,12 +50,18 @@ class ReportController extends Controller
         $data = $request->validate([
             'reported_id' => ['required', 'integer', 'exists:users,id'],
             'reason_code' => ['required', Rule::in(ModerationReasons::reportCodes())],
-            // Required for "other", because a report that says only "something
-            // else" gives an administrator nothing to act on.
-            'description' => [
-                Rule::requiredIf(fn () => $request->input('reason_code') === 'other'),
-                'nullable', 'string', 'max:1000',
-            ],
+            /*
+                What happened, in the reporter's words - always.
+
+                It was only required for "other", so most reports reached the
+                queue as a category and nothing else. The panel asked for
+                "substantial supporting evidence and relevant details when
+                submitting"; a reason code is neither.
+            */
+            'description' => ['required', 'string', 'min:20', 'max:1000'],
+            // Screenshots or photos, kept on the private disk.
+            'photos'      => ['nullable', 'array', 'max:3'],
+            'photos.*'    => ['image', 'mimes:jpg,jpeg,png,webp', 'max:5120'],
             'subject_id'  => ['nullable', 'integer'],
             'subject_type' => ['nullable', Rule::in(['user', 'job', 'message', 'community_post'])],
         ]);
@@ -90,7 +96,7 @@ class ReportController extends Controller
             return $this->fail('You have already reported this person for that reason. Our team is reviewing it.', 409);
         }
 
-        Report::create([
+        $report = Report::create([
             'reporter_id'   => $reporter->id,
             'reported_id'   => $reported->id,
             'reported_type' => $data['subject_type'] ?? 'user',
@@ -98,9 +104,28 @@ class ReportController extends Controller
             'reason_code'   => $data['reason_code'],
             // Kept readable for anything reading the table directly.
             'reason'        => ModerationReasons::reportLabel($data['reason_code']),
-            'description'   => $data['description'] ?? null,
+            'description'   => $data['description'],
             'status'        => 'pending',
+            'snapshot'      => $this->snapshot(
+                $data['subject_type'] ?? 'user',
+                isset($data['subject_id']) ? (int) $data['subject_id'] : null,
+                $reported,
+                $reporter,
+            ),
         ]);
+
+        if ($request->hasFile('photos')) {
+            $disk = config('filesystems.documents');
+            $report->update([
+                'evidence' => collect($request->file('photos'))
+                    ->map(fn ($photo) => $photo->store("report_evidence/{$report->id}", $disk))
+                    ->values()
+                    ->all(),
+            ]);
+        }
+
+        // The reported person may give their side before anyone decides.
+        app(\App\Services\NotificationService::class)->reportFiled($report);
 
         /*
             Deliberately no detail in the response.
@@ -110,5 +135,113 @@ class ReportController extends Controller
             to probe another user's standing.
         */
         return $this->ok(null, 'Thank you. Our team will review this report.', 201);
+    }
+
+    /*
+        The report as the reported person may see it.
+
+        The reason and the day, so they know what to answer - never who
+        filed it or what they wrote, which would turn a report into a
+        conversation the reporter did not ask for.
+    */
+    public function showForReported(Request $request, Report $report)
+    {
+        if ($report->reported_id !== $request->user()->id) {
+            return $this->fail('Not found.', 404);
+        }
+
+        return $this->ok([
+            'id'           => $report->id,
+            'reason'       => $report->reasonLabel(),
+            'about'        => $report->reported_type,
+            'filed_at'     => $report->created_at,
+            'status'       => $report->status,
+            'can_respond'  => $this->canRespond($report),
+            'response'     => $report->response,
+        ]);
+    }
+
+    /** Their side, once, while the report is still open. */
+    public function respond(Request $request, Report $report)
+    {
+        if ($report->reported_id !== $request->user()->id) {
+            return $this->fail('Not found.', 404);
+        }
+
+        if (! $this->canRespond($report)) {
+            return $this->fail($report->response !== null
+                ? 'You have already given your side of this report.'
+                : 'This report has already been decided.', 422);
+        }
+
+        $data = $request->validate([
+            'response' => ['required', 'string', 'min:10', 'max:1000'],
+        ]);
+
+        $report->update([
+            'response'     => $data['response'],
+            'responded_at' => now(),
+        ]);
+
+        return $this->ok(null, 'Thank you. Your side is with our team.');
+    }
+
+    private function canRespond(Report $report): bool
+    {
+        return $report->response === null
+            && in_array($report->status, ['pending', 'reviewed'], true);
+    }
+
+    /*
+        A copy of what was reported, as it was at that moment.
+
+        Taken only of the thing the reporter pointed at, and only when it is
+        really the reported person's: a message they sent in a thread the
+        reporter is part of, a post or a job of theirs, their own profile.
+        Kept so that deleting it afterwards cannot erase what the report is
+        about. Never the rest of a conversation.
+    */
+    private function snapshot(string $type, ?int $id, User $reported, User $reporter): array
+    {
+        $copy = match ($type) {
+            'message' => (function () use ($id, $reported, $reporter) {
+                $message = $id ? \App\Models\Message::with('conversation')->find($id) : null;
+                $conversation = $message?->conversation;
+                $inThread = $conversation && in_array($reporter->id, [
+                    (int) $conversation->employer_id, (int) $conversation->worker_id,
+                    (int) $conversation->pair_low, (int) $conversation->pair_high,
+                ], true);
+
+                return $message && $message->sender_id === $reported->id && $inThread
+                    ? ['kind' => 'Message', 'text' => $message->message_text, 'sent_at' => $message->created_at?->toIso8601String()]
+                    : null;
+            })(),
+            'job' => (function () use ($id, $reported) {
+                $job = $id ? \App\Models\JobPost::find($id) : null;
+
+                return $job && $job->employer_id === $reported->id
+                    ? ['kind' => 'Job post', 'title' => $job->title, 'text' => $job->description,
+                       'location' => $job->location, 'status' => $job->status]
+                    : null;
+            })(),
+            'community_post' => (function () use ($id, $reported) {
+                $post = $id ? \App\Models\CommunityPost::find($id) : null;
+
+                return $post && $post->user_id === $reported->id
+                    ? ['kind' => 'Board post', 'title' => $post->title, 'text' => $post->body]
+                    : null;
+            })(),
+            default => null,
+        };
+
+        $copy ??= [
+            'kind'     => 'Profile',
+            'name'     => $reported->name,
+            'text'     => $reported->workerProfile?->bio,
+            'company'  => $reported->employerProfile?->company_name,
+            'location' => $reported->workerProfile?->location ?? $reported->employerProfile?->location,
+        ];
+
+        return $copy + ['captured_at' => now()->toIso8601String()];
     }
 }

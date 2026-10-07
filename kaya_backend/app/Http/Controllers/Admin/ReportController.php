@@ -9,6 +9,7 @@ use App\Services\SuspensionService;
 use App\Support\ModerationReasons;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
 
 class ReportController extends Controller
@@ -99,9 +100,19 @@ class ReportController extends Controller
             // Only asked for on a report being upheld, and then required:
             // that is the whole point of the change.
             'action' => ['required_if:status,resolved', Rule::in(['warned', 'none'])],
-            'resolution_note' => ['nullable', 'string', 'max:1000'],
+            /*
+                The finding, always.
+
+                The panel asked for relevant details when processing a
+                report, not only when filing one. A report closed with no
+                written finding cannot be checked by anyone later - not the
+                next admin, not the two people it was about.
+            */
+            'resolution_note' => ['required', 'string', 'min:10', 'max:1000'],
         ], [
             'action.required_if' => 'Say what happened to the account before closing the report.',
+            'resolution_note.required' => 'Write your finding before closing the report.',
+            'resolution_note.min' => 'Write a little more about what you found.',
         ]);
 
         $note = $data['resolution_note'] ?? null;
@@ -127,6 +138,8 @@ class ReportController extends Controller
             'resolved_at'     => now(),
         ]);
 
+        app(\App\Services\NotificationService::class)->reportDecided($report->fresh());
+
         AdminAction::record(
             'report.' . $data['status'], 'report', $report->id,
             ucfirst($data['status']) . " report #{$report->id} against " . ($report->reported?->name ?? 'a deleted account')
@@ -139,6 +152,23 @@ class ReportController extends Controller
             ->with('success', $data['status'] === 'dismissed'
                 ? 'Report dismissed.'
                 : 'Report closed: ' . $note . '.');
+    }
+
+    /*
+        One evidence photo, from the private disk.
+
+        Served through this route rather than a storage URL for the same
+        reason ID documents are: only an administrator who can moderate may
+        open it, and only through the report it belongs to.
+    */
+    public function evidence(Report $report, int $index)
+    {
+        $path = ($report->evidence ?? [])[$index] ?? null;
+        $disk = Storage::disk(config('filesystems.documents'));
+
+        abort_if(blank($path) || ! $disk->exists($path), 404);
+
+        return $disk->response($path);
     }
 
     /**
@@ -154,7 +184,11 @@ class ReportController extends Controller
         $data = $request->validate([
             'reason_code' => ['required', Rule::in(ModerationReasons::suspensionCodes())],
             'duration'    => ['required', Rule::in(['7', '14', '30', '90', 'permanent'])],
-            'note'        => ['nullable', 'string', 'max:1000'],
+            // The finding, required here too. See resolve().
+            'note'        => ['required', 'string', 'min:10', 'max:1000'],
+        ], [
+            'note.required' => 'Write your finding before suspending.',
+            'note.min' => 'Write a little more about what you found.',
         ]);
 
         if ($report->reported->isAdmin()) {
@@ -176,6 +210,8 @@ class ReportController extends Controller
             'reviewed_by'     => Auth::id(),
             'resolved_at'     => now(),
         ]);
+
+        app(\App\Services\NotificationService::class)->reportDecided($report->fresh());
 
         AdminAction::record(
             'user.suspended', 'user', $report->reported_id,

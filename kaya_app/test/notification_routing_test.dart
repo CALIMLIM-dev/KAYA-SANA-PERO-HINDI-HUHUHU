@@ -35,6 +35,13 @@ void main() {
         referenceId: referenceId,
       ).name;
 
+  test('a report about you opens the place to give your side', () {
+    expect(
+      destinationFor(type: 'report.filed', audience: 'both', referenceType: 'report', referenceId: 9),
+      'reportResponse',
+    );
+  });
+
   test('a review takes the reviewed person to their own profile', () {
     expect(
       destinationFor(

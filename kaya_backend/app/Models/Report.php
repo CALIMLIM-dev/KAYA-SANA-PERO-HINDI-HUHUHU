@@ -11,10 +11,14 @@ class Report extends Model
         'reporter_id', 'reported_id', 'reported_type', 'subject_id',
         'reason', 'reason_code', 'description',
         'status', 'resolution_note', 'resolved_at', 'reviewed_by',
+        'evidence', 'snapshot', 'response', 'responded_at',
     ];
 
     protected $casts = [
-        'resolved_at' => 'datetime',
+        'resolved_at'  => 'datetime',
+        'responded_at' => 'datetime',
+        'evidence'     => 'array',
+        'snapshot'     => 'array',
     ];
 
     public function reporter()

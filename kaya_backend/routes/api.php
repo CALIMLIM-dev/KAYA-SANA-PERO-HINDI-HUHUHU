@@ -402,6 +402,10 @@ Route::prefix('v1')->group(function () {
         Route::get('/report-reasons', [ReportController::class, 'reasons']);
         Route::post('/reports', [ReportController::class, 'store'])
             ->middleware('throttle:reports');
+        // The reported person's view of a report about them, and their side.
+        Route::get('/reports/{report}', [ReportController::class, 'showForReported']);
+        Route::post('/reports/{report}/respond', [ReportController::class, 'respond'])
+            ->middleware('throttle:reports');
 
         /*
             Email and phone verification.

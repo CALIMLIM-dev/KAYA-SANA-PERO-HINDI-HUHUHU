@@ -55,6 +55,9 @@ enum NotificationDestination {
 
   verification,
 
+  /// A report about this account, to read and answer.
+  reportResponse,
+
   /// Nothing sensible to open.
   none,
 }
@@ -111,6 +114,9 @@ NotificationDestination notificationDestination({
         ? NotificationDestination.chat
         : NotificationDestination.messages,
     'verification' => NotificationDestination.verification,
+    'report' => referenceId != null
+        ? NotificationDestination.reportResponse
+        : NotificationDestination.none,
     _ => NotificationDestination.none,
   };
 }

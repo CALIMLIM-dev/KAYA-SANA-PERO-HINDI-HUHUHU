@@ -38,6 +38,8 @@ class DistanceConsistencyTest extends TestCase
             'location'        => 'Urdaneta City',
             'setup_completed' => true,
         ]);
+        // The matched list is a Top-up benefit.
+        $this->topUp($user);
         CreditWallet::updateOrCreate(['user_id' => $user->id], ['balance' => 100]);
 
         return $user;

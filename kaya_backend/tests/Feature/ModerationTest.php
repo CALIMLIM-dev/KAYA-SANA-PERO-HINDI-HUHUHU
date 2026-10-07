@@ -48,7 +48,7 @@ class ModerationTest extends TestCase
     {
         $reporter = User::factory()->create();
         $target   = User::factory()->create();
-        $payload  = ['reported_id' => $target->id, 'reason_code' => 'spam'];
+        $payload  = ['reported_id' => $target->id, 'reason_code' => 'spam', 'description' => 'Kept sending the same offer after I said no.'];
 
         $this->actingAs($reporter)->postJson('/api/v1/reports', $payload)->assertStatus(201);
         $this->actingAs($reporter)->postJson('/api/v1/reports', $payload)->assertStatus(409);
@@ -63,9 +63,9 @@ class ModerationTest extends TestCase
         $target   = User::factory()->create();
 
         $this->actingAs($reporter)->postJson('/api/v1/reports',
-            ['reported_id' => $target->id, 'reason_code' => 'spam'])->assertStatus(201);
+            ['reported_id' => $target->id, 'reason_code' => 'spam', 'description' => 'Kept sending the same offer after I said no.'])->assertStatus(201);
         $this->actingAs($reporter)->postJson('/api/v1/reports',
-            ['reported_id' => $target->id, 'reason_code' => 'harassment'])->assertStatus(201);
+            ['reported_id' => $target->id, 'reason_code' => 'harassment', 'description' => 'Kept sending the same offer after I said no.'])->assertStatus(201);
 
         $this->assertSame(2, Report::count());
     }

@@ -105,6 +105,8 @@ Route::prefix('admin')->name('admin.')->group(function () {
         Route::get('/reports', [ReportController::class, 'index'])->name('reports.index');
         Route::get('/reports/{report}', [ReportController::class, 'show'])->name('reports.show');
         Route::post('/reports/{report}/resolve', [ReportController::class, 'resolve'])->name('reports.resolve');
+        Route::get('/reports/{report}/evidence/{index}', [ReportController::class, 'evidence'])
+            ->whereNumber('index')->name('reports.evidence');
         // Suspends the reported account and closes the report together, so the
         // two cannot fall out of step.
         Route::post('/reports/{report}/suspend', [ReportController::class, 'suspend'])->name('reports.suspend');

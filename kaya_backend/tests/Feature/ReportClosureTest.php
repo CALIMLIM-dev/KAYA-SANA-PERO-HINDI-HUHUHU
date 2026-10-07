@@ -86,29 +86,47 @@ class ReportClosureTest extends TestCase
             ->post("/admin/reports/{$report->id}/resolve", [
                 'status' => 'resolved',
                 'action' => 'none',
+                'resolution_note' => 'Checked the job post, it follows the rules.',
             ])
             ->assertRedirect(route('admin.reports.index'));
 
         $this->assertStringStartsWith('No action taken', (string) $report->fresh()->resolution_note);
 
+        // No warning - only the plain notice that it was closed.
         $this->assertDatabaseMissing('user_notifications', [
             'user_id' => $report->reported_id,
             'type'    => 'moderation.warning',
         ]);
+        $this->assertDatabaseHas('user_notifications', [
+            'user_id' => $report->reported_id,
+            'type'    => 'report.closed',
+        ]);
     }
 
     #[Test]
-    public function dismissing_still_needs_nothing(): void
+    public function dismissing_needs_no_action_but_does_need_a_finding(): void
     {
-        // A complaint that was not upheld needs no action by definition, and
-        // making the admin justify one would push borderline reports towards
-        // a warning nobody meant to give.
+        // A complaint that was not upheld needs no action by definition. It
+        // still needs a written finding: the panel asked for relevant
+        // details when a report is processed, and "dismissed" alone cannot
+        // be checked by anyone later.
         $report = $this->report();
 
         $this->actingAs($this->admin())
             ->post("/admin/reports/{$report->id}/resolve", ['status' => 'dismissed'])
+            ->assertSessionHasErrors('resolution_note');
+
+        $this->actingAs($this->admin())
+            ->post("/admin/reports/{$report->id}/resolve", [
+                'status' => 'dismissed',
+                'resolution_note' => 'Both sides agree the job was finished as asked.',
+            ])
             ->assertRedirect(route('admin.reports.index'));
 
         $this->assertSame('dismissed', $report->fresh()->status);
+        $this->assertDatabaseHas('user_notifications', [
+            'user_id' => $report->reporter_id,
+            'type'    => 'report.decided',
+        ]);
     }
 }

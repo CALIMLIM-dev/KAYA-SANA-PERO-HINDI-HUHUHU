@@ -147,6 +147,10 @@ void openNotification(
         type == 'verification.rejected' ? '/verification' : AppRouter.profile,
       );
 
+    case NotificationDestination.reportResponse:
+      AppRouter.push(context, AppRouter.reportResponse,
+          arguments: {'reportId': referenceId});
+
     case NotificationDestination.none:
       AppRouter.push(context, AppRouter.notifications);
   }

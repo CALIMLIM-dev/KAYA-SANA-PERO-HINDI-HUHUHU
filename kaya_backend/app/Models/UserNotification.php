@@ -116,6 +116,8 @@ class UserNotification extends Model
             'verification' => 'account',
             'announcement' => 'account',
             'community'    => 'account',
+            // Being reported, and hearing the outcome, is account business.
+            'report'       => 'account',
         ][explode('.', $type)[0]] ?? 'jobs';
     }
 

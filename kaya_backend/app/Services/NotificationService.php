@@ -720,6 +720,60 @@ class NotificationService
         );
     }
 
+    /*
+        A report was filed about you, and you may answer it.
+
+        Who filed it and what they wrote stay private. The reason and the
+        chance to give your side do not: a decision made on one account of
+        what happened is not a fair one.
+    */
+    public function reportFiled(\App\Models\Report $report): void
+    {
+        $this->push(
+            userId: $report->reported_id,
+            audience: UserNotification::AUDIENCE_BOTH,
+            type: 'report.filed',
+            title: 'A report about your account',
+            body: 'Somebody reported your account for: ' . $report->reasonLabel()
+                . '. Tap to tell our team your side before a decision is made.',
+            referenceType: 'report',
+            referenceId: $report->id,
+        );
+    }
+
+    /*
+        What came of a report, to the person who filed it.
+
+        The reporter heard nothing once they had filed, so a report that was
+        acted on looked exactly like one that was ignored. Told the outcome
+        in a sentence - never what was done to the other account in detail.
+    */
+    public function reportDecided(\App\Models\Report $report): void
+    {
+        $upheld = $report->status === 'resolved';
+
+        $this->push(
+            userId: $report->reporter_id,
+            audience: UserNotification::AUDIENCE_BOTH,
+            type: 'report.decided',
+            title: $upheld ? 'Your report was upheld' : 'Your report was reviewed',
+            body: $upheld
+                ? 'We looked into your report and took action. Thank you for telling us.'
+                : 'We looked into your report and did not find a rule broken this time.',
+        );
+
+        // The reported person hears it was closed, unless a warning or a
+        // suspension already told them.
+        if ($report->status === 'dismissed' || str_starts_with((string) $report->resolution_note, 'No action taken')) {
+            $this->push(
+                userId: $report->reported_id,
+                audience: UserNotification::AUDIENCE_BOTH,
+                type: 'report.closed',
+                title: 'A report about your account was closed',
+                body: 'Our team reviewed it and no action was taken.',
+            );
+        }
+    }
     /** An administrator took a community post down; the poster hears why. */
     public function communityPostRemoved(\App\Models\CommunityPost $post, string $reason): void
     {

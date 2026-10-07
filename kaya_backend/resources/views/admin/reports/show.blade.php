@@ -94,6 +94,63 @@
                 @endif
             </div>
 
+            {{--
+                The evidence: what was reported, as it was at the time; the
+                photos the reporter attached; and the reported person's side.
+                The panel asked for substantial supporting evidence and
+                relevant details when submitting or processing a report.
+            --}}
+            @if ($report->snapshot)
+                <div class="mt-4">
+                    <p class="text-xs text-slate-400 font-medium mb-1.5">
+                        What was reported · {{ $report->snapshot['kind'] ?? 'Item' }}, saved when the report was filed
+                    </p>
+                    <div class="p-3 rounded-lg border border-amber-200 bg-amber-50 text-sm text-slate-800 space-y-1">
+                        @foreach (['name' => 'Name', 'company' => 'Business', 'title' => 'Title', 'location' => 'Location', 'status' => 'Status'] as $key => $label)
+                            @if (!empty($report->snapshot[$key]))
+                                <p><span class="text-slate-500">{{ $label }}:</span> {{ $report->snapshot[$key] }}</p>
+                            @endif
+                        @endforeach
+                        @if (!empty($report->snapshot['text']))
+                            <p class="whitespace-pre-line">{{ $report->snapshot['text'] }}</p>
+                        @endif
+                        @if (!empty($report->snapshot['sent_at']))
+                            <p class="text-xs text-slate-500">Sent {{ \Illuminate\Support\Carbon::parse($report->snapshot['sent_at'])->format('M j, Y g:ia') }}</p>
+                        @endif
+                    </div>
+                </div>
+            @endif
+
+            <div class="mt-4">
+                <p class="text-xs text-slate-400 font-medium mb-1.5">Photos from the reporter</p>
+                @if (!empty($report->evidence))
+                    <div class="flex flex-wrap gap-2">
+                        @foreach ($report->evidence as $i => $path)
+                            <a href="{{ route('admin.reports.evidence', [$report, $i]) }}" target="_blank"
+                               class="block w-28 h-28 rounded-lg overflow-hidden border border-slate-200 bg-slate-100">
+                                <img src="{{ route('admin.reports.evidence', [$report, $i]) }}" alt="Evidence {{ $i + 1 }}"
+                                     class="w-full h-full object-cover">
+                            </a>
+                        @endforeach
+                    </div>
+                @else
+                    <p class="text-sm text-slate-400 italic">None attached.</p>
+                @endif
+            </div>
+
+            <div class="mt-4">
+                <p class="text-xs text-slate-400 font-medium mb-1.5">The reported person's side</p>
+                @if ($report->response)
+                    <p class="text-sm text-slate-700 leading-relaxed whitespace-pre-line
+                              p-3 rounded-lg border border-slate-200 bg-white">{{ $report->response }}</p>
+                    <p class="text-xs text-slate-400 mt-1">Sent {{ $report->responded_at?->format('M j, Y g:ia') }}</p>
+                @else
+                    <p class="text-sm text-slate-400 italic">
+                        {{ $report->status === 'pending' ? 'They have been told and can still reply.' : 'They did not reply.' }}
+                    </p>
+                @endif
+            </div>
+
             @if ($report->status !== 'pending')
                 <div class="mt-4 p-3 rounded-lg bg-slate-50 border border-slate-200">
                     <p class="text-xs text-slate-400 font-medium">Decision</p>
@@ -175,10 +232,10 @@
                         </div>
                     </div>
 
-                    <textarea name="note" rows="2" maxlength="1000"
+                    <textarea name="note" rows="3" maxlength="1000" minlength="10" required
                               class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm
                                      focus:outline-none focus:ring-2 focus:ring-red-500"
-                              placeholder="Optional, internal"></textarea>
+                              placeholder="Your finding: what the evidence shows and why a suspension (required)"></textarea>
 
                     <button type="submit"
                             class="w-full px-3 py-2.5 bg-red-600 text-white text-xs font-semibold rounded-lg hover:bg-red-700">
@@ -198,10 +255,10 @@
 
                 <form method="POST" action="{{ route('admin.reports.resolve', $report) }}" class="mt-4 space-y-3">
                     @csrf
-                    <textarea name="resolution_note" rows="2" maxlength="1000"
+                    <textarea name="resolution_note" rows="3" maxlength="1000" minlength="10" required
                               class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm
                                      focus:outline-none focus:ring-2 focus:ring-blue-500"
-                              placeholder="What you decided. A warning sends this to them."></textarea>
+                              placeholder="Your finding: what the evidence shows (required). A warning sends this to them."></textarea>
 
                     <div class="space-y-2">
                         <p class="text-xs font-semibold text-slate-600">Upheld — what happens to the account</p>

@@ -1,4 +1,8 @@
+import 'dart:io';
+
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 
 import '../../../core/constants/app_colors.dart';
 import '../../../core/widgets/app_toast.dart';
@@ -58,6 +62,12 @@ class _ReportSheetState extends State<ReportSheet> {
   final TextEditingController _details = TextEditingController();
 
   List<Map<String, dynamic>> _reasons = const [];
+
+  /// Screenshots or photos, up to three. The panel asked for substantial
+  /// supporting evidence; a picture of what happened is the most of it.
+  final List<XFile> _photos = [];
+  static const _maxPhotos = 3;
+  static const _minDetails = 20;
   String? _selected;
   bool _loading = true;
   bool _submitting = false;
@@ -94,13 +104,26 @@ class _ReportSheetState extends State<ReportSheet> {
     }
   }
 
-  // "Something else" carries no meaning on its own, so it has to be explained.
-  bool get _needsDetails => _selected == 'other';
+  /*
+      What happened, always.
 
-  bool get _canSubmit =>
-      _selected != null &&
-      !_submitting &&
-      (!_needsDetails || _details.text.trim().isNotEmpty);
+      Only "something else" used to need words, so most reports reached the
+      team as a category and nothing more. A reason code is not evidence.
+  */
+  bool get _detailsEnough => _details.text.trim().length >= _minDetails;
+
+  bool get _canSubmit => _selected != null && !_submitting && _detailsEnough;
+
+  Future<void> _addPhoto() async {
+    if (_photos.length >= _maxPhotos) return;
+    final picked = await ImagePicker().pickImage(
+      source: ImageSource.gallery,
+      imageQuality: 75,
+      maxWidth: 1600,
+    );
+    if (picked == null || !mounted) return;
+    setState(() => _photos.add(picked));
+  }
 
   Future<void> _submit() async {
     setState(() {
@@ -109,13 +132,26 @@ class _ReportSheetState extends State<ReportSheet> {
     });
 
     try {
-      await _api.post('/reports', data: {
+      final fields = <String, dynamic>{
         'reported_id': widget.reportedId,
         'reason_code': _selected,
-        if (_details.text.trim().isNotEmpty) 'description': _details.text.trim(),
+        'description': _details.text.trim(),
         if (widget.subjectType != null) 'subject_type': widget.subjectType,
         if (widget.subjectId != null) 'subject_id': widget.subjectId,
-      });
+      };
+
+      await _api.post(
+        '/reports',
+        data: _photos.isEmpty
+            ? fields
+            : FormData.fromMap({
+                ...fields,
+                'photos': [
+                  for (final p in _photos)
+                    await MultipartFile.fromFile(p.path, filename: p.name),
+                ],
+              }, ListFormat.multiCompatible),
+      );
 
       if (!mounted) return;
       Navigator.pop(context);
@@ -170,7 +206,8 @@ class _ReportSheetState extends State<ReportSheet> {
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    'Only our team sees this. They will not be told who reported them.',
+                    'Only our team sees what you write. They will be told a report '
+                    'was made and can give their side, but never who made it.',
                     style: TextStyle(
                       fontSize: 12,
                       height: 1.4,
@@ -237,9 +274,11 @@ class _ReportSheetState extends State<ReportSheet> {
             maxLength: 1000,
             onChanged: (_) => setState(() {}),
             decoration: InputDecoration(
-              hintText: _needsDetails
-                  ? 'Tell us what happened'
-                  : 'Add anything else that helps (optional)',
+              hintText: 'Describe what happened: when, where, and what was said or done',
+              helperText: _detailsEnough
+                  ? null
+                  : 'At least $_minDetails characters '
+                      '(${_details.text.trim().length}/$_minDetails)',
               hintStyle: TextStyle(fontSize: 13.5, color: AppColors.neutral400),
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(12),
@@ -253,6 +292,8 @@ class _ReportSheetState extends State<ReportSheet> {
             ),
             style: const TextStyle(fontSize: 13.5),
           ),
+          const SizedBox(height: 4),
+          _buildPhotos(),
         ],
         if (_error != null && _reasons.isNotEmpty)
           Padding(
@@ -262,6 +303,69 @@ class _ReportSheetState extends State<ReportSheet> {
               style: const TextStyle(fontSize: 12, color: AppColors.error),
             ),
           ),
+      ],
+    );
+  }
+
+  /// Up to three photos, each removable, with an Add tile while there is room.
+  Widget _buildPhotos() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Photos or screenshots (optional, up to $_maxPhotos)',
+          style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600, color: AppColors.neutral700),
+        ),
+        const SizedBox(height: 8),
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: [
+            for (var i = 0; i < _photos.length; i++)
+              Stack(
+                clipBehavior: Clip.none,
+                children: [
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(10),
+                    child: Image.file(File(_photos[i].path), width: 72, height: 72, fit: BoxFit.cover),
+                  ),
+                  Positioned(
+                    top: -6,
+                    right: -6,
+                    child: InkWell(
+                      onTap: () => setState(() => _photos.removeAt(i)),
+                      child: Container(
+                        padding: const EdgeInsets.all(3),
+                        decoration: const BoxDecoration(color: AppColors.neutral900, shape: BoxShape.circle),
+                        child: const Icon(Icons.close, size: 13, color: Colors.white),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            if (_photos.length < _maxPhotos)
+              InkWell(
+                onTap: _addPhoto,
+                borderRadius: BorderRadius.circular(10),
+                child: Container(
+                  width: 72,
+                  height: 72,
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: AppColors.neutral300),
+                  ),
+                  child: const Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(Icons.add_photo_alternate_outlined, color: AppColors.neutral500),
+                      SizedBox(height: 2),
+                      Text('Add', style: TextStyle(fontSize: 11, color: AppColors.neutral500)),
+                    ],
+                  ),
+                ),
+              ),
+          ],
+        ),
       ],
     );
   }
