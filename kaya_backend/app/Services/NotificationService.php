@@ -406,31 +406,25 @@ class NotificationService
     /*
         A new job that suits you.
 
-        The retention feature the app was missing: a worker had no way to learn
-        a matching job existed except by opening the app and scrolling the feed.
-        The scoring already existed — JobMatchService powers the employer's
-        "suggested workers" list — so this is the same judgement pointed the
-        other way.
+        The same judgement the employer's lists make, pointed the other way:
+        JobMatchService decides, and only its top tier is told - a worker who
+        holds a skill the job asks for, or, for a job naming no skills, works
+        in its trade. A trade alone is enough to appear in a list, never
+        enough to make a phone buzz.
 
-        Two deliberate limits, because a notification is far more intrusive than
-        a row in a list:
+        It used to narrow the field in SQL first, to workers whose setup
+        category was the job's exact category or who held one of its exact
+        skill ids. Anyone who had typed their skill, or whose setup trade was
+        filed somewhere else, was never even scored - so the matcher's
+        understanding of abbreviations, shared words and confirmed synonyms
+        never reached a notification. Every finished profile is scored now.
 
-        MIN_NOTIFY_SCORE is set above JobMatchService::MIN_VISIBLE_SCORE. Being
-        in the same category (40) is enough to appear in a list, but not enough
-        to be worth interrupting someone for — this requires the category plus
-        proximity or genuine skill overlap. Otherwise every plumber in the
-        province is notified of every plumbing job, and they all turn
-        notifications off within a week.
-
-        MAX_RECIPIENTS caps the blast. A job in a busy category could otherwise
-        notify hundreds of people at once, which is indistinguishable from spam
-        and would make the app the thing that made their phone buzz all day.
-
-        Candidates are pre-filtered in SQL to workers who share the category or
-        one of the job's skills — precisely the set that can reach the
-        threshold — rather than scoring every profile in the database.
+        Limits, because a notification is far more intrusive than a row:
+        nobody further than the distance they could apply from, nobody told
+        about the same job twice, at most DAILY_CAP a day per worker, and at
+        most MAX_RECIPIENTS per job.
     */
-    public const MIN_NOTIFY_SCORE = 45;
+    public const DAILY_CAP = 3;
     public const MAX_RECIPIENTS = 25;
 
     /*
@@ -777,58 +771,136 @@ class NotificationService
     /** @return int how many workers were notified */
     public function jobMatched(JobPost $job): int
     {
-        $job->loadMissing(['skills', 'psgcLocation']);
-        $skillIds = $job->skills->pluck('id');
+        if (! $job->isOpenForApplications()) {
+            return 0;
+        }
+
+        $job->loadMissing(['skills', 'psgcLocation', 'category']);
 
         $candidates = \App\Models\WorkerProfile::query()
-            ->with(['skills', 'psgcLocation'])
+            ->with(['skills', 'psgcLocation', 'category', 'user:id,is_verified', 'licenses:id,user_id', 'certifications:id,user_id'])
             ->where('user_id', '!=', $job->employer_id)
-            ->where(function ($q) use ($job, $skillIds) {
-                $q->where('category_id', $job->category_id);
-
-                if ($skillIds->isNotEmpty()) {
-                    /*
-                        WorkerProfile::skills() is a hasMany onto worker_skills_new,
-                        not a pivot to the skills table - so the column to match is
-                        that table's own skill_id. Qualifying it as skills.id put a
-                        table in the where clause that the subquery never joins,
-                        which threw 1054 on every job post.
-                    */
-                    $q->orWhereHas('skills', fn ($s) => $s->whereIn('worker_skills_new.skill_id', $skillIds));
-                }
-            })
             ->get()
             ->filter(fn ($profile) => $profile->isSetupCompleted());
 
         $ranked = $candidates
-            ->map(fn ($profile) => [
-                'profile' => $profile,
-                'score' => \App\Services\JobMatchService::score($job, $profile)['score'],
-            ])
-            ->filter(fn ($row) => $row['score'] >= self::MIN_NOTIFY_SCORE)
-            ->sortByDesc('score')
+            ->map(fn ($profile) => $this->matchFor($job, $profile))
+            ->filter()
+            ->sortByDesc('rank')
             ->take(self::MAX_RECIPIENTS);
 
         $notified = 0;
-
         foreach ($ranked as $row) {
-            $sent = $this->push(
-                userId: $row['profile']->user_id,
-                audience: UserNotification::AUDIENCE_WORKER,
-                type: UserNotification::JOB_MATCH,
-                title: 'New job for you',
-                body: '"' . $job->title . '" in ' . ($job->location ?: 'your area')
-                    . ' matches your skills.',
-                referenceType: 'job',
-                referenceId: $job->id,
-                actorId: $job->employer_id,
-            );
+            $notified += $this->tellAboutJob($job, $row['profile']->user_id) ? 1 : 0;
+        }
 
-            if ($sent !== null) {
+        return $notified;
+    }
+
+    /*
+        The other direction: a worker whose skills changed.
+
+        Fit was only ever judged when a job was posted, so a worker who added
+        the skill an open job asks for heard nothing about it until some
+        other job went up. Open jobs near them that they now meet, best fit
+        first, within the same daily cap.
+    */
+    public function workerMatched(\App\Models\WorkerProfile $profile): int
+    {
+        if (! $profile->isSetupCompleted()) {
+            return 0;
+        }
+
+        $profile->loadMissing(['skills', 'psgcLocation', 'category', 'user:id,is_verified', 'licenses:id,user_id', 'certifications:id,user_id']);
+
+        $jobs = JobPost::query()
+            ->with(['skills', 'psgcLocation', 'category'])
+            ->where('status', JobPost::STATUS_OPEN)
+            ->where('employer_id', '!=', $profile->user_id)
+            ->get()
+            ->filter(fn (JobPost $job) => $job->isOpenForApplications());
+
+        $ranked = $jobs
+            ->map(fn (JobPost $job) => ($m = $this->matchFor($job, $profile)) ? $m + ['job' => $job] : null)
+            ->filter()
+            ->sortByDesc('rank');
+
+        $notified = 0;
+        foreach ($ranked as $row) {
+            if ($this->tellAboutJob($row['job'], $profile->user_id)) {
                 $notified++;
             }
         }
 
         return $notified;
+    }
+
+    /**
+     * The match, when it is worth a notification: the top tier, within
+     * reach. Null otherwise.
+     *
+     * @return array{profile: \App\Models\WorkerProfile, rank: float}|null
+     */
+    private function matchFor(JobPost $job, \App\Models\WorkerProfile $profile): ?array
+    {
+        $match = \App\Services\JobMatchService::score($job, $profile);
+
+        if ($match['tier'] !== \App\Services\JobMatchService::TIER_MEETS) {
+            return null;
+        }
+
+        // Unknown distance does not block, the same as applying.
+        $km = $match['distance_km'];
+        if ($km !== null && $km > \App\Services\WorkingDistance::LIMIT_KM) {
+            return null;
+        }
+
+        return [
+            'profile' => $profile,
+            'rank' => \App\Services\JobMatchService::rank(
+                $match['tier'],
+                $match['score'],
+                \App\Services\JobMatchService::strength($profile),
+            ),
+        ];
+    }
+
+    /** Sends one job-match notification, unless it was sent before or today's cap is reached. */
+    private function tellAboutJob(JobPost $job, int $userId): bool
+    {
+        $already = UserNotification::query()
+            ->where('user_id', $userId)
+            ->where('type', UserNotification::JOB_MATCH)
+            ->where('reference_type', 'job')
+            ->where('reference_id', $job->id)
+            ->exists();
+
+        if ($already) {
+            return false;
+        }
+
+        $today = UserNotification::query()
+            ->where('user_id', $userId)
+            ->where('type', UserNotification::JOB_MATCH)
+            ->where('created_at', '>=', now()->startOfDay())
+            ->count();
+
+        if ($today >= self::DAILY_CAP) {
+            return false;
+        }
+
+        $asksForSkills = $job->relationLoaded('skills') && $job->skills->isNotEmpty();
+
+        return $this->push(
+            userId: $userId,
+            audience: UserNotification::AUDIENCE_WORKER,
+            type: UserNotification::JOB_MATCH,
+            title: 'New job for you',
+            body: '"' . $job->title . '" in ' . ($job->location ?: 'your area')
+                . ($asksForSkills ? ' asks for skills you have.' : ' is in your line of work.'),
+            referenceType: 'job',
+            referenceId: $job->id,
+            actorId: $job->employer_id,
+        ) !== null;
     }
 }

@@ -83,6 +83,18 @@ class BackgroundPoll {
     }
   }
 
+  /// Records that the app has looked and found nothing, so the first
+  /// notification ever received is shown rather than taken as the starting
+  /// point. Leaves an existing mark alone.
+  static Future<void> primeIfUnset() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      if (!prefs.containsKey(lastSeenKey)) await prefs.setInt(lastSeenKey, 0);
+    } catch (_) {
+      // Preferences unavailable. The worker falls back to its first-run rule.
+    }
+  }
+
   /// The app's poll records the newest id it has shown, so nothing already
   /// seen on screen comes back later on the shade.
   static Future<void> rememberSeen(int id) async {
@@ -104,6 +116,9 @@ class BackgroundPoll {
     if (token == null || token.isEmpty || baseUrl == null) return true;
 
     final lastSeen = prefs.getInt(lastSeenKey) ?? 0;
+    // Absent means nothing has looked yet. Present, even at 0, means the app
+    // looked and saw nothing - and then every notification is new.
+    final primed = prefs.containsKey(lastSeenKey);
 
     try {
       final (status, text) = await (fetch ?? _fetch)(
@@ -126,7 +141,7 @@ class BackgroundPoll {
       // The first run on a fresh sign-in has no high-water mark. Announcing
       // the whole backlog would be noise; the app's own poll sets the mark
       // the moment it opens, so only take the newest here.
-      if (lastSeen == 0) {
+      if (!primed) {
         var newest = 0;
         for (final raw in rows) {
           if (raw is Map && raw['id'] is int && raw['id'] > newest) newest = raw['id'];

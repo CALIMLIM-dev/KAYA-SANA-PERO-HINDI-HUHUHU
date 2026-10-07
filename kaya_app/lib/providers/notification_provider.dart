@@ -283,6 +283,7 @@ class NotificationProvider with ChangeNotifier {
     // starts with the previous one's highest id and sees no banners until it
     // is passed.
     _newestSeenId = 0;
+    _primed = false;
     stopPolling();
     notifyListeners();
   }
@@ -338,6 +339,16 @@ class NotificationProvider with ChangeNotifier {
   Timer? _poll;
   int _newestSeenId = 0;
 
+  /*
+      Whether this session has looked at all.
+
+      This was read off _newestSeenId == 0, which is also what an account
+      with no notifications yet looks like - so for a new account every poll
+      was "the first one", and the first notification it ever received was
+      recorded as already seen and never announced. Its own flag now.
+  */
+  bool _primed = false;
+
   /// Fires once per newly-arrived notification, newest last. The banner host
   /// listens to this; nothing else should need it.
   final ValueNotifier<AppNotification?> arrived = ValueNotifier(null);
@@ -378,15 +389,21 @@ class NotificationProvider with ChangeNotifier {
   /// backlog on launch, both fail silently — they just look like a buggy app.
   @visibleForTesting
   void absorbPolled(List<AppNotification> fetched) {
-    if (fetched.isEmpty) return;
-
     // First poll of a session only establishes the high-water mark. Without
     // this, opening the app would fire a banner for every unread backlog
-    // item at once.
-    if (_newestSeenId == 0) {
-      _markSeen(fetched.map((n) => n.id).reduce((a, b) => a > b ? a : b));
+    // item at once. An empty first poll counts too: it means there was
+    // nothing, so whatever comes next is new.
+    if (!_primed) {
+      _primed = true;
+      if (fetched.isEmpty) {
+        unawaited(BackgroundPoll.primeIfUnset());
+      } else {
+        _markSeen(fetched.map((n) => n.id).reduce((a, b) => a > b ? a : b));
+      }
       return;
     }
+
+    if (fetched.isEmpty) return;
 
     final fresh = fetched.where((n) => n.id > _newestSeenId).toList()
       ..sort((a, b) => a.id.compareTo(b.id));

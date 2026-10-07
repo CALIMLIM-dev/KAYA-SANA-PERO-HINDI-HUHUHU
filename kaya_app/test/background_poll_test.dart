@@ -65,6 +65,19 @@ void main() {
     expect(prefs.getInt(BackgroundPoll.lastSeenKey), 7);
   });
 
+  test('an account the app saw with no notifications gets its very first one', () async {
+    // The app looked, found nothing, and said so: a mark of 0 is now a real
+    // starting point rather than "never looked".
+    final prefs = await prefsWith(lastSeen: 0);
+
+    await BackgroundPoll.runOnce(prefs, fetch: canned(200, [
+      {'id': 1, 'title': 'New job for you'},
+    ]));
+
+    expect(shown, [(1, 'New job for you')]);
+    expect(prefs.getInt(BackgroundPoll.lastSeenKey), 1);
+  });
+
   test('a rejected token stops the job polling with it', () async {
     final prefs = await prefsWith(lastSeen: 5);
 

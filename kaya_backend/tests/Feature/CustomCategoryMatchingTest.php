@@ -9,7 +9,6 @@ use App\Models\User;
 use App\Models\WorkerProfile;
 use App\Models\WorkerSkill;
 use App\Services\JobMatchService;
-use App\Services\NotificationService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use PHPUnit\Framework\Attributes\Test;
 use Tests\TestCase;
@@ -27,9 +26,9 @@ use Tests\TestCase;
         location 15   the only thing that fired
         total    15
 
-    15 is exactly MIN_VISIBLE_SCORE - borderline visible - and
-    MIN_NOTIFY_SCORE is 45, so a perfectly suitable worker was never told the
-    job existed. **A job posted with a custom category and a custom skill
+    15 is exactly MIN_VISIBLE_SCORE - borderline visible - and nowhere near
+    the top tier a notification needs, so a perfectly suitable worker was
+    never told the job existed. **A job posted with a custom category and a custom skill
     matched nobody.**
 */
 class CustomCategoryMatchingTest extends TestCase
@@ -110,11 +109,10 @@ class CustomCategoryMatchingTest extends TestCase
         $mine = $this->category('Health and Wellness');
         $worker = $this->worker($mine, ['Embalmer']);
 
-        $score = JobMatchService::score($job, $worker)['score'];
-
-        $this->assertGreaterThan(
-            NotificationService::MIN_NOTIFY_SCORE,
-            $score,
+        // The top tier is what a notification needs.
+        $this->assertSame(
+            JobMatchService::TIER_MEETS,
+            JobMatchService::score($job, $worker)['tier'],
             'the headline case: a custom category and a custom skill must reach '
             . 'a worker who can plainly do the work',
         );
@@ -181,10 +179,7 @@ class CustomCategoryMatchingTest extends TestCase
 
         $match = JobMatchService::score($job, $worker);
 
-        $this->assertGreaterThan(
-            NotificationService::MIN_NOTIFY_SCORE,
-            $match['score'],
-        );
+        $this->assertSame(JobMatchService::TIER_MEETS, $match['tier']);
         $this->assertNotEmpty(array_filter(
             $match['reasons'],
             fn (string $r) => str_contains($r, 'counts as'),
