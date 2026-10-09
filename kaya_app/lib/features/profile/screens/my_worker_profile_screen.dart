@@ -22,6 +22,7 @@ import '../../../providers/profile_view_provider.dart';
 import '../../../core/widgets/app_toast.dart';
 import '../../../core/widgets/verification_card.dart';
 import '../../../core/widgets/verify_gate.dart';
+import '../../../core/widgets/verification_badge_widget.dart';
 import '../../../core/navigation/app_router.dart';
 
 /// My Worker Profile - JobStreet-inspired card layout
@@ -409,7 +410,8 @@ class _MyWorkerProfileScreenState extends State<MyWorkerProfileScreen> with Sing
                   those are not equally cheap.
               */
               expandedHeight: _headerHeight ??
-                  ((190 + (contactLines * 24) + skillsBlock) *
+                  // 216: 190 plus the verification chip under the name.
+                  ((216 + (contactLines * 24) + skillsBlock) *
                       MediaQuery.textScalerOf(context).scale(1.0)),
               floating: false,
               pinned: true,
@@ -513,7 +515,22 @@ class _MyWorkerProfileScreenState extends State<MyWorkerProfileScreen> with Sing
                                             : Colors.white38,
                                       ),
                                     ),
-                                    const SizedBox(height: 4),
+                                    const SizedBox(height: 6),
+                                    // What hirers see beside this name. The
+                                    // header said nothing about it before.
+                                    Builder(builder: (context) {
+                                      final status = context
+                                          .watch<VerificationProvider>()
+                                          .statusFor('government_id');
+                                      final state = context.watch<AuthProvider>().isVerified ||
+                                              status == 'verified'
+                                          ? VerificationState.verified
+                                          : status == 'pending'
+                                              ? VerificationState.pending
+                                              : VerificationState.unverified;
+                                      return VerificationChip(state: state, size: 11, onDark: true);
+                                    }),
+                                    const SizedBox(height: 6),
                                     // Location — always visible
                                     Row(
                                       children: [

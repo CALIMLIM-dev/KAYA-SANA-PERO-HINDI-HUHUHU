@@ -5,6 +5,7 @@ import '../../../core/constants/app_colors.dart';
 import '../../../core/navigation/app_router.dart';
 import '../../../core/utils/json_parse.dart';
 import '../../../core/widgets/app_toast.dart';
+import '../../../core/widgets/verification_badge_widget.dart';
 import '../../../data/models/job_model.dart';
 import '../../../providers/application_provider.dart';
 import '../../../providers/job_provider.dart';
@@ -215,6 +216,7 @@ class ApplicantCard extends StatelessWidget {
                                     'jobId': jobId,
                                     'otherUserId': workerId,
                                     'isVerified': isVerified,
+                                    'verificationState': applicant['verification_state'],
                                     'applicationId': applicationId,
                                     'jobStatus': jobStatus,
                                     'myRole': 'employer',
@@ -324,7 +326,6 @@ class ApplicantCard extends StatelessWidget {
         applicant: applicant,
         name: name,
         photoUrl: photoUrl,
-        isVerified: isVerified,
         rating: rating,
         reviewCount: reviewCount,
         timesHiredBefore: timesHiredBefore,
@@ -413,11 +414,8 @@ class ApplicantCard extends StatelessWidget {
                                     color: AppColors.neutral900,
                                   )),
                             ),
-                            if (isVerified) ...[
-                              const SizedBox(width: 5),
-                              const Icon(Icons.verified,
-                                  size: 15, color: AppColors.success),
-                            ],
+                            const SizedBox(width: 6),
+                            VerificationChip(state: VerificationState.of(applicant), size: 10),
                             // Beside the name, because it is a fact about this
                             // person and it is the single most useful thing an
                             // employer can know when choosing between
@@ -666,7 +664,6 @@ class _ResumeCard extends StatelessWidget {
     required this.applicant,
     required this.name,
     required this.photoUrl,
-    required this.isVerified,
     required this.rating,
     required this.reviewCount,
     required this.timesHiredBefore,
@@ -681,7 +678,6 @@ class _ResumeCard extends StatelessWidget {
   final Map<String, dynamic> applicant;
   final String name;
   final String photoUrl;
-  final bool isVerified;
   final double rating;
   final int reviewCount;
   final int timesHiredBefore;
@@ -779,10 +775,12 @@ class _ResumeCard extends StatelessWidget {
                                 ),
                               ),
                             ),
-                            if (isVerified) ...[
-                              const SizedBox(width: 5),
-                              const Icon(Icons.verified, size: 16, color: Colors.white),
-                            ],
+                            const SizedBox(width: 6),
+                            VerificationChip(
+                              state: VerificationState.of(applicant),
+                              size: 10.5,
+                              onDark: true,
+                            ),
                           ],
                         ),
                         if (category.isNotEmpty) ...[

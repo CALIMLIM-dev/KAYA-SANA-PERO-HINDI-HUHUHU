@@ -520,6 +520,7 @@ class EmployerProfileController extends Controller
             'name'           => $user->name,
             'avatar'         => $user->resolvedAvatarUrl(),
             'is_verified'    => (bool) $user->is_verified,
+            'verification_state' => $user->verification_state,
             'employer_type'  => $profile->employer_type?->value,
             'company_name'   => $profile->company_name,
             'industry'       => $profile->industry,

@@ -1,4 +1,5 @@
 import '../../core/utils/json_parse.dart';
+import '../../core/widgets/verification_badge_widget.dart';
 
 /// Job Model for KAYA app
 class Job {
@@ -11,7 +12,13 @@ class Job {
   final double? salaryMax;
   final String salaryPeriod; // 'hour', 'day', 'month'
   final bool isUrgent;
+  /// Whether the hirer is verified. Misnamed long ago; it says nothing about
+  /// what the job requires.
   final bool requiresVerification;
+
+  /// The hirer's verification_state: verified, verified_business, pending,
+  /// unverified. See [employerVerification].
+  final String? employerVerificationState;
   final double? distance; // in kilometers
 
   /// The distance in words, as the server phrased it.
@@ -268,6 +275,7 @@ class Job {
     this.salaryPeriod = 'project',
     this.isUrgent = false,
     this.requiresVerification = false,
+    this.employerVerificationState,
     this.distance,
     this.distanceLabel,
     this.postedAt,
@@ -331,6 +339,8 @@ class Job {
       requiresVerification: (employer?['is_verified'] as bool?) ??
           (employerInfo?['verification_status'] as bool?) ??
           false,
+      employerVerificationState: (employer?['verification_state'] ??
+          employerInfo?['verification_state']) as String?,
       postedAt:
           json['created_at'] != null ? DateTime.tryParse(json['created_at']) : null,
       // Sent as plain Y-m-d — the server casts these as dates, not datetimes,
@@ -419,6 +429,7 @@ class Job {
       salaryPeriod: json['salary_period'] ?? 'day',
       isUrgent: json['is_urgent'] ?? false,
       requiresVerification: json['requires_verification'] ?? false,
+      employerVerificationState: json['employer_verification_state'] as String?,
       distance: json['distance_km']?.toDouble(),
       distanceLabel: json['distance_label'] as String?,
       postedAt: json['posted_at'] != null ? DateTime.parse(json['posted_at']) : null,
@@ -435,6 +446,11 @@ class Job {
     );
   }
 
+  VerificationState get employerVerification => VerificationState.of({
+        'verification_state': employerVerificationState,
+        'is_verified': requiresVerification,
+      });
+
   Map<String, dynamic> toJson() {
     return {
       'id': id,
@@ -447,6 +463,7 @@ class Job {
       'salary_period': salaryPeriod,
       'is_urgent': isUrgent,
       'requires_verification': requiresVerification,
+      'employer_verification_state': employerVerificationState,
       'distance_km': distance,
       'distance_label': distanceLabel,
       'posted_at': postedAt?.toIso8601String(),
@@ -492,6 +509,7 @@ class Job {
       salaryPeriod: salaryPeriod ?? this.salaryPeriod,
       isUrgent: isUrgent ?? this.isUrgent,
       requiresVerification: requiresVerification ?? this.requiresVerification,
+      employerVerificationState: employerVerificationState,
       distance: distance ?? this.distance,
       distanceLabel: distanceLabel ?? this.distanceLabel,
       postedAt: postedAt ?? this.postedAt,

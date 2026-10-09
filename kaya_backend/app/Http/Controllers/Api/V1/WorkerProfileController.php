@@ -1472,6 +1472,7 @@ class WorkerProfileController extends Controller
                     // disagreed, so one account showed two different photos.
                     'avatar'       => $p->resolvedAvatarUrl(),
                     'is_verified'  => (bool) $p->user?->is_verified,
+                    'verification_state' => $p->user?->verification_state ?? 'unverified',
                     'location'     => $p->location,
                     'location_id'  => $p->location_id,
                     'category'     => $p->category?->name,
@@ -1738,6 +1739,7 @@ class WorkerProfileController extends Controller
                 'name'                => $user->name,
                 'avatar'              => $profile->resolvedAvatarUrl(),
                 'is_verified'         => (bool) $user->is_verified,
+                'verification_state'  => $user->verification_state,
                 'verification_status' => $profile->verification_status,
                 'location'            => $profile->location,
                 'category'            => $profile->category?->name,

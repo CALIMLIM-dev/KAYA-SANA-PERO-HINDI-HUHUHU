@@ -660,6 +660,7 @@ class _SearchScreenState extends State<SearchScreen> {
       reviews: worker.reviewCount > 0 ? '(${worker.reviewCount} reviews)' : '',
       isAvailable: worker.isAvailable,
       isVerified: worker.isVerified,
+      verification: worker.verification,
       skills: worker.skills,
       distanceKm: worker.distance,
       distanceLabel: worker.distanceLabel,

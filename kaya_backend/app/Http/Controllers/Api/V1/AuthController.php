@@ -340,6 +340,7 @@ class AuthController extends Controller
             // this screen showed a letter to people who had a picture.
             'avatar' => $user->resolvedAvatarUrl(),
             'is_verified' => $user->is_verified,
+            'verification_state' => $user->verification_state,
             /*
                 Contact verification, which the app could not see.
 
@@ -932,6 +933,7 @@ class AuthController extends Controller
             'city' => $user->city,
             'avatar' => $user->resolvedAvatarUrl(),
             'is_verified' => $user->is_verified,
+            'verification_state' => $user->verification_state,
             'user_type' => $user->user_type,
             'location_id' => $worker?->location_id,
             'latitude' => $worker?->latitude === null ? null : (float) $worker->latitude,

@@ -10,6 +10,7 @@ import '../../../providers/worker_browse_provider.dart';
 import '../../../core/widgets/app_toast.dart';
 import '../../invitations/widgets/invite_to_job.dart';
 import '../../../core/widgets/photo_viewer.dart';
+import '../../../core/widgets/verification_badge_widget.dart';
 
 /// Public Worker Profile Screen — shown to employers when browsing workers.
 /// Reads {'workerId': int} from route arguments and fetches the real profile
@@ -120,7 +121,8 @@ class _WorkerProfileScreenState extends State<WorkerProfileScreen> {
     final avatar = (w['avatar'] as String?) ?? '';
     final rating = asDouble(w['rating_avg']);
     final reviewCount = asInt(w['rating_count']);
-    final isVerified = (w['is_verified'] as bool?) ?? false;
+    final verification = VerificationState.of(w);
+    final isVerified = verification.isVerified;
     final availability = (w['availability_status'] as String?) ?? 'unavailable';
     final isAvailable = availability == 'available';
     final bio = (w['bio'] as String?) ?? '';
@@ -350,9 +352,9 @@ class _WorkerProfileScreenState extends State<WorkerProfileScreen> {
                   Expanded(
                     child: _statCard(
                       icon: Icons.verified_user,
-                      value: isVerified ? 'Verified' : 'Unverified',
+                      value: verification.label,
                       label: 'Account',
-                      color: isVerified ? AppColors.success : AppColors.neutral400,
+                      color: verification.text,
                     ),
                   ),
                 ],

@@ -567,6 +567,7 @@ class ApplicationController extends Controller
                     'worker_rating'         => $profile?->rating_avg ?? 0,
                     'worker_rating_count'   => $profile?->rating_count ?? 0,
                     'is_verified'           => $worker->is_verified,
+                    'verification_state'    => $worker->verification_state,
                     // Whether there is a file to open. A worker uploads one
                     // and, until now, no screen ever showed it to anybody.
                     // The download endpoint holds the access rule; this only

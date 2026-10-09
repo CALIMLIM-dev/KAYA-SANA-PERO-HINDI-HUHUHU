@@ -72,6 +72,7 @@ class RosterController extends Controller
                     'name'            => $hire->worker?->name,
                     'avatar'          => $hire->worker?->resolvedAvatarUrl(),
                     'is_verified'     => (bool) $hire->worker?->is_verified,
+                    'verification_state' => $hire->worker?->verification_state ?? 'unverified',
                     'rating_avg'      => $hire->worker?->workerProfile?->rating_avg,
                     'rating_count'    => (int) ($hire->worker?->workerProfile?->rating_count ?? 0),
                     'status'          => $hire->status,

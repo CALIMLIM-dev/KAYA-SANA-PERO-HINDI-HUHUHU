@@ -169,6 +169,8 @@ class User extends Authenticatable
         someone has earned them (an accepted hire), using makeVisible() — not
         by default on every relation that happens to be eager-loaded.
     */
+    protected $appends = ['verification_state'];
+
     protected $hidden = [
         'password',
         'remember_token',
@@ -351,6 +353,57 @@ class User extends Authenticatable
      * the Blade admin panel (EnsureUserIsAdminWeb) gates on.
      */
     public function isAdmin(): bool { return $this->user_type === 'admin'; }
+
+    /*
+        Verified, pending, or not - said the same way on every payload.
+
+        The panel asked that verified and unverified accounts be told apart
+        clearly. is_verified alone cannot: an account whose ID is waiting on
+        an admin looked the same as one that never sent anything. A company
+        is vouched for by its business papers, not by somebody's ID, so it
+        reads "verified_business" only once those are approved.
+
+        Queried through the relation builders, never the properties, so it
+        does not load a relation that would then ride along in every user
+        this model serialises.
+    */
+    public const VERIFIED = 'verified';
+    public const VERIFIED_BUSINESS = 'verified_business';
+    public const VERIFICATION_PENDING = 'pending';
+    public const UNVERIFIED = 'unverified';
+
+    private ?string $verificationStateMemo = null;
+
+    public function getVerificationStateAttribute(): string
+    {
+        if ($this->verificationStateMemo !== null || ! $this->id) {
+            return $this->verificationStateMemo ?? self::UNVERIFIED;
+        }
+
+        // value() applies the enum cast, so either way this is an EmployerType
+        // or null. A feed that eager-loaded the profile with its type is not
+        // asked again; one that selected other columns only would read every
+        // company as a person, so it is.
+        $loaded = $this->relationLoaded('employerProfile') ? $this->getRelation('employerProfile') : false;
+        $type = $loaded === null
+            ? null
+            : ($loaded && array_key_exists('employer_type', $loaded->getAttributes())
+                ? $loaded->employer_type
+                : $this->employerProfile()->value('employer_type'));
+        $company = $type === \App\Enums\EmployerType::COMPANY;
+
+        $latest = $this->verifications()
+            ->where('document_type', $company ? 'business_reg' : 'government_id')
+            ->latest('created_at')->latest('id')
+            ->value('status');
+
+        return $this->verificationStateMemo = match (true) {
+            $company && $latest === 'verified' => self::VERIFIED_BUSINESS,
+            ! $company && (bool) $this->is_verified => self::VERIFIED,
+            $latest === 'pending' => self::VERIFICATION_PENDING,
+            default => self::UNVERIFIED,
+        };
+    }
 
     /** Bought barya at least once. See CreditTransaction::toppedUpAmong. */
     public function hasToppedUp(): bool

@@ -458,6 +458,7 @@ class CommunityPostController extends Controller
                     : $poster->name,
                 'avatar'       => $poster->resolvedAvatarUrl(),
                 'is_verified'  => (bool) $poster->is_verified,
+                'verification_state' => $poster->verification_state,
             ],
         ];
     }

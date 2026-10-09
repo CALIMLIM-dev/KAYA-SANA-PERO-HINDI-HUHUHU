@@ -4,6 +4,7 @@ import '../../../core/constants/app_colors.dart';
 import '../../../core/widgets/app_toast.dart';
 import '../../../core/widgets/verification_card.dart';
 import '../../../core/widgets/profile_avatar.dart';
+import '../../../core/widgets/verification_badge_widget.dart';
 import '../../../data/models/employer_profile_model.dart';
 import '../../../providers/auth_provider.dart';
 import '../../../providers/employer_profile_provider.dart';
@@ -685,32 +686,16 @@ class _MyEmployerProfileScreenState extends State<MyEmployerProfileScreen>
           _role == 'Company' ? 'business_reg' : 'government_id',
         );
 
-    if (status == 'verified') {
-      return _badge(Icons.verified, 'Verified', AppColors.success);
-    } else if (status == 'pending') {
-      return _badge(Icons.hourglass_top, 'Verification Pending', AppColors.warning);
-    }
-    return _badge(Icons.info_outline, 'Not Verified', Colors.white38);
-  }
-
-  Widget _badge(IconData icon, String label, Color color) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-      decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.15),
-        borderRadius: BorderRadius.circular(20),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 12, color: color),
-          const SizedBox(width: 4),
-          Text(label,
-              style: TextStyle(
-                  fontSize: 11, fontWeight: FontWeight.w600, color: color)),
-        ],
-      ),
-    );
+    // The same chip and words every other screen uses for this account.
+    // "Not Verified" was drawn at 38% white, which the blue swallowed.
+    final state = switch (status) {
+      'verified' => _role == 'Company'
+          ? VerificationState.verifiedBusiness
+          : VerificationState.verified,
+      'pending' => VerificationState.pending,
+      _ => VerificationState.unverified,
+    };
+    return VerificationChip(state: state, size: 11.5, onDark: true);
   }
 
   // ─── profile tab ────────────────────────────────────────────────────────────

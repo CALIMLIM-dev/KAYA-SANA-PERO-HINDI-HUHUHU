@@ -7,6 +7,7 @@ import '../../../providers/auth_provider.dart';
 import '../../../providers/credits_provider.dart';
 import '../../../core/utils/end_session.dart';
 import '../../../core/widgets/profile_avatar.dart';
+import '../../../core/widgets/verification_badge_widget.dart';
 import '../../legal/screens/legal_screen.dart';
 import 'add_second_profile_flow.dart';
 import 'badges_screen.dart';
@@ -31,7 +32,8 @@ class ProfileScreen extends StatelessWidget {
         ? auth.user!['name'] as String
         : 'Your account';
     final String email = (auth.user?['email'] as String?) ?? '';
-    final bool isVerified = auth.user?['is_verified'] == true;
+    final verification = VerificationState.of(auth.user);
+    final bool isVerified = verification.isVerified;
 
     return Scaffold(
       backgroundColor: AppColors.neutral50,
@@ -116,6 +118,8 @@ class ProfileScreen extends StatelessWidget {
                                 color: Colors.white.withValues(alpha: 0.9)),
                           ),
                         ],
+                        const SizedBox(height: 8),
+                        VerificationChip(state: verification, size: 11.5, onDark: true),
                       ],
                     ),
                   ),

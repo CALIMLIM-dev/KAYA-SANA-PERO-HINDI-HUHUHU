@@ -29,7 +29,7 @@ class JobController extends Controller
         // `location` is loaded for JobMatchService's proximity scoring — it
         // falls back to the town centroid when a row has no precise pin, and
         // deliberately won't lazy-load (that would be a query per job).
-        $query = JobPost::with(['employer:id,name,avatar,is_verified', 'employer.employerProfile:id,user_id,image_path', 'employer.workerProfile:id,user_id,profile_photo_path', 'category', 'skills', 'psgcLocation'])
+        $query = JobPost::with(['employer:id,name,avatar,is_verified', 'employer.employerProfile:id,user_id,employer_type,image_path', 'employer.workerProfile:id,user_id,profile_photo_path', 'category', 'skills', 'psgcLocation'])
             // live(), not status alone: the sweep runs daily and the
             // date is exact, so a post can be a day past due and still
             // marked open. The feed answers to the date.
@@ -621,6 +621,7 @@ class JobController extends Controller
                 'name'           => $profile->user?->name,
                 'avatar'         => $profile->user?->resolvedAvatarUrl(),
                 'is_verified'    => (bool) $profile->user?->is_verified,
+                'verification_state' => $profile->user?->verification_state ?? 'unverified',
                 'location'       => $profile->location,
                 'category'       => $profile->category?->name,
                 'rating_avg'     => $profile->rating_avg,
@@ -952,7 +953,7 @@ class JobController extends Controller
 
         $job->load([
             'employer:id,name,avatar,is_verified',
-            'employer.employerProfile:id,user_id,company_name,image_path',
+            'employer.employerProfile:id,user_id,employer_type,company_name,image_path',
             'employer.workerProfile:id,user_id,profile_photo_path',
             'category',
             'skills',
@@ -964,6 +965,7 @@ class JobController extends Controller
             'employer_id'         => $job->employer_id,
             'name'                => $job->employer->name,
             'verification_status' => $job->employer->is_verified,
+            'verification_state'  => $job->employer->verification_state,
             /*
                 The logo if there is one, otherwise the account picture.
 

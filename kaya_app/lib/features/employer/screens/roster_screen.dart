@@ -4,6 +4,7 @@ import '../../../core/constants/app_colors.dart';
 import '../../../core/utils/realtime_refresh.dart';
 import '../../../core/widgets/app_toast.dart';
 import '../../../core/widgets/profile_avatar.dart';
+import '../../../core/widgets/verification_badge_widget.dart';
 import '../../../data/services/api_client.dart';
 import '../../../core/navigation/app_router.dart';
 import '../../applications/widgets/completion_action.dart';
@@ -204,6 +205,7 @@ class _RosterScreenState extends State<RosterScreen> with RealtimeRefresh {
       'jobId': widget.jobId,
       'otherUserId': hire['worker_id'],
       'isVerified': (hire['is_verified'] as bool?) ?? false,
+      'verificationState': hire['verification_state'],
       'applicationId': hire['application_id'],
       'jobStatus': _job?['status'],
       'myRole': 'employer',
@@ -370,10 +372,8 @@ class _RosterScreenState extends State<RosterScreen> with RealtimeRefresh {
                         style: const TextStyle(fontSize: 14.5, fontWeight: FontWeight.w600, color: AppColors.neutral900),
                       ),
                     ),
-                    if (hire['is_verified'] == true) ...[
-                      const SizedBox(width: 4),
-                      const Icon(Icons.verified, size: 14, color: AppColors.primary),
-                    ],
+                    const SizedBox(width: 6),
+                    VerificationChip(state: VerificationState.of(hire), size: 10),
                   ],
                 ),
                 const SizedBox(height: 2),

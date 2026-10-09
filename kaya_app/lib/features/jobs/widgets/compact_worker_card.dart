@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/utils/format.dart';
+import '../../../core/widgets/verification_badge_widget.dart';
 import '../../../data/models/worker_profile_model.dart';
 
 /// Compact Worker Card for horizontal scrolling  
@@ -82,10 +83,8 @@ class CompactWorkerCard extends StatelessWidget {
                                 maxLines: 1,
                               ),
                             ),
-                            if (worker.isVerified) ...[
-                              const SizedBox(width: 3),
-                              const Icon(Icons.verified, color: AppColors.verified, size: 12),
-                            ],
+                            const SizedBox(width: 4),
+                            VerificationChip(state: worker.verification, size: 9.5),
                           ],
                         ),
                         Text(

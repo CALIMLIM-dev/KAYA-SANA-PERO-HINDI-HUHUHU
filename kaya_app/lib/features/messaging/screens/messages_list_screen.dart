@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/widgets/profile_avatar.dart';
+import '../../../core/widgets/verification_badge_widget.dart';
 import '../../../core/utils/realtime_refresh.dart';
 import '../../../core/constants/app_mode.dart';
 import '../../../providers/app_mode_provider.dart';
@@ -122,6 +123,7 @@ class _MessagesListScreenState extends State<MessagesListScreen>
         'jobId': conv['job_id'],
         'otherUserId': other?['id'],
         'isVerified': (other?['is_verified'] as bool?) ?? false,
+        'verificationState': other?['verification_state'],
         // Drives the activity dot in the chat header. Derived from the other
         // party's last authenticated request, not from a presence channel —
         // see TouchLastSeen for why.
@@ -332,7 +334,6 @@ class _MessagesListScreenState extends State<MessagesListScreen>
     // The other person's picture. The server resolves it from wherever
     // they actually uploaded one, so this only has to draw it.
     final avatar = other?['avatar'] as String?;
-    final isVerified = (other?['is_verified'] as bool?) ?? false;
     final updatedAt = conv['updated_at'] as String?;
 
     return InkWell(
@@ -364,11 +365,8 @@ class _MessagesListScreenState extends State<MessagesListScreen>
                                 overflow: TextOverflow.ellipsis,
                               ),
                             ),
-                            if (isVerified) ...[
-                              const SizedBox(width: 4),
-                              const Icon(Icons.verified,
-                                  size: 14, color: AppColors.success),
-                            ],
+                            const SizedBox(width: 6),
+                            VerificationChip(state: VerificationState.of(other), size: 9.5),
                           ],
                         ),
                       ),

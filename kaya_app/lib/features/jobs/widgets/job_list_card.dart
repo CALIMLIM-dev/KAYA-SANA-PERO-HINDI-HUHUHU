@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'fit_line.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/utils/format.dart';
+import '../../../core/widgets/verification_badge_widget.dart';
 import '../../../data/models/job_model.dart';
 
 /// The job card for a full-width vertical list: search results, saved jobs.
@@ -98,11 +99,8 @@ class JobListCard extends StatelessWidget {
                                 overflow: TextOverflow.ellipsis,
                               ),
                             ),
-                            if (job.requiresVerification) ...[
-                              const SizedBox(width: 4),
-                              const Icon(Icons.verified,
-                                  color: AppColors.verified, size: 14),
-                            ],
+                            const SizedBox(width: 6),
+                            VerificationChip(state: job.employerVerification, size: 10),
                           ],
                         ),
                       ],

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../core/constants/app_colors.dart';
+import '../../../core/widgets/verification_badge_widget.dart';
 import '../../../core/widgets/profile_avatar.dart';
 
 /*
@@ -76,10 +77,8 @@ class CommunityPostCard extends StatelessWidget {
                               ),
                             ),
                           ),
-                          if (poster['is_verified'] == true) ...[
-                            const SizedBox(width: 4),
-                            const Icon(Icons.verified, size: 14, color: AppColors.primary),
-                          ],
+                          const SizedBox(width: 6),
+                          VerificationChip(state: VerificationState.of(poster), size: 9.5),
                         ],
                       ),
                       Text(

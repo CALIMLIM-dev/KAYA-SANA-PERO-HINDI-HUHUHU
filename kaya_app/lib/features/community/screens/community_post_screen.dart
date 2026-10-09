@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../../core/constants/app_colors.dart';
+import '../../../core/widgets/verification_badge_widget.dart';
 import '../../../core/widgets/app_toast.dart';
 import '../../../core/widgets/profile_avatar.dart';
 import '../../../providers/community_provider.dart';
@@ -232,10 +233,8 @@ class _CommunityPostScreenState extends State<CommunityPostScreen> {
                             style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: AppColors.neutral900),
                           ),
                         ),
-                        if (_poster['is_verified'] == true) ...[
-                          const SizedBox(width: 4),
-                          const Icon(Icons.verified, size: 15, color: AppColors.primary),
-                        ],
+                        const SizedBox(width: 6),
+                        VerificationChip(state: VerificationState.of(_poster), size: 10),
                       ],
                     ),
                     Text(

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/widgets/profile_avatar.dart';
+import '../../../core/widgets/verification_badge_widget.dart';
 import '../../../core/utils/format.dart';
 
 /// Worker directory card — employer-mode Search/Home. Distinct from
@@ -14,6 +15,9 @@ class WorkerCard extends StatelessWidget {
   final String reviews;
   final bool isAvailable;
   final bool isVerified;
+
+  /// Three states where the caller knows them; otherwise read from [isVerified].
+  final VerificationState? verification;
   final List<String> skills;
   final double? distanceKm;
 
@@ -39,6 +43,7 @@ class WorkerCard extends StatelessWidget {
     required this.reviews,
     required this.isAvailable,
     this.isVerified = false,
+    this.verification,
     this.skills = const [],
     this.distanceKm,
     this.distanceLabel,
@@ -119,7 +124,7 @@ class WorkerCard extends StatelessWidget {
                     children: [
                       Row(
                         children: [
-                          Expanded(
+                          Flexible(
                             child: Text(
                               name,
                               style: const TextStyle(
@@ -130,11 +135,11 @@ class WorkerCard extends StatelessWidget {
                               overflow: TextOverflow.ellipsis,
                             ),
                           ),
-                          if (isVerified) ...[
-                            const SizedBox(width: 4),
-                            const Icon(Icons.verified,
-                                size: 15, color: AppColors.success),
-                          ],
+                          const SizedBox(width: 6),
+                          VerificationChip(
+                            state: verification ?? VerificationState.fromFlag(isVerified),
+                            size: 10.5,
+                          ),
                         ],
                       ),
                       const SizedBox(height: 3),

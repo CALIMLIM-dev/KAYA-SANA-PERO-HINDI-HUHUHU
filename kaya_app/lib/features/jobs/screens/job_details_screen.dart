@@ -13,6 +13,7 @@ import '../../../core/navigation/app_router.dart';
 import '../../../core/widgets/app_toast.dart';
 import '../../../core/widgets/verify_gate.dart';
 import '../../../core/widgets/profile_avatar.dart';
+import '../../../core/widgets/verification_badge_widget.dart';
 import '../../../providers/credits_provider.dart';
 
 /// Job Details — a single real job, fetched via GET /jobs/{id}.
@@ -325,10 +326,8 @@ class _JobDetailsScreenState extends State<JobDetailsScreen>
                                     color: AppColors.neutral900),
                               ),
                             ),
-                            if (job.requiresVerification) ...[
-                              const SizedBox(width: 4),
-                              const Icon(Icons.verified, size: 15, color: AppColors.success),
-                            ],
+                            const SizedBox(width: 6),
+                            VerificationChip(state: job.employerVerification, size: 10.5),
                           ],
                         ),
                         const Text('Posted by',

@@ -306,6 +306,7 @@ class InvitationController extends Controller
                     'is_company'  => $isCompany,
                     'avatar'      => $employer->avatar,
                     'is_verified' => (bool) $employer->is_verified,
+                    'verification_state' => $employer->verification_state,
                     'rating'      => $profile?->rating_avg !== null ? (float) $profile->rating_avg : null,
                     'rating_count'=> (int) ($profile?->rating_count ?? 0),
                 ] : null,

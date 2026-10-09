@@ -7,6 +7,7 @@ import '../../../core/navigation/main_navigation.dart';
 import '../../../core/utils/job_summary.dart';
 import '../../../core/widgets/app_toast.dart';
 import '../../../core/widgets/verify_gate.dart';
+import '../../../core/widgets/verification_badge_widget.dart';
 import '../../../data/services/api_client.dart';
 import '../../../providers/invitation_provider.dart';
 
@@ -54,7 +55,6 @@ class _InvitationCardState extends State<InvitationCard> {
     final employerName = (employer?['name'] ?? 'An employer').toString();
     final personName = (employer?['person_name'] ?? '').toString();
     final isCompany = employer?['is_company'] == true;
-    final verified = employer?['is_verified'] == true;
     final avatar = ApiClient.fileUrl(employer?['avatar']?.toString());
 
     final category = (job?['category'] ?? '').toString();
@@ -119,10 +119,8 @@ class _InvitationCardState extends State<InvitationCard> {
                               ),
                             ),
                           ),
-                          if (verified) ...[
-                            const SizedBox(width: 4),
-                            const Icon(Icons.verified, size: 14, color: AppColors.success),
-                          ],
+                          const SizedBox(width: 6),
+                          VerificationChip(state: VerificationState.of(employer), size: 10),
                         ],
                       ),
                       Text(
@@ -314,6 +312,7 @@ class _InvitationCardState extends State<InvitationCard> {
       'jobId': _job?['id'],
       'otherUserId': employer?['id'],
       'isVerified': employer?['is_verified'] ?? false,
+      'verificationState': employer?['verification_state'],
       'otherRole': 'employer',
     });
   }

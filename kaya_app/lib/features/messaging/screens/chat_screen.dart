@@ -12,6 +12,7 @@ import '../../../providers/schedule_provider.dart';
 import '../widgets/schedule_card.dart';
 import '../../../providers/messaging_provider.dart';
 import '../../../core/widgets/app_toast.dart';
+import '../../../core/widgets/verification_badge_widget.dart';
 import '../widgets/chat_job_strip.dart';
 import '../widgets/system_message_card.dart';
 import '../widgets/job_tracking_panel.dart';
@@ -243,6 +244,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
         'jobId': conv?['job_id'],
         'otherUserId': other?['id'],
         'isVerified': (other?['is_verified'] as bool?) ?? false,
+        'verificationState': other?['verification_state'],
         'lastSeenAt': other?['last_seen_at'],
         'applicationId': conv?['application_id'],
         'jobStatus': job?['status'],
@@ -397,7 +399,11 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     final jobTitle    = args['jobTitle']    as String?;
     final jobId       = args['jobId']       as int?;
     final otherUserId = args['otherUserId'] as int?;
-    final isVerified  = args['isVerified']  as bool? ?? false;
+    // Three states when the opener passed them, otherwise from the flag.
+    final verification = VerificationState.of({
+      'verification_state': args['verificationState'],
+      'is_verified': args['isVerified'] as bool? ?? false,
+    });
     final otherRole   = args['otherRole']   as String? ?? 'worker';
 
     // Location sharing: only on a hire that is actually in progress, and the
@@ -418,7 +424,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
 
     return Scaffold(
       backgroundColor: const Color(0xFFF0F2F5),
-      appBar: _buildAppBar(context, name, isVerified, otherRole, jobId,
+      appBar: _buildAppBar(context, name, verification, otherRole, jobId,
           otherUserId, args['lastSeenAt'] as String?,
           args['avatar'] as String?),
       body: Column(
@@ -579,7 +585,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   // ─── app bar ─────────────────────────────────────────────────────────────────
 
   PreferredSizeWidget _buildAppBar(BuildContext context, String name,
-      bool isVerified, String otherRole, int? jobId, int? otherUserId,
+      VerificationState verification, String otherRole, int? jobId, int? otherUserId,
       String? lastSeenAt, String? avatarUrl) {
     final activity = _Activity.from(lastSeenAt);
 
@@ -628,11 +634,8 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                                 color: AppColors.neutral900),
                             overflow: TextOverflow.ellipsis),
                       ),
-                      if (isVerified) ...[
-                        const SizedBox(width: 4),
-                        const Icon(Icons.verified,
-                            size: 14, color: AppColors.success),
-                      ],
+                      const SizedBox(width: 6),
+                      VerificationChip(state: verification, size: 10),
                     ],
                   ),
                   if (activity != null)

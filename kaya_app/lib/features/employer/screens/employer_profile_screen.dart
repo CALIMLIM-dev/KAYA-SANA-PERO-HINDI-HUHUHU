@@ -8,6 +8,7 @@ import '../../../core/widgets/work_record.dart';
 import '../../../providers/employer_profile_provider.dart';
 import '../../../core/navigation/app_router.dart';
 import '../../../core/widgets/photo_viewer.dart';
+import '../../../core/widgets/verification_badge_widget.dart';
 
 /// Public Employer Profile View — shown to workers when they tap "Posted by"
 /// on a job listing. Reads {'employerId': int} from route arguments and
@@ -98,7 +99,6 @@ class _EmployerProfileScreenState extends State<EmployerProfileScreen> {
 
   Widget _content(BuildContext context, Map<String, dynamic> e) {
     final name = (e['company_name'] as String?) ?? (e['name'] as String?) ?? 'Employer';
-    final isVerified = (e['is_verified'] as bool?) ?? false;
     final location = (e['location'] as String?) ?? '';
     final description = (e['description'] as String?) ?? '';
     final website = (e['website'] as String?) ?? '';
@@ -203,33 +203,12 @@ class _EmployerProfileScreenState extends State<EmployerProfileScreen> {
                                           overflow: TextOverflow.ellipsis,
                                         ),
                                       ),
-                                      if (isVerified) ...[
-                                        const SizedBox(width: 6),
-                                        Container(
-                                          padding: const EdgeInsets.symmetric(
-                                              horizontal: 8, vertical: 3),
-                                          decoration: BoxDecoration(
-                                            color: AppColors.success,
-                                            borderRadius:
-                                                BorderRadius.circular(20),
-                                          ),
-                                          child: const Row(
-                                            mainAxisSize: MainAxisSize.min,
-                                            children: [
-                                              Icon(Icons.verified,
-                                                  size: 11, color: Colors.white),
-                                              SizedBox(width: 3),
-                                              Text(
-                                                'Verified',
-                                                style: TextStyle(
-                                                    fontSize: 10,
-                                                    fontWeight: FontWeight.w700,
-                                                    color: Colors.white),
-                                              ),
-                                            ],
-                                          ),
-                                        ),
-                                      ],
+                                      const SizedBox(width: 6),
+                                      VerificationChip(
+                                        state: VerificationState.of(e),
+                                        size: 10.5,
+                                        onDark: true,
+                                      ),
                                     ],
                                   ),
                                   if (location.isNotEmpty) ...[

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/utils/format.dart';
+import '../../../core/widgets/verification_badge_widget.dart';
 import '../../../data/models/job_model.dart';
 
 /// The job card for the home carousels.
@@ -89,20 +90,25 @@ class CompactJobCard extends StatelessWidget {
                                 maxLines: 1,
                               ),
                             ),
-                            if (job.requiresVerification) ...[
-                              const SizedBox(width: 3),
-                              const Icon(Icons.verified, color: AppColors.verified, size: 12),
-                            ],
                           ],
                         ),
-                        Text(
-                          job.company.isEmpty ? 'Private employer' : job.company,
-                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                            color: AppColors.neutral600,
-                            fontSize: 11,
-                          ),
-                          overflow: TextOverflow.ellipsis,
-                          maxLines: 1,
+                        // The hirer's verification, beside the hirer.
+                        Row(
+                          children: [
+                            Flexible(
+                              child: Text(
+                                job.company.isEmpty ? 'Private employer' : job.company,
+                                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                  color: AppColors.neutral600,
+                                  fontSize: 11,
+                                ),
+                                overflow: TextOverflow.ellipsis,
+                                maxLines: 1,
+                              ),
+                            ),
+                            const SizedBox(width: 4),
+                            VerificationChip(state: job.employerVerification, size: 9.5),
+                          ],
                         ),
                       ],
                     ),

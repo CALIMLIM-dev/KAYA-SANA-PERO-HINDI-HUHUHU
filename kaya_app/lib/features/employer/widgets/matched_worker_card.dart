@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/navigation/app_router.dart';
 import '../../../core/utils/format.dart';
+import '../../../core/widgets/verification_badge_widget.dart';
 import '../../applications/widgets/fit_facts.dart';
 import '../../jobs/widgets/fit_line.dart';
 
@@ -50,7 +51,6 @@ class MatchedWorkerCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final workerId = (row['user_id'] as num?)?.toInt();
     final name = '${row['name'] ?? 'Worker'}';
-    final verified = row['is_verified'] == true;
 
     final skills = ((row['skills'] as List?) ?? const [])
         .map((s) => s.toString())
@@ -117,7 +117,7 @@ class MatchedWorkerCard extends StatelessWidget {
                   children: [
                     Row(
                       children: [
-                        Expanded(
+                        Flexible(
                           child: Text(
                             name,
                             maxLines: 1,
@@ -129,11 +129,8 @@ class MatchedWorkerCard extends StatelessWidget {
                             ),
                           ),
                         ),
-                        if (verified) ...[
-                          const SizedBox(width: 5),
-                          const Icon(Icons.verified,
-                              size: 15, color: AppColors.primary),
-                        ],
+                        const SizedBox(width: 6),
+                        VerificationChip(state: VerificationState.of(row), size: 10.5),
                       ],
                     ),
                     const SizedBox(height: 2),

@@ -1,4 +1,5 @@
 import '../../core/utils/json_parse.dart';
+import '../../core/widgets/verification_badge_widget.dart';
 
 /// Worker Profile Model for KAYA app
 class WorkerProfile {
@@ -10,6 +11,9 @@ class WorkerProfile {
   final double rating;
   final int reviewCount;
   final bool isVerified;
+
+  /// verified, verified_business, pending or unverified. See [verification].
+  final String? verificationState;
 
   /*
       Paid placement, which browse() has been sending as is_boosted
@@ -61,6 +65,7 @@ class WorkerProfile {
     required this.rating,
     required this.reviewCount,
     this.isVerified = false,
+    this.verificationState,
     this.isBoosted = false,
     this.isAvailable = true,
     this.distance,
@@ -106,6 +111,7 @@ class WorkerProfile {
       distance: asDoubleOrNull(json['distance_km']),
       distanceLabel: json['distance_label'] as String?,
       isVerified: json['is_verified'] as bool? ?? false,
+      verificationState: json['verification_state'] as String?,
       isBoosted: json['is_boosted'] == true || json['is_boosted'] == 1,
       isAvailable: (json['availability_status'] ?? 'available') == 'available',
       bio: json['bio'] as String?,
@@ -129,6 +135,7 @@ class WorkerProfile {
       rating: json['rating']?.toDouble() ?? 0.0,
       reviewCount: json['review_count'] ?? 0,
       isVerified: json['is_verified'] ?? false,
+      verificationState: json['verification_state'] as String?,
       isBoosted: json['is_boosted'] == true || json['is_boosted'] == 1,
       isAvailable: json['is_available'] ?? true,
       distance: json['distance_km']?.toDouble(),
@@ -146,6 +153,11 @@ class WorkerProfile {
     );
   }
 
+  VerificationState get verification => VerificationState.of({
+        'verification_state': verificationState,
+        'is_verified': isVerified,
+      });
+
   Map<String, dynamic> toJson() {
     return {
       'id': id,
@@ -156,6 +168,7 @@ class WorkerProfile {
       'rating': rating,
       'review_count': reviewCount,
       'is_verified': isVerified,
+      'verification_state': verificationState,
       'is_available': isAvailable,
       'distance_km': distance,
       'distance_label': distanceLabel,
@@ -198,6 +211,7 @@ class WorkerProfile {
       rating: rating ?? this.rating,
       reviewCount: reviewCount ?? this.reviewCount,
       isVerified: isVerified ?? this.isVerified,
+      verificationState: verificationState,
       isAvailable: isAvailable ?? this.isAvailable,
       distance: distance ?? this.distance,
       distanceLabel: distanceLabel ?? this.distanceLabel,
