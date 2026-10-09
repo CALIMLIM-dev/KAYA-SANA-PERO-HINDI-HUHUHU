@@ -222,9 +222,6 @@ class GoogleLoginSecurityTest extends TestCase
             'is_signup'      => true,
             'password'       => 'Str0ng!Passw0rd',
             'terms_accepted' => true,
-            // The registration details every new account gives.
-            'first_name' => 'Ana', 'last_name' => 'Reyes',
-            'phone' => '+639171234567', 'birthdate' => '1995-04-12',
         ])->assertCreated();
 
         $this->assertNull(
@@ -267,9 +264,6 @@ class GoogleLoginSecurityTest extends TestCase
             "is_signup"      => true,
             "password"       => "Str0ng!Passw0rd",
             "terms_accepted" => true,
-            // The registration details every new account gives.
-            'first_name' => 'Ana', 'last_name' => 'Reyes',
-            'phone' => '+639171234567', 'birthdate' => '1995-04-12',
         ])->assertCreated();
 
         $user = User::where("email", "newcomer@gmail.com")->first();

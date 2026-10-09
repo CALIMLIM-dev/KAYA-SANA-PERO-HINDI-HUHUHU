@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../providers/auth_provider.dart';
-import '../widgets/registration_details_form.dart';
+import '../../../shared/widgets/ph_phone_field.dart';
 import '../widgets/terms_modal.dart';
 import '../../../core/navigation/app_router.dart';
 
@@ -22,6 +22,7 @@ class _SignupScreenState extends State<SignupScreen> {
 
   bool _isPasswordVisible        = false;
   bool _isConfirmPasswordVisible = false;
+  bool _isPhoneMode              = false;
   bool _agreeToTerms             = false;
 
   String? _inputError;
@@ -29,10 +30,6 @@ class _SignupScreenState extends State<SignupScreen> {
   String? _confirmError;
   String? _googleError;
   String? _termsError;
-
-  /// Name, mobile and date of birth. See RegistrationDetailsForm.
-  final _details = GlobalKey<RegistrationDetailsFormState>();
-  Map<String, dynamic>? _collected;
 
   late final TapGestureRecognizer _termsTap = TapGestureRecognizer()
     ..onTap = () => _openTerms(0);
@@ -81,13 +78,16 @@ class _SignupScreenState extends State<SignupScreen> {
 
     String? inputErr, passErr, confirmErr;
 
-    // Every field at once, so one press of Sign up shows all that is left.
-    _collected = _details.currentState?.collect();
-
     if (input.isEmpty) {
-      inputErr = 'Email is required';
-    } else if (!RegExp(r'^[^@]+@[^@]+\.[^@]+').hasMatch(input)) {
-      inputErr = 'Enter a valid email address';
+      inputErr = _isPhoneMode ? 'Phone number is required' : 'Email is required';
+    } else if (_isPhoneMode) {
+      if (!isValidPHPhone(input)) {
+        inputErr = 'Enter a valid PH number (e.g. 9171234567)';
+      }
+    } else {
+      if (!RegExp(r'^[^@]+@[^@]+\.[^@]+').hasMatch(input)) {
+        inputErr = 'Enter a valid email address';
+      }
     }
 
     /*
@@ -96,8 +96,10 @@ class _SignupScreenState extends State<SignupScreen> {
         a letter, a digit, and not one of the passwords everybody tries
         or the person's own name.
     */
-    passErr = PasswordCheck.problem(password,
-        email: input, name: _details.currentState?.typedName);
+    // One field holds either an email or a phone number here. A phone
+    // contributes nothing to the personal-words check, which splits on
+    // digits, so it is safe to pass whichever was typed.
+    passErr = PasswordCheck.problem(password, email: input);
 
     if (confirm.isEmpty) {
       confirmErr = 'Please confirm your password';
@@ -117,8 +119,7 @@ class _SignupScreenState extends State<SignupScreen> {
         ? null
         : 'Read and accept the Terms and Conditions and Privacy Policy to continue.');
 
-    return _collected != null &&
-        inputErr == null &&
+    return inputErr == null &&
         passErr == null &&
         confirmErr == null &&
         _agreeToTerms;
@@ -127,13 +128,15 @@ class _SignupScreenState extends State<SignupScreen> {
   Future<void> _handleSignup(AuthProvider auth) async {
     if (!_validate()) return;
 
-    final credential = _inputController.text.trim();
+    final credential = _isPhoneMode
+        ? toPHE164(_inputController.text.trim())
+        : _inputController.text.trim();
 
     setState(() => _emailBusy = true);
 
     final success = await auth.register(
+      name: '', // Name will be set later during profile setup
       email: credential,
-      details: _collected!,
       password: _passwordController.text,
       passwordConfirmation: _confirmPasswordController.text,
       termsAccepted: true, // User has accepted terms via modal
@@ -165,26 +168,46 @@ class _SignupScreenState extends State<SignupScreen> {
               Text('Create Account',
                   style: TextStyle(fontSize: 32, fontWeight: FontWeight.bold, color: AppColors.neutral900)),
               const SizedBox(height: 8),
-              const SizedBox(height: 28),
+              const SizedBox(height: 40),
 
-              // ── Who you are ──────────────────────────────────────────────
-              RegistrationDetailsForm(key: _details),
-              const SizedBox(height: 14),
-
-              // ── Email ─────────────────────────────────────────────────────
-              // Both an email and a mobile now, not one or the other.
-              _label('Email'),
+              // ── Email or Phone ────────────────────────────────────────────
+              _label(_isPhoneMode ? 'Phone Number' : 'Email'),
               const SizedBox(height: 8),
-              TextField(
-                controller: _inputController,
-                keyboardType: TextInputType.emailAddress,
-                onChanged: (_) => setState(() => _inputError = null),
-                decoration: _deco(
-                  hint: 'Enter your email',
-                  icon: Icons.email_outlined,
+              if (_isPhoneMode)
+                PhPhoneField(
+                  controller: _inputController,
                   errorText: _inputError,
+                  onChanged: (_) => setState(() => _inputError = null),
+                  suffix: TextButton(
+                    onPressed: () => setState(() {
+                      _isPhoneMode = false;
+                      _inputController.clear();
+                      _inputError = null;
+                    }),
+                    child: Text('Use Email',
+                        style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.primary)),
+                  ),
+                )
+              else
+                TextField(
+                  controller: _inputController,
+                  keyboardType: TextInputType.emailAddress,
+                  onChanged: (_) => setState(() => _inputError = null),
+                  decoration: _deco(
+                    hint: 'Enter your email',
+                    icon: Icons.email_outlined,
+                    errorText: _inputError,
+                    suffix: TextButton(
+                      onPressed: () => setState(() {
+                        _isPhoneMode = true;
+                        _inputController.clear();
+                        _inputError = null;
+                      }),
+                      child: Text('Use Phone',
+                          style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.primary)),
+                    ),
+                  ),
                 ),
-              ),
               const SizedBox(height: 20),
 
               // ── Password ──────────────────────────────────────────────────

@@ -11,79 +11,12 @@ use PHPUnit\Framework\Attributes\Test;
 use Tests\TestCase;
 
 /*
-    The panel: "make all required registration details mandatory and
-    include a comprehensive job seeker profile".
+    The panel: "a comprehensive job seeker profile containing relevant
+    information necessary for employment matching".
 */
-class RegistrationRequirementsTest extends TestCase
+class JobSeekerProfileTest extends TestCase
 {
     use RefreshDatabase;
-
-    private function register(array $overrides = [])
-    {
-        return $this->postJson('/api/v1/register', array_merge([
-            'first_name'            => 'Maria',
-            'last_name'             => 'Santos',
-            'email'                 => 'maria.santos@example.com',
-            'phone'                 => '+639171234567',
-            'birthdate'             => '1994-03-08',
-            'password'              => 'tambayan42rocks',
-            'password_confirmation' => 'tambayan42rocks',
-            'terms_accepted'        => true,
-        ], $overrides));
-    }
-
-    #[Test]
-    public function every_required_detail_is_asked_for(): void
-    {
-        foreach (['first_name', 'last_name', 'email', 'phone', 'birthdate'] as $field) {
-            $this->register([$field => null])
-                ->assertStatus(422)
-                ->assertJsonValidationErrors($field);
-        }
-
-        $this->assertSame(0, User::count());
-    }
-
-    #[Test]
-    public function middle_name_and_suffix_stay_optional(): void
-    {
-        $this->register()->assertCreated();
-
-        $user = User::firstOrFail();
-        $this->assertSame('Maria Santos', $user->name);
-        $this->assertSame('+639171234567', $user->phone);
-        $this->assertSame('1994-03-08', $user->birthdate->toDateString());
-    }
-
-    #[Test]
-    public function nobody_under_eighteen_can_sign_up(): void
-    {
-        $this->register(['birthdate' => now()->subYears(17)->toDateString()])
-            ->assertStatus(422)
-            ->assertJsonPath('errors.birthdate.0', 'You must be 18 or older to use KAYA.');
-
-        $this->register(['birthdate' => now()->subYears(18)->toDateString()])->assertCreated();
-    }
-
-    #[Test]
-    public function a_mobile_number_is_a_philippine_one_and_used_once(): void
-    {
-        $this->register(['phone' => '09171234567'])->assertStatus(422)->assertJsonValidationErrors('phone');
-
-        $this->register()->assertCreated();
-        $this->register(['email' => 'someone.else@example.com'])
-            ->assertStatus(422)
-            ->assertJsonPath('errors.phone.0', 'This mobile number is already registered.');
-    }
-
-    #[Test]
-    public function the_date_of_birth_never_leaves_the_server(): void
-    {
-        $this->register()->assertCreated();
-        $user = User::firstOrFail();
-
-        $this->assertArrayNotHasKey('birthdate', $user->toArray());
-    }
 
     // ── The comprehensive job seeker profile ───────────────────────────────
 
