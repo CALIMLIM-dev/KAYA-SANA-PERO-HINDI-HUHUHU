@@ -17,11 +17,13 @@ import '../../applications/screens/applications_screen.dart';
     second drawing of the same job that has to be kept in step with the
     first. This is the first.
 
-    Three, then See all to the Active screen. A full card repeated down the
-    screen people open first would push everything else off it.
+    One row that scrolls sideways, not a stack. Stacked, every active job
+    made the home screen taller and pushed everything under it further
+    down; side by side the section is one card tall however many there
+    are. The next card shows at the edge so it reads as a row to swipe.
 */
 class ActiveSection extends StatelessWidget {
-  const ActiveSection({super.key, required this.onChanged, this.maxRows = 3});
+  const ActiveSection({super.key, required this.onChanged, this.maxRows = 6});
 
   /// Refetches the home screen after a card changes something.
   final Future<void> Function() onChanged;
@@ -73,7 +75,31 @@ class ActiveSection extends StatelessWidget {
               ],
             ),
           ),
-          for (final row in items.take(maxRows)) activeCard(row, onChanged, compact: true),
+          if (items.length == 1)
+            activeCard(items.first, onChanged, compact: true)
+          else
+            LayoutBuilder(
+              builder: (context, box) {
+                final cardWidth = box.maxWidth * 0.82;
+                return SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  clipBehavior: Clip.none,
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      for (final row in items.take(maxRows))
+                        Padding(
+                          padding: const EdgeInsets.only(right: 10),
+                          child: SizedBox(
+                            width: cardWidth,
+                            child: activeCard(row, onChanged, compact: true),
+                          ),
+                        ),
+                    ],
+                  ),
+                );
+              },
+            ),
         ],
       ),
     );

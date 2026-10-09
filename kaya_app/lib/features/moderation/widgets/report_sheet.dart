@@ -204,16 +204,6 @@ class _ReportSheetState extends State<ReportSheet> {
                       color: AppColors.neutral900,
                     ),
                   ),
-                  const SizedBox(height: 4),
-                  Text(
-                    'Only our team sees what you write. They will be told a report '
-                    'was made and can give their side, but never who made it.',
-                    style: TextStyle(
-                      fontSize: 12,
-                      height: 1.4,
-                      color: AppColors.neutral500,
-                    ),
-                  ),
                 ],
               ),
             ),
@@ -265,9 +255,28 @@ class _ReportSheetState extends State<ReportSheet> {
       shrinkWrap: true,
       padding: const EdgeInsets.fromLTRB(20, 12, 20, 8),
       children: [
-        for (final reason in _reasons) _buildReason(reason),
-        if (_selected != null) ...[
-          const SizedBox(height: 8),
+        // One dropdown, and everything else on screen from the start.
+        DropdownButtonFormField<String>(
+          initialValue: _selected,
+          isExpanded: true,
+          hint: const Text('Choose a reason', style: TextStyle(fontSize: 13.5)),
+          items: [
+            for (final reason in _reasons)
+              DropdownMenuItem(
+                value: reason['code'] as String,
+                child: Text(reason['label'] as String,
+                    style: const TextStyle(fontSize: 13.5), overflow: TextOverflow.ellipsis),
+              ),
+          ],
+          onChanged: (code) => setState(() => _selected = code),
+          decoration: InputDecoration(
+            labelText: 'Reason',
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+            contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+          ),
+        ),
+        const SizedBox(height: 12),
+        ...[
           TextField(
             controller: _details,
             maxLines: 3,
@@ -367,66 +376,6 @@ class _ReportSheetState extends State<ReportSheet> {
           ],
         ),
       ],
-    );
-  }
-
-  Widget _buildReason(Map<String, dynamic> reason) {
-    final code = reason['code'] as String;
-    final selected = _selected == code;
-
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
-      child: InkWell(
-        onTap: () => setState(() => _selected = code),
-        borderRadius: BorderRadius.circular(12),
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 120),
-          padding: const EdgeInsets.all(13),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(12),
-            color: selected ? AppColors.error.withValues(alpha: 0.04) : Colors.white,
-            border: Border.all(
-              color: selected ? AppColors.error : AppColors.neutral200,
-              width: selected ? 1.5 : 1,
-            ),
-          ),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Icon(
-                selected ? Icons.radio_button_checked : Icons.radio_button_unchecked,
-                size: 19,
-                color: selected ? AppColors.error : AppColors.neutral300,
-              ),
-              const SizedBox(width: 11),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      reason['label'] as String,
-                      style: TextStyle(
-                        fontSize: 13.5,
-                        fontWeight: FontWeight.w600,
-                        color: AppColors.neutral900,
-                      ),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      reason['description'] as String,
-                      style: TextStyle(
-                        fontSize: 11,
-                        height: 1.4,
-                        color: AppColors.neutral500,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
     );
   }
 

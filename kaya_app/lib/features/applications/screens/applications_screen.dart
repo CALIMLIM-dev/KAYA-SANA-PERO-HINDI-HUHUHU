@@ -1356,7 +1356,7 @@ Widget _cardShell({
       onTap: onTap,
       borderRadius: BorderRadius.circular(12),
       child: Padding(
-        padding: EdgeInsets.all(compact ? 12 : 16),
+        padding: EdgeInsets.all(compact ? 10 : 16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -1387,13 +1387,37 @@ Widget _cardShell({
                 ),
               ],
             ),
-            if (subtitle.isNotEmpty) ...[
-              SizedBox(height: compact ? 3 : 6),
+            // Compact: who it is with and the pay share one line, so the
+            // card on home is a title, a line and the buttons.
+            if (compact && (subtitle.isNotEmpty || budget != null)) ...[
+              const SizedBox(height: 3),
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(subtitle,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(fontSize: 12.5, color: AppColors.neutral600)),
+                  ),
+                  if (budget != null) ...[
+                    const SizedBox(width: 8),
+                    Flexible(
+                      child: Text(budget,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                              fontSize: 12.5,
+                              fontWeight: FontWeight.w700,
+                              color: AppColors.primary)),
+                    ),
+                  ],
+                ],
+              ),
+            ],
+            if (!compact && subtitle.isNotEmpty) ...[
+              const SizedBox(height: 6),
               Text(subtitle,
-                  maxLines: compact ? 1 : null,
-                  overflow: compact ? TextOverflow.ellipsis : null,
-                  style: TextStyle(
-                      fontSize: compact ? 12.5 : 13.5, color: AppColors.neutral600)),
+                  style: const TextStyle(fontSize: 13.5, color: AppColors.neutral600)),
             ],
             if (!compact && (category != null || place != null)) ...[
               const SizedBox(height: 8),
@@ -1409,8 +1433,8 @@ Widget _cardShell({
                 ],
               ),
             ],
-            if (budget != null || age != null) ...[
-              SizedBox(height: compact ? 6 : 8),
+            if (!compact && (budget != null || age != null)) ...[
+              const SizedBox(height: 8),
               /*
                   Both sides give way, because both grow with the text size.
 
@@ -1446,7 +1470,7 @@ Widget _cardShell({
             ],
             if (onMessage != null || (actionLabel != null && onAction != null)) ...[
               // The rule My Jobs draws between the facts and the actions.
-              SizedBox(height: compact ? 10 : 12),
+              SizedBox(height: compact ? 8 : 12),
               if (!compact) ...[
                 const Divider(height: 1, color: AppColors.neutral200),
                 const SizedBox(height: 12),
@@ -1485,7 +1509,7 @@ Widget _cardShell({
                         style: OutlinedButton.styleFrom(
                           foregroundColor: AppColors.primary,
                           side: const BorderSide(color: AppColors.primary),
-                          padding: EdgeInsets.symmetric(vertical: compact ? 7 : 10),
+                          padding: EdgeInsets.symmetric(vertical: compact ? 4 : 10),
                           shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(8)),
                           textStyle: const TextStyle(
@@ -1510,7 +1534,7 @@ Widget _cardShell({
                                 foregroundColor: Colors.white,
                                 elevation: 0,
                                 padding: EdgeInsets.symmetric(
-                                    vertical: compact ? 7 : 10),
+                                    vertical: compact ? 4 : 10),
                                 shape: RoundedRectangleBorder(
                                     borderRadius: BorderRadius.circular(8)),
                                 textStyle: const TextStyle(
@@ -1536,7 +1560,7 @@ Widget _cardShell({
                                 side: const BorderSide(
                                     color: AppColors.primary),
                                 padding: EdgeInsets.symmetric(
-                                    vertical: compact ? 7 : 10),
+                                    vertical: compact ? 4 : 10),
                                 shape: RoundedRectangleBorder(
                                     borderRadius: BorderRadius.circular(8)),
                                 textStyle: const TextStyle(
@@ -1550,7 +1574,7 @@ Widget _cardShell({
               ),
             ],
             if (note != null) ...[
-              SizedBox(height: compact ? 8 : 10),
+              SizedBox(height: compact ? 6 : 10),
               Row(
                 children: [
                   Icon(
@@ -1569,7 +1593,7 @@ Widget _cardShell({
               ),
             ],
             if (trailing != null) ...[
-              SizedBox(height: compact ? 8 : 10),
+              SizedBox(height: compact ? 6 : 10),
               Row(
                 children: [
                   const Icon(Icons.people_outline,

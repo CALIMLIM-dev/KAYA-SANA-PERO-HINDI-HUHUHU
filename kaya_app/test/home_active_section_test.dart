@@ -128,24 +128,46 @@ void main() {
     expect(find.textContaining('Repaint a steel gate'), findsNothing);
   });
 
-  testWidgets('four items: three cards and See all', (tester) async {
+  /*
+      More jobs make the row longer, never the screen taller: the cards sit
+      side by side and scroll sideways.
+  */
+  testWidgets('more active jobs do not make the section taller', (tester) async {
+    Future<double> heightWith(int n) async {
+      await pump(
+        tester,
+        host(
+          worker: false,
+          employer: true,
+          jobs: [for (var i = 1; i <= n; i++) post(i, 'Post number $i')],
+        ),
+      );
+      expect(find.textContaining('Post number 1'), findsWidgets);
+      return tester.getSize(find.byType(ActiveSection)).height;
+    }
+
+    final two = await heightWith(2);
+    final four = await heightWith(4);
+
+    expect(four, two);
+    expect(
+      find.byWidgetPredicate((w) => w is SingleChildScrollView && w.scrollDirection == Axis.horizontal),
+      findsOneWidget,
+    );
+    expect(find.textContaining('See all'), findsNothing);
+  });
+
+  testWidgets('past six, See all opens the rest', (tester) async {
     await pump(
       tester,
       host(
         worker: false,
         employer: true,
-        jobs: [
-          post(1, 'First post'),
-          post(2, 'Second post'),
-          post(3, 'Third post'),
-          post(4, 'Fourth post'),
-        ],
+        jobs: [for (var i = 1; i <= 7; i++) post(i, 'Post number $i')],
       ),
     );
 
-    expect(find.textContaining('Third post'), findsWidgets);
-    expect(find.textContaining('Fourth post'), findsNothing);
-    expect(find.text('See all 4'), findsOneWidget);
+    expect(find.text('See all 7'), findsOneWidget);
   });
 
   testWidgets('nothing active means nothing drawn', (tester) async {
