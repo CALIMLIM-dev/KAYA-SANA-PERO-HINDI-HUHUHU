@@ -13,6 +13,7 @@ import '../../../core/widgets/hint_bubble.dart';
 import '../widgets/contact_verify_row.dart';
 import '../widgets/profile_section_card.dart';
 import '../widgets/rate_row.dart';
+import '../widgets/work_preference_rows.dart';
 import '../../../data/services/api_client.dart';
 import '../../../data/models/location_model.dart';
 import '../../../data/models/worker_skill_model.dart';
@@ -1327,6 +1328,28 @@ class _MyWorkerProfileScreenState extends State<MyWorkerProfileScreen> with Sing
               unit: choice.unit,
               byAgreement: choice.byAgreement,
             );
+            if (ok) await auth.fetchMe();
+            return ok ? null : (provider.errorMessage ?? 'Could not save.');
+          },
+        ),
+
+        // Held against each job's dates and distance. See JobMatchService.
+        WorkDaysRow(
+          days: p.availableDays,
+          onSave: (days) async {
+            final provider = context.read<WorkerProfileProvider>();
+            final auth = context.read<AuthProvider>();
+            final ok = await provider.updateWorkPreferences(days: days);
+            if (ok) await auth.fetchMe();
+            return ok ? null : (provider.errorMessage ?? 'Could not save.');
+          },
+        ),
+        TravelRangeRow(
+          km: p.travelKm,
+          onSave: (km) async {
+            final provider = context.read<WorkerProfileProvider>();
+            final auth = context.read<AuthProvider>();
+            final ok = await provider.updateWorkPreferences(travelKm: km);
             if (ok) await auth.fetchMe();
             return ok ? null : (provider.errorMessage ?? 'Could not save.');
           },

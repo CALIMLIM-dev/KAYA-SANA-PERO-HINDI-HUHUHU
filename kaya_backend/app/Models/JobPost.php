@@ -19,6 +19,8 @@ class JobPost extends Model
         'workers_needed',
         'expires_at', 'expiry_warned_at',
         'budget_period',
+        // Years of experience the hirer asks for; null asks for none.
+        'min_experience_years',
         // When the work happens. end_date null means a single day.
         'start_date', 'end_date', 'start_time',
     ];
@@ -27,6 +29,7 @@ class JobPost extends Model
         'latitude'      => 'decimal:7',
         'longitude'     => 'decimal:7',
         'is_urgent'     => 'boolean',
+        'min_experience_years' => 'integer',
         'photos'        => 'array',
         // date:, not datetime: — these are calendar days, and casting them to
         // datetime would attach a midnight that the app would then render as a

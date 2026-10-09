@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../widgets/experience_needed_picker.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:latlong2/latlong.dart';
@@ -206,6 +207,9 @@ class _PostJobScreenState extends State<PostJobScreen> {
   /// How many people the job is for. One is the common case; ten is the
   /// ceiling, above which it is a crew with a payroll and not a job post.
   int _workersNeeded = 1;
+
+  /// Years of experience asked for. Null asks for none.
+  int? _minExperience;
 
   /// The most a single post may hire. Matches the server's own cap.
   static const int _maxWorkers = 20;
@@ -954,6 +958,20 @@ class _PostJobScreenState extends State<PostJobScreen> {
                 hint: 'The post stays open until this many are hired. Up to twenty.',
                 icon: Icons.group_outlined,
                 children: [_buildWorkersNeeded()],
+              ),
+              const SizedBox(height: 16),
+
+              // A hiring criterion matching holds every worker to.
+              _buildSection(
+                title: 'Experience Needed',
+                hint: 'Workers who meet it are listed first.',
+                icon: Icons.workspace_premium_outlined,
+                children: [
+                  ExperienceNeededPicker(
+                    value: _minExperience,
+                    onChanged: (v) => setState(() => _minExperience = v),
+                  ),
+                ],
               ),
               const SizedBox(height: 16),
 
@@ -2396,6 +2414,7 @@ class _PostJobScreenState extends State<PostJobScreen> {
         // ends the day it starts rather than carrying no end at all.
         endDate:     _endDate,
         workersNeeded: _workersNeeded,
+        minExperienceYears: _minExperience,
       );
 
       setState(() => _isLoading = false);

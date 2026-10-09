@@ -113,7 +113,7 @@ abstract class TestCase extends BaseTestCase
             'latitude'    => 15.9761,
             'longitude'   => 120.5711,
             'profile_photo_path' => 'worker_photos/seeded.jpg',
-            'rate_by_agreement'  => true,
+            'rate_by_agreement'  => true, 'available_days' => [1, 2, 3, 4, 5, 6, 7], 'travel_km' => 100,
         ], $attributes));
 
         \App\Models\WorkerSkill::firstOrCreate([

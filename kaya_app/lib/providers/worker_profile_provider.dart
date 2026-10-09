@@ -68,6 +68,11 @@ class WorkerProfileProvider with ChangeNotifier {
   bool rateByAgreement = false;
   String? rateLabel;
 
+  /// The weekdays they work, ISO (1 = Monday), and how far they will go.
+  /// Matching holds both against each job's dates and place.
+  List<int> availableDays = const [];
+  int? travelKm;
+
   /// When the current boost runs out, or null when there is none.
   DateTime? boostedUntil;
   bool get isBoosted =>
@@ -165,6 +170,11 @@ class WorkerProfileProvider with ChangeNotifier {
         rateUnit = userData['rate_unit'] as String?;
         rateByAgreement = userData['rate_by_agreement'] == true;
         rateLabel = userData['rate_label'] as String?;
+        availableDays = ((userData['available_days'] as List?) ?? const [])
+            .map((d) => (d as num).toInt())
+            .toList()
+          ..sort();
+        travelKm = (userData['travel_km'] as num?)?.toInt();
         boostedUntil = DateTime.tryParse('${userData['boosted_until'] ?? ''}');
       }
       
@@ -289,6 +299,28 @@ class WorkerProfileProvider with ChangeNotifier {
         return false;
       }
       await fetchProfile();
+      return true;
+    } catch (e) {
+      _errorMessage = e.toString().replaceFirst('Exception: ', '');
+      return false;
+    }
+  }
+
+  /// Saves the days they work and/or how far they travel.
+  Future<bool> updateWorkPreferences({List<int>? days, int? travelKm}) async {
+    try {
+      final response = await _apiClient.put('/worker/profile', data: {
+        'available_days': ?days,
+        'travel_km': ?travelKm,
+      });
+      final data = response.data as Map<String, dynamic>;
+      if (data['success'] != true) {
+        _errorMessage = data['message'];
+        return false;
+      }
+      if (days != null) availableDays = [...days]..sort();
+      if (travelKm != null) this.travelKm = travelKm;
+      notifyListeners();
       return true;
     } catch (e) {
       _errorMessage = e.toString().replaceFirst('Exception: ', '');

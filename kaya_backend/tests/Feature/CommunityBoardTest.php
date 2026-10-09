@@ -33,7 +33,7 @@ class CommunityBoardTest extends TestCase
             'location' => $complete ? 'Urdaneta City' : null,
             'latitude' => $complete ? 15.9761 : null, 'longitude' => $complete ? 120.5711 : null,
             // Complete by the panel's rule: photo, pin, rate, experience.
-            'profile_photo_path' => 'worker_photos/seeded.jpg', 'rate_by_agreement' => true,
+            'profile_photo_path' => 'worker_photos/seeded.jpg', 'rate_by_agreement' => true, 'available_days' => [1, 2, 3, 4, 5, 6, 7], 'travel_km' => 100,
         ]);
         if ($complete) {
             WorkerSkill::create(['user_id' => $user->id, 'skill_name' => 'Bricklaying', 'category_id' => $category->id, 'years_of_experience' => 2]);

@@ -60,7 +60,7 @@ class MatchingStrengthTest extends TestCase
             'user_id' => $user->id, 'category_id' => $tradeId, 'location' => 'Urdaneta City',
             'latitude' => 15.9761, 'longitude' => 120.5711,
             // Complete by the panel's rule: photo, pin, rate, experience.
-            'profile_photo_path' => 'worker_photos/seeded.jpg', 'rate_by_agreement' => true,
+            'profile_photo_path' => 'worker_photos/seeded.jpg', 'rate_by_agreement' => true, 'available_days' => [1, 2, 3, 4, 5, 6, 7], 'travel_km' => 100,
         ], $profile));
         foreach ($skills as [$skill, $categoryId]) {
             WorkerSkill::create(['user_id' => $user->id, 'skill_name' => $skill, 'category_id' => $categoryId, 'years_of_experience' => 2]);

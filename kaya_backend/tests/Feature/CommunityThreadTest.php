@@ -36,7 +36,7 @@ class CommunityThreadTest extends TestCase
             'setup_completed' => true,
             'latitude' => 15.9761, 'longitude' => 120.5711,
             // Complete by the panel's rule: photo, pin, rate, experience.
-            'profile_photo_path' => 'worker_photos/seeded.jpg', 'rate_by_agreement' => true,
+            'profile_photo_path' => 'worker_photos/seeded.jpg', 'rate_by_agreement' => true, 'available_days' => [1, 2, 3, 4, 5, 6, 7], 'travel_km' => 100,
         ]);
         // A profile counts as finished only once it names a trade, which is
         // what posting on the board asks for.

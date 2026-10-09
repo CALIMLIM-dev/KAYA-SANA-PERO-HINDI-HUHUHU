@@ -594,8 +594,13 @@ class ApplicationController extends Controller
                             (int) ($match['tier'] ?? 0),
                             (int) $match['score'],
                             \App\Services\JobMatchService::strength($profile, $experience->years($profile->experiences)),
+                            (int) ($match['criteria_balance'] ?? 0),
                         )
                         : 0.0,
+
+                    // The job's hiring criteria against this profile, one
+                    // fact each. See JobMatchService::criteria.
+                    'criteria'              => $match['criteria'] ?? [],
 
                     /*
                         The facts the card states instead of a score:

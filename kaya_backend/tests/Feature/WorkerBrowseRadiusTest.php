@@ -50,7 +50,7 @@ class WorkerBrowseRadiusTest extends TestCase
             'longitude'   => $lng,
             // Complete by the panel's rule: photo, rate, experience.
             'profile_photo_path' => 'worker_photos/seeded.jpg',
-            'rate_by_agreement'  => true,
+            'rate_by_agreement'  => true, 'available_days' => [1, 2, 3, 4, 5, 6, 7], 'travel_km' => 100,
         ]);
 
         WorkerSkill::create([

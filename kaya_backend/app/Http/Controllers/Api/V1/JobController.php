@@ -357,6 +357,8 @@ class JobController extends Controller
             // stored happily and then break every salary filter.
             'budget_max'         => ['nullable', 'numeric', 'min:0', 'gte:budget_min'],
             'budget_period'      => ['required', 'in:daily,hourly,project'],
+            // Years of experience asked for; matching holds workers to it.
+            'min_experience_years' => ['nullable', 'integer', 'in:0,1,2,3,5'],
             'location'           => ['required', 'string', 'max:255'],
             'city'               => ['nullable', 'string', 'max:255'],
             // Required, not nullable: a job without it has no coordinates, so
@@ -639,7 +641,11 @@ class JobController extends Controller
                     $match['tier'],
                     (int) $match['score'],
                     \App\Services\JobMatchService::strength($profile, $experience->years($profile->experiences)),
+                    $match['criteria_balance'],
                 ),
+                // The job's hiring criteria against this profile. See
+                // JobMatchService::criteria.
+                'criteria'       => $match['criteria'],
 
                 /*
                     What the employer is really deciding on.
@@ -1072,6 +1078,7 @@ class JobController extends Controller
             // stored happily and then break every salary filter.
             'budget_max'         => ['nullable', 'numeric', 'min:0', 'gte:budget_min'],
             'budget_period'      => ['nullable', 'in:daily,hourly,project'],
+            'min_experience_years' => ['nullable', 'integer', 'in:0,1,2,3,5'],
             'location'           => ['required', 'string', 'max:255'],
             'city'               => ['nullable', 'string', 'max:255'],
             'location_id'        => ['nullable', 'exists:locations,id'],

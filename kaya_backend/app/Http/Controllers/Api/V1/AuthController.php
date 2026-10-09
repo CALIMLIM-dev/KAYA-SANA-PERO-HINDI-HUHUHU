@@ -13,7 +13,6 @@ use Illuminate\Support\Facades\Mail;
 use App\Mail\PasswordResetMail;
 use App\Services\AccountDeletionService;
 use App\Services\GoogleTokenVerifier;
-use App\Support\RegistrationRules;
 
 class AuthController extends Controller
 {
@@ -29,37 +28,82 @@ class AuthController extends Controller
 
     public function register(Request $request)
     {
-        /*
-            Everything an account has to say about itself, up front.
+        $request->validate([
+            'name'     => ['nullable', 'string', 'max:255'],
+            /*
+                The name, as four fields.
 
-            This used to take an email or a phone and a password, and the
-            name came later if it came at all. The panel asked that the
-            required registration details be mandatory, so the email, the
-            mobile, the name and the date of birth are all asked here - see
-            RegistrationRules, which the Google door uses too.
-        */
-        $request->validate(array_merge(RegistrationRules::details(), [
-            'email'    => ['required', 'string', 'email', 'max:255', Rule::unique('users', 'email')],
-            // One rule for every password in this file - see PasswordRules.
+                `name` stays accepted so an older build keeps working, but
+                when the parts arrive they win: User::booted recomputes the
+                display name from them on save. first and last are what a
+                person is addressed by; middle (the mother's maiden surname
+                here) and suffix are genuinely optional and must never be
+                required, or anyone without one cannot finish signing up.
+            */
+            'first_name'  => ['nullable', 'string', 'max:100'],
+            'middle_name' => ['nullable', 'string', 'max:100'],
+            'last_name'   => ['nullable', 'string', 'max:100'],
+            'suffix'      => ['nullable', 'string', 'max:20'],
+            'email'    => ['required', 'string'],
+            // One rule for every password in this file - see
+            // PasswordRules. All four used to be min:8 and nothing else.
             'password' => \App\Support\PasswordRules::for(
                 $request->input('email'),
-                trim($request->input('first_name', '') . ' ' . $request->input('last_name', '')),
+                $request->input('name') ?? trim(
+                    $request->input('first_name', '') . ' ' . $request->input('last_name', '')
+                ),
             ),
+            'phone'    => ['nullable', 'string', 'max:20'],
             'city'     => ['nullable', 'string', 'max:255'],
             'terms_accepted' => ['required', 'boolean', 'accepted'],
-        ]), array_merge(RegistrationRules::messages(), [
-            'email.unique' => 'This email is already registered.',
-            'email.email'  => 'Please enter a valid email address.',
-        ]));
+        ]);
 
-        // The parts are the source of truth; User::booted rebuilds `name`.
-        $user = User::create(array_merge(RegistrationRules::attributes($request->all()), [
-            'email'    => $request->input('email'),
-            'city'     => $request->input('city') ?: null,
-            'password' => $request->input('password'),
-            'terms_accepted' => true,
-            'terms_accepted_at' => now(),
-        ]));
+        $input = $request->input('email');
+        $isPhone = str_starts_with($input, '+') || ctype_digit(ltrim($input, '+'));
+
+        if ($isPhone) {
+            // Check phone not already taken
+            if (User::where('phone', $input)->exists()) {
+                return $this->fail('This phone number is already registered.', 422);
+            }
+            $userData = [
+                'name'     => $request->input('name') ?: null,
+                // The parts are the source of truth; User::booted rebuilds
+                // `name` from them, so a caller sending both cannot disagree.
+                'first_name'  => $request->input('first_name') ?: null,
+                'middle_name' => $request->input('middle_name') ?: null,
+                'last_name'   => $request->input('last_name') ?: null,
+                'suffix'      => $request->input('suffix') ?: null,
+                'email'    => null,
+                'phone'    => $input,
+                'password' => $request->input('password'),
+                'terms_accepted' => true,
+                'terms_accepted_at' => now(),
+            ];
+        } else {
+            // Validate as email
+            if (!filter_var($input, FILTER_VALIDATE_EMAIL)) {
+                return $this->fail('Please enter a valid email address.', 422);
+            }
+            if (User::where('email', $input)->exists()) {
+                return $this->fail('This email is already registered.', 422);
+            }
+            $userData = [
+                'name'     => $request->input('name') ?: null,
+                // The parts are the source of truth; User::booted rebuilds
+                // `name` from them, so a caller sending both cannot disagree.
+                'first_name'  => $request->input('first_name') ?: null,
+                'middle_name' => $request->input('middle_name') ?: null,
+                'last_name'   => $request->input('last_name') ?: null,
+                'suffix'      => $request->input('suffix') ?: null,
+                'email'    => $input,
+                'password' => $request->input('password'),
+                'terms_accepted' => true,
+                'terms_accepted_at' => now(),
+            ];
+        }
+
+        $user  = User::create($userData);
         $token = $user->createToken('kaya_app')->plainTextToken;
 
         return $this->ok(['user' => $this->accountPayload($user), 'token' => $token], 'Registration successful', 201);
@@ -574,18 +618,7 @@ class AuthController extends Controller
      */
     public function googleLogin(Request $request)
     {
-        /*
-            The same details the email form requires, on the call that
-            creates the account - the one carrying a password. A probe, or
-            an existing account signing back in, is not asked for them.
-        */
-        $creating = $request->boolean('is_signup') && $request->filled('password');
-        $details = array_map(
-            fn (array $rules) => [Rule::excludeIf(! $creating), ...$rules],
-            RegistrationRules::details(),
-        );
-
-        $request->validate([...$details, 
+        $request->validate([
             'id_token'  => ['required', 'string'],
             // Nullable, so the rules only apply when one is actually set:
             // an existing Google account signs in without sending one.
@@ -619,7 +652,7 @@ class AuthController extends Controller
                 'required',
                 'accepted',
             ],
-        ], RegistrationRules::messages());
+        ]);
 
         /*
             Identity comes from the token, never from the request.
@@ -721,11 +754,11 @@ class AuthController extends Controller
             return $this->fail('Password is required for new accounts', 422);
         }
 
-        // The name is what they typed, not what is on the Google account: once
-        // an ID is verified it locks to what the document says, and a Gmail
-        // display name is often a nickname.
+        // The name is left unset on purpose: the user chooses it during profile
+        // setup, and once an ID is verified it becomes locked to what the
+        // document says.
         $user = User::create([
-            ...RegistrationRules::attributes($request->all()),
+            'name'      => null,
             'email'     => $email,
             'google_id' => $googleId,
             /*
@@ -914,6 +947,8 @@ class AuthController extends Controller
             'rate_unit' => $worker?->rate_unit,
             'rate_by_agreement' => (bool) $worker?->rate_by_agreement,
             'rate_label' => $worker?->rateLabel(),
+            'available_days' => $worker?->available_days,
+            'travel_km' => $worker?->travel_km,
             'worker_profile_missing' => array_values($worker?->missingForCompletion() ?? []),
             'boosted_until' => $boostedUntil?->toIso8601String(),
         ], 'User retrieved successfully');

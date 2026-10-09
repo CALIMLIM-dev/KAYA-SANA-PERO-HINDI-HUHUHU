@@ -41,6 +41,7 @@ class RateAndDistanceTest extends TestCase
             // "to be discussed", which is what a complete profile with no rate is.
             'profile_photo_path' => 'worker_photos/seeded.jpg',
             'rate_by_agreement'  => ! isset($profile['rate_min']) && ! isset($profile['rate_max']),
+            'available_days' => [1, 2, 3, 4, 5, 6, 7], 'travel_km' => 100,
         ], $profile));
 
         \DB::table('worker_skills_new')->insert([

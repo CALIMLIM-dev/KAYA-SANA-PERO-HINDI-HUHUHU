@@ -32,6 +32,68 @@ String? employerFitLine(Map<String, dynamic> row) {
   return parts.isEmpty ? null : parts.join(' · ');
 }
 
+/*
+    The job's hiring criteria against this worker's profile, one line each:
+    "Asks P600/day, within budget", "Does not work Sat", "Within their
+    25 km travel range". The server words them (JobMatchService::criteria);
+    this only marks each as met, missed, or not judged.
+*/
+class CriteriaFacts extends StatelessWidget {
+  const CriteriaFacts({super.key, required this.row, this.onDark = false});
+
+  final Map<String, dynamic> row;
+  final bool onDark;
+
+  static bool hasAny(Map<String, dynamic> row) => ((row['criteria'] as List?) ?? const []).isNotEmpty;
+
+  @override
+  Widget build(BuildContext context) {
+    final items = ((row['criteria'] as List?) ?? const []).whereType<Map>().toList();
+    if (items.isEmpty) return const SizedBox.shrink();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        for (final c in items)
+          Padding(
+            padding: const EdgeInsets.only(top: 3),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Icon(
+                  c['met'] == true
+                      ? Icons.check_circle_outline
+                      : c['met'] == false
+                          ? Icons.cancel_outlined
+                          : Icons.remove_circle_outline,
+                  size: 14,
+                  color: onDark
+                      ? Colors.white70
+                      : c['met'] == true
+                          ? AppColors.success
+                          : c['met'] == false
+                              ? AppColors.error
+                              : AppColors.neutral400,
+                ),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: Text(
+                    '${c['text'] ?? ''}',
+                    style: TextStyle(
+                      fontSize: 12,
+                      height: 1.3,
+                      color: onDark ? Colors.white : AppColors.neutral700,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+      ],
+    );
+  }
+}
+
 /// Whether the row holds a required skill, or fits a job that names none.
 bool meetsRequirements(Map<String, dynamic> row) =>
     ((row['match_tier'] as num?)?.toInt() ?? 0) >= 2;

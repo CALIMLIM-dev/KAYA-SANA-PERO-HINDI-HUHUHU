@@ -515,6 +515,11 @@ class ApplicantCard extends StatelessWidget {
                   strong: meetsRequirements(applicant),
                 ),
               ],
+              // The job's hiring criteria, met or not.
+              if (CriteriaFacts.hasAny(applicant)) ...[
+                const SizedBox(height: 6),
+                CriteriaFacts(row: applicant),
+              ],
               ...actions,
           ],
           ),
@@ -865,6 +870,10 @@ class _ResumeCard extends StatelessWidget {
                     text: employerFitLine(applicant)!,
                     strong: meetsRequirements(applicant),
                   ),
+                  const SizedBox(height: 8),
+                ],
+                if (CriteriaFacts.hasAny(applicant)) ...[
+                  CriteriaFacts(row: applicant),
                   const SizedBox(height: 12),
                 ],
                 Row(

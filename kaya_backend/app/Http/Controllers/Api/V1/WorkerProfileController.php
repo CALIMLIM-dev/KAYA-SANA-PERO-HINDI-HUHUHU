@@ -257,6 +257,10 @@ class WorkerProfileController extends Controller
             'rate_unit'          => 'nullable|in:hour,day,project',
             // "To be discussed" in place of a figure. See the migration.
             'rate_by_agreement'  => 'nullable|boolean',
+            // The weekdays they work (ISO, 1 = Monday) and how far they go.
+            'available_days'     => 'nullable|array|min:1',
+            'available_days.*'   => 'integer|between:1,7|distinct',
+            'travel_km'          => 'nullable|integer|in:5,10,25,50,100',
             // A few lines about the work, shown on the public profile.
             'bio'                => 'nullable|string|max:500',
         ]);
@@ -412,6 +416,15 @@ class WorkerProfileController extends Controller
             $profileDirty = true;
         } elseif ($request->filled('rate_min') || $request->filled('rate_max')) {
             $profile->rate_by_agreement = false;
+        }
+
+        if ($request->filled('available_days')) {
+            $profile->available_days = array_values(array_map('intval', $request->input('available_days')));
+            $profileDirty = true;
+        }
+        if ($request->filled('travel_km')) {
+            $profile->travel_km = (int) $request->input('travel_km');
+            $profileDirty = true;
         }
 
         // has(), not filled(): sending an empty bio clears it.

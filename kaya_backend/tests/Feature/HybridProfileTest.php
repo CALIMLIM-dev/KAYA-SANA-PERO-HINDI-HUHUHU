@@ -297,7 +297,7 @@ class HybridProfileTest extends TestCase
 
         WorkerProfile::where('user_id', $user->id)->firstOrFail()->forceFill([
             'profile_photo_path' => 'worker_photos/me.jpg',
-            'rate_by_agreement'  => true,
+            'rate_by_agreement'  => true, 'available_days' => [1, 2, 3, 4, 5, 6, 7], 'travel_km' => 100,
         ])->save();
         WorkerSkill::where('user_id', $user->id)->update(['years_of_experience' => 3]);
 

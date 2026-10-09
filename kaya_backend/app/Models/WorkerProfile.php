@@ -27,6 +27,9 @@ class WorkerProfile extends Model
         'rate_min', 'rate_max', 'rate_unit',
         // "To be discussed" - an answer, where no rate at all is not.
         'rate_by_agreement',
+        // What matching compares with a job: the weekdays they can work
+        // (ISO, 1 = Monday) and how far they will travel. See JobMatchService.
+        'available_days', 'travel_km',
     ];
 
     protected $casts = [
@@ -36,6 +39,8 @@ class WorkerProfile extends Model
         'rate_min'           => 'decimal:2',
         'rate_max'           => 'decimal:2',
         'rate_by_agreement'  => 'boolean',
+        'available_days'     => 'array',
+        'travel_km'          => 'integer',
     ];
 
     /**
@@ -157,6 +162,8 @@ class WorkerProfile extends Model
         'experience' => 'your experience',
         'pin'        => 'your town pinned on the map',
         'rate'       => 'your expected rate',
+        'days'       => 'the days you can work',
+        'travel'     => 'how far you can travel',
     ];
 
     /** @return array<string,string> the unmet requirements, keyed as REQUIREMENTS. */
@@ -181,9 +188,29 @@ class WorkerProfile extends Model
                 && ! is_null($this->latitude) && ! is_null($this->longitude),
             'rate'       => ! is_null($this->rate_min) || ! is_null($this->rate_max)
                 || (bool) $this->rate_by_agreement,
+            'days'       => ! empty($this->available_days),
+            'travel'     => ! is_null($this->travel_km),
         ];
 
         return array_intersect_key(self::REQUIREMENTS, array_filter($met, fn ($ok) => ! $ok));
+    }
+
+    /*
+        Years of experience, the larger of the two places it is recorded:
+        dated work history (overlaps counted once, see ExperienceTotal) and
+        the years typed against a skill. Uses loaded relations when there
+        are some.
+    */
+    public function experienceYears(): int
+    {
+        $history = app(\App\Services\ExperienceTotal::class)->years(
+            $this->relationLoaded('experiences') ? $this->experiences : $this->experiences()->get()
+        );
+        $skills = $this->relationLoaded('skills')
+            ? $this->skills
+            : WorkerSkill::where('user_id', $this->user_id)->get(['years_of_experience']);
+
+        return max($history, (int) $skills->max('years_of_experience'));
     }
 
     /** The refusal for an action that needs a complete profile. */

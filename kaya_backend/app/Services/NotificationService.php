@@ -909,12 +909,22 @@ class NotificationService
             return null;
         }
 
+        // Not on a day they said they do not work, nor past the distance
+        // they said they would go. Rate and experience are the hirer's to
+        // weigh, so they order the list but never silence it.
+        foreach ($match['criteria'] as $c) {
+            if (in_array($c['key'], ['days', 'travel'], true) && $c['met'] === false) {
+                return null;
+            }
+        }
+
         return [
             'profile' => $profile,
             'rank' => \App\Services\JobMatchService::rank(
                 $match['tier'],
                 $match['score'],
                 \App\Services\JobMatchService::strength($profile),
+                $match['criteria_balance'],
             ),
         ];
     }

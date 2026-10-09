@@ -237,7 +237,7 @@ class BoostTest extends TestCase
             'category_id' => $this->category->id,
             'latitude' => 15.9761, 'longitude' => 120.5711,
             // Complete by the panel's rule: photo, pin, rate, experience.
-            'profile_photo_path' => 'worker_photos/seeded.jpg', 'rate_by_agreement' => true,
+            'profile_photo_path' => 'worker_photos/seeded.jpg', 'rate_by_agreement' => true, 'available_days' => [1, 2, 3, 4, 5, 6, 7], 'travel_km' => 100,
         ]);
         \App\Models\WorkerSkill::create([
             'user_id'     => $worker->id,
@@ -313,7 +313,7 @@ class BoostTest extends TestCase
             'created_at'  => $oldest ? now()->subYear() : now(),
             'latitude' => 15.9761, 'longitude' => 120.5711,
             // Complete by the panel's rule: photo, pin, rate, experience.
-            'profile_photo_path' => 'worker_photos/seeded.jpg', 'rate_by_agreement' => true,
+            'profile_photo_path' => 'worker_photos/seeded.jpg', 'rate_by_agreement' => true, 'available_days' => [1, 2, 3, 4, 5, 6, 7], 'travel_km' => 100,
         ]);
 
         \App\Models\WorkerSkill::create([

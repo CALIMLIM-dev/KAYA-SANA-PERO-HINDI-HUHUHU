@@ -49,7 +49,7 @@ class WorkerRankingTest extends TestCase
             'longitude'       => 120.571,
             'setup_completed' => true,
             // Complete by the panel's rule: photo, pin, rate, experience.
-            'profile_photo_path' => 'worker_photos/seeded.jpg', 'rate_by_agreement' => true,
+            'profile_photo_path' => 'worker_photos/seeded.jpg', 'rate_by_agreement' => true, 'available_days' => [1, 2, 3, 4, 5, 6, 7], 'travel_km' => 100,
         ], $profile));
 
         \DB::table('worker_skills_new')->insert([
