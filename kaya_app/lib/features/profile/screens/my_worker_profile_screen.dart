@@ -12,6 +12,7 @@ import '../widgets/inline_location_row.dart';
 import '../../../core/widgets/hint_bubble.dart';
 import '../widgets/contact_verify_row.dart';
 import '../widgets/profile_section_card.dart';
+import '../widgets/rate_row.dart';
 import '../../../data/services/api_client.dart';
 import '../../../data/models/location_model.dart';
 import '../../../data/models/worker_skill_model.dart';
@@ -1174,6 +1175,60 @@ class _MyWorkerProfileScreenState extends State<MyWorkerProfileScreen> with Sing
     );
   }
 
+  /*
+      What the profile still needs before it can apply for work.
+
+      The server decides (WorkerProfile::REQUIREMENTS) and says it in words
+      on /me, so the list here can never disagree with the refusal a worker
+      gets on Apply. Gone once there is nothing left to do.
+  */
+  Widget _buildStillNeeded() {
+    final missing = ((context.watch<AuthProvider>().user?['worker_profile_missing'] as List?) ?? const [])
+        .map((e) => e.toString())
+        .toList();
+    if (missing.isEmpty) return const SizedBox.shrink();
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppColors.primary.withValues(alpha: 0.35)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Still needed to apply for jobs',
+            style: TextStyle(fontSize: 14.5, fontWeight: FontWeight.w700, color: AppColors.neutral900),
+          ),
+          const SizedBox(height: 6),
+          for (final item in missing)
+            Padding(
+              padding: const EdgeInsets.only(top: 3),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Padding(
+                    padding: EdgeInsets.only(top: 2),
+                    child: Icon(Icons.radio_button_unchecked, size: 14, color: AppColors.primary),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      item.isEmpty ? item : item[0].toUpperCase() + item.substring(1),
+                      style: const TextStyle(fontSize: 13, color: AppColors.neutral700),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildSuggestedTab() {
     final p = context.watch<WorkerProfileProvider>();
     return ListView(
@@ -1181,6 +1236,7 @@ class _MyWorkerProfileScreenState extends State<MyWorkerProfileScreen> with Sing
       // on top of the final row.
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 96),
       children: [
+        _buildStillNeeded(),
         _buildViewsBanner(),
         _buildResumeLink(),
         /*
@@ -1250,6 +1306,27 @@ class _MyWorkerProfileScreenState extends State<MyWorkerProfileScreen> with Sing
             // Read before the await: the completeness ring reads /me.
             final auth = context.read<AuthProvider>();
             final ok = await provider.updateBio(v);
+            if (ok) await auth.fetchMe();
+            return ok ? null : (provider.errorMessage ?? 'Could not save.');
+          },
+        ),
+
+        RateRow(
+          label: p.rateLabel,
+          rateMin: p.rateMin,
+          rateMax: p.rateMax,
+          rateUnit: p.rateUnit,
+          byAgreement: p.rateByAgreement,
+          onSave: (choice) async {
+            final provider = context.read<WorkerProfileProvider>();
+            // Read before the await: the still-needed card reads /me.
+            final auth = context.read<AuthProvider>();
+            final ok = await provider.updateRate(
+              min: choice.min,
+              max: choice.max,
+              unit: choice.unit,
+              byAgreement: choice.byAgreement,
+            );
             if (ok) await auth.fetchMe();
             return ok ? null : (provider.errorMessage ?? 'Could not save.');
           },

@@ -58,9 +58,12 @@ class MatchingStrengthTest extends TestCase
         $user = User::factory()->create(['name' => $name, 'is_verified' => true]);
         WorkerProfile::create(array_merge([
             'user_id' => $user->id, 'category_id' => $tradeId, 'location' => 'Urdaneta City',
+            'latitude' => 15.9761, 'longitude' => 120.5711,
+            // Complete by the panel's rule: photo, pin, rate, experience.
+            'profile_photo_path' => 'worker_photos/seeded.jpg', 'rate_by_agreement' => true,
         ], $profile));
         foreach ($skills as [$skill, $categoryId]) {
-            WorkerSkill::create(['user_id' => $user->id, 'skill_name' => $skill, 'category_id' => $categoryId]);
+            WorkerSkill::create(['user_id' => $user->id, 'skill_name' => $skill, 'category_id' => $categoryId, 'years_of_experience' => 2]);
         }
         Application::create(['job_id' => $this->job->id, 'worker_id' => $user->id, 'status' => 'pending']);
 

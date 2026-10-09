@@ -30,9 +30,12 @@ class OwnWorkerProfileTest extends TestCase
             'user_id' => $user->id,
             'category_id' => $complete ? $category->id : null,
             'location' => $complete ? 'Urdaneta City' : null,
+            'latitude' => $complete ? 15.9761 : null, 'longitude' => $complete ? 120.5711 : null,
+            // Complete by the panel's rule: photo, pin, rate, experience.
+            'profile_photo_path' => 'worker_photos/seeded.jpg', 'rate_by_agreement' => true,
         ]);
         if ($complete) {
-            WorkerSkill::create(['user_id' => $user->id, 'skill_name' => 'Bricklaying', 'category_id' => $category->id]);
+            WorkerSkill::create(['user_id' => $user->id, 'skill_name' => 'Bricklaying', 'category_id' => $category->id, 'years_of_experience' => 2]);
         }
         CreditWallet::updateOrCreate(['user_id' => $user->id], ['balance' => 50]);
 
@@ -131,7 +134,7 @@ class OwnWorkerProfileTest extends TestCase
         $this->actingAs($user, 'sanctum')
             ->postJson('/api/v1/worker-profile/boost')
             ->assertStatus(422)
-            ->assertJsonPath('message', fn ($m) => str_contains($m, 'Finish your profile'));
+            ->assertJsonPath('message', fn ($m) => str_contains($m, 'Finish your worker profile'));
 
         $this->assertSame(0, Boost::count());
         $this->assertSame(50, CreditWallet::where('user_id', $user->id)->value('balance'));

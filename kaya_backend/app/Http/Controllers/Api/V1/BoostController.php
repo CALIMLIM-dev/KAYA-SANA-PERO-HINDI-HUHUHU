@@ -79,7 +79,7 @@ class BoostController extends Controller
         // The directory only lists finished profiles, so boosting an
         // unfinished one buys a place in a list it is not in.
         if (! $user->workerProfile->isSetupCompleted()) {
-            return $this->fail('Finish your profile first. Add your location, a job category and at least one skill.', 422);
+            return $this->fail($user->workerProfile->incompleteMessage('boost it'), 422);
         }
 
         try {

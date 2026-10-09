@@ -235,11 +235,15 @@ class BoostTest extends TestCase
             'user_id'     => $worker->id,
             'location'    => 'Urdaneta City',
             'category_id' => $this->category->id,
+            'latitude' => 15.9761, 'longitude' => 120.5711,
+            // Complete by the panel's rule: photo, pin, rate, experience.
+            'profile_photo_path' => 'worker_photos/seeded.jpg', 'rate_by_agreement' => true,
         ]);
         \App\Models\WorkerSkill::create([
             'user_id'     => $worker->id,
             'skill_name'  => 'Repairs',
             'category_id' => $this->category->id,
+            'years_of_experience' => 2,
         ]);
         CreditWallet::updateOrCreate(['user_id' => $worker->id], ['balance' => 100]);
 
@@ -307,12 +311,16 @@ class BoostTest extends TestCase
             'category_id' => $this->category->id,
             'rating_avg'  => $rating,
             'created_at'  => $oldest ? now()->subYear() : now(),
+            'latitude' => 15.9761, 'longitude' => 120.5711,
+            // Complete by the panel's rule: photo, pin, rate, experience.
+            'profile_photo_path' => 'worker_photos/seeded.jpg', 'rate_by_agreement' => true,
         ]);
 
         \App\Models\WorkerSkill::create([
             'user_id'     => $user->id,
             'skill_name'  => 'Repairs',
             'category_id' => $this->category->id,
+            'years_of_experience' => 2,
         ]);
 
         return $user;

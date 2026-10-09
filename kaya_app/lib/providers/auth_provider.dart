@@ -177,13 +177,14 @@ class AuthProvider with ChangeNotifier {
 
   // ── Register ─────────────────────────────────────────────────────────────────
 
+  /// [details] is RegistrationDetailsForm.collect(): name, mobile and date
+  /// of birth, which the server now requires of every new account.
   Future<bool> register({
-    required String name,
     required String email,
     required String password,
     required String passwordConfirmation,
     required bool termsAccepted,
-    String? phone,
+    required Map<String, dynamic> details,
     String? city,
   }) async {
     _isLoading = true;
@@ -192,12 +193,11 @@ class AuthProvider with ChangeNotifier {
 
     try {
       final response = await _api.post('/register', data: {
-        'name': name,
+        ...details,
         'email': email,
         'password': password,
         'password_confirmation': passwordConfirmation,
         'terms_accepted': termsAccepted,
-        'phone': ?phone,
         'city': ?city,
       });
 
@@ -369,6 +369,7 @@ class AuthProvider with ChangeNotifier {
     String? password,
     bool isSignup = false,
     bool termsAccepted = false,
+    Map<String, dynamic>? details,
   }) async {
     _isLoading = true;
     _errorMessage = null;
@@ -383,6 +384,9 @@ class AuthProvider with ChangeNotifier {
         // sign-in does not reliably show its own. Sent with the account-
         // creating call (which carries the password), not the probe.
         if (isSignup && password != null) 'terms_accepted': termsAccepted,
+        // Name, mobile and date of birth, asked of a new account the same way
+        // the email form asks.
+        if (isSignup && password != null && details != null) ...details,
       });
 
       final data = response.data['data'];

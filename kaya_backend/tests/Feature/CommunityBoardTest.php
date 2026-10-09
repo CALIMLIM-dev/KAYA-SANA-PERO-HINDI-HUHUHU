@@ -31,9 +31,12 @@ class CommunityBoardTest extends TestCase
             'user_id' => $user->id,
             'category_id' => $complete ? $category->id : null,
             'location' => $complete ? 'Urdaneta City' : null,
+            'latitude' => $complete ? 15.9761 : null, 'longitude' => $complete ? 120.5711 : null,
+            // Complete by the panel's rule: photo, pin, rate, experience.
+            'profile_photo_path' => 'worker_photos/seeded.jpg', 'rate_by_agreement' => true,
         ]);
         if ($complete) {
-            WorkerSkill::create(['user_id' => $user->id, 'skill_name' => 'Bricklaying', 'category_id' => $category->id]);
+            WorkerSkill::create(['user_id' => $user->id, 'skill_name' => 'Bricklaying', 'category_id' => $category->id, 'years_of_experience' => 2]);
         }
         CreditWallet::updateOrCreate(['user_id' => $user->id], ['balance' => $barya]);
 

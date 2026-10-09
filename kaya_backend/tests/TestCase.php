@@ -103,10 +103,17 @@ abstract class TestCase extends BaseTestCase
         $profile = \App\Models\WorkerProfile::create(array_merge([
             'user_id'     => $user->id,
             'category_id' => $category->id,
-            // isSetupCompleted wants all three. A caller that cares about the
-            // place passes its own; one that does not still gets a profile
-            // that could exist, rather than a row with no town.
+            /*
+                A complete profile by the panel's rule - see
+                WorkerProfile::REQUIREMENTS. A caller that cares about the
+                place, the photo or the rate passes its own; one that does not
+                still gets a profile that could apply for work.
+            */
             'location'    => 'Urdaneta City',
+            'latitude'    => 15.9761,
+            'longitude'   => 120.5711,
+            'profile_photo_path' => 'worker_photos/seeded.jpg',
+            'rate_by_agreement'  => true,
         ], $attributes));
 
         \App\Models\WorkerSkill::firstOrCreate([
@@ -114,6 +121,7 @@ abstract class TestCase extends BaseTestCase
             'skill_name' => 'General labour',
         ], [
             'category_id' => $category->id,
+            'years_of_experience' => 2,
         ]);
 
         return $profile;

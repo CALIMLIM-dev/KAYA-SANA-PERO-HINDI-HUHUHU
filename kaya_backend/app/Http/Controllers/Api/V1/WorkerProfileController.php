@@ -255,6 +255,8 @@ class WorkerProfileController extends Controller
             'rate_min'           => 'nullable|numeric|min:0',
             'rate_max'           => 'nullable|numeric|min:0|gte:rate_min',
             'rate_unit'          => 'nullable|in:hour,day,project',
+            // "To be discussed" in place of a figure. See the migration.
+            'rate_by_agreement'  => 'nullable|boolean',
             // A few lines about the work, shown on the public profile.
             'bio'                => 'nullable|string|max:500',
         ]);
@@ -395,6 +397,21 @@ class WorkerProfileController extends Controller
                 $profile->{$field} = $request->input($field);
                 $profileDirty = true;
             }
+        }
+
+        /*
+            A figure or "to be discussed", never both: choosing one clears
+            the other, or the card would quote a price it was told not to.
+        */
+        if ($request->has('rate_by_agreement')) {
+            $profile->rate_by_agreement = $request->boolean('rate_by_agreement');
+            if ($profile->rate_by_agreement) {
+                $profile->rate_min = null;
+                $profile->rate_max = null;
+            }
+            $profileDirty = true;
+        } elseif ($request->filled('rate_min') || $request->filled('rate_max')) {
+            $profile->rate_by_agreement = false;
         }
 
         // has(), not filled(): sending an empty bio clears it.
@@ -1630,7 +1647,15 @@ class WorkerProfileController extends Controller
     {
         $profile = $user->workerProfile;
 
-        if (!$profile || !$profile->isSetupCompleted()) {
+        /*
+            Hidden only while there is nothing to show: no trade or no skill.
+
+            This used the full completeness rule, which is now the panel's
+            comprehensive one. Under it a worker who applied last month and has
+            no photo yet would vanish from the hirer reading their application.
+        */
+        $missing = $profile?->missingForCompletion() ?? [];
+        if (!$profile || isset($missing['trade']) || isset($missing['skill'])) {
             return response()->json([
                 'success' => false,
                 'data' => null,

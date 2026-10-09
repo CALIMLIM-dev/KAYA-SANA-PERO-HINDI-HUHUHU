@@ -277,9 +277,11 @@ class SecurityHardeningTest extends TestCase
             'user_id' => $worker->id, 'location' => 'Urdaneta City',
             'category_id' => Category::create(['name' => 'Carpentry'])->id,
             'latitude' => 15.976, 'longitude' => 120.571, 'setup_completed' => true,
+            // Complete by the panel's rule: photo, pin, rate, experience.
+            'profile_photo_path' => 'worker_photos/seeded.jpg', 'rate_by_agreement' => true,
         ]);
         \DB::table('worker_skills_new')->insert([
-            'user_id' => $worker->id, 'skill_name' => 'Framing',
+            'user_id' => $worker->id, 'skill_name' => 'Framing', 'years_of_experience' => 2,
             'created_at' => now(), 'updated_at' => now(),
         ]);
 

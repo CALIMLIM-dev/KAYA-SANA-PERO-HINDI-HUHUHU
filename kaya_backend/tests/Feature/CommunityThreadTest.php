@@ -34,10 +34,13 @@ class CommunityThreadTest extends TestCase
             'location'    => 'Urdaneta City',
             'category_id' => \App\Models\Category::firstOrCreate(['name' => 'Masonry'])->id,
             'setup_completed' => true,
+            'latitude' => 15.9761, 'longitude' => 120.5711,
+            // Complete by the panel's rule: photo, pin, rate, experience.
+            'profile_photo_path' => 'worker_photos/seeded.jpg', 'rate_by_agreement' => true,
         ]);
         // A profile counts as finished only once it names a trade, which is
         // what posting on the board asks for.
-        \App\Models\WorkerSkill::create(['worker_profile_id' => $profile->id, 'user_id' => $user->id, 'skill_name' => 'Masonry']);
+        \App\Models\WorkerSkill::create(['worker_profile_id' => $profile->id, 'user_id' => $user->id, 'skill_name' => 'Masonry', 'years_of_experience' => 2]);
         CreditWallet::updateOrCreate(['user_id' => $user->id], ['balance' => 100]);
 
         return $user;

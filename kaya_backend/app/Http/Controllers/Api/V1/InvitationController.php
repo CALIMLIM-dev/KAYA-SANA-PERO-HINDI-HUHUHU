@@ -359,7 +359,8 @@ class InvitationController extends Controller
 
         if ($workerProfile === null || ! $workerProfile->isSetupCompleted()) {
             return $this->fail(
-                'Add your trade and at least one skill to your worker profile first.',
+                $workerProfile?->incompleteMessage('accept invitations')
+                    ?? 'Set up your worker profile first.',
                 422
             );
         }

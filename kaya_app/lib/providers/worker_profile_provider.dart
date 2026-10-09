@@ -56,6 +56,18 @@ class WorkerProfileProvider with ChangeNotifier {
   /// A few lines about the work, in the worker's own words.
   String? bio;
 
+  /*
+      What the worker expects to be paid, or "to be discussed".
+
+      A complete job seeker profile states one or the other. rateLabel is
+      the server's phrasing, the same one every card shows.
+  */
+  double? rateMin;
+  double? rateMax;
+  String? rateUnit;
+  bool rateByAgreement = false;
+  String? rateLabel;
+
   /// When the current boost runs out, or null when there is none.
   DateTime? boostedUntil;
   bool get isBoosted =>
@@ -148,6 +160,11 @@ class WorkerProfileProvider with ChangeNotifier {
         locationId = (userData['location_id'] as num?)?.toInt();
         profilePhotoPath = userData['avatar'] as String?;
         bio = userData['bio'] as String?;
+        rateMin = asDoubleOrNull(userData['rate_min']);
+        rateMax = asDoubleOrNull(userData['rate_max']);
+        rateUnit = userData['rate_unit'] as String?;
+        rateByAgreement = userData['rate_by_agreement'] == true;
+        rateLabel = userData['rate_label'] as String?;
         boostedUntil = DateTime.tryParse('${userData['boosted_until'] ?? ''}');
       }
       
@@ -243,6 +260,36 @@ class WorkerProfileProvider with ChangeNotifier {
       }
       _errorMessage = data['message'];
       return false;
+    } catch (e) {
+      _errorMessage = e.toString().replaceFirst('Exception: ', '');
+      return false;
+    }
+  }
+
+  /// Saves a figure (min, optional max, per unit) or "to be discussed".
+  /// Choosing one clears the other on the server.
+  Future<bool> updateRate({
+    double? min,
+    double? max,
+    String unit = 'day',
+    bool byAgreement = false,
+  }) async {
+    try {
+      final response = await _apiClient.put('/worker/profile', data: byAgreement
+          ? {'rate_by_agreement': true}
+          : {
+              'rate_by_agreement': false,
+              'rate_min': min,
+              'rate_max': ?max,
+              'rate_unit': unit,
+            });
+      final data = response.data as Map<String, dynamic>;
+      if (data['success'] != true) {
+        _errorMessage = data['message'];
+        return false;
+      }
+      await fetchProfile();
+      return true;
     } catch (e) {
       _errorMessage = e.toString().replaceFirst('Exception: ', '');
       return false;

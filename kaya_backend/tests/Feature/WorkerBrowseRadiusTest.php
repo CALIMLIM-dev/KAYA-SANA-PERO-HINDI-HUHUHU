@@ -48,12 +48,16 @@ class WorkerBrowseRadiusTest extends TestCase
             'location'    => 'Urdaneta City, Pangasinan',
             'latitude'    => $lat,
             'longitude'   => $lng,
+            // Complete by the panel's rule: photo, rate, experience.
+            'profile_photo_path' => 'worker_photos/seeded.jpg',
+            'rate_by_agreement'  => true,
         ]);
 
         WorkerSkill::create([
             'user_id'    => $user->id,
             'skill_id'   => $skill->id,
             'skill_name' => 'Framing',
+            'years_of_experience' => 2,
         ]);
 
         return $user;

@@ -53,7 +53,8 @@ class ApplicationController extends Controller
 
         if ($workerProfile === null || ! $workerProfile->isSetupCompleted()) {
             return $this->fail(
-                'Add your trade and at least one skill to your worker profile first.',
+                $workerProfile?->incompleteMessage('apply for jobs')
+                    ?? 'Set up your worker profile first.',
                 422
             );
         }

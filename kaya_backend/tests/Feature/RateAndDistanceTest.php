@@ -37,11 +37,16 @@ class RateAndDistanceTest extends TestCase
             'latitude'    => $lat,
             'longitude'   => $lng,
             'setup_completed' => true,
+            // Complete by the panel's rule. A worker given no figure has said
+            // "to be discussed", which is what a complete profile with no rate is.
+            'profile_photo_path' => 'worker_photos/seeded.jpg',
+            'rate_by_agreement'  => ! isset($profile['rate_min']) && ! isset($profile['rate_max']),
         ], $profile));
 
         \DB::table('worker_skills_new')->insert([
             'user_id'    => $user->id,
             'skill_name' => 'Pipe fitting',
+            'years_of_experience' => 2,
             'created_at' => now(),
             'updated_at' => now(),
         ]);
@@ -129,7 +134,13 @@ class RateAndDistanceTest extends TestCase
     #[Test]
     public function a_worker_with_no_rate_has_no_label(): void
     {
-        $this->assertNull($this->worker()->workerProfile->rateLabel());
+        $this->assertNull($this->worker(['rate_by_agreement' => false])->workerProfile->rateLabel());
+    }
+
+    #[Test]
+    public function to_be_discussed_is_said_in_words(): void
+    {
+        $this->assertSame('Rate to be discussed', $this->worker(['rate_by_agreement' => true])->workerProfile->rateLabel());
     }
 
     #[Test]

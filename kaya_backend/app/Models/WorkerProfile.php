@@ -25,6 +25,8 @@ class WorkerProfile extends Model
         // What the worker charges. Always a number or a range, never a word
         // standing in for one.
         'rate_min', 'rate_max', 'rate_unit',
+        // "To be discussed" - an answer, where no rate at all is not.
+        'rate_by_agreement',
     ];
 
     protected $casts = [
@@ -33,6 +35,7 @@ class WorkerProfile extends Model
         'resume_uploaded_at' => 'datetime',
         'rate_min'           => 'decimal:2',
         'rate_max'           => 'decimal:2',
+        'rate_by_agreement'  => 'boolean',
     ];
 
     /**
@@ -50,7 +53,7 @@ class WorkerProfile extends Model
     public function rateLabel(): ?string
     {
         if (is_null($this->rate_min) && is_null($this->rate_max)) {
-            return null;
+            return $this->rate_by_agreement ? 'Rate to be discussed' : null;
         }
 
         // 'project' is still the stored value; Contract is the word for it,
@@ -135,23 +138,68 @@ class WorkerProfile extends Model
         return \Illuminate\Support\Facades\Storage::disk(config('filesystems.media'))->url($path);
     }
 
+    /*
+        What a job seeker profile still needs before it counts as complete.
+
+        The panel asked for a comprehensive job seeker profile. Complete used
+        to mean a town, a trade and one skill, so a profile with no face, no
+        experience and no idea of cost could apply for work and be matched.
+        Now it is all of: a photo, the trade, a skill, some experience (years
+        on a skill or one job in the history), the town pinned on the map, and
+        a rate - or "to be discussed", which is an answer where a blank is not.
+
+        Keyed by field; the values are what the app and the refusals say.
+    */
+    public const REQUIREMENTS = [
+        'photo'      => 'a profile photo',
+        'trade'      => 'your trade',
+        'skill'      => 'at least one skill',
+        'experience' => 'your experience',
+        'pin'        => 'your town pinned on the map',
+        'rate'       => 'your expected rate',
+    ];
+
+    /** @return array<string,string> the unmet requirements, keyed as REQUIREMENTS. */
+    public function missingForCompletion(): array
+    {
+        // Uses eager-loaded skills when there are some; see below.
+        $skills = $this->relationLoaded('skills')
+            ? $this->skills
+            : WorkerSkill::where('user_id', $this->user_id)->get(['id', 'years_of_experience']);
+
+        $met = [
+            'photo'      => $this->resolvedAvatarUrl() !== null,
+            'trade'      => ! is_null($this->category_id),
+            'skill'      => $skills->isNotEmpty(),
+            // Checked last and only when the skills do not already answer it,
+            // so the directory does not pay a query per worker for it.
+            'experience' => $skills->contains(fn ($s) => (int) $s->years_of_experience > 0)
+                || ($this->relationLoaded('experiences')
+                    ? $this->experiences->isNotEmpty()
+                    : WorkerExperience::where('user_id', $this->user_id)->exists()),
+            'pin'        => filled($this->location)
+                && ! is_null($this->latitude) && ! is_null($this->longitude),
+            'rate'       => ! is_null($this->rate_min) || ! is_null($this->rate_max)
+                || (bool) $this->rate_by_agreement,
+        ];
+
+        return array_intersect_key(self::REQUIREMENTS, array_filter($met, fn ($ok) => ! $ok));
+    }
+
+    /** The refusal for an action that needs a complete profile. */
+    public function incompleteMessage(string $toDo): string
+    {
+        $missing = array_values($this->missingForCompletion());
+        $list = count($missing) > 1
+            ? implode(', ', array_slice($missing, 0, -1)) . ' and ' . end($missing)
+            : ($missing[0] ?? '');
+
+        return "Finish your worker profile to {$toDo}. Still needed: {$list}.";
+    }
+
     public function isSetupCompleted(): bool
     {
-        /*
-            Uses the eager-loaded skills when they are there.
-
-            browse() loads `skills` and then calls this on every row, but the
-            query below ignored the loaded relation and issued a fresh exists()
-            per worker — one request over the whole directory was 1 + N queries,
-            despite a comment in that controller claiming otherwise. The
-            fallback keeps this correct when called on a profile loaded alone.
-        */
-        $hasSkills = $this->relationLoaded('skills')
-            ? $this->skills->isNotEmpty()
-            : WorkerSkill::where('user_id', $this->user_id)->exists();
-
-        return filled($this->location)
-            && !is_null($this->category_id)
-            && $hasSkills;
+        return $this->missingForCompletion() === [];
     }
+
 }

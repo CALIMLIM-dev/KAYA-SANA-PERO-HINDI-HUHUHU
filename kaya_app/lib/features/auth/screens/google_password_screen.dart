@@ -3,6 +3,7 @@ import '../../../core/utils/password_check.dart';
 import 'package:provider/provider.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../providers/auth_provider.dart';
+import '../widgets/registration_details_form.dart';
 import '../widgets/terms_modal.dart';
 
 class GooglePasswordScreen extends StatefulWidget {
@@ -20,6 +21,9 @@ class _GooglePasswordScreenState extends State<GooglePasswordScreen> {
 
   String? _passwordError;
   String? _confirmPasswordError;
+
+  /// Name, mobile and date of birth - the same form the email sign-up uses.
+  final _details = GlobalKey<RegistrationDetailsFormState>();
 
   /*
       Terms are a popup, shown the moment this screen opens.
@@ -94,7 +98,9 @@ class _GooglePasswordScreenState extends State<GooglePasswordScreen> {
   }
 
   Future<void> _handleComplete(Map<String, dynamic> googleData, AuthProvider auth) async {
-    if (!_validate()) return;
+    // Both checked on one press, so every missing field shows at once.
+    final details = _details.currentState?.collect();
+    if (!_validate() || details == null) return;
 
     // The terms popup runs on open and only lets the screen stay if accepted,
     // so this is normally already true. If it somehow is not, show it again
@@ -109,6 +115,7 @@ class _GooglePasswordScreenState extends State<GooglePasswordScreen> {
       password: _passwordController.text,
       isSignup: true, // This is a new account signup
       termsAccepted: _agreeToTerms,
+      details: details,
     );
 
     if (!mounted) return;
@@ -144,7 +151,7 @@ class _GooglePasswordScreenState extends State<GooglePasswordScreen> {
 
               // Header
               Text(
-                'Set Your Password',
+                'Finish Signing Up',
                 style: TextStyle(
                   fontSize: 32,
                   fontWeight: FontWeight.bold,
@@ -153,10 +160,13 @@ class _GooglePasswordScreenState extends State<GooglePasswordScreen> {
               ),
               const SizedBox(height: 8),
               Text(
-                'Create a password to secure your account.',
+                'Tell us who you are and set a password.',
                 style: TextStyle(fontSize: 16, color: AppColors.neutral600),
               ),
-              const SizedBox(height: 48),
+              const SizedBox(height: 28),
+
+              RegistrationDetailsForm(key: _details),
+              const SizedBox(height: 14),
 
               // Password
               Text(

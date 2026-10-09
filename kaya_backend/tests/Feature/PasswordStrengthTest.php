@@ -29,6 +29,8 @@ class PasswordStrengthTest extends TestCase
         return $this->postJson('/api/v1/register', array_merge([
             'first_name'     => 'Juan',
             'last_name'      => 'Dela Cruz',
+            'phone'          => '+639171234567',
+            'birthdate'      => '1990-06-15',
             'email'          => 'juan.delacruz@example.com',
             'password'       => $password,
             'password_confirmation' => $password,

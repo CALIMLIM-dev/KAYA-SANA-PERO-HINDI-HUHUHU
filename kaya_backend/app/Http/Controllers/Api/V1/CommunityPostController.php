@@ -261,7 +261,10 @@ class CommunityPostController extends Controller
         */
         if ($data['type'] === CommunityPost::TYPE_WORKER) {
             if (! $user->workerProfile?->isSetupCompleted()) {
-                return $this->fail('Finish your worker profile before posting here.', 422);
+                return $this->fail(
+                    $user->workerProfile?->incompleteMessage('post here') ?? 'Set up your worker profile first.',
+                    422
+                );
             }
         } elseif ($data['type'] === CommunityPost::TYPE_EMPLOYER) {
             /*

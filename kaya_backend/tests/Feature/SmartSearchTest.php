@@ -88,9 +88,11 @@ class SmartSearchTest extends TestCase
     {
         $category = Category::create(['name' => 'Plumbing', 'is_active' => true]);
         $worker = User::factory()->create(['is_verified' => true, 'name' => 'Ricardo Dela Cruz']);
-        WorkerProfile::create(['user_id' => $worker->id, 'location' => 'Urdaneta City', 'category_id' => $category->id]);
+        WorkerProfile::create(['user_id' => $worker->id, 'location' => 'Urdaneta City', 'category_id' => $category->id,
+            'latitude' => 15.9761, 'longitude' => 120.5711,
+            'profile_photo_path' => 'worker_photos/seeded.jpg', 'rate_by_agreement' => true]);
         $skill = Skill::firstOrCreate(['name' => 'Pipe fitting'], ['category_id' => $category->id]);
-        WorkerSkill::create(['user_id' => $worker->id, 'skill_id' => $skill->id, 'skill_name' => 'Pipe fitting']);
+        WorkerSkill::create(['user_id' => $worker->id, 'skill_id' => $skill->id, 'skill_name' => 'Pipe fitting', 'years_of_experience' => 2]);
 
         $employer = User::factory()->create(['is_verified' => true]);
         EmployerProfile::create(['user_id' => $employer->id, 'employer_type' => 'individual', 'location' => 'x', 'setup_completed' => true]);

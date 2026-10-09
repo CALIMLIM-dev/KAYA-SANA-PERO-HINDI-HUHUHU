@@ -76,9 +76,11 @@ class MatchingDecisionsTest extends TestCase
         WorkerProfile::create(array_merge([
             'user_id' => $user->id, 'category_id' => $tradeId, 'location' => 'Urdaneta City',
             'latitude' => self::LAT, 'longitude' => self::LNG,
+            // Complete by the panel's rule: photo, pin, rate, experience.
+            'profile_photo_path' => 'worker_photos/seeded.jpg', 'rate_by_agreement' => true,
         ], $profile));
         foreach ($skills as [$skill, $categoryId]) {
-            WorkerSkill::create(['user_id' => $user->id, 'skill_name' => $skill, 'category_id' => $categoryId]);
+            WorkerSkill::create(['user_id' => $user->id, 'skill_name' => $skill, 'category_id' => $categoryId, 'years_of_experience' => 2]);
         }
 
         return $user;

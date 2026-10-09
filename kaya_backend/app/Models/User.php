@@ -23,7 +23,7 @@ class User extends Authenticatable
      */
     protected $fillable = [
         'name', 'email', 'password',
-        'first_name', 'middle_name', 'last_name', 'suffix',
+        'first_name', 'middle_name', 'last_name', 'suffix', 'birthdate',
         'profile_picture', 'phone', 'city',
         'google_id', 'avatar',
         'terms_accepted', 'terms_accepted_at',
@@ -192,6 +192,9 @@ class User extends Authenticatable
         // reason for either to leave the server.
         'email_verification_code',
         'phone_verification_code',
+        // Asked to hold the age rule. Nobody else needs it, and it is half
+        // of what somebody would need to pass as this person.
+        'birthdate',
     ];
 
     protected $casts = [
@@ -202,6 +205,7 @@ class User extends Authenticatable
         'deleted_at'        => 'datetime',
         'terms_accepted'    => 'boolean',
         'terms_accepted_at' => 'datetime',
+        'birthdate'         => 'date:Y-m-d',
         'password_reset_expires_at' => 'datetime',
         'notification_preferences'  => 'array',
         'phone_verified_at'         => 'datetime',

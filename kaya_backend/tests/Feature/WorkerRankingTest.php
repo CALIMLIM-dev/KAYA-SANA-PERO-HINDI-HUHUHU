@@ -48,11 +48,14 @@ class WorkerRankingTest extends TestCase
             'latitude'        => 15.976,
             'longitude'       => 120.571,
             'setup_completed' => true,
+            // Complete by the panel's rule: photo, pin, rate, experience.
+            'profile_photo_path' => 'worker_photos/seeded.jpg', 'rate_by_agreement' => true,
         ], $profile));
 
         \DB::table('worker_skills_new')->insert([
             'user_id'    => $user->id,
             'skill_name' => 'Pipe fitting',
+            'years_of_experience' => 2,
             'created_at' => now(),
             'updated_at' => now(),
         ]);
