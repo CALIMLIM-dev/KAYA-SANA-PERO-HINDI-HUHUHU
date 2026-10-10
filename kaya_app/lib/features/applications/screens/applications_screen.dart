@@ -5,6 +5,7 @@ import '../../../core/utils/realtime_refresh.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/utils/job_summary.dart';
 import '../../../core/widgets/app_toast.dart';
+import '../../../core/widgets/motion.dart';
 import '../../../providers/app_mode_provider.dart';
 import '../../../providers/application_provider.dart';
 import '../../../providers/invitation_provider.dart';
@@ -932,6 +933,7 @@ class ApplicationCard extends StatelessWidget {
       age: timeAgo(job?['created_at'] as String?),
       note: reviewNote,
       noteIsCompletion: isHired && !workDone,
+      stage: _stageOf(hired: isHired, done: workDone, job: job),
       // Completion comes before reviewing, and they never both apply — you
       // cannot review work that is not finished — so one slot serves both.
       actionIcon: canConfirm ? Icons.check_circle_outline : Icons.star_outline,
@@ -1205,6 +1207,7 @@ class JobPostCard extends StatelessWidget {
       age: timeAgo(job['created_at'] as String?),
       note: note,
       noteIsCompletion: hire != null && !workDone,
+      stage: _stageOf(hired: hired, done: workDone, job: job),
       // Live work only, matching the worker's card. A finished job in History
       // is not somewhere to start a conversation from.
       onMessage: conversationId == null || workDone
@@ -1333,7 +1336,30 @@ Widget _cardShell({
       tap away.
   */
   bool compact = false,
+  /// Where the job stands on the home row's track; see [_stageOf].
+  int? stage,
 }) {
+  if (compact) {
+    return _activeRow(
+      stage: stage,
+      title: title,
+      subtitle: subtitle,
+      status: status,
+      budget: budget,
+      trailing: trailing,
+      onTap: onTap,
+      actionLabel: actionLabel,
+      onAction: onAction,
+      actionIcon: actionIcon,
+      actionIsCompletion: actionIsCompletion,
+      onMessage: onMessage,
+      secondaryLabel: secondaryLabel,
+      secondaryIcon: secondaryIcon,
+      note: note,
+      noteIsCompletion: noteIsCompletion,
+    );
+  }
+
   final (bg, fg, label) = _statusStyle(status);
 
   return Card(
@@ -1658,6 +1684,219 @@ Widget _metaBit(IconData icon, String text) => ConstrainedBox(
         ],
       ),
     );
+
+/*
+    One active job on home, as a row in the Active panel.
+
+    The same facts and actions as the card, laid out as progress: where the
+    job is (Hired, Working, Done) on a three-step track, who it is with and
+    what it pays on one line, and the actions at the right size for a list.
+    The panel around it draws the edges, so rows do not stack as boxes.
+*/
+Widget _activeRow({
+  int? stage,
+  required String title,
+  required String subtitle,
+  required String status,
+  String? budget,
+  String? trailing,
+  VoidCallback? onTap,
+  String? actionLabel,
+  VoidCallback? onAction,
+  IconData actionIcon = Icons.star_outline,
+  bool actionIsCompletion = false,
+  VoidCallback? onMessage,
+  String secondaryLabel = 'Message',
+  IconData secondaryIcon = Icons.message_outlined,
+  String? note,
+  bool noteIsCompletion = false,
+}) {
+  final st = stage ?? (status == 'completed' ? 3 : status == 'in_progress' ? 2 : 1);
+  const stageNames = ['Open', 'Hired', 'Working', 'Done'];
+  final hasAction = actionLabel != null && onAction != null;
+  final line = [
+    if (subtitle.isNotEmpty) subtitle,
+    ?budget,
+  ].join('  ·  ');
+
+  return InkWell(
+    onTap: onTap,
+    child: Padding(
+      padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Text(title,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                        fontSize: 14.5, fontWeight: FontWeight.w600, color: AppColors.neutral900)),
+              ),
+              const SizedBox(width: 8),
+              Text(stageNames[st],
+                  style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: st == 3
+                          ? AppColors.success
+                          : st == 0
+                              ? AppColors.neutral600
+                              : AppColors.primary)),
+            ],
+          ),
+          if (line.isNotEmpty) ...[
+            const SizedBox(height: 2),
+            Text(line,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(fontSize: 12.5, color: AppColors.neutral600)),
+          ],
+          const SizedBox(height: 9),
+          _StageTrack(stage: st),
+          if (note != null || trailing != null) ...[
+            const SizedBox(height: 7),
+            Text(note ?? trailing!,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(fontSize: 12, color: AppColors.neutral600)),
+          ],
+          if (onMessage != null || hasAction) ...[
+            const SizedBox(height: 10),
+            Row(
+              children: [
+                if (onMessage != null)
+                  hasAction
+                      // Beside a main action the message is an icon: the
+                      // row has room for one labelled button.
+                      ? IconButton.outlined(
+                          onPressed: onMessage,
+                          tooltip: secondaryLabel,
+                          icon: Icon(secondaryIcon, size: 18),
+                          style: IconButton.styleFrom(
+                            foregroundColor: AppColors.primary,
+                            side: const BorderSide(color: AppColors.neutral300),
+                            minimumSize: const Size(38, 36),
+                            fixedSize: const Size(38, 36),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(9)),
+                          ),
+                        )
+                      : Expanded(
+                          child: OutlinedButton.icon(
+                            onPressed: onMessage,
+                            icon: Icon(secondaryIcon, size: 16),
+                            label: Text(secondaryLabel, maxLines: 1),
+                            style: _rowButton(outlined: true),
+                          ),
+                        ),
+                if (onMessage != null && hasAction) const SizedBox(width: 8),
+                if (hasAction)
+                  Expanded(
+                    child: actionIsCompletion
+                        ? FilledButton.icon(
+                            onPressed: onAction,
+                            icon: Icon(actionIcon, size: 16),
+                            label: FittedBox(fit: BoxFit.scaleDown, child: Text(actionLabel, maxLines: 1)),
+                            style: _rowButton(outlined: false),
+                          )
+                        : OutlinedButton.icon(
+                            onPressed: onAction,
+                            icon: Icon(actionIcon, size: 16),
+                            label: FittedBox(fit: BoxFit.scaleDown, child: Text(actionLabel, maxLines: 1)),
+                            style: _rowButton(outlined: true),
+                          ),
+                  ),
+              ],
+            ),
+          ],
+        ],
+      ),
+    ),
+  );
+}
+
+ButtonStyle _rowButton({required bool outlined}) => outlined
+    ? OutlinedButton.styleFrom(
+        foregroundColor: AppColors.primary,
+        side: const BorderSide(color: AppColors.primary),
+        minimumSize: const Size(0, 36),
+        padding: const EdgeInsets.symmetric(horizontal: 12),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(9)),
+        textStyle: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+      )
+    : FilledButton.styleFrom(
+        backgroundColor: AppColors.success,
+        foregroundColor: Colors.white,
+        minimumSize: const Size(0, 36),
+        padding: const EdgeInsets.symmetric(horizontal: 12),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(9)),
+        textStyle: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+      );
+
+/*
+    0 Open (nobody hired yet), 1 Hired, 2 Working (the start day has come),
+    3 Done (the work is marked complete).
+
+    Read from the hire and the job's own start date, not from the status
+    alone: an accepted hire on a job whose day has not come is Hired, and
+    one past it is Working, though both say "accepted".
+*/
+int _stageOf({required bool hired, required bool done, Map<String, dynamic>? job}) {
+  if (done) return 3;
+  if (!hired) return 0;
+  final start = DateTime.tryParse('${job?['start_date'] ?? ''}');
+  final today = DateUtils.dateOnly(DateTime.now());
+  return start == null || !start.isAfter(today) ? 2 : 1;
+}
+
+/// Hired, Working, Done: three segments filled up to [stage]. The current
+/// one fills in when the row first appears.
+class _StageTrack extends StatelessWidget {
+  const _StageTrack({required this.stage});
+
+  final int stage;
+
+  @override
+  Widget build(BuildContext context) {
+    final reduced = Motion.reduced(context);
+    final done = stage == 3;
+
+    return Row(
+      children: [
+        for (var i = 1; i <= 3; i++) ...[
+          if (i > 1) const SizedBox(width: 4),
+          Expanded(
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(2),
+              child: SizedBox(
+                height: 4,
+                child: Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    const ColoredBox(color: AppColors.neutral200),
+                    if (i <= stage)
+                      TweenAnimationBuilder<double>(
+                        tween: Tween(begin: i == stage && !reduced ? 0 : 1, end: 1),
+                        duration: const Duration(milliseconds: 520),
+                        curve: Motion.enter,
+                        builder: (context, v, _) => FractionallySizedBox(
+                          alignment: Alignment.centerLeft,
+                          widthFactor: v,
+                          child: ColoredBox(color: done ? AppColors.success : AppColors.primary),
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+}
 
 (Color, Color, String) _statusStyle(String status) => switch (status) {
       'pending' => (

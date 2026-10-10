@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 
 import '../../../core/constants/app_colors.dart';
 import '../../../core/navigation/app_router.dart';
+import '../../../core/widgets/motion.dart';
 import '../../../providers/app_mode_provider.dart';
 import '../../../providers/application_provider.dart';
 import '../../../providers/job_provider.dart';
@@ -74,7 +75,31 @@ class ActiveSection extends StatelessWidget {
               ],
             ),
           ),
-          for (final row in items.take(maxRows)) activeCard(row, onChanged, compact: true),
+          // One panel, rows divided by a hairline: a list of jobs in
+          // progress, not a stack of boxes.
+          Container(
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: AppColors.neutral200),
+            ),
+            clipBehavior: Clip.antiAlias,
+            child: Material(
+              type: MaterialType.transparency,
+              child: Column(
+                children: [
+                  for (final (i, row) in items.take(maxRows).indexed) ...[
+                    if (i > 0) const Divider(height: 1, color: AppColors.neutral200),
+                    EntranceIn(
+                      key: ValueKey(row['id'] ?? i),
+                      index: i,
+                      child: activeCard(row, onChanged, compact: true),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ),
         ],
       ),
     );

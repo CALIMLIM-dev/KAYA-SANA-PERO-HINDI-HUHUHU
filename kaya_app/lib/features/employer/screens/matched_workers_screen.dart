@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/navigation/app_router.dart';
 import '../../../core/widgets/app_toast.dart';
+import '../../../core/widgets/motion.dart';
 import '../../../core/widgets/offline_notice.dart';
 import '../../../providers/invitation_provider.dart';
 import '../../../providers/worker_browse_provider.dart';
@@ -53,7 +54,14 @@ class MatchedWorkersScreen extends StatelessWidget {
   }
 }
 
-/// The matched list as a pop-up over the Applicants screen.
+/*
+    The matched list as a pop-up over the Applicants screen.
+
+    The header stays put while the list scrolls under it: which job this
+    is for, how many fit, and what they are ranked on. It opens most of the
+    way up and snaps to half or nearly full, so it can be peeked at over the
+    applicants or read properly.
+*/
 Future<void> showMatchedWorkersSheet(
   BuildContext context, {
   required int jobId,
@@ -62,62 +70,130 @@ Future<void> showMatchedWorkersSheet(
   return showModalBottomSheet<void>(
     context: context,
     isScrollControlled: true,
+    useSafeArea: true,
     backgroundColor: Colors.transparent,
     builder: (_) => DraggableScrollableSheet(
-      initialChildSize: 0.75,
-      minChildSize: 0.4,
-      maxChildSize: 0.95,
+      initialChildSize: 0.86,
+      minChildSize: 0.5,
+      maxChildSize: 0.96,
+      snap: true,
+      snapSizes: const [0.5, 0.86],
       expand: false,
-      builder: (sheetContext, controller) => Container(
-        decoration: const BoxDecoration(
+      builder: (sheetContext, controller) => ClipRRect(
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(22)),
+        child: ColoredBox(
           color: AppColors.background,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+          child: Column(
+            children: [
+              _SheetHeader(jobTitle: jobTitle, jobId: jobId),
+              Expanded(
+                child: MatchedWorkersList(
+                  jobId: jobId,
+                  jobTitle: jobTitle,
+                  controller: controller,
+                  showHeader: false,
+                ),
+              ),
+            ],
+          ),
         ),
+      ),
+    ),
+  );
+}
+
+class _SheetHeader extends StatelessWidget {
+  const _SheetHeader({required this.jobTitle, required this.jobId});
+
+  final String? jobTitle;
+  final int jobId;
+
+  @override
+  Widget build(BuildContext context) {
+    final provider = context.watch<WorkerBrowseProvider>();
+    final ready = provider.matchesJobId == jobId && !provider.matchesLoading;
+    final count = provider.matchesLocked ? provider.matchCount : provider.matches.length;
+
+    return DecoratedBox(
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        border: Border(bottom: BorderSide(color: AppColors.neutral200)),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(20, 10, 8, 14),
         child: Column(
           children: [
-            const SizedBox(height: 10),
             Container(
-              width: 40,
+              width: 36,
               height: 4,
               decoration: BoxDecoration(
                 color: AppColors.neutral300,
                 borderRadius: BorderRadius.circular(2),
               ),
             ),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(20, 10, 8, 4),
-              child: Row(
-                children: [
-                  const Expanded(
-                    child: Text(
-                      'Matched workers',
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.w700,
-                        color: AppColors.neutral900,
+            const SizedBox(height: 10),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'Matched workers',
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.w700,
+                          color: AppColors.neutral900,
+                        ),
                       ),
-                    ),
+                      if ((jobTitle ?? '').isNotEmpty) ...[
+                        const SizedBox(height: 2),
+                        Text(
+                          jobTitle!,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(fontSize: 13.5, color: AppColors.neutral600),
+                        ),
+                      ],
+                      const SizedBox(height: 8),
+                      // The count arrives with the list; until then the line
+                      // keeps its place so nothing below it jumps.
+                      AnimatedSwitcher(
+                        duration: Motion.quick,
+                        child: Text(
+                          !ready
+                              ? 'Finding who fits...'
+                              : '$count ${count == 1 ? 'worker fits' : 'workers fit'}, best first',
+                          key: ValueKey(ready ? count : -1),
+                          style: const TextStyle(
+                            fontSize: 12.5,
+                            fontWeight: FontWeight.w600,
+                            color: AppColors.primary,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      const Text(
+                        'Ranked on the skills you asked for, rate, days, distance and experience.',
+                        style: TextStyle(fontSize: 12, color: AppColors.neutral500),
+                      ),
+                    ],
                   ),
-                  IconButton(
-                    icon: const Icon(Icons.close, size: 22),
-                    color: AppColors.neutral600,
-                    onPressed: () => Navigator.pop(sheetContext),
-                  ),
-                ],
-              ),
-            ),
-            Expanded(
-              child: MatchedWorkersList(
-                jobId: jobId,
-                jobTitle: jobTitle,
-                controller: controller,
-              ),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.close, size: 22),
+                  color: AppColors.neutral600,
+                  tooltip: 'Close',
+                  onPressed: () => Navigator.pop(context),
+                ),
+              ],
             ),
           ],
         ),
       ),
-    ),
-  );
+    );
+  }
 }
 
 /// The list itself, with its invite handling and its locked state.
@@ -127,6 +203,7 @@ class MatchedWorkersList extends StatefulWidget {
     required this.jobId,
     this.jobTitle,
     this.controller,
+    this.showHeader = true,
   });
 
   final int jobId;
@@ -134,6 +211,9 @@ class MatchedWorkersList extends StatefulWidget {
 
   /// The sheet's scroll controller, so dragging the list drags the sheet.
   final ScrollController? controller;
+
+  /// False in the pop-up, whose own header already says it.
+  final bool showHeader;
 
   @override
   State<MatchedWorkersList> createState() => _MatchedWorkersListState();
@@ -229,16 +309,23 @@ class _MatchedWorkersListState extends State<MatchedWorkersList> {
             itemCount: provider.matches.length + 1,
             separatorBuilder: (_, _) => const SizedBox(height: 10),
             itemBuilder: (context, index) {
-              if (index == 0) return _header(provider.matches.length);
+              if (index == 0) {
+                return widget.showHeader ? _header(provider.matches.length) : const SizedBox.shrink();
+              }
 
               final row = provider.matches[index - 1];
               final workerId = (row['user_id'] as num?)?.toInt();
 
-              return MatchedWorkerCard(
-                row: row,
-                onInvite: _invite,
-                inviting: workerId != null && _inviting == workerId,
-                alreadyInvited: workerId != null && _invited.contains(workerId),
+              // Best first, arriving in that order.
+              return EntranceIn(
+                key: ValueKey(workerId ?? index),
+                index: index - 1,
+                child: MatchedWorkerCard(
+                  row: row,
+                  onInvite: _invite,
+                  inviting: workerId != null && _inviting == workerId,
+                  alreadyInvited: workerId != null && _invited.contains(workerId),
+                ),
               );
             },
           ),

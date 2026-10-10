@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:provider/provider.dart';
 import '../../../core/constants/app_colors.dart';
+import '../../../core/widgets/kaya_mark.dart';
 import '../../../data/services/api_client.dart';
 import '../../../providers/app_mode_provider.dart';
 import '../../../providers/auth_provider.dart';
@@ -187,22 +188,11 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
     if (_isChecking) {
       return Scaffold(
         backgroundColor: Colors.white,
+        // The mark draws itself while the session is checked. The note
+        // comes only after it has been slow enough to worry about; showing
+        // it at once would make a fast start look like a problem.
         body: Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              const CircularProgressIndicator(),
-              // Only after it has been slow enough to worry about. Showing this
-              // immediately would make a fast start look like a problem.
-              if (_isSlow) ...[
-                const SizedBox(height: 20),
-                Text(
-                  'Still connecting…',
-                  style: TextStyle(fontSize: 13.5, color: AppColors.neutral500),
-                ),
-              ],
-            ],
-          ),
+          child: KayaLaunch(message: _isSlow ? 'Still connecting…' : null),
         ),
       );
     }
