@@ -35,15 +35,49 @@ void main() {
     addTearDown(tester.view.reset);
   }
 
-  testWidgets('launch mark, fully drawn', (tester) async {
+  Future<void> precacheImages(WidgetTester tester) async {
+    await tester.runAsync(() async {
+      for (final el in find.byType(Image).evaluate()) {
+        await precacheImage((el.widget as Image).image, el);
+      }
+    });
+    await tester.pump(const Duration(milliseconds: 50));
+  }
+
+  testWidgets('launch: the icon, finished', (tester) async {
     await size(tester, 2400);
     await tester.pumpWidget(const MaterialApp(
       home: Scaffold(backgroundColor: Colors.white, body: Center(child: KayaLaunch())),
     ));
-    await tester.pump(const Duration(milliseconds: 1200));
+    await tester.pump(KayaLaunch.duration + const Duration(milliseconds: 100));
+    await precacheImages(tester);
 
     expect(find.text('KAYA'), findsOneWidget);
+    // Finished means the icon itself, in one piece.
+    expect(find.byType(Image), findsOneWidget);
     await expectLater(find.byType(MaterialApp), matchesGoldenFile('goldens/kaya_launch.png'));
+  });
+
+  testWidgets('launch: the icon going up', (tester) async {
+    await size(tester, 1000);
+    await tester.pumpWidget(const MaterialApp(
+      home: Scaffold(
+        backgroundColor: Colors.white,
+        body: Center(
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              KayaIconBuild(size: 120, progress: 0.25),
+              KayaIconBuild(size: 120, progress: 0.5),
+              KayaIconBuild(size: 120, progress: 0.75),
+            ],
+          ),
+        ),
+      ),
+    ));
+    await precacheImages(tester);
+
+    await expectLater(find.byType(MaterialApp), matchesGoldenFile('goldens/kaya_icon_building.png'));
   });
 
   testWidgets('home Active panel, both sides', (tester) async {

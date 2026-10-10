@@ -1,93 +1,95 @@
-import 'dart:math' as math;
-
 import 'package:flutter/material.dart';
 
 import '../constants/app_colors.dart';
 import 'motion.dart';
 
 /*
-    The KAYA mark: a white K drawn in three strokes on a blue tile.
+    The KAYA icon, built from the ground up.
 
-    Three strokes because a K is a person standing (the stem) with one arm
-    reaching up and one stepping forward - "kaya", able to. Drawn rather
-    than loaded from an SVG so the strokes can be laid down one after
-    another when the app opens.
+    The icon itself - the house, the hammer, the pipe wrench and the faucet,
+    from the launcher art - cut into horizontal layers that settle into
+    place one after another, foundation first and roof last, the way a
+    house goes up. The last frame is the icon exactly as it is on the home
+    screen, so the animation ends on the thing people will tap to come back.
 
-    [progress] 0..1 is how much of it is drawn; 1 is the finished mark.
+    [progress] 0..1 is how far the build has got; 1 is the finished icon.
 */
-class KayaMark extends StatelessWidget {
-  const KayaMark({super.key, this.size = 72, this.progress = 1});
+class KayaIconBuild extends StatelessWidget {
+  const KayaIconBuild({super.key, this.size = 240, this.progress = 1});
+
+  static const asset = 'assets/images/kaya_icon.png';
+
+  /// Where the drawing sits inside the square artwork, top to bottom. The
+  /// rest of the square is white, so only this band is worth slicing.
+  static const _artTop = 0.27;
+  static const _artBottom = 0.72;
+  static const _layers = 7;
 
   final double size;
   final double progress;
 
+  /// When layer [i] (0 is the foundation) starts and how long it takes.
+  static const _stagger = 0.085;
+  static const _each = 0.32;
+
   @override
   Widget build(BuildContext context) {
+    final t = progress.clamp(0.0, 1.0);
+    final band = (_artBottom - _artTop) / _layers;
+    final image = Image.asset(asset, width: size, height: size, fit: BoxFit.contain);
+
+    // Finished: the icon itself, in one piece, not seven.
+    if (t >= 1) return SizedBox.square(dimension: size, child: image);
+
     return SizedBox.square(
       dimension: size,
-      child: CustomPaint(painter: _KayaMarkPainter(progress.clamp(0.0, 1.0))),
+      child: Stack(
+        children: [
+          for (var i = 0; i < _layers; i++)
+            Builder(builder: (context) {
+              final local = ((t - i * _stagger) / _each).clamp(0.0, 1.0);
+              if (local <= 0) return const SizedBox.shrink();
+              final e = Motion.enter.transform(local);
+              final bottom = _artBottom - i * band;
+              final top = i == _layers - 1 ? 0.0 : bottom - band;
+
+              return Positioned.fill(
+                child: ClipRect(
+                  clipper: _Band(top, i == 0 ? 1.0 : bottom),
+                  child: Opacity(
+                    opacity: e,
+                    // Lowered into place from a little above.
+                    child: Transform.translate(
+                      offset: Offset(0, -(1 - e) * size * 0.07),
+                      child: image,
+                    ),
+                  ),
+                ),
+              );
+            }),
+        ],
+      ),
     );
   }
 }
 
-class _KayaMarkPainter extends CustomPainter {
-  _KayaMarkPainter(this.t);
+/// One horizontal slice of the square, as fractions of its height.
+class _Band extends CustomClipper<Rect> {
+  _Band(this.top, this.bottom);
 
-  final double t;
-
-  /// How far along [t] one stroke is, given the window it is drawn in.
-  static double _span(double t, double from, double to) =>
-      ((t - from) / (to - from)).clamp(0.0, 1.0);
+  final double top;
+  final double bottom;
 
   @override
-  void paint(Canvas canvas, Size size) {
-    final s = size.width / 100;
-
-    // The tile settles in first: scale 0.86 -> 1 over the opening fifth.
-    final tile = Curves.easeOutCubic.transform(_span(t, 0, 0.25));
-    canvas.save();
-    canvas.translate(size.width / 2, size.height / 2);
-    canvas.scale(0.86 + 0.14 * tile);
-    canvas.translate(-size.width / 2, -size.height / 2);
-
-    final rect = RRect.fromRectAndRadius(Offset.zero & size, Radius.circular(26 * s));
-    canvas.drawRRect(
-      rect,
-      Paint()
-        ..shader = LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [AppColors.primary, AppColors.primaryDark],
-        ).createShader(Offset.zero & size)
-        ..color = AppColors.primary.withValues(alpha: tile),
-    );
-
-    final pen = Paint()
-      ..color = Colors.white
-      ..style = PaintingStyle.stroke
-      ..strokeCap = StrokeCap.round
-      ..strokeWidth = 11 * s;
-
-    void stroke(Offset a, Offset b, double p) {
-      if (p <= 0) return;
-      final eased = Curves.easeOutCubic.transform(p);
-      canvas.drawLine(a * s, Offset.lerp(a, b, eased)! * s, pen);
-    }
-
-    // Stem, then the arm reaching up, then the leg stepping out.
-    stroke(const Offset(35, 25), const Offset(35, 75), _span(t, 0.15, 0.5));
-    stroke(const Offset(38, 54), const Offset(68, 25), _span(t, 0.4, 0.75));
-    stroke(const Offset(50, 45), const Offset(69, 75), _span(t, 0.55, 0.9));
-
-    canvas.restore();
-  }
+  Rect getClip(Size size) =>
+      Rect.fromLTRB(0, size.height * top, size.width, size.height * bottom);
 
   @override
-  bool shouldRepaint(_KayaMarkPainter old) => old.t != t;
+  bool shouldReclip(_Band old) => old.top != top || old.bottom != bottom;
 }
 
 /*
-    The opening of the app: the mark draws itself, the name settles under
+    The opening of the app: the icon builds itself, the name settles under
     it, and only if the check is still going does a quiet line say so.
 
     Replaces a bare spinner on the session check, which was the first thing
@@ -95,6 +97,10 @@ class _KayaMarkPainter extends CustomPainter {
 */
 class KayaLaunch extends StatefulWidget {
   const KayaLaunch({super.key, this.message});
+
+  /// How long the build takes. The welcome screen waits for it, so the icon
+  /// is always finished before the app moves on.
+  static const duration = Duration(milliseconds: 1600);
 
   /// Shown under the name once the check is taking a while.
   final String? message;
@@ -105,7 +111,7 @@ class KayaLaunch extends StatefulWidget {
 
 class _KayaLaunchState extends State<KayaLaunch> with SingleTickerProviderStateMixin {
   late final AnimationController _c =
-      AnimationController(vsync: this, duration: const Duration(milliseconds: 1100));
+      AnimationController(vsync: this, duration: KayaLaunch.duration);
 
   @override
   void didChangeDependencies() {
@@ -126,23 +132,24 @@ class _KayaLaunchState extends State<KayaLaunch> with SingleTickerProviderStateM
       animation: _c,
       builder: (context, _) {
         final t = _c.value;
-        // The name follows the mark's last stroke.
-        final name = Curves.easeOutCubic.transform(((t - 0.6) / 0.4).clamp(0.0, 1.0));
+        // The name follows the roof.
+        final name = Motion.enter.transform(((t - 0.72) / 0.28).clamp(0.0, 1.0));
 
         return Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            KayaMark(size: 84, progress: t),
-            const SizedBox(height: 18),
-            Opacity(
-              opacity: name,
-              child: Transform.translate(
-                offset: Offset(0, 6 * (1 - name)),
-                child: Text(
+            // The artwork is a square with white around the house; pulling
+            // the name up into that margin keeps the two reading as one.
+            KayaIconBuild(size: 240, progress: t),
+            Transform.translate(
+              offset: Offset(0, -46 + 6 * (1 - name)),
+              child: Opacity(
+                opacity: name,
+                child: const Text(
                   'KAYA',
-                  // The app font, not a downloaded one: this is the first frame, and
-                  // nothing may be waiting on the network yet.
-                  style: const TextStyle(
+                  // The app font, not a downloaded one: this is the first
+                  // frame, and nothing may be waiting on the network yet.
+                  style: TextStyle(
                     fontSize: 26,
                     fontWeight: FontWeight.w800,
                     letterSpacing: 6,
@@ -151,26 +158,26 @@ class _KayaLaunchState extends State<KayaLaunch> with SingleTickerProviderStateM
                 ),
               ),
             ),
-            const SizedBox(height: 22),
-            SizedBox(
-              width: 96,
-              height: 3,
-              child: Opacity(
-                opacity: name,
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(2),
-                  child: LinearProgressIndicator(
-                    // Still for a reduced-motion phone: a moving bar is the
-                    // one thing that setting asks us not to show.
-                    value: Motion.reduced(context) ? math.min(1, t) : null,
-                    backgroundColor: AppColors.primary.withValues(alpha: 0.12),
-                    valueColor: const AlwaysStoppedAnimation(AppColors.primary),
+            // Built, and the check is still going: say it is working.
+            if (t >= 1)
+              Transform.translate(
+                offset: const Offset(0, -30),
+                child: SizedBox(
+                  width: 72,
+                  height: 3,
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(2),
+                    child: LinearProgressIndicator(
+                      // Still for a reduced-motion phone.
+                      value: Motion.reduced(context) ? 1 : null,
+                      backgroundColor: AppColors.primary.withValues(alpha: 0.12),
+                      valueColor: const AlwaysStoppedAnimation(AppColors.primary),
+                    ),
                   ),
                 ),
               ),
-            ),
             if (widget.message != null) ...[
-              const SizedBox(height: 16),
+              const SizedBox(height: 4),
               Text(
                 widget.message!,
                 textAlign: TextAlign.center,

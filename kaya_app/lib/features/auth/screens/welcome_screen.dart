@@ -5,6 +5,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:provider/provider.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/widgets/kaya_mark.dart';
+import '../../../core/widgets/motion.dart';
 import '../../../data/services/api_client.dart';
 import '../../../providers/app_mode_provider.dart';
 import '../../../providers/auth_provider.dart';
@@ -31,6 +32,22 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
   bool _startupFailed = false;
 
   Timer? _slowTimer;
+
+  /// Since the icon started building; see [_letTheIconFinish].
+  final Stopwatch _shownFor = Stopwatch()..start();
+
+  /*
+      The icon finishes before the app moves on.
+
+      The session check is often quicker than the build, and leaving the
+      moment it answered cut the icon off half-made. With animations off
+      there is nothing to wait for.
+  */
+  Future<void> _letTheIconFinish() async {
+    if (!mounted || Motion.reduced(context)) return;
+    final left = KayaLaunch.duration - _shownFor.elapsed;
+    if (left > Duration.zero) await Future.delayed(left);
+  }
 
   final List<OnboardingPage> _pages = [
     OnboardingPage(
@@ -81,6 +98,7 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
         // default and switching.
         await appMode.restore();
         _slowTimer?.cancel();
+        await _letTheIconFinish();
         if (!mounted) return;
         Navigator.pushReplacementNamed(context, '/home');
         return;
@@ -111,6 +129,9 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
     // Check if user has seen onboarding
     final prefs = await SharedPreferences.getInstance();
     final hasSeenOnboarding = prefs.getBool('has_seen_onboarding') ?? false;
+
+    await _letTheIconFinish();
+    if (!mounted) return;
 
     if (hasSeenOnboarding && mounted) {
       // User has seen onboarding, skip to login
