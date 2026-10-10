@@ -93,7 +93,7 @@
         @empty
             <div class="bg-white rounded-xl border border-slate-200 p-8 text-center">
                 <p class="text-sm text-slate-600">No banners yet.</p>
-                <p class="text-xs text-slate-400 mt-1">Until there is one, the app shows its built-in sample banners.</p>
+                <p class="text-xs text-slate-400 mt-1">Until there is one, the carousel does not show on home.</p>
             </div>
         @endforelse
     </div>

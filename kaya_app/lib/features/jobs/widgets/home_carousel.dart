@@ -10,17 +10,18 @@ import '../../../core/navigation/main_navigation.dart';
 import '../../../core/widgets/motion.dart';
 import '../../../core/widgets/profile_avatar.dart';
 import '../../../data/services/api_client.dart';
+import '../../../providers/app_mode_provider.dart';
 
 /*
     The photo carousel under Active on home.
 
-    Three kinds of slide take turns:
+    Two kinds of slide take turns:
       - banners the admin runs (Home Banners in the panel): their own photo,
         a headline and where a tap goes;
       - boosted workers, for a hirer, and boosted jobs, for a worker: drawn
         over a stock photo of the trade, with the person's own photo only as
-        a small avatar - a selfie cannot carry a banner, a trade photo can;
-      - built-in samples, until the admin has added anything.
+        a small avatar - a selfie cannot carry a banner, a trade photo can.
+    With neither, it takes no room on home.
 
     The stock photos are CC0, from StockSnap; see assets/images/trades.
 */
@@ -34,6 +35,48 @@ class HomeCarousel extends StatefulWidget {
   @visibleForTesting
   final List<Map<String, dynamic>>? seed;
 
+  /// Which side's carousel an account sees: jobs for someone looking for
+  /// work, workers for a hirer.
+  static String sideFor(AppModeProvider mode) =>
+      mode.effectiveMode.showsEmployerSide &&
+              !(mode.effectiveMode.showsWorkerSide && mode.hasWorkerProfile)
+          ? 'employer'
+          : 'worker';
+
+  /// The last answer for each side, so home opens with it already there.
+  static final Map<String, List<Map<String, dynamic>>> _cache = {};
+
+  /*
+      Asked during the opening animation, so the carousel is on screen the
+      moment home is, rather than appearing a beat later and pushing the
+      rest of home down. Errors are left for the carousel's own load.
+  */
+  static Future<void> prefetch(String side) async {
+    try {
+      _cache[side] = await _fetch(side);
+    } catch (_) {}
+  }
+
+  static Future<List<Map<String, dynamic>>> _fetch(String side) async {
+    final res = await ApiClient().get('/home/featured', queryParameters: {'side': side});
+    final data = res.data['data'] as Map<String, dynamic>;
+    List<Map<String, dynamic>> rows(String key) => ((data[key] as List?) ?? const [])
+        .whereType<Map>()
+        .map((m) => Map<String, dynamic>.from(m))
+        .toList();
+
+    final banners = rows('banners').map((m) => {...m, 'kind': 'banner'}).toList();
+    final ads = rows('ads');
+
+    // Banners and ads take turns, so neither crowds the other out.
+    final merged = <Map<String, dynamic>>[];
+    for (var i = 0; i < banners.length || i < ads.length; i++) {
+      if (i < banners.length) merged.add(banners[i]);
+      if (i < ads.length) merged.add(ads[i]);
+    }
+    return merged;
+  }
+
   @override
   State<HomeCarousel> createState() => _HomeCarouselState();
 }
@@ -44,23 +87,26 @@ class _HomeCarouselState extends State<HomeCarousel> {
   int _index = 0;
   Timer? _timer;
 
+  static List<_Slide> _toSlides(List<Map<String, dynamic>> rows) =>
+      rows.map((m) => m['kind'] == 'banner' ? _Slide.banner(m) : _Slide.ad(m)).toList();
+
   @override
   void initState() {
     super.initState();
     final seed = widget.seed;
     if (seed != null) {
-      _slides = seed.map((m) => m['kind'] == 'banner' ? _Slide.banner(m) : _Slide.ad(m)).toList();
+      _slides = _toSlides(seed);
       return;
     }
-    _slides = _samples(widget.side);
+    _slides = _toSlides(HomeCarousel._cache[widget.side] ?? const []);
     _load();
   }
 
   @override
   void didUpdateWidget(HomeCarousel old) {
     super.didUpdateWidget(old);
-    if (old.side != widget.side) {
-      _slides = _samples(widget.side);
+    if (old.side != widget.side && widget.seed == null) {
+      _slides = _toSlides(HomeCarousel._cache[widget.side] ?? const []);
       _index = 0;
       if (_pages.hasClients) _pages.jumpToPage(0);
       _load();
@@ -80,34 +126,26 @@ class _HomeCarouselState extends State<HomeCarousel> {
     super.dispose();
   }
 
+  /*
+      Only what the admin runs and what has been boosted.
+
+      There used to be built-in sample banners for when nothing had been
+      added yet. With nothing to show, the carousel takes no room at all.
+  */
   Future<void> _load() async {
+    final side = widget.side;
     try {
-      final res = await ApiClient().get('/home/featured', queryParameters: {'side': widget.side});
-      final data = res.data['data'] as Map<String, dynamic>;
-      final banners = ((data['banners'] as List?) ?? const [])
-          .whereType<Map>()
-          .map((m) => _Slide.banner(Map<String, dynamic>.from(m)));
-      final ads = ((data['ads'] as List?) ?? const [])
-          .whereType<Map>()
-          .map((m) => _Slide.ad(Map<String, dynamic>.from(m)));
-
-      // Banners and ads take turns, so neither crowds the other out.
-      final merged = <_Slide>[];
-      final a = banners.toList(), b = ads.toList();
-      for (var i = 0; i < a.length || i < b.length; i++) {
-        if (i < a.length) merged.add(a[i]);
-        if (i < b.length) merged.add(b[i]);
-      }
-
-      if (!mounted || merged.isEmpty) return;
+      final rows = await HomeCarousel._fetch(side);
+      HomeCarousel._cache[side] = rows;
+      if (!mounted || side != widget.side) return;
       setState(() {
-        _slides = merged;
+        _slides = _toSlides(rows);
         _index = 0;
       });
       if (_pages.hasClients) _pages.jumpToPage(0);
       _restartTimer();
     } catch (_) {
-      // Offline or older server: the samples stay.
+      // Offline: whatever was cached stays.
     }
   }
 
@@ -180,7 +218,7 @@ class _HomeCarouselState extends State<HomeCarousel> {
   }
 }
 
-enum _Kind { banner, worker, job, sample }
+enum _Kind { banner, worker, job }
 
 class _Slide {
   _Slide._(this.kind, this.data);
@@ -188,27 +226,10 @@ class _Slide {
   factory _Slide.banner(Map<String, dynamic> m) => _Slide._(_Kind.banner, m);
   factory _Slide.ad(Map<String, dynamic> m) =>
       _Slide._(m['kind'] == 'worker' ? _Kind.worker : _Kind.job, m);
-  factory _Slide.sample(String title, String body, String photo, String action) =>
-      _Slide._(_Kind.sample, {'title': title, 'body': body, 'photo': photo, 'action': action});
 
   final _Kind kind;
   final Map<String, dynamic> data;
 }
-
-/// Until the admin adds banners: what each side can do, true of the app as it is.
-List<_Slide> _samples(String side) => side == 'employer'
-    ? [
-        _Slide.sample('Hire skilled workers near you', 'Carpenters, electricians, painters and more, by distance.',
-            'carpentry', 'search_workers'),
-        _Slide.sample('Post a job and see who fits', 'Workers who match your job are ranked for you.',
-            'painting', 'post_job'),
-      ]
-    : [
-        _Slide.sample('Find work in your town', 'Jobs from hirers near you, nearest first.',
-            'construction', 'search_jobs'),
-        _Slide.sample('Verify your ID to start applying', 'One photo of a government ID, checked by our team.',
-            'electrical', 'verify'),
-      ];
 
 /// The CC0 photo for a trade, or the general one.
 String tradePhoto(String? category) {
@@ -248,7 +269,6 @@ class _SlideView extends StatelessWidget {
       case _Kind.job:
         AppRouter.push(context, AppRouter.jobDetails, arguments: {'jobId': d['id']});
       case _Kind.banner:
-      case _Kind.sample:
         switch (d['action']) {
           case 'post_job':
             AppRouter.push(context, AppRouter.postJob);
@@ -276,7 +296,6 @@ class _SlideView extends StatelessWidget {
           placeholder: (_, _) => const ColoredBox(color: AppColors.neutral200),
           errorWidget: (_, _, _) => Image.asset(tradePhoto(null), fit: BoxFit.cover),
         ),
-      _Kind.sample => Image.asset('assets/images/trades/${d['photo']}.jpg', fit: BoxFit.cover),
       _Kind.worker || _Kind.job => Image.asset(tradePhoto(d['category'] as String?), fit: BoxFit.cover),
     };
 

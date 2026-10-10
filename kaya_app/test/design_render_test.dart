@@ -140,23 +140,15 @@ void main() {
     await expectLater(find.byType(MaterialApp), matchesGoldenFile('goldens/home_active_panel.png'));
   });
 
-  testWidgets('home carousel, the built-in banners', (tester) async {
+  testWidgets('home carousel takes no room with nothing to show', (tester) async {
     await size(tester, 1100);
     await tester.pumpWidget(const MaterialApp(
-      home: Scaffold(body: Column(children: [SizedBox(height: 40), HomeCarousel(side: 'employer')])),
+      home: Scaffold(body: Column(children: [HomeCarousel(side: 'employer')])),
     ));
-    // The server is unreachable in a test, so the samples stay.
+    // The server is unreachable in a test, and there are no samples any more.
     await tester.pump(const Duration(milliseconds: 300));
-    // Asset photos decode off the test clock; load them before the shot.
-    await tester.runAsync(() async {
-      for (final el in find.byType(Image).evaluate()) {
-        await precacheImage((el.widget as Image).image, el);
-      }
-    });
-    await tester.pump(const Duration(milliseconds: 100));
 
-    expect(find.text('Hire skilled workers near you'), findsOneWidget);
-    await expectLater(find.byType(MaterialApp), matchesGoldenFile('goldens/home_carousel.png'));
+    expect(tester.getSize(find.byType(HomeCarousel)).height, 0);
   });
 
   testWidgets('home carousel, a boosted worker and a boosted job', (tester) async {

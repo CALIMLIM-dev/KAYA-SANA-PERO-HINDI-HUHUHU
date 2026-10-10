@@ -190,6 +190,19 @@ class _UnifiedHomeScreenState extends State<UnifiedHomeScreen>
   void initState() {
     super.initState();
 
+    /*
+        What the opening animation already loaded, on the first frame.
+
+        The welcome screen fetches home's lists while the icon builds (see
+        HomeWarmup), so home can open with them rather than with spinners
+        that fill in a moment later. The fetch below still runs, and
+        replaces these quietly.
+    */
+    _adoptKnownPlace(context.read<AuthProvider>());
+    _allJobs = context.read<JobProvider>().publicJobs;
+    _allWorkers = context.read<WorkerBrowseProvider>().workers;
+    _applyFilters();
+
     // Start periodic suspension checks
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
@@ -284,7 +297,9 @@ class _UnifiedHomeScreenState extends State<UnifiedHomeScreen>
   Future<void> _initializeData() async {
     if (!mounted) return;
 
-    setState(() => _isLoading = true);
+    // Spinners only when there is nothing yet; a refresh of lists already on
+    // screen happens behind them.
+    setState(() => _isLoading = _allJobs.isEmpty && _allWorkers.isEmpty);
 
     final appMode = context.read<AppModeProvider>();
     final jobProvider = context.read<JobProvider>();
@@ -848,12 +863,7 @@ class _UnifiedHomeScreenState extends State<UnifiedHomeScreen>
                   for. Jobs for someone looking for work, workers for a hirer.
               */
               SliverToBoxAdapter(
-                child: HomeCarousel(
-                  side: appMode.effectiveMode.showsEmployerSide &&
-                          !(appMode.effectiveMode.showsWorkerSide && appMode.hasWorkerProfile)
-                      ? 'employer'
-                      : 'worker',
-                ),
+                child: HomeCarousel(side: HomeCarousel.sideFor(appMode)),
               ),
 
               // Smart Categories based on filter

@@ -6,6 +6,7 @@ import 'package:provider/provider.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/widgets/kaya_mark.dart';
 import '../../../core/widgets/motion.dart';
+import '../../jobs/home_warmup.dart';
 import '../../../data/services/api_client.dart';
 import '../../../providers/app_mode_provider.dart';
 import '../../../providers/auth_provider.dart';
@@ -45,7 +46,7 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
   */
   Future<void> _letTheIconFinish() async {
     if (!mounted || Motion.reduced(context)) return;
-    final left = KayaLaunch.duration - _shownFor.elapsed;
+    final left = KayaLaunch.timeToFinish - _shownFor.elapsed;
     if (left > Duration.zero) await Future.delayed(left);
   }
 
@@ -97,8 +98,11 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
         // builds, so it opens in the right mode instead of flashing the
         // default and switching.
         await appMode.restore();
+        if (!mounted) return;
+
+        // Home's lists load while the icon finishes, so home opens whole.
+        await Future.wait([_letTheIconFinish(), HomeWarmup.run(context)]);
         _slowTimer?.cancel();
-        await _letTheIconFinish();
         if (!mounted) return;
         Navigator.pushReplacementNamed(context, '/home');
         return;
