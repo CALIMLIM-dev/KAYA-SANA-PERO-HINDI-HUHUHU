@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    The KAYA icon going up, played by Android's own splash screen (12 and
+    later) the moment the app is tapped. Frames are rendered by
+    kaya_app/tool/splash_frames_test.dart from the same build the app uses;
+    50 ms each, one second in all, holding on the finished icon.
+-->
+<animation-list xmlns:android="http://schemas.android.com/apk/res/android" android:oneshot="true">
+    <item android:drawable="@drawable/splash_build_01" android:duration="50" />
+    <item android:drawable="@drawable/splash_build_02" android:duration="50" />
+    <item android:drawable="@drawable/splash_build_03" android:duration="50" />
+    <item android:drawable="@drawable/splash_build_04" android:duration="50" />
+    <item android:drawable="@drawable/splash_build_05" android:duration="50" />
+    <item android:drawable="@drawable/splash_build_06" android:duration="50" />
+    <item android:drawable="@drawable/splash_build_07" android:duration="50" />
+    <item android:drawable="@drawable/splash_build_08" android:duration="50" />
+    <item android:drawable="@drawable/splash_build_09" android:duration="50" />
+    <item android:drawable="@drawable/splash_build_10" android:duration="50" />
+    <item android:drawable="@drawable/splash_build_11" android:duration="50" />
+    <item android:drawable="@drawable/splash_build_12" android:duration="50" />
+    <item android:drawable="@drawable/splash_build_13" android:duration="50" />
+    <item android:drawable="@drawable/splash_build_14" android:duration="50" />
+    <item android:drawable="@drawable/splash_build_15" android:duration="50" />
+    <item android:drawable="@drawable/splash_build_16" android:duration="50" />
+    <item android:drawable="@drawable/splash_build_17" android:duration="50" />
+    <item android:drawable="@drawable/splash_build_18" android:duration="50" />
+    <item android:drawable="@drawable/splash_build_19" android:duration="50" />
+    <item android:drawable="@drawable/splash_build_20" android:duration="50" />
+</animation-list>

@@ -89,8 +89,13 @@ class _Band extends CustomClipper<Rect> {
 }
 
 /*
-    The opening of the app: the icon builds itself, the name settles under
-    it, and only if the check is still going does a quiet line say so.
+    The opening of the app.
+
+    On Android 12 and later the build plays on Android's own splash screen,
+    the moment the icon is tapped (frames in res/drawable-nodpi, rendered by
+    tool/splash_frames_test.dart). The app then opens on the finished icon in
+    exactly the place the splash drew it, and only the name settles in under
+    it. On older Android, which has no animated splash, the build plays here.
 
     Replaces a bare spinner on the session check, which was the first thing
     anyone saw and said nothing about what they had opened.
@@ -98,9 +103,25 @@ class _Band extends CustomClipper<Rect> {
 class KayaLaunch extends StatefulWidget {
   const KayaLaunch({super.key, this.message});
 
-  /// How long the build takes. The welcome screen waits for it, so the icon
-  /// is always finished before the app moves on.
+  /// The icon's size, the same in the splash frames and here, so the handoff
+  /// from the splash to the app does not jump.
+  static const iconSize = 264.0;
+
+  /// The splash animation: this many frames over [splashDuration].
+  static const splashFrames = 20;
+  static const splashDuration = Duration(milliseconds: 1000);
+
+  /// The build when the app plays it itself.
   static const duration = Duration(milliseconds: 1600);
+
+  /// The name settling in under an icon the splash already built.
+  static const nameDuration = Duration(milliseconds: 450);
+
+  /// Set at start-up: whether Android's splash has already built the icon.
+  static bool builtBySystem = false;
+
+  /// How long the welcome screen waits for this to finish.
+  static Duration get timeToFinish => builtBySystem ? nameDuration : duration;
 
   /// Shown under the name once the check is taking a while.
   final String? message;
@@ -111,7 +132,7 @@ class KayaLaunch extends StatefulWidget {
 
 class _KayaLaunchState extends State<KayaLaunch> with SingleTickerProviderStateMixin {
   late final AnimationController _c =
-      AnimationController(vsync: this, duration: KayaLaunch.duration);
+      AnimationController(vsync: this, duration: KayaLaunch.timeToFinish);
 
   @override
   void didChangeDependencies() {
@@ -132,58 +153,69 @@ class _KayaLaunchState extends State<KayaLaunch> with SingleTickerProviderStateM
       animation: _c,
       builder: (context, _) {
         final t = _c.value;
-        // The name follows the roof.
-        final name = Motion.enter.transform(((t - 0.72) / 0.28).clamp(0.0, 1.0));
+        final built = KayaLaunch.builtBySystem;
+        final icon = built ? 1.0 : t;
+        // The name follows the roof, or simply arrives after the splash.
+        final name = built
+            ? Motion.enter.transform(t)
+            : Motion.enter.transform(((t - 0.72) / 0.28).clamp(0.0, 1.0));
 
-        return Column(
-          mainAxisSize: MainAxisSize.min,
+        // The icon at the dead centre, where the splash drew it; the name
+        // and the progress line hang below it without moving it.
+        return Stack(
+          alignment: Alignment.center,
+          clipBehavior: Clip.none,
           children: [
-            // The artwork is a square with white around the house; pulling
-            // the name up into that margin keeps the two reading as one.
-            KayaIconBuild(size: 240, progress: t),
-            Transform.translate(
-              offset: Offset(0, -46 + 6 * (1 - name)),
+            KayaIconBuild(size: KayaLaunch.iconSize, progress: icon),
+            Positioned(
+              top: KayaLaunch.iconSize * 0.72 + 6 * (1 - name),
+              left: -100,
+              right: -100,
               child: Opacity(
                 opacity: name,
-                child: const Text(
-                  'KAYA',
-                  // The app font, not a downloaded one: this is the first
-                  // frame, and nothing may be waiting on the network yet.
-                  style: TextStyle(
-                    fontSize: 26,
-                    fontWeight: FontWeight.w800,
-                    letterSpacing: 6,
-                    color: AppColors.neutral900,
-                  ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Text(
+                      'KAYA',
+                      // The app font, not a downloaded one: this is the first
+                      // frame, and nothing may be waiting on the network yet.
+                      style: TextStyle(
+                        fontSize: 26,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: 6,
+                        color: AppColors.neutral900,
+                      ),
+                    ),
+                    // Built, and the check is still going: say it is working.
+                    if (t >= 1) ...[
+                      const SizedBox(height: 16),
+                      SizedBox(
+                        width: 72,
+                        height: 3,
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(2),
+                          child: LinearProgressIndicator(
+                            // Still for a reduced-motion phone.
+                            value: Motion.reduced(context) ? 1 : null,
+                            backgroundColor: AppColors.primary.withValues(alpha: 0.12),
+                            valueColor: const AlwaysStoppedAnimation(AppColors.primary),
+                          ),
+                        ),
+                      ),
+                    ],
+                    if (widget.message != null) ...[
+                      const SizedBox(height: 14),
+                      Text(
+                        widget.message!,
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(fontSize: 13, color: AppColors.neutral600),
+                      ),
+                    ],
+                  ],
                 ),
               ),
             ),
-            // Built, and the check is still going: say it is working.
-            if (t >= 1)
-              Transform.translate(
-                offset: const Offset(0, -30),
-                child: SizedBox(
-                  width: 72,
-                  height: 3,
-                  child: ClipRRect(
-                    borderRadius: BorderRadius.circular(2),
-                    child: LinearProgressIndicator(
-                      // Still for a reduced-motion phone.
-                      value: Motion.reduced(context) ? 1 : null,
-                      backgroundColor: AppColors.primary.withValues(alpha: 0.12),
-                      valueColor: const AlwaysStoppedAnimation(AppColors.primary),
-                    ),
-                  ),
-                ),
-              ),
-            if (widget.message != null) ...[
-              const SizedBox(height: 4),
-              Text(
-                widget.message!,
-                textAlign: TextAlign.center,
-                style: const TextStyle(fontSize: 13, color: AppColors.neutral600),
-              ),
-            ],
           ],
         );
       },
