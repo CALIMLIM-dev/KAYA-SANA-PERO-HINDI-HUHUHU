@@ -119,11 +119,11 @@ class BackgroundController {
     try {
       await FlutterForegroundTask.startService(
         notificationTitle: applicationId == null
-            ? 'KAYA'
-            : 'KAYA is sharing your location',
+            ? ServiceNotice.watchingTitle
+            : ServiceNotice.sharingTitle,
         notificationText: applicationId == null
-            ? 'Watching for new messages and notifications.'
-            : 'Tap to open. Stop sharing any time.',
+            ? ServiceNotice.watchingText
+            : ServiceNotice.sharingText,
         callback: startBackgroundCallback,
       );
 

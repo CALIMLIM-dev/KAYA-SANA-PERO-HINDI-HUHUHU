@@ -20,7 +20,7 @@ typedef Fetch = Future<(int, String)> Function(Uri uri, Map<String, String> head
     has been swiped out of recents. It is not instant. Android runs periodic
     work no more often than every fifteen minutes and defers it further when
     the phone is idle, so this is the floor under the other two paths, not a
-    replacement for them: the app polls every eight seconds while it is up,
+    replacement for them: the app polls every five seconds while it is up,
     and the foreground service every five during a hire. This one covers the
     rest of the day.
 

@@ -334,7 +334,13 @@ class NotificationProvider with ChangeNotifier {
       same cadence, and republishes anything genuinely new through `arrived`.
       Everything downstream then works whether a socket exists or not.
   */
-  static const Duration _pollEvery = Duration(seconds: 8);
+  /*
+      Five seconds, the same as the service did when it raised these on the
+      phone's shade. The service now leaves it to this while the app is on
+      screen (see background_service.dart), so this is how quickly a new
+      message pops up inside the app.
+  */
+  static const Duration _pollEvery = Duration(seconds: 5);
 
   Timer? _poll;
   int _newestSeenId = 0;

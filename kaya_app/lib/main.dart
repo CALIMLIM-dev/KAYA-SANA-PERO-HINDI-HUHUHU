@@ -260,7 +260,7 @@ class KayaApp extends StatelessWidget {
                 Only if we are not already there.
 
                 Signing out pushes the login screen itself, and the polls that
-                were already in flight - notifications every eight seconds,
+                were already in flight - notifications every five seconds,
                 messages by cursor - come back 401 a moment later against a
                 token that has just been deleted. Each one landed here and
                 pushed login again, so the sign-in screen slid in twice.

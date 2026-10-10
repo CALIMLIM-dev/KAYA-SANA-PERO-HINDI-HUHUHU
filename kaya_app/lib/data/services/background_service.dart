@@ -40,6 +40,15 @@ import 'local_alerts.dart';
     with a plain client rather than the app's ApiClient.
 */
 
+/// What the service's own notice says, in the two jobs it does. Shared by the
+/// controller that starts it and the handler that puts it back.
+class ServiceNotice {
+  static const watchingTitle = 'KAYA';
+  static const watchingText = 'Watching for new messages and notifications.';
+  static const sharingTitle = 'KAYA is sharing your location';
+  static const sharingText = 'Tap to open. Stop sharing any time.';
+}
+
 /// Keys for the values the app hands the service when it starts.
 class BackgroundKeys {
   static const token = 'bg_token';
@@ -145,6 +154,23 @@ class _KayaTaskHandler extends TaskHandler {
     }
   }
 
+  /*
+      The notice was swiped away; put it back.
+
+      Since Android 14 a person can swipe away any app's service notice. The
+      service keeps running, but nothing on the phone says so any more - and
+      the one place to see that KAYA is watching for messages, or sharing a
+      location, has gone. Posting it again is the only answer Android leaves.
+  */
+  @override
+  void onNotificationDismissed() {
+    final sharing = (_applicationId ?? 0) > 0;
+    FlutterForegroundTask.updateService(
+      notificationTitle: sharing ? ServiceNotice.sharingTitle : ServiceNotice.watchingTitle,
+      notificationText: sharing ? ServiceNotice.sharingText : ServiceNotice.watchingText,
+    );
+  }
+
   @override
   Future<void> onDestroy(DateTime timestamp, bool isTimeout) async {
     // Nothing to tear down. The app stops sharing server-side when it stops
@@ -180,6 +206,21 @@ class _KayaTaskHandler extends TaskHandler {
   /// raises each on the notification shade.
   Future<void> _pollNotifications() async {
     try {
+      /*
+          Not while the app is on screen.
+
+          The app announces a new notification itself, with a card that
+          slides down inside it. This service raised the phone's own alert
+          at the same moment, and the phone's alert is drawn over every app -
+          so it sat on top of the card, the card left after four seconds
+          underneath it, and the in-app pop-up looked as if it never came.
+
+          The mark is not advanced here: the app's poll advances it when it
+          shows the card, and if the person leaves first, the next tick
+          after they have gone raises it on the shade instead.
+      */
+      if (await _appOnScreen()) return;
+
       // The app may have shown some of these on screen since the last tick.
       final prefs = await SharedPreferences.getInstance();
       await prefs.reload();
@@ -233,6 +274,15 @@ class _KayaTaskHandler extends TaskHandler {
       }
     } catch (e) {
       debugPrint('[bg] notification poll failed: $e');
+    }
+  }
+
+  Future<bool> _appOnScreen() async {
+    try {
+      return await FlutterForegroundTask.isAppOnForeground;
+    } catch (_) {
+      // Unanswerable here: alert, rather than risk saying nothing.
+      return false;
     }
   }
 

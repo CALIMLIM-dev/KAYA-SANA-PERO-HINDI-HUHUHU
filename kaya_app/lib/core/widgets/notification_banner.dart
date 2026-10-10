@@ -221,7 +221,7 @@ class _NotificationBannerHostState extends State<NotificationBannerHost> {
     );
 
     overlay.insert(_entry!);
-    _dismissTimer = Timer(const Duration(seconds: 4), _remove);
+    _dismissTimer = Timer(const Duration(seconds: 5), _remove);
   }
 
   void _remove() {
