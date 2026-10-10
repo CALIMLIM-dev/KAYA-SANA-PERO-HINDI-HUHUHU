@@ -80,7 +80,6 @@ class WhereFilterTest extends TestCase
         ]);
         WorkerSkill::create(['user_id' => $user->id, 'skill_name' => 'Bricklaying', 'category_id' => $category->id]);
 
-        $this->assertFalse($user->workerProfile->isSetupCompleted());
 
         $hirer = User::factory()->create();
         EmployerProfile::create(['user_id' => $hirer->id, 'employer_type' => 'individual']);

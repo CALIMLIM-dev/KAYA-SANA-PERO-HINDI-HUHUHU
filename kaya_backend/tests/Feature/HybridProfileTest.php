@@ -82,7 +82,8 @@ class HybridProfileTest extends TestCase
 
         $this->actingAs($user, 'sanctum')
             ->postJson('/api/v1/worker/profile/from-account', $this->payload())
-            ->assertCreated();
+            ->assertCreated()
+            ->assertJsonPath('data.setup_complete', true);
 
         $profile = WorkerProfile::where('user_id', $user->id)->firstOrFail();
 
@@ -97,15 +98,15 @@ class HybridProfileTest extends TestCase
     }
 
     #[Test]
-    public function the_new_profile_says_what_is_left(): void
+    public function the_profile_is_immediately_finished_so_nothing_sends_them_back(): void
     {
         /*
-            Created is not finished any more, and it says so.
+            The reason the category and the skills are required.
 
-            A complete job seeker profile now needs a photo, experience and a
-            rate as well (WorkerProfile::REQUIREMENTS), which this one request
-            does not ask for. The app shows the profile rather than the setup
-            flow for an unfinished one, so /me names what is left instead.
+            /me reports worker_setup_completed from isSetupCompleted(), which
+            is location + category + one skill. A profile missing any of them
+            sends the app straight back into the setup flow every time the
+            worker profile is opened, so "created" has to mean "finished".
         */
         $user = $this->employer();
 
@@ -117,8 +118,7 @@ class HybridProfileTest extends TestCase
             ->getJson('/api/v1/me')
             ->assertOk()
             ->assertJsonPath('data.worker_profile_exists', true)
-            ->assertJsonPath('data.worker_setup_completed', false)
-            ->assertJsonPath('data.worker_profile_missing', fn ($m) => in_array('your expected rate', $m, true));
+            ->assertJsonPath('data.worker_setup_completed', true);
     }
 
     #[Test]
@@ -257,11 +257,13 @@ class HybridProfileTest extends TestCase
     }
 
     #[Test]
-    public function a_profile_made_by_this_endpoint_can_apply_once_it_is_finished(): void
+    public function a_profile_made_by_this_endpoint_can_apply_straight_away(): void
     {
         /*
-            Refused while something is missing, and told what; let through
-            once it is there.
+            The other half of the rule above. Asking for the trade up front is
+            what makes the guard invisible to somebody using the flow properly:
+            the profile is finished the moment it exists, so there is never a
+            step between creating it and being able to work.
         */
         $user = $this->employer();
         $user->forceFill(['is_verified' => true])->save();
@@ -289,17 +291,6 @@ class HybridProfileTest extends TestCase
             'location'    => 'Urdaneta City',
             'status'      => 'open',
         ]);
-
-        $this->actingAs($user->fresh(), 'sanctum')
-            ->postJson("/api/v1/jobs/{$job->id}/apply")
-            ->assertStatus(422)
-            ->assertJsonPath('message', fn ($m) => str_contains($m, 'Still needed') && str_contains($m, 'expected rate'));
-
-        WorkerProfile::where('user_id', $user->id)->firstOrFail()->forceFill([
-            'profile_photo_path' => 'worker_photos/me.jpg',
-            'rate_by_agreement'  => true, 'available_days' => [1, 2, 3, 4, 5, 6, 7], 'travel_km' => 100,
-        ])->save();
-        WorkerSkill::where('user_id', $user->id)->update(['years_of_experience' => 3]);
 
         $this->actingAs($user->fresh(), 'sanctum')
             ->postJson("/api/v1/jobs/{$job->id}/apply")

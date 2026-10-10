@@ -648,11 +648,7 @@ class JobController extends Controller
                     $match['tier'],
                     (int) $match['score'],
                     \App\Services\JobMatchService::strength($profile, $experience->years($profile->experiences)),
-                    $match['criteria_balance'],
                 ),
-                // The job's hiring criteria against this profile. See
-                // JobMatchService::criteria.
-                'criteria'       => $match['criteria'],
 
                 /*
                     What the employer is really deciding on.

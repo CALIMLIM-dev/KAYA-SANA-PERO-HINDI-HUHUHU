@@ -2,8 +2,8 @@
 
 namespace Tests\Feature;
 
+use App\Models\Category;
 use App\Models\User;
-use App\Models\WorkerExperience;
 use App\Models\WorkerProfile;
 use App\Models\WorkerSkill;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -11,97 +11,45 @@ use PHPUnit\Framework\Attributes\Test;
 use Tests\TestCase;
 
 /*
-    The panel: "a comprehensive job seeker profile containing relevant
-    information necessary for employment matching".
+    What a worker profile needs to apply for work: a trade, a skill and a
+    town. KAYA is a community app; a longer checklist kept people out.
 */
 class JobSeekerProfileTest extends TestCase
 {
     use RefreshDatabase;
 
-    // ── The comprehensive job seeker profile ───────────────────────────────
+    #[Test]
+    public function an_empty_profile_lists_the_three(): void
+    {
+        $profile = WorkerProfile::create(['user_id' => User::factory()->create()->id]);
 
-    private function bareWorker(): WorkerProfile
+        $this->assertSame(['trade', 'skill', 'town'], array_keys($profile->missingForCompletion()));
+    }
+
+    #[Test]
+    public function a_trade_a_skill_and_a_town_is_enough(): void
     {
         $user = User::factory()->create();
+        $category = Category::firstOrCreate(['name' => 'Masonry']);
+        WorkerProfile::create(['user_id' => $user->id, 'category_id' => $category->id, 'location' => 'Urdaneta City']);
+        WorkerSkill::create(['user_id' => $user->id, 'skill_name' => 'Bricklaying', 'category_id' => $category->id]);
 
-        return WorkerProfile::create(['user_id' => $user->id]);
-    }
+        $profile = $user->workerProfile()->first();
 
-    #[Test]
-    public function an_empty_profile_lists_everything_it_needs(): void
-    {
-        $this->assertSame(
-            array_keys(WorkerProfile::REQUIREMENTS),
-            array_keys($this->bareWorker()->missingForCompletion()),
-        );
-    }
-
-    #[Test]
-    public function it_is_complete_only_with_all_six(): void
-    {
-        $profile = $this->seedWorkerProfile(User::factory()->create());
+        // No photo, no rate, no days, no pin - and that is fine.
         $this->assertTrue($profile->isSetupCompleted());
-
-        foreach ([
-            'photo' => ['profile_photo_path' => null],
-            'pin'   => ['latitude' => null],
-            'rate'  => ['rate_by_agreement' => false],
-            'trade' => ['category_id' => null],
-        ] as $key => $change) {
-            $broken = $profile->replicate()->forceFill($change);
-            $broken->user_id = $profile->user_id;
-            $this->assertArrayHasKey($key, $broken->missingForCompletion(), "Missing {$key} went unnoticed.");
-        }
-    }
-
-    #[Test]
-    public function experience_is_years_on_a_skill_or_one_job_in_the_history(): void
-    {
-        $profile = $this->seedWorkerProfile(User::factory()->create());
-        WorkerSkill::where('user_id', $profile->user_id)->update(['years_of_experience' => null]);
-        $this->assertArrayHasKey('experience', $profile->fresh()->missingForCompletion());
-
-        WorkerExperience::create([
-            'user_id'    => $profile->user_id,
-            'job_title'  => 'Mason',
-            'company_name' => 'Santos Builders',
-            'start_date' => '2020-01-01',
-        ]);
-        $this->assertArrayNotHasKey('experience', $profile->fresh()->missingForCompletion());
-    }
-
-    #[Test]
-    public function a_rate_or_to_be_discussed_and_choosing_one_clears_the_other(): void
-    {
-        $profile = $this->seedWorkerProfile(User::factory()->create(), ['rate_by_agreement' => false]);
-        $user = $profile->user;
-
-        $this->actingAs($user, 'sanctum')
-            ->putJson('/api/v1/worker/profile', ['rate_min' => 600, 'rate_unit' => 'day'])
-            ->assertOk();
-        $this->assertArrayNotHasKey('rate', $profile->fresh()->missingForCompletion());
-
-        $this->actingAs($user, 'sanctum')
-            ->putJson('/api/v1/worker/profile', ['rate_by_agreement' => true])
-            ->assertOk();
-        $fresh = $profile->fresh();
-        $this->assertNull($fresh->rate_min);
-        $this->assertSame('Rate to be discussed', $fresh->rateLabel());
-
-        $this->actingAs($user, 'sanctum')
-            ->putJson('/api/v1/worker/profile', ['rate_min' => 700])
-            ->assertOk();
-        $this->assertFalse($profile->fresh()->rate_by_agreement);
+        $this->assertTrue($profile->isListable());
     }
 
     #[Test]
     public function the_app_is_told_what_is_left(): void
     {
-        $worker = $this->bareWorker();
+        $user = User::factory()->create();
+        WorkerProfile::create(['user_id' => $user->id, 'location' => 'Urdaneta City']);
 
-        $this->actingAs($worker->user, 'sanctum')->getJson('/api/v1/me')
+        $this->actingAs($user, 'sanctum')->getJson('/api/v1/me')
             ->assertOk()
             ->assertJsonPath('data.worker_setup_completed', false)
-            ->assertJsonPath('data.worker_profile_missing', array_values(WorkerProfile::REQUIREMENTS));
+            ->assertJsonPath('data.worker_profile_missing', ['your trade', 'at least one skill']);
     }
 }

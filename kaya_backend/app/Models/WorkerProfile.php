@@ -144,73 +144,34 @@ class WorkerProfile extends Model
     }
 
     /*
-        What a job seeker profile still needs before it counts as complete.
+        What a worker profile needs before it can apply for work: a trade,
+        a skill and a town. Nothing more - KAYA is a community app, and a
+        longer checklist kept people out rather than helping anyone hire.
 
-        The panel asked for a comprehensive job seeker profile. Complete used
-        to mean a town, a trade and one skill, so a profile with no face, no
-        experience and no idea of cost could apply for work and be matched.
-        Now it is all of: a photo, the trade, a skill, some experience (years
-        on a skill or one job in the history), the town pinned on the map, and
-        a rate - or "to be discussed", which is an answer where a blank is not.
-
-        Keyed by field; the values are what the app and the refusals say.
+        Keyed by field; the values are what the refusals say.
     */
     public const REQUIREMENTS = [
-        'photo'      => 'a profile photo',
-        'trade'      => 'your trade',
-        'skill'      => 'at least one skill',
-        'experience' => 'your experience',
-        'pin'        => 'your town pinned on the map',
-        'rate'       => 'your expected rate',
-        'days'       => 'the days you can work',
-        'travel'     => 'how far you can travel',
+        'trade' => 'your trade',
+        'skill' => 'at least one skill',
+        'town'  => 'your town',
     ];
 
     /** @return array<string,string> the unmet requirements, keyed as REQUIREMENTS. */
     public function missingForCompletion(): array
     {
-        // Uses eager-loaded skills when there are some; see below.
-        $skills = $this->relationLoaded('skills')
-            ? $this->skills
-            : WorkerSkill::where('user_id', $this->user_id)->get(['id', 'years_of_experience']);
+        // Uses eager-loaded skills when there are some, so the directory
+        // does not pay a query per worker.
+        $hasSkills = $this->relationLoaded('skills')
+            ? $this->skills->isNotEmpty()
+            : WorkerSkill::where('user_id', $this->user_id)->exists();
 
         $met = [
-            'photo'      => $this->resolvedAvatarUrl() !== null,
-            'trade'      => ! is_null($this->category_id),
-            'skill'      => $skills->isNotEmpty(),
-            // Checked last and only when the skills do not already answer it,
-            // so the directory does not pay a query per worker for it.
-            'experience' => $skills->contains(fn ($s) => (int) $s->years_of_experience > 0)
-                || ($this->relationLoaded('experiences')
-                    ? $this->experiences->isNotEmpty()
-                    : WorkerExperience::where('user_id', $this->user_id)->exists()),
-            'pin'        => filled($this->location)
-                && ! is_null($this->latitude) && ! is_null($this->longitude),
-            'rate'       => ! is_null($this->rate_min) || ! is_null($this->rate_max)
-                || (bool) $this->rate_by_agreement,
-            'days'       => ! empty($this->available_days),
-            'travel'     => ! is_null($this->travel_km),
+            'trade' => ! is_null($this->category_id),
+            'skill' => $hasSkills,
+            'town'  => filled($this->location),
         ];
 
         return array_intersect_key(self::REQUIREMENTS, array_filter($met, fn ($ok) => ! $ok));
-    }
-
-    /*
-        Years of experience, the larger of the two places it is recorded:
-        dated work history (overlaps counted once, see ExperienceTotal) and
-        the years typed against a skill. Uses loaded relations when there
-        are some.
-    */
-    public function experienceYears(): int
-    {
-        $history = app(\App\Services\ExperienceTotal::class)->years(
-            $this->relationLoaded('experiences') ? $this->experiences : $this->experiences()->get()
-        );
-        $skills = $this->relationLoaded('skills')
-            ? $this->skills
-            : WorkerSkill::where('user_id', $this->user_id)->get(['years_of_experience']);
-
-        return max($history, (int) $skills->max('years_of_experience'));
     }
 
     /** The refusal for an action that needs a complete profile. */
@@ -229,21 +190,9 @@ class WorkerProfile extends Model
         return $this->missingForCompletion() === [];
     }
 
-    /*
-        Enough to be listed: a trade, a skill and a town.
-
-        Being found and being able to act are separate bars. The directory
-        and a hirer's matched list used the full completeness rule, and when
-        that rule became the panel's comprehensive one nearly every existing
-        worker vanished from both - a town searched in "Where" came back
-        empty. A listed worker with gaps is still shown, and matching says
-        which criteria it could not judge; applying still needs it all.
-    */
+    /** Shown in the directory and to hirers: the same three as applying. */
     public function isListable(): bool
     {
-        $missing = $this->missingForCompletion();
-
-        return ! isset($missing['trade']) && ! isset($missing['skill']) && filled($this->location);
+        return $this->isSetupCompleted();
     }
-
 }

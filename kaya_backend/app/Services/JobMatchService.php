@@ -185,14 +185,10 @@ class JobMatchService
             : ($sameTrade ? self::TIER_MEETS : self::TIER_NONE);
 
         $distance = self::distanceKm($job, $profile);
-        $criteria = self::criteria($job, $profile, $distance);
 
         return [
             'score' => (int) round(min(100, $score)),
             'tier' => $tier,
-            // The hiring criteria, one fact each. See criteria().
-            'criteria' => $criteria,
-            'criteria_balance' => collect($criteria)->sum(fn ($c) => $c['met'] === true ? 1 : ($c['met'] === false ? -1 : 0)),
             'required_count' => $required->count(),
             'matched_count' => $matched->count(),
             'same_trade' => $sameTrade,
@@ -200,88 +196,6 @@ class JobMatchService
             'reasons' => $reasons,
             'distance_km' => $distance,
         ];
-    }
-
-    /*
-        The job's hiring criteria, held against what the worker's profile says.
-
-        The panel asked for a job seeker profile containing the information
-        matching needs. Matching read the trade, the skills and the distance
-        and nothing else, so the rate a worker asks, their experience, the
-        days they work and how far they travel changed nothing about who a
-        hirer was shown.
-
-        One fact per criterion, met true / false, or null when it cannot be
-        judged - a rate to be discussed, a job with no dates, a figure in
-        another unit. Unknown is never counted against anybody. A criterion
-        the job does not set is left out entirely.
-
-        @return list<array{key:string, met:?bool, text:string}>
-    */
-    public static function criteria(JobPost $job, WorkerProfile $profile, ?float $distanceKm): array
-    {
-        $out = [];
-
-        // Rate against the budget, only when both are in the same unit.
-        $budget = $job->budget_max ?? $job->budget_min;
-        if ($budget !== null) {
-            $jobUnit = ['daily' => 'day', 'hourly' => 'hour', 'project' => 'project'][$job->budget_period] ?? null;
-            $asks = $profile->rate_min ?? $profile->rate_max;
-
-            if ($asks === null && $profile->rate_by_agreement) {
-                $out[] = ['key' => 'rate', 'met' => null, 'text' => 'Rate to be discussed'];
-            } elseif ($asks !== null && $jobUnit !== null && $profile->rate_unit === $jobUnit) {
-                $within = (float) $asks <= (float) $budget;
-                $out[] = [
-                    'key'  => 'rate',
-                    'met'  => $within,
-                    'text' => 'Asks ' . $profile->rateLabel() . ($within ? ', within budget' : ', above budget'),
-                ];
-            } elseif ($asks !== null) {
-                $out[] = ['key' => 'rate', 'met' => null, 'text' => 'Asks ' . $profile->rateLabel()];
-            }
-        }
-
-        // Experience against what the job asks for.
-        $wants = $job->min_experience_years;
-        if ($wants !== null && $wants > 0) {
-            $years = $profile->experienceYears();
-            $has = $years === 1 ? '1 year' : "{$years} years";
-            $out[] = [
-                'key'  => 'experience',
-                'met'  => $years >= $wants,
-                'text' => "{$has} of experience (asks {$wants}+)",
-            ];
-        }
-
-        // The days they work against the job's dates.
-        $days = $profile->available_days;
-        if (! empty($days) && $job->start_date !== null) {
-            $end = $job->end_date ?? $job->start_date;
-            $needed = [];
-            for ($d = $job->start_date->copy(), $i = 0; $d->lte($end) && $i < 31; $d->addDay(), $i++) {
-                $needed[$d->dayOfWeekIso] = $d->format('D');
-            }
-            $off = array_diff_key($needed, array_flip(array_map('intval', $days)));
-            ksort($off);
-            $out[] = [
-                'key'  => 'days',
-                'met'  => $off === [],
-                'text' => $off === [] ? 'Works on the job dates' : 'Does not work ' . implode(', ', $off),
-            ];
-        }
-
-        // Distance against how far they said they would go.
-        if ($profile->travel_km !== null && $distanceKm !== null) {
-            $within = $distanceKm <= $profile->travel_km;
-            $out[] = [
-                'key'  => 'travel',
-                'met'  => $within,
-                'text' => ($within ? 'Within' : 'Outside') . " their {$profile->travel_km} km travel range",
-            ];
-        }
-
-        return $out;
     }
 
     /** The most profile strength can add to a rank, out of a fit of 100. */
@@ -342,16 +256,10 @@ class JobMatchService
         of 20, so a clearly better fit still wins while two people who fit
         about equally are separated by who has more to show for it.
     */
-    public static function rank(int $tier, int $fit, float $strength, int $criteriaBalance = 0): float
+    public static function rank(int $tier, int $fit, float $strength): float
     {
-        // Criteria between the tier and the fit: among people who hold the
-        // skills, the one whose rate, days and range suit this job comes
-        // first. Criteria met minus criteria missed, unknowns counting zero.
-        return $tier * 1000 + $criteriaBalance * self::CRITERION_WEIGHT + $fit + $strength;
+        return $tier * 1000 + $fit + $strength;
     }
-
-    /** What one met or missed hiring criterion moves a rank. */
-    public const CRITERION_WEIGHT = 15;
 
     /** No reviews and no finished jobs yet: shown as New on KAYA, never pushed up or down for it. */
     public static function isNew(WorkerProfile $profile): bool
