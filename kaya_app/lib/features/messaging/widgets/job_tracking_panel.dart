@@ -1,3 +1,5 @@
+import 'dart:ui' as ui;
+
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
@@ -5,6 +7,8 @@ import 'package:provider/provider.dart';
 
 import '../../../core/constants/app_colors.dart';
 import '../../../core/widgets/app_toast.dart';
+import '../../../core/widgets/profile_avatar.dart';
+import '../../../providers/auth_provider.dart';
 import '../../../providers/job_tracking_provider.dart';
 
 /// Location sharing for one hire, shown inside the chat.
@@ -22,11 +26,15 @@ class JobTrackingPanel extends StatefulWidget {
     required this.applicationId,
     required this.isWorker,
     required this.otherPartyName,
+    this.otherPartyAvatar,
   });
 
   final int applicationId;
   final bool isWorker;
   final String otherPartyName;
+
+  /// The other person's photo: on the employer's map, the worker on the move.
+  final String? otherPartyAvatar;
 
   @override
   State<JobTrackingPanel> createState() => _JobTrackingPanelState();
@@ -432,33 +440,39 @@ class _JobTrackingPanelState extends State<JobTrackingPanel> {
                     ),
                   MarkerLayer(
                     markers: [
-                      Marker(
-                        point: point,
-                        width: 36,
-                        height: 36,
-                        alignment: Alignment.topCenter,
-                        child: const Icon(Icons.location_pin,
-                            size: 36, color: AppColors.error),
-                      ),
-                      // The job site, drawn differently from the worker: one
-                      // moves and one does not, and two identical pins would
-                      // leave the employer working out which is which.
+                      /*
+                          Faces, not symbols.
+
+                          A red pin and a flag had to be learned; a face is
+                          read at a glance. The worker's photo is where the
+                          worker is, the employer's own photo marks the job
+                          site they are heading to. The rings stay different
+                          colours as well, since two similar faces at a small
+                          size could still be confused.
+                      */
                       if (destination != null)
                         Marker(
                           point: destination,
-                          width: 34,
-                          height: 34,
-                          child: Container(
-                            decoration: BoxDecoration(
-                              color: AppColors.primary,
-                              shape: BoxShape.circle,
-                              border:
-                                  Border.all(color: Colors.white, width: 2.5),
-                            ),
-                            child: const Icon(Icons.flag,
-                                size: 16, color: Colors.white),
+                          width: 46,
+                          height: 54,
+                          alignment: Alignment.topCenter,
+                          child: _PhotoPin(
+                            imageUrl: context.read<AuthProvider>().user?['avatar'] as String?,
+                            name: '${context.read<AuthProvider>().user?['name'] ?? 'You'}',
+                            ring: AppColors.success,
                           ),
                         ),
+                      Marker(
+                        point: point,
+                        width: 46,
+                        height: 54,
+                        alignment: Alignment.topCenter,
+                        child: _PhotoPin(
+                          imageUrl: widget.otherPartyAvatar,
+                          name: widget.otherPartyName,
+                          ring: AppColors.primary,
+                        ),
+                      ),
                     ],
                   ),
                 ],
@@ -536,4 +550,58 @@ class _JobTrackingPanelState extends State<JobTrackingPanel> {
     if (seconds < 3600) return '${(seconds / 60).floor()}m ago';
     return '${(seconds / 3600).floor()}h ago';
   }
+}
+
+/// A map pin made of a person's photo: a ringed circle with a point under it
+/// that sits on the spot. Initials when there is no photo.
+class _PhotoPin extends StatelessWidget {
+  const _PhotoPin({required this.imageUrl, required this.name, required this.ring});
+
+  final String? imageUrl;
+  final String name;
+  final Color ring;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          padding: const EdgeInsets.all(2.5),
+          decoration: BoxDecoration(
+            color: ring,
+            shape: BoxShape.circle,
+            boxShadow: const [
+              BoxShadow(color: Color(0x33000000), blurRadius: 6, offset: Offset(0, 2)),
+            ],
+          ),
+          child: Container(
+            padding: const EdgeInsets.all(1.5),
+            decoration: const BoxDecoration(color: Colors.white, shape: BoxShape.circle),
+            child: ProfileAvatar(imageUrl: imageUrl, name: name, radius: 17),
+          ),
+        ),
+        CustomPaint(size: const Size(12, 8), painter: _PinPoint(ring)),
+      ],
+    );
+  }
+}
+
+class _PinPoint extends CustomPainter {
+  _PinPoint(this.color);
+
+  final Color color;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final path = ui.Path()
+      ..moveTo(0, 0)
+      ..lineTo(size.width, 0)
+      ..lineTo(size.width / 2, size.height)
+      ..close();
+    canvas.drawPath(path, Paint()..color = color);
+  }
+
+  @override
+  bool shouldRepaint(_PinPoint old) => old.color != color;
 }

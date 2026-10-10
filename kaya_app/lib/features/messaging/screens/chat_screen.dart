@@ -243,6 +243,8 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
         'jobTitle': job?['title'],
         'jobId': conv?['job_id'],
         'otherUserId': other?['id'],
+        // Their photo, for the header and the location map's pin.
+        'avatar': other?['avatar'],
         'isVerified': (other?['is_verified'] as bool?) ?? false,
         'verificationState': other?['verification_state'],
         'lastSeenAt': other?['last_seen_at'],
@@ -437,6 +439,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
               applicationId: applicationId,
               isWorker: iAmWorker,
               otherPartyName: name.split(' ').first,
+              otherPartyAvatar: args['avatar'] as String?,
             ),
 
           Expanded(
