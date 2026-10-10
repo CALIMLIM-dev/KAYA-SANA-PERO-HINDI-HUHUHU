@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import '../widgets/experience_needed_picker.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:latlong2/latlong.dart';
@@ -207,9 +206,6 @@ class _PostJobScreenState extends State<PostJobScreen> {
   /// How many people the job is for. One is the common case; ten is the
   /// ceiling, above which it is a crew with a payroll and not a job post.
   int _workersNeeded = 1;
-
-  /// Years of experience asked for. Null asks for none.
-  int? _minExperience;
 
   /// The most a single post may hire. Matches the server's own cap.
   static const int _maxWorkers = 20;
@@ -437,9 +433,12 @@ class _PostJobScreenState extends State<PostJobScreen> {
             ordering anywhere. Placement is a real, paid thing now.
         */
         builder: (context) => AlertDialog(
-          title: const Text('Boost this post?'),
+          title: const Text('Boost this job to the top?'),
           content: Text(
-            'It stays at the top of the feed for ${JobBoost.days} days.',
+            'Job boost puts your post at the top of the job feed for '
+            '${context.read<CreditsProvider>().boostDays ?? JobBoost.days} days, above posts that are '
+            'not boosted, so it is the first thing workers near you see. '
+            'The Barya is taken when you post the job.',
           ),
           actions: [
             TextButton(
@@ -451,7 +450,7 @@ class _PostJobScreenState extends State<PostJobScreen> {
                 Navigator.pop(context);
                 setState(() => _isUrgent = true);
               },
-              child: Text('Boost for ${JobBoost.cost} Barya'),
+              child: Text('Boost for ${context.read<CreditsProvider>().boostCost ?? JobBoost.cost} Barya'),
             ),
           ],
         ),
@@ -961,20 +960,6 @@ class _PostJobScreenState extends State<PostJobScreen> {
               ),
               const SizedBox(height: 16),
 
-              // A hiring criterion matching holds every worker to.
-              _buildSection(
-                title: 'Experience Needed',
-                hint: 'Workers who meet it are listed first.',
-                icon: Icons.workspace_premium_outlined,
-                children: [
-                  ExperienceNeededPicker(
-                    value: _minExperience,
-                    onChanged: (v) => setState(() => _minExperience = v),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 16),
-
               /*
                   Negotiable is gone.
 
@@ -989,15 +974,18 @@ class _PostJobScreenState extends State<PostJobScreen> {
               */
               // Job Priority
               _buildSection(
-                title: 'Boost this job (optional)',
+                title: 'Urgent',
                 icon: Icons.flash_on_outlined,
-                hint: 'Top of the feed for ${context.watch<CreditsProvider>().boostDays ?? JobBoost.days} days, ${context.watch<CreditsProvider>().boostCost ?? JobBoost.cost} Barya.',
+                hint: 'Job boost puts this post at the top of the job feed for '
+                    '${context.watch<CreditsProvider>().boostDays ?? JobBoost.days} days, '
+                    'so it is the first job workers near you see. '
+                    '${context.watch<CreditsProvider>().boostCost ?? JobBoost.cost} Barya.',
                 children: [
                   Row(
                     children: [
                       Expanded(
                         child: _buildToggleButton(
-                          label: 'Boost to the top of the feed',
+                          label: 'Job boost',
                           icon: Icons.flash_on,
                           isActive: _isUrgent,
                           onTap: _handleUrgentToggle,
@@ -1101,11 +1089,6 @@ class _PostJobScreenState extends State<PostJobScreen> {
             style: TextStyle(fontSize: 12, color: AppColors.error),
           ),
         ],
-        const SizedBox(height: 6),
-        const Text(
-          'The day the work must be finished. Mark as complete opens that day.',
-          style: TextStyle(fontSize: 12, color: AppColors.textSecondary),
-        ),
 
         /*
             What the worker will actually see.
@@ -2414,7 +2397,6 @@ class _PostJobScreenState extends State<PostJobScreen> {
         // ends the day it starts rather than carrying no end at all.
         endDate:     _endDate,
         workersNeeded: _workersNeeded,
-        minExperienceYears: _minExperience,
       );
 
       setState(() => _isLoading = false);

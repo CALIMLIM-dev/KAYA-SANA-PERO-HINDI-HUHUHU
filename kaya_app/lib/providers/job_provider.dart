@@ -225,15 +225,12 @@ class JobProvider with ChangeNotifier {
     String? startTime,
     // How many people the job is for. One unless the employer says more.
     int workersNeeded = 1,
-    // Years of experience asked for; null asks for none.
-    int? minExperienceYears,
   }) async {
     _setLoading(true);
     try {
       final formData = FormData.fromMap({
         'title':               title,
         'workers_needed':      workersNeeded,
-        'min_experience_years': ?minExperienceYears,
         'description':         description,
         'category_id':         categoryId,
         'required_skill_ids':  skillIds,

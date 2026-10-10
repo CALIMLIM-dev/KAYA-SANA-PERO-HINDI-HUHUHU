@@ -30,6 +30,67 @@ class ExperienceSection extends StatefulWidget {
   State<ExperienceSection> createState() => _ExperienceSectionState();
 }
 
+/*
+    How long, in all, and for each job.
+
+    Months between the start and the end (or today, for a job still held),
+    with overlapping jobs counted once - two jobs held at the same time for
+    a year are a year of experience, not two. The same rule the server uses
+    when it ranks workers (ExperienceTotal), so the profile and the ranking
+    agree about how experienced somebody is.
+*/
+class ExperienceSpan {
+  ExperienceSpan._();
+
+  static DateTime? _date(String? s) =>
+      (s == null || s.isEmpty) ? null : DateTime.tryParse(s);
+
+  static int _months(DateTime a, DateTime b) =>
+      (b.year - a.year) * 12 + (b.month - a.month);
+
+  /// Months across every entry, overlaps counted once.
+  static int totalMonths(List<Map<String, String>> entries, {DateTime? today}) {
+    final now = today ?? DateTime.now();
+    final ranges = <(DateTime, DateTime)>[];
+    for (final e in entries) {
+      final start = _date(e['start_date']);
+      if (start == null) continue;
+      final end = _date(e['end_date']) ?? now;
+      if (end.isBefore(start)) continue;
+      ranges.add((start, end));
+    }
+    ranges.sort((a, b) => a.$1.compareTo(b.$1));
+
+    var months = 0;
+    DateTime? from, to;
+    for (final (start, end) in ranges) {
+      if (to != null && !start.isAfter(to)) {
+        if (end.isAfter(to)) to = end;
+        continue;
+      }
+      if (from != null) months += _months(from, to!);
+      from = start;
+      to = end;
+    }
+    if (from != null) months += _months(from, to!);
+    return months;
+  }
+
+  /// Months in one entry.
+  static int entryMonths(Map<String, String> entry, {DateTime? today}) =>
+      totalMonths([entry], today: today);
+
+  /// "5 years, 3 months", "8 months", "1 year", or "Under a month".
+  static String label(int months) {
+    final y = months ~/ 12, m = months % 12;
+    final parts = [
+      if (y > 0) '$y year${y == 1 ? '' : 's'}',
+      if (m > 0) '$m month${m == 1 ? '' : 's'}',
+    ];
+    return parts.isEmpty ? 'Under a month' : parts.join(', ');
+  }
+}
+
 class _ExperienceSectionState extends State<ExperienceSection> {
   /// The entry currently open, by id. 'new' is the add form.
   // Which entry is open is the sheet's business now, not a flag here.
@@ -342,6 +403,27 @@ class _ExperienceSectionState extends State<ExperienceSection> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        // The whole of it, before the jobs that add up to it.
+        if (widget.experiences.isNotEmpty)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 10),
+            child: Row(
+              children: [
+                const Icon(Icons.work_history_outlined, size: 18, color: AppColors.primary),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    '${ExperienceSpan.label(ExperienceSpan.totalMonths(widget.experiences))} of work in total',
+                    style: const TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.neutral900,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
         for (final exp in widget.experiences)
           CredentialRow(
             title: exp['title'] ?? '',
@@ -349,7 +431,8 @@ class _ExperienceSectionState extends State<ExperienceSection> {
               exp['company'] ?? '',
               if ((exp['start_date'] ?? '').isNotEmpty)
                 '${_toFormDate(exp['start_date'])} - '
-                    '${(exp['end_date'] ?? '').isEmpty ? 'Present' : _toFormDate(exp['end_date'])}',
+                    '${(exp['end_date'] ?? '').isEmpty ? 'Present' : _toFormDate(exp['end_date'])}'
+                    ' (${ExperienceSpan.label(ExperienceSpan.entryMonths(exp))})',
             ].where((s) => s.isNotEmpty).join('  ·  '),
             hasDocument: false,
             onTap: () {

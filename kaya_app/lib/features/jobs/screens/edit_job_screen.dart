@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import '../widgets/experience_needed_picker.dart';
 import 'package:provider/provider.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../data/models/location_model.dart';
@@ -73,10 +72,6 @@ class _EditJobScreenState extends State<EditJobScreen> {
 
   bool _isUrgent = false;
 
-  /// Years of experience asked for. Sent only once changed here, so a caller
-  /// that did not pass the job's value cannot clear it on save.
-  int? _minExperience;
-  bool _minExperienceTouched = false;
   bool _initialized = false;
 
   /// Categories from the server, each carrying its real id.
@@ -194,7 +189,6 @@ class _EditJobScreenState extends State<EditJobScreen> {
         */
         _salaryType = _periodToLabel(args['budget_period'] as String?);
         _isUrgent     = args['is_urgent'] == true || args['isUrgent'] == true;
-        _minExperience = (args['min_experience_years'] as num?)?.toInt();
         _selectedSkillIds = List<int>.from(args['skill_ids'] ?? const <int>[]);
 
         /*
@@ -481,21 +475,6 @@ class _EditJobScreenState extends State<EditJobScreen> {
                 ],
               ),
 
-              const SizedBox(height: 12),
-
-              // A hiring criterion matching holds every worker to.
-              _section(
-                title: 'Experience Needed',
-                children: [
-                  ExperienceNeededPicker(
-                    value: _minExperience,
-                    onChanged: (v) => setState(() {
-                      _minExperience = v;
-                      _minExperienceTouched = true;
-                    }),
-                  ),
-                ],
-              ),
 
               const SizedBox(height: 12),
 
@@ -600,13 +579,13 @@ class _EditJobScreenState extends State<EditJobScreen> {
 
               // ── Job Priority ──
               _section(
-                title: 'Boost this job (optional)',
+                title: 'Urgent',
                 children: [
                   Row(
                     children: [
                       Expanded(
                         child: _toggleButton(
-                          label: 'Boost to the top of the feed',
+                          label: 'Job boost',
                           icon: Icons.flash_on,
                           isActive: _isUrgent,
                           onTap: () =>
@@ -1049,7 +1028,6 @@ class _EditJobScreenState extends State<EditJobScreen> {
       */
       'budget_max': ?budgetMax,
       'budget_period': _periodValue,
-      if (_minExperienceTouched) 'min_experience_years': _minExperience ?? 0,
       'is_urgent': _isUrgent,
       'required_skill_ids': _selectedSkillIds,
       'location': _locationController.text.trim(),
