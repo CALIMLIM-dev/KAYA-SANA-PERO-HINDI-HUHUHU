@@ -129,45 +129,40 @@ void main() {
   });
 
   /*
-      More jobs make the row longer, never the screen taller: the cards sit
-      side by side and scroll sideways.
+      A long list stays two cards tall: the rest are behind See all, not
+      stacked down the home screen.
   */
-  testWidgets('more active jobs do not make the section taller', (tester) async {
-    Future<double> heightWith(int n) async {
-      await pump(
-        tester,
-        host(
-          worker: false,
-          employer: true,
-          jobs: [for (var i = 1; i <= n; i++) post(i, 'Post number $i')],
-        ),
-      );
-      expect(find.textContaining('Post number 1'), findsWidgets);
-      return tester.getSize(find.byType(ActiveSection)).height;
-    }
-
-    final two = await heightWith(2);
-    final four = await heightWith(4);
-
-    expect(four, two);
-    expect(
-      find.byWidgetPredicate((w) => w is SingleChildScrollView && w.scrollDirection == Axis.horizontal),
-      findsOneWidget,
-    );
-    expect(find.textContaining('See all'), findsNothing);
-  });
-
-  testWidgets('past six, See all opens the rest', (tester) async {
+  testWidgets('four items: two cards and See all', (tester) async {
     await pump(
       tester,
       host(
         worker: false,
         employer: true,
-        jobs: [for (var i = 1; i <= 7; i++) post(i, 'Post number $i')],
+        jobs: [for (var i = 1; i <= 4; i++) post(i, 'Post number $i')],
       ),
     );
 
-    expect(find.text('See all 7'), findsOneWidget);
+    expect(find.textContaining('Post number 2'), findsWidgets);
+    expect(find.textContaining('Post number 3'), findsNothing);
+    expect(find.text('See all 4'), findsOneWidget);
+    expect(
+      find.byWidgetPredicate((w) => w is SingleChildScrollView && w.scrollDirection == Axis.horizontal),
+      findsNothing,
+    );
+  });
+
+  testWidgets('two items: both shown, no See all', (tester) async {
+    await pump(
+      tester,
+      host(
+        worker: false,
+        employer: true,
+        jobs: [post(1, 'Post number 1'), post(2, 'Post number 2')],
+      ),
+    );
+
+    expect(find.textContaining('Post number 2'), findsWidgets);
+    expect(find.textContaining('See all'), findsNothing);
   });
 
   testWidgets('nothing active means nothing drawn', (tester) async {

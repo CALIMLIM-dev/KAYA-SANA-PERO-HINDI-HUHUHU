@@ -840,7 +840,7 @@ class _UnifiedHomeScreenState extends State<UnifiedHomeScreen>
                       const SizedBox(height: 12),
                       // Activity cards follow the profiles the account holds:
                       //   worker only   → My Applications
-                      //   employer only → Active Jobs
+                      //   employer only → My Jobs
                       //   both          → both
                       // These were previously hardcoded to 3 and 1 and shown to
                       // everyone regardless of role.
@@ -862,12 +862,12 @@ class _UnifiedHomeScreenState extends State<UnifiedHomeScreen>
                               child: _ActivityCard(
                                 icon: Icons.work,
                                 iconColor: AppColors.primary,
-                                // Same rule the manage-jobs screen filters by,
-                                // held in one place so the two cannot part
-                                // company the way the applications pair did.
-                                count: jobProvider.activeJobs.length,
-                                label: 'Active Jobs',
-                                onTap: _navigateToActiveJobs,
+                                // Named as the screen it opens, and counting
+                                // every post on it. The work under way is
+                                // already the Active list below.
+                                count: jobProvider.jobs.length,
+                                label: 'My Jobs',
+                                onTap: _navigateToMyJobs,
                               ),
                             ),
                             if (appMode.hasWorkerProfile &&
@@ -1417,7 +1417,7 @@ class _UnifiedHomeScreenState extends State<UnifiedHomeScreen>
   }
 
   // Simple navigation methods - always go to screens
-  void _navigateToActiveJobs() {
+  void _navigateToMyJobs() {
     AppRouter.push(context, '/manage-jobs');
   }
 

@@ -17,13 +17,12 @@ import '../../applications/screens/applications_screen.dart';
     second drawing of the same job that has to be kept in step with the
     first. This is the first.
 
-    One row that scrolls sideways, not a stack. Stacked, every active job
-    made the home screen taller and pushed everything under it further
-    down; side by side the section is one card tall however many there
-    are. The next card shows at the edge so it reads as a row to swipe.
+    Two compact cards, then See all. However many jobs are running, the
+    section is never taller than two cards; the rest are one tap away on
+    the Active screen.
 */
 class ActiveSection extends StatelessWidget {
-  const ActiveSection({super.key, required this.onChanged, this.maxRows = 6});
+  const ActiveSection({super.key, required this.onChanged, this.maxRows = 2});
 
   /// Refetches the home screen after a card changes something.
   final Future<void> Function() onChanged;
@@ -75,31 +74,7 @@ class ActiveSection extends StatelessWidget {
               ],
             ),
           ),
-          if (items.length == 1)
-            activeCard(items.first, onChanged, compact: true)
-          else
-            LayoutBuilder(
-              builder: (context, box) {
-                final cardWidth = box.maxWidth * 0.82;
-                return SingleChildScrollView(
-                  scrollDirection: Axis.horizontal,
-                  clipBehavior: Clip.none,
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      for (final row in items.take(maxRows))
-                        Padding(
-                          padding: const EdgeInsets.only(right: 10),
-                          child: SizedBox(
-                            width: cardWidth,
-                            child: activeCard(row, onChanged, compact: true),
-                          ),
-                        ),
-                    ],
-                  ),
-                );
-              },
-            ),
+          for (final row in items.take(maxRows)) activeCard(row, onChanged, compact: true),
         ],
       ),
     );

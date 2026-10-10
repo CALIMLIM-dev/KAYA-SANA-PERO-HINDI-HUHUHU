@@ -355,7 +355,8 @@ class _ApplicationsScreenState extends State<ApplicationsScreen>
               backgroundColor: AppColors.primary,
               foregroundColor: Colors.white,
               elevation: 0,
-              title: const Text('My Activity',
+              // The name on the home card that opens it.
+              title: const Text('My Applications',
                   style: TextStyle(fontWeight: FontWeight.w600)),
               /*
                   The strip lives above the tabs, in the header.
@@ -544,7 +545,7 @@ class _ApplicationsScreenState extends State<ApplicationsScreen>
         backgroundColor: AppColors.primary,
         foregroundColor: Colors.white,
         elevation: 0,
-        title: const Text('My Activity',
+        title: const Text('My Applications',
             style: TextStyle(fontWeight: FontWeight.w600)),
       ),
       body: Center(
