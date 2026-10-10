@@ -21,6 +21,7 @@ import '../../help/screens/faq_screen.dart';
 import '../widgets/place_picker_sheet.dart';
 import '../widgets/recommendation_row.dart';
 import '../widgets/active_section.dart';
+import '../widgets/home_carousel.dart';
 import '../widgets/unified_search_bar.dart';
 import '../widgets/jobs_near_you_section.dart';
 import '../widgets/people_who_can_help_section.dart';
@@ -92,9 +93,37 @@ class _UnifiedHomeScreenState extends State<UnifiedHomeScreen>
   int? _placeId;
   String? _placeLabel;
 
-  /// Whichever city the account has already given, from either profile.
+  /// Set once the place was picked here; the profile's town no longer moves it.
+  bool _placeChosen = false;
+
+  /*
+      Where Jobs Near You looks, once a town is picked for it.
+
+      Null means near the worker: the server orders by distance from their
+      own pin or town. A picked town filters to it and everything in it.
+  */
+  int? _jobPlaceId;
+  String? _jobPlaceLabel;
+
+  /// The town /me last reported, to notice when the profile changes it.
+  int? _lastKnownCityId;
+  bool _seenKnownCity = false;
+
+  static int? _knownCityId(AuthProvider auth) {
+    final known = auth.user?['known_location'] as Map<String, dynamic>?;
+    final city = (known?['city'] as Map<String, dynamic>?) ?? known;
+    return (city?['location_id'] as num?)?.toInt();
+  }
+
+  /*
+      Whichever city the account has already given, from either profile.
+
+      Adopted again whenever it changes, unless a place was picked on home:
+      this used to adopt once and never again, so moving town on the
+      profile left home searching the old one until the app restarted.
+  */
   void _adoptKnownPlace(AuthProvider auth) {
-    if (_placeId != null) return;
+    if (_placeChosen) return;
 
     final known = auth.user?['known_location'] as Map<String, dynamic>?;
     final city = (known?['city'] as Map<String, dynamic>?) ?? known;
@@ -105,6 +134,22 @@ class _UnifiedHomeScreenState extends State<UnifiedHomeScreen>
     _placeLabel = (city['label'] ?? '').toString();
   }
 
+  /// Reloads home when the profile's town changes underneath it.
+  void _followKnownCity(AuthProvider auth) {
+    final id = _knownCityId(auth);
+    if (id == _lastKnownCityId) return;
+    _lastKnownCityId = id;
+
+    // The first sighting is the load initState already started.
+    if (!_seenKnownCity) {
+      _seenKnownCity = true;
+      return;
+    }
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _initializeData();
+    });
+  }
+
   /// The place picker, from the section header or its empty state.
   Future<void> _pickPlace() async {
     final picked = await showPlacePickerSheet(context, current: _placeLabel);
@@ -113,6 +158,29 @@ class _UnifiedHomeScreenState extends State<UnifiedHomeScreen>
     setState(() {
       _placeId = picked.id;
       _placeLabel = picked.displayName;
+      _placeChosen = true;
+    });
+
+    await _initializeData();
+  }
+
+  /// The same picker for Jobs Near You. [clear] goes back to near me.
+  Future<void> _pickJobPlace({bool clear = false}) async {
+    if (clear) {
+      setState(() {
+        _jobPlaceId = null;
+        _jobPlaceLabel = null;
+      });
+      await _initializeData();
+      return;
+    }
+
+    final picked = await showPlacePickerSheet(context, current: _jobPlaceLabel);
+    if (picked == null || !mounted) return;
+
+    setState(() {
+      _jobPlaceId = picked.id;
+      _jobPlaceLabel = picked.displayName;
     });
 
     await _initializeData();
@@ -248,7 +316,8 @@ class _UnifiedHomeScreenState extends State<UnifiedHomeScreen>
         eighty kilometres away.
     */
     await Future.wait([
-      if (!employerOnly) jobProvider.fetchPublicJobs(nearestFirst: true),
+      // Near the worker, or in the town they picked for this list.
+      if (!employerOnly) jobProvider.fetchPublicJobs(nearestFirst: true, locationId: _jobPlaceId),
       // Bounded by the place, ranked best first. No radius: a circle
       // around a point is not how anybody describes where they will
       // work.
@@ -569,6 +638,9 @@ class _UnifiedHomeScreenState extends State<UnifiedHomeScreen>
         // Dual setup card only for accounts on neither side of the marketplace
         final shouldShowOverlay =
             _shouldShowProfileSetupPrompt(authProvider, appMode);
+
+        // A town changed on the profile reaches home without a restart.
+        _followKnownCity(authProvider);
 
         // Content follows the active mode (worker → jobs, employer → workers)
         final currentFilter = _getFilterForMode(appMode);
@@ -921,6 +993,17 @@ class _UnifiedHomeScreenState extends State<UnifiedHomeScreen>
                 child: ActiveSection(onChanged: _refreshData),
               ),
 
+              // Banners and boosted profiles, for the side being shown:
+              // jobs for someone looking for work, workers for a hirer.
+              SliverToBoxAdapter(
+                child: HomeCarousel(
+                  side: appMode.effectiveMode.showsEmployerSide &&
+                          !(appMode.effectiveMode.showsWorkerSide && appMode.hasWorkerProfile)
+                      ? 'employer'
+                      : 'worker',
+                ),
+              ),
+
               // Jobs Near You Section (conditional based on filter)
               if (_showJobsSection(currentFilter)) ...[
                 SliverToBoxAdapter(
@@ -928,6 +1011,11 @@ class _UnifiedHomeScreenState extends State<UnifiedHomeScreen>
                     jobs: _filteredJobs,
                     isLoading: _isLoading,
                     userLocation: authProvider.user?['city'] as String?,
+                    // A town picked for this list, the same control the
+                    // employer's worker list has.
+                    placeLabel: _jobPlaceLabel,
+                    onChangePlace: () => _pickJobPlace(),
+                    onClearPlace: () => _pickJobPlace(clear: true),
                     onSeeAll: () => AppRouter.toSearchJobs(context),
                     onJobTap: _onJobTap,
                     onJobContact: _contactEmployer,

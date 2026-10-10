@@ -150,6 +150,12 @@ Route::prefix('admin')->name('admin.')->group(function () {
             Route::get('/announcements', [AnnouncementController::class, 'index'])->name('announcements.index');
             Route::post('/announcements', [AnnouncementController::class, 'send'])->name('announcements.send');
 
+            // The photo banners on the home screen.
+            Route::get('/banners', [\App\Http\Controllers\Admin\BannerController::class, 'index'])->name('banners.index');
+            Route::post('/banners', [\App\Http\Controllers\Admin\BannerController::class, 'store'])->name('banners.store');
+            Route::post('/banners/{banner}/toggle', [\App\Http\Controllers\Admin\BannerController::class, 'toggle'])->name('banners.toggle');
+            Route::delete('/banners/{banner}', [\App\Http\Controllers\Admin\BannerController::class, 'destroy'])->name('banners.destroy');
+
             Route::get('/audit', [AuditController::class, 'index'])->name('audit.index');
 
             Route::get('/settings', [SettingsController::class, 'index'])->name('settings.index');

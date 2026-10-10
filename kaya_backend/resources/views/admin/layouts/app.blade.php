@@ -67,6 +67,7 @@
                     'Communication' => [
                         ['route' => 'admin.support.index',       'label' => 'Support',             'icon' => 'life-buoy', 'can' => 'moderate', 'queue' => 'support'],
                         ['route' => 'admin.announcements.index', 'label' => 'Announcements',       'icon' => 'megaphone', 'can' => 'settings'],
+                        ['route' => 'admin.banners.index',       'label' => 'Home Banners',        'icon' => 'image',     'can' => 'settings'],
                     ],
                     'System' => [
                         ['route' => 'admin.admins.index',        'label' => 'Administrators',      'icon' => 'shield',       'can' => 'settings'],

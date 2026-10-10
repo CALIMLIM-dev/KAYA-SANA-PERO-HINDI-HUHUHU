@@ -268,7 +268,8 @@ void main() {
 
       // Scrolled, because a sliver list only lays out what is on screen and
       // the sections further down would never be built otherwise.
-      for (var i = 0; i < 5; i++) {
+      // Six, since the home carousel sits above these rows.
+      for (var i = 0; i < 6; i++) {
         await tester.drag(
           find.byType(CustomScrollView).first,
           const Offset(0, -350),

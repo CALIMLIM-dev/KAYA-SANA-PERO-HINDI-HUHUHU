@@ -173,11 +173,6 @@ class _SheetHeader extends StatelessWidget {
                           ),
                         ),
                       ),
-                      const SizedBox(height: 2),
-                      const Text(
-                        'Ranked on the skills you asked for, rate, days, distance and experience.',
-                        style: TextStyle(fontSize: 12, color: AppColors.neutral500),
-                      ),
                     ],
                   ),
                 ),

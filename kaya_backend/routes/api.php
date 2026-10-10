@@ -101,6 +101,8 @@ Route::prefix('v1')->group(function () {
 
         // Worker directory (employer-mode browse/search)
         Route::get('/workers', [WorkerProfileController::class, 'browse']);
+        // The home carousel: admin banners and boosted profiles as ads.
+        Route::get('/home/featured', [\App\Http\Controllers\Api\V1\HomeFeatureController::class, 'index']);
         Route::get('/workers/{user}', [WorkerProfileController::class, 'show']);
 
         // Skills & Categories.
