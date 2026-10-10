@@ -183,7 +183,14 @@ class JobController extends Controller
             nothing can compute would empty the feed instead of narrowing
             it.
         */
-        if ($radius === null && $profile !== null && $this->hasPlace($profile)) {
+        /*
+            Not when a place was asked for. A worker in Urdaneta choosing
+            "Where: Dagupan" was still held to ten kilometres around
+            Urdaneta, so every job in the town they asked for was too far and
+            the list came back empty.
+        */
+        if ($radius === null && ! $request->filled('location_id')
+            && $profile !== null && $this->hasPlace($profile)) {
             $radius = \App\Services\WorkingDistance::LIMIT_KM;
         }
 
@@ -594,8 +601,8 @@ class JobController extends Controller
             // Never suggest the employer their own worker profile.
             ->where('user_id', '!=', $user->id)
             ->get()
-            // Only workers who finished setup are contactable.
-            ->filter(fn ($p) => $p->isSetupCompleted());
+            // Listed workers; matching says what each one has not filled in.
+            ->filter(fn ($p) => $p->isListable());
 
         /*
             Who this employer has finished a job with before.

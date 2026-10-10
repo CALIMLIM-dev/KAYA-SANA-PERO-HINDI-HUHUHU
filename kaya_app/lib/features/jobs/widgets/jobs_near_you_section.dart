@@ -14,6 +14,11 @@ class JobsNearYouSection extends StatelessWidget {
   final Function(Job)? onJobTap;
   final Function(Job)? onJobContact;
 
+  /// A town picked for this list; null means near the worker.
+  final String? placeLabel;
+  final VoidCallback? onChangePlace;
+  final VoidCallback? onClearPlace;
+
   const JobsNearYouSection({
     super.key,
     required this.jobs,
@@ -22,6 +27,9 @@ class JobsNearYouSection extends StatelessWidget {
     this.onSeeAll,
     this.onJobTap,
     this.onJobContact,
+    this.placeLabel,
+    this.onChangePlace,
+    this.onClearPlace,
   });
 
   /// What this list actually is, rather than what we wish it were.
@@ -36,6 +44,8 @@ class JobsNearYouSection extends StatelessWidget {
   /// town would otherwise open the app to an empty screen — so the heading is
   /// what has to change.
   String _subtitle() {
+    if (placeLabel != null) return 'Jobs in this town';
+
     final hasDistances = jobs.any((j) => j.distance != null);
 
     if (!hasDistances) {
@@ -86,6 +96,47 @@ class JobsNearYouSection extends StatelessWidget {
                         color: AppColors.neutral900,
                       ),
                     ),
+                    /*
+                        Where, and the way to change it - the same control
+                        the employer's worker list carries. Near the worker
+                        until a town is picked; the cross goes back.
+                    */
+                    if (onChangePlace != null)
+                      InkWell(
+                        onTap: onChangePlace,
+                        borderRadius: BorderRadius.circular(6),
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 2),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Icon(Icons.place_outlined, size: 13, color: AppColors.neutral600),
+                              const SizedBox(width: 3),
+                              Flexible(
+                                child: Text(
+                                  placeLabel ?? userLocation ?? 'Near you',
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                        color: AppColors.neutral600,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                ),
+                              ),
+                              const Icon(Icons.expand_more, size: 15, color: AppColors.neutral600),
+                              if (placeLabel != null && onClearPlace != null)
+                                InkWell(
+                                  onTap: onClearPlace,
+                                  customBorder: const CircleBorder(),
+                                  child: const Padding(
+                                    padding: EdgeInsets.all(4),
+                                    child: Icon(Icons.close, size: 14, color: AppColors.neutral500),
+                                  ),
+                                ),
+                            ],
+                          ),
+                        ),
+                      ),
                     Text(
                       _subtitle(),
                       maxLines: 2,

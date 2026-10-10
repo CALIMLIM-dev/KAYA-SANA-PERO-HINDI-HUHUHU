@@ -886,12 +886,16 @@ class _MyWorkerProfileScreenState extends State<MyWorkerProfileScreen> with Sing
       }
     }
 
+    // Read before the await: home takes its town from /me, which has to
+    // be asked again or home keeps the old one.
+    final auth = context.read<AuthProvider>();
     final ok = await provider.updateLocation(
       label,
       locationId: locationId,
       latitude: lat,
       longitude: lng,
     );
+    if (ok) await auth.fetchMe();
     if (!mounted) return;
 
     if (!ok) {
@@ -1369,10 +1373,13 @@ class _MyWorkerProfileScreenState extends State<MyWorkerProfileScreen> with Sing
                 on its own when there is no pin, so only a real pin is saved
                 as one. Changing city drops the old pin server-side.
             */
+            final auth = context.read<AuthProvider>();
             final ok = await provider.updateLocation(
               place.displayName,
               locationId: place.id,
             );
+            // Home reads the town from /me; ask again so it follows.
+            if (ok) await auth.fetchMe();
             return ok ? null : (provider.errorMessage ?? 'Could not save.');
           },
         ),

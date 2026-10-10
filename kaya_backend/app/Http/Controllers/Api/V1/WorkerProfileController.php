@@ -1295,7 +1295,7 @@ class WorkerProfileController extends Controller
 
         // isSetupCompleted() requires at least one skill row, so this eager-loads
         // the same relation the filter checks — no extra query per row.
-        $profiles = $query->get()->filter(fn (WorkerProfile $p) => $p->isSetupCompleted());
+        $profiles = $query->get()->filter(fn (WorkerProfile $p) => $p->isListable());
 
         // Where the person browsing is, so each worker can carry a real
         // "x km away" instead of the employer guessing from a place name.

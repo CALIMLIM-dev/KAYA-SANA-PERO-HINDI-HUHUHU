@@ -229,4 +229,21 @@ class WorkerProfile extends Model
         return $this->missingForCompletion() === [];
     }
 
+    /*
+        Enough to be listed: a trade, a skill and a town.
+
+        Being found and being able to act are separate bars. The directory
+        and a hirer's matched list used the full completeness rule, and when
+        that rule became the panel's comprehensive one nearly every existing
+        worker vanished from both - a town searched in "Where" came back
+        empty. A listed worker with gaps is still shown, and matching says
+        which criteria it could not judge; applying still needs it all.
+    */
+    public function isListable(): bool
+    {
+        $missing = $this->missingForCompletion();
+
+        return ! isset($missing['trade']) && ! isset($missing['skill']) && filled($this->location);
+    }
+
 }
