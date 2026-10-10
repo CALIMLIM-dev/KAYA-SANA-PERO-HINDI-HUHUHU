@@ -140,6 +140,7 @@ class AnalyticsTest extends TestCase
         $this->assertSame(2, $response->viewData('headline')['admins']);
         $response->assertSee('Users')
             ->assertDontSee('admins not counted')
+            ->assertDontSee('Admins')
             ->assertSee('Workers')
             ->assertSee('Employers')
             ->assertSee('Hybrid')

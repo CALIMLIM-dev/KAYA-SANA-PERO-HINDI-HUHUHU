@@ -268,7 +268,6 @@
             ['Workers', number_format($composition['worker_only'])],
             ['Employers', number_format($composition['employer_only'])],
             ['Hybrid', number_format($composition['hybrid'])],
-            ['Admins', number_format($headline['admins'])],
             ['Jobs posted', number_format($headline['jobs'])],
             ['Applications', number_format($headline['applications'])],
             ['Workers hired', number_format($headline['hires'])],
