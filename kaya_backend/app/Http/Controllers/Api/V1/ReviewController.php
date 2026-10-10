@@ -116,25 +116,31 @@ class ReviewController extends Controller
             return $this->fail('You have already reviewed this person for this job', 422);
         }
 
-        $review = DB::transaction(function () use ($user, $revieweeId, $job, $data, $role) {
-            $review = Review::create([
-                'reviewer_id'   => $user->id,
-                'reviewee_id'   => $revieweeId,
-                'job_id'        => $job->id,
-                'reviewee_role' => $role,
-                'rating'        => $data['rating'],
-                'comment'       => $data['comment'] ?? null,
-                // Deduplicated and re-indexed, so the same chip sent twice is
-                // stored once and the json is a list rather than an object.
-                'tags'          => isset($data['tags'])
-                    ? array_values(array_unique($data['tags']))
-                    : null,
-            ]);
+        // A double tap can pass the check above twice; the unique index
+        // catches the second, and it gets the same answer.
+        try {
+            $review = DB::transaction(function () use ($user, $revieweeId, $job, $data, $role) {
+                $review = Review::create([
+                    'reviewer_id'   => $user->id,
+                    'reviewee_id'   => $revieweeId,
+                    'job_id'        => $job->id,
+                    'reviewee_role' => $role,
+                    'rating'        => $data['rating'],
+                    'comment'       => $data['comment'] ?? null,
+                    // Deduplicated and re-indexed, so the same chip sent twice is
+                    // stored once and the json is a list rather than an object.
+                    'tags'          => isset($data['tags'])
+                        ? array_values(array_unique($data['tags']))
+                        : null,
+                ]);
 
-            RatingService::recompute($revieweeId, $role);
+                RatingService::recompute($revieweeId, $role);
 
-            return $review;
-        });
+                return $review;
+            });
+        } catch (\Illuminate\Database\UniqueConstraintViolationException) {
+            return $this->fail('You have already reviewed this person for this job', 422);
+        }
 
         /*
             A review can be the one that earns Highly Rated, so the badges are

@@ -115,6 +115,11 @@ class ReportController extends Controller
             'resolution_note.min' => 'Write a little more about what you found.',
         ]);
 
+        // A second submit would notify both people a second time.
+        if (in_array($report->status, ['resolved', 'dismissed'], true)) {
+            return back()->withErrors(['resolution_note' => 'This report has already been closed.']);
+        }
+
         $note = $data['resolution_note'] ?? null;
 
         if ($data['status'] === 'resolved') {
@@ -190,6 +195,14 @@ class ReportController extends Controller
             'note.required' => 'Write your finding before suspending.',
             'note.min' => 'Write a little more about what you found.',
         ]);
+
+        if (in_array($report->status, ['resolved', 'dismissed'], true)) {
+            return back()->withErrors(['reason_code' => 'This report has already been closed.']);
+        }
+
+        if ($report->reported === null) {
+            return back()->withErrors(['reason_code' => 'The reported account no longer exists.']);
+        }
 
         if ($report->reported->isAdmin()) {
             return back()->withErrors(['reason_code' => 'Administrator accounts cannot be suspended here.']);

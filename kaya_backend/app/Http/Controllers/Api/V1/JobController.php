@@ -77,7 +77,9 @@ class JobController extends Controller
             The id matches the place and everything inside it, the same rule
             the worker directory uses.
         */
-        if ($locationId = $request->get('location_id')) {
+        $locationId = $request->get('location_id');
+        if (is_numeric($locationId)) {
+            $locationId = (int) $locationId;
             $place = \App\Models\Location::find($locationId);
 
             $query->whereIn(
@@ -1296,6 +1298,12 @@ class JobController extends Controller
         // application, their chat and their tracking with it, by cascade.
         if ($job->status === 'in_progress') {
             return $this->fail('This job has a worker on it. Finish or cancel it first.', 422);
+        }
+
+        // Work happened on it. The cascade would take the hires, the chat
+        // and the reviews the worker earned, so the record stays.
+        if (Application::where('job_id', $job->id)->whereIn('status', ['accepted', 'completed'])->exists()) {
+            return $this->fail('Somebody was hired on this job, so its record stays. Close it instead.', 422);
         }
 
         /*

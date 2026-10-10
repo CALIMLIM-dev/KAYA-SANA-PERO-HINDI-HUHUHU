@@ -283,6 +283,22 @@ class ConversationController extends Controller
             'deadline.after_or_equal' => 'The deadline cannot be before the work starts.',
         ]);
 
+        // An accepted day moves that job's deadline, so the job has to be
+        // one between these two: one posted, the other hired on it.
+        if (isset($data['job_id']) && (int) $data['job_id'] !== (int) $conversation->job_id) {
+            $pair = [$conversation->employer_id, $conversation->worker_id];
+            $theirs = \App\Models\JobPost::whereKey($data['job_id'])
+                ->whereIn('employer_id', $pair)
+                ->whereHas('applications', fn ($q) => $q
+                    ->whereIn('worker_id', $pair)
+                    ->whereIn('status', ['accepted', 'completed']))
+                ->exists();
+
+            if (! $theirs) {
+                return $this->fail('That job is not one between the two of you.', 422);
+            }
+        }
+
         $proposal = DB::transaction(function () use ($conversation, $user, $data) {
             /*
                 One offer per thread, and a new one replaces the old plan.

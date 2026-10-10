@@ -259,7 +259,7 @@ class InvitationController extends Controller
         if (!$user->isWorker()) return $this->fail('Forbidden', 403);
 
         $invitations = $user->invitationsReceived()
-            ->with(['job.category:id,name', 'employer:id,name,avatar,is_verified', 'employer.employerProfile'])
+            ->with(['job.category:id,name', 'employer:id,name,avatar,is_verified', 'employer.employerProfile', 'employer.workerProfile:id,user_id,profile_photo_path'])
             ->latest()
             ->paginate(20);
 
@@ -304,7 +304,7 @@ class InvitationController extends Controller
                     'name'        => $isCompany && filled($profile?->company_name) ? $profile->company_name : $employer->name,
                     'person_name' => $employer->name,
                     'is_company'  => $isCompany,
-                    'avatar'      => $employer->avatar,
+                    'avatar'      => $employer->resolvedAvatarUrl(),
                     'is_verified' => (bool) $employer->is_verified,
                     'verification_state' => $employer->verification_state,
                     'rating'      => $profile?->rating_avg !== null ? (float) $profile->rating_avg : null,
@@ -368,6 +368,9 @@ class InvitationController extends Controller
         $job = $invitation->job;
         if (!$job || ! $job->isOpenForApplications()) return $this->fail('Job is no longer available', 422);
 
+        // The same cap as accepting an applicant: a job for three takes three.
+        if ($job->isFull()) return $this->fail('All the spots on this job are already filled.', 422);
+
         /*
             A worker with other work can still take this.
 
@@ -385,7 +388,9 @@ class InvitationController extends Controller
             ['status' => 'accepted']
         );
 
-        if (in_array($application->status, ['pending', 'withdrawn'])) {
+        // Rejected too: the employer turned the application down and then
+        // invited them anyway, which is them changing their mind.
+        if (in_array($application->status, ['pending', 'withdrawn', 'rejected'])) {
             $application->update(['status' => 'accepted']);
         }
 
@@ -399,7 +404,8 @@ class InvitationController extends Controller
             in progress"), so the tracker never appeared for a worker who came
             in through an invitation while it worked for one who applied.
         */
-        if ($job->status === 'open') {
+        // Off the feed once every spot is taken, as on accepting an applicant.
+        if ($job->status === 'open' && $job->fresh()->isFull()) {
             $job->update(['status' => 'in_progress']);
         }
 

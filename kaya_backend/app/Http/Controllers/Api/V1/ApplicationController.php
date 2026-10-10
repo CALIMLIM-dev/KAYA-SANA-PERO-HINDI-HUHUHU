@@ -99,6 +99,10 @@ class ApplicationController extends Controller
             ->first();
 
         if ($invitation !== null) {
+            if ($job->isFull()) {
+                return $this->fail('All the spots on this job are already filled.', 422);
+            }
+
             $invitation->update(['status' => 'accepted']);
 
             $application = Application::create([
@@ -107,7 +111,7 @@ class ApplicationController extends Controller
                 'status'    => 'accepted',
             ]);
 
-            if ($job->status === 'open') {
+            if ($job->status === 'open' && $job->fresh()->isFull()) {
                 $job->update(['status' => 'in_progress']);
             }
 

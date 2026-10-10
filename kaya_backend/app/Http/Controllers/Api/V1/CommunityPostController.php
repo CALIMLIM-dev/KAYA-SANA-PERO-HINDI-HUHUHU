@@ -405,14 +405,31 @@ class CommunityPostController extends Controller
         The poster takes it down. No refund: the days already on the board
         were delivered, and a post pulled the same hour it went up is the
         poster's choice, the same rule a boost follows.
+
+        A post still waiting to be read was never on the board, so nothing
+        was delivered: withdrawing it returns the charge, as a refusal does.
     */
-    public function destroy(Request $request, CommunityPost $post)
+    public function destroy(Request $request, CommunityPost $post, CreditLedger $ledger)
     {
         if ($post->user_id !== $request->user()->id) {
             return $this->fail('Forbidden', 403);
         }
 
-        if (in_array($post->status, [CommunityPost::STATUS_LIVE, CommunityPost::STATUS_PENDING], true)) {
+        if ($post->status === CommunityPost::STATUS_PENDING) {
+            $post->update(['status' => CommunityPost::STATUS_ENDED]);
+
+            $charge = $post->credit_transaction_id
+                ? \App\Models\CreditTransaction::find($post->credit_transaction_id)
+                : null;
+
+            if ($charge) {
+                $ledger->refund($charge, 'Community post withdrawn before it went up');
+            }
+
+            return $this->ok(null, $charge ? 'Post withdrawn and your Barya returned' : 'Post withdrawn');
+        }
+
+        if ($post->status === CommunityPost::STATUS_LIVE) {
             $post->update(['status' => CommunityPost::STATUS_ENDED]);
         }
 

@@ -253,6 +253,8 @@ class CommunityBoardTest extends TestCase
     {
         $worker = $this->worker(20);
         $post = CommunityPost::find($this->notice($worker)->json('data.id'));
+        // On the board: its days were delivered.
+        $post->forceFill(['status' => 'live', 'expires_at' => now()->addDays(3)])->save();
 
         $this->actingAs($worker, 'sanctum')->deleteJson("/api/v1/community/{$post->id}")->assertOk();
         $this->assertSame('ended', $post->fresh()->status);
@@ -261,6 +263,20 @@ class CommunityBoardTest extends TestCase
         // Somebody else cannot.
         $other = CommunityPost::find($this->notice($this->worker())->json('data.id'));
         $this->actingAs($worker, 'sanctum')->deleteJson("/api/v1/community/{$other->id}")->assertStatus(403);
+    }
+
+    #[Test]
+    public function withdrawing_a_post_still_under_review_returns_the_charge(): void
+    {
+        $worker = $this->worker(20);
+        $post = CommunityPost::find($this->notice($worker)->json('data.id'));
+        $this->assertSame('pending', $post->status);
+
+        $this->actingAs($worker, 'sanctum')->deleteJson("/api/v1/community/{$post->id}")->assertOk();
+
+        // It never went up, so nothing was delivered.
+        $this->assertSame('ended', $post->fresh()->status);
+        $this->assertSame(20, CreditWallet::where('user_id', $worker->id)->value('balance'));
     }
 
     #[Test]

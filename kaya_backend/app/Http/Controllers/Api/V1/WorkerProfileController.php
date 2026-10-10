@@ -193,7 +193,17 @@ class WorkerProfileController extends Controller
                 'data' => null
             ], 404);
         }
-        
+
+        // Said here, at the end of setup, rather than at the first Apply:
+        // a skill that failed to save would otherwise pass as finished.
+        if (! $profile->isSetupCompleted()) {
+            return response()->json([
+                'success' => false,
+                'message' => $profile->incompleteMessage('apply for work'),
+                'data' => ['missing' => array_values($profile->missingForCompletion())],
+            ], 422);
+        }
+
         $profile->setup_completed = true;
         $profile->save();
         
@@ -703,7 +713,17 @@ class WorkerProfileController extends Controller
                 'data' => null
             ], 404);
         }
-        
+
+        // A worker profile needs one to apply for anything; the last one
+        // going would quietly lock them out.
+        if (WorkerSkill::where('user_id', $request->user()->id)->count() <= 1) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Keep at least one skill. Add another first, then remove this one.',
+                'data' => null
+            ], 422);
+        }
+
         $skill->delete();
         
         return response()->json([

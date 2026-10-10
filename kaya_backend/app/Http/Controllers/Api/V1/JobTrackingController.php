@@ -46,8 +46,10 @@ class JobTrackingController extends Controller
      */
     private function hireIsLive(Application $application): bool
     {
+        // Open as well: a job for three with one hired is still taking people,
+        // and the one already hired is working.
         return $application->status === 'accepted'
-            && $application->job?->status === 'in_progress';
+            && in_array($application->job?->status, ['open', 'in_progress'], true);
     }
 
     /**

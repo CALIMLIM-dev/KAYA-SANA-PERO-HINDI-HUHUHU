@@ -31,7 +31,16 @@ class VerificationController extends Controller
         
         // Check document type
         $type = $request->input('type');
-        
+
+        // An approved paper is not replaced by a new upload. Submitting again
+        // used to delete it and leave a pending one in its place.
+        if (Verification::where('user_id', $user->id)
+            ->where('document_type', $type)
+            ->where('status', 'verified')
+            ->exists()) {
+            return $this->fail('This is already verified.', 422);
+        }
+
         if ($type === 'government_id') {
             // Government ID requires ID photo, selfie photo, and ID type
             $request->validate([

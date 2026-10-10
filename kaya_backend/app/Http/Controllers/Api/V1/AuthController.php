@@ -604,8 +604,15 @@ class AuthController extends Controller
             }
         }
 
-        if (array_key_exists('phone', $data) && !empty($data['phone'])) {
+        if (array_key_exists('phone', $data) && !empty($data['phone']) && $data['phone'] !== $user->phone) {
+            // A phone number signs an account in, so it belongs to one.
+            if (\App\Models\User::where('phone', $data['phone'])->whereKeyNot($user->id)->exists()) {
+                return $this->fail('This phone number is already used by another account.', 422);
+            }
+
+            // The check was for the old number.
             $user->phone = $data['phone'];
+            $user->phone_verified_at = null;
         }
 
         $user->save();

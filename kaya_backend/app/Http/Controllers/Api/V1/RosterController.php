@@ -77,7 +77,7 @@ class RosterController extends Controller
                     'rating_count'    => (int) ($hire->worker?->workerProfile?->rating_count ?? 0),
                     'status'          => $hire->status,
                     'completion'      => $completion->state($hire, JobCompletionService::SIDE_EMPLOYER),
-                    'conversation_id' => $threads[$key]?->id,
+                    'conversation_id' => $threads->get($key)?->id,
                     'hired_at'        => $hire->updated_at?->toIso8601String(),
                 ];
             })->values(),
