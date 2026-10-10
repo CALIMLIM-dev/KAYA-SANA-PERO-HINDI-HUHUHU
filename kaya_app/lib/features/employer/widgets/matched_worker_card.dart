@@ -190,11 +190,6 @@ class MatchedWorkerCard extends StatelessWidget {
               strong: meetsRequirements(row),
             ),
           ],
-          // The job's hiring criteria, met or not.
-          if (CriteriaFacts.hasAny(row)) ...[
-            const SizedBox(height: 6),
-            CriteriaFacts(row: row),
-          ],
           if (row['is_new'] == true) ...[
             const SizedBox(height: 8),
             const NewOnKayaTag(),
