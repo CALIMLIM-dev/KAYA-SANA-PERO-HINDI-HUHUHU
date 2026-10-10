@@ -140,8 +140,9 @@ class AnalyticsTest extends TestCase
         $this->assertSame(2, $response->viewData('headline')['admins']);
         $response->assertSee('Users')
             ->assertDontSee('admins not counted')
-            ->assertSee('Hirers')
-            ->assertSee('Job seekers')
+            ->assertSee('Workers')
+            ->assertSee('Employers')
+            ->assertSee('Hybrid')
             ->assertSee('Based on 2 users');
     }
 }

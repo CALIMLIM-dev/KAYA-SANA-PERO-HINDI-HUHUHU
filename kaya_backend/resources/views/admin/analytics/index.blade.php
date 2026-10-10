@@ -200,9 +200,9 @@
             'basis' => 'users',
             'href'  => $csv('admin.exports.users'), 'label' => 'Users',
             'items' => [
-                ['Job seeker only', $composition['worker_only'],   '#2a78d6'],
-                ['Hirer only',      $composition['employer_only'], '#eb6834'],
-                ['Both',          $composition['hybrid'],        '#1baf7a'],
+                ['Workers',   $composition['worker_only'],   '#2a78d6'],
+                ['Employers', $composition['employer_only'], '#eb6834'],
+                ['Hybrid',    $composition['hybrid'],        '#1baf7a'],
                 ['No profile',    $composition['no_profile'],    '#cbd5e1'],
             ],
         ],
@@ -263,10 +263,11 @@
     <div class="tiles">
         @foreach ([
             ['Users', number_format($headline['users'])],
-            // A hybrid account is both, so these two can add up to more than
-            // the users above - each is a count of people, not a share.
-            ['Hirers', number_format($composition['employer_only'] + $composition['hybrid'])],
-            ['Job seekers', number_format($composition['worker_only'] + $composition['hybrid'])],
+            // Each account counted once: a worker only, an employer only, or
+            // a hybrid holding both profiles.
+            ['Workers', number_format($composition['worker_only'])],
+            ['Employers', number_format($composition['employer_only'])],
+            ['Hybrid', number_format($composition['hybrid'])],
             ['Admins', number_format($headline['admins'])],
             ['Jobs posted', number_format($headline['jobs'])],
             ['Applications', number_format($headline['applications'])],
