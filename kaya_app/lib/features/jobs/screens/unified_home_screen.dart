@@ -840,6 +840,22 @@ class _UnifiedHomeScreenState extends State<UnifiedHomeScreen>
 
             // ALL OTHER CONTENT - Only show when profile is complete or empty state is dismissed
             if (!shouldShowOverlay) ...[
+              /*
+                  Banners and boosted profiles, first under the search bar.
+
+                  The place people look before anything else on the screen,
+                  which is the point of a banner and what a boost is paid
+                  for. Jobs for someone looking for work, workers for a hirer.
+              */
+              SliverToBoxAdapter(
+                child: HomeCarousel(
+                  side: appMode.effectiveMode.showsEmployerSide &&
+                          !(appMode.effectiveMode.showsWorkerSide && appMode.hasWorkerProfile)
+                      ? 'employer'
+                      : 'worker',
+                ),
+              ),
+
               // Smart Categories based on filter
               SliverToBoxAdapter(
                 child: Padding(
@@ -991,17 +1007,6 @@ class _UnifiedHomeScreenState extends State<UnifiedHomeScreen>
               */
               SliverToBoxAdapter(
                 child: ActiveSection(onChanged: _refreshData),
-              ),
-
-              // Banners and boosted profiles, for the side being shown:
-              // jobs for someone looking for work, workers for a hirer.
-              SliverToBoxAdapter(
-                child: HomeCarousel(
-                  side: appMode.effectiveMode.showsEmployerSide &&
-                          !(appMode.effectiveMode.showsWorkerSide && appMode.hasWorkerProfile)
-                      ? 'employer'
-                      : 'worker',
-                ),
               ),
 
               // Jobs Near You Section (conditional based on filter)

@@ -33,7 +33,8 @@ class BannerController extends Controller
     public function store(Request $request)
     {
         $data = $request->validate([
-            'title'      => ['required', 'string', 'max:60'],
+            // Optional: a designed banner carries its words in the photo.
+            'title'      => ['nullable', 'string', 'max:60'],
             'body'       => ['nullable', 'string', 'max:120'],
             'image'      => ['required', 'image', 'mimes:jpg,jpeg,png,webp', 'max:4096'],
             'audience'   => ['required', Rule::in(Banner::AUDIENCES)],
@@ -47,7 +48,7 @@ class BannerController extends Controller
         $path = $request->file('image')->store('banners', config('filesystems.media'));
 
         $banner = Banner::create([
-            'title'      => $data['title'],
+            'title'      => filled($data['title'] ?? null) ? trim($data['title']) : null,
             'body'       => $data['body'] ?? null,
             'image_path' => $path,
             'audience'   => $data['audience'],
@@ -56,7 +57,7 @@ class BannerController extends Controller
             'created_by' => Auth::id(),
         ]);
 
-        AdminAction::record('banner.created', 'banner', $banner->id, "Added the banner \"{$banner->title}\"");
+        AdminAction::record('banner.created', 'banner', $banner->id, 'Added the banner ' . $banner->label());
 
         return back()->with('success', 'Banner added. It shows on home the next time the app loads it.');
     }
@@ -67,7 +68,7 @@ class BannerController extends Controller
 
         AdminAction::record(
             $banner->is_active ? 'banner.shown' : 'banner.hidden', 'banner', $banner->id,
-            ($banner->is_active ? 'Showed' : 'Hid') . " the banner \"{$banner->title}\"",
+            ($banner->is_active ? 'Showed' : 'Hid') . ' the banner ' . $banner->label(),
         );
 
         return back()->with('success', $banner->is_active ? 'Banner is showing.' : 'Banner is hidden.');
@@ -76,7 +77,7 @@ class BannerController extends Controller
     public function destroy(Banner $banner)
     {
         Storage::disk(config('filesystems.media'))->delete($banner->image_path);
-        AdminAction::record('banner.deleted', 'banner', $banner->id, "Deleted the banner \"{$banner->title}\"");
+        AdminAction::record('banner.deleted', 'banner', $banner->id, 'Deleted the banner ' . $banner->label());
         $banner->delete();
 
         return back()->with('success', 'Banner deleted.');

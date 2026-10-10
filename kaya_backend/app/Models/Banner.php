@@ -32,6 +32,12 @@ class Banner extends Model
         'sort_order' => 'integer',
     ];
 
+    /** How the panel and the audit log name it: the headline, or that it is a photo. */
+    public function label(): string
+    {
+        return filled($this->title) ? '"' . $this->title . '"' : '(photo only, #' . $this->id . ')';
+    }
+
     public function imageUrl(): string
     {
         return Storage::disk(config('filesystems.media'))->url($this->image_path);

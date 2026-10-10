@@ -238,17 +238,26 @@ void main() {
           Categories first, then the work in progress.
 
           Active sat above the categories and pushed them off the first
-          screen for anyone with a hire. Checked whenever both are laid out
-          at once.
+          screen for anyone with a hire. Each one's place in the scroll is
+          recorded as it passes - position on screen plus how far the list
+          has scrolled - so the two need not be on screen at the same time:
+          the banner carousel above them can hold them a screen apart.
       */
       var orderChecked = false;
+      double? categoryAt, activeAt;
+      double scrolled() => tester
+          .state<ScrollableState>(find.byType(Scrollable).first)
+          .position
+          .pixels;
       void checkOrder() {
-        if (categoryTile.evaluate().isEmpty || activeHeading.evaluate().isEmpty) return;
-        expect(
-          tester.getTopLeft(categoryTile.first).dy,
-          lessThan(tester.getTopLeft(activeHeading).dy),
-          reason: 'Active is above the categories again.',
-        );
+        if (categoryTile.evaluate().isNotEmpty) {
+          categoryAt ??= scrolled() + tester.getTopLeft(categoryTile.first).dy;
+        }
+        if (activeHeading.evaluate().isNotEmpty) {
+          activeAt ??= scrolled() + tester.getTopLeft(activeHeading).dy;
+        }
+        if (categoryAt == null || activeAt == null || orderChecked) return;
+        expect(categoryAt, lessThan(activeAt!), reason: 'Active is above the categories again.');
         orderChecked = true;
       }
       checkOrder();
@@ -289,7 +298,7 @@ void main() {
             'completion card was not measured.',
       );
       expect(orderChecked, isTrue,
-          reason: 'Categories and Active were never on screen together, so their order was not checked.');
+          reason: 'Categories or Active never rendered, so their order was not checked.');
 
       expect(
         sawCategories,

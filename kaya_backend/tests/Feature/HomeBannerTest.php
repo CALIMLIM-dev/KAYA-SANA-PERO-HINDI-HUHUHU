@@ -59,6 +59,23 @@ class HomeBannerTest extends TestCase
     }
 
     #[Test]
+    public function a_designed_banner_needs_no_headline(): void
+    {
+        Storage::fake(config('filesystems.media'));
+
+        $this->actingAs($this->admin())->post('/admin/banners', [
+            'image' => UploadedFile::fake()->create('peak.jpg', 300, 'image/jpeg'),
+            'audience' => 'both',
+            'action' => 'none',
+        ])->assertRedirect()->assertSessionHasNoErrors();
+
+        $data = $this->featured(User::factory()->create(), 'worker');
+        $this->assertNull($data['banners'][0]['title']);
+
+        $this->actingAs($this->admin())->get('/admin/banners')->assertOk()->assertSee('Photo only');
+    }
+
+    #[Test]
     public function a_hidden_banner_is_not_shown(): void
     {
         Banner::create(['title' => 'Old promo', 'image_path' => 'banners/x.jpg', 'is_active' => false]);

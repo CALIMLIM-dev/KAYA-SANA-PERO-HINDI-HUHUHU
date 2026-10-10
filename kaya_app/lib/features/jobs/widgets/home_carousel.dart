@@ -280,6 +280,17 @@ class _SlideView extends StatelessWidget {
       _Kind.worker || _Kind.job => Image.asset(tradePhoto(d['category'] as String?), fit: BoxFit.cover),
     };
 
+    /*
+        A designed banner: its words are in the picture, so it is shown as
+        it was made - no headline over it and no darkening.
+    */
+    final photoOnly = slide.kind == _Kind.banner &&
+        '${d['title'] ?? ''}'.trim().isEmpty &&
+        '${d['body'] ?? ''}'.trim().isEmpty;
+    if (photoOnly) {
+      return GestureDetector(onTap: () => _open(context), child: SizedBox.expand(child: photo));
+    }
+
     return GestureDetector(
       onTap: () => _open(context),
       child: Stack(
