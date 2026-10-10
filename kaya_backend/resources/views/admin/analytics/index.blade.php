@@ -197,7 +197,7 @@
         [
             'title' => 'Account types',
             'id'    => 'compositionChart', 'centre' => 'Accounts',
-            'basis' => 'app users (admins not counted)',
+            'basis' => 'users',
             'href'  => $csv('admin.exports.users'), 'label' => 'Users',
             'items' => [
                 ['Job seeker only', $composition['worker_only'],   '#2a78d6'],
@@ -262,9 +262,9 @@
     </div>
     <div class="tiles">
         @foreach ([
-            ['App users (admins not counted)', number_format($headline['users'])],
+            ['Users', number_format($headline['users'])],
             // A hybrid account is both, so these two can add up to more than
-            // the app users above - each is a count of people, not a share.
+            // the users above - each is a count of people, not a share.
             ['Hirers', number_format($composition['employer_only'] + $composition['hybrid'])],
             ['Job seekers', number_format($composition['worker_only'] + $composition['hybrid'])],
             ['Admins', number_format($headline['admins'])],

@@ -126,7 +126,7 @@ class AnalyticsTest extends TestCase
     public function the_dashboard_says_whose_numbers_it_shows()
     {
         // The panel asked for the actual number of users. Admins are user rows
-        // too, so they are counted apart and never inside the app users.
+        // too, so they are counted apart and never inside the users.
         $admin = $this->admin();
         $this->admin();
         $hirer = User::factory()->create();
@@ -138,9 +138,10 @@ class AnalyticsTest extends TestCase
 
         $this->assertSame(2, $response->viewData('headline')['users']);
         $this->assertSame(2, $response->viewData('headline')['admins']);
-        $response->assertSee('App users (admins not counted)')
+        $response->assertSee('Users')
+            ->assertDontSee('admins not counted')
             ->assertSee('Hirers')
             ->assertSee('Job seekers')
-            ->assertSee('Based on 2 app users (admins not counted)');
+            ->assertSee('Based on 2 users');
     }
 }
