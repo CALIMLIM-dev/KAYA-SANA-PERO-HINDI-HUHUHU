@@ -146,6 +146,10 @@ class _WorkerSetupFlowScreenState extends State<WorkerSetupFlowScreen> {
   /// is warned so they can retry from the verification screen.
   bool _verificationUploadFailed = false;
 
+  /// An optional part of setup - experience, a paper, the photo - that did
+  /// not save. Setup still finishes; the user is told.
+  bool _extrasFailed = false;
+
   /// Structured location chosen from the picker (PSGC id + coordinates).
   LocationModel? _selectedLocation;
 
@@ -418,6 +422,28 @@ class _WorkerSetupFlowScreenState extends State<WorkerSetupFlowScreen> {
     */
     if (!mounted) return;
 
+    /*
+        What did not save, said before leaving.
+
+        This used to be shown after fetchMe, by which time the route above
+        had removed this screen and `mounted` was false, so it never showed.
+        The toast sits in the root overlay and stays through the change.
+    */
+    final failed = [
+      if (_verificationUploadFailed) 'your ID',
+      if (_extrasFailed) 'some of your photo, experience or papers',
+    ];
+    if (failed.isNotEmpty) {
+      AppToast.show(
+        context,
+        'Your profile is set up, but ${failed.join(' and ')} could not be '
+        'uploaded. You can add ${failed.length == 1 && _verificationUploadFailed ? 'it' : 'them'} again from your account.',
+        type: ToastType.warning,
+        duration: const Duration(seconds: 6),
+      );
+    }
+    final auth = context.read<AuthProvider>();
+
     Navigator.pushNamedAndRemoveUntil(
       context,
       AppRouter.home,
@@ -436,17 +462,7 @@ class _WorkerSetupFlowScreenState extends State<WorkerSetupFlowScreen> {
         screen loads its own data on mount, and this only has to land before
         the first frame that depends on it.
     */
-    await context.read<AuthProvider>().fetchMe();
-
-    if (mounted && _verificationUploadFailed) {
-      // ScaffoldMessenger is app-scoped, so this survives the route change and
-      // arrives over the home screen rather than over a screen being disposed.
-      AppToast.warning(
-        context,
-        'Your profile is set up, but your ID could not be uploaded. '
-        'You can retry it from Verification.',
-      );
-    }
+    await auth.fetchMe();
   }
 
   bool get _canProceed {
@@ -2021,20 +2037,22 @@ class _WorkerSetupFlowScreenState extends State<WorkerSetupFlowScreen> {
         }
       }
       
-      // 3. Save skills
+      // 3. Save skills. Required, so a failure stops here rather than
+      // finishing a profile that cannot apply for anything.
       if (_selectedSkills.isNotEmpty) {
-        await provider.saveSkillsWithCategories(_selectedSkills);
-        await Future.delayed(const Duration(milliseconds: 300));
+        if (!await provider.saveSkillsWithCategories(_selectedSkills)) {
+          throw Exception(provider.errorMessage ?? 'Your skills could not be saved.');
+        }
       }
-      
-      // 4. Save experiences
+
+      // 4-7 are optional. One that fails does not stop setup, but is said.
       for (var exp in _tempExperiences) {
-        await provider.createExperience(exp);
+        if (!await provider.createExperience(exp)) _extrasFailed = true;
       }
-      
+
       // 5. Save certifications
       for (var cert in _tempCertifications) {
-        await provider.addCertification(
+        final saved = await provider.addCertification(
           WorkerCertificationModel(
             userId: 0,
             certificationName: cert['certification_name'] as String,
@@ -2043,11 +2061,12 @@ class _WorkerSetupFlowScreenState extends State<WorkerSetupFlowScreen> {
           ),
           filePath: cert['filePath'] as String?,
         );
+        if (!saved) _extrasFailed = true;
       }
-      
+
       // 6. Save licenses
       for (var lic in _tempLicenses) {
-        await provider.addLicense(
+        final saved = await provider.addLicense(
           WorkerLicenseModel(
             userId: 0,
             licenseName: lic['license_name'] as String,
@@ -2057,44 +2076,53 @@ class _WorkerSetupFlowScreenState extends State<WorkerSetupFlowScreen> {
           ),
           filePath: lic['filePath'] as String?,
         );
+        if (!saved) _extrasFailed = true;
       }
-      
+
       // 7. Upload profile photo
       if (_tempProfilePhotoPath != null) {
-        final formData = FormData.fromMap({
-          'photo': await MultipartFile.fromFile(
-            _tempProfilePhotoPath!,
-            filename: 'profile.jpg',
-          ),
-        });
-        await apiClient.post('/worker/profile/photo', data: formData);
+        try {
+          final formData = FormData.fromMap({
+            'photo': await MultipartFile.fromFile(
+              _tempProfilePhotoPath!,
+              filename: 'profile.jpg',
+            ),
+          });
+          await apiClient.post('/worker/profile/photo', data: formData);
+        } catch (_) {
+          _extrasFailed = true;
+        }
       }
 
       // 8. Submit verification draft only after Finish (OPTIONAL - don't fail if error)
       if (hasCompleteVerification) {
+        // Non-blocking, but the user must be told: they submitted an ID and
+        // would otherwise finish believing verification was under way. The
+        // provider answers false rather than throwing, so both are caught.
         try {
-          await verificationProvider.submitGovernmentID(
+          final sent = await verificationProvider.submitGovernmentID(
             idType: _tempGovernmentIdType,
             idPhotoPath: _tempIdPhotoPath!,
             selfiePhotoPath: _tempSelfiePhotoPath!,
           );
-          // If verification upload fails, just continue - it's optional
+          if (!sent) _verificationUploadFailed = true;
         } catch (e) {
-          // Non-blocking, but the user must be told: they submitted an ID and
-          // would otherwise finish believing verification was under way.
           _verificationUploadFailed = true;
         }
       }
-      
-      // 9. Mark setup as complete
-      await provider.completeSetup();
-      
+
+      // 9. Mark setup as complete. The server checks the trade, the skill
+      // and the town, and says which is missing.
+      if (!await provider.completeSetup()) {
+        throw Exception(provider.errorMessage ?? 'Your profile could not be finished.');
+      }
+
       // 10. Finish
       await _finishSetup();
-      
+
     } catch (e) {
       if (mounted) {
-        AppToast.error(context, 'Failed to save profile: $e');
+        AppToast.error(context, e.toString().replaceFirst('Exception: ', ''));
       }
       rethrow;
     }

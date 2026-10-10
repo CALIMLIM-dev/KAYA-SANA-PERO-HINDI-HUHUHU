@@ -168,7 +168,10 @@ class WorkerProfileProvider with ChangeNotifier {
     }
   }
 
+  /// False with no [errorMessage] when the picker was closed; false with
+  /// one when the upload failed.
   Future<bool> uploadPhoto({bool fromCamera = false}) async {
+    _errorMessage = null;
     try {
       // Use image_picker package to pick image
       final ImagePicker picker = ImagePicker();
@@ -201,7 +204,9 @@ class WorkerProfileProvider with ChangeNotifier {
         return false;
       }
     } catch (e) {
-      _errorMessage = e.toString();
+      _errorMessage = e is ApiException
+          ? e.message
+          : 'Your photo could not be uploaded. Please try again.';
       return false;
     }
   }
@@ -325,7 +330,9 @@ class WorkerProfileProvider with ChangeNotifier {
         return false;
       }
     } catch (e) {
-      _errorMessage = e.toString();
+      _errorMessage = e is ApiException
+          ? e.message
+          : 'Your profile could not be finished. Please try again.';
       return false;
     }
   }
@@ -451,7 +458,7 @@ class WorkerProfileProvider with ChangeNotifier {
       because a custom skill typed in by hand has no id until the server gives
       it one.
   */
-  Future<void> saveSkillsWithCategories(List<SkillModel> selectedSkills) async {
+  Future<bool> saveSkillsWithCategories(List<SkillModel> selectedSkills) async {
     bool same(WorkerSkillModel mine, SkillModel wanted) {
       if (mine.skillId != null && wanted.id > 0) return mine.skillId == wanted.id;
       return mine.skillName.toLowerCase() == wanted.name.toLowerCase();
@@ -469,16 +476,12 @@ class WorkerProfileProvider with ChangeNotifier {
           .where((wanted) => !existing.any((mine) => same(mine, wanted)))
           .toList();
 
-      if (removed.isEmpty && added.isEmpty) return;
+      if (removed.isEmpty && added.isEmpty) return true;
 
       // Called directly rather than through deleteSkill/addSkill so the list
-      // is not refetched and repainted between every single one.
-      for (final skill in removed) {
-        if (skill.id != null) {
-          await _apiClient.delete('/worker/skills/${skill.id}');
-        }
-      }
-
+      // is not refetched and repainted between every single one. Added
+      // before removed: the server keeps the last skill, so swapping your
+      // only one has to put the new one in first.
       for (final wanted in added) {
         await _apiClient.post('/worker/skills', data: WorkerSkillModel(
           userId: 0, // Set by backend
@@ -488,12 +491,23 @@ class WorkerProfileProvider with ChangeNotifier {
         ).toJson());
       }
 
+      for (final skill in removed) {
+        if (skill.id != null) {
+          await _apiClient.delete('/worker/skills/${skill.id}');
+        }
+      }
+
       await fetchSkills();
+      return true;
     } catch (e) {
-      _errorMessage = _extractErrorMessage(e.toString());
-      // The screen would otherwise keep showing the pre-save list with no
-      // sign that anything went wrong.
-      notifyListeners();
+      final message = e is ApiException
+          ? e.message
+          : 'Your skills could not be saved. Please try again.';
+      // The list may be half saved; show what the server has now. The fetch
+      // clears the error, so it is set after.
+      await fetchSkills();
+      _errorMessage = message;
+      return false;
     }
   }
 
@@ -808,7 +822,9 @@ class WorkerProfileProvider with ChangeNotifier {
         return false;
       }
     } catch (e) {
-      _errorMessage = e.toString();
+      _errorMessage = e is ApiException
+          ? e.message
+          : 'That skill could not be removed. Please try again.';
       return false;
     }
   }

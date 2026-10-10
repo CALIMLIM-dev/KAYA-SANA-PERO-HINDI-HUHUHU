@@ -817,7 +817,12 @@ class _VerificationScreenState extends State<VerificationScreen> {
   }
 
   Future<void> _pickDocument() async {
-    final result = await context.read<VerificationProvider>().pickDocument();
+    final vp = context.read<VerificationProvider>();
+    final result = await vp.pickDocument();
+    if (result == null && vp.pickError != null && mounted) {
+      AppToast.error(context, vp.pickError!);
+      return;
+    }
     if (result != null) {
       setState(() {
         _docPath  = result['path'] as String?;

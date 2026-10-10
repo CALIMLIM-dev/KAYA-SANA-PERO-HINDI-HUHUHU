@@ -406,11 +406,15 @@ class EmployerProfileProvider with ChangeNotifier {
       } else {
         // Pick new image
         XFile? file;
+        // Sized down like every other photo in the app: the server refuses
+        // a body over 1 MB, and a camera photo at full size is several.
         if (kIsWeb) {
-          file = await _picker.pickImage(source: ImageSource.gallery, imageQuality: 80);
+          file = await _picker.pickImage(source: ImageSource.gallery, maxWidth: 1024, maxHeight: 1024, imageQuality: 80);
         } else {
           file = await _picker.pickImage(
             source: fromCamera ? ImageSource.camera : ImageSource.gallery,
+            maxWidth: 1024,
+            maxHeight: 1024,
             imageQuality: 80,
           );
         }

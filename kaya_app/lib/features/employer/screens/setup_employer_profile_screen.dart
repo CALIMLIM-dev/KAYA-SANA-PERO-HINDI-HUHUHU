@@ -82,6 +82,7 @@ class _SetupEmployerProfileScreenState extends State<SetupEmployerProfileScreen>
   /// The profile itself still saves - verification is a separate record and
   /// can be retried - so this warns rather than aborting.
   bool _verificationUploadFailed = false;
+  bool _photoUploadFailed = false;
   String? _tempImagePath; // Store image path in memory until Finish
   String _identityIdType = 'Philippine National ID';
   String? _identityIdPhotoPath;
@@ -408,24 +409,24 @@ class _SetupEmployerProfileScreenState extends State<SetupEmployerProfileScreen>
         return false;
       }
 
-      // 3. Upload photo if selected
+      // 3. Upload photo if selected. The profile exists by now, so a failed
+      // photo is said at the end rather than stopping here: stopping made
+      // Finish try to create the profile a second time.
       if (_tempImagePath != null) {
         final uploaded = await employerProvider.uploadImage(fromMemory: _tempImagePath);
-        if (!uploaded) {
-          _showError(employerProvider.errorMessage ?? 'Failed to upload image');
-          return false;
-        }
+        if (!uploaded) _photoUploadFailed = true;
       }
 
       // 4. Submit verification drafts only after Finish (OPTIONAL - don't fail if error)
+      // The provider answers false rather than throwing, so both are caught.
       if (hasCompleteIdentity) {
         try {
-          await verificationProvider.submitGovernmentID(
+          final sent = await verificationProvider.submitGovernmentID(
             idType: _identityIdType,
             idPhotoPath: _identityIdPhotoPath!,
             selfiePhotoPath: _identitySelfiePath!,
           );
-          // If verification upload fails, just continue - it's optional
+          if (!sent) _verificationUploadFailed = true;
         } catch (e) {
           /*
               Told, not swallowed.
@@ -447,7 +448,7 @@ class _SetupEmployerProfileScreenState extends State<SetupEmployerProfileScreen>
       if (_isCompany && _businessDocument != null) {
         try {
           final bytes = _businessDocument!['documentBytes'] ?? _businessDocument!['bytes'];
-          await verificationProvider.submitDocument(
+          final sent = await verificationProvider.submitDocument(
             type: 'business_reg',
             fileName: (_businessDocument!['documentName'] ??
                 _businessDocument!['name']) as String,
@@ -455,7 +456,7 @@ class _SetupEmployerProfileScreenState extends State<SetupEmployerProfileScreen>
                 _businessDocument!['path']) as String?,
             fileBytes: bytes is List<int> ? bytes : (bytes as List?)?.cast<int>(),
           );
-          // If verification upload fails, just continue - it's optional
+          if (!sent) _verificationUploadFailed = true;
         } catch (e) {
           // Same as the ID above: reported at the end rather than swallowed.
           debugPrint('[employer setup] business document upload failed: $e');
@@ -463,7 +464,10 @@ class _SetupEmployerProfileScreenState extends State<SetupEmployerProfileScreen>
         }
       }
 
-      await auth.fetchMe();
+      // No fetchMe here. The server counts the profile as set up the moment
+      // it exists, so refreshing now made EmployerProfileRouter swap this
+      // screen out mid-finish - completeSetup and the warning below never
+      // ran. _finishSetup refreshes after leaving.
       return true;
     } finally {
       if (mounted) setState(() => _isSaving = false);
@@ -503,6 +507,28 @@ class _SetupEmployerProfileScreenState extends State<SetupEmployerProfileScreen>
       */
       if (!mounted) return;
 
+      // Said before leaving: after the route change below this screen is
+      // gone and `mounted` is false, which is why this never showed. The
+      // toast sits in the root overlay and stays through the change.
+      final failed = [
+        if (_photoUploadFailed) 'your photo',
+        if (_verificationUploadFailed) 'your documents',
+      ];
+      if (failed.isNotEmpty) {
+        AppToast.show(
+          context,
+          'Your profile is set up, but ${failed.join(' and ')} could not be '
+          'uploaded. You can add them again from your account.',
+          type: ToastType.warning,
+          duration: const Duration(seconds: 6),
+        );
+      }
+
+      // Both taken before navigating, so neither is read off a screen
+      // that is being removed.
+      final auth = context.read<AuthProvider>();
+      final employerProfile = context.read<EmployerProfileProvider>();
+
       Navigator.pushNamedAndRemoveUntil(
         context,
         AppRouter.home,
@@ -510,21 +536,8 @@ class _SetupEmployerProfileScreenState extends State<SetupEmployerProfileScreen>
       );
 
       // Now the flags, with nothing left underneath to rebuild.
-      final auth = context.read<AuthProvider>();
-      final employerProfile = context.read<EmployerProfileProvider>();
-
       await auth.fetchMe();
       await employerProfile.fetchProfile();
-
-      // ScaffoldMessenger is app-scoped, so this survives the route change and
-      // lands over the home screen rather than over a screen being disposed.
-      if (mounted && _verificationUploadFailed) {
-        AppToast.warning(
-          context,
-          'Your profile is set up, but your document could not be uploaded. '
-          'You can retry it from Verification.',
-        );
-      }
     } finally {
       if (mounted) setState(() => _isSaving = false);
     }
@@ -1099,6 +1112,9 @@ class _SetupEmployerProfileScreenState extends State<SetupEmployerProfileScreen>
                 // For business documents, use file picker directly
                 final vp = context.read<VerificationProvider>();
                 final result = await vp.pickDocument();
+                if (result == null && vp.pickError != null && mounted) {
+                  _showError(vp.pickError!);
+                }
                 if (result != null && mounted) {
                   setState(() {
                     _businessDocument = {

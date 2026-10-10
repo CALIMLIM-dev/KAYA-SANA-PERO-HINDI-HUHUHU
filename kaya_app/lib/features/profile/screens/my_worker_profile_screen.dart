@@ -211,7 +211,15 @@ class _MyWorkerProfileScreenState extends State<MyWorkerProfileScreen> with Sing
       return;
     }
 
-    await provider.uploadPhoto(fromCamera: choice == 'camera');
+    final uploaded = await provider.uploadPhoto(fromCamera: choice == 'camera');
+
+    // Closing the picker is not a failure; a refused upload is.
+    if (!uploaded) {
+      if (mounted && provider.errorMessage != null) {
+        AppToast.error(context, provider.errorMessage!);
+      }
+      return;
+    }
 
     /*
         And re-read the account.
@@ -1422,7 +1430,10 @@ class _MyWorkerProfileScreenState extends State<MyWorkerProfileScreen> with Sing
                                           if (confirmed == true && context.mounted && skill.id != null) {
                                             // Delete the specific skill by ID
                                             final provider = context.read<WorkerProfileProvider>();
-                                            await provider.deleteSkill(skill.id!);
+                                            final ok = await provider.deleteSkill(skill.id!);
+                                            if (!ok && context.mounted) {
+                                              AppToast.error(context, provider.errorMessage ?? 'That skill could not be removed.');
+                                            }
                                           }
                                         },
                                         child: Icon(Icons.close, size: 14, color: AppColors.primary.withValues(alpha: 0.7)),
@@ -1443,7 +1454,11 @@ class _MyWorkerProfileScreenState extends State<MyWorkerProfileScreen> with Sing
                     arguments: skillNames);
                 if (result != null && result is List<SkillModel> && context.mounted) {
                   // Save skills with category info
-                  await context.read<WorkerProfileProvider>().saveSkillsWithCategories(result);
+                  final provider = context.read<WorkerProfileProvider>();
+                  final ok = await provider.saveSkillsWithCategories(result);
+                  if (!ok && context.mounted) {
+                    AppToast.error(context, provider.errorMessage ?? 'Your skills could not be saved.');
+                  }
                 }
               },
             );

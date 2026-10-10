@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../../core/constants/app_colors.dart';
+import '../../../core/utils/upload_limit.dart';
 import '../../../core/widgets/app_toast.dart';
 import '../../../data/models/worker_certification_model.dart';
 import '../../../data/models/worker_license_model.dart';
@@ -45,6 +46,9 @@ class _CredentialsSectionState extends State<CredentialsSection> {
   bool _saving = false;
   String? _error;
 
+  /// Rebuilds the open editor sheet, while there is one.
+  void Function(VoidCallback fn)? _refreshSheet;
+
   final _name = TextEditingController();
   final _issuer = TextEditingController();
   final _reference = TextEditingController();
@@ -78,11 +82,20 @@ class _CredentialsSectionState extends State<CredentialsSection> {
       type: FileType.custom,
       allowedExtensions: ['jpg', 'jpeg', 'png', 'pdf'],
     );
-    if (result == null || result.files.isEmpty) return;
-    setState(() {
+    if (result == null || result.files.isEmpty || !mounted) return;
+    final tooLarge = uploadTooLarge(result.files.first.size);
+    void apply() {
+      if (tooLarge != null) {
+        _error = tooLarge;
+        return;
+      }
       _filePath = result.files.first.path;
       _fileName = result.files.first.name;
-    });
+      _error = null;
+    }
+
+    setState(apply);
+    _refreshSheet?.call(() {});
   }
 
   /// Returns whether it saved, so the editor sheet knows to close.
@@ -275,7 +288,14 @@ class _CredentialsSectionState extends State<CredentialsSection> {
         String? error;
 
         return StatefulBuilder(
-          builder: (sheetContext, setSheet) => Padding(
+          builder: (sheetContext, setSheet) {
+            // The sheet is its own route: this state's setState does not
+            // reach it, so picking a file refreshes it through this.
+            _refreshSheet = (fn) => setSheet(() {
+                  fn();
+                  error = _error;
+                });
+            return Padding(
             // Lifts with the keyboard: this form is all text fields, and a
             // sheet that does not lift hides the one being typed into.
             padding: EdgeInsets.only(
@@ -361,10 +381,12 @@ class _CredentialsSectionState extends State<CredentialsSection> {
                 ),
               ),
             ),
-          ),
+          );
+          },
         );
       },
     );
+    _refreshSheet = null;
 
     // Whether it saved or was dismissed, the next open starts clean.
     if (mounted) setState(_reset);

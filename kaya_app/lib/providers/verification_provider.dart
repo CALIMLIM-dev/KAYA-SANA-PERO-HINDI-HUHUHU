@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:dio/dio.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:image_picker/image_picker.dart';
+import '../core/utils/upload_limit.dart';
 import '../data/services/api_client.dart';
 
 class VerificationProvider with ChangeNotifier {
@@ -119,8 +120,13 @@ class VerificationProvider with ChangeNotifier {
     }
   }
 
+  /// Why the last [pickDocument] returned nothing, when it was not simply
+  /// closed: the file was too large to send.
+  String? pickError;
+
   /// Pick a document — returns path (mobile) or bytes (web)
   Future<Map<String, dynamic>?> pickDocument() async {
+    pickError = null;
     final result = await FilePicker.platform.pickFiles(
       type: FileType.custom,
       allowedExtensions: ['jpg', 'jpeg', 'png', 'pdf'],
@@ -128,6 +134,9 @@ class VerificationProvider with ChangeNotifier {
     );
     if (result == null || result.files.isEmpty) return null;
     final file = result.files.first;
+
+    pickError = uploadTooLarge(file.size);
+    if (pickError != null) return null;
 
     if (kIsWeb) {
       if (file.bytes == null) return null;
