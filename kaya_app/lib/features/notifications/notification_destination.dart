@@ -67,8 +67,14 @@ enum NotificationDestination {
   /// Somebody else's worker profile. Carries their user id.
   person,
 
-  /// Nothing sensible to open.
-  none,
+  /*
+      Nothing to open: a warning, a report's outcome, an announcement.
+
+      Their whole point is the words. Shown in full where the tap happened,
+      not by opening the notification list again - which put a second copy
+      of it on top of the first, so you backed out twice.
+  */
+  fullText,
 }
 
 /// Which screen a notification belongs on, from what the server sent with it.
@@ -95,9 +101,15 @@ NotificationDestination notificationDestination({
   }
 
   if (referenceType == 'job' && audience == 'employer') {
-    // Expiry goes where extending is. Everything else is about a person, so
-    // it goes to that job's applicants.
-    if (type.startsWith('job.expir')) return NotificationDestination.manageJobs;
+    // Expiry goes where extending is, and a post an admin closed is in its
+    // History. A hire by invitation goes to My Jobs too: the hired person
+    // is on the job's card there, and the applicants list opens on Pending,
+    // where they are not. Everything else is about an applicant.
+    if (type.startsWith('job.expir') ||
+        type == 'job.closed' ||
+        type == 'invitation.accepted') {
+      return NotificationDestination.manageJobs;
+    }
 
     return referenceId != null
         ? NotificationDestination.applicants
@@ -107,10 +119,20 @@ NotificationDestination notificationDestination({
   // KAYA answering carries no reference; the thread is one per account.
   if (type.startsWith('support.')) return NotificationDestination.support;
 
-  // Hired, or asked to confirm a finished job: both are live work, and live
-  // work is no longer in My Activity.
+  /*
+      Hired, or asked to confirm a finished job. For a worker that is live
+      work, on the Active list. For an employer it is the job's card in My
+      Jobs, which is where their running posts and Mark as complete are.
+  */
   if (type == 'application.accepted' ||
       type == 'application.completion_pending') {
+    return audience == 'employer'
+        ? NotificationDestination.manageJobs
+        : NotificationDestination.active;
+  }
+
+  // A finished job waits in Active for the worker's review.
+  if (type == 'job.completed' && audience != 'employer') {
     return NotificationDestination.active;
   }
 
@@ -129,14 +151,14 @@ NotificationDestination notificationDestination({
     'verification' => NotificationDestination.verification,
     'report' => referenceId != null
         ? NotificationDestination.reportResponse
-        : NotificationDestination.none,
+        : NotificationDestination.fullText,
     'community_post' => referenceId != null
         ? NotificationDestination.communityPost
-        : NotificationDestination.none,
+        : NotificationDestination.fullText,
     // "Available for work again": the point is the person.
     'user' => referenceId != null
         ? NotificationDestination.person
-        : NotificationDestination.none,
-    _ => NotificationDestination.none,
+        : NotificationDestination.fullText,
+    _ => NotificationDestination.fullText,
   };
 }

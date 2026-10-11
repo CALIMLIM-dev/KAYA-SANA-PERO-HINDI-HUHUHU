@@ -369,11 +369,35 @@ class NotificationService
             recipient can plainly see -- and since the roles swap when two
             people hire each other, which mode hid it would change over time.
         */
+        /*
+            One notification per conversation, not one per message.
+
+            Every message made its own row, so a short back-and-forth filled
+            the list with "New message", "New message", "New message" from the
+            same person - which read as the list repeating itself. The unread
+            ones for this thread are folded into the newest, which says how
+            many are waiting. A new row rather than an edited one, so the poll
+            still sees something new and the pop-up still shows.
+        */
+        $waiting = UserNotification::query()
+            ->where('user_id', $recipientId)
+            ->where('type', UserNotification::MESSAGE_RECEIVED)
+            ->where('reference_type', 'conversation')
+            ->where('reference_id', $conversation->id)
+            ->unread();
+        $waiting->delete();
+
+        // Messages, not rows: the thread says how many are still unread.
+        $unread = $conversation->messages()
+            ->where('sender_id', '!=', $recipientId)
+            ->where('is_read', false)
+            ->count();
+
         $this->push(
             userId: $recipientId,
             audience: UserNotification::AUDIENCE_BOTH,
             type: UserNotification::MESSAGE_RECEIVED,
-            title: 'New message',
+            title: $unread > 1 ? $unread . ' new messages' : 'New message',
             body: ($message->sender?->name ?? 'Someone') . ': '
                 . \Illuminate\Support\Str::limit($message->message_text, 80),
             referenceType: 'conversation',
@@ -784,12 +808,13 @@ class NotificationService
     {
         $this->push(
             userId: $post->user_id,
-            audience: $post->type === \App\Models\CommunityPost::TYPE_BUSINESS
-                ? UserNotification::AUDIENCE_EMPLOYER
-                : UserNotification::AUDIENCE_WORKER,
+            audience: $this->communityAudience($post),
             type: 'community.removed',
             title: 'Your community post was removed',
             body: '"' . $post->title . '" was taken down by KAYA. Reason: ' . $reason,
+            // Its author can still open it, with the reason on the page.
+            referenceType: 'community_post',
+            referenceId: $post->id,
         );
     }
 

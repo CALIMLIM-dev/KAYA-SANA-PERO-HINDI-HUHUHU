@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../../core/constants/app_colors.dart';
 import '../../core/constants/app_mode.dart';
 import '../../core/navigation/app_router.dart';
+import '../../core/navigation/main_navigation.dart';
 import '../../core/widgets/app_toast.dart';
 import '../../providers/app_mode_provider.dart';
 import '../../providers/auth_provider.dart';
@@ -31,6 +33,10 @@ void openNotification(
   required String audience,
   String? referenceType,
   int? referenceId,
+  /// What the notification says, for the ones whose whole point is the
+  /// words - see NotificationDestination.fullText.
+  String title = '',
+  String? body,
 }) {
   final where = notificationDestination(
     type: type,
@@ -86,6 +92,9 @@ void openNotification(
       }
 
     case NotificationDestination.active:
+      // A hybrid in employer mode would open a list of employer rows, with
+      // the job this is about not on it.
+      if (audience == 'worker' && !_allow(context, employerSide: false)) return;
       AppRouter.push(context, AppRouter.active);
 
     case NotificationDestination.applications:
@@ -102,8 +111,9 @@ void openNotification(
         arguments: {'conversationId': referenceId},
       );
 
+    // The inbox is a tab: selected, not pushed on top of the shell.
     case NotificationDestination.messages:
-      AppRouter.push(context, AppRouter.messages);
+      MainNavigation.openMessages(context);
 
     /*
         The public view of yourself, not the profile tab.
@@ -144,10 +154,13 @@ void openNotification(
         rejection to the profile.
     */
     case NotificationDestination.verification:
-      AppRouter.push(
-        context,
-        type == 'verification.rejected' ? '/verification' : AppRouter.profile,
-      );
+      if (type == 'verification.rejected') {
+        AppRouter.push(context, '/verification');
+      } else {
+        // The profile is a tab. Pushing it put a second profile on top of
+        // the shell, without the navigation bar.
+        MainNavigation.openTab(context, MainNavigation.profileTab);
+      }
 
     case NotificationDestination.reportResponse:
       AppRouter.push(context, AppRouter.reportResponse,
@@ -175,14 +188,99 @@ void openNotification(
           AppToast.info(context, 'That post is no longer on the board.');
           return;
         }
-        Navigator.of(context).push(MaterialPageRoute(
+        // Named, so a second tap while it loads does not open it twice.
+        AppRouter.pushRoute(context, MaterialPageRoute(
+          settings: RouteSettings(
+            name: AppRouter.communityPost,
+            arguments: {'postId': referenceId},
+          ),
           builder: (_) => CommunityPostScreen(post: post),
         ));
       });
 
-    case NotificationDestination.none:
-      AppRouter.push(context, AppRouter.notifications);
+    case NotificationDestination.fullText:
+      showNotificationText(context, title: title, body: body);
   }
+}
+
+/*
+    The whole of a notification, where it was tapped.
+
+    For the ones with nowhere to go - a warning, a report's outcome, an
+    announcement - the words are the point, and the list only shows two
+    lines of them. This opened the notification list instead, which from
+    the list itself stacked a second copy of it.
+*/
+Future<void> showNotificationText(
+  BuildContext context, {
+  required String title,
+  String? body,
+}) {
+  return showModalBottomSheet<void>(
+    context: context,
+    isScrollControlled: true,
+    backgroundColor: Colors.transparent,
+    builder: (sheetContext) => Container(
+      constraints: BoxConstraints(
+        maxHeight: MediaQuery.sizeOf(sheetContext).height * 0.8,
+      ),
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      child: SafeArea(
+        top: false,
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.fromLTRB(20, 10, 20, 20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Center(
+                child: Container(
+                  width: 40,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: AppColors.neutral300,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+              Text(
+                title.isEmpty ? 'KAYA' : title,
+                style: const TextStyle(
+                  fontSize: 17,
+                  fontWeight: FontWeight.w700,
+                  color: AppColors.neutral900,
+                ),
+              ),
+              if ((body ?? '').trim().isNotEmpty) ...[
+                const SizedBox(height: 10),
+                SelectableText(
+                  body!.trim(),
+                  style: const TextStyle(
+                    fontSize: 14.5,
+                    height: 1.45,
+                    color: AppColors.neutral700,
+                  ),
+                ),
+              ],
+              const SizedBox(height: 20),
+              SizedBox(
+                width: double.infinity,
+                height: 46,
+                child: OutlinedButton(
+                  onPressed: () => Navigator.pop(sheetContext),
+                  child: const Text('Close'),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    ),
+  );
 }
 
 /*

@@ -159,7 +159,7 @@ class BackgroundPoll {
         if (id is! int || id <= lastSeen) continue;
 
         await LocalAlerts.show(
-          id: id,
+          id: LocalAlerts.shadeIdFor(Map<String, dynamic>.from(raw)),
           title: '${raw['title'] ?? 'KAYA'}',
           body: '${raw['body'] ?? ''}',
           notification: Map<String, dynamic>.from(raw),

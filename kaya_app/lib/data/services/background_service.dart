@@ -248,7 +248,16 @@ class _KayaTaskHandler extends TaskHandler {
           Anything that arrives after this tick is genuinely new and is
           announced normally.
       */
-      final firstEverPoll = _lastNotificationId == 0;
+      /*
+          Whether a mark exists, not whether it is above zero.
+
+          This read zero as "never polled", and zero is also what a brand
+          new account is primed to when it has no notifications yet - so
+          the first notification such an account ever received was taken
+          for history and dropped. The closed-app worker already asked it
+          this way (BackgroundPoll.runOnce).
+      */
+      final firstEverPoll = !prefs.containsKey(BackgroundPoll.lastSeenKey);
 
       for (final raw in list) {
         if (raw is! Map) continue;
@@ -257,11 +266,7 @@ class _KayaTaskHandler extends TaskHandler {
         if (id is! int) continue;
 
         if (!firstEverPoll) {
-          await _show(
-            id: id,
-            title: '${raw['title'] ?? 'KAYA'}',
-            body: '${raw['body'] ?? ''}',
-          );
+          await _show(Map<String, dynamic>.from(raw));
         }
 
         if (id > _lastNotificationId) _lastNotificationId = id;
@@ -286,8 +291,21 @@ class _KayaTaskHandler extends TaskHandler {
     }
   }
 
-  Future<void> _show({required int id, required String title, required String body}) =>
-      LocalAlerts.show(id: id, title: title, body: body);
+  /*
+      With the notification itself as the payload.
+
+      This posted the title and body alone, so tapping it on the shade
+      opened the app and stopped there - the tap had nothing to say where
+      it was meant to go. The in-app poll and the closed-app worker both
+      sent it; this service, which raises most of them during a hire, did
+      not.
+  */
+  Future<void> _show(Map<String, dynamic> raw) => LocalAlerts.show(
+        id: LocalAlerts.shadeIdFor(raw),
+        title: '${raw['title'] ?? 'KAYA'}',
+        body: '${raw['body'] ?? ''}',
+        notification: raw,
+      );
 
   // ── plain HTTP, because ApiClient lives in the other isolate ───────────────
 

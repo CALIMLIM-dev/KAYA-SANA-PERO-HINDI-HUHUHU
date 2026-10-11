@@ -68,7 +68,6 @@ void main() {
     for (final type in const [
       'application.withdrawn',
       'application.cancelled',
-      'invitation.accepted',
       'invitation.declined',
     ]) {
       expect(
@@ -82,6 +81,65 @@ void main() {
         reason: '$type sent an employer to a page with an Apply button',
       );
     }
+  });
+
+  /*
+      A hire, and a post an admin closed, open My Jobs.
+
+      The applicants list opens on Pending, where somebody who just took the
+      job by invitation is not - they are on the job's card in My Jobs, with
+      Message and Mark as complete. A closed post is in My Jobs' History.
+  */
+  test('a hire by invitation and a closed post open My Jobs', () {
+    for (final type in const ['invitation.accepted', 'job.closed']) {
+      expect(
+        destinationFor(type: type, audience: 'employer', referenceType: 'job', referenceId: 7),
+        'manageJobs',
+        reason: type,
+      );
+    }
+  });
+
+  /*
+      Nothing to open: the words are the point. These opened the
+      notification list, which from the list itself stacked a second copy
+      of it - the "back twice" report.
+  */
+  test('a warning, an outcome or an announcement shows its words, not another list', () {
+    for (final type in const [
+      'moderation.warning',
+      'report.decided',
+      'report.closed',
+      'announcement.sent',
+    ]) {
+      expect(
+        notificationDestination(type: type, audience: 'both', referenceType: null).name,
+        'fullText',
+        reason: type,
+      );
+    }
+  });
+
+  test('every other kind has a place to go', () {
+    expect(destinationFor(type: 'support.replied', audience: 'both', referenceType: ''), 'support');
+    expect(destinationFor(type: 'badge.earned', audience: 'worker', referenceType: ''), 'workerProfile');
+    expect(destinationFor(type: 'badge.earned', audience: 'employer', referenceType: ''), 'employerProfile');
+    expect(
+      destinationFor(type: 'community.removed', audience: 'worker', referenceType: 'community_post', referenceId: 4),
+      'communityPost',
+    );
+    expect(
+      destinationFor(type: 'work_again.requested', audience: 'employer', referenceType: 'user', referenceId: 8),
+      'person',
+    );
+    expect(
+      destinationFor(type: 'message.received', audience: 'both', referenceType: 'conversation', referenceId: 3),
+      'chat',
+    );
+    expect(
+      destinationFor(type: 'invitation.received', audience: 'worker', referenceType: 'invitation', referenceId: 2),
+      'invitations',
+    );
   });
 
   test('expiry takes the employer where extending is', () {
@@ -117,21 +175,31 @@ void main() {
       worker would land on History looking for a job still running. The
       employer's copy went to Manage Jobs, which has no Mark as complete.
   */
-  test('hired and completion nudges open Active for both sides', () {
+  test('hired and completion nudges open live work, on each side', () {
     for (final type in ['application.accepted', 'application.completion_pending']) {
-      for (final audience in ['worker', 'employer']) {
-        expect(
-          destinationFor(
-            type: type,
-            audience: audience,
-            referenceType: 'application',
-            referenceId: 3,
-          ),
-          'active',
-          reason: '$type for $audience',
-        );
-      }
+      expect(
+        destinationFor(type: type, audience: 'worker', referenceType: 'application', referenceId: 3),
+        'active',
+        reason: '$type for the worker',
+      );
     }
+
+    // An employer's running posts are My Jobs, not Home's Active list.
+    expect(
+      destinationFor(
+        type: 'application.completion_pending',
+        audience: 'employer',
+        referenceType: 'application',
+        referenceId: 3,
+      ),
+      'manageJobs',
+    );
+
+    // A finished job waits in Active for the worker's review.
+    expect(
+      destinationFor(type: 'job.completed', audience: 'worker', referenceType: 'job', referenceId: 7),
+      'active',
+    );
 
     // Anything else about an application is not live work.
     expect(

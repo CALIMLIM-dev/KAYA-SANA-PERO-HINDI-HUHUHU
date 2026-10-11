@@ -12,6 +12,7 @@ import '../../../providers/auth_provider.dart';
 import '../../../providers/schedule_provider.dart';
 import '../widgets/schedule_card.dart';
 import '../../../providers/messaging_provider.dart';
+import '../../../providers/notification_provider.dart';
 import '../../../core/widgets/app_toast.dart';
 import '../../../core/widgets/verification_badge_widget.dart';
 import '../widgets/chat_job_strip.dart';
@@ -103,6 +104,17 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   */
   Map<String, dynamic>? _resolved;
 
+  NotificationProvider? _notifications;
+
+  void _onNotificationArrived() {
+    final n = _notifications?.arrived.value;
+    final id = _conversationId;
+    if (n == null || id == null) return;
+    if (n.type == 'message.received' && n.referenceId == id) {
+      _notifications?.markConversationRead(id);
+    }
+  }
+
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
@@ -115,6 +127,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     // Held so dispose() can unsubscribe — by then the element is detached and
     // context lookups throw.
     _messaging = context.read<MessagingProvider>();
+    _notifications = context.read<NotificationProvider>();
 
     // So an optimistic message knows which side of the thread it belongs on
     // before the server has confirmed it exists.
@@ -128,6 +141,11 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) {
           context.read<MessagingProvider>().fetchMessages(_conversationId!);
+
+          // Opening the thread reads its notifications too, and one that
+          // arrives while it is open was read as it landed.
+          _notifications?.markConversationRead(_conversationId!);
+          _notifications?.arrived.addListener(_onNotificationArrived);
 
           /*
               The schedule, once, and only where there is a job.
@@ -332,6 +350,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
 
   @override
   void dispose() {
+    _notifications?.arrived.removeListener(_onNotificationArrived);
     _pollTimer?.cancel();
     WidgetsBinding.instance.removeObserver(this);
     RealtimeService.instance.connected.removeListener(_onSocketChanged);

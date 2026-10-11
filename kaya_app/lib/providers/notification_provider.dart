@@ -419,7 +419,7 @@ class NotificationProvider with ChangeNotifier {
     _markSeen(fresh.last.id);
 
     for (final n in fresh) {
-      _items.removeWhere((existing) => existing.id == n.id);
+      _items.removeWhere((existing) => existing.id == n.id || _foldedInto(n, existing));
       _items.insert(0, n);
     }
 
@@ -452,7 +452,7 @@ class NotificationProvider with ChangeNotifier {
 
     // De-duplicate on id. A notification can arrive twice — once pushed, once
     // in a refresh that raced it — and appending blindly would show it twice.
-    _items.removeWhere((n) => n.id == notification.id);
+    _items.removeWhere((n) => n.id == notification.id || _foldedInto(notification, n));
     _items.insert(0, notification);
 
     // Counts come from the server with the push, so the badge stays exact even
@@ -467,6 +467,47 @@ class NotificationProvider with ChangeNotifier {
       _recountFromItems();
     }
 
+    notifyListeners();
+  }
+
+  /*
+      The server keeps one unread message notification per conversation: a
+      new message replaces the ones before it (NotificationService::
+      messageReceived). Those earlier rows are gone on the server but still
+      held here, so they are dropped here too, or the list showed the thread
+      once per message until the next full load.
+  */
+  static bool _foldedInto(AppNotification newer, AppNotification older) =>
+      newer.type == 'message.received' &&
+      older.type == 'message.received' &&
+      !older.isRead &&
+      older.id != newer.id &&
+      newer.referenceType == 'conversation' &&
+      older.referenceType == 'conversation' &&
+      older.referenceId == newer.referenceId;
+
+  /*
+      Reading a thread reads its notifications.
+
+      The server marks them when the chat marks its messages; this is the
+      same thing here, so the bell drops the moment the thread opens instead
+      of at the next full load.
+  */
+  void markConversationRead(int conversationId) {
+    var changed = false;
+    _items = _items.map((n) {
+      if (n.isRead ||
+          n.type != 'message.received' ||
+          n.referenceType != 'conversation' ||
+          n.referenceId != conversationId) {
+        return n;
+      }
+      changed = true;
+      return n.copyWith(isRead: true);
+    }).toList();
+
+    if (!changed) return;
+    _recountFromItems();
     notifyListeners();
   }
 

@@ -487,6 +487,16 @@ class ConversationController extends Controller
             ->where('is_read', false)
             ->update(['is_read' => true, 'read_at' => now()]);
 
+        // And the notifications that announced them: read in the thread is
+        // read. The bell kept counting messages the person had just read.
+        $cleared = \App\Models\UserNotification::query()
+            ->where('user_id', $user->id)
+            ->where('type', \App\Models\UserNotification::MESSAGE_RECEIVED)
+            ->where('reference_type', 'conversation')
+            ->where('reference_id', $conversation->id)
+            ->unread()
+            ->update(['read_at' => now()]);
+
         /*
             Tell the sender their message was seen.
 
@@ -504,6 +514,9 @@ class ConversationController extends Controller
             );
         }
 
-        return $this->ok(['marked_read_count' => $count], 'Messages marked as read');
+        return $this->ok([
+            'marked_read_count'     => $count,
+            'notifications_cleared' => $cleared,
+        ], 'Messages marked as read');
     }
 }

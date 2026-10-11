@@ -175,9 +175,8 @@ class _NotificationBannerHostState extends State<NotificationBannerHost> {
         lost until they came back.
     */
     if (WidgetsBinding.instance.lifecycleState != AppLifecycleState.resumed) {
-      final id = notification['id'];
       LocalAlerts.show(
-        id: id is int ? id : 0,
+        id: LocalAlerts.shadeIdFor(notification),
         title: '${notification['title'] ?? 'KAYA'}',
         body: '${notification['body'] ?? ''}',
         notification: notification,
@@ -264,6 +263,8 @@ class _NotificationBannerHostState extends State<NotificationBannerHost> {
       audience: '${notification['audience'] ?? ''}',
       referenceType: referenceType.isEmpty ? null : referenceType,
       referenceId: referenceId,
+      title: '${notification['title'] ?? ''}',
+      body: notification['body'] as String?,
     );
   }
 

@@ -139,6 +139,8 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
       audience: n.audience,
       referenceType: n.referenceType,
       referenceId: n.referenceId,
+      title: n.title,
+      body: n.body,
     );
   }
   static NotificationType _typeOf(String type) {

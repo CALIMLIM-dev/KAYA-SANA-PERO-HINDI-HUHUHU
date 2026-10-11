@@ -113,6 +113,25 @@ class LocalAlerts {
     }
   }
 
+  /*
+      Which shade entry a notification goes in.
+
+      Its own id, except a message: messages share one entry per
+      conversation, so a chat posts one line that keeps up with it rather
+      than a stack of "New message" lines from the same person. The server
+      folds them the same way in the list.
+  */
+  static int shadeIdFor(Map<String, dynamic> notification) {
+    final id = notification['id'];
+    final ref = notification['reference_id'];
+    if (notification['type'] == 'message.received' &&
+        notification['reference_type'] == 'conversation' &&
+        ref is int) {
+      return 0x40000000 + ref;
+    }
+    return id is int ? id : 0;
+  }
+
   /// Tests record what would have been shown instead of reaching the plugin.
   @visibleForTesting
   static void Function(int id, String title, String body)? testSink;
