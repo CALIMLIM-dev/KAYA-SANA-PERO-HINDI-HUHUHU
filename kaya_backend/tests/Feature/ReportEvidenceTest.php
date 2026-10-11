@@ -156,7 +156,8 @@ class ReportEvidenceTest extends TestCase
             ->assertOk()
             ->assertSee('What was reported')
             ->assertSee('Juan Dela Cruz')
-            ->assertSee('The reported person')
+            // Their side, under their own name.
+            ->assertSee("Juan Dela Cruz's reply")
             ->assertSee('I only asked for materials money.');
     }
 

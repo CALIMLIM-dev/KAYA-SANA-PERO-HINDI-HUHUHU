@@ -9,42 +9,44 @@
     Pending is ordered by how serious the chosen reason is, then by age, so a
     threat does not sit beneath a morning of spam reports. Every other tab is a
     record and reads newest first.
+
+    Severity is a word in its own column, coloured only by its text: the queue
+    is read top to bottom by it, and a row of tinted capital-letter tags made
+    every line shout the same amount.
 --}}
+@php
+    $severityTone = ['high' => 'text-red-700', 'medium' => 'text-amber-700', 'low' => 'text-slate-500'];
+@endphp
 
-<style>
-    .sev { font-size: 10px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase;
-           padding: 3px 7px; border-radius: 5px; white-space: nowrap; }
-    .sev-high   { background: #fee2e2; color: #b91c1c; }
-    .sev-medium { background: #fef3c7; color: #b45309; }
-    .sev-low    { background: #f1f5f9; color: #64748b; }
-    .qrow:hover { background: #f8fafc; }
-</style>
-
-<div class="bg-white rounded-xl border border-slate-200 overflow-hidden">
-    <div class="p-4 border-b border-slate-100 flex flex-wrap gap-2">
+<div class="bg-white rounded-xl border border-slate-200">
+    {{-- The same tabs as Community, the other queue that is worked through. --}}
+    <div class="px-5 py-4 border-b border-slate-100 flex flex-wrap items-center gap-1">
         @foreach (['pending' => 'Pending', 'resolved' => 'Resolved', 'dismissed' => 'Dismissed', 'all' => 'All'] as $key => $label)
             <a href="{{ route('admin.reports.index', ['status' => $key]) }}"
-               class="px-3 py-1.5 rounded-full text-xs font-semibold inline-flex items-center gap-2
-                      {{ $status === $key ? 'bg-blue-600 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200' }}">
+               @if ($status === $key) aria-current="page" @endif
+               class="px-3 py-1.5 rounded-lg text-sm {{ $status === $key ? 'bg-blue-50 text-blue-700 font-medium' : 'text-slate-500 hover:bg-slate-50 hover:text-slate-700' }}">
                 {{ $label }}
                 @if ($key !== 'all' && ($counts[$key] ?? 0) > 0)
-                    <span class="px-1.5 rounded-full text-[10px]
-                                 {{ $status === $key ? 'bg-white/25' : 'bg-white' }}">{{ $counts[$key] }}</span>
+                    <span class="ml-1 text-xs tabular-nums {{ $status === $key ? 'text-blue-600' : 'text-slate-400' }}">{{ $counts[$key] }}</span>
                 @endif
             </a>
         @endforeach
+
+        @if ($status === 'pending' && $reports->isNotEmpty())
+            <span class="ml-auto text-xs text-slate-400">Most serious first, then oldest</span>
+        @endif
     </div>
 
     @if ($reports->isEmpty())
-        <div class="p-12 text-center">
-            <p class="text-sm font-semibold text-slate-600">
-                {{ $status === 'pending' ? 'Nothing waiting' : 'Nothing here' }}
+        <div class="px-5 py-14 text-center">
+            <p class="text-sm font-medium text-slate-700">
+                {{ $status === 'pending' ? 'Nothing waiting for a decision' : 'No reports here yet' }}
             </p>
-            <p class="text-xs text-slate-400 mt-1.5 max-w-sm mx-auto leading-relaxed">
+            <p class="text-sm text-slate-500 mt-1">
                 @if ($status === 'pending')
-                    No reports are waiting for a decision. New ones appear here, most serious first.
+                    New reports land here as they are filed, the most serious at the top.
                 @else
-                    No reports with this status yet.
+                    Reports move here once they are {{ $status === 'all' ? 'filed' : $status }}.
                 @endif
             </p>
         </div>
@@ -53,36 +55,36 @@
             <table class="w-full text-sm">
                 <thead>
                     <tr class="text-left text-xs text-slate-400 border-b border-slate-100">
-                        <th class="py-3 px-5 font-semibold">Reported</th>
-                        <th class="py-3 px-5 font-semibold">Reason</th>
-                        <th class="py-3 px-5 font-semibold">By</th>
-                        <th class="py-3 px-5 font-semibold">When</th>
-                        <th class="py-3 px-5 font-semibold text-right">&nbsp;</th>
+                        <th class="py-3 px-5 font-medium">Reported account</th>
+                        <th class="py-3 px-5 font-medium">Reason</th>
+                        <th class="py-3 px-5 font-medium">Severity</th>
+                        <th class="py-3 px-5 font-medium">Filed by</th>
+                        <th class="py-3 px-5 font-medium">Filed</th>
+                        <th class="py-3 px-5"><span class="sr-only">Open</span></th>
                     </tr>
                 </thead>
                 <tbody>
                     @foreach ($reports as $report)
-                        <tr class="qrow border-b border-slate-50">
+                        <tr class="border-b border-slate-50 last:border-0 hover:bg-slate-50">
                             <td class="py-3 px-5">
                                 <a href="{{ route('admin.reports.show', $report) }}"
                                    class="font-medium text-slate-800 hover:text-blue-600">
                                     {{ $report->reported->name ?? 'Deleted account' }}
                                 </a>
                                 @if ($report->reported?->is_suspended)
-                                    <span class="badge-suspended text-[10px] px-1.5 py-0.5 rounded-full ml-1">Suspended</span>
+                                    <span class="badge-suspended ml-1.5 text-xs px-2 py-0.5 rounded-full">Suspended</span>
                                 @endif
                             </td>
-                            <td class="py-3 px-5">
-                                <div class="flex items-center gap-2">
-                                    <span class="sev sev-{{ $report->severity() }}">{{ $report->severity() }}</span>
-                                    <span class="text-slate-600">{{ $report->reasonLabel() }}</span>
-                                </div>
+                            <td class="py-3 px-5 text-slate-700">{{ $report->reasonLabel() }}</td>
+                            <td class="py-3 px-5 font-medium {{ $severityTone[$report->severity()] ?? 'text-slate-500' }}">
+                                {{ ucfirst($report->severity()) }}
                             </td>
-                            <td class="py-3 px-5 text-slate-500">{{ $report->reporter->name ?? '—' }}</td>
-                            <td class="py-3 px-5 text-slate-400 text-xs">{{ $report->created_at->diffForHumans() }}</td>
+                            <td class="py-3 px-5 text-slate-500">{{ $report->reporter->name ?? 'Deleted account' }}</td>
+                            <td class="py-3 px-5 text-slate-500 whitespace-nowrap"
+                                title="{{ $report->created_at->format('M j, Y g:i A') }}">{{ $report->created_at->diffForHumans() }}</td>
                             <td class="py-3 px-5 text-right">
                                 <a href="{{ route('admin.reports.show', $report) }}"
-                                   class="text-xs font-semibold text-blue-600 hover:text-blue-700">
+                                   class="text-xs font-medium text-blue-600 hover:text-blue-700">
                                     {{ $report->status === 'pending' ? 'Review' : 'View' }}
                                 </a>
                             </td>
@@ -92,7 +94,9 @@
             </table>
         </div>
 
-        <div class="p-4 border-t border-slate-100">{{ $reports->links() }}</div>
+        @if ($reports->hasPages())
+            <div class="px-5 py-4 border-t border-slate-100">{{ $reports->links() }}</div>
+        @endif
     @endif
 </div>
 @endsection
