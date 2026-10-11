@@ -120,6 +120,15 @@ class VerificationProvider with ChangeNotifier {
     }
   }
 
+  /// Wiped on logout: these are one account's documents.
+  void clear() {
+    _verifications = [];
+    _errorMessage = null;
+    _isLoading = false;
+    pickError = null;
+    notifyListeners();
+  }
+
   /// Why the last [pickDocument] returned nothing, when it was not simply
   /// closed: the file was too large to send.
   String? pickError;

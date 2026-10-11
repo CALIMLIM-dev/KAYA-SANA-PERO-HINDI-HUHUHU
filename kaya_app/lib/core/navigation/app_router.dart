@@ -101,6 +101,10 @@ class AppRouter {
   static const String employerProfile = '/employer-profile';
   static const String pinLocation = '/pin-location';
 
+  /// Not in generateRoute: a post is opened with its data, not by id. Named
+  /// so pushRoute can tell when it is already open.
+  static const String communityPost = '/community-post';
+
   /*
       What is on the navigator right now.
 
@@ -111,6 +115,17 @@ class AppRouter {
       the same screen that all have to be backed out of one by one.
   */
   static final RouteStack observer = RouteStack();
+
+  /// The screens of somebody who is not signed in.
+  static bool isSignedOutRoute(String? name) => const {
+        welcome,
+        login,
+        signup,
+        forgotPassword,
+        verifyResetCode,
+        resetPassword,
+        googlePassword,
+      }.contains(name);
 
   /// Pushes a named route unless that exact route, with the same
   /// arguments, is already on top. Every screen goes through this.
@@ -126,21 +141,43 @@ class AppRouter {
     return Navigator.pushNamed<T>(context, route, arguments: arguments);
   }
 
-  /// Generate routes for the app
+  /// The same refusal as [push], for a route built by hand.
+  static Future<T?> pushRoute<T extends Object?>(BuildContext context, Route<T> route) {
+    final top = observer.top;
+    if (top != null &&
+        route.settings.name != null &&
+        top.settings.name == route.settings.name &&
+        const DeepCollectionEquality().equals(top.settings.arguments, route.settings.arguments)) {
+      return Future<T?>.value(null);
+    }
+
+    return Navigator.of(context).push(route);
+  }
+
+  /*
+      Generate routes for the app.
+
+      Every route carries its settings. Most were built without them, so the
+      route had no name: push() could not see that the screen it was about
+      to open was already on top, and a tap on a notification for the
+      screen you were on stacked a second copy you had to back out of. The
+      session handler in main.dart asks the same question about the login
+      screen, and pushed it again after every sign-out for the same reason.
+  */
   static Route<dynamic> generateRoute(RouteSettings settings) {
     switch (settings.name) {
       case welcome:
-        return MaterialPageRoute(builder: (_) => const WelcomeScreen());
+        return MaterialPageRoute(settings: settings, builder: (_) => const WelcomeScreen());
       
       case login:
-        return MaterialPageRoute(builder: (_) => const LoginScreen());
+        return MaterialPageRoute(settings: settings, builder: (_) => const LoginScreen());
       
       case signup:
-        return MaterialPageRoute(builder: (_) => const SignupScreen());
+        return MaterialPageRoute(settings: settings, builder: (_) => const SignupScreen());
       
       
       case forgotPassword:
-        return MaterialPageRoute(builder: (_) => const ForgotPasswordScreen());
+        return MaterialPageRoute(settings: settings, builder: (_) => const ForgotPasswordScreen());
       
       case verifyResetCode:
         return MaterialPageRoute(
@@ -161,7 +198,7 @@ class AppRouter {
         );
       
       case home:
-        return MaterialPageRoute(builder: (_) => const MainNavigation());
+        return MaterialPageRoute(settings: settings, builder: (_) => const MainNavigation());
 
       /*
           Workers ranked against one job.
@@ -174,7 +211,7 @@ class AppRouter {
         final jobId = args is Map ? args['jobId'] as int? : null;
 
         if (jobId == null) {
-          return _errorRoute('A job is needed to suggest workers for it.');
+          return _errorRoute(settings, 'A job is needed to suggest workers for it.');
         }
 
         return MaterialPageRoute(
@@ -199,6 +236,7 @@ class AppRouter {
         final categoryId = args is Map ? args['categoryId'] as int? : null;
         final searchType = args is Map ? args['searchType'] as String? : null;
         return MaterialPageRoute(
+          settings: settings,
           builder: (_) => SearchScreen(
             initialQuery: query,
             initialCategoryId: categoryId,
@@ -219,20 +257,20 @@ class AppRouter {
         );
       
       case postJob:
-        return MaterialPageRoute(builder: (_) => const PostJobScreen());
+        return MaterialPageRoute(settings: settings, builder: (_) => const PostJobScreen());
       
 
       case savedJobs:
-        return MaterialPageRoute(builder: (_) => const SavedJobsScreen());
+        return MaterialPageRoute(settings: settings, builder: (_) => const SavedJobsScreen());
       
       case applications:
-        return MaterialPageRoute(builder: (_) => const ApplicationsScreen());
+        return MaterialPageRoute(settings: settings, builder: (_) => const ApplicationsScreen());
 
       case active:
-        return MaterialPageRoute(builder: (_) => const ActiveScreen());
+        return MaterialPageRoute(settings: settings, builder: (_) => const ActiveScreen());
       
       case messages:
-        return MaterialPageRoute(builder: (_) => const MessagesListScreen());
+        return MaterialPageRoute(settings: settings, builder: (_) => const MessagesListScreen());
       
       case chat:
         return MaterialPageRoute(
@@ -241,12 +279,12 @@ class AppRouter {
         );
       
       case notifications:
-        return MaterialPageRoute(builder: (_) => const NotificationsScreen());
+        return MaterialPageRoute(settings: settings, builder: (_) => const NotificationsScreen());
 
       case wallet:
-        return MaterialPageRoute(builder: (_) => const WalletScreen());
+        return MaterialPageRoute(settings: settings, builder: (_) => const WalletScreen());
       case walletHistory:
-        return MaterialPageRoute(builder: (_) => const WalletHistoryScreen());
+        return MaterialPageRoute(settings: settings, builder: (_) => const WalletHistoryScreen());
       case reportResponse:
         final reportId = (settings.arguments as Map?)?['reportId'] as int?;
         return MaterialPageRoute(
@@ -258,33 +296,33 @@ class AppRouter {
 
       
       case profile:
-        return MaterialPageRoute(builder: (_) => const ProfileScreen());
+        return MaterialPageRoute(settings: settings, builder: (_) => const ProfileScreen());
       
 
       case myWorkerProfile:
       case setupWorkerProfile:
-        return MaterialPageRoute(builder: (_) => const WorkerProfileRouter());
+        return MaterialPageRoute(settings: settings, builder: (_) => const WorkerProfileRouter());
 
       case myEmployerProfile:
-        return MaterialPageRoute(builder: (_) => const EmployerProfileRouter());
+        return MaterialPageRoute(settings: settings, builder: (_) => const EmployerProfileRouter());
       
 
       case addSkills:
         final initSkills = (settings.arguments as List<dynamic>?)?.cast<String>() ?? [];
-        return MaterialPageRoute(builder: (_) => AddSkillsScreen(initialSkills: initSkills));
+        return MaterialPageRoute(settings: settings, builder: (_) => AddSkillsScreen(initialSkills: initSkills));
       
 
       case support:
-        return MaterialPageRoute(builder: (_) => const SupportChatScreen());
+        return MaterialPageRoute(settings: settings, builder: (_) => const SupportChatScreen());
       case faq:
-        return MaterialPageRoute(builder: (_) => const FAQScreen());
+        return MaterialPageRoute(settings: settings, builder: (_) => const FAQScreen());
       
       case setupEmployerProfile:
-        return MaterialPageRoute(builder: (_) => const SetupEmployerProfileScreen());
+        return MaterialPageRoute(settings: settings, builder: (_) => const SetupEmployerProfileScreen());
       
 
       case manageJobs:
-        return MaterialPageRoute(builder: (_) => const ManageJobsScreen());
+        return MaterialPageRoute(settings: settings, builder: (_) => const ManageJobsScreen());
       
       case viewApplicants:
         return MaterialPageRoute(
@@ -306,10 +344,10 @@ class AppRouter {
         );
 
       case '/settings':
-        return MaterialPageRoute(builder: (_) => const SettingsScreen());
+        return MaterialPageRoute(settings: settings, builder: (_) => const SettingsScreen());
 
       case '/my-invitations':
-        return MaterialPageRoute(builder: (_) => const MyInvitationsScreen());
+        return MaterialPageRoute(settings: settings, builder: (_) => const MyInvitationsScreen());
 
       case '/edit-job':
         return MaterialPageRoute(
@@ -336,13 +374,14 @@ class AppRouter {
         );
       
       default:
-        return _errorRoute('Page not found: ${settings.name}');
+        return _errorRoute(settings, 'Page not found: ${settings.name}');
     }
   }
 
   /// Error route for unknown or invalid routes
-  static Route<dynamic> _errorRoute(String message) {
+  static Route<dynamic> _errorRoute(RouteSettings settings, String message) {
     return MaterialPageRoute(
+      settings: settings,
       builder: (context) => Scaffold(
         appBar: AppBar(title: const Text('Error')),
         body: Center(

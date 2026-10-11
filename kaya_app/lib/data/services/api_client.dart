@@ -155,9 +155,21 @@ class ApiClient {
         }
         return handler.next(response);
       },
-      onError: (error, handler) {
-        if (error.response?.statusCode == 401 &&
-            !_isAuthPath(error.requestOptions.path)) {
+      onError: (error, handler) async {
+        /*
+            Only for the session this phone still holds.
+
+            Signing out deletes the token and revokes it, but requests that
+            were already out - the five-second notification poll, a home
+            refresh the sign-out itself set off - come back refused a moment
+            later. Each one used to end the session a second time and slide
+            the login screen in again. A refusal for a token that is no
+            longer the stored one, or for a request sent with none, is about
+            a session that has already ended, and is left alone.
+        */
+        final refused = error.response?.statusCode == 401 &&
+            !_isAuthPath(error.requestOptions.path);
+        if (refused && await _isCurrentSession(error.requestOptions)) {
           /*
               The token is dead. Nothing this session does will work again.
 
@@ -176,6 +188,18 @@ class ApiClient {
         return handler.next(error);
       },
     ));
+  }
+
+  /// Whether [options] went out with the token this phone holds now.
+  static Future<bool> _isCurrentSession(RequestOptions options) async {
+    try {
+      final current = await _storage.read(key: _tokenKey);
+      return current != null &&
+          options.headers['Authorization'] == 'Bearer $current';
+    } catch (_) {
+      // Storage unreadable: say nothing rather than sign somebody out.
+      return false;
+    }
   }
 
   /// Called once when a request fails because the session is no longer valid.

@@ -298,6 +298,16 @@ class _UnifiedHomeScreenState extends State<UnifiedHomeScreen>
   Future<void> _initializeData() async {
     if (!mounted) return;
 
+    /*
+        Nothing to load for somebody who has just signed out.
+
+        Signing out empties the account, which this screen hears as its
+        town changing, and it reloaded - with the token already gone. Those
+        requests came back refused and left "Unauthenticated." behind for
+        the next person's home to show. Home is on its way out by then.
+    */
+    if (context.read<AuthProvider>().user == null) return;
+
     // Spinners only when there is nothing yet; a refresh of lists already on
     // screen happens behind them.
     setState(() => _isLoading = _allJobs.isEmpty && _allWorkers.isEmpty);
@@ -347,7 +357,13 @@ class _UnifiedHomeScreenState extends State<UnifiedHomeScreen>
     setState(() {
       _allJobs = jobProvider.publicJobs;
       _allWorkers = workerBrowse.workers;
-      _errorMessage = jobProvider.publicErrorMessage ?? workerBrowse.errorMessage;
+      // Only from what was asked just now. A list this account does not
+      // load still holds whatever its last request said, which could be
+      // another session's.
+      _errorMessage = [
+        if (!employerOnly) jobProvider.publicErrorMessage,
+        if (!workerOnly) workerBrowse.errorMessage,
+      ].whereType<String>().firstOrNull;
       _offline = ConnectionStatus.instance.isOffline;
       _isLoading = false;
       _applyFilters();

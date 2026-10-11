@@ -210,6 +210,31 @@ class WorkerBrowseProvider with ChangeNotifier {
     notifyListeners();
   }
 
+  /*
+      Wiped on logout with everything else.
+
+      This was the one list home reads that nothing cleared. A directory
+      request still in flight when somebody signed out came back refused,
+      and its "Unauthenticated." sat here into the next session, where a
+      worker's home - which never asks for the directory - showed it at the
+      bottom of the screen.
+  */
+  void clear() {
+    _workers = [];
+    _mostHired = [];
+    _errorMessage = null;
+    _isLoading = false;
+    _selectedWorker = null;
+    _selectedWorkerId = null;
+    _detailError = null;
+    _matches = [];
+    _matchesJobId = null;
+    _matchesError = null;
+    _matchesLocked = false;
+    _matchCount = 0;
+    notifyListeners();
+  }
+
   Future<void> fetchWorkers({
     String? q,
     int? categoryId,

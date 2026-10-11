@@ -5,6 +5,7 @@ import 'package:image_picker_platform_interface/image_picker_platform_interface.
 import 'package:provider/provider.dart';
 import 'core/theme/app_theme.dart';
 import 'core/navigation/app_router.dart';
+import 'core/utils/end_session.dart';
 import 'core/widgets/kaya_mark.dart';
 import 'core/widgets/notification_banner.dart';
 import 'core/widgets/offline_notice.dart';
@@ -241,26 +242,19 @@ class KayaApp extends StatelessWidget {
             final navigator = _navigatorKey.currentState;
             if (navigator == null) return;
 
-            context.read<AuthProvider>().logout();
-
             /*
-                The same clearing the Log out button does.
+                The same clearing the Log out button does, from the same list.
 
                 A session can end two ways - the button, or a token the server
                 stops accepting - and only the button was tidying up after
                 itself. Everything one account left in memory was still there
                 when the next one signed in: their balance, their unread
-                counts, their mode, their profile view count.
-
-                The balance was the one that showed. CreditsProvider.load()
-                returns early once it has loaded, so an inherited number never
-                corrected itself and the home screen sat there displaying
-                somebody else's money.
+                counts, their mode, their profile view count. See
+                sessionClearer.
             */
-            context.read<CreditsProvider>().clear();
-            context.read<NotificationProvider>().clear();
-            context.read<ProfileViewProvider>().clear();
-            context.read<AppModeProvider>().clear();
+            final clear = sessionClearer(context);
+            context.read<AuthProvider>().logout();
+            clear();
 
             /*
                 Only if we are not already there.
@@ -275,11 +269,17 @@ class KayaApp extends StatelessWidget {
                 on the current route means the first one wins and the rest are
                 no-ops, whichever order they arrive in.
             */
-            var alreadyThere = false;
-            navigator.popUntil((route) {
-              alreadyThere = route.settings.name == AppRouter.login;
-              return true;
-            });
+            /*
+                Any signed-out screen counts, not only login.
+
+                This compared against the login route's name, and that route
+                had none (see AppRouter.generateRoute), so the check never
+                matched and every refused request pushed login again. The
+                welcome screen and sign-up count too: an expired token found
+                while the app opens is handled by the welcome screen itself.
+            */
+            final alreadyThere =
+                AppRouter.isSignedOutRoute(AppRouter.observer.top?.settings.name);
 
             if (!alreadyThere) {
               navigator.pushNamedAndRemoveUntil(AppRouter.login, (_) => false);
