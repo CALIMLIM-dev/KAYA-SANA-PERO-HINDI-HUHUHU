@@ -181,7 +181,12 @@ class _ViewApplicantsScreenState extends State<ViewApplicantsScreen>
       builder: (context, provider, _) {
         final all = provider.applicants;
         final pending = _byStatus(all, 'pending');
-        final accepted = _byStatus(all, 'accepted');
+        // Hired, finished or not: a finished hire on a crew job was in no
+        // tab at all, so it could not be reviewed.
+        final accepted = all
+            .where((a) => const {'accepted', 'completed'}
+                .contains((a['application_status'] ?? '').toString()))
+            .toList();
         final rejected = _byStatus(all, 'rejected');
 
         /*
@@ -243,15 +248,23 @@ class _ViewApplicantsScreenState extends State<ViewApplicantsScreen>
                       controller: _tabController,
                       children: [
                         _buildList(pending,
+                            emptyTitle: all.isEmpty ? 'No applicants yet' : 'Nobody waiting',
+                            emptyBody: all.isEmpty
+                                ? 'People who apply to this job show here.'
+                                : 'Anyone who applied has been answered or withdrew.',
                             showActions: true,
                             perWorkerActions: perWorkerActions,
                             spots: spots,
                             hired: hiredCount,
                             full: full),
                         _buildList(accepted,
+                            emptyTitle: 'Nobody hired yet',
+                            emptyBody: 'People you accept show here.',
                             showActions: false,
                             perWorkerActions: perWorkerActions),
                         _buildList(rejected,
+                            emptyTitle: 'Nobody declined',
+                            emptyBody: 'Applicants you decline show here.',
                             showActions: false,
                             perWorkerActions: perWorkerActions),
                       ],
@@ -295,20 +308,27 @@ class _ViewApplicantsScreenState extends State<ViewApplicantsScreen>
   }
 
   Widget _buildList(List<Map<String, dynamic>> applicants,
-      {required bool showActions,
+      {required String emptyTitle,
+      required String emptyBody,
+      required bool showActions,
       required bool perWorkerActions,
       int spots = 1,
       int hired = 0,
       bool full = false}) {
     if (applicants.isEmpty) {
-      return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
+      // A list, so it pulls to refresh like the full one.
+      return RefreshIndicator(
+        onRefresh: () =>
+            context.read<ApplicationProvider>().fetchApplicants(_jobId!),
+        child: ListView(
+          physics: const AlwaysScrollableScrollPhysics(),
           children: [
+            const SizedBox(height: 120),
             Icon(Icons.people_outline, size: 56, color: AppColors.neutral300),
             const SizedBox(height: 16),
-            const Text('No applicants yet',
-                style: TextStyle(
+            Text(emptyTitle,
+                textAlign: TextAlign.center,
+                style: const TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.w600,
                     color: AppColors.neutral600)),
@@ -322,13 +342,12 @@ class _ViewApplicantsScreenState extends State<ViewApplicantsScreen>
                 here" over a job the employer knows had applicants reads as
                 the screen having failed to load them.
             */
-            const Padding(
-              padding: EdgeInsets.symmetric(horizontal: 40),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 40),
               child: Text(
-                'Anyone who applied has either been answered already or '
-                'withdrawn their application.',
+                emptyBody,
                 textAlign: TextAlign.center,
-                style: TextStyle(fontSize: 14, color: AppColors.neutral400),
+                style: const TextStyle(fontSize: 14, color: AppColors.neutral400),
               ),
             ),
           ],

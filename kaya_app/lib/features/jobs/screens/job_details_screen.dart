@@ -671,7 +671,7 @@ class _JobDetailsScreenState extends State<JobDetailsScreen>
         style: _actionStyle(backgroundColor: color.withValues(alpha: 0.15)),
         child: Text(label, style: TextStyle(color: color, fontWeight: FontWeight.w600)),
       );
-    } else if (job.isInvited) {
+    } else if (job.isInvited && job.isActive && !over) {
       /*
           Invited: taking the job is free, and the button has to say so.
 
@@ -701,7 +701,8 @@ class _JobDetailsScreenState extends State<JobDetailsScreen>
       );
     } else if (!job.isActive || over) {
       // Checked after the two branches above, so it only ever speaks to
-      // somebody with no standing on this job.
+      // somebody with no standing on this job - or an invitation to a job
+      // that has since closed, which the server would only refuse.
       button = ElevatedButton(
         onPressed: null,
         style: _actionStyle(),
@@ -819,6 +820,8 @@ class _JobDetailsScreenState extends State<JobDetailsScreen>
     if (!job.isInvited &&
         credits.hasLoadedOnce &&
         !credits.canAfford('apply')) {
+      AppToast.info(context,
+          'Applying costs ${credits.costOf('apply')} Barya and you have ${credits.balance}. Top up to apply.');
       await AppRouter.push(context, AppRouter.wallet);
       if (!mounted) return;
       await credits.refresh();
@@ -841,7 +844,14 @@ class _JobDetailsScreenState extends State<JobDetailsScreen>
       await credits.refresh();
       if (!mounted) return;
 
-      AppToast.success(context, 'Application sent');
+      // Taking an invitation is a hire, not an application waiting on an
+      // answer, and it should not be described as one.
+      AppToast.success(
+        context,
+        applications.lastApplyHired
+            ? 'You took the job. It is in your active work.'
+            : 'Application sent',
+      );
       return;
     }
 

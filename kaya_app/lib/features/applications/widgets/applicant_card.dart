@@ -186,10 +186,14 @@ class ApplicantCard extends StatelessWidget {
                 ],
               ),
             ],
-            if (status == 'accepted' && perWorkerActions) ...[
+            // Finished hires too: on a job for several people this is the
+            // only place the employer can review each one.
+            if ((status == 'accepted' || workDone) && perWorkerActions) ...[
                 const SizedBox(height: 8),
                 Row(
                   children: [
+                    // Not once the work is done: the thread closes with it.
+                    if (!workDone)
                     Expanded(
                       child: OutlinedButton.icon(
                         // Straight into this applicant's thread.
@@ -253,7 +257,7 @@ class ApplicantCard extends StatelessWidget {
                     // a second one, so leaving it there produced a rejection
                     // the employer could not act on.
                     if (canConfirm || (workDone && !iReviewedThem)) ...[
-                      const SizedBox(width: 8),
+                      if (!workDone) const SizedBox(width: 8),
                       Expanded(
                         child: ElevatedButton.icon(
                           onPressed: canConfirm

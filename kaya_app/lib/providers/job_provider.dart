@@ -298,7 +298,10 @@ class JobProvider with ChangeNotifier {
       final res = await _api.put('/jobs/$jobId', data: data);
       final updated = res.data['data'] as Map<String, dynamic>;
       final idx = _jobs.indexWhere((j) => j['id'] == jobId);
-      if (idx != -1) _jobs[idx] = updated;
+      // Merged, not replaced: the update answers with the post alone, and
+      // My Jobs also reads the hire, the live flag and the filled count
+      // that only the list carries.
+      if (idx != -1) _jobs[idx] = {..._jobs[idx], ...updated};
       _errorMessage = null;
       _setLoading(false);
       return true;

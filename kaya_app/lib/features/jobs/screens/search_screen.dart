@@ -75,7 +75,16 @@ class _SearchScreenState extends State<SearchScreen> {
 
   // Filter state
   double _minSalary = 0;
-  double _maxSalary = 5000;
+  double _maxSalary = _payTop;
+
+  /// The slider's top. Left there it means "and up", not a ceiling.
+  static const double _payTop = 5000;
+
+  bool get _payNarrowed => _minSalary > 0 || _maxSalary < _payTop;
+
+  String get _payLabel => _maxSalary >= _payTop
+      ? (_minSalary > 0 ? '₱${_minSalary.toInt()} and up' : 'Any pay')
+      : '₱${_minSalary.toInt()} – ₱${_maxSalary.toInt()}';
   double _minRating = 0;
   bool _verifiedOnly = false;
   bool _urgentOnly = false;
@@ -179,16 +188,11 @@ class _SearchScreenState extends State<SearchScreen> {
             urgentOnly: _urgentOnly,
           );
     } else {
-      // Pay is a column on the worker profile, so it filters server-side.
-      // Doing it here would silently drop workers who never stated a rate
-      // without the employer knowing a filter was responsible.
-      final bounded = _minSalary > 0 || _maxSalary < 5000;
-
+      // No pay filter for workers: a worker profile does not ask for a rate,
+      // so filtering on one would only hide people.
       await context.read<WorkerBrowseProvider>().fetchWorkers(
             q: query,
             categoryId: _selectedCategoryId,
-            rateMin: bounded && _minSalary > 0 ? _minSalary : null,
-            rateMax: bounded && _maxSalary < 5000 ? _maxSalary : null,
             locationId: _placeId,
             sort: _workerSortParam,
           );
@@ -198,10 +202,13 @@ class _SearchScreenState extends State<SearchScreen> {
   int _getActiveFilterCount() {
     int count = 0;
     if (_placeId != null) count++;
-    if (_minSalary > 0 || _maxSalary < 5000) count++;
+    // Pay and urgent are job filters; switched to workers they do nothing,
+    // so they are not counted there.
+    final jobs = _searchType == 'Jobs';
+    if (jobs && _payNarrowed) count++;
     if (_minRating > 0) count++;
     if (_verifiedOnly) count++;
-    if (_urgentOnly) count++;
+    if (jobs && _urgentOnly) count++;
     return count;
   }
 
@@ -219,8 +226,11 @@ class _SearchScreenState extends State<SearchScreen> {
           single item that would not page any further. urgent_only goes to the
           query instead, which is the only place a filter and paging agree.
       */
+      // The top of the slider is "and up", not a ceiling: left alone it
+      // hid every job paying over five thousand, monthly work included.
       final price = j.salaryMax ?? j.salaryMin;
-      if (price != null && (price < _minSalary || price > _maxSalary)) {
+      if (price != null &&
+          (price < _minSalary || (_maxSalary < _payTop && price > _maxSalary))) {
         return false;
       }
       return true;
@@ -592,17 +602,17 @@ class _SearchScreenState extends State<SearchScreen> {
         _placeLabel = null;
       });
     }
-    if (_minSalary > 0 || _maxSalary < 5000) {
-      chip('₱${_minSalary.toInt()}–${_maxSalary.toInt()}', () {
+    if (_searchType == 'Jobs' && _payNarrowed) {
+      chip(_payLabel, () {
         _minSalary = 0;
-        _maxSalary = 5000;
+        _maxSalary = _payTop;
       });
     }
     if (_minRating > 0) {
       chip('${_minRating.toStringAsFixed(1)}+ rating', () => _minRating = 0);
     }
     if (_verifiedOnly) chip('Verified only', () => _verifiedOnly = false);
-    if (_urgentOnly) chip('Urgent only', () => _urgentOnly = false);
+    if (_searchType == 'Jobs' && _urgentOnly) chip('Urgent only', () => _urgentOnly = false);
 
     if (chips.isEmpty) return const SizedBox.shrink();
 
@@ -786,7 +796,7 @@ class _SearchScreenState extends State<SearchScreen> {
                             _placeId = null;
                             _placeLabel = null;
                             _minSalary = 0;
-                            _maxSalary = 5000;
+                            _maxSalary = _payTop;
                             _minRating = 0;
                             _verifiedOnly = false;
                             _urgentOnly = false;
@@ -911,38 +921,37 @@ class _SearchScreenState extends State<SearchScreen> {
                         );
                       }).toList(),
                     ),
-                    const SizedBox(height: 24),
-                    Text(
-                      _searchType == 'Jobs' ? 'Pay Range (per day)' : 'Rate (per day)',
-                      style: Theme.of(context)
-                          .textTheme
-                          .titleMedium
-                          ?.copyWith(fontWeight: FontWeight.bold),
-                    ),
-                    const SizedBox(height: 8),
-                    // Both sides now have money to filter on: jobs carry a
-                    // budget, workers carry a rate. Workers had only a rating
-                    // filter because the rate columns did not exist.
-                    Text('₱${_minSalary.toStringAsFixed(0)} - ₱${_maxSalary.toStringAsFixed(0)}'),
-                    RangeSlider(
-                      values: RangeValues(_minSalary, _maxSalary),
-                      min: 0,
-                      max: 5000,
-                      divisions: 50,
-                      labels: RangeLabels(
-                          '₱${_minSalary.toStringAsFixed(0)}', '₱${_maxSalary.toStringAsFixed(0)}'),
-                      onChanged: (values) => setSheetState(() => setState(() {
-                        _minSalary = values.start;
-                        _maxSalary = values.end;
-                      })),
-                    ),
-                    if (_searchType == 'Workers') ...[
-                      const SizedBox(height: 8),
+                    // Jobs carry a budget. A worker profile does not ask
+                    // for a rate, so there is nothing to filter workers on.
+                    if (_searchType == 'Jobs') ...[
+                      const SizedBox(height: 24),
                       Text(
-                        'Workers who have not set a rate are hidden while this is narrowed.',
-                        style: TextStyle(fontSize: 11, color: AppColors.neutral500),
+                        'Pay',
+                        style: Theme.of(context)
+                            .textTheme
+                            .titleMedium
+                            ?.copyWith(fontWeight: FontWeight.bold),
                       ),
-                      const SizedBox(height: 20),
+                      const SizedBox(height: 8),
+                      Text(_payLabel),
+                      RangeSlider(
+                        values: RangeValues(_minSalary, _maxSalary),
+                        min: 0,
+                        max: _payTop,
+                        divisions: 50,
+                        labels: RangeLabels(
+                            '₱${_minSalary.toStringAsFixed(0)}',
+                            _maxSalary >= _payTop
+                                ? '₱${_payTop.toStringAsFixed(0)}+'
+                                : '₱${_maxSalary.toStringAsFixed(0)}'),
+                        onChanged: (values) => setSheetState(() => setState(() {
+                          _minSalary = values.start;
+                          _maxSalary = values.end;
+                        })),
+                      ),
+                    ],
+                    if (_searchType == 'Workers') ...[
+                      const SizedBox(height: 24),
                       Text(
                         'Minimum Rating',
                         style: Theme.of(context)

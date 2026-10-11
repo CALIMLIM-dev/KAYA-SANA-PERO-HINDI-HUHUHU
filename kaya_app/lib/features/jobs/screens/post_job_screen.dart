@@ -2399,9 +2399,9 @@ class _PostJobScreenState extends State<PostJobScreen> {
         workersNeeded: _workersNeeded,
       );
 
+      if (!mounted) return;
       setState(() => _isLoading = false);
 
-      if (!mounted) return;
       if (success) {
         /*
             The placement is bought by the save, not by a second call.

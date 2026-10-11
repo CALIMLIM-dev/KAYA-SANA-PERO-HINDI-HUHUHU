@@ -29,6 +29,9 @@ class _LeaveReviewScreenState extends State<LeaveReviewScreen> {
   ];
   final Set<String> _selectedTags = {};
 
+  /// What the server accepts on one review.
+  static const int _maxTags = 5;
+
   bool get _canSubmit => _rating > 0 && _commentController.text.trim().length >= 10;
 
   @override
@@ -40,9 +43,12 @@ class _LeaveReviewScreenState extends State<LeaveReviewScreen> {
   @override
   Widget build(BuildContext context) {
     final args = ModalRoute.of(context)?.settings.arguments as Map<String, dynamic>?;
-    final revieweeName = args?['revieweeName'] as String? ?? 'Juan Dela Cruz';
+    // Neutral fallbacks: sample names here would put a stranger on a real
+    // review, and an empty name would break the initial below.
+    final rawName      = (args?['revieweeName'] as String? ?? '').trim();
+    final revieweeName = rawName.isEmpty ? 'this person' : rawName;
     final revieweeRole = args?['revieweeRole'] as String? ?? 'worker';
-    final jobTitle     = args?['jobTitle']     as String? ?? 'Emergency Pipe Repair';
+    final jobTitle     = args?['jobTitle']     as String? ?? 'this job';
     final isWorker     = revieweeRole == 'worker';
     final tags         = isWorker ? _workerTags : _employerTags;
 
@@ -193,7 +199,7 @@ class _LeaveReviewScreenState extends State<LeaveReviewScreen> {
                           fontWeight: FontWeight.w700,
                           color: AppColors.neutral900)),
                   const SizedBox(height: 4),
-                  const Text('Select all that apply',
+                  const Text('Choose up to $_maxTags',
                       style: TextStyle(
                           fontSize: 13.5, color: AppColors.neutral500)),
                   const SizedBox(height: 12),
@@ -204,11 +210,19 @@ class _LeaveReviewScreenState extends State<LeaveReviewScreen> {
                     children: tags.map((tag) {
                       final selected = _selectedTags.contains(tag);
                       return GestureDetector(
-                        onTap: () => setState(() {
-                          selected
-                              ? _selectedTags.remove(tag)
-                              : _selectedTags.add(tag);
-                        }),
+                        onTap: () {
+                          // The server takes five; a sixth was refused at
+                          // submit with the whole review.
+                          if (!selected && _selectedTags.length >= _maxTags) {
+                            AppToast.info(context, 'You can choose up to $_maxTags.');
+                            return;
+                          }
+                          setState(() {
+                            selected
+                                ? _selectedTags.remove(tag)
+                                : _selectedTags.add(tag);
+                          });
+                        },
                         child: Container(
                           padding: const EdgeInsets.symmetric(
                               horizontal: 14, vertical: 8),

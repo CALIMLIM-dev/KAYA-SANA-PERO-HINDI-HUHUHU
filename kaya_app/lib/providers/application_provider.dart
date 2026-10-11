@@ -153,15 +153,33 @@ class ApplicationProvider with ChangeNotifier {
   */
   ApiException? lastApplyError;
 
+  /// Whether the last apply took an invitation, which hires at once.
+  bool lastApplyHired = false;
+
   Future<bool> applyToJob(int jobId, {String? coverLetter}) async {
     lastApplyError = null;
+    lastApplyHired = false;
 
     try {
       final res = await _api.post('/jobs/$jobId/apply', data: {
         'cover_letter': ?coverLetter,
       });
-      _applications.insert(0, res.data['data'] as Map<String, dynamic>);
-      notifyListeners();
+      final data = res.data['data'] as Map<String, dynamic>;
+
+      /*
+          Two shapes. An ordinary apply answers with the application and its
+          job. Applying to a job you were invited to takes the invitation,
+          and answers with ids - inserting that as a row put an application
+          with no status and no job in the list, so it was missing from
+          live work until the next refresh. Read the list again instead.
+      */
+      if (data.containsKey('application_id')) {
+        lastApplyHired = true;
+        await fetchMyApplications();
+      } else {
+        _applications.insert(0, data);
+        notifyListeners();
+      }
       return true;
     } catch (e) {
       if (e is ApiException) lastApplyError = e;

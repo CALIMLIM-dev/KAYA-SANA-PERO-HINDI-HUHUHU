@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -9,6 +11,7 @@ import '../../../core/widgets/app_toast.dart';
 import '../../../core/widgets/verify_gate.dart';
 import '../../../core/widgets/verification_badge_widget.dart';
 import '../../../data/services/api_client.dart';
+import '../../../providers/application_provider.dart';
 import '../../../providers/invitation_provider.dart';
 
 /*
@@ -345,6 +348,7 @@ class _InvitationCardState extends State<InvitationCard> {
 
     setState(() => _busy = true);
     final provider = context.read<InvitationProvider>();
+    final applications = context.read<ApplicationProvider>();
     final conversationId = await provider.accept(_inv['id'] as int);
     if (!mounted) return;
     setState(() => _busy = false);
@@ -353,6 +357,10 @@ class _InvitationCardState extends State<InvitationCard> {
       AppToast.error(context, provider.takeActionError() ?? 'Could not accept the invitation.');
       return;
     }
+
+    // Accepting is a hire: it is live work now, and the counts on home and
+    // My Applications read from this list.
+    unawaited(applications.fetchMyApplications());
 
     AppToast.show(
       context,

@@ -50,8 +50,11 @@ Future<void> showInviteToJobSheet(
 
   // Only open jobs can carry an invitation — the server refuses the rest, so
   // offering them here would just be a slower way to reach an error.
+  // Open and still live: a post past its end date can still read open
+  // until the nightly sweep, and the server refuses it.
   final openJobs = jobProvider.jobs
-      .where((j) => (j['status'] ?? '').toString() == 'open')
+      .where((j) =>
+          (j['status'] ?? '').toString() == 'open' && j['is_live'] != false)
       .toList();
 
   /*

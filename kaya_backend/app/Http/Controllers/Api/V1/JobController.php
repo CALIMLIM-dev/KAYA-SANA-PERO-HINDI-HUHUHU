@@ -1116,6 +1116,14 @@ class JobController extends Controller
         $skillIds = $data['required_skill_ids'] ?? null;
         unset($data['required_skill_ids']);
 
+        // Fewer spots than people already hired would leave somebody hired
+        // on a job that has no place for them.
+        if (isset($data['workers_needed']) && (int) $data['workers_needed'] < $job->filledCount()) {
+            $hired = $job->filledCount();
+            return $this->fail("{$hired} " . ($hired === 1 ? 'person is' : 'people are')
+                . " already hired on this job, so it needs at least {$hired} " . ($hired === 1 ? 'spot.' : 'spots.'), 422);
+        }
+
         // Edited text is read the same way new text is, or the filter is a
         // door with a window beside it.
         $filter = app(\App\Services\MessageFilter::class);
@@ -1209,6 +1217,16 @@ class JobController extends Controller
         */
         if ($skillIds !== null && array_diff($skillIds, $skillsBefore) !== []) {
             app(NotificationService::class)->jobMatched($job->fresh());
+        }
+
+        // Cutting the spots to the people already hired fills the job, and a
+        // full job leaves the feed, the same as on the last hire.
+        if (array_key_exists('workers_needed', $data)) {
+            $fresh = $job->fresh();
+
+            if ($fresh->filledCount() > 0 && $fresh->isFull()) {
+                $fresh->update(['status' => 'in_progress']);
+            }
         }
 
         return $this->ok($job->fresh()->load(['category', 'skills']), 'Job updated');

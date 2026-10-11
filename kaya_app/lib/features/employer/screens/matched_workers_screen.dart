@@ -2,10 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../../core/constants/app_colors.dart';
+import '../../../core/constants/credits.dart';
 import '../../../core/navigation/app_router.dart';
 import '../../../core/widgets/app_toast.dart';
 import '../../../core/widgets/motion.dart';
 import '../../../core/widgets/offline_notice.dart';
+import '../../../providers/credits_provider.dart';
 import '../../../providers/invitation_provider.dart';
 import '../../../providers/worker_browse_provider.dart';
 import '../widgets/matched_worker_card.dart';
@@ -236,7 +238,45 @@ class _MatchedWorkersListState extends State<MatchedWorkersList> {
     });
   }
 
+  /*
+      An invitation costs Barya, so it is asked first, with the price.
+
+      This sent on the tap - no cost shown, no chance to stop, and the
+      wallet left showing the old balance. Inviting from a profile always
+      said the price and asked; this is the same.
+  */
   Future<void> _invite(int workerId, String name) async {
+    final credits = context.read<CreditsProvider>();
+    await credits.load();
+    if (!mounted) return;
+
+    final cost = credits.costOf('invite');
+    if (cost != null && credits.balance < cost) {
+      AppToast.error(context, 'You need ${Credits.amount(cost)} to invite someone.');
+      return;
+    }
+
+    final go = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text('Invite $name?'),
+        content: Text(cost == null
+            ? '$name will be asked to take this job.'
+            : '$name will be asked to take this job. It costs ${Credits.amount(cost)}.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: const Text('Invite'),
+          ),
+        ],
+      ),
+    );
+    if (go != true || !mounted) return;
+
     setState(() => _inviting = workerId);
 
     final provider = context.read<InvitationProvider>();
@@ -253,6 +293,9 @@ class _MatchedWorkersListState extends State<MatchedWorkersList> {
     });
 
     if (sent) {
+      // The balance just moved.
+      await credits.refresh();
+      if (!mounted) return;
       AppToast.success(context, '$name has been invited.');
     } else {
       AppToast.error(context, provider.errorMessage ?? 'Could not invite them.');

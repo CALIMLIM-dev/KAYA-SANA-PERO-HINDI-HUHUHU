@@ -856,6 +856,8 @@ class _ManageJobsScreenState extends State<ManageJobsScreen>
                     .toList(),
                 'location': job['city'] ?? job['location'],
                 'location_id': job['location_id'],
+                // Without this a job for five opened the form showing one.
+                'workersNeeded': job['workers_needed'],
               });
             }),
             _actionTile(Icons.close, 'Close Job', AppColors.error, () {

@@ -190,6 +190,46 @@ class IntegrityGuardsTest extends TestCase
     }
 
     #[Test]
+    public function a_poll_says_how_far_the_other_side_has_read(): void
+    {
+        $employer = $this->employer();
+        $worker = $this->worker();
+        $job = $this->job($employer);
+        $thread = Conversation::create(['job_id' => $job->id, 'employer_id' => $employer->id, 'worker_id' => $worker->id, 'status' => 'unlocked']);
+
+        $read = $thread->messages()->create(['sender_id' => $worker->id, 'message_text' => 'Nasa gate na ako', 'is_read' => true, 'read_at' => now()]);
+        $thread->messages()->create(['sender_id' => $worker->id, 'message_text' => 'Pasok na po', 'is_read' => false]);
+
+        // Nothing new, and still the answer to "did they see mine".
+        $this->actingAs($worker, 'sanctum')
+            ->getJson("/api/v1/conversations/{$thread->id}/messages?after_id=999999")
+            ->assertOk()
+            ->assertJsonPath('data.read_up_to', $read->id);
+    }
+
+    #[Test]
+    public function a_job_cannot_have_fewer_spots_than_people_hired(): void
+    {
+        $employer = $this->employer();
+        $job = $this->job($employer, 3);
+        $job->forceFill(['category_id' => \App\Models\Category::firstOrCreate(['name' => 'General Labour'])->id, 'location' => 'Urdaneta City'])->save();
+        Application::create(['job_id' => $job->id, 'worker_id' => $this->worker()->id, 'status' => 'accepted']);
+        Application::create(['job_id' => $job->id, 'worker_id' => $this->worker()->id, 'status' => 'accepted']);
+
+        $edit = fn (int $spots) => $this->actingAs($employer, 'sanctum')->putJson("/api/v1/jobs/{$job->id}", [
+            'title' => 'Fix the gate', 'description' => 'x', 'category_id' => $job->category_id,
+            'location' => 'Urdaneta City', 'workers_needed' => $spots,
+            'start_date' => $job->start_date->toDateString(), 'end_date' => $job->end_date->toDateString(),
+        ]);
+
+        $edit(1)->assertStatus(422);
+
+        // Two spots for two people: full, so off the feed.
+        $edit(2)->assertOk();
+        $this->assertSame('in_progress', $job->fresh()->status);
+    }
+
+    #[Test]
     public function the_roster_answers_for_a_hire_with_no_thread(): void
     {
         $employer = $this->employer();

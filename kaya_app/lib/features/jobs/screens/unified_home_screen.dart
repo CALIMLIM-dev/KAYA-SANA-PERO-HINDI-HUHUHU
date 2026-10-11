@@ -25,6 +25,7 @@ import '../widgets/home_carousel.dart';
 import '../widgets/unified_search_bar.dart';
 import '../widgets/jobs_near_you_section.dart';
 import '../widgets/people_who_can_help_section.dart';
+import '../../invitations/widgets/invite_to_job.dart';
 import '../../notifications/widgets/notification_bell.dart';
 import '../../../core/utils/realtime_refresh.dart';
 import '../../../data/services/realtime_service.dart';
@@ -1307,15 +1308,15 @@ class _UnifiedHomeScreenState extends State<UnifiedHomeScreen>
     AppRouter.toWorkerProfile(context, worker);
   }
 
-  /// Sends the worker to their profile, where the invitation is actually made.
-  ///
-  /// This asked "Invite X to apply for a job?" — without ever asking *which*
-  /// job — and then reported "Invitation sent". Nothing was sent, and the
-  /// worker saw nothing, while the receiving half of invitations was fully
-  /// built. Choosing a job is not optional, so the flow belongs on the profile
-  /// screen that can present one.
+  /// Invites, from the card. The same dialog the profile and the chat use:
+  /// pick which of your open jobs, see the price, send. The button said
+  /// Invite and opened the profile, which is a detour, not an invitation.
   void _inviteWorker(WorkerProfile worker) {
-    AppRouter.toWorkerProfile(context, worker);
+    showInviteToJobSheet(
+      context,
+      workerId: worker.userId ?? worker.id,
+      workerName: worker.name,
+    );
   }
 
 

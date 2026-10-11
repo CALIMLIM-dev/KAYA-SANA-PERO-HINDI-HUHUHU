@@ -1031,8 +1031,13 @@ class _EditJobScreenState extends State<EditJobScreen> {
       'is_urgent': _isUrgent,
       'required_skill_ids': _selectedSkillIds,
       'location': _locationController.text.trim(),
+      // The form showed it and never sent it, so a change did nothing.
+      if (int.tryParse(_workersNeededController.text.trim()) != null)
+        'workers_needed': int.parse(_workersNeededController.text.trim()),
       // Only sent when the user re-picked; otherwise the stored value stands.
+      // The town too, which My Jobs shows: without it the card kept the old one.
       if (_selectedLocation != null) 'location_id': _selectedLocation!.id,
+      if (_selectedLocation != null) 'city': _selectedLocation!.displayName,
       if (_selectedLocation?.latitude != null)
         'latitude': _selectedLocation!.latitude,
       if (_selectedLocation?.longitude != null)
