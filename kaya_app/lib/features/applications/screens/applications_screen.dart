@@ -625,15 +625,22 @@ List<Map<String, dynamic>> activeItems(
         reviewWindowOpen(hire['review_closes_at']);
   });
 
+  /*
+      Not the employer's running posts.
+
+      Those are My Jobs' Active tab, where the post, its applicants, the
+      hire and Mark as complete already sit. Listing them here as well put
+      the same job on the screen twice, one tap apart. What the employer
+      still finds here is a finished job waiting for their review, which My
+      Jobs files under History.
+  */
   return [
     if (hasWorker) ...[
       ...applications.liveWork.map((a) => {...a, '_isJob': false}),
       ...toReviewWork.map((a) => {...a, '_isJob': false}),
     ],
-    if (hasEmployer) ...[
-      ...jobs.activeJobs.map((j) => {...j, '_isJob': true}),
+    if (hasEmployer)
       ...toReviewJobs.map((j) => {...j, '_isJob': true}),
-    ],
   ];
 }
 

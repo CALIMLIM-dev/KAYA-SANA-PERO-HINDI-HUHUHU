@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 
 import 'package:kaya_app/features/applications/screens/active_screen.dart';
 import 'package:kaya_app/features/applications/screens/applications_screen.dart';
+import 'package:kaya_app/features/employer/screens/manage_jobs_screen.dart';
 import 'package:kaya_app/providers/app_mode_provider.dart';
 import 'package:kaya_app/providers/application_provider.dart';
 import 'package:kaya_app/providers/invitation_provider.dart';
@@ -52,7 +53,7 @@ void main() {
         },
       };
 
-  Widget screen(Map<String, dynamic> job, {bool active = false}) {
+  Widget screen(Map<String, dynamic> job, {bool active = false, bool myJobs = false}) {
     return MultiProvider(
       providers: [
         ChangeNotifierProvider<AppModeProvider>.value(
@@ -70,7 +71,11 @@ void main() {
         ),
       ],
       child: MaterialApp(
-          home: active ? const ActiveScreen() : const ApplicationsScreen()),
+          home: myJobs
+              ? const ManageJobsScreen()
+              : active
+                  ? const ActiveScreen()
+                  : const ApplicationsScreen()),
     );
   }
 
@@ -105,14 +110,16 @@ void main() {
     });
   }
 
-  testWidgets('a running job still offers it', (tester) async {
+  testWidgets('a running job still offers it, in My Jobs', (tester) async {
     /*
         The other half. Tightening the rule is only correct if it leaves the
         live case alone - otherwise the fix for a dead button is a missing
-        one.
+        one. A running post is in My Jobs now, not repeated on the Active
+        list, so that is where it is looked for.
     */
-    await render(tester, screen(jobWithHire('in_progress'), active: true));
+    await render(tester, screen(jobWithHire('in_progress'), myJobs: true));
 
-    expect(find.textContaining('Mark as Complete'), findsWidgets);
+    expect(find.textContaining('Repaint a steel gate'), findsWidgets);
+    expect(find.text('Mark Complete'), findsWidgets);
   });
 }

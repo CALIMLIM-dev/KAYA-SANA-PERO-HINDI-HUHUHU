@@ -10,12 +10,10 @@ import 'package:kaya_app/providers/job_provider.dart';
 import 'support/render_harness.dart';
 
 /*
-    The Active section on home is My Activity's Active tab, moved whole.
-
-    Reported: the compact card that stood in for it was not what was asked
-    for - "the active job tabs UI for both". So these check the real cards
-    turn up on home, for a worker and an employer, under the same rule the
-    tab used: hired work and running posts, not pending applications.
+    The Active section on home: the worker's hired jobs, with Mark as
+    complete and Review on the card. Not pending applications, which are
+    nothing yet, and not the employer's running posts, which are My Jobs'
+    Active tab and were the same job shown twice.
 */
 void main() {
   Map<String, dynamic> hire(int id, String title) => {
@@ -105,14 +103,18 @@ void main() {
     expect(find.text('Active'), findsNothing);
   });
 
-  testWidgets('an employer sees their running post', (tester) async {
+  /*
+      A running post lives in My Jobs, under its own Active tab. Repeating it
+      here put the same job on screen twice, which was reported.
+  */
+  testWidgets('an employer\'s running post is not repeated here', (tester) async {
     await pump(
       tester,
       host(worker: false, employer: true, jobs: [post(1, 'Repaint a steel gate')]),
     );
 
-    expect(find.text('Active'), findsOneWidget);
-    expect(find.textContaining('Repaint a steel gate'), findsWidgets);
+    expect(find.textContaining('Repaint a steel gate'), findsNothing);
+    expect(find.text('Active'), findsNothing);
   });
 
   testWidgets('a post past its date is not active', (tester) async {
@@ -135,15 +137,11 @@ void main() {
   testWidgets('four items: two cards and See all', (tester) async {
     await pump(
       tester,
-      host(
-        worker: false,
-        employer: true,
-        jobs: [for (var i = 1; i <= 4; i++) post(i, 'Post number $i')],
-      ),
+      host(applications: [for (var i = 1; i <= 4; i++) hire(i, 'Job number $i')]),
     );
 
-    expect(find.textContaining('Post number 2'), findsWidgets);
-    expect(find.textContaining('Post number 3'), findsNothing);
+    expect(find.textContaining('Job number 2'), findsWidgets);
+    expect(find.textContaining('Job number 3'), findsNothing);
     expect(find.text('See all 4'), findsOneWidget);
     expect(
       find.byWidgetPredicate((w) => w is SingleChildScrollView && w.scrollDirection == Axis.horizontal),
@@ -154,14 +152,10 @@ void main() {
   testWidgets('two items: both shown, no See all', (tester) async {
     await pump(
       tester,
-      host(
-        worker: false,
-        employer: true,
-        jobs: [post(1, 'Post number 1'), post(2, 'Post number 2')],
-      ),
+      host(applications: [hire(1, 'Job number 1'), hire(2, 'Job number 2')]),
     );
 
-    expect(find.textContaining('Post number 2'), findsWidgets);
+    expect(find.textContaining('Job number 2'), findsWidgets);
     expect(find.textContaining('See all'), findsNothing);
   });
 
