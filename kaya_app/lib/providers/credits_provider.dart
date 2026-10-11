@@ -275,6 +275,11 @@ class CreditsProvider with ChangeNotifier {
     notifyListeners();
   }
 
+  /// Set when the last history read failed, so the list does not claim
+  /// there is nothing in it.
+  bool _historyFailed = false;
+  bool get historyFailed => _historyFailed;
+
   Future<void> loadHistory() async {
     _isHistoryLoading = true;
     notifyListeners();
@@ -289,7 +294,9 @@ class CreditsProvider with ChangeNotifier {
           .whereType<Map>()
           .map((r) => CreditEntry.fromJson(Map<String, dynamic>.from(r)))
           .toList();
+      _historyFailed = false;
     } catch (e) {
+      _historyFailed = true;
       debugPrint('[credits] history failed: $e');
     } finally {
       _isHistoryLoading = false;

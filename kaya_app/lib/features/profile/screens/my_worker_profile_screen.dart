@@ -1041,6 +1041,8 @@ class _MyWorkerProfileScreenState extends State<MyWorkerProfileScreen> with Sing
     }
 
     if (credits.hasLoadedOnce && !credits.canAfford('boost')) {
+      AppToast.info(context,
+          'A boost costs ${credits.costOf('boost')} Barya and you have ${credits.balance}. Top up to boost.');
       await AppRouter.push(context, AppRouter.wallet);
       if (!mounted) return;
       await credits.refresh();

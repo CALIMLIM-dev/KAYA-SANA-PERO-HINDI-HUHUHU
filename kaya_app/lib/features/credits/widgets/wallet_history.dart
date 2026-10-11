@@ -19,10 +19,15 @@ class WalletHistory extends StatefulWidget {
     required this.loading,
     this.pageSize = CreditsProvider.historyPageSize,
     this.previewRows,
+    this.failed = false,
   });
 
   final List<CreditEntry> entries;
   final bool loading;
+
+  /// The last read failed. With nothing held, that is said rather than
+  /// "nothing yet", which reads as an empty wallet.
+  final bool failed;
 
   /// How many lines the server sends. A month's totals are only shown when
   /// the list reaches back past the start of the month, or is shorter than a
@@ -60,7 +65,9 @@ class _WalletHistoryState extends State<WalletHistory> {
     }
 
     if (entries.isEmpty) {
-      return _emptyCard('Nothing yet. Applying to a job will show up here.');
+      return _emptyCard(widget.failed
+          ? 'Your history could not be loaded. Pull down to try again.'
+          : 'Nothing yet. Applying to a job will show up here.');
     }
 
     if (widget.previewRows != null) {

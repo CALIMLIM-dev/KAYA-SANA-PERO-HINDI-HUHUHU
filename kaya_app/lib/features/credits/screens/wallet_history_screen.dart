@@ -46,6 +46,7 @@ class _WalletHistoryScreenState extends State<WalletHistoryScreen> {
             WalletHistory(
               entries: credits.entries,
               loading: credits.isHistoryLoading,
+              failed: credits.historyFailed,
             ),
           ],
         ),

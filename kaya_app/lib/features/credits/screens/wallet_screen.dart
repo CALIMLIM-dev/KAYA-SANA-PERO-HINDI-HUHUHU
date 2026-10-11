@@ -119,6 +119,35 @@ class _WalletScreenState extends State<WalletScreen> with WidgetsBindingObserver
             return const Center(child: CircularProgressIndicator());
           }
 
+          // A wallet that never loaded is not an empty one. Showing 0 Barya
+          // and "no packages" over a failed request reads as money gone.
+          if (!credits.hasLoadedOnce && credits.error != null) {
+            return RefreshIndicator(
+              onRefresh: credits.refresh,
+              child: ListView(
+                padding: const EdgeInsets.all(32),
+                children: [
+                  const SizedBox(height: 48),
+                  const Icon(Icons.account_balance_wallet_outlined,
+                      size: 48, color: AppColors.neutral400),
+                  const SizedBox(height: 12),
+                  Text(
+                    'Your wallet could not be loaded. ${credits.error}',
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(color: AppColors.neutral600, height: 1.4),
+                  ),
+                  const SizedBox(height: 12),
+                  Center(
+                    child: TextButton(
+                      onPressed: credits.refresh,
+                      child: const Text('Try Again'),
+                    ),
+                  ),
+                ],
+              ),
+            );
+          }
+
           return RefreshIndicator(
             onRefresh: () async {
               await credits.refresh();
@@ -184,6 +213,7 @@ class _WalletScreenState extends State<WalletScreen> with WidgetsBindingObserver
                 WalletHistory(
                   entries: credits.entries,
                   loading: credits.isHistoryLoading,
+                  failed: credits.historyFailed,
                   previewRows: 3,
                 ),
               ],
