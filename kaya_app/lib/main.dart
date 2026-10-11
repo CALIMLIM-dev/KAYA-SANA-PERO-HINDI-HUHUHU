@@ -6,7 +6,6 @@ import 'package:provider/provider.dart';
 import 'core/theme/app_theme.dart';
 import 'core/navigation/app_router.dart';
 import 'core/utils/end_session.dart';
-import 'core/widgets/kaya_mark.dart';
 import 'core/widgets/notification_banner.dart';
 import 'core/widgets/offline_notice.dart';
 import 'providers/auth_provider.dart';
@@ -32,13 +31,8 @@ import 'data/services/background_controller.dart';
 import 'data/services/background_poll.dart';
 import 'data/services/local_alerts.dart';
 
-void main(List<String> args) async {
+void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-
-  // MainActivity says so when Android's own splash has already played the
-  // icon build, so the app opens on the finished icon instead of building
-  // it a second time. See KayaLaunch.
-  KayaLaunch.builtBySystem = args.contains('splash-built');
 
   /*
       A screen that fails to build says so instead of going blank.

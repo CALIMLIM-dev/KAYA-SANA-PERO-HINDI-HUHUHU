@@ -46,7 +46,7 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
   */
   Future<void> _letTheIconFinish() async {
     if (!mounted || Motion.reduced(context)) return;
-    final left = KayaLaunch.timeToFinish - _shownFor.elapsed;
+    final left = KayaLaunch.duration - _shownFor.elapsed;
     if (left > Duration.zero) await Future.delayed(left);
   }
 
