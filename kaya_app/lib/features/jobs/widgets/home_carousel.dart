@@ -46,6 +46,10 @@ class HomeCarousel extends StatefulWidget {
   /// The last answer for each side, so home opens with it already there.
   static final Map<String, List<Map<String, dynamic>>> _cache = {};
 
+  /// Bumped whenever a fresh answer lands, so a carousel already on screen
+  /// takes it up without being rebuilt.
+  static final ValueNotifier<int> _changed = ValueNotifier(0);
+
   /*
       Asked during the opening animation, so the carousel is on screen the
       moment home is, rather than appearing a beat later and pushing the
@@ -54,6 +58,7 @@ class HomeCarousel extends StatefulWidget {
   static Future<void> prefetch(String side) async {
     try {
       _cache[side] = await _fetch(side);
+      _changed.value++;
     } catch (_) {}
   }
 
@@ -81,11 +86,34 @@ class HomeCarousel extends StatefulWidget {
   State<HomeCarousel> createState() => _HomeCarouselState();
 }
 
-class _HomeCarouselState extends State<HomeCarousel> {
+class _HomeCarouselState extends State<HomeCarousel> with WidgetsBindingObserver {
   final PageController _pages = PageController();
   List<_Slide> _slides = const [];
   int _index = 0;
   Timer? _timer;
+
+  /*
+      Asked again while home is up, not only when it was first built.
+
+      Home stays mounted under the other tabs for the whole session, so a
+      banner the admin added after the app opened never appeared until the
+      app was closed and opened again. It is asked again on coming back to
+      the app, every few minutes while home is showing, and on a pull to
+      refresh (HomeCarousel.prefetch).
+  */
+  Timer? _refreshTimer;
+  DateTime _loadedAt = DateTime.fromMillisecondsSinceEpoch(0);
+  static const Duration _refreshEvery = Duration(minutes: 3);
+
+  /*
+      A banner made as a picture is shown whole.
+
+      It was cropped into a strip 2.3 times as wide as it is tall - about
+      165 points on most phones - so a poster with words near its edges
+      lost them, and what was left was too small to read. Its own shape is
+      read once the picture loads, and the carousel takes that height.
+  */
+  final Map<String, double> _ratios = {};
 
   static List<_Slide> _toSlides(List<Map<String, dynamic>> rows) =>
       rows.map((m) => m['kind'] == 'banner' ? _Slide.banner(m) : _Slide.ad(m)).toList();
@@ -99,7 +127,67 @@ class _HomeCarouselState extends State<HomeCarousel> {
       return;
     }
     _slides = _toSlides(HomeCarousel._cache[widget.side] ?? const []);
+    _measure();
     _load();
+    WidgetsBinding.instance.addObserver(this);
+    HomeCarousel._changed.addListener(_adoptCache);
+    _refreshTimer = Timer.periodic(_refreshEvery, (_) => _load());
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed &&
+        DateTime.now().difference(_loadedAt) > const Duration(seconds: 30)) {
+      _load();
+    }
+  }
+
+  /// A fresh answer that landed somewhere else - a pull to refresh on home.
+  void _adoptCache() {
+    if (!mounted || widget.seed != null) return;
+    final rows = HomeCarousel._cache[widget.side];
+    if (rows == null) return;
+    _show(rows);
+  }
+
+  void _show(List<Map<String, dynamic>> rows) {
+    setState(() {
+      _slides = _toSlides(rows);
+      _index = 0;
+    });
+    _measure();
+    if (_pages.hasClients) _pages.jumpToPage(0);
+    _restartTimer();
+  }
+
+  /// Reads the shape of each picture-only banner once it has loaded.
+  void _measure() {
+    for (final slide in _slides) {
+      final url = slide.photoOnlyUrl;
+      if (url == null || _ratios.containsKey(url)) continue;
+      final stream = CachedNetworkImageProvider(url).resolve(ImageConfiguration.empty);
+      late final ImageStreamListener listener;
+      listener = ImageStreamListener(
+        (info, _) {
+          stream.removeListener(listener);
+          final w = info.image.width, h = info.image.height;
+          if (!mounted || w == 0 || h == 0) return;
+          setState(() => _ratios[url] = w / h);
+        },
+        onError: (_, _) => stream.removeListener(listener),
+      );
+      stream.addListener(listener);
+    }
+  }
+
+  /// Width over height for the slide on screen.
+  double? _ratioOf(int i) {
+    if (i < 0 || i >= _slides.length) return null;
+    final url = _slides[i].photoOnlyUrl;
+    if (url == null) return null;
+    // Kept between a long strip and a portrait poster, so neither a
+    // sliver nor a whole screen.
+    return _ratios[url]?.clamp(0.8, 3.2);
   }
 
   @override
@@ -109,6 +197,7 @@ class _HomeCarouselState extends State<HomeCarousel> {
       _slides = _toSlides(HomeCarousel._cache[widget.side] ?? const []);
       _index = 0;
       if (_pages.hasClients) _pages.jumpToPage(0);
+      _measure();
       _load();
     }
   }
@@ -122,6 +211,9 @@ class _HomeCarouselState extends State<HomeCarousel> {
   @override
   void dispose() {
     _timer?.cancel();
+    _refreshTimer?.cancel();
+    WidgetsBinding.instance.removeObserver(this);
+    HomeCarousel._changed.removeListener(_adoptCache);
     _pages.dispose();
     super.dispose();
   }
@@ -134,19 +226,32 @@ class _HomeCarouselState extends State<HomeCarousel> {
   */
   Future<void> _load() async {
     final side = widget.side;
+    if (widget.seed != null) return;
     try {
       final rows = await HomeCarousel._fetch(side);
+      _loadedAt = DateTime.now();
+      final same = _sameRows(HomeCarousel._cache[side], rows) && _slides.isNotEmpty;
       HomeCarousel._cache[side] = rows;
       if (!mounted || side != widget.side) return;
-      setState(() {
-        _slides = _toSlides(rows);
-        _index = 0;
-      });
-      if (_pages.hasClients) _pages.jumpToPage(0);
-      _restartTimer();
+      // Asked again every few minutes: an unchanged answer leaves the
+      // slide that is showing alone rather than jumping back to the first.
+      if (same) return;
+      _show(rows);
     } catch (_) {
       // Offline: whatever was cached stays.
     }
+  }
+
+  static bool _sameRows(List<Map<String, dynamic>>? a, List<Map<String, dynamic>> b) {
+    if (a == null || a.length != b.length) return false;
+    for (var i = 0; i < a.length; i++) {
+      if (a[i]['kind'] != b[i]['kind'] ||
+          a[i]['id'] != b[i]['id'] ||
+          a[i]['image_url'] != b[i]['image_url']) {
+        return false;
+      }
+    }
+    return true;
   }
 
   /// Moves on every six seconds; not at all with Remove animations on.
@@ -169,12 +274,17 @@ class _HomeCarouselState extends State<HomeCarousel> {
       child: Column(
         children: [
           // Wide, but never shorter than its words: at a large text size a
-          // fixed shape clipped the second line.
-          SizedBox(
-            height: math.max(
-              (MediaQuery.sizeOf(context).width - 32) / 2.3,
-              MediaQuery.textScalerOf(context).scale(136),
-            ),
+          // fixed shape clipped the second line. A picture-only banner takes
+          // its own shape instead, so all of it shows.
+          AnimatedContainer(
+            duration: Motion.standard,
+            curve: Motion.enter,
+            height: _ratioOf(_index) != null
+                ? (MediaQuery.sizeOf(context).width - 32) / _ratioOf(_index)!
+                : math.max(
+                    (MediaQuery.sizeOf(context).width - 32) / 2.3,
+                    MediaQuery.textScalerOf(context).scale(136),
+                  ),
             child: ClipRRect(
               borderRadius: BorderRadius.circular(16),
               child: NotificationListener<ScrollStartNotification>(
@@ -229,6 +339,16 @@ class _Slide {
 
   final _Kind kind;
   final Map<String, dynamic> data;
+
+  /// The picture's address when this is a banner made as a picture - no
+  /// headline, no text - and null for anything with words laid over it.
+  String? get photoOnlyUrl {
+    if (kind != _Kind.banner) return null;
+    if ('${data['title'] ?? ''}'.trim().isNotEmpty) return null;
+    if ('${data['body'] ?? ''}'.trim().isNotEmpty) return null;
+    final url = '${data['image_url'] ?? ''}';
+    return url.isEmpty ? null : url;
+  }
 }
 
 /// The CC0 photo for a trade, or the general one.
@@ -303,11 +423,24 @@ class _SlideView extends StatelessWidget {
         A designed banner: its words are in the picture, so it is shown as
         it was made - no headline over it and no darkening.
     */
-    final photoOnly = slide.kind == _Kind.banner &&
-        '${d['title'] ?? ''}'.trim().isEmpty &&
-        '${d['body'] ?? ''}'.trim().isEmpty;
+    final photoOnly = slide.photoOnlyUrl != null;
     if (photoOnly) {
-      return GestureDetector(onTap: () => _open(context), child: SizedBox.expand(child: photo));
+      // Contained, not cropped: the box already has the picture's shape,
+      // and a picture outside the kept range is fitted whole rather than cut.
+      return GestureDetector(
+        onTap: () => _open(context),
+        child: ColoredBox(
+          color: AppColors.neutral100,
+          child: SizedBox.expand(
+            child: CachedNetworkImage(
+              imageUrl: slide.photoOnlyUrl!,
+              fit: BoxFit.contain,
+              placeholder: (_, _) => const ColoredBox(color: AppColors.neutral200),
+              errorWidget: (_, _, _) => Image.asset(tradePhoto(null), fit: BoxFit.cover),
+            ),
+          ),
+        ),
+      );
     }
 
     return GestureDetector(

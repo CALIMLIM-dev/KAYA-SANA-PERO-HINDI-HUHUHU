@@ -7,8 +7,9 @@
         <h3 class="text-sm font-semibold text-slate-700 mb-1">Add a banner</h3>
         <p class="text-xs text-slate-500 mb-4">
             Shown in the carousel at the top of the home screen, taking turns with boosted workers and jobs.
-            A wide photo works best, about 1200 by 520. If your design already has its words in it, leave the
-            headline empty and the photo shows exactly as you made it.
+            If your design already has its words in it, leave the headline empty: the app shows the whole
+            picture at its own shape, full width. It is read on a phone, so keep the words large. With a
+            headline, the photo is cropped into a wide strip behind it; about 1600 by 700 fits that best.
         </p>
 
         @if ($errors->any())
@@ -21,8 +22,8 @@
             <input type="file" name="image" id="banner-image" accept="image/jpeg,image/png,image/webp" required
                    class="w-full mt-1 mb-2 text-sm">
 
-            {{-- The crop the app uses, so what is cut off shows here first. --}}
-            <div id="banner-preview" class="hidden mb-1 rounded-xl overflow-hidden border border-slate-200" style="aspect-ratio: 2.3 / 1">
+            {{-- What the app will show: the whole picture, or the strip a headline sits on. --}}
+            <div id="banner-preview" class="hidden mb-1 rounded-xl overflow-hidden border border-slate-200">
                 <img alt="" class="w-full h-full object-cover">
             </div>
             <p id="banner-note" class="hidden text-xs text-slate-500 mb-3"></p>
@@ -121,8 +122,23 @@
     const LIMIT = 900 * 1024;
     const MAX_W = 1600;
     let ready = null;
+    const words = [form.querySelector('[name=title]'), form.querySelector('[name=body]')];
 
     function kb(n) { return Math.round(n / 1024) + ' KB'; }
+
+    // With no headline the app shows the whole picture; with one, a strip.
+    function hasWords() { return words.some(w => w && w.value.trim() !== ''); }
+    function shape() {
+        preview.style.aspectRatio = hasWords() ? '2.3 / 1' : '';
+        preview.querySelector('img').className = hasWords() ? 'w-full h-full object-cover' : 'w-full h-auto';
+    }
+    function shownAs() { return hasWords() ? 'Shown in the app cropped like this' : 'Shown in the app whole, like this'; }
+    words.forEach(w => w && w.addEventListener('input', () => {
+        shape();
+        if (!note.classList.contains('hidden') && ready) {
+            note.textContent = note.textContent.replace(/^Shown in the app [^.]*/, shownAs());
+        }
+    }));
 
     function load(file) {
         return new Promise((resolve, reject) => {
@@ -161,6 +177,7 @@
         if (!file) { preview.classList.add('hidden'); note.classList.add('hidden'); return; }
 
         preview.querySelector('img').src = URL.createObjectURL(file);
+        shape();
         preview.classList.remove('hidden');
         note.classList.remove('hidden');
         note.textContent = 'Preparing the photo...';
@@ -171,11 +188,11 @@
             note.textContent = ready === null
                 ? 'This photo is too large even after shrinking. Try a smaller one.'
                 : (ready === file
-                    ? 'Shown in the app cropped like this. ' + kb(file.size) + '.'
-                    : 'Shown in the app cropped like this. Shrunk from ' + kb(file.size) + ' to ' + kb(ready.size) + ' to fit the upload limit.');
+                    ? shownAs() + '. ' + kb(file.size) + '.'
+                    : shownAs() + '. Shrunk from ' + kb(file.size) + ' to ' + kb(ready.size) + ' to fit the upload limit.');
         } catch (e) {
             ready = file;
-            note.textContent = 'Shown in the app cropped like this.';
+            note.textContent = shownAs() + '.';
         }
         submit.disabled = ready === null;
     });

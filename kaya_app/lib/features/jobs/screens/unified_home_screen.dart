@@ -370,8 +370,11 @@ class _UnifiedHomeScreenState extends State<UnifiedHomeScreen>
     });
   }
 
+  /// A pull to refresh asks for the banners too: one added since home
+  /// opened shows without restarting the app.
   Future<void> _refreshData() async {
-    await _initializeData();
+    final side = HomeCarousel.sideFor(context.read<AppModeProvider>());
+    await Future.wait([_initializeData(), HomeCarousel.prefetch(side)]);
   }
 
   void _updateSearchQuery(String query) {
