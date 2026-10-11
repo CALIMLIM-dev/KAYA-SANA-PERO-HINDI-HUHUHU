@@ -139,6 +139,11 @@ class _MainNavigationState extends State<MainNavigation>
       LocalAlerts.requestPermission();
       BackgroundPoll.register();
 
+      // Opened from closed by tapping a notification: go where it points.
+      LocalAlerts.takeLaunchNotification().then((n) {
+        if (n != null && mounted) LocalAlerts.onTap?.call(n);
+      });
+
       /*
           And the service that makes them arrive when they happen.
 

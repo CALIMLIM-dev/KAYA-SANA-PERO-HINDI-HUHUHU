@@ -43,6 +43,30 @@ class LocalAlerts {
   /// payload is the notification row as JSON.
   static void Function(Map<String, dynamic> notification)? onTap;
 
+  static bool _launchTaken = false;
+
+  /*
+      The notification that opened the app from closed, once.
+
+      A tap on the shade while the app is not running starts it, and the
+      plugin does not call onTap for that tap - the app simply opened on
+      Home. Asked for after sign-in, when there is a home to open it over.
+  */
+  static Future<Map<String, dynamic>?> takeLaunchNotification() async {
+    if (_launchTaken) return null;
+    _launchTaken = true;
+    try {
+      final details = await _plugin.getNotificationAppLaunchDetails();
+      if (details?.didNotificationLaunchApp != true) return null;
+      final payload = details!.notificationResponse?.payload;
+      if (payload == null || payload.isEmpty) return null;
+      final map = jsonDecode(payload);
+      return map is Map ? Map<String, dynamic>.from(map) : null;
+    } catch (_) {
+      return null;
+    }
+  }
+
   /// Idempotent. Every isolate calls it before showing anything.
   static Future<void> init() async {
     if (_ready) return;

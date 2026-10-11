@@ -633,6 +633,9 @@ class NotificationService
             title: 'Your community post was not approved',
             body: '"' . $post->title . '" did not go up. Reason: ' . $reason
                 . '. Your Barya has been returned.',
+            // Its author can still open it, and the reason is shown there.
+            referenceType: 'community_post',
+            referenceId: $post->id,
         );
     }
 
@@ -660,7 +663,9 @@ class NotificationService
     */
     private function communityAudience(\App\Models\CommunityPost $post): string
     {
-        return $post->type === \App\Models\CommunityPost::TYPE_BUSINESS
+        // Employer adverts too: an employer looking for help is employer
+        // business, and it was landing on the worker side.
+        return in_array($post->type, [\App\Models\CommunityPost::TYPE_BUSINESS, \App\Models\CommunityPost::TYPE_EMPLOYER], true)
             ? UserNotification::AUDIENCE_EMPLOYER
             : UserNotification::AUDIENCE_WORKER;
     }

@@ -131,6 +131,9 @@ class _NotificationBannerHostState extends State<NotificationBannerHost> {
             'body': n.body,
             'reference_type': n.referenceType,
             'reference_id': n.referenceId,
+            // Which side it is for. Without it a tap on an employer's job
+            // notification opened the public advert, not the applicants.
+            'audience': n.audience,
           },
         });
       }

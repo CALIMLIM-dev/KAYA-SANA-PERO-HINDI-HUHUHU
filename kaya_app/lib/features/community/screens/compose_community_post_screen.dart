@@ -118,6 +118,10 @@ class _ComposeCommunityPostScreenState extends State<ComposeCommunityPostScreen>
     final credits = context.read<CreditsProvider>();
     final cost = _cost;
     if (cost != null && credits.hasLoadedOnce && credits.balance < cost) {
+      // Said first: landing on the wallet with no reason looked like a
+      // wrong turn rather than a short balance.
+      AppToast.info(context,
+          'Posting costs $cost Barya and you have ${credits.balance}. Top up to post.');
       await AppRouter.push(context, AppRouter.wallet);
       if (!mounted) return;
       await credits.refresh();

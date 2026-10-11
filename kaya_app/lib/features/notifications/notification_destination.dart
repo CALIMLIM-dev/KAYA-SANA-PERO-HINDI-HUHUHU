@@ -58,6 +58,15 @@ enum NotificationDestination {
   /// A report about this account, to read and answer.
   reportResponse,
 
+  /// A notice on the community board. Carries the post id.
+  communityPost,
+
+  /// The account's thread with KAYA support.
+  support,
+
+  /// Somebody else's worker profile. Carries their user id.
+  person,
+
   /// Nothing sensible to open.
   none,
 }
@@ -78,7 +87,8 @@ NotificationDestination notificationDestination({
   // A review lives on the reviewed person's own profile, and on the right
   // side of it - an employer reviewed as an employer does not want their
   // worker profile.
-  if (type.startsWith('review.')) {
+  // A badge is drawn in the same place a review is.
+  if (type.startsWith('review.') || type.startsWith('badge.')) {
     return audience == 'employer'
         ? NotificationDestination.employerProfile
         : NotificationDestination.workerProfile;
@@ -93,6 +103,9 @@ NotificationDestination notificationDestination({
         ? NotificationDestination.applicants
         : NotificationDestination.manageJobs;
   }
+
+  // KAYA answering carries no reference; the thread is one per account.
+  if (type.startsWith('support.')) return NotificationDestination.support;
 
   // Hired, or asked to confirm a finished job: both are live work, and live
   // work is no longer in My Activity.
@@ -116,6 +129,13 @@ NotificationDestination notificationDestination({
     'verification' => NotificationDestination.verification,
     'report' => referenceId != null
         ? NotificationDestination.reportResponse
+        : NotificationDestination.none,
+    'community_post' => referenceId != null
+        ? NotificationDestination.communityPost
+        : NotificationDestination.none,
+    // "Available for work again": the point is the person.
+    'user' => referenceId != null
+        ? NotificationDestination.person
         : NotificationDestination.none,
     _ => NotificationDestination.none,
   };

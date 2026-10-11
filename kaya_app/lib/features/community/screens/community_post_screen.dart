@@ -105,15 +105,24 @@ class _CommunityPostScreenState extends State<CommunityPostScreen> {
   // There is no "message the poster". A notice is answered under it,
   // where everybody reading can see the answer.
 
+  /*
+      Down from the board, or withdrawn before it went up.
+
+      A post still waiting to be read was never on the board, so pulling it
+      returns the Barya; one that is live has had its days and does not.
+  */
   Future<void> _takeDown() async {
+    final waiting = _post['status'] == 'pending';
     final yes = await showDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        title: const Text('Take this post down?'),
-        content: const Text('It leaves the board now. The Barya is not returned.'),
+        title: Text(waiting ? 'Withdraw this post?' : 'Take this post down?'),
+        content: Text(waiting
+            ? 'It will not go up, and your Barya is returned.'
+            : 'It leaves the board now. The Barya is not returned.'),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(dialogContext, false), child: const Text('Keep it')),
-          TextButton(onPressed: () => Navigator.pop(dialogContext, true), child: const Text('Take Down')),
+          TextButton(onPressed: () => Navigator.pop(dialogContext, false), child: const Text('Keep It')),
+          TextButton(onPressed: () => Navigator.pop(dialogContext, true), child: Text(waiting ? 'Withdraw' : 'Take Down')),
         ],
       ),
     );
@@ -125,7 +134,7 @@ class _CommunityPostScreenState extends State<CommunityPostScreen> {
 
     if (ok) {
       setState(() => _post = {..._post, 'status': 'ended'});
-      AppToast.success(context, 'Post taken down.');
+      AppToast.success(context, waiting ? 'Post withdrawn. Your Barya was returned.' : 'Post taken down.');
     } else {
       AppToast.error(context, board.error ?? 'Could not take it down.');
     }
@@ -163,7 +172,8 @@ class _CommunityPostScreenState extends State<CommunityPostScreen> {
         backgroundColor: Colors.white,
         elevation: 0,
         foregroundColor: AppColors.neutral900,
-        title: Text(isBusiness ? 'Hiring' : 'Available for work',
+        // Employers and businesses post to hire; workers post that they are free.
+        title: Text(_post['type'] == 'worker' ? 'Available for work' : 'Hiring',
             style: const TextStyle(fontWeight: FontWeight.w600)),
         actions: [
           /*
@@ -174,6 +184,8 @@ class _CommunityPostScreenState extends State<CommunityPostScreen> {
               and Delete are both "something about this post", so they live
               in the same place a reader already looks for them.
           */
+          // Nothing to offer on your own ended or refused post, so no menu.
+          if (!isMine || live || waiting)
           PopupMenuButton<String>(
             icon: const Icon(Icons.more_vert),
             onSelected: (choice) {
@@ -192,14 +204,14 @@ class _CommunityPostScreenState extends State<CommunityPostScreen> {
                     ],
                   ),
                 ),
-              if (isMine && live)
-                const PopupMenuItem(
+              if (isMine && (live || waiting))
+                PopupMenuItem(
                   value: 'delete',
                   child: Row(
                     children: [
-                      Icon(Icons.delete_outline, size: 18, color: AppColors.error),
-                      SizedBox(width: 10),
-                      Text('Delete', style: TextStyle(color: AppColors.error)),
+                      const Icon(Icons.delete_outline, size: 18, color: AppColors.error),
+                      const SizedBox(width: 10),
+                      Text(waiting ? 'Withdraw' : 'Delete', style: const TextStyle(color: AppColors.error)),
                     ],
                   ),
                 ),

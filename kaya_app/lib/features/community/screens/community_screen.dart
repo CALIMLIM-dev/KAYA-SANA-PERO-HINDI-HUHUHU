@@ -8,6 +8,7 @@ import '../../../providers/community_provider.dart';
 import '../widgets/community_post_card.dart';
 import 'community_post_screen.dart';
 import 'compose_community_post_screen.dart';
+import 'my_community_posts_screen.dart';
 
 /*
     The community board, as a tab.
@@ -46,7 +47,11 @@ class _CommunityScreenState extends State<CommunityScreen> {
       MaterialPageRoute(builder: (_) => const ComposeCommunityPostScreen()),
     );
     if (posted == true && mounted) {
-      await context.read<CommunityProvider>().load(force: true);
+      final board = context.read<CommunityProvider>();
+      await board.load(force: true);
+      // It waits to be read before it is on the board, so it is under
+      // Your Posts rather than in this list.
+      await board.loadMine();
     }
   }
 
@@ -60,13 +65,24 @@ class _CommunityScreenState extends State<CommunityScreen> {
         backgroundColor: Colors.white,
         elevation: 0,
         foregroundColor: AppColors.neutral900,
+        actions: [
+          // What you posted, in every state: the board only lists live ones.
+          TextButton(
+            onPressed: () => Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const MyCommunityPostsScreen()),
+            ),
+            style: TextButton.styleFrom(foregroundColor: AppColors.primary),
+            child: const Text('Your Posts', style: TextStyle(fontWeight: FontWeight.w600)),
+          ),
+        ],
         title: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
             const Text('Community', style: TextStyle(fontWeight: FontWeight.w600)),
             const SizedBox(width: 6),
             const HintBubble(
-              text: 'Workers post that they are free. Businesses post that they are hiring. Message a poster to talk.',
+              text: 'Workers post that they are free. Employers and businesses post that they are hiring. Answer a post under it.',
             ),
           ],
         ),

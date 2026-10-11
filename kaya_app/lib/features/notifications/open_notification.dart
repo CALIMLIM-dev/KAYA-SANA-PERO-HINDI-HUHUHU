@@ -6,7 +6,9 @@ import '../../core/navigation/app_router.dart';
 import '../../core/widgets/app_toast.dart';
 import '../../providers/app_mode_provider.dart';
 import '../../providers/auth_provider.dart';
+import '../../providers/community_provider.dart';
 import '../../providers/job_provider.dart';
+import '../community/screens/community_post_screen.dart';
 import 'notification_destination.dart';
 
 /*
@@ -150,6 +152,33 @@ void openNotification(
     case NotificationDestination.reportResponse:
       AppRouter.push(context, AppRouter.reportResponse,
           arguments: {'reportId': referenceId});
+
+    case NotificationDestination.support:
+      AppRouter.push(context, AppRouter.support);
+
+    case NotificationDestination.person:
+      AppRouter.push(context,
+        AppRouter.workerProfile,
+        arguments: {'workerId': referenceId},
+      );
+
+    /*
+        A post is opened from its own data, so it is fetched first. Its
+        author can open it whatever its state - under review, refused,
+        ended - and a refused one says why on the page.
+    */
+    case NotificationDestination.communityPost:
+      if (referenceId == null) return;
+      context.read<CommunityProvider>().fetchOne(referenceId).then((post) {
+        if (!context.mounted) return;
+        if (post == null) {
+          AppToast.info(context, 'That post is no longer on the board.');
+          return;
+        }
+        Navigator.of(context).push(MaterialPageRoute(
+          builder: (_) => CommunityPostScreen(post: post),
+        ));
+      });
 
     case NotificationDestination.none:
       AppRouter.push(context, AppRouter.notifications);
