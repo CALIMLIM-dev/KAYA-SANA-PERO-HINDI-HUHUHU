@@ -140,7 +140,11 @@ class ScheduleProvider with ChangeNotifier {
       await load(conversationId);
       return true;
     } catch (e) {
-      _errorMessage = e.toString().replaceFirst('Exception: ', '');
+      final message = e.toString().replaceFirst('Exception: ', '');
+      // Usually "already answered": the other side moved first. Read what
+      // is true now, so the card stops offering an answer to an old offer.
+      await load(conversationId);
+      _errorMessage = message;
       return false;
     } finally {
       _busy = false;

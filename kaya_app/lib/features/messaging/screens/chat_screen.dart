@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
 import '../../../core/constants/app_colors.dart';
@@ -137,6 +138,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
               extra request per thread is not free.
           */
           if ((args is Map ? args['jobId'] : null) != null) {
+            _hasJob = true;
             context.read<ScheduleProvider>().load(_conversationId!);
           }
           if (needsDetails) _resolveDetails();
@@ -249,12 +251,36 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
         'verificationState': other?['verification_state'],
         'lastSeenAt': other?['last_seen_at'],
         'applicationId': conv?['application_id'],
+        'applicationStatus': conv?['application_status'],
         'jobStatus': job?['status'],
         'myRole': iAmWorker ? 'worker' : 'employer',
         'otherRole': iAmWorker ? 'employer' : 'worker',
       };
     });
+
+    // Opened from a notification, the job was only learned just now, so the
+    // schedule was never asked for: the card offered "Set a day" over a day
+    // that was already agreed.
+    if (conv['job_id'] != null && !_hasJob) {
+      _hasJob = true;
+      context.read<ScheduleProvider>().load(_conversationId!);
+    }
   }
+
+  /// Whether this thread is about a job, so it has a schedule to keep.
+  bool _hasJob = false;
+
+  /*
+      The schedule on its own, slower clock.
+
+      An offer or an answer from the other side sends no message, so the
+      message poll never saw it: the other person's offer did not appear
+      until the chat was reopened, and an accepted day still read "Waiting
+      for a response". Read every fifteen seconds while a job thread is
+      open, which is four requests a minute against the sixty allowed.
+  */
+  static const Duration _schedulePoll = Duration(seconds: 15);
+  DateTime _lastSchedulePoll = DateTime.now();
 
   void _startPolling() {
     _pollTimer?.cancel();
@@ -282,6 +308,11 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
 
       _lastPoll = DateTime.now();
       _messaging?.fetchMessages(_conversationId!, silent: true);
+
+      if (_hasJob && now.difference(_lastSchedulePoll) >= _schedulePoll) {
+        _lastSchedulePoll = now;
+        context.read<ScheduleProvider>().load(_conversationId!);
+      }
     });
   }
 
@@ -413,7 +444,11 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     final applicationId = args['applicationId'] as int?;
     final jobStatus     = args['jobStatus']     as String?;
     final iAmWorker     = (args['myRole'] as String?) == 'worker';
-    final canTrack      = applicationId != null && jobStatus == 'in_progress';
+    // Open too, for a hire on a job still filling its other spots: that
+    // person is working, and the job only moves on once every spot is taken.
+    final canTrack      = applicationId != null &&
+        (jobStatus == 'in_progress' ||
+            (jobStatus == 'open' && args['applicationStatus'] == 'accepted'));
 
     if (_conversationId == null) {
       return Scaffold(
@@ -830,6 +865,8 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                 child: TextField(
                   controller: _controller,
                   maxLines: null,
+                  // The server takes 2000 characters; past that it refuses.
+                  inputFormatters: [LengthLimitingTextInputFormatter(2000)],
                   textCapitalization: TextCapitalization.sentences,
                   onSubmitted: (_) => _sendMessage(),
                   decoration: const InputDecoration(
@@ -948,6 +985,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     final status = (msg['status'] ?? 'sent').toString();
     final isPending = status == 'pending';
     final isFailed = status == 'failed';
+    final isRefused = status == 'refused';
 
     return Padding(
       padding: const EdgeInsets.only(bottom: 8, left: 56),
@@ -1013,6 +1051,29 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
               */
               if (isPending)
                 const Icon(Icons.schedule, size: 13, color: AppColors.neutral400)
+              // Refused: the reason, and the words back in the box to edit.
+              // Sending the same text again would only be refused again.
+              else if (isRefused)
+                Flexible(
+                  child: GestureDetector(
+                    onTap: () async {
+                      final id = msg['id'] as int?;
+                      if (id == null || _conversationId == null) return;
+                      final text = await _messaging?.takeBack(_conversationId!, id);
+                      if (text == null || !mounted) return;
+                      _controller.text = text;
+                      _controller.selection = TextSelection.collapsed(offset: text.length);
+                    },
+                    child: Text(
+                      'Not sent. ${msg['fail_reason'] ?? 'It was refused.'} Tap to edit.',
+                      textAlign: TextAlign.end,
+                      style: const TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                          color: AppColors.error),
+                    ),
+                  ),
+                )
               else if (isFailed)
                 GestureDetector(
                   onTap: () {

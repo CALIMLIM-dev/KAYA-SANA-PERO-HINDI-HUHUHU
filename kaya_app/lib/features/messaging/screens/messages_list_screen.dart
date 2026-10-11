@@ -131,6 +131,7 @@ class _MessagesListScreenState extends State<MessagesListScreen>
         // Location sharing is scoped to the hire, and only offered while the
         // job is actually in progress.
         'applicationId': conv['application_id'],
+        'applicationStatus': conv['application_status'],
         'jobStatus': job?['status'],
         'myRole': myRole,
         // No presence/online tracking exists yet — omitted rather than faked.

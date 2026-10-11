@@ -207,6 +207,7 @@ class _RosterScreenState extends State<RosterScreen> with RealtimeRefresh {
       'isVerified': (hire['is_verified'] as bool?) ?? false,
       'verificationState': hire['verification_state'],
       'applicationId': hire['application_id'],
+      'applicationStatus': hire['status'],
       'jobStatus': _job?['status'],
       'myRole': 'employer',
       'otherRole': 'worker',

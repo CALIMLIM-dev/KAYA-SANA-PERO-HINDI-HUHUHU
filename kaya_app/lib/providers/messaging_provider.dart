@@ -152,6 +152,13 @@ class MessagingProvider with ChangeNotifier {
           ? await MessageCache.instance.load(conversationId)
           : incoming;
 
+      // Seen, from the poll. See read_up_to on the server.
+      final seenChanged = await _applyReadUpTo(
+        conversationId,
+        asIntOrNull(page['read_up_to']),
+        page['read_at'],
+      );
+
       // Fire-and-forget: viewing the thread marks the other side's messages
       // read. Skipped on a silent poll that found nothing new, so an idle chat
       // does not send a write every few seconds for no reason.
@@ -162,7 +169,7 @@ class MessagingProvider with ChangeNotifier {
       if (!silent) {
         _isMessagesLoading = false;
         notifyListeners();
-      } else if (changed) {
+      } else if (changed || seenChanged) {
         notifyListeners();
       }
     } catch (e) {
@@ -194,6 +201,38 @@ class MessagingProvider with ChangeNotifier {
       _isMessagesLoading = false;
       notifyListeners();
     }
+  }
+
+  /*
+      Marks your messages up to [readUpTo] as seen, here and in the cache.
+
+      The cache matters as much as the screen: the next delta reloads the
+      thread from it, which would otherwise put the old flags straight back.
+      Returns whether anything changed.
+  */
+  Future<bool> _applyReadUpTo(int conversationId, int? readUpTo, Object? readAt) async {
+    if (readUpTo == null || _selfId == null) return false;
+
+    final updated = <Map<String, dynamic>>[];
+    _messages = _messages.map((m) {
+      if (!_isUnreadOwn(m, readUpTo)) return m;
+      final seen = {...m, 'is_read': true, 'read_at': m['read_at'] ?? readAt};
+      updated.add(seen);
+      return seen;
+    }).toList();
+
+    if (updated.isEmpty) return false;
+    await MessageCache.instance.save(conversationId, updated);
+    return true;
+  }
+
+  bool _isUnreadOwn(Map<String, dynamic> m, int readUpTo) {
+    final id = asIntOrNull(m['id']);
+    return id != null &&
+        id < MessageCache.pendingIdBase &&
+        id <= readUpTo &&
+        asIntOrNull(m['sender_id']) == _selfId &&
+        m['is_read'] != true;
   }
 
   /// Call when leaving a chat screen.
@@ -291,10 +330,28 @@ class MessagingProvider with ChangeNotifier {
     } catch (e) {
       await MessageCache.instance.markFailed(conversationId, pendingId);
 
+      /*
+          Refused is not the same as failed.
+
+          A phone number, an email, a closed thread or an over-long message
+          comes back 422 or 403 with a reason, and sending it again fails the
+          same way every time. Those carry the reason and are edited, not
+          retried; only a dropped connection is worth a retry.
+      */
+      final refusal = e is ApiException &&
+              !e.isOffline &&
+              (e.status == 422 || e.status == 403)
+          ? e.message
+          : null;
+
       if (_activeConversationId == conversationId) {
         final index = _messages.indexWhere((m) => m['id'] == pendingId);
         if (index != -1) {
-          _messages[index] = {..._messages[index], 'status': 'failed'};
+          _messages[index] = {
+            ..._messages[index],
+            'status': refusal != null ? 'refused' : 'failed',
+            'fail_reason': refusal,
+          };
         }
         notifyListeners();
       }
@@ -318,6 +375,21 @@ class MessagingProvider with ChangeNotifier {
     await MessageCache.instance.remove(conversationId, pendingId);
 
     return sendMessage(conversationId, text);
+  }
+
+  /// Takes a message that did not go back off the thread, and returns its
+  /// text so it can be edited and sent again.
+  Future<String?> takeBack(int conversationId, int pendingId) async {
+    final index = _messages.indexWhere((m) => m['id'] == pendingId);
+    if (index == -1) return null;
+
+    final text = '${_messages[index]['message_text'] ?? ''}';
+
+    _messages = _messages.where((m) => m['id'] != pendingId).toList();
+    notifyListeners();
+    await MessageCache.instance.remove(conversationId, pendingId);
+
+    return text;
   }
 
   /// Who this device is signed in as, so an optimistic message renders on the

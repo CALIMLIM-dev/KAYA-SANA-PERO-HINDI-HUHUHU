@@ -161,7 +161,26 @@ class ConversationController extends Controller
 
             $this->resolveSenderAvatars($messages);
 
-            return $this->ok(['data' => $messages]);
+            /*
+                How far the other side has read, on every poll.
+
+                A delta only carries new rows, so a message of yours that was
+                read after you sent it never came back with is_read changed -
+                that news only ever travelled over the socket, which is off.
+                The newest of your messages they have read is enough: every
+                one before it has been read too.
+            */
+            $seen = $conversation->messages()
+                ->where('sender_id', $user->id)
+                ->where('is_read', true)
+                ->orderByDesc('id')
+                ->first(['id', 'read_at']);
+
+            return $this->ok([
+                'data'       => $messages,
+                'read_up_to' => $seen?->id,
+                'read_at'    => $seen?->read_at?->toIso8601String(),
+            ]);
         }
 
         $messages = $conversation->messages()

@@ -78,12 +78,29 @@ class _SupportChatScreenState extends State<SupportChatScreen> {
     super.dispose();
   }
 
+  /// One read at a time: a slow poll overlapping the next appended the
+  /// same new lines twice.
+  bool _fetching = false;
+
+  /// Adds rows by id, so a poll and a send carrying the same message show it
+  /// once. Ordered by id, which is the order they were written.
+  List<Map<String, dynamic>> _merged(List<Map<String, dynamic>> incoming) {
+    final byId = <Object?, Map<String, dynamic>>{
+      for (final m in _messages) m['id']: m,
+      for (final m in incoming) m['id']: m,
+    };
+    return byId.values.toList()
+      ..sort((a, b) => ((a['id'] as int?) ?? 0).compareTo((b['id'] as int?) ?? 0));
+  }
+
   Future<void> _load({bool quiet = false}) async {
+    if (_fetching) return;
     if (await ApiClient.getToken() == null) {
       if (mounted) setState(() => _loading = false);
       return;
     }
 
+    _fetching = true;
     try {
       /*
           Only what has not been seen, once there is something to compare to.
@@ -127,7 +144,7 @@ class _SupportChatScreenState extends State<SupportChatScreen> {
       }
 
       setState(() {
-        _messages = incremental ? [..._messages, ...incoming] : incoming;
+        _messages = incremental ? _merged(incoming) : incoming;
         _loading = false;
         _error = null;
       });
@@ -140,6 +157,8 @@ class _SupportChatScreenState extends State<SupportChatScreen> {
         _error = e.toString().replaceFirst('Exception: ', '');
         _loading = false;
       });
+    } finally {
+      _fetching = false;
     }
   }
 
@@ -164,7 +183,7 @@ class _SupportChatScreenState extends State<SupportChatScreen> {
       if (!mounted) return;
 
       setState(() {
-        _messages = [..._messages, message];
+        _messages = _merged([message]);
         _sending = false;
       });
 

@@ -1018,6 +1018,7 @@ class ApplicationCard extends StatelessWidget {
                   'isVerified': (employer['is_verified'] as bool?) ?? false,
                   'verificationState': employer['verification_state'],
                   'applicationId': application['id'],
+                  'applicationStatus': application['status'],
                   'jobStatus': job?['status'],
                   'myRole': 'worker',
                   'otherRole': 'employer',
