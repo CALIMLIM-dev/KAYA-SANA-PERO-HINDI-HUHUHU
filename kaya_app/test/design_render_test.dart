@@ -208,9 +208,17 @@ void main() {
     ));
     await tester.pump(const Duration(milliseconds: 300));
 
-    expect(find.text('Businesses'), findsOneWidget);
+    // One button for the four, saying which is showing.
+    expect(find.text('All posts'), findsOneWidget);
     expect(tester.takeException(), isNull);
     await expectLater(find.byType(MaterialApp), matchesGoldenFile('goldens/community_filter.png'));
+
+    // And it opens them.
+    await tester.tap(find.text('All posts'));
+    await tester.pumpAndSettle();
+    for (final option in ['Workers', 'Employers', 'Businesses']) {
+      expect(find.text(option), findsOneWidget, reason: option);
+    }
   });
 
   testWidgets('matched workers pop-up', (tester) async {

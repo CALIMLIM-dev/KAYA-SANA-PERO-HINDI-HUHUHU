@@ -87,69 +87,42 @@ class _CommunityScreenState extends State<CommunityScreen> {
           ],
         ),
         /*
-            One compact bar, not four loose chips.
+            A filter button, not four segments.
 
-            The chips each took their own padding and border and scrolled
-            sideways on a narrow phone. A single segmented bar holds all
-            four in the width there is, with sort at the end.
+            All, Workers, Employers and Businesses took the whole width of
+            the screen for a choice made once in a while. One button says
+            which is showing and opens the four; sort sits beside it.
         */
         bottom: PreferredSize(
-          preferredSize: const Size.fromHeight(46),
+          preferredSize: const Size.fromHeight(44),
           child: Padding(
-            padding: const EdgeInsets.fromLTRB(16, 0, 8, 10),
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 10),
             child: Row(
               children: [
-                Expanded(
-                  child: Container(
-                    height: 34,
-                    padding: const EdgeInsets.all(3),
-                    decoration: BoxDecoration(
-                      color: AppColors.neutral100,
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    child: Row(
-                      children: [
-                        for (final entry in const [
-                          ('all', 'All'),
-                          ('worker', 'Workers'),
-                          ('employer', 'Employers'),
-                          ('business', 'Businesses'),
-                        ])
-                          // Widths follow the labels, so all four read at one size.
-                          Expanded(
-                            flex: entry.$2.length + 3,
-                            child: _Segment(
-                              label: entry.$2,
-                              selected: board.type == entry.$1,
-                              onTap: () => board.setType(entry.$1),
-                            ),
-                          ),
-                      ],
-                    ),
-                  ),
+                _MenuPill<String>(
+                  icon: Icons.filter_list,
+                  label: _typeLabels[board.type] ?? 'All posts',
+                  active: board.type != 'all',
+                  tooltip: 'Filter',
+                  current: board.type,
+                  options: _typeLabels,
+                  onSelected: board.setType,
                 ),
+                const SizedBox(width: 8),
                 /*
                     Newest, oldest, or whatever has been talked about
                     most. Three is all a board of a few hundred notices
                     needs, and "most discussed" is the one that finds the
                     thread worth reading.
                 */
-                PopupMenuButton<String>(
+                _MenuPill<String>(
+                  icon: Icons.swap_vert,
+                  label: _sortLabels[board.sort] ?? 'Newest',
+                  active: false,
                   tooltip: 'Sort',
-                  icon: const Icon(Icons.swap_vert, size: 20),
+                  current: board.sort,
+                  options: _sortLabels,
                   onSelected: board.setSort,
-                  itemBuilder: (context) => [
-                    for (final option in const [
-                      ('recent', 'Newest First'),
-                      ('oldest', 'Oldest First'),
-                      ('discussed', 'Most Discussed'),
-                    ])
-                      CheckedPopupMenuItem(
-                        value: option.$1,
-                        checked: board.sort == option.$1,
-                        child: Text(option.$2),
-                      ),
-                  ],
                 ),
               ],
             ),
@@ -226,48 +199,79 @@ class _CommunityScreenState extends State<CommunityScreen> {
   }
 }
 
-/// One option in the board's filter bar: white and blue when chosen.
-class _Segment extends StatelessWidget {
-  const _Segment({required this.label, required this.selected, required this.onTap});
+/// What each filter and sort is called on its button.
+const Map<String, String> _typeLabels = {
+  'all': 'All posts',
+  'worker': 'Workers',
+  'employer': 'Employers',
+  'business': 'Businesses',
+};
 
+const Map<String, String> _sortLabels = {
+  'recent': 'Newest',
+  'oldest': 'Oldest',
+  'discussed': 'Most discussed',
+};
+
+/// A small rounded button that says what is chosen and opens the choices.
+class _MenuPill<T> extends StatelessWidget {
+  const _MenuPill({
+    required this.icon,
+    required this.label,
+    required this.active,
+    required this.tooltip,
+    required this.current,
+    required this.options,
+    required this.onSelected,
+  });
+
+  final IconData icon;
   final String label;
-  final bool selected;
-  final VoidCallback onTap;
+
+  /// Narrowed from the default, so it reads as a filter that is on.
+  final bool active;
+  final String tooltip;
+  final T current;
+  final Map<T, String> options;
+  final ValueChanged<T> onSelected;
 
   @override
   Widget build(BuildContext context) {
-    return Semantics(
-      button: true,
-      selected: selected,
-      child: GestureDetector(
-        onTap: onTap,
-        behavior: HitTestBehavior.opaque,
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 180),
-          curve: Curves.easeOutCubic,
-          alignment: Alignment.center,
-          decoration: BoxDecoration(
-            color: selected ? Colors.white : Colors.transparent,
-            borderRadius: BorderRadius.circular(8),
-            boxShadow: selected
-                ? const [BoxShadow(color: Color(0x14000000), blurRadius: 4, offset: Offset(0, 1))]
-                : null,
+    final colour = active ? AppColors.primary : AppColors.neutral700;
+
+    return PopupMenuButton<T>(
+      tooltip: tooltip,
+      onSelected: onSelected,
+      position: PopupMenuPosition.under,
+      itemBuilder: (context) => [
+        for (final entry in options.entries)
+          CheckedPopupMenuItem<T>(
+            value: entry.key,
+            checked: entry.key == current,
+            child: Text(entry.value),
           ),
-          child: FittedBox(
-            fit: BoxFit.scaleDown,
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 4),
-              child: Text(
-                label,
-                maxLines: 1,
-                style: TextStyle(
-                  fontSize: 12.5,
-                  fontWeight: FontWeight.w600,
-                  color: selected ? AppColors.primary : AppColors.neutral600,
-                ),
-              ),
+      ],
+      child: Container(
+        height: 32,
+        padding: const EdgeInsets.only(left: 10, right: 6),
+        decoration: BoxDecoration(
+          color: active ? AppColors.primary.withValues(alpha: 0.08) : Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: active ? AppColors.primary.withValues(alpha: 0.35) : AppColors.neutral300,
+          ),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 16, color: colour),
+            const SizedBox(width: 6),
+            Text(
+              label,
+              style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: colour),
             ),
-          ),
+            Icon(Icons.arrow_drop_down, size: 20, color: colour),
+          ],
         ),
       ),
     );
