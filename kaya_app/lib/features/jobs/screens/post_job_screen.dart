@@ -945,6 +945,10 @@ class _PostJobScreenState extends State<PostJobScreen> {
               */
               _buildSection(
                 title: 'Duration',
+                // Asked for: what the two dates do, in plain words. The
+                // price is shown under them, so it is not repeated here.
+                hint: 'When the work starts, and the day it should be done. '
+                    'Your post stays up until the deadline, then closes on its own.',
                 anchor: _scheduleKey,
                 icon: Icons.event_outlined,
                 children: [_buildScheduleFields()],
