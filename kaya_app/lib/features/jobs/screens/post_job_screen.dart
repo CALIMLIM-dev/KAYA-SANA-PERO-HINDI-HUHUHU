@@ -3,8 +3,10 @@ import 'package:flutter_map/flutter_map.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:provider/provider.dart';
+import 'dart:async';
 import 'dart:io';
 import '../../../core/constants/app_colors.dart';
+import '../../../data/services/api_client.dart';
 import '../../../core/constants/job_boost.dart';
 import '../../../core/constants/credits.dart';
 import '../../../core/widgets/hint_bubble.dart';
@@ -142,6 +144,90 @@ class _PostJobScreenState extends State<PostJobScreen> {
   final _descriptionController = TextEditingController();
   final _budgetController = TextEditingController();
   final _locationController = TextEditingController();
+
+  /*
+      The trade the title names, offered rather than chosen.
+
+      A post titled "tubero" filed under whatever trade was nearest in the
+      list said plumbing to every reader and to nothing in matching. The
+      server reads the title now, and this is the half the employer sees:
+      a line under the title naming the trade, and a button to use it. The
+      choice stays theirs.
+  */
+  Map<String, dynamic>? _titleTrade;
+  Timer? _titleDebounce;
+
+  void _onTitleChanged(String _) {
+    _titleDebounce?.cancel();
+    _titleDebounce = Timer(const Duration(milliseconds: 600), _suggestTrade);
+  }
+
+  Future<void> _suggestTrade() async {
+    final title = _titleController.text.trim();
+    if (title.length < 3) {
+      if (_titleTrade != null) setState(() => _titleTrade = null);
+      return;
+    }
+
+    try {
+      final res = await ApiClient().get('/jobs/title-trade', queryParameters: {'title': title});
+      final data = (res.data['data'] as Map?)?.cast<String, dynamic>();
+      // Typed over while the answer was on its way: that answer is stale.
+      if (!mounted || _titleController.text.trim() != title) return;
+      setState(() => _titleTrade = data?['category'] == null ? null : data);
+    } catch (_) {
+      // A hint that did not arrive is no hint. The form works without it.
+    }
+  }
+
+  Future<void> _useTitleTrade() async {
+    final trade = _titleTrade;
+    final category = (trade?['category'] as Map?)?.cast<String, dynamic>();
+    if (category == null) return;
+
+    await _updateSkillsForCategory(category['name'] as String, categoryId: category['id'] as int);
+    if (!mounted) return;
+
+    final suggested = ((trade?['skills'] as List?) ?? const [])
+        .map((s) => ((s as Map)['name'] ?? '').toString())
+        .where(_availableSkills.contains);
+    setState(() {
+      for (final name in suggested) {
+        if (!_selectedSkills.contains(name)) _selectedSkills.add(name);
+      }
+    });
+  }
+
+  Widget _buildTitleTradeHint() {
+    final category = (_titleTrade?['category'] as Map?)?.cast<String, dynamic>();
+    if (category == null || category['id'] == _selectedCategoryId) {
+      return const SizedBox.shrink();
+    }
+
+    final name = (category['name'] ?? '').toString();
+    return Padding(
+      padding: const EdgeInsets.only(top: 6),
+      child: Row(
+        children: [
+          Expanded(
+            child: Text(
+              'Sounds like $name.',
+              style: const TextStyle(fontSize: 13, color: AppColors.neutral600),
+            ),
+          ),
+          TextButton(
+            onPressed: _useTitleTrade,
+            style: TextButton.styleFrom(
+              foregroundColor: AppColors.primary,
+              visualDensity: VisualDensity.compact,
+              textStyle: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+            ),
+            child: Text('Use $name'),
+          ),
+        ],
+      ),
+    );
+  }
   
   String? _selectedCategory;
 
@@ -296,6 +382,7 @@ class _PostJobScreenState extends State<PostJobScreen> {
 
   @override
   void dispose() {
+    _titleDebounce?.cancel();
     _titleController.dispose();
     _descriptionController.dispose();
     _budgetController.dispose();
@@ -707,8 +794,10 @@ class _PostJobScreenState extends State<PostJobScreen> {
                   TextFormField(
                     controller: _titleController,
                     decoration: _inputDecoration(icon: Icons.work_outline),
+                    onChanged: _onTitleChanged,
                     validator: (value) => value?.isEmpty ?? true ? 'Required' : null,
                   ),
+                  _buildTitleTradeHint(),
                   const SizedBox(height: 16),
                   
                   _buildLabel('Job Category'),

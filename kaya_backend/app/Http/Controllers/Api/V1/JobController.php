@@ -744,6 +744,32 @@ class JobController extends Controller
         return $town !== null && $town->centroid()[0] !== null;
     }
 
+    /*
+        The trade a title names, and its skills, for Post a Job to offer.
+
+        Matching reads the title as well now, but the form is where the
+        employer can see it and say yes: typing "tubero" offers Plumbing and
+        its plumbing skills, and the post then says what it is in the
+        catalogue's own terms. One suggestion, the first trade the title
+        names. Nothing is chosen for them.
+    */
+    public function titleTrade(Request $request, \App\Services\TitleTrades $titles)
+    {
+        $data = $request->validate(['title' => ['nullable', 'string', 'max:150']]);
+
+        $trade = $titles->of($data['title'] ?? '');
+        $categoryId = $trade['category_ids'][0] ?? null;
+        $category = $categoryId ? \App\Models\Category::find($categoryId, ['id', 'name']) : null;
+
+        return $this->ok([
+            'category' => $category ? ['id' => $category->id, 'name' => $category->name] : null,
+            'skills'   => collect($trade['skills'])
+                ->filter(fn ($s) => $category && $s['category_id'] === (int) $category->id)
+                ->map(fn ($s) => ['id' => $s['id'], 'name' => $s['name']])
+                ->values(),
+        ]);
+    }
+
     public function myJobs(Request $request)
     {
         $user = $request->user();

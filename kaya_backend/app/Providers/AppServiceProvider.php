@@ -22,6 +22,8 @@ class AppServiceProvider extends ServiceProvider
         $this->app->singleton(\App\Services\RealtimeBroadcaster::class);
         // The only thing allowed to move a credit balance.
         $this->app->singleton(\App\Services\CreditLedger::class);
+        // Reads the catalogue once and each title once, per request.
+        $this->app->scoped(\App\Services\TitleTrades::class);
     }
 
     /**

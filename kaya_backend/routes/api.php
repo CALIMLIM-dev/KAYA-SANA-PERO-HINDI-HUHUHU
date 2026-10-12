@@ -210,6 +210,8 @@ Route::prefix('v1')->group(function () {
         Route::post('/jobs',                    [JobController::class, 'store'])
             ->middleware('verified:employer');
         Route::get('/jobs/my',                  [JobController::class, 'myJobs']);
+        // The trade a title names, for Post a Job to suggest as it is typed.
+        Route::get('/jobs/title-trade',         [JobController::class, 'titleTrade']);
         Route::get('/jobs/{job}',               [JobController::class, 'show']);
         /*
             Gated like posting, because editing a post now spends.

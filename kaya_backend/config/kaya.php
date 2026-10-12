@@ -375,6 +375,48 @@ return [
         // A semantic match is real but inferred, so it scores below an id
         // or a shared stem. See SkillMatcher.
         'semantic_confidence' => (float) env('EMBEDDING_CONFIDENCE', 0.85),
+
+        /*
+            What people call the trade, to the word the catalogue uses.
+
+            A post titled "tubero" said plumbing to every reader and to
+            nothing in matching, which only read the trade and skills picked
+            on the form. These are read from a job's title (TitleTrades) and
+            from a skill a worker typed in their own words. The right-hand
+            side is compared to category and skill names, so a word whose
+            trade is not in the catalogue simply finds nothing.
+
+            Tagalog first, then the English for the person, because an
+            English title says "plumber" while the catalogue says
+            "Plumbing". Admin-confirmed synonyms (skill_aliases) still apply
+            on top of this.
+        */
+        'trade_words' => [
+            'tubero' => 'plumbing', 'tubera' => 'plumbing', 'plomero' => 'plumbing',
+            'plumber' => 'plumbing',
+            'elektrisyan' => 'electrical', 'elektrisista' => 'electrical',
+            'electrician' => 'electrical', 'kuryente' => 'electrical',
+            'pintor' => 'painting', 'pintura' => 'painting', 'painter' => 'painting',
+            'karpintero' => 'carpentry', 'karpentero' => 'carpentry',
+            'anluwage' => 'carpentry', 'carpenter' => 'carpentry',
+            'mason' => 'masonry', 'kantero' => 'masonry', 'masonero' => 'masonry',
+            'welder' => 'welding', 'hinang' => 'welding', 'manghihinang' => 'welding',
+            'bubong' => 'roofing', 'roofer' => 'roofing',
+            'hardinero' => 'landscaping', 'hardin' => 'landscaping', 'gardener' => 'landscaping',
+            'tagalinis' => 'cleaning', 'linis' => 'cleaning', 'maglinis' => 'cleaning',
+            'cleaner' => 'cleaning', 'kasambahay' => 'cleaning',
+            'mekaniko' => 'automotive', 'mechanic' => 'automotive',
+            'aircon' => 'hvac', 'aircondition' => 'hvac',
+            'kargador' => 'moving', 'hakot' => 'moving', 'lipat' => 'moving', 'mover' => 'moving',
+            'rider' => 'delivery', 'padala' => 'delivery',
+            'anay' => 'pest control', 'peste' => 'pest control',
+            'drayber' => 'driving', 'tsuper' => 'driving', 'driver' => 'driving',
+            'labandera' => 'laundry', 'labandero' => 'laundry',
+            'yaya' => 'childcare',
+            'kusinero' => 'cooking', 'kusinera' => 'cooking', 'cook' => 'cooking',
+            'mananahi' => 'sewing', 'sastre' => 'sewing', 'modista' => 'sewing',
+            'barbero' => 'barber',
+        ],
     ],
 
 ];

@@ -137,6 +137,36 @@ class JobMatchService
             $heldSkills->pluck('category_id')->filter()->map(fn ($id) => (int) $id)->all(),
         );
 
+        /*
+            The trade the title names.
+
+            A plumbing job filed under another trade, or under a trade the
+            employer typed themselves, ranked plumbers like anybody else -
+            the title said "tubero" and nothing read it. A worker in the
+            trade the title names is in the job's trade, with the full
+            trade weight. See TitleTrades.
+
+            Where the title and the category disagree - "Tubero" filed under
+            General Labour - the title wins the tier below: the employer
+            wrote the title in their own words and picked the category from
+            a list.
+        */
+        $titles = app(TitleTrades::class);
+        $titleTrade = $titles->of($job->title);
+        $titleFit = false;
+        $titleDisagrees = false;
+
+        if ($titleTrade['terms'] !== []) {
+            $titleFit = $titles->fits($titleTrade, $profile, $heldSkills);
+            $titleDisagrees = $titleTrade['category_ids'] !== []
+                && ! in_array((int) $job->category_id, $titleTrade['category_ids'], true);
+
+            if ($titleFit && $categoryScore < self::WEIGHT_CATEGORY) {
+                $categoryScore = (float) self::WEIGHT_CATEGORY;
+                $categoryReason = 'Works in the trade the title names';
+            }
+        }
+
         $score += $categoryScore;
         if ($categoryReason) $reasons[] = $categoryReason;
 
@@ -182,7 +212,11 @@ class JobMatchService
 
         $tier = $required->isNotEmpty()
             ? ($matched->isNotEmpty() ? self::TIER_MEETS : ($sameTrade ? self::TIER_TRADE : self::TIER_NONE))
-            : ($sameTrade ? self::TIER_MEETS : self::TIER_NONE);
+            : ($titleDisagrees
+                // The title's trade first; the post's own category is
+                // still the right kind of work, one tier down.
+                ? ($titleFit ? self::TIER_MEETS : ($sameTrade ? self::TIER_TRADE : self::TIER_NONE))
+                : ($sameTrade ? self::TIER_MEETS : self::TIER_NONE));
 
         $distance = self::distanceKm($job, $profile);
 
