@@ -487,14 +487,10 @@ class ApplicationController extends Controller
         $job->load(['skills', 'psgcLocation.parent', 'category']);
 
         $applications = $job->applications()
-            ->with([
-                'worker.workerProfile.skills',
-                'worker.workerProfile.category:id,name',
-                'worker.workerProfile.psgcLocation.parent',
-                'worker.workerProfile.licenses:id,user_id,license_name',
-                'worker.workerProfile.certifications:id,user_id,certification_name',
-                'worker.workerProfile.experiences',
-            ])
+            ->with(array_map(
+                fn ($relation) => 'worker.workerProfile.' . $relation,
+                \App\Support\ResumeBlock::RELATIONS,
+            ))
             ->latest()
             ->get();
 
@@ -561,36 +557,13 @@ class ApplicationController extends Controller
                     // How many of this employer's other jobs this worker has
                     // already finished. 0 for a stranger.
                     'times_hired_before'    => (int) ($previousHires[$worker->id] ?? 0),
-                    // Agreed days this worker already holds, so the
-                    // card can say they are unavailable then. Dates
-                    // only - whose job it is stays theirs.
-                    'worker_id'             => $worker->id,
-                    'worker_name'           => $worker->name,
-                    // Resolved, not a raw storage path — and consistent with
-                    // the directory and profile screens.
-                    'worker_photo_url'      => $profile?->resolvedAvatarUrl(),
-                    'worker_rating'         => $profile?->rating_avg ?? 0,
-                    'worker_rating_count'   => $profile?->rating_count ?? 0,
-                    'is_verified'           => $worker->is_verified,
-                    'verification_state'    => $worker->verification_state,
-                    // Whether there is a file to open. A worker uploads one
-                    // and, until now, no screen ever showed it to anybody.
-                    // The download endpoint holds the access rule; this only
-                    // says whether the button has anything to open.
-                    'skills'                => $profile?->skills->pluck('skill_name')->values() ?? [],
+                    // Who they are, and the resume block. Shared with the
+                    // worker's own preview of this card - see ResumeBlock.
+                    ...\App\Support\ResumeBlock::fields($worker, $profile, $experience),
 
                     // For the order only. The card shows no percentage.
                     'match_score'           => (int) $match['score'],
                     'is_premium'            => isset($premium[$worker->id]),
-
-                    // The resume block. Names, never scans - see
-                    // JobController::matches for why.
-                    'category'              => $profile?->category?->name,
-                    'location'              => $profile?->location,
-                    'licenses'              => $profile?->licenses->pluck('license_name')->filter()->values() ?? [],
-                    'certifications'        => $profile?->certifications->pluck('certification_name')->filter()->values() ?? [],
-                    'experience_label'      => $profile ? $experience->label($profile->experiences) : null,
-                    'jobs_completed'        => (int) ($profile?->jobs_completed ?? 0),
 
                     // Tier, then fit, then profile strength. See JobMatchService::rank.
                     'rank_score'            => $profile
@@ -613,7 +586,6 @@ class ApplicationController extends Controller
                     'matched_skills'        => $match['matched_skills'] ?? [],
                     'same_trade'            => (bool) ($match['same_trade'] ?? false),
                     'distance_label'        => \App\Support\DistanceBand::label($match['distance_km'] ?? null),
-                    'is_new'                => $profile ? \App\Services\JobMatchService::isNew($profile) : true,
                 ];
             })
             /*

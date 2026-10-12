@@ -214,6 +214,40 @@ class WorkerProfileController extends Controller
         ]);
     }
     
+    /*
+        The worker's own card, as an employer's Applicants list draws it.
+
+        A worker who topped up paid for their card to open as a resume, and
+        had no way to see it: it only ever appeared on somebody else's phone.
+        The same fields the list sends, from the same helper, and whether the
+        account has topped up - the app shows the resume either way, and says
+        which one employers see now.
+    */
+    public function resumePreview(Request $request)
+    {
+        $user = $request->user();
+        $profile = $user->workerProfile()->with(\App\Support\ResumeBlock::RELATIONS)->first();
+
+        if (!$profile) {
+            return response()->json([
+                'success' => false,
+                'data'    => null,
+                'message' => 'Set up a worker profile first.',
+            ], 404);
+        }
+
+        $profile->setRelation('user', $user);
+
+        return response()->json([
+            'success' => true,
+            'data'    => [
+                ...\App\Support\ResumeBlock::fields($user, $profile, app(\App\Services\ExperienceTotal::class)),
+                'is_premium' => $user->hasToppedUp(),
+            ],
+            'message' => 'Success',
+        ]);
+    }
+
     public function deleteProfile(Request $request)
     {
         $user = $request->user();

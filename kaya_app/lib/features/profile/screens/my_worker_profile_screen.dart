@@ -5,6 +5,7 @@ import '../../../core/constants/credits.dart';
 import '../../../core/constants/job_boost.dart';
 import '../../../providers/auth_provider.dart';
 import '../../../providers/credits_provider.dart';
+import 'resume_preview_screen.dart';
 import '../widgets/credentials_section.dart';
 import '../widgets/experience_section.dart';
 import '../widgets/inline_edit_row.dart';
@@ -1102,37 +1103,41 @@ class _MyWorkerProfileScreenState extends State<MyWorkerProfileScreen> with Sing
     }
   }
   /*
-      The one place a worker hears what a top-up does for them.
+      The one place a worker hears what a top-up does for them, and sees it.
 
-      Employers see a topped-up applicant's resume open on their home screen;
-      everyone else's is a tap away. One quiet line and a link, never a
-      banner, and gone once they have topped up - there is nothing left to
-      find out.
+      Employers see a topped-up applicant's card open as a resume; everyone
+      else's is a tap away. This line used to vanish once the worker had
+      topped up, which left the thing they paid for somewhere they could
+      never look. It stays, and opens their own card as an employer's list
+      draws it. One quiet line, never a banner.
   */
   Widget _buildResumeLink() {
     final credits = context.watch<CreditsProvider>();
-    if (!credits.hasLoadedOnce || credits.hasToppedUp) {
-      return const SizedBox.shrink();
-    }
+    if (!credits.hasLoadedOnce) return const SizedBox.shrink();
 
     return Padding(
       padding: const EdgeInsets.only(bottom: 16),
       child: Row(
         children: [
-          const Expanded(
+          Expanded(
             child: Text(
-              'Workers who have topped up show their full profile to employers.',
-              style: TextStyle(fontSize: 12.5, color: AppColors.neutral600),
+              credits.hasToppedUp
+                  ? 'Employers see your card open as a resume.'
+                  : 'Workers who have topped up show their full profile to employers.',
+              style: const TextStyle(fontSize: 12.5, color: AppColors.neutral600),
             ),
           ),
           TextButton(
-            onPressed: () => AppRouter.push(context, AppRouter.wallet),
+            onPressed: () => Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const ResumePreviewScreen()),
+            ),
             style: TextButton.styleFrom(
               foregroundColor: AppColors.primary,
               textStyle:
                   const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600),
             ),
-            child: const Text('Find out more'),
+            child: const Text('See what employers see'),
           ),
         ],
       ),
