@@ -18,7 +18,8 @@ import '../data/legal_documents.dart';
 class LegalScreen extends StatefulWidget {
   const LegalScreen({super.key, this.initialTab = 0});
 
-  /// 0 = Terms, 1 = Privacy. Lets "Privacy Policy" open on the right document.
+  /// 0 = Terms, 1 = Privacy, 2 = Refunds. Lets each Settings row open on the
+  /// right document.
   final int initialTab;
 
   @override
@@ -33,9 +34,9 @@ class _LegalScreenState extends State<LegalScreen>
   void initState() {
     super.initState();
     _tabController = TabController(
-      length: 2,
+      length: 3,
       vsync: this,
-      initialIndex: widget.initialTab.clamp(0, 1),
+      initialIndex: widget.initialTab.clamp(0, 2),
     );
   }
 
@@ -55,7 +56,7 @@ class _LegalScreenState extends State<LegalScreen>
         elevation: 0,
         scrolledUnderElevation: 0.5,
         title: const Text(
-          'Terms and Privacy',
+          'Legal',
           style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
         ),
         bottom: PreferredSize(
@@ -75,7 +76,7 @@ class _LegalScreenState extends State<LegalScreen>
                   const TextStyle(fontWeight: FontWeight.w600, fontSize: 13.5),
               unselectedLabelStyle:
                   const TextStyle(fontWeight: FontWeight.w500, fontSize: 13.5),
-              tabs: const [Tab(text: 'Terms'), Tab(text: 'Privacy')],
+              tabs: const [Tab(text: 'Terms'), Tab(text: 'Privacy'), Tab(text: 'Refunds')],
             ),
           ),
         ),
@@ -85,6 +86,7 @@ class _LegalScreenState extends State<LegalScreen>
         children: [
           _DocumentView(document: LegalDocuments.terms),
           _DocumentView(document: LegalDocuments.privacy),
+          _DocumentView(document: LegalDocuments.refunds),
         ],
       ),
     );

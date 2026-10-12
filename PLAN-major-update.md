@@ -365,7 +365,33 @@ Plan:
   Help (FAQ, Support chat, Terms, Privacy, Refund policy), About (version,
   check for update), Sign out at the bottom.
 
-### 11. FAQ, Terms, Privacy, Refund policy  `[ ]`
+### 11. FAQ, Terms, Privacy, Refund policy  `[x]` (committed, ships with the revamp release)
+
+Done: FAQ rewritten (7 groups, searchable; a search opens the matching
+answers), Terms and Privacy corrected and expanded, Refund Policy added as
+`LegalDocuments.refunds` (third tab in `LegalScreen`, Settings row, link at the
+bottom of My Wallet). Prices are left out of all of it on purpose (server
+settings; the app shows each before a spend). Every claim was checked against
+the code; these old statements were false and are gone:
+- Terms: a hire refunding the worker's clashing applications (stopped; see
+  `ApplicationController::accept`, "Nothing is cancelled on the worker's
+  behalf"); chats opening by answering a community post (it is a public
+  thread now); a business needing DTI/SEC *plus* a Mayor's permit (one
+  registration paper, and no person's ID).
+- Privacy: a push token (there is none; notifications poll); admins reading a
+  reported chat's recent messages (a report snapshots only the one item,
+  `ReportController::snapshot`); live pings deleted within a day (ended
+  sessions are cleared by the 03:00 prune and nothing is kept past 7 days);
+  "support email in the Help Center" (there is none; support is the chat).
+- FAQ: top-up "opens in your browser" (it credits at once, free in testing).
+Facts the text depends on that the code alone cannot confirm: the server's
+scheduler must be running (`schedule:run`) for the location prune, post
+expiry refunds and unconfirmed-hire closing; and the refund window is written
+as "an hour", the default of `CREDIT_WITHDRAW_REFUND_MINUTES`.
+Gap found, not fixed: a suspended account is signed out and the login says
+only "Your account has been suspended", so although the support routes accept
+a suspended account, the app gives no way to reach them. The Terms therefore
+promise no appeal route. Belongs with the deferred moderation redesign.
 
 Now: `lib/features/help/screens/faq_screen.dart` (17 questions in 5 groups).
 `lib/features/legal/data/legal_documents.dart` (162 lines): Terms has 16
@@ -505,7 +531,8 @@ what to change. Hybrid keeps the side switch. Populated-overflow tests at
   - Customization and "what would make users open Settings at all": ask again
     later.
 - **D6 refund policy wording.** Review the draft before it ships.
-  Answer: _pending_
+  Answer: drafted in `legal_documents.dart` (`refunds`); the user reviews it
+  before the revamp release.
 
 ---
 

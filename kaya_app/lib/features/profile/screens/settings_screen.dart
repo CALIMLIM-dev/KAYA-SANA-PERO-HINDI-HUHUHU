@@ -152,6 +152,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
               title: 'Privacy Policy',
               onTap: () => _openLegal(1),
             ),
+            _SettingsRow(
+              icon: Icons.currency_exchange_outlined,
+              title: 'Refund Policy',
+              onTap: () => _openLegal(2),
+            ),
             // Information, not a control: no chevron, nothing to tap.
             _SettingsRow(
               icon: Icons.info_outline,
@@ -184,7 +189,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   /// Opens the reader in a pop-up rather than a new screen. 0 is Terms,
-  /// 1 is Privacy.
+  /// 1 is Privacy, 2 is Refunds.
   void _openLegal(int tab) => showKayaPopup(
         context,
         tall: true,

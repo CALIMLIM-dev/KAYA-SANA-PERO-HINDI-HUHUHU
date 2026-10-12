@@ -73,6 +73,9 @@ void main() {
     await render(tester, worker: true, employer: true);
 
     await tester.scrollUntilVisible(find.text('Delete account or a profile'), 200);
+    // Fully on screen, not just its top edge, so the tap lands on it.
+    await tester.ensureVisible(find.text('Delete account or a profile'));
+    await tester.pumpAndSettle();
     await tester.tap(find.text('Delete account or a profile'));
     await tester.pumpAndSettle();
 

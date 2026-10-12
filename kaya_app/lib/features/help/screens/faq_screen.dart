@@ -7,159 +7,240 @@ import '../../../core/navigation/app_router.dart';
 /// The earlier version described an app that did not exist: phone
 /// verification at sign-up, an Apply Now button, a blue checkmark, reviews
 /// editable for 24 hours, a support team reachable from a button whose
-/// handler was empty. Every answer here names the screen and the button as
-/// they are.
-class FAQScreen extends StatelessWidget {
+/// handler was empty. Then it went stale again: top-ups "opened in the
+/// browser" long after they were credited at once. Every answer here was
+/// checked against the code in October 2026 and names the screen and the
+/// button as they are. Prices are left out because they are server settings;
+/// the app shows each one before anything is spent.
+class FAQScreen extends StatefulWidget {
   const FAQScreen({super.key});
 
   @override
+  State<FAQScreen> createState() => _FAQScreenState();
+}
+
+class _FAQ {
+  const _FAQ(this.question, this.answer);
+
+  final String question;
+  final String answer;
+}
+
+const _groups = <(String, List<_FAQ>)>[
+  ('Accounts', [
+    _FAQ('How do I create an account?',
+        'Sign up with your email or phone number and a password, or with Google. '
+            'Then set up a worker profile, an employer profile, or both.'),
+    _FAQ('Can one account both look for work and hire?',
+        'Yes. Set up both profiles, then switch with the Worker and Employer buttons '
+            'in the search bar on the home screen. The one exception is a registered '
+            'business: a company account cannot also have a worker profile.'),
+    _FAQ('What does verified mean?',
+        'An admin checked a Philippine government ID and a selfie of the person holding it. '
+            'A business is verified by its registration paper instead: a DTI certificate, '
+            'an SEC registration or a Mayor\'s permit. The badge confirms who someone is, '
+            'not how good their work is.'),
+    _FAQ('What can I do before I am verified?',
+        'Look around: browse jobs, profiles and the community board. Posting a job, applying, '
+            'inviting, accepting an invitation, posting or commenting on the board, claiming '
+            'free Barya and topping up all need a verified account.'),
+    _FAQ('How do I get verified?',
+        'Open your worker or employer profile from the Profile tab and go to Verification. '
+            'Upload the documents. An admin reviews them and you get a notification either way.'),
+    _FAQ('How do I remove a profile or delete my account?',
+        'Profile, Settings, then the last row. If you have both profiles you can remove just '
+            'one and keep the rest; an employer profile with open job posts has to close them '
+            'first. Deleting the account asks for your password and cannot be undone. It is '
+            'refused while you are hired on a job in progress or have a worker on one.'),
+  ]),
+  ('Looking for work', [
+    _FAQ('How do I apply for a job?',
+        'Open the job and tap Apply Now. The price in Barya is on the button. You get it back '
+            'if you withdraw within an hour of applying, or if the job is deleted or its post '
+            'ends while you are still waiting.'),
+    _FAQ('Where are my applications and invitations?',
+        'Home, then My Applications: the jobs you applied to, the ones employers invited you '
+            'to, and your history.'),
+    _FAQ('What happens when I am hired?',
+        'A chat opens with the employer. Agree on the day there: either of you can propose a '
+            'schedule and the other accepts it. During the job you can share your live location '
+            'with the employer, and stop whenever you like.'),
+    _FAQ('What puts my profile higher on an employer\'s list?',
+        'Employers see first the workers who have the skills a job asks for, or who work in its '
+            'trade. Within that, a fuller profile ranks higher: reviews, jobs done, experience, '
+            'certificates and being verified. Topping up does not move you up the list; a boost '
+            'puts your profile at the top of the feed for a few days.'),
+  ]),
+  ('Hiring', [
+    _FAQ('How do I post a job?',
+        'Tap Post a Job on the home screen. The post stays up from its start date to its end '
+            'date. The first week is free; keeping it up longer costs Barya and needs an account '
+            'that has topped up. The price shows under the dates as you pick them.'),
+    _FAQ('How do I find workers?',
+        'Post a job and workers apply, or search for workers by trade and distance and invite '
+            'one to a job. Inviting costs Barya, and inviting someone you have hired before costs '
+            'less. An account that has topped up also sees the list of matching workers for each job.'),
+    _FAQ('Where do I see who applied?',
+        'Home, then My Jobs, then Applicants on the job. Each applicant shows their skills, '
+            'rating and whether you have hired them before. Accept or reject from there.'),
+    _FAQ('Can I hire more than one person for a job?',
+        'Yes. Set how many workers the job needs, from one to twenty. The post takes applicants '
+            'until every spot is filled, and the Roster lists everyone hired.'),
+    _FAQ('How do I change a job I posted?',
+        'Home, My Jobs, Manage, then Edit. It is the same form as posting. You pay only for '
+            'days or a boost you add.'),
+  ]),
+  ('Finishing a job', [
+    _FAQ('How does a job get marked complete?',
+        'When the work is done, you and the other person each tap Mark as Complete. It counts '
+            'as complete once both have. If one side has not confirmed seven days after the day '
+            'the work was due, the hire closes as not completed, which counts against both.'),
+    _FAQ('Which day is the work due?',
+        'The end date on the post, or the day agreed in the chat\'s schedule if there is one. '
+            'An agreed schedule wins, so a job that finishes early can be completed early.'),
+    _FAQ('How do reviews work?',
+        'Once a job is complete, each side can review the other once, for a limited time. '
+            'A review cannot be edited after it is sent. An admin can hide a review that breaks '
+            'the rules.'),
+  ]),
+  ('Barya and payment', [
+    _FAQ('What is Barya?',
+        'KAYA\'s credit. Claim free Barya in My Wallet when you start and again each month, and '
+            'earn some with badges. Applying, inviting, boosting, keeping a job post up past its '
+            'first week and posting on the community board cost Barya. Messaging and commenting '
+            'are free. Barya has no cash value.'),
+    _FAQ('How do I pay a worker?',
+        'Directly. KAYA does not hold or move job payments. Agree the amount and how you will '
+            'pay in the chat.'),
+    _FAQ('How do I top up?',
+        'Profile, My Wallet, then choose a package. While KAYA is in testing, top-ups are free '
+            'and the Barya is added at once. You need a verified account.'),
+    _FAQ('What does topping up unlock?',
+        'A top-up of any size unlocks boosting, keeping job posts up past the free week, the '
+            'list of matching workers for your jobs, up to three community posts at a time '
+            'instead of one, and your card on an employer\'s Applicants list opening as a resume.'),
+    _FAQ('Do I get Barya back?',
+        'In set cases, automatically. The Refund Policy in Settings, About & Legal lists them, '
+            'and it is linked at the bottom of My Wallet.'),
+  ]),
+  ('Community board', [
+    _FAQ('What is the community board?',
+        'The Community tab. Workers post that they are available; employers and verified '
+            'businesses post that they are hiring. Anyone signed in can read and like posts, and '
+            'verified accounts can ask and answer in the comments under each one.'),
+    _FAQ('Why is my post not on the board yet?',
+        'Every post is read by KAYA before it goes up, and your paid days start when it is '
+            'approved. If it is not approved you are told why and your Barya is returned.'),
+    _FAQ('How many posts can I have up?',
+        'One at a time, or three once your account has topped up. Posts waiting for review '
+            'count toward that.'),
+  ]),
+  ('Safety and support', [
+    _FAQ('How do I report someone?',
+        'In a chat, open the menu at the top right and choose Report User; on a community post, '
+            'use the menu on the post. You can add up to three photos as evidence. The person is '
+            'told the reason and can give their side, an admin decides, and you are told the outcome.'),
+    _FAQ('Why was my message refused?',
+        'Chats and comments are read by a filter. A phone number, an email address or asking to '
+            'move to another app is refused, to keep people from being taken off KAYA and '
+            'scammed. Offensive words are hidden and the message still sends.'),
+    _FAQ('How do I reach KAYA?',
+        'Settings, Help & Support, Message KAYA support, or the button below. Somebody answers '
+            'you in that same chat.'),
+  ]),
+];
+
+class _FAQScreenState extends State<FAQScreen> {
+  final _search = TextEditingController();
+  String _query = '';
+
+  @override
+  void dispose() {
+    _search.dispose();
+    super.dispose();
+  }
+
+  bool _matches(_FAQ item) {
+    if (_query.isEmpty) return true;
+    final q = _query.toLowerCase();
+    return item.question.toLowerCase().contains(q) || item.answer.toLowerCase().contains(q);
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final groups = [
+      for (final (title, items) in _groups)
+        (title, items.where(_matches).toList()),
+    ].where((g) => g.$2.isNotEmpty).toList();
+
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
-        title: const Text('Frequently Asked Questions'),
+        title: const Text('FAQs'),
         backgroundColor: AppColors.background,
         elevation: 0,
       ),
       body: ListView(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.fromLTRB(16, 4, 16, 32),
         children: [
-          _buildFAQSection(
-            context,
-            'Accounts',
-            [
-              const _FAQItem(
-                question: 'How do I create an account?',
-                answer:
-                    'Sign up with your email or phone number and a password, or with Google. '
-                    'Then set up a worker profile, an employer profile, or both.',
+          TextField(
+            controller: _search,
+            onChanged: (v) => setState(() => _query = v.trim()),
+            textInputAction: TextInputAction.search,
+            decoration: InputDecoration(
+              hintText: 'Search questions',
+              prefixIcon: const Icon(Icons.search, size: 20),
+              suffixIcon: _query.isEmpty
+                  ? null
+                  : IconButton(
+                      icon: const Icon(Icons.close, size: 18),
+                      tooltip: 'Clear',
+                      onPressed: () {
+                        _search.clear();
+                        setState(() => _query = '');
+                      },
+                    ),
+              isDense: true,
+              filled: true,
+              fillColor: Colors.white,
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: const BorderSide(color: AppColors.neutral200),
               ),
-              const _FAQItem(
-                question: 'Can one account both look for work and hire?',
-                answer:
-                    'Yes. Set up both profiles and switch with the toggle at the top of the home screen. '
-                    'The one exception is a registered business: a business account cannot also be a worker account.',
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: const BorderSide(color: AppColors.neutral200),
               ),
-              const _FAQItem(
-                question: 'What does verified mean?',
-                answer:
-                    'The person submitted a Philippine government ID and a selfie holding it, and an admin checked them. '
-                    'A business also submits its DTI or SEC registration and Mayor\'s permit. '
-                    'You can browse without verifying, but posting, applying, inviting and topping up need it.',
-              ),
-              const _FAQItem(
-                question: 'How do I get verified?',
-                answer:
-                    'Open your profile, then Verification, and upload the documents. '
-                    'An admin reviews them and you get a notification either way.',
-              ),
-              const _FAQItem(
-                question: 'How do I delete my account?',
-                answer:
-                    'Profile, Settings, Delete account. You type your password once more. '
-                    'Your profile, documents and photos are removed and cannot be brought back. '
-                    'You cannot delete while you are on a job that is not finished.',
-              ),
-            ],
+            ),
           ),
-          const SizedBox(height: 24),
-          _buildFAQSection(
-            context,
-            'Looking for work',
-            [
-              const _FAQItem(
-                question: 'How do I apply for a job?',
-                answer:
-                    'Open the job and tap Apply. Applying costs barya, shown on the button before you confirm. '
-                    'You get it back if you withdraw within the grace period, or if the employer removes the job.',
+          const SizedBox(height: 16),
+
+          if (groups.isEmpty)
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: 24),
+              child: Text(
+                'Nothing matches that. Try fewer or other words, or ask us below.',
+                textAlign: TextAlign.center,
+                style: TextStyle(fontSize: 13.5, color: AppColors.neutral600),
               ),
-              const _FAQItem(
-                question: 'Where are my applications?',
-                answer:
-                    'Home, then My Applications. They are grouped by status: pending, accepted, rejected, completed.',
+            ),
+
+          for (final (title, items) in groups) ...[
+            Padding(
+              padding: const EdgeInsets.fromLTRB(4, 4, 4, 8),
+              child: Text(
+                title,
+                style: const TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w700,
+                  color: AppColors.neutral500,
+                  letterSpacing: 0.5,
+                ),
               ),
-              const _FAQItem(
-                question: 'What happens after I apply?',
-                answer:
-                    'The employer accepts or rejects. If accepted, a chat opens between the two of you, '
-                    'where you can agree a day and time and share your location on the day.',
-              ),
-            ],
-          ),
-          const SizedBox(height: 24),
-          _buildFAQSection(
-            context,
-            'Hiring',
-            [
-              const _FAQItem(
-                question: 'How do I post a job?',
-                answer:
-                    'In employer mode, tap Post a Job on the home screen. The post runs from its start date '
-                    'to its end date. The first week is free; longer costs barya, shown under the dates as you pick them.',
-              ),
-              const _FAQItem(
-                question: 'How do I find workers?',
-                answer:
-                    'Post a job and workers apply, or open Search in employer mode to browse workers by trade '
-                    'and distance and invite one to a job. Inviting costs barya; inviting someone you have hired before costs half.',
-              ),
-              const _FAQItem(
-                question: 'Can I hire more than one person for a job?',
-                answer:
-                    'Yes. Set how many workers the job needs, one to twenty. The post stays open until every spot is taken. '
-                    'The roster lists everyone hired and lets you message them all or mark the job done for all of them.',
-              ),
-              const _FAQItem(
-                question: 'How do I see who applied?',
-                answer:
-                    'Home, then Active Jobs, then the job. Each applicant shows their profile, skills, rating '
-                    'and whether you have hired them before. Accept or reject from there.',
-              ),
-            ],
-          ),
-          const SizedBox(height: 24),
-          _buildFAQSection(
-            context,
-            'Barya and payment',
-            [
-              const _FAQItem(
-                question: 'What is barya?',
-                answer:
-                    'The app\'s credit. Every account gets some on sign-up and some each month. '
-                    'Applying, inviting, boosting and community posts cost barya. A job post is free for its first week, and messaging is free.',
-              ),
-              const _FAQItem(
-                question: 'How do I pay a worker?',
-                answer:
-                    'Directly. KAYA does not hold or move job payments. Agree the amount and how you will pay in the chat.',
-              ),
-              const _FAQItem(
-                question: 'How do I top up?',
-                answer:
-                    'Profile, then My Wallet, then choose a package. Payment opens in your browser. You need a verified account.',
-              ),
-            ],
-          ),
-          const SizedBox(height: 24),
-          _buildFAQSection(
-            context,
-            'Safety',
-            [
-              const _FAQItem(
-                question: 'How do I report someone?',
-                answer:
-                    'In a chat, open the menu at the top right and choose Report. On a community post, use Report on the post. '
-                    'An admin reads the report and can suspend the account.',
-              ),
-              const _FAQItem(
-                question: 'How do reviews work?',
-                answer:
-                    'After a job is marked complete by both sides, each can review the other: workers from My Applications, employers from My Job Posts. '
-                    'A review cannot be edited once sent. An admin can hide a review that breaks the rules.',
-              ),
-            ],
-          ),
-          const SizedBox(height: 24),
+            ),
+            for (final item in items) _tile(item),
+            const SizedBox(height: 12),
+          ],
 
           /*
               When the answer is not up there.
@@ -212,30 +293,12 @@ class FAQScreen extends StatelessWidget {
               ],
             ),
           ),
-          const SizedBox(height: 32),
         ],
       ),
     );
   }
 
-  Widget _buildFAQSection(BuildContext context, String title, List<_FAQItem> items) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          title,
-          style: Theme.of(context).textTheme.titleLarge?.copyWith(
-            fontWeight: FontWeight.bold,
-            color: AppColors.neutral900,
-          ),
-        ),
-        const SizedBox(height: 16),
-        ...items.map((item) => _buildExpandableFAQ(context, item)),
-      ],
-    );
-  }
-
-  Widget _buildExpandableFAQ(BuildContext context, _FAQItem item) {
+  Widget _tile(_FAQ item) {
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
       decoration: BoxDecoration(
@@ -244,20 +307,29 @@ class FAQScreen extends StatelessWidget {
         border: Border.all(color: AppColors.neutral200),
       ),
       child: ExpansionTile(
+        // A search narrows the list to a few; open them so the answer is
+        // there without another tap.
+        key: ValueKey('${item.question}|${_query.isNotEmpty}'),
+        initiallyExpanded: _query.isNotEmpty,
+        shape: const Border(),
+        collapsedShape: const Border(),
         title: Text(
           item.question,
-          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+          style: const TextStyle(
+            fontSize: 14,
             fontWeight: FontWeight.w600,
+            color: AppColors.neutral900,
           ),
         ),
-        tilePadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+        tilePadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 2),
         childrenPadding: EdgeInsets.zero,
         children: [
           Padding(
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
             child: Text(
               item.answer,
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+              style: const TextStyle(
+                fontSize: 13.5,
                 color: AppColors.neutral700,
                 height: 1.5,
               ),
@@ -267,14 +339,4 @@ class FAQScreen extends StatelessWidget {
       ),
     );
   }
-}
-
-class _FAQItem {
-  final String question;
-  final String answer;
-
-  const _FAQItem({
-    required this.question,
-    required this.answer,
-  });
 }

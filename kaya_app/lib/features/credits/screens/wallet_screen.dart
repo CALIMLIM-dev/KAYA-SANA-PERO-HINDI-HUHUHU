@@ -6,8 +6,10 @@ import '../../../core/constants/credits.dart';
 import '../../../core/navigation/app_router.dart';
 import '../../../core/widgets/app_toast.dart';
 import '../../../core/widgets/hint_bubble.dart';
+import '../../../core/widgets/kaya_popup.dart';
 import '../../../core/widgets/verify_gate.dart';
 import '../../../providers/credits_provider.dart';
+import '../../legal/screens/legal_screen.dart';
 import '../widgets/top_up_section.dart';
 import '../widgets/wallet_history.dart';
 
@@ -215,6 +217,22 @@ class _WalletScreenState extends State<WalletScreen> with WidgetsBindingObserver
                   loading: credits.isHistoryLoading,
                   failed: credits.historyFailed,
                   previewRows: 3,
+                ),
+                // When Barya comes back, where the question is asked.
+                const SizedBox(height: 8),
+                Center(
+                  child: TextButton(
+                    onPressed: () => showKayaPopup(
+                      context,
+                      tall: true,
+                      builder: (_) => const LegalScreen(initialTab: 2),
+                    ),
+                    style: TextButton.styleFrom(
+                      foregroundColor: AppColors.neutral600,
+                      textStyle: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
+                    ),
+                    child: const Text('Refund Policy'),
+                  ),
                 ),
               ],
             ),
