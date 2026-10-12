@@ -7,6 +7,7 @@ import '../../../core/utils/format.dart';
 import '../../../core/utils/realtime_refresh.dart';
 import '../../../data/models/job_model.dart';
 import '../../../providers/application_provider.dart';
+import '../../../providers/auth_provider.dart';
 import '../../../providers/job_provider.dart';
 import '../../../core/constants/credits.dart';
 import '../../../core/navigation/app_router.dart';
@@ -708,6 +709,28 @@ class _JobDetailsScreenState extends State<JobDetailsScreen>
         style: _actionStyle(),
         child: Text(over ? 'Ended' : 'This job is no longer open'),
       );
+    } else if (!context.watch<AuthProvider>().workerProfileExists) {
+      /*
+          Applying is for an account that looks for work.
+
+          An account with no worker profile was shown the same Apply button,
+          and pressing it could only be refused by the server. A person who
+          hires can add a worker side, so that is what the button offers. A
+          company cannot: a registered business hiring through KAYA is not
+          also a worker, so it is told that instead of being offered a
+          dead end.
+      */
+      button = context.watch<AuthProvider>().isCompanyEmployer
+          ? Text(
+              'Company accounts hire on KAYA and cannot apply to jobs.',
+              textAlign: TextAlign.center,
+              style: TextStyle(fontSize: 13.5, color: AppColors.neutral600),
+            )
+          : OutlinedButton(
+              onPressed: () => AppRouter.push(context, AppRouter.setupWorkerProfile),
+              style: _actionStyle(outlined: true),
+              child: const Text('Set up a worker profile to apply'),
+            );
     } else {
       button = ElevatedButton(
         onPressed: _isApplying ? null : () => _apply(job),

@@ -124,22 +124,8 @@ class _SearchScreenState extends State<SearchScreen> {
           A hybrid keeps it, seeded from the mode they are in.
       */
       final appMode = context.read<AppModeProvider>();
-
-      // An explicit ask wins over the default, as long as the account has
-      // that side at all.
-      _searchType = appMode.hasEmployerProfile && !appMode.hasWorkerProfile
-          ? 'Workers'
-          : appMode.hasWorkerProfile && !appMode.hasEmployerProfile
-              ? 'Jobs'
-              : appMode.effectiveMode == AppMode.employer
-                  ? 'Workers'
-                  : 'Jobs';
-
-      if (widget.initialType == 'Workers' && appMode.hasEmployerProfile) {
-        _searchType = 'Workers';
-      } else if (widget.initialType == 'Jobs' && appMode.hasWorkerProfile) {
-        _searchType = 'Jobs';
-      }
+      _scopedFor = (worker: appMode.hasWorkerProfile, employer: appMode.hasEmployerProfile);
+      _searchType = _typeFor(appMode);
 
       /*
           The account's own town, without being asked for it.
@@ -259,8 +245,57 @@ class _SearchScreenState extends State<SearchScreen> {
     }
   }
 
+  /// Which side this account searches: the one it has, or for a hybrid the
+  /// mode it is in. An explicit ask wins, as long as the account has that
+  /// side at all.
+  String _typeFor(AppModeProvider appMode) {
+    var type = appMode.hasEmployerProfile && !appMode.hasWorkerProfile
+        ? 'Workers'
+        : appMode.hasWorkerProfile && !appMode.hasEmployerProfile
+            ? 'Jobs'
+            : appMode.effectiveMode == AppMode.employer
+                ? 'Workers'
+                : 'Jobs';
+
+    if (widget.initialType == 'Workers' && appMode.hasEmployerProfile) {
+      type = 'Workers';
+    } else if (widget.initialType == 'Jobs' && appMode.hasWorkerProfile) {
+      type = 'Jobs';
+    }
+    return type;
+  }
+
+  /*
+      The profiles the side was chosen for.
+
+      The side was chosen once, when the tab was first built - and the tab is
+      built as the app opens, before a new account has set anything up. So
+      somebody who signed up and then made an employer profile was left on
+      Jobs, with every job in the country and an Apply button, and no switch
+      to leave it because the switch is only drawn for hybrids. Choosing again
+      whenever a profile appears or goes keeps it on the side the account
+      actually has.
+  */
+  ({bool worker, bool employer})? _scopedFor;
+
+  void _rescopeIfProfilesChanged(AppModeProvider appMode) {
+    final now = (worker: appMode.hasWorkerProfile, employer: appMode.hasEmployerProfile);
+    if (_scopedFor == null || _scopedFor == now) return;
+    _scopedFor = now;
+
+    final type = _typeFor(appMode);
+    if (type == _searchType) return;
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      setState(() => _searchType = type);
+      _runSearch();
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
+    _rescopeIfProfilesChanged(context.watch<AppModeProvider>());
     return Consumer3<JobProvider, WorkerBrowseProvider, WorkerProfileProvider>(
       builder: (context, jobProvider, workerBrowse, taxonomy, _) {
         final jobs = _applyJobFilters(jobProvider.publicJobs);
