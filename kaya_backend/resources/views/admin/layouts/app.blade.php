@@ -37,14 +37,14 @@
                     ],
                     'Accounts' => [
                         ['route' => 'admin.users.index',         'label' => 'Users',               'icon' => 'users',       'can' => 'users'],
-                        ['route' => 'admin.verifications.index', 'label' => 'Verifications',       'icon' => 'badge-check', 'can' => 'moderate', 'queue' => 'verifications'],
-                        ['route' => 'admin.reports.index',       'label' => 'Reports',             'icon' => 'flag',        'can' => 'moderate', 'queue' => 'reports'],
-                        ['route' => 'admin.reviews.index',       'label' => 'Reviews',             'icon' => 'star',        'can' => 'moderate'],
+                        ['route' => 'admin.verifications.index', 'label' => 'Verifications',       'icon' => 'badge-check', 'can' => 'verify', 'queue' => 'verifications'],
+                        ['route' => 'admin.reports.index',       'label' => 'Reports',             'icon' => 'flag',        'can' => 'content', 'queue' => 'reports'],
+                        ['route' => 'admin.reviews.index',       'label' => 'Reviews',             'icon' => 'star',        'can' => 'content'],
                     ],
                     'Postings' => [
-                        ['route' => 'admin.jobs.index',          'label' => 'Jobs',                'icon' => 'briefcase',      'can' => 'moderate'],
-                        ['route' => 'admin.community.index',     'label' => 'Community',           'icon' => 'message-square', 'can' => 'moderate', 'queue' => 'community'],
-                        ['route' => 'admin.categories.index',    'label' => 'Categories & Skills', 'icon' => 'tags',           'can' => 'settings'],
+                        ['route' => 'admin.jobs.index',          'label' => 'Jobs',                'icon' => 'briefcase',      'can' => 'content'],
+                        ['route' => 'admin.community.index',     'label' => 'Community',           'icon' => 'message-square', 'can' => 'content', 'queue' => 'community'],
+                        ['route' => 'admin.categories.index',    'label' => 'Categories & Skills', 'icon' => 'tags',           'can' => 'catalogue'],
                     ],
                     /*
                         Pricing sits with the money, not under System.
@@ -55,23 +55,23 @@
                         charges looks in Finance, beside the ledger those
                         charges land in.
 
-                        It keeps the settings ability rather than finance. The
+                        It keeps the platform ability rather than finance. The
                         ability is what the route enforces, so an admin who can
                         read the ledger but not change prices sees Barya here
                         and not Pricing.
                     */
                     'Finance' => [
                         ['route' => 'admin.credits.index',       'label' => 'Barya',               'icon' => 'coins',    'can' => 'finance'],
-                        ['route' => 'admin.settings.index',      'label' => 'Pricing',             'icon' => 'tag',      'can' => 'settings'],
+                        ['route' => 'admin.settings.index',      'label' => 'Pricing',             'icon' => 'tag',      'can' => 'platform'],
                     ],
                     'Communication' => [
-                        ['route' => 'admin.support.index',       'label' => 'Support',             'icon' => 'life-buoy', 'can' => 'moderate', 'queue' => 'support'],
-                        ['route' => 'admin.announcements.index', 'label' => 'Announcements',       'icon' => 'megaphone', 'can' => 'settings'],
-                        ['route' => 'admin.banners.index',       'label' => 'Home Banners',        'icon' => 'image',     'can' => 'settings'],
+                        ['route' => 'admin.support.index',       'label' => 'Support',             'icon' => 'life-buoy', 'can' => 'support', 'queue' => 'support'],
+                        ['route' => 'admin.announcements.index', 'label' => 'Announcements',       'icon' => 'megaphone', 'can' => 'platform'],
+                        ['route' => 'admin.banners.index',       'label' => 'Home Banners',        'icon' => 'image',     'can' => 'platform'],
                     ],
                     'System' => [
-                        ['route' => 'admin.admins.index',        'label' => 'Administrators',      'icon' => 'shield',       'can' => 'settings'],
-                        ['route' => 'admin.audit.index',         'label' => 'Audit Log',           'icon' => 'scroll-text',  'can' => 'settings'],
+                        ['route' => 'admin.admins.index',        'label' => 'Administrators',      'icon' => 'shield',       'can' => 'admins'],
+                        ['route' => 'admin.audit.index',         'label' => 'Audit Log',           'icon' => 'scroll-text',  'can' => 'audit'],
                     ],
                 ];
 

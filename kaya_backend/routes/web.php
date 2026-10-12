@@ -45,6 +45,11 @@ Route::prefix('admin')->name('admin.')->group(function () {
     Route::middleware(['auth', 'admin.web'])->group(function () {
         Route::post('/logout', [AdminAuthController::class, 'logout'])->name('logout');
 
+        // Any admin, and the only page open to one who has not yet replaced
+        // a password somebody else generated (see EnsureUserIsAdminWeb).
+        Route::get('/password', [\App\Http\Controllers\Admin\AdminPasswordController::class, 'edit'])->name('password.edit');
+        Route::post('/password', [\App\Http\Controllers\Admin\AdminPasswordController::class, 'update'])->name('password.update');
+
         Route::get('/', [DashboardController::class, 'index'])->name('dashboard');
         Route::get('/dashboard', [DashboardController::class, 'index']);
         Route::get('/pulse', [PulseController::class, 'index'])->name('pulse');
@@ -63,11 +68,16 @@ Route::prefix('admin')->name('admin.')->group(function () {
             ->whereIn('kind', ['certification', 'licence'])
             ->whereNumber('id')
             ->name('users.document');
+        });
+
+        // Reading an account and closing it are different keys: a support
+        // agent looks people up all day and suspends nobody.
+        Route::middleware('admin.can:suspend')->group(function () {
         Route::post('/users/{user}/suspend', [UserManagementController::class, 'suspend'])->name('users.suspend');
         Route::post('/users/{user}/activate', [UserManagementController::class, 'activate'])->name('users.activate');
         });
 
-        Route::middleware('admin.can:moderate')->group(function () {
+        Route::middleware('admin.can:verify')->group(function () {
         Route::get('/verifications', [VerificationController::class, 'index'])->name('verifications.index');
         Route::get('/verifications/{verification}', [VerificationController::class, 'show'])->name('verifications.show');
         // Government IDs moved to private storage, so the panel can no longer
@@ -96,12 +106,14 @@ Route::prefix('admin')->name('admin.')->group(function () {
             Route::get('/categories', [ReportExportController::class, 'categories'])->name('categories');
         });
 
-        Route::middleware('admin.can:moderate')->group(function () {
+        Route::middleware('admin.can:support')->group(function () {
         Route::get('/support', [AdminSupportController::class, 'index'])->name('support.index');
         Route::get('/support/{thread}', [AdminSupportController::class, 'show'])->name('support.show');
         Route::get('/support/{thread}/since', [AdminSupportController::class, 'since'])->name('support.since');
         Route::post('/support/{thread}/reply', [AdminSupportController::class, 'reply'])->name('support.reply');
+        });
 
+        Route::middleware('admin.can:content')->group(function () {
         Route::get('/reports', [ReportController::class, 'index'])->name('reports.index');
         Route::get('/reports/{report}', [ReportController::class, 'show'])->name('reports.show');
         Route::post('/reports/{report}/resolve', [ReportController::class, 'resolve'])->name('reports.resolve');
@@ -116,25 +128,29 @@ Route::prefix('admin')->name('admin.')->group(function () {
         Route::post('/jobs/{job}/close', [AdminJobController::class, 'close'])->name('jobs.close');
         });
 
-        Route::middleware('admin.can:finance')->group(function () {
-            Route::get('/credits', [AdminCreditController::class, 'index'])->name('credits.index');
-            Route::post('/credits/adjust', [AdminCreditController::class, 'adjust'])->name('credits.adjust');
-        });
+        Route::get('/credits', [AdminCreditController::class, 'index'])->name('credits.index')
+            ->middleware('admin.can:finance');
+        Route::post('/credits/adjust', [AdminCreditController::class, 'adjust'])->name('credits.adjust')
+            ->middleware('admin.can:finance.adjust');
 
-        Route::middleware('admin.can:settings')->group(function () {
+        // Adding and renaming. What removes or hides something is below.
+        Route::middleware('admin.can:catalogue')->group(function () {
         Route::get('/categories', [AdminCategoryController::class, 'index'])->name('categories.index');
         Route::post('/categories', [AdminCategoryController::class, 'store'])->name('categories.store');
         Route::post('/categories/{category}', [AdminCategoryController::class, 'update'])->name('categories.update');
-        Route::post('/categories/{category}/toggle', [AdminCategoryController::class, 'toggle'])->name('categories.toggle');
-        Route::post('/categories/{category}/merge', [AdminCategoryController::class, 'merge'])->name('categories.merge');
         Route::post('/categories/{category}/skills', [AdminCategoryController::class, 'storeSkill'])->name('categories.skills.store');
         Route::post('/skills/{skill}', [AdminCategoryController::class, 'updateSkill'])->name('skills.update');
-        Route::post('/skills/{skill}/delete', [AdminCategoryController::class, 'destroySkill'])->name('skills.destroy');
         Route::post('/skill-aliases', [AdminCategoryController::class, 'storeAlias'])->name('skill-aliases.store');
         Route::post('/skill-aliases/{alias}/delete', [AdminCategoryController::class, 'destroyAlias'])->name('skill-aliases.destroy');
         });
 
-        Route::middleware('admin.can:moderate')->group(function () {
+        Route::middleware('admin.can:catalogue.destroy')->group(function () {
+        Route::post('/categories/{category}/toggle', [AdminCategoryController::class, 'toggle'])->name('categories.toggle');
+        Route::post('/categories/{category}/merge', [AdminCategoryController::class, 'merge'])->name('categories.merge');
+        Route::post('/skills/{skill}/delete', [AdminCategoryController::class, 'destroySkill'])->name('skills.destroy');
+        });
+
+        Route::middleware('admin.can:content')->group(function () {
         Route::get('/community', [AdminCommunityController::class, 'index'])->name('community.index');
         Route::post('/community/{post}/remove', [AdminCommunityController::class, 'remove'])->name('community.remove');
         Route::post('/community/{post}/approve', [AdminCommunityController::class, 'approve'])->name('community.approve');
@@ -146,7 +162,7 @@ Route::prefix('admin')->name('admin.')->group(function () {
         Route::post('/reviews/{id}/restore', [AdminReviewController::class, 'restore'])->whereNumber('id')->name('reviews.restore');
         });
 
-        Route::middleware('admin.can:settings')->group(function () {
+        Route::middleware('admin.can:platform')->group(function () {
             Route::get('/announcements', [AnnouncementController::class, 'index'])->name('announcements.index');
             Route::post('/announcements', [AnnouncementController::class, 'send'])->name('announcements.send');
 
@@ -156,13 +172,17 @@ Route::prefix('admin')->name('admin.')->group(function () {
             Route::post('/banners/{banner}/toggle', [\App\Http\Controllers\Admin\BannerController::class, 'toggle'])->name('banners.toggle');
             Route::delete('/banners/{banner}', [\App\Http\Controllers\Admin\BannerController::class, 'destroy'])->name('banners.destroy');
 
-            Route::get('/audit', [AuditController::class, 'index'])->name('audit.index');
-
             Route::get('/settings', [SettingsController::class, 'index'])->name('settings.index');
             Route::post('/settings', [SettingsController::class, 'update'])->name('settings.update');
+        });
 
-            // Who the administrators are, and what each of them may do.
+        Route::get('/audit', [AuditController::class, 'index'])->name('audit.index')
+            ->middleware('admin.can:audit');
+
+        // Who the administrators are, and what each of them may do.
+        Route::middleware('admin.can:admins')->group(function () {
             Route::get('/admins', [AdminTeamController::class, 'index'])->name('admins.index');
+            Route::post('/admins', [AdminTeamController::class, 'store'])->name('admins.store');
             Route::post('/admins/{user}/role', [AdminTeamController::class, 'setRole'])->name('admins.role');
         });
     });

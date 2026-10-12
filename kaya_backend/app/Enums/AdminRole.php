@@ -7,36 +7,67 @@ namespace App\Enums;
     is more than one kind.
 
     Abilities are named for the work rather than for the screen, so a new page
-    joins an existing ability instead of adding a fourth role. Five cover the
-    panel:
+    joins an existing ability instead of adding a role:
 
-      moderate   the queues and what is in them - verifications, reports, the
-                 community board, reviews, closing a job
-      users      the people themselves: the user list, a profile, suspending
-                 and reinstating an account
-      finance    Barya. Balances, adjustments, payments
-      settings   the shape of the platform: categories and skills, the
-                 settings page, announcements, and who the admins are
-      analytics  reading. The dashboard, analytics and the exports
+      analytics          reading. The dashboard, analytics and the exports
+      verify             identity and business papers, and TIN checks
+      support            the support threads
+      content            reports, the community board, reviews, closing a job
+      users              the user list and a profile, read
+      suspend            suspending and reinstating an account
+      finance            the Barya ledger, read
+      finance.adjust     adding or taking Barya by hand
+      catalogue          categories, skills and synonyms: adding and renaming
+      catalogue.destroy  hiding a category, merging one, deleting a skill
+      platform           pricing, announcements and the home banners
+      audit              the audit log
+      admins             who the administrators are
 
-    Everybody has `analytics`, because an administrator who cannot see the
-    dashboard cannot do the rest of their job either.
+    The old five (moderate, users, finance, settings, analytics) were too
+    coarse for anybody narrower than a moderator: a person brought in to
+    clear the verification queue also got the reports, the board and the
+    support inbox. Everybody keeps `analytics`, because an administrator who
+    cannot see the dashboard cannot do the rest of their job either.
+
+    The Sub-admin is everything except the four the owner keeps (decision D3
+    in PLAN-major-update.md): managing administrators, the platform settings,
+    adjusting Barya by hand, and deleting or merging the catalogue.
 */
 enum AdminRole: string
 {
     case SUPER = 'super';
+    case SUB_ADMIN = 'sub_admin';
     case MODERATOR = 'moderator';
+    case VERIFIER = 'verifier';
+    case SUPPORT_AGENT = 'support_agent';
+    case CONTENT_MODERATOR = 'content_moderator';
+    case FINANCE = 'finance';
     case ANALYST = 'analyst';
 
-    public const MODERATE = 'moderate';
-    public const USERS = 'users';
-    public const FINANCE = 'finance';
-    public const SETTINGS = 'settings';
     public const ANALYTICS = 'analytics';
+    public const VERIFY = 'verify';
+    public const SUPPORT = 'support';
+    public const CONTENT = 'content';
+    public const USERS = 'users';
+    public const SUSPEND = 'suspend';
+    public const FINANCE_VIEW = 'finance';
+    public const FINANCE_ADJUST = 'finance.adjust';
+    public const CATALOGUE = 'catalogue';
+    public const CATALOGUE_DESTROY = 'catalogue.destroy';
+    public const PLATFORM = 'platform';
+    public const AUDIT = 'audit';
+    public const ADMINS = 'admins';
 
-    /** Every ability, in the order the sidebar uses them. */
+    /** Every ability. */
     public const ALL = [
-        self::ANALYTICS, self::MODERATE, self::USERS, self::FINANCE, self::SETTINGS,
+        self::ANALYTICS, self::VERIFY, self::SUPPORT, self::CONTENT, self::USERS, self::SUSPEND,
+        self::FINANCE_VIEW, self::FINANCE_ADJUST, self::CATALOGUE, self::CATALOGUE_DESTROY,
+        self::PLATFORM, self::AUDIT, self::ADMINS,
+    ];
+
+    /** What only the owner keeps. */
+    private const OWNER_ONLY = [
+        self::ADMINS, self::PLATFORM, self::FINANCE_ADJUST, self::CATALOGUE_DESTROY,
     ];
 
     /** @return list<string> */
@@ -44,7 +75,13 @@ enum AdminRole: string
     {
         return match ($this) {
             self::SUPER => self::ALL,
-            self::MODERATOR => [self::ANALYTICS, self::MODERATE, self::USERS],
+            self::SUB_ADMIN => array_values(array_diff(self::ALL, self::OWNER_ONLY)),
+            self::MODERATOR => [self::ANALYTICS, self::VERIFY, self::SUPPORT, self::CONTENT, self::USERS, self::SUSPEND],
+            self::VERIFIER => [self::ANALYTICS, self::VERIFY],
+            self::SUPPORT_AGENT => [self::ANALYTICS, self::SUPPORT, self::USERS],
+            // Reads the accounts it is judging; suspends through a report.
+            self::CONTENT_MODERATOR => [self::ANALYTICS, self::CONTENT, self::USERS],
+            self::FINANCE => [self::ANALYTICS, self::FINANCE_VIEW, self::FINANCE_ADJUST],
             self::ANALYST => [self::ANALYTICS],
         };
     }
@@ -58,7 +95,12 @@ enum AdminRole: string
     {
         return match ($this) {
             self::SUPER => 'Super admin',
+            self::SUB_ADMIN => 'Sub-admin',
             self::MODERATOR => 'Moderator',
+            self::VERIFIER => 'Verifier',
+            self::SUPPORT_AGENT => 'Support agent',
+            self::CONTENT_MODERATOR => 'Content moderator',
+            self::FINANCE => 'Finance',
             self::ANALYST => 'Analyst',
         };
     }
@@ -68,7 +110,12 @@ enum AdminRole: string
     {
         return match ($this) {
             self::SUPER => 'Everything, including who the other administrators are.',
-            self::MODERATOR => 'The queues and the people in them. No Barya, no settings.',
+            self::SUB_ADMIN => 'Every queue, the users, the catalogue and the ledger. Not the administrators, the platform settings, Barya adjustments, or deleting and merging categories.',
+            self::MODERATOR => 'Verifications, reports, the board, reviews, support and the users. No Barya, no settings.',
+            self::VERIFIER => 'The verification queue: IDs, business papers and TINs.',
+            self::SUPPORT_AGENT => 'The support inbox, and reading the accounts that write in.',
+            self::CONTENT_MODERATOR => 'Reports, the community board, reviews and closing job posts.',
+            self::FINANCE => 'The Barya ledger, and adjusting balances by hand.',
             self::ANALYST => 'Reads the dashboard, the analytics and the exports. Changes nothing.',
         };
     }

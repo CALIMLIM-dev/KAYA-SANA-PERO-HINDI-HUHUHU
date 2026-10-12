@@ -6,6 +6,7 @@ use App\Enums\AdminRole;
 use App\Http\Controllers\Controller;
 use App\Models\AdminAction;
 use App\Models\User;
+use App\Services\AdminAccounts;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Validation\Rule;
@@ -17,9 +18,9 @@ use Illuminate\Validation\Rule;
     hand out abilities is itself one, and a moderator who could promote
     themselves would make the other two roles decoration.
 
-    It does not create accounts. An administrator is made the way every other
-    account is made and then marked here, so there is one path into the users
-    table and one place that decides who is an admin at all.
+    New administrators are made here too (AdminAccounts): a generated password,
+    shown once on the next page and never again, which the new admin replaces
+    at their first sign-in.
 */
 class AdminTeamController extends Controller
 {
@@ -27,11 +28,30 @@ class AdminTeamController extends Controller
     {
         $admins = User::where('user_type', 'admin')
             ->orderBy('name')
-            ->get(['id', 'name', 'email', 'admin_role', 'is_suspended', 'last_seen_at']);
+            ->get(['id', 'name', 'email', 'admin_role', 'is_suspended', 'last_seen_at', 'must_change_password']);
 
         return view('admin.admins.index', [
             'admins' => $admins,
             'roles'  => AdminRole::cases(),
+        ]);
+    }
+
+    public function store(Request $request, AdminAccounts $accounts)
+    {
+        $data = $request->validate([
+            'name'       => ['required', 'string', 'max:255'],
+            'email'      => ['required', 'email', 'max:255', Rule::unique('users', 'email')],
+            'admin_role' => ['required', Rule::in(array_column(AdminRole::cases(), 'value'))],
+        ]);
+
+        [$user, $password] = $accounts->create($data['name'], $data['email'], AdminRole::from($data['admin_role']));
+
+        // Flashed: on the next page and gone after it. Nothing else keeps it.
+        return redirect()->route('admin.admins.index')->with('created', [
+            'name'     => $user->name,
+            'email'    => $user->email,
+            'role'     => AdminRole::from($user->admin_role)->label(),
+            'password' => $password,
         ]);
     }
 

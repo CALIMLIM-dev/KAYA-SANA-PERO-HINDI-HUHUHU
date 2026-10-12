@@ -442,7 +442,23 @@ pane for one category with its skills inline-editable, merge as a guarded
 action, aliases as their own section, search. Render-check with the scratchpad
 harness (`render_reports.php` pattern) and Edge headless screenshots.
 
-### 12. Sub-admin types and their logins  `[ ]`  (decision D3)
+### 12. Sub-admin types and their logins  `[x]` (committed, ships with the revamp release)
+
+Done: abilities split to analytics, verify, support, content, users,
+suspend, finance, finance.adjust, catalogue, catalogue.destroy, platform,
+audit, admins. Roles: Super, Sub-admin (all but admins, platform,
+finance.adjust, catalogue.destroy), Moderator (unchanged reach), Verifier,
+Support agent (support + read users), Content moderator (content + read
+users), Finance (ledger + adjust), Analyst. Routes regated; sidebar, dashboard
+queues, the adjust form, suspend buttons, catalogue hide/merge/delete and
+two cross-page links hidden when the role cannot use them. New Administrator
+form (super only) and `php artisan kaya:make-admin {email} {role} --name=`,
+both through `App\Services\AdminAccounts`: 16-character generated password,
+flashed once / printed once, audit row `admin.created`, and
+`users.must_change_password` (new migration) sends the new admin to
+`/admin/password` until they replace it. CLAUDE.md's admin note updated.
+To hand out logins after deploying: run kaya:make-admin once per role on the
+server and pass the printed passwords on directly, never through git.
 
 Now: `app/Enums/AdminRole.php`: SUPER, MODERATOR, ANALYST over five abilities
 (analytics, moderate, users, finance, settings). `AdminTeamController` has only

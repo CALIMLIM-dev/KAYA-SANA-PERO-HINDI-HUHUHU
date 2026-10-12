@@ -24,6 +24,10 @@
     // "1 worker", "2 workers" - the old rows said "1 workers".
     $count = fn (int $n, string $one, ?string $many = null) => $n . ' ' . ($n === 1 ? $one : ($many ?? $one . 's'));
     $keep = fn (array $params) => array_filter($params + ['q' => $q !== '' ? $q : null], fn ($v) => $v !== null);
+    // Hiding, merging and deleting are the owner's (decision D3); a
+    // Sub-admin adds and renames. The routes enforce it; this only stops
+    // offering what would be refused.
+    $canDestroy = auth()->user()->adminCan('catalogue.destroy');
 @endphp
 
 @if ($errors->any())
@@ -173,7 +177,7 @@
                                     <td class="py-1.5 px-3 text-right tabular-nums text-slate-600">{{ $skillJobs }}</td>
                                     <td class="py-1.5 pl-3 text-right whitespace-nowrap">
                                         <button form="skill-{{ $skill->id }}" class="text-xs font-medium text-blue-600 hover:text-blue-700">Save</button>
-                                        @if ($skillWorkers === 0 && $skillJobs === 0)
+                                        @if ($canDestroy && $skillWorkers === 0 && $skillJobs === 0)
                                             {{-- Only when nothing points at it, so the
                                                  button is absent rather than disabled. --}}
                                             <form method="POST" action="{{ route('admin.skills.destroy', $skill) }}" class="inline"
@@ -198,6 +202,7 @@
                 </form>
             </div>
 
+            @if ($canDestroy)
             {{-- Shown or hidden: reversible, and it says what it does. --}}
             <form method="POST" action="{{ route('admin.categories.toggle', $selected) }}" class="px-5 py-4 border-b border-slate-100 flex flex-wrap items-center gap-3">
                 @csrf
@@ -238,6 +243,7 @@
                     </div>
                 </form>
             </details>
+            @endif
         </section>
     @else
         <section class="bg-white rounded-xl border border-slate-200 px-5 py-14 text-center">

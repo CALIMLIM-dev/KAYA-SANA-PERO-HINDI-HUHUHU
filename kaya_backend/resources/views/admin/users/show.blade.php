@@ -25,18 +25,22 @@
                     <span class="text-xs px-3 py-1.5 rounded-full bg-slate-200 text-slate-600">Deleted by the owner on {{ $user->deleted_at->format('M j, Y') }}</span>
                 @elseif ($user->is_suspended)
                     <span class="badge-suspended text-xs px-3 py-1.5 rounded-full">Suspended</span>
+                    @if (auth()->user()->adminCan('suspend'))
                     <form method="POST" action="{{ route('admin.users.activate', $user) }}" class="inline">
                         @csrf
                         <button type="submit" class="px-4 py-2 bg-green-600 text-white text-sm rounded-lg hover:bg-green-700">
                             Reactivate Account
                         </button>
                     </form>
+                    @endif
                 @else
                     @include('admin.partials.verification-badge', ['user' => $user, 'size' => 'px-3 py-1.5'])
+                    @if (auth()->user()->adminCan('suspend'))
                     <button onclick="openSuspendModal()"
                             class="px-4 py-2 bg-red-50 text-red-600 border border-red-200 text-sm rounded-lg hover:bg-red-100">
                         Suspend Account
                     </button>
+                    @endif
                 @endif
             </div>
         </div>
@@ -55,7 +59,9 @@
             <div><dt class="text-slate-400">Last Updated</dt><dd class="text-slate-700">{{ $user->updated_at->format('M j, Y') }}</dd></div>
             <div><dt class="text-slate-400">Barya</dt><dd class="text-slate-700">
                 {{ $balance }}
-                <a href="{{ route('admin.credits.index', ['user' => $user->id]) }}" class="text-xs text-blue-600 ml-1">ledger and adjust</a>
+                @if (auth()->user()->adminCan('finance'))
+                    <a href="{{ route('admin.credits.index', ['user' => $user->id]) }}" class="text-xs text-blue-600 ml-1">ledger</a>
+                @endif
             </dd></div>
         </dl>
 
@@ -153,7 +159,9 @@
                                             @else
                                                 <span class="text-slate-400">No file uploaded</span>
                                             @endif
-                                            <a href="{{ route('admin.verifications.show', $verification) }}" class="text-blue-600 hover:underline">Review</a>
+                                            @if (auth()->user()->adminCan('verify'))
+                                                <a href="{{ route('admin.verifications.show', $verification) }}" class="text-blue-600 hover:underline">Review</a>
+                                            @endif
                                         </div>
                                     @endif
                                 </div>

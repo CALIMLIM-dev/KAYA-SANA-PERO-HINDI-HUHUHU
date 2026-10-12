@@ -25,6 +25,14 @@ class EnsureUserIsAdminWeb
                 ->withErrors(['email' => 'This admin account is suspended.']);
         }
 
+        /*
+            A password another admin generated, not yet replaced. Nothing else
+            opens until it is: the person who made the account has seen it.
+        */
+        if ($request->user()->must_change_password && ! $request->routeIs('admin.password.*', 'admin.logout')) {
+            return redirect()->route('admin.password.edit');
+        }
+
         return $next($request);
     }
 }

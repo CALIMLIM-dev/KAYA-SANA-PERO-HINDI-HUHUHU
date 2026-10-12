@@ -46,6 +46,8 @@
         @endforelse
     </div>
 
+    {{-- Only for an account that may move Barya; the route says the same. --}}
+    @if (auth()->user()->adminCan('finance.adjust'))
     <div class="col-span-2 bg-white rounded-xl border border-slate-200 p-5">
         <h3 class="text-sm font-semibold text-slate-700 mb-1">Adjust a Balance</h3>
         <form method="POST" action="{{ route('admin.credits.adjust') }}" class="grid grid-cols-6 gap-3 items-end">
@@ -76,6 +78,7 @@
             <p class="text-xs text-red-600 mt-2">{{ $errors->first() }}</p>
         @endif
     </div>
+    @endif
 </div>
 
 <div class="bg-white rounded-xl border border-slate-200">

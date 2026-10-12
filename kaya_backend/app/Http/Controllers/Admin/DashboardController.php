@@ -43,31 +43,31 @@ class DashboardController extends Controller
         // bounce off is not information, it is a dead end.
         $queues = [
             [
-                'can'   => \App\Enums\AdminRole::MODERATE,
+                'can'   => \App\Enums\AdminRole::VERIFY,
                 'label' => 'Verifications waiting',
                 'count' => Verification::where('status', 'pending')->count(),
                 'route' => route('admin.verifications.index'),
             ],
             [
-                'can'   => \App\Enums\AdminRole::MODERATE,
+                'can'   => \App\Enums\AdminRole::CONTENT,
                 'label' => 'Reports waiting',
                 'count' => Report::where('status', 'pending')->count(),
                 'route' => route('admin.reports.index'),
             ],
             [
-                'can'   => \App\Enums\AdminRole::MODERATE,
+                'can'   => \App\Enums\AdminRole::CONTENT,
                 'label' => 'Community posts waiting',
                 'count' => \App\Models\CommunityPost::where('status', \App\Models\CommunityPost::STATUS_PENDING)->count(),
                 'route' => route('admin.community.index'),
             ],
             [
-                'can'   => \App\Enums\AdminRole::MODERATE,
+                'can'   => \App\Enums\AdminRole::VERIFY,
                 'label' => 'TINs not checked',
                 'count' => EmployerProfile::whereNotNull('tin')->whereNull('tin_verified_at')->count(),
                 'route' => route('admin.verifications.index', ['status' => 'pending']),
             ],
             [
-                'can'   => \App\Enums\AdminRole::MODERATE,
+                'can'   => \App\Enums\AdminRole::CONTENT,
                 'label' => 'Posts ending in 3 days',
                 'count' => JobPost::where('status', 'open')->whereBetween('expires_at', [now(), now()->addDays(3)])->count(),
                 'route' => route('admin.jobs.index', ['status' => 'open']),

@@ -34,11 +34,12 @@ class AdminAction extends Model
      * @param int|null    $id
      * @param string      $summary  one line, in words, for the log page
      * @param array|null  $detail   the specifics, kept for when the line is not enough
+     * @param int|null    $by       who did it, when nobody is signed in (the console)
      */
-    public static function record(string $action, string $subject, ?int $id, string $summary, ?array $detail = null): self
+    public static function record(string $action, string $subject, ?int $id, string $summary, ?array $detail = null, ?int $by = null): self
     {
         return static::create([
-            'admin_id'     => Auth::id(),
+            'admin_id'     => $by ?? Auth::id(),
             'action'       => $action,
             'subject_type' => $subject,
             'subject_id'   => $id,
