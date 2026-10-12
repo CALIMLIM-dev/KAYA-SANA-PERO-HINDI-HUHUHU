@@ -18,7 +18,6 @@ import '../screens/roster_screen.dart';
 void showManageJobSheet(BuildContext context, Map<String, dynamic> job) {
   final jobId = job['id'] as int;
   final title = (job['title'] ?? '').toString();
-  final category = job['category'] as Map<String, dynamic>?;
 
   showKayaPopup(
     context,
@@ -39,38 +38,10 @@ void showManageJobSheet(BuildContext context, Map<String, dynamic> job) {
           const SizedBox(height: 20),
           _actionTile(Icons.edit_outlined, 'Edit Job', AppColors.primary, () {
             Navigator.pop(sheetContext);
-            /*
-                Everything the edit form can change has to arrive here.
-
-                Only half of it used to. The form opened with its own
-                defaults for the rest — not urgent, Daily, no maximum — so an
-                urgent job displayed as ordinary, and saving would have
-                written those defaults back over the real values.
-            */
-            AppRouter.push(context, '/edit-job', arguments: {
-              'id': jobId,
-              'title': job['title'],
-              'category': category?['name'],
-              'category_id': category?['id'],
-              'description': job['description'],
-              'budget_min': job['budget_min'],
-              'budget_max': job['budget_max'],
-              'budget_period': job['budget_period'],
-              'is_urgent': job['is_urgent'],
-              // Same reason as the fields above: the edit form sends these
-              // back, so omitting them here would hand it nulls and wipe the
-              // job's schedule on the first save.
-              'start_date': job['start_date'],
-              'end_date': job['end_date'],
-              'skill_ids': (job['skills'] as List?)
-                  ?.map((s) => (s as Map)['id'])
-                  .whereType<int>()
-                  .toList(),
-              'location': job['city'] ?? job['location'],
-              'location_id': job['location_id'],
-              // Without this a job for five opened the form showing one.
-              'workersNeeded': job['workers_needed'],
-            });
+            // The whole post, as My Jobs holds it: the form fills itself in
+            // from it, photos and pin included. A hand-picked subset is how
+            // the old edit screen lost fields and wrote defaults back.
+            AppRouter.push(context, '/edit-job', arguments: job);
           }),
           _actionTile(Icons.close, 'Close Job', AppColors.error, () {
             Navigator.pop(sheetContext);

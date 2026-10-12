@@ -54,7 +54,7 @@ import '../../features/reviews/screens/leave_review_screen.dart';
 import '../../features/profile/screens/verification_screen.dart';
 import '../../features/profile/screens/settings_screen.dart';
 import '../../features/invitations/screens/my_invitations_screen.dart';
-import '../../features/jobs/screens/edit_job_screen.dart';
+
 import '../../features/employer/screens/edit_employer_profile_screen.dart';
 
 // Help Screens
@@ -349,9 +349,12 @@ class AppRouter {
       case '/my-invitations':
         return MaterialPageRoute(settings: settings, builder: (_) => const MyInvitationsScreen());
 
+      // The Post a Job form, filled in with the post. See PostJobScreen.editing.
       case '/edit-job':
         return MaterialPageRoute(
-          builder: (_) => const EditJobScreen(),
+          builder: (_) => PostJobScreen(
+            editing: (settings.arguments as Map?)?.cast<String, dynamic>(),
+          ),
           settings: settings,
         );
 

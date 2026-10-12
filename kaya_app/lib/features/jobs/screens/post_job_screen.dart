@@ -25,7 +25,17 @@ import '../../../core/navigation/app_router.dart';
 
 /// Post Job Screen - Clean, professional design following industry best practices
 class PostJobScreen extends StatefulWidget {
-  const PostJobScreen({super.key});
+  const PostJobScreen({super.key, this.editing});
+
+  /*
+      A post to edit, the way My Jobs holds it. Null for a new post.
+
+      Editing was a screen of its own, written before photos, the Duration
+      hint, the trade suggestion and the pin, and it fell further behind each
+      time this form moved on. One form now: the same fields and the same
+      checks, saved instead of posted.
+  */
+  final Map<String, dynamic>? editing;
 
   @override
   State<PostJobScreen> createState() => _PostJobScreenState();
@@ -46,7 +56,7 @@ class _PostJobScreenState extends State<PostJobScreen> {
           everything typed and leaves the user to go and find the verification
           screen on their own.
       */
-      if (!await ensureVerified(context, action: 'post a job')) {
+      if (!await ensureVerified(context, action: _isEditing ? 'edit this job' : 'post a job')) {
         if (mounted) Navigator.pop(context);
         return;
       }
@@ -54,7 +64,11 @@ class _PostJobScreenState extends State<PostJobScreen> {
       if (!mounted) return;
       // Load the real category list before the picker can be opened.
       context.read<WorkerProfileProvider>().fetchCategories();
-      _prefillLocationFromProfile();
+      if (_isEditing) {
+        await _prefillFromJob();
+      } else {
+        _prefillLocationFromProfile();
+      }
     });
   }
 
@@ -107,6 +121,114 @@ class _PostJobScreenState extends State<PostJobScreen> {
         longitude: lng,
       );
     });
+  }
+
+  bool get _isEditing => widget.editing != null;
+
+  /// The post's photos as they are. Shown until new ones are picked, which
+  /// replace them all on save: the server keeps no partial set.
+  List<String> _existingPhotoUrls = [];
+
+  /// The days the post had before this edit, so the price shown is what a
+  /// longer post adds rather than the whole price again. The server charges
+  /// the same difference.
+  int? _daysBefore;
+  bool _wasUrgent = false;
+  String? _savedSnapshot;
+
+  /// Everything an edit can change, as one string, to tell a real change
+  /// from opening and closing the form.
+  String _snapshot() => [
+        _titleController.text.trim(),
+        _descriptionController.text.trim(),
+        _budgetController.text.trim(),
+        _payChoice,
+        _salaryType,
+        _selectedCategoryId,
+        _selectedSkills.join(','),
+        _selectedLocation?.id,
+        _pinnedLat,
+        _pinnedLng,
+        _startDate,
+        _endDate,
+        _workersNeeded,
+        _isUrgent,
+        _selectedImages.length,
+      ].join('|');
+
+  Future<void> _prefillFromJob() async {
+    final job = widget.editing!;
+    double? number(Object? v) => double.tryParse('${v ?? ''}');
+
+    final budget = number(job['budget_min']);
+    final lat = number(job['latitude']);
+    final lng = number(job['longitude']);
+    final place = '${job['city'] ?? job['location'] ?? ''}';
+    final locationId = (job['location_id'] as num?)?.toInt();
+
+    setState(() {
+      _titleController.text = '${job['title'] ?? ''}';
+      _descriptionController.text = '${job['description'] ?? ''}';
+      if (budget == null) {
+        _payChoice = _payDiscuss;
+      } else {
+        _budgetController.text =
+            budget == budget.roundToDouble() ? budget.toInt().toString() : '$budget';
+      }
+      _salaryType = _periodValues.entries
+          .firstWhere((e) => e.value == job['budget_period'],
+              orElse: () => const MapEntry('Daily', 'daily'))
+          .key;
+      _isUrgent = job['is_urgent'] == true;
+      _workersNeeded = (job['workers_needed'] as num?)?.toInt() ?? 1;
+      _startDate = DateTime.tryParse('${job['start_date'] ?? ''}');
+      _endDate = DateTime.tryParse('${job['end_date'] ?? ''}');
+      _existingPhotoUrls = ((job['photo_urls'] as List?) ?? const [])
+          .map((p) => '$p')
+          .where((p) => p.isNotEmpty)
+          .toList();
+      _pinnedLat = lat;
+      _pinnedLng = lng;
+      if (locationId != null) {
+        _selectedLocation = LocationModel(
+          id: locationId,
+          name: place,
+          displayName: place,
+          type: 'city',
+          latitude: lat,
+          longitude: lng,
+        );
+      }
+    });
+
+    final category = (job['category'] as Map?)?.cast<String, dynamic>();
+    final categoryId = (category?['id'] as num?)?.toInt();
+    if (categoryId != null) {
+      await _updateSkillsForCategory('${category!['name'] ?? ''}', categoryId: categoryId);
+      if (!mounted) return;
+      setState(() => _selectedSkills.addAll(((job['skills'] as List?) ?? const [])
+          .map((s) => '${(s as Map)['name'] ?? ''}')
+          .where((n) => n.isNotEmpty)));
+    }
+
+    _daysBefore = _postDays;
+    _wasUrgent = _isUrgent;
+    _savedSnapshot = _snapshot();
+  }
+
+  /// What saving costs now. A new post pays for its days and any boost; an
+  /// edit pays only for days added beyond what was paid, and a boost bought now.
+  int? _costNow(CreditsProvider credits) {
+    final days = _postDays;
+    final duration = days == null ? null : credits.postCostFor(days);
+    if (duration == null) return null;
+
+    final before = _isEditing && _daysBefore != null
+        ? (credits.postCostFor(_daysBefore!) ?? 0)
+        : 0;
+    final boost = _isUrgent && !_wasUrgent ? (credits.boostCost ?? JobBoost.cost) : 0;
+
+    return (duration - before < 0 ? 0 : duration - before) + boost;
   }
 
   final _formKey = GlobalKey<FormState>();
@@ -699,24 +821,25 @@ class _PostJobScreenState extends State<PostJobScreen> {
 
   /// True once the user has typed or picked anything — an empty form can be
   /// left without a warning.
-  bool get _hasUnsavedInput =>
-      _titleController.text.trim().isNotEmpty ||
-      _descriptionController.text.trim().isNotEmpty ||
-      _budgetController.text.trim().isNotEmpty ||
-      _locationController.text.trim().isNotEmpty ||
-      _selectedCategory != null ||
-      _selectedSkills.isNotEmpty ||
-      _selectedImages.isNotEmpty;
+  bool get _hasUnsavedInput => _isEditing
+      ? _savedSnapshot != null && _snapshot() != _savedSnapshot
+      : _titleController.text.trim().isNotEmpty ||
+          _descriptionController.text.trim().isNotEmpty ||
+          _budgetController.text.trim().isNotEmpty ||
+          _locationController.text.trim().isNotEmpty ||
+          _selectedCategory != null ||
+          _selectedSkills.isNotEmpty ||
+          _selectedImages.isNotEmpty;
 
   Future<bool> _confirmDiscard() async {
     if (!_hasUnsavedInput) return true;
     final shouldExit = await showDialog<bool>(
           context: context,
           builder: (context) => AlertDialog(
-            title: const Text('Discard This Job Post?'),
-            content: const Text(
-              'Everything you entered will be lost.',
-            ),
+            title: Text(_isEditing ? 'Discard Your Changes?' : 'Discard This Job Post?'),
+            content: Text(_isEditing
+                ? 'The post stays as it was.'
+                : 'Everything you entered will be lost.'),
             actions: [
               TextButton(
                 onPressed: () => Navigator.pop(context, false),
@@ -748,9 +871,9 @@ class _PostJobScreenState extends State<PostJobScreen> {
       child: Scaffold(
       backgroundColor: AppColors.neutral50,
       appBar: AppBar(
-        title: const Text(
-          'Post a Job',
-          style: TextStyle(
+        title: Text(
+          _isEditing ? 'Edit Job' : 'Post a Job',
+          style: const TextStyle(
             fontWeight: FontWeight.w600,
             color: Colors.white,
           ),
@@ -880,7 +1003,9 @@ class _PostJobScreenState extends State<PostJobScreen> {
               _buildSection(
                 title: 'Job Photos',
                 anchor: _photosKey,
-                subtitle: 'Add at least 1 photo (up to 4)',
+                subtitle: _isEditing
+                    ? 'New photos replace the current ones (up to 4)'
+                    : 'Add at least 1 photo (up to 4)',
                 icon: Icons.photo_camera_outlined,
                 children: [
                   _buildPhotoSelector(),
@@ -1261,11 +1386,19 @@ class _PostJobScreenState extends State<PostJobScreen> {
     final days = _postDays;
     if (days == null) return const SizedBox.shrink();
 
-    final cost = context.watch<CreditsProvider>().postCostFor(days);
+    final credits = context.watch<CreditsProvider>();
+    final cost = credits.postCostFor(days);
     if (cost == null) return const SizedBox.shrink();
 
     final length = '$days day${days == 1 ? '' : 's'}';
-    final price = cost == 0 ? 'free' : 'for $cost ${Credits.plural}';
+    final added = _isEditing && _daysBefore != null
+        ? cost - (credits.postCostFor(_daysBefore!) ?? 0)
+        : null;
+    final price = added != null
+        ? (added > 0 ? 'adds $added ${Credits.plural}' : 'already paid')
+        : cost == 0
+            ? 'free'
+            : 'for $cost ${Credits.plural}';
 
     return Row(
       children: [
@@ -1418,7 +1551,11 @@ class _PostJobScreenState extends State<PostJobScreen> {
     final now = DateTime.now();
     final picked = await showDatePicker(
       context: context,
-      initialDate: _startDate ?? now,
+      // A post being edited can start in the past; the picker cannot open
+      // before its own first date.
+      initialDate: _startDate == null || _startDate!.isBefore(DateTime(now.year, now.month, now.day))
+          ? now
+          : _startDate!,
       // Today, not tomorrow. Same-day hiring is the normal case for this kind
       // of work — a burst pipe does not wait until tomorrow — and the server
       // uses after_or_equal:today for the same reason.
@@ -2138,6 +2275,23 @@ class _PostJobScreenState extends State<PostJobScreen> {
         scrollDirection: Axis.horizontal,
         child: Row(
           children: [
+          // The post's current photos, until new ones replace them.
+          if (_selectedImages.isEmpty)
+            for (final url in _existingPhotoUrls)
+              Padding(
+                padding: const EdgeInsets.only(right: 12),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(10),
+                  child: Image.network(
+                    url,
+                    width: 100,
+                    height: 100,
+                    fit: BoxFit.cover,
+                    errorBuilder: (_, _, _) => Container(
+                        width: 100, height: 100, color: AppColors.neutral100),
+                  ),
+                ),
+              ),
           // Existing photos
           ...List.generate(_selectedImages.length, (index) {
             return Padding(
@@ -2198,7 +2352,9 @@ class _PostJobScreenState extends State<PostJobScreen> {
                     Icon(Icons.add_photo_alternate, color: AppColors.neutral500, size: 32),
                     const SizedBox(height: 4),
                     Text(
-                      'Add Photo',
+                      _selectedImages.isEmpty && _existingPhotoUrls.isNotEmpty
+                          ? 'Replace'
+                          : 'Add Photo',
                       style: TextStyle(
                         fontSize: 12,
                         color: AppColors.neutral600,
@@ -2322,18 +2478,12 @@ class _PostJobScreenState extends State<PostJobScreen> {
                         admin panel and a stale number here would be the same
                         bug in a new place.
                     */
-                    final credits = context.watch<CreditsProvider>();
-                    final days = _postDays;
-                    final duration =
-                        days == null ? null : credits.postCostFor(days);
-                    final boost =
-                        _isUrgent ? (credits.boostCost ?? JobBoost.cost) : 0;
-                    final cost =
-                        duration == null ? null : duration + boost;
+                    final cost = _costNow(context.watch<CreditsProvider>());
+                    final verb = _isEditing ? 'Save' : 'Post';
                     return Text(
                       cost == null || cost == 0
-                          ? 'Post Job'
-                          : 'Post for $cost ${Credits.plural}',
+                          ? (_isEditing ? 'Save Changes' : 'Post Job')
+                          : '$verb for $cost ${Credits.plural}',
                       style: const TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.w600,
@@ -2370,7 +2520,7 @@ class _PostJobScreenState extends State<PostJobScreen> {
       return;
     }
 
-    if (_selectedImages.isEmpty) {
+    if (_selectedImages.isEmpty && _existingPhotoUrls.isEmpty) {
       setState(() => _showPhotoError = true);
       await _pointAt(_photosKey, 'Please add at least one photo of the job');
       return;
@@ -2453,6 +2603,12 @@ class _PostJobScreenState extends State<PostJobScreen> {
       }
 
       final jobProvider = context.read<JobProvider>();
+
+      if (_isEditing) {
+        await _saveEdit(jobProvider, categoryId, skillIds);
+        return;
+      }
+
       final success = await jobProvider.createJob(
         title:       _titleController.text.trim(),
         description: _descriptionController.text.trim(),
@@ -2529,6 +2685,42 @@ class _PostJobScreenState extends State<PostJobScreen> {
         AppToast.error(context, jobProvider.errorMessage ?? 'Failed to post job');
       }
     }
+  }
+
+  /// The edit's end of _submitJob: every check above has passed, so save.
+  Future<void> _saveEdit(JobProvider jobProvider, int categoryId, List<int> skillIds) async {
+    final ok = await jobProvider.updateJob(widget.editing!['id'] as int, {
+      'title': _titleController.text.trim(),
+      'description': _descriptionController.text.trim(),
+      'category_id': categoryId,
+      'required_skill_ids': skillIds,
+      'budget_min': _amountIsSet
+          ? double.tryParse(_budgetController.text.replaceAll(',', ''))
+          : null,
+      'budget_period': _periodValue,
+      'location': _locationController.text.trim(),
+      'location_id': _selectedLocation?.id,
+      'city': _selectedLocation?.displayName,
+      'latitude': _pinnedLat ?? _selectedLocation?.latitude,
+      'longitude': _pinnedLng ?? _selectedLocation?.longitude,
+      'is_urgent': _isUrgent,
+      'start_date': JobProvider.ymd(_startDate!),
+      'end_date': JobProvider.ymd(_endDate!),
+      'workers_needed': _workersNeeded,
+    }, photos: _selectedImages);
+
+    if (!mounted) return;
+    setState(() => _isLoading = false);
+
+    if (!ok) {
+      AppToast.error(context, jobProvider.errorMessage ?? 'Could not save the job');
+      return;
+    }
+
+    // A longer post or a boost moved the balance.
+    context.read<CreditsProvider>().afterSpending();
+    AppToast.success(context, 'Job updated');
+    Navigator.pop(context, true);
   }
 }
 

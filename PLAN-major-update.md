@@ -29,8 +29,15 @@ scale 1.3. The in-app banner draws a message with the sender's photo and name
 channel). Not done: MessagingStyle with the sender's photo on the shade, which
 needs the avatar downloaded in the background.
 
-Next: Phase 3 (Edit Job revamp). Item 4 (start date) waits for the user to
-run `/grill-me`.
+Phase 3, item 8 shipped in 1.16.20 (13 Oct 2026): Edit Job is the Post a Job
+form in edit mode (`PostJobScreen(editing: job)`, route `/edit-job`, opened
+from Manage with the whole job map); `edit_job_screen.dart` was deleted. New
+photos replace the old ones and go as a multipart POST with `_method=PUT`
+(`JobProvider.updateJob(..., photos:)`). The button shows only what a longer
+post or a new boost adds.
+
+Next: item 4 (start date) waits for the user to run `/grill-me`; then Phase 4
+(community likes).
 
 ---
 
@@ -252,7 +259,7 @@ LocalAlerts posts (`lib/data/services/local_alerts.dart`) and its channel
 
 ## Phase 3: employer forms
 
-### 8. Edit Job is outdated  `[ ]`
+### 8. Edit Job is outdated  `[x]` 1.16.20
 
 Now: `lib/features/jobs/screens/edit_job_screen.dart` (1061 lines) has
 Basic Information, Workers Needed, Salary & Location, Schedule, Urgent.

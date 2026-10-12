@@ -299,10 +299,27 @@ class JobProvider with ChangeNotifier {
 
   // ── Update job ─────────────────────────────────────────────────────────────────
 
-  Future<bool> updateJob(int jobId, Map<String, dynamic> data) async {
+  /*
+      [photos], when given, replace every photo the post has.
+
+      A file cannot travel in a JSON body, and PHP does not read a multipart
+      body sent with PUT - so a save with new photos goes as a multipart POST
+      that names itself PUT (_method), which Laravel routes to the same
+      update. Without new photos it stays the plain JSON PUT it always was.
+  */
+  Future<bool> updateJob(int jobId, Map<String, dynamic> data, {List<File> photos = const []}) async {
     _setLoading(true);
     try {
-      final res = await _api.put('/jobs/$jobId', data: data);
+      final res = photos.isEmpty
+          ? await _api.put('/jobs/$jobId', data: data)
+          : await _api.postMultipart('/jobs/$jobId', FormData.fromMap({
+              for (final e in data.entries)
+                if (e.value != null) e.key: e.value is bool ? (e.value as bool ? '1' : '0') : e.value,
+              '_method': 'PUT',
+              'photos': await Future.wait(photos.map(
+                (f) => MultipartFile.fromFile(f.path, filename: f.path.split(Platform.pathSeparator).last),
+              )),
+            }, ListFormat.multiCompatible));
       final updated = res.data['data'] as Map<String, dynamic>;
       final idx = _jobs.indexWhere((j) => j['id'] == jobId);
       // Merged, not replaced: the update answers with the post alone, and
