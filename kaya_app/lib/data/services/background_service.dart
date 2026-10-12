@@ -43,8 +43,16 @@ import 'local_alerts.dart';
 /// What the service's own notice says, in the two jobs it does. Shared by the
 /// controller that starts it and the handler that puts it back.
 class ServiceNotice {
-  static const watchingTitle = 'KAYA';
-  static const watchingText = 'Watching for new messages and notifications.';
+  /*
+      The always-on notice, said plainly.
+
+      It read "Watching for new messages and notifications". That is what the
+      service does, and it sounds like surveillance. What it is for is keeping
+      KAYA connected so a message arrives within seconds, so that is what it
+      says, on a silent channel - see BackgroundController._init.
+  */
+  static const connectedTitle = 'KAYA';
+  static const connectedText = 'Connected';
   static const sharingTitle = 'KAYA is sharing your location';
   static const sharingText = 'Tap to open. Stop sharing any time.';
 }
@@ -164,10 +172,18 @@ class _KayaTaskHandler extends TaskHandler {
   */
   @override
   void onNotificationDismissed() {
-    final sharing = (_applicationId ?? 0) > 0;
+    /*
+        Only the location notice comes back.
+
+        Sharing a position is something a person must always be able to
+        see. Being connected is not: putting "Connected" back every time it
+        is swiped away is nagging, and the service keeps running either way.
+    */
+    if ((_applicationId ?? 0) <= 0) return;
+
     FlutterForegroundTask.updateService(
-      notificationTitle: sharing ? ServiceNotice.sharingTitle : ServiceNotice.watchingTitle,
-      notificationText: sharing ? ServiceNotice.sharingText : ServiceNotice.watchingText,
+      notificationTitle: ServiceNotice.sharingTitle,
+      notificationText: ServiceNotice.sharingText,
     );
   }
 

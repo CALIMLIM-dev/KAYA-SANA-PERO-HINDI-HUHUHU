@@ -23,15 +23,39 @@ class BackgroundController {
   /// time means the channel exists before anything tries to post to it —
   /// Android silently drops a notification aimed at a channel that does not
   /// exist yet.
-  void configure() {
+  void configure() => _init(sharing: false);
+
+  /*
+      Two channels, because the two notices are not alike.
+
+      Sharing a location is something a person must be able to see, so its
+      notice sits on an ordinary channel. Staying connected for messages is
+      not news, so its notice sits on a silent one: no sound, no icon in the
+      status bar, collapsed at the bottom of the shade. Android fixes a
+      channel's importance once it has created it, which is why the quiet
+      one has its own id rather than lowering kaya_default.
+
+      The service is started fresh whenever it switches between the two (see
+      start), so the channel is chosen there, before each start.
+  */
+  void _init({required bool sharing}) {
     FlutterForegroundTask.init(
-      androidNotificationOptions: AndroidNotificationOptions(
-        channelId: 'kaya_default',
-        channelName: 'KAYA',
-        channelDescription: 'Shown while KAYA is sharing your location',
-        channelImportance: NotificationChannelImportance.LOW,
-        priority: NotificationPriority.LOW,
-      ),
+      androidNotificationOptions: sharing
+          ? AndroidNotificationOptions(
+              channelId: 'kaya_default',
+              channelName: 'KAYA',
+              channelDescription: 'Shown while KAYA is sharing your location',
+              channelImportance: NotificationChannelImportance.LOW,
+              priority: NotificationPriority.LOW,
+            )
+          : AndroidNotificationOptions(
+              channelId: 'kaya_connection',
+              channelName: 'Connection',
+              channelDescription:
+                  'Keeps KAYA connected so messages and job updates arrive',
+              channelImportance: NotificationChannelImportance.MIN,
+              priority: NotificationPriority.MIN,
+            ),
       iosNotificationOptions: const IOSNotificationOptions(),
       foregroundTaskOptions: ForegroundTaskOptions(
         // Ticks every five seconds; the handler decides what is actually due,
@@ -116,13 +140,15 @@ class BackgroundController {
     await FlutterForegroundTask.saveData(
         key: BackgroundKeys.applicationId, value: applicationId ?? 0);
 
+    _init(sharing: applicationId != null);
+
     try {
       await FlutterForegroundTask.startService(
         notificationTitle: applicationId == null
-            ? ServiceNotice.watchingTitle
+            ? ServiceNotice.connectedTitle
             : ServiceNotice.sharingTitle,
         notificationText: applicationId == null
-            ? ServiceNotice.watchingText
+            ? ServiceNotice.connectedText
             : ServiceNotice.sharingText,
         callback: startBackgroundCallback,
       );
