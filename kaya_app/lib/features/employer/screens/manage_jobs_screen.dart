@@ -9,16 +9,18 @@ import '../../../providers/job_provider.dart';
 import '../../../core/widgets/app_toast.dart';
 import '../../../core/constants/credits.dart';
 import '../../invitations/widgets/invite_to_job.dart';
-import 'roster_screen.dart';
+import '../widgets/manage_job_sheet.dart';
 
-/// Manage Jobs Screen — employer's posted jobs, on real data from JobProvider.
-///
-/// This is the screen the home screen's "Active Jobs" card and the bottom-nav
-/// entry point to /manage-jobs both land on. It used to render a hardcoded list
-/// of five fake jobs regardless of what the employer actually posted — a real
-/// job created via Post a Job never appeared here.
-///
-/// Two tabs: Active (open + in_progress) | History (completed + closed)
+/*
+    My Jobs: the employer's posts that are over.
+
+    It used to render a hardcoded list of five fake jobs regardless of what
+    the employer actually posted. Then it had two tabs, Active and History,
+    and Active was the same list as the home screen's Active section - the
+    same running post twice, one tap apart. Running posts live on home now,
+    with Applicants, Matches, Manage, the roster and Mark as complete on
+    their card, the way a worker's hired jobs do, and this keeps History.
+*/
 class ManageJobsScreen extends StatefulWidget {
   const ManageJobsScreen({super.key});
 
@@ -27,9 +29,7 @@ class ManageJobsScreen extends StatefulWidget {
 }
 
 class _ManageJobsScreenState extends State<ManageJobsScreen>
-    with SingleTickerProviderStateMixin, RealtimeRefresh {
-  late TabController _tabController;
-
+    with RealtimeRefresh {
   /// Keeps the applicant counts on each job card honest while the employer is
   /// looking at them.
   @override
@@ -41,7 +41,6 @@ class _ManageJobsScreenState extends State<ManageJobsScreen>
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 2, vsync: this);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       context.read<JobProvider>().fetchMyJobs();
@@ -49,18 +48,7 @@ class _ManageJobsScreenState extends State<ManageJobsScreen>
     });
   }
 
-  @override
-  void dispose() {
-    _tabController.dispose();
-    super.dispose();
-  }
-
   String _statusOf(Map<String, dynamic> job) => (job['status'] ?? '').toString();
-
-  // JobProvider owns the rule, so this screen and the home card cannot
-  // disagree about which posts are running. See JobProvider.jobIsActive.
-  List<Map<String, dynamic>> _activeJobs(List<Map<String, dynamic>> jobs) =>
-      jobs.where(JobProvider.jobIsActive).toList();
 
   /*
       Everything that is not running, rather than a list of endings.
@@ -78,7 +66,6 @@ class _ManageJobsScreenState extends State<ManageJobsScreen>
     return Consumer<JobProvider>(
       builder: (context, jobProvider, _) {
         final jobs = jobProvider.jobs;
-        final active = _activeJobs(jobs);
         final history = _historyJobs(jobs);
 
         return Scaffold(
@@ -100,31 +87,12 @@ class _ManageJobsScreenState extends State<ManageJobsScreen>
                 own card, which is where somebody thinking "they were good"
                 is already looking.
             */
-            bottom: TabBar(
-              controller: _tabController,
-              indicatorColor: AppColors.accent,
-              indicatorWeight: 3,
-              labelColor: Colors.white,
-              unselectedLabelColor: Colors.white60,
-              labelStyle:
-                  const TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
-              tabs: [
-                Tab(text: 'Active (${active.length})'),
-                Tab(text: 'History (${history.length})'),
-              ],
-            ),
           ),
           body: jobProvider.isLoading && jobs.isEmpty
               ? const Center(child: CircularProgressIndicator())
               : jobProvider.errorMessage != null && jobs.isEmpty
                   ? _errorState(jobProvider.errorMessage!)
-                  : TabBarView(
-                      controller: _tabController,
-                      children: [
-                        _buildList(active, isHistory: false),
-                        _buildList(history, isHistory: true),
-                      ],
-                    ),
+                  : _buildList(history),
           floatingActionButton: FloatingActionButton.extended(
             onPressed: () => AppRouter.push(context, '/post-job'),
             backgroundColor: AppColors.primary,
@@ -167,26 +135,30 @@ class _ManageJobsScreenState extends State<ManageJobsScreen>
     );
   }
 
-  Widget _buildList(List<Map<String, dynamic>> jobs, {required bool isHistory}) {
+  Widget _buildList(List<Map<String, dynamic>> jobs) {
     if (jobs.isEmpty) {
-      return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(Icons.work_outline, size: 56, color: AppColors.neutral300),
-            const SizedBox(height: 16),
-            Text(
-              isHistory ? 'No past jobs yet' : 'No active jobs',
-              style: const TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w600,
-                  color: AppColors.neutral600),
-            ),
-            const SizedBox(height: 8),
-            if (!isHistory)
-              const Text('Post a job to start hiring workers',
+      return const Center(
+        child: Padding(
+          padding: EdgeInsets.symmetric(horizontal: 32),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(Icons.work_outline, size: 56, color: AppColors.neutral300),
+              SizedBox(height: 16),
+              Text(
+                'No past jobs yet',
+                style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.neutral600),
+              ),
+              SizedBox(height: 8),
+              // Somebody who just posted will look here first.
+              Text('Jobs that are still running are on Home, under Active.',
+                  textAlign: TextAlign.center,
                   style: TextStyle(fontSize: 14, color: AppColors.neutral400)),
-          ],
+            ],
+          ),
         ),
       );
     }
@@ -217,14 +189,7 @@ class _ManageJobsScreenState extends State<ManageJobsScreen>
       thirty-day timer that ran beside the dates, with an Extend button to
       buy blocks against it. One clock now, and it is theirs.
   */
-  Future<void> _openRoster(int jobId) async {
-    await Navigator.push(
-      context,
-      MaterialPageRoute(builder: (_) => RosterScreen(jobId: jobId)),
-    );
-    // Completions may have moved while the roster was open.
-    if (mounted) context.read<JobProvider>().fetchMyJobs();
-  }
+  Future<void> _openRoster(int jobId) => openRoster(context, jobId);
 
   Widget _endLine(Map<String, dynamic> job, String status) {
     if (status != 'open' && status != 'expired') return const SizedBox.shrink();
@@ -482,7 +447,7 @@ class _ManageJobsScreenState extends State<ManageJobsScreen>
                     ),
                     const SizedBox(width: 10),
                     OutlinedButton(
-                      onPressed: () => _showManageSheet(job),
+                      onPressed: () => showManageJobSheet(context, job),
                       style: OutlinedButton.styleFrom(
                         foregroundColor: AppColors.neutral600,
                         side: const BorderSide(color: AppColors.neutral300),
@@ -801,94 +766,6 @@ class _ManageJobsScreenState extends State<ManageJobsScreen>
     );
   }
 
-  void _showManageSheet(Map<String, dynamic> job) {
-    final jobId = job['id'] as int;
-    final category = job['category'] as Map<String, dynamic>?;
-
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.white,
-      shape: const RoundedRectangleBorder(
-          borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
-      builder: (_) => Padding(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text((job['title'] ?? '').toString(),
-                style: const TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w700,
-                    color: AppColors.neutral900)),
-            const SizedBox(height: 4),
-            const Text('Choose an action',
-                style: TextStyle(fontSize: 13.5, color: AppColors.neutral600)),
-            const SizedBox(height: 20),
-            _actionTile(Icons.edit_outlined, 'Edit Job', AppColors.primary, () {
-              Navigator.pop(context);
-              /*
-                  Everything the edit form can change has to arrive here.
-
-                  Only half of it used to. The form opened with its own
-                  defaults for the rest — not urgent, Daily, no maximum — so an
-                  urgent job displayed as ordinary, and saving would have
-                  written those defaults back over the real values.
-              */
-              AppRouter.push(context, '/edit-job', arguments: {
-                'id': jobId,
-                'title': job['title'],
-                'category': category?['name'],
-                'category_id': category?['id'],
-                'description': job['description'],
-                'budget_min': job['budget_min'],
-                'budget_max': job['budget_max'],
-                'budget_period': job['budget_period'],
-                'is_urgent': job['is_urgent'],
-                // Same reason as the fields above: the edit form sends these
-                // back, so omitting them here would hand it nulls and wipe the
-                // job's schedule on the first save.
-                'start_date': job['start_date'],
-                'end_date': job['end_date'],
-                'skill_ids': (job['skills'] as List?)
-                    ?.map((s) => (s as Map)['id'])
-                    .whereType<int>()
-                    .toList(),
-                'location': job['city'] ?? job['location'],
-                'location_id': job['location_id'],
-                // Without this a job for five opened the form showing one.
-                'workersNeeded': job['workers_needed'],
-              });
-            }),
-            _actionTile(Icons.close, 'Close Job', AppColors.error, () {
-              Navigator.pop(context);
-              _confirmClose(jobId, (job['title'] ?? '').toString());
-            }),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _actionTile(IconData icon, String label, Color color, VoidCallback onTap) {
-    return ListTile(
-      contentPadding: EdgeInsets.zero,
-      leading: Container(
-        width: 40,
-        height: 40,
-        decoration: BoxDecoration(
-          color: color.withValues(alpha: 0.1),
-          borderRadius: BorderRadius.circular(10),
-        ),
-        child: Icon(icon, color: color, size: 20),
-      ),
-      title: Text(label,
-          style: TextStyle(
-              fontSize: 15, fontWeight: FontWeight.w600, color: color)),
-      onTap: onTap,
-    );
-  }
-
   void _confirmMarkComplete(int jobId, String title) {
     showDialog(
       context: context,
@@ -955,33 +832,4 @@ class _ManageJobsScreenState extends State<ManageJobsScreen>
     );
   }
 
-  void _confirmClose(int jobId, String title) {
-    showDialog(
-      context: context,
-      builder: (_) => AlertDialog(
-        title: const Text('Close Job?'),
-        content: Text('Close "$title"? Workers can no longer apply.'),
-        actions: [
-          TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('Cancel')),
-          ElevatedButton(
-            onPressed: () async {
-              Navigator.pop(context);
-              final ok =
-                  await context.read<JobProvider>().changeStatus(jobId, 'closed');
-              if (!mounted) return;
-              AppToast.info(context, ok
-                    ? 'Job closed'
-                    : context.read<JobProvider>().errorMessage ??
-                        'Failed to close job');
-            },
-            style: ElevatedButton.styleFrom(backgroundColor: AppColors.error),
-            child:
-                const Text('Close Job', style: TextStyle(color: Colors.white)),
-          ),
-        ],
-      ),
-    );
-  }
 }

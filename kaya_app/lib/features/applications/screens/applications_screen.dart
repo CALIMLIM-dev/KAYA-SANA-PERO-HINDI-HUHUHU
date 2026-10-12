@@ -13,6 +13,7 @@ import '../../invitations/widgets/invitation_card.dart';
 import '../../../providers/job_provider.dart';
 import '../widgets/completion_action.dart';
 import '../../../core/navigation/app_router.dart';
+import '../../employer/widgets/manage_job_sheet.dart';
 
 /*
     My Activity — one rule decides where everything goes.
@@ -626,21 +627,24 @@ List<Map<String, dynamic>> activeItems(
   });
 
   /*
-      Not the employer's running posts.
+      The employer's running posts are here, and only here.
 
-      Those are My Jobs' Active tab, where the post, its applicants, the
-      hire and Mark as complete already sit. Listing them here as well put
-      the same job on the screen twice, one tap apart. What the employer
-      still finds here is a finished job waiting for their review, which My
-      Jobs files under History.
+      They were in My Jobs' Active tab as well, the same job twice. For a
+      while they were taken off this list instead, which was the wrong half
+      to remove: an employer who had just posted opened the app and saw no
+      Active at all. My Jobs keeps History now, the way My Applications does
+      for a worker, and each card here carries what that tab offered - see
+      _EmployerTools.
   */
   return [
     if (hasWorker) ...[
       ...applications.liveWork.map((a) => {...a, '_isJob': false}),
       ...toReviewWork.map((a) => {...a, '_isJob': false}),
     ],
-    if (hasEmployer)
+    if (hasEmployer) ...[
+      ...jobs.activeJobs.map((j) => {...j, '_isJob': true}),
       ...toReviewJobs.map((j) => {...j, '_isJob': true}),
+    ],
   ];
 }
 
@@ -1193,6 +1197,8 @@ class JobPostCard extends StatelessWidget {
         status == 'in_progress' ||
         ((job['hire_count'] as num?)?.toInt() ?? 0) > 0;
 
+    final tools = _EmployerTools.applies(job) ? _EmployerTools(job: job) : null;
+
     return _cardShell(
       title: (job['title'] ?? 'Job').toString(),
       // Who is doing it, once somebody is. The location is in the meta row.
@@ -1205,7 +1211,11 @@ class JobPostCard extends StatelessWidget {
           "3 applicants - View" beside Message and Mark as complete was
           noise about a decision already made.
       */
-      trailing: hired ? null : '$applicants applicant${applicants == 1 ? '' : 's'}',
+      // Not beside an Applicants button that already carries the count.
+      trailing: hired || tools != null
+          ? null
+          : '$applicants applicant${applicants == 1 ? '' : 's'}',
+      tools: tools,
       compact: compact,
       category: (job['category'] as Map<String, dynamic>?)?['name']?.toString(),
       place: (job['city'] ?? job['location'] ?? '').toString().isEmpty
@@ -1346,6 +1356,8 @@ Widget _cardShell({
   bool compact = false,
   /// Where the job stands on the home row's track; see [_stageOf].
   int? stage,
+  /// A running post's own buttons, above the action row. See _EmployerTools.
+  Widget? tools,
 }) {
   if (compact) {
     return _activeRow(
@@ -1365,6 +1377,7 @@ Widget _cardShell({
       secondaryIcon: secondaryIcon,
       note: note,
       noteIsCompletion: noteIsCompletion,
+      tools: tools,
     );
   }
 
@@ -1503,10 +1516,16 @@ Widget _cardShell({
                 ],
               ),
             ],
+            if (tools != null) ...[
+              const SizedBox(height: 12),
+              const Divider(height: 1, color: AppColors.neutral200),
+              const SizedBox(height: 12),
+              tools,
+            ],
             if (onMessage != null || (actionLabel != null && onAction != null)) ...[
               // The rule My Jobs draws between the facts and the actions.
-              SizedBox(height: compact ? 8 : 12),
-              if (!compact) ...[
+              SizedBox(height: compact || tools != null ? 8 : 12),
+              if (!compact && tools == null) ...[
                 const Divider(height: 1, color: AppColors.neutral200),
                 const SizedBox(height: 12),
               ],
@@ -1718,6 +1737,7 @@ Widget _activeRow({
   IconData secondaryIcon = Icons.message_outlined,
   String? note,
   bool noteIsCompletion = false,
+  Widget? tools,
 }) {
   final st = stage ?? (status == 'completed' ? 3 : status == 'in_progress' ? 2 : 1);
   const stageNames = ['Open', 'Hired', 'Working', 'Done'];
@@ -1771,8 +1791,12 @@ Widget _activeRow({
                 overflow: TextOverflow.ellipsis,
                 style: const TextStyle(fontSize: 12, color: AppColors.neutral600)),
           ],
-          if (onMessage != null || hasAction) ...[
+          if (tools != null) ...[
             const SizedBox(height: 10),
+            tools,
+          ],
+          if (onMessage != null || hasAction) ...[
+            SizedBox(height: tools != null ? 8 : 10),
             Row(
               children: [
                 if (onMessage != null)
@@ -1823,6 +1847,103 @@ Widget _activeRow({
       ),
     ),
   );
+}
+
+/*
+    What My Jobs' Active tab offered on a running post, on its card.
+
+    The post lives in the Active section on home now, and these came with
+    it: Applicants and Matches while it is taking people, Manage for Edit
+    and Close, and the roster once a job for several has somebody on it.
+    The roster is where a job for several is marked complete. Message and
+    Mark as complete for a single hire stay on the action row under these.
+*/
+class _EmployerTools extends StatelessWidget {
+  const _EmployerTools({required this.job});
+
+  final Map<String, dynamic> job;
+
+  static bool _taking(Map<String, dynamic> job) => job['status'] == 'open';
+
+  static int _needed(Map<String, dynamic> job) =>
+      (job['workers_needed'] as num?)?.toInt() ?? 1;
+
+  static int _filled(Map<String, dynamic> job) =>
+      (job['workers_filled'] as num?)?.toInt() ??
+      (job['hire_count'] as num?)?.toInt() ??
+      0;
+
+  static bool _hasRoster(Map<String, dynamic> job) =>
+      (_needed(job) > 1 || _filled(job) > 1) && _filled(job) > 0;
+
+  /// Whether a card has any of these to show: only a running post does.
+  static bool applies(Map<String, dynamic> job) =>
+      JobProvider.jobIsActive(job) && (_taking(job) || _hasRoster(job));
+
+  @override
+  Widget build(BuildContext context) {
+    final jobId = job['id'] as int;
+    final applicants = (job['application_count'] as num?)?.toInt() ?? 0;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        if (_taking(job))
+          Row(
+            children: [
+              Expanded(
+                child: _tool(
+                  'Applicants ($applicants)',
+                  () => AppRouter.push(context, '/view-applicants',
+                      arguments: {'jobId': jobId}),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: _tool(
+                  'Matches',
+                  () => AppRouter.push(context, AppRouter.matchedWorkers,
+                      arguments: {
+                        'jobId': jobId,
+                        'jobTitle': job['title'] as String?,
+                      }),
+                ),
+              ),
+              const SizedBox(width: 8),
+              _tool('Manage', () => showManageJobSheet(context, job),
+                  quiet: true),
+            ],
+          ),
+        if (_hasRoster(job)) ...[
+          if (_taking(job)) const SizedBox(height: 8),
+          _tool(
+            'Roster (${_filled(job)} of ${_needed(job)} hired)',
+            () => openRoster(context, jobId),
+          ),
+        ],
+      ],
+    );
+  }
+
+  Widget _tool(String label, VoidCallback onPressed, {bool quiet = false}) =>
+      OutlinedButton(
+        onPressed: onPressed,
+        style: OutlinedButton.styleFrom(
+          foregroundColor: quiet ? AppColors.neutral600 : AppColors.primary,
+          side: BorderSide(
+              color: quiet ? AppColors.neutral300 : AppColors.primary),
+          minimumSize: const Size(0, 36),
+          padding: const EdgeInsets.symmetric(horizontal: 10),
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(9)),
+          textStyle:
+              const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+        ),
+        child: FittedBox(
+          fit: BoxFit.scaleDown,
+          child: Text(label, maxLines: 1),
+        ),
+      );
 }
 
 ButtonStyle _rowButton({required bool outlined}) => outlined

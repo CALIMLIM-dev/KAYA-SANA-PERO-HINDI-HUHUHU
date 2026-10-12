@@ -11,9 +11,10 @@ import 'support/render_harness.dart';
 
 /*
     The Active section on home: the worker's hired jobs, with Mark as
-    complete and Review on the card. Not pending applications, which are
-    nothing yet, and not the employer's running posts, which are My Jobs'
-    Active tab and were the same job shown twice.
+    complete and Review on the card, and the employer's running posts, with
+    what My Jobs' Active tab used to offer on them. Not pending
+    applications, which are nothing yet. My Jobs keeps History only, so a
+    running post is on screen once.
 */
 void main() {
   Map<String, dynamic> hire(int id, String title) => {
@@ -104,17 +105,61 @@ void main() {
   });
 
   /*
-      A running post lives in My Jobs, under its own Active tab. Repeating it
-      here put the same job on screen twice, which was reported.
+      Reported: a new employer posted a job and home had no Active at all,
+      while My Jobs still had its own Active tab. The post is here, with the
+      tools that tab had on it.
   */
-  testWidgets('an employer\'s running post is not repeated here', (tester) async {
+  testWidgets('an employer sees their running post, with its tools', (tester) async {
     await pump(
       tester,
       host(worker: false, employer: true, jobs: [post(1, 'Repaint a steel gate')]),
     );
 
-    expect(find.textContaining('Repaint a steel gate'), findsNothing);
-    expect(find.text('Active'), findsNothing);
+    expect(find.text('Active'), findsOneWidget);
+    expect(find.textContaining('Repaint a steel gate'), findsWidgets);
+    expect(find.text('Applicants (0)'), findsOneWidget);
+    expect(find.text('Matches'), findsOneWidget);
+    expect(find.text('Manage'), findsOneWidget);
+  });
+
+  testWidgets('a job for several with people on it offers the roster', (tester) async {
+    await pump(
+      tester,
+      host(worker: false, employer: true, jobs: [
+        {...post(1, 'Five painters for a subdivision'), 'workers_needed': 5, 'workers_filled': 2},
+      ]),
+    );
+
+    expect(find.text('Roster (2 of 5 hired)'), findsOneWidget);
+  });
+
+  /*
+      The server sends is_live false for a filled post, because it no
+      longer takes applicants. The work is still happening, so it is
+      active, with Mark as complete on it.
+  */
+  testWidgets('a filled job under way is active, with Mark as Complete', (tester) async {
+    await pump(
+      tester,
+      host(worker: false, employer: true, jobs: [
+        {
+          ...post(1, 'Repaint a steel gate', live: false),
+          'status': 'in_progress',
+          'hire': {
+            'application_id': 40,
+            'worker_id': 7,
+            'worker_name': 'Ricardo Dela Cruz',
+            'conversation_id': 3,
+            'status': 'accepted',
+            'employer_completed_at': null,
+            'worker_completed_at': null,
+          },
+        },
+      ]),
+    );
+
+    expect(find.textContaining('Repaint a steel gate'), findsWidgets);
+    expect(find.textContaining('Mark as Complete'), findsOneWidget);
   });
 
   testWidgets('a post past its date is not active', (tester) async {

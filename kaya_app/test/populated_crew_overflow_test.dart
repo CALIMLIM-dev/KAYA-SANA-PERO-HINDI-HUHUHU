@@ -3,7 +3,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:provider/provider.dart';
 
 import 'package:kaya_app/data/services/api_client.dart';
-import 'package:kaya_app/features/employer/screens/manage_jobs_screen.dart';
+import 'package:kaya_app/features/applications/screens/active_screen.dart';
+import 'package:kaya_app/features/jobs/widgets/active_section.dart';
 import 'package:kaya_app/providers/app_mode_provider.dart';
 import 'package:kaya_app/providers/application_provider.dart';
 import 'package:kaya_app/providers/auth_provider.dart';
@@ -20,10 +21,12 @@ import 'support/render_harness.dart';
 /*
     A job for several people, on the employer's job cards.
 
-    The crew line and the Roster button only draw when a job is for more
-    than one person, so a card rendered from a default job never shows
-    them and cannot overflow. These seed a five-person job, open with two
-    hired and in progress with all five, at every width and text scale.
+    The Roster button only draws when a job is for more than one person,
+    so a card rendered from a default job never shows it and cannot
+    overflow. These seed a five-person job, open with two hired and in
+    progress with all five, at every width and text scale - on the Active
+    screen's full cards and on home's compact rows, which is where running
+    posts are now.
 */
 void main() {
   Map<String, dynamic> job({
@@ -57,6 +60,7 @@ void main() {
     WidgetTester tester, {
     required double textScale,
     required double width,
+    required bool home,
   }) async {
     final complaints = <String>[];
     final previous = FlutterError.onError;
@@ -95,22 +99,32 @@ void main() {
               ChangeNotifierProvider(create: (_) => WorkerProfileProvider(ApiClient())),
               ChangeNotifierProvider(create: (_) => EmployerProfileProvider()),
               ChangeNotifierProvider(create: (_) => CreditsProvider()),
-              ChangeNotifierProvider(create: (_) => AppModeProvider()),
+              ChangeNotifierProvider(
+                  create: (_) => AppModeProvider()
+                    ..reconcile(hasWorker: false, hasEmployer: true)),
               ChangeNotifierProvider(create: (_) => ApplicationProvider()),
               ChangeNotifierProvider(create: (_) => InvitationProvider()),
               ChangeNotifierProvider(create: (_) => MessagingProvider()),
               ChangeNotifierProvider(create: (_) => NotificationProvider()),
             ],
-            child: const MaterialApp(home: ManageJobsScreen()),
+            child: MaterialApp(
+              home: home
+                  ? Scaffold(
+                      body: SingleChildScrollView(
+                        child: ActiveSection(onChanged: () async {}),
+                      ),
+                    )
+                  : const ActiveScreen(),
+            ),
           ),
         ),
       );
       await tester.pump(const Duration(milliseconds: 300));
 
-      expect(find.text('2 of 5 hired'), findsOneWidget,
-          reason: 'The crew line never rendered, so nothing was checked.');
-      expect(find.textContaining('Roster'), findsWidgets,
-          reason: 'The roster button never rendered.');
+      expect(find.text('Roster (2 of 5 hired)'), findsOneWidget,
+          reason: 'The open crew job never rendered, so nothing was checked.');
+      expect(find.text('Roster (5 of 5 hired)'), findsOneWidget,
+          reason: 'The crew job under way never rendered.');
 
       for (var i = 0; i < 3; i++) {
         await tester.drag(find.byType(Scrollable).first, const Offset(0, -300));
@@ -123,17 +137,21 @@ void main() {
     return complaints;
   }
 
-  for (final width in <double>[412, 390, 360, 320]) {
-    for (final scale in <double>[1.0, 1.15, 1.3]) {
-      testWidgets(
-        'crew job cards fit ${width.toInt()}px at text scale $scale',
-        (tester) async {
-          final complaints = await overflowsIn(tester, textScale: scale, width: width);
-          expect(complaints, isEmpty,
-              reason: 'Crew cards overflowed at ${width.toInt()}px, text scale $scale:\n'
-                  '  ${complaints.join('\n  ')}');
-        },
-      );
+  for (final home in [false, true]) {
+    for (final width in <double>[412, 390, 360, 320]) {
+      for (final scale in <double>[1.0, 1.15, 1.3]) {
+        final where = home ? 'home rows' : 'Active cards';
+        testWidgets(
+          'crew job $where fit ${width.toInt()}px at text scale $scale',
+          (tester) async {
+            final complaints = await overflowsIn(tester,
+                textScale: scale, width: width, home: home);
+            expect(complaints, isEmpty,
+                reason: 'Crew $where overflowed at ${width.toInt()}px, text scale $scale:\n'
+                    '  ${complaints.join('\n  ')}');
+          },
+        );
+      }
     }
   }
 }

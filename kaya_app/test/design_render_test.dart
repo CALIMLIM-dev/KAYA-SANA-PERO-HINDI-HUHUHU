@@ -80,8 +80,8 @@ void main() {
     await expectLater(find.byType(MaterialApp), matchesGoldenFile('goldens/kaya_icon_building.png'));
   });
 
-  // A hybrid: its hired work shows, its running post stays in My Jobs.
-  testWidgets('home Active panel, a hybrid account', (tester) async {
+  // A hybrid: its hired work and its running post, the post with its tools.
+  testWidgets('home Active panel, both sides', (tester) async {
     await size(tester, 1500);
     await tester.pumpWidget(MultiProvider(
       providers: [

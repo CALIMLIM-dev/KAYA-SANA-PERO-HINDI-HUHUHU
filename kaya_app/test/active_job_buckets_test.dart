@@ -49,6 +49,15 @@ void main() {
       );
     });
 
+    test('a job under way is active though it no longer takes applicants', () {
+      // The server sends is_live false for a filled post. The work is still
+      // happening, and its Mark as complete with it.
+      expect(
+        JobProvider.jobIsActive(job(status: 'in_progress', isLive: false)),
+        isTrue,
+      );
+    });
+
     test('a numeric 1 or 0 is read as a boolean', () {
       // MySQL booleans arrive as integers through some serialisers.
       expect(JobProvider.jobIsActive(job(isLive: 1)), isTrue);

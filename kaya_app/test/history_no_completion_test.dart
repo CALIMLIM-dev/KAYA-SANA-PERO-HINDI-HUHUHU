@@ -110,16 +110,23 @@ void main() {
     });
   }
 
-  testWidgets('a running job still offers it, in My Jobs', (tester) async {
+  testWidgets('a running job still offers it, on the Active list', (tester) async {
     /*
         The other half. Tightening the rule is only correct if it leaves the
         live case alone - otherwise the fix for a dead button is a missing
-        one. A running post is in My Jobs now, not repeated on the Active
-        list, so that is where it is looked for.
+        one. Running posts are on the Active list, and My Jobs keeps
+        History, so that is where it is looked for.
     */
-    await render(tester, screen(jobWithHire('in_progress'), myJobs: true));
+    await render(tester, screen(jobWithHire('in_progress'), active: true));
 
     expect(find.textContaining('Repaint a steel gate'), findsWidgets);
-    expect(find.text('Mark Complete'), findsWidgets);
+    expect(find.textContaining('Mark as Complete'), findsWidgets);
+  });
+
+  testWidgets('My Jobs does not list a running job', (tester) async {
+    await render(tester, screen(jobWithHire('in_progress'), myJobs: true));
+
+    expect(find.textContaining('Repaint a steel gate'), findsNothing);
+    expect(find.textContaining('still running are on Home'), findsOneWidget);
   });
 }

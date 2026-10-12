@@ -44,8 +44,15 @@ class JobProvider with ChangeNotifier {
       The status is still read when is_live is absent, which is what an
       older server sends. A phone that updates before the server should
       behave as it did before rather than show an empty list.
+
+      A job under way is running whatever is_live says. is_live answers
+      whether the post still takes applicants, and a filled post does not -
+      so a job with its worker hired and the work happening was filed under
+      History, with its Mark as complete, and never reached Active at all.
   */
   static bool jobIsActive(Map<String, dynamic> job) {
+    if (job['status'] == 'in_progress') return true;
+
     final live = job['is_live'];
     if (live is bool) return live;
     if (live is num) return live != 0;
