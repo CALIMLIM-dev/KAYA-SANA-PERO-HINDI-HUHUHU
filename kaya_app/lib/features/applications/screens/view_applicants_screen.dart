@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import '../../../core/utils/realtime_refresh.dart';
 
 import '../../../core/constants/app_colors.dart';
+import '../../../core/widgets/kaya_popup.dart';
 import '../../../providers/application_provider.dart';
 import '../../../providers/job_provider.dart';
 import '../../../providers/worker_browse_provider.dart';
@@ -15,6 +16,18 @@ import '../widgets/applicant_card.dart';
 /// This used to render five hardcoded applicants (Juan Dela Cruz, Pedro
 /// Santos, Mario Reyes...) on every job regardless of who applied, and Accept/
 /// Reject only flipped local state — nothing was sent to the server.
+/// The applicants of one job, over the screen they were asked for from
+/// rather than as a screen of their own. The route stays for links from
+/// notifications.
+Future<void> showApplicantsPopup(BuildContext context, int jobId) {
+  return showKayaPopup<void>(
+    context,
+    tall: true,
+    arguments: {'jobId': jobId},
+    builder: (_) => const ViewApplicantsScreen(),
+  );
+}
+
 class ViewApplicantsScreen extends StatefulWidget {
   const ViewApplicantsScreen({super.key});
 
@@ -100,7 +113,7 @@ class _ViewApplicantsScreenState extends State<ViewApplicantsScreen>
     // Only while the job is still looking for people, and only once.
     final open = jobs.selectedJob?.status == 'open';
     if (open && browse.matchCount > 0 && _matchesShown.add(jobId)) {
-      showMatchedWorkersSheet(context, jobId: jobId, jobTitle: jobs.selectedJob?.title);
+      showMatchedWorkersPopup(context, jobId: jobId, jobTitle: jobs.selectedJob?.title);
     }
   }
 
@@ -119,7 +132,7 @@ class _ViewApplicantsScreenState extends State<ViewApplicantsScreen>
     return Material(
       color: Colors.white,
       child: InkWell(
-        onTap: () => showMatchedWorkersSheet(context, jobId: _jobId!, jobTitle: _jobTitle),
+        onTap: () => showMatchedWorkersPopup(context, jobId: _jobId!, jobTitle: _jobTitle),
         child: Container(
           padding: const EdgeInsets.fromLTRB(16, 12, 12, 12),
           decoration: const BoxDecoration(

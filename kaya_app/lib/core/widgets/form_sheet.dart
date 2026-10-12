@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import 'kaya_popup.dart';
+
 /*
     A full-height form, presented as a sheet instead of a page.
 
@@ -19,20 +21,10 @@ import 'package:flutter/material.dart';
     the Scaffold has to own the remaining space for its own inset handling to
     work.
 */
+//
+// Now a pop-up rather than a bottom sheet, like everything else that opens
+// over a screen. The page behind still shows round its edges, and the form's
+// back arrow closes it. See showKayaPopup.
 Future<T?> showFormSheet<T>(BuildContext context, Widget form) {
-  return showModalBottomSheet<T>(
-    context: context,
-    isScrollControlled: true,
-    useSafeArea: true,
-    backgroundColor: Colors.transparent,
-    // Enough of the page left visible to show what is being added to, and to
-    // give a tap-to-dismiss target that is not the small drag handle.
-    builder: (_) => Padding(
-      padding: const EdgeInsets.only(top: 28),
-      child: ClipRRect(
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
-        child: form,
-      ),
-    ),
-  );
+  return showKayaPopup<T>(context, tall: true, builder: (_) => form);
 }

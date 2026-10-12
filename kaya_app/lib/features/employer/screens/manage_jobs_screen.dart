@@ -10,6 +10,8 @@ import '../../../core/widgets/app_toast.dart';
 import '../../../core/constants/credits.dart';
 import '../../invitations/widgets/invite_to_job.dart';
 import '../widgets/manage_job_sheet.dart';
+import '../../applications/screens/view_applicants_screen.dart';
+import 'matched_workers_screen.dart';
 
 /*
     My Jobs: the employer's posts that are over.
@@ -399,8 +401,7 @@ class _ManageJobsScreenState extends State<ManageJobsScreen>
                   children: [
                     Expanded(
                       child: OutlinedButton.icon(
-                        onPressed: () => AppRouter.push(context, '/view-applicants',
-                            arguments: {'jobId': jobId}),
+                        onPressed: () => showApplicantsPopup(context, jobId),
                         icon: const Icon(Icons.people, size: 16),
                         label: Text('Applicants ($applicants)'),
                         style: OutlinedButton.styleFrom(
@@ -424,14 +425,8 @@ class _ManageJobsScreenState extends State<ManageJobsScreen>
                     */
                     Expanded(
                       child: OutlinedButton.icon(
-                        onPressed: () => AppRouter.push(
-                          context,
-                          AppRouter.matchedWorkers,
-                          arguments: {
-                            'jobId': jobId,
-                            'jobTitle': job['title'] as String?,
-                          },
-                        ),
+                        onPressed: () => showMatchedWorkersPopup(context,
+                            jobId: jobId, jobTitle: job['title'] as String?),
                         icon: const Icon(Icons.person_search, size: 16),
                         label: const Text('Matches'),
                         style: OutlinedButton.styleFrom(
@@ -637,8 +632,7 @@ class _ManageJobsScreenState extends State<ManageJobsScreen>
                     */
                     onPressed: () async {
                       if (hire == null) {
-                        await AppRouter.push(context, '/view-applicants',
-                            arguments: {'jobId': jobId});
+                        await showApplicantsPopup(context, jobId);
                         if (mounted) {
                           await context.read<JobProvider>().fetchMyJobs();
                         }

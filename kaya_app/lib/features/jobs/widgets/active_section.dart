@@ -2,11 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../../core/constants/app_colors.dart';
-import '../../../core/navigation/app_router.dart';
 import '../../../core/widgets/motion.dart';
 import '../../../providers/app_mode_provider.dart';
 import '../../../providers/application_provider.dart';
 import '../../../providers/job_provider.dart';
+import '../../applications/screens/active_screen.dart';
 import '../../applications/screens/applications_screen.dart';
 
 /*
@@ -61,7 +61,7 @@ class ActiveSection extends StatelessWidget {
                 ),
                 if (items.length > maxRows)
                   TextButton(
-                    onPressed: () => AppRouter.push(context, AppRouter.active),
+                    onPressed: () => showActivePopup(context),
                     style: TextButton.styleFrom(
                       foregroundColor: AppColors.primary,
                       padding: EdgeInsets.zero,

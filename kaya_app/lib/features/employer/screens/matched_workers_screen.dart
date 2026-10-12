@@ -5,6 +5,7 @@ import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/credits.dart';
 import '../../../core/navigation/app_router.dart';
 import '../../../core/widgets/app_toast.dart';
+import '../../../core/widgets/kaya_popup.dart';
 import '../../../core/widgets/motion.dart';
 import '../../../core/widgets/offline_notice.dart';
 import '../../../providers/credits_provider.dart';
@@ -30,7 +31,7 @@ import '../widgets/matched_worker_card.dart';
     "nobody fits".
 
     Shown two ways from one widget: this screen, from My Jobs, and a pop-up
-    on the Applicants screen (showMatchedWorkersSheet).
+    over whatever screen asked for it (showMatchedWorkersPopup).
 */
 class MatchedWorkersScreen extends StatelessWidget {
   const MatchedWorkersScreen({
@@ -57,48 +58,34 @@ class MatchedWorkersScreen extends StatelessWidget {
 }
 
 /*
-    The matched list as a pop-up over the Applicants screen.
+    The matched list as a pop-up over the screen that asked for it.
 
     The header stays put while the list scrolls under it: which job this
-    is for, how many fit, and what they are ranked on. It opens most of the
-    way up and snaps to half or nearly full, so it can be peeked at over the
-    applicants or read properly.
+    is for, how many fit, and what they are ranked on. It was a bottom sheet
+    that snapped between heights; it is the same tall pop-up as Applicants
+    now, so the two read as one thing.
 */
-Future<void> showMatchedWorkersSheet(
+Future<void> showMatchedWorkersPopup(
   BuildContext context, {
   required int jobId,
   String? jobTitle,
 }) {
-  return showModalBottomSheet<void>(
-    context: context,
-    isScrollControlled: true,
-    useSafeArea: true,
-    backgroundColor: Colors.transparent,
-    builder: (_) => DraggableScrollableSheet(
-      initialChildSize: 0.86,
-      minChildSize: 0.5,
-      maxChildSize: 0.96,
-      snap: true,
-      snapSizes: const [0.5, 0.86],
-      expand: false,
-      builder: (sheetContext, controller) => ClipRRect(
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(22)),
-        child: ColoredBox(
-          color: AppColors.background,
-          child: Column(
-            children: [
-              _SheetHeader(jobTitle: jobTitle, jobId: jobId),
-              Expanded(
-                child: MatchedWorkersList(
-                  jobId: jobId,
-                  jobTitle: jobTitle,
-                  controller: controller,
-                  showHeader: false,
-                ),
-              ),
-            ],
+  return showKayaPopup<void>(
+    context,
+    tall: true,
+    builder: (_) => ColoredBox(
+      color: AppColors.background,
+      child: Column(
+        children: [
+          _SheetHeader(jobTitle: jobTitle, jobId: jobId),
+          Expanded(
+            child: MatchedWorkersList(
+              jobId: jobId,
+              jobTitle: jobTitle,
+              showHeader: false,
+            ),
           ),
-        ),
+        ],
       ),
     ),
   );
@@ -122,18 +109,9 @@ class _SheetHeader extends StatelessWidget {
         border: Border(bottom: BorderSide(color: AppColors.neutral200)),
       ),
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(20, 10, 8, 14),
+        padding: const EdgeInsets.fromLTRB(20, 14, 8, 14),
         child: Column(
           children: [
-            Container(
-              width: 36,
-              height: 4,
-              decoration: BoxDecoration(
-                color: AppColors.neutral300,
-                borderRadius: BorderRadius.circular(2),
-              ),
-            ),
-            const SizedBox(height: 10),
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [

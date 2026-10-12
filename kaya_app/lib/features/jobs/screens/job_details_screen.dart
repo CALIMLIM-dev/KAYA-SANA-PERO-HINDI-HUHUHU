@@ -15,6 +15,7 @@ import '../../../core/widgets/app_toast.dart';
 import '../../../core/widgets/verify_gate.dart';
 import '../../../core/widgets/profile_avatar.dart';
 import '../../../core/widgets/verification_badge_widget.dart';
+import '../../applications/screens/view_applicants_screen.dart';
 import '../../../providers/credits_provider.dart';
 
 /// Job Details — a single real job, fetched via GET /jobs/{id}.
@@ -639,8 +640,7 @@ class _JobDetailsScreenState extends State<JobDetailsScreen>
       );
     } else if (job.isOwnJob) {
       button = OutlinedButton.icon(
-        onPressed: () => AppRouter.push(context, '/view-applicants',
-            arguments: {'jobId': job.id}),
+        onPressed: () => showApplicantsPopup(context, job.id),
         icon: const Icon(Icons.people_outline),
         label: Text('View ${job.applicantCount} Applicant${job.applicantCount == 1 ? '' : 's'}'),
         style: _actionStyle(outlined: true),

@@ -14,6 +14,8 @@ import '../../../providers/job_provider.dart';
 import '../widgets/completion_action.dart';
 import '../../../core/navigation/app_router.dart';
 import '../../employer/widgets/manage_job_sheet.dart';
+import '../../employer/screens/matched_workers_screen.dart';
+import 'view_applicants_screen.dart';
 
 /*
     My Activity — one rule decides where everything goes.
@@ -1282,8 +1284,7 @@ class JobPostCard extends StatelessWidget {
       onTap: hired
           ? () => AppRouter.push(context, '/job-details',
               arguments: {'jobId': job['id']})
-          : () => AppRouter.push(context, '/view-applicants',
-              arguments: {'jobId': job['id']}),
+          : () => showApplicantsPopup(context, job['id'] as int),
     );
   }
 }
@@ -1894,19 +1895,15 @@ class _EmployerTools extends StatelessWidget {
               Expanded(
                 child: _tool(
                   'Applicants ($applicants)',
-                  () => AppRouter.push(context, '/view-applicants',
-                      arguments: {'jobId': jobId}),
+                  () => showApplicantsPopup(context, jobId),
                 ),
               ),
               const SizedBox(width: 8),
               Expanded(
                 child: _tool(
                   'Matches',
-                  () => AppRouter.push(context, AppRouter.matchedWorkers,
-                      arguments: {
-                        'jobId': jobId,
-                        'jobTitle': job['title'] as String?,
-                      }),
+                  () => showMatchedWorkersPopup(context,
+                      jobId: jobId, jobTitle: job['title'] as String?),
                 ),
               ),
               const SizedBox(width: 8),

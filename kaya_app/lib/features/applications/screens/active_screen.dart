@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 
 import '../../../core/constants/app_colors.dart';
 import '../../../core/utils/realtime_refresh.dart';
+import '../../../core/widgets/kaya_popup.dart';
 import '../../../providers/app_mode_provider.dart';
 import '../../../providers/application_provider.dart';
 import '../../../providers/job_provider.dart';
@@ -15,6 +16,11 @@ import 'applications_screen.dart';
     the same cards, read through the same activeItems rule - so a card cannot
     say one thing here and another on home.
 */
+/// Every piece of active work, over home rather than as a screen of its own.
+Future<void> showActivePopup(BuildContext context) {
+  return showKayaPopup<void>(context, tall: true, builder: (_) => const ActiveScreen());
+}
+
 class ActiveScreen extends StatefulWidget {
   const ActiveScreen({super.key});
 

@@ -272,7 +272,7 @@ void main() {
           builder: (context) => Scaffold(
             body: Center(
               child: TextButton(
-                onPressed: () => showMatchedWorkersSheet(context,
+                onPressed: () => showMatchedWorkersPopup(context,
                     jobId: 1, jobTitle: 'Repainting of a three bedroom bungalow'),
                 child: const Text('Open'),
               ),
