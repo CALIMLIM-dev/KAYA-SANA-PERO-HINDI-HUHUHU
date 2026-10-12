@@ -42,6 +42,15 @@ class ScheduleCard extends StatelessWidget {
   bool get _agreed => proposal['status'] == 'accepted';
   bool get _declined => proposal['status'] == 'declined';
 
+  /// "Mon 20 Oct", written the way the server writes the summary above it.
+  String? get _doneBy {
+    final day = DateTime.tryParse('${proposal['deadline'] ?? ''}');
+    if (day == null) return null;
+    const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    return '${days[day.weekday - 1]} ${day.day} ${months[day.month - 1]}';
+  }
+
   @override
   Widget build(BuildContext context) {
     final schedule = context.watch<ScheduleProvider>();
@@ -132,6 +141,25 @@ class ScheduleCard extends StatelessWidget {
                 color: AppColors.neutral900,
               ),
             ),
+            /*
+                The deadline the two of them are agreeing to.
+
+                It was chosen in the picker and never shown again, though it
+                is the half that matters later: it is the day Mark as
+                complete opens. Without it the card only said when the work
+                starts.
+            */
+            if (_doneBy != null) ...[
+              const SizedBox(height: 2),
+              Text(
+                'Done by $_doneBy',
+                style: const TextStyle(
+                  fontSize: 12.5,
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.neutral700,
+                ),
+              ),
+            ],
             if (jobTitle != null && jobTitle!.isNotEmpty) ...[
               const SizedBox(height: 2),
               Text(

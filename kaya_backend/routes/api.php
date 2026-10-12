@@ -309,6 +309,7 @@ Route::prefix('v1')->group(function () {
         // Either party marks their side done. Which side is derived from the
         // job, never taken from the request.
         Route::patch('/applications/{application}/complete', [ApplicationController::class, 'complete']);
+        Route::get('/applications/{application}/completion', [ApplicationController::class, 'completion']);
         Route::delete('/applications/{application}',        [ApplicationController::class, 'withdraw']);
         Route::patch('/applications/{application}/accept',  [ApplicationController::class, 'accept']);
         Route::patch('/applications/{application}/reject',  [ApplicationController::class, 'reject']);

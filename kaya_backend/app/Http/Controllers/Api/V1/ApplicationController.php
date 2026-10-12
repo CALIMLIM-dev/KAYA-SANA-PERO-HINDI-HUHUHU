@@ -607,6 +607,31 @@ class ApplicationController extends Controller
      * confirm on the employer's behalf and review them unilaterally, which is
      * the exact thing two-sided completion exists to prevent.
      */
+    /*
+        Where completion stands, from the caller's side.
+
+        For the chat's "Marked done" row, which used to open the job post
+        and nothing else. With this it can offer the confirmation itself
+        when the other side has marked the work done and this one has not.
+    */
+    public function completion(Request $request, Application $application)
+    {
+        $service = app(JobCompletionService::class);
+
+        $application->loadMissing('job');
+        $side = $service->sideFor($application, $request->user());
+
+        if ($side === null) {
+            return $this->fail('You were not part of this job', 403);
+        }
+
+        return $this->ok([
+            ...$service->state($application, $side),
+            'status'     => $application->status,
+            'job_status' => $application->job?->status,
+        ]);
+    }
+
     public function complete(Request $request, Application $application)
     {
         $user = $request->user();

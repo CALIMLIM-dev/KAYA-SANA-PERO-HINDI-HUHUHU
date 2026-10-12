@@ -88,4 +88,36 @@ class ChatEventsTest extends TestCase
             ->getJson("/api/v1/conversations/{$thread->id}/messages")
             ->assertStatus(403);
     }
+
+    /*
+        What the "Marked done" row asks before offering to confirm: where the
+        hire stands from the side of whoever is looking, and nobody else's.
+    */
+    #[Test]
+    public function each_side_reads_completion_from_its_own_side(): void
+    {
+        $employer = $this->employer();
+        $worker = $this->worker();
+        $job = JobPost::create([
+            'employer_id' => $employer->id, 'title' => 'Paint a fence', 'description' => 'x', 'status' => 'in_progress',
+            'workers_needed' => 1, 'start_date' => now()->toDateString(), 'end_date' => now()->toDateString(),
+        ]);
+        $application = Application::create(['job_id' => $job->id, 'worker_id' => $worker->id, 'status' => 'accepted']);
+
+        $this->actingAs($worker, 'sanctum')->patchJson("/api/v1/applications/{$application->id}/complete")->assertOk();
+
+        $this->actingAs($employer, 'sanctum')
+            ->getJson("/api/v1/applications/{$application->id}/completion")
+            ->assertOk()
+            ->assertJsonPath('data.you_confirmed', false)
+            ->assertJsonPath('data.they_confirmed', true);
+
+        $this->actingAs($worker, 'sanctum')
+            ->getJson("/api/v1/applications/{$application->id}/completion")
+            ->assertJsonPath('data.you_confirmed', true);
+
+        $this->actingAs(User::factory()->create(), 'sanctum')
+            ->getJson("/api/v1/applications/{$application->id}/completion")
+            ->assertForbidden();
+    }
 }

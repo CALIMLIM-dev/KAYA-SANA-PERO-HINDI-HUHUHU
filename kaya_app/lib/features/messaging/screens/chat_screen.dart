@@ -607,7 +607,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                     // The job's history: hired, marked done, complete.
                     // Nobody typed it, so it is not a bubble.
                     if (msg['type'] == 'system') {
-                      return SystemMessageCard(message: msg);
+                      return SystemMessageCard(message: msg, applicationId: applicationId);
                     }
 
                     final isMine = (msg['sender_id'] as int?) == myId;
