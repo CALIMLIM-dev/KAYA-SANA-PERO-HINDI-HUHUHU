@@ -16,7 +16,10 @@ class UserManagementController extends Controller
 {
     public function index(Request $request)
     {
-        $query = User::where('user_type', '!=', 'admin');
+        // The type rides along so each row's verification badge does not ask
+        // for it again (User::verification_state reads it).
+        $query = User::where('user_type', '!=', 'admin')
+            ->with('employerProfile:id,user_id,employer_type');
 
         if ($search = $request->get('search')) {
             $query->where(function ($q) use ($search) {
@@ -38,7 +41,16 @@ class UserManagementController extends Controller
         if ($status = $request->get('status')) {
             match ($status) {
                 'verified'   => $query->where('is_verified', true),
-                'pending'    => $query->where('is_verified', false)->where('is_suspended', false),
+                /*
+                    Papers waiting on an admin, not merely unverified.
+
+                    This was "not verified and not suspended", so the filter
+                    called Pending listed everybody who had never sent an ID.
+                */
+                'pending'    => $query->where('is_verified', false)
+                    ->whereHas('verifications', fn ($v) => $v->where('status', 'pending')),
+                'unverified' => $query->where('is_verified', false)->where('is_suspended', false)
+                    ->whereDoesntHave('verifications', fn ($v) => $v->where('status', 'pending')),
                 'suspended'  => $query->where('is_suspended', true),
                 default      => null,
             };

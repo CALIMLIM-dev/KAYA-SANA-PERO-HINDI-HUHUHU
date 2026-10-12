@@ -17,7 +17,8 @@
             <select name="status" class="px-3 py-2 border border-slate-300 rounded-lg text-sm">
                 <option value="">All Statuses</option>
                 <option value="verified" @selected(request('status')==='verified')>Verified</option>
-                <option value="pending" @selected(request('status')==='pending')>Pending</option>
+                <option value="pending" @selected(request('status')==='pending')>Pending review</option>
+                <option value="unverified" @selected(request('status')==='unverified')>Not verified</option>
                 <option value="suspended" @selected(request('status')==='suspended')>Suspended</option>
             </select>
 
@@ -56,10 +57,8 @@
                             <span class="text-xs px-2 py-1 rounded-full bg-slate-200 text-slate-600">Deleted</span>
                         @elseif ($user->is_suspended)
                             <span class="badge-suspended text-xs px-2 py-1 rounded-full">Suspended</span>
-                        @elseif ($user->is_verified)
-                            <span class="badge-verified text-xs px-2 py-1 rounded-full">Verified</span>
                         @else
-                            <span class="badge-pending text-xs px-2 py-1 rounded-full">Pending</span>
+                            @include('admin.partials.verification-badge', ['user' => $user])
                         @endif
                     </td>
                     <td class="py-3 px-5 text-right">

@@ -31,14 +31,8 @@
                             Reactivate Account
                         </button>
                     </form>
-                @elseif ($user->is_verified)
-                    <span class="badge-verified text-xs px-3 py-1.5 rounded-full">Verified</span>
-                    <button onclick="openSuspendModal()"
-                            class="px-4 py-2 bg-red-50 text-red-600 border border-red-200 text-sm rounded-lg hover:bg-red-100">
-                        Suspend Account
-                    </button>
                 @else
-                    <span class="badge-pending text-xs px-3 py-1.5 rounded-full">Pending</span>
+                    @include('admin.partials.verification-badge', ['user' => $user, 'size' => 'px-3 py-1.5'])
                     <button onclick="openSuspendModal()"
                             class="px-4 py-2 bg-red-50 text-red-600 border border-red-200 text-sm rounded-lg hover:bg-red-100">
                         Suspend Account
