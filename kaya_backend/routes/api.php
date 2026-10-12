@@ -281,6 +281,8 @@ Route::prefix('v1')->group(function () {
         Route::post('/community/{post}/comments', [CommunityPostController::class, 'comment'])
             ->middleware('verified');
         Route::delete('/community/comments/{comment}', [CommunityPostController::class, 'removeComment']);
+        Route::post('/community/{post}/like',     [CommunityPostController::class, 'like']);
+        Route::delete('/community/{post}/like',   [CommunityPostController::class, 'unlike']);
 
         /*
             Talking to KAYA. Open to any signed-in account, verified or not,

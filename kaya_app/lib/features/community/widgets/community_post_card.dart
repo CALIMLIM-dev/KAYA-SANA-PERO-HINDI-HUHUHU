@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 
 import '../../../core/constants/app_colors.dart';
 import '../../../core/navigation/app_router.dart';
+import '../../../core/widgets/app_toast.dart';
 import '../../../core/widgets/verification_badge_widget.dart';
 import '../../../core/widgets/profile_avatar.dart';
+import '../../../providers/community_provider.dart';
 
 /*
     The person behind a notice, opened from their name or picture.
@@ -66,6 +69,7 @@ class CommunityPostCard extends StatelessWidget {
       _ => 'Ended',
     };
     final comments = (post['comment_count'] as num?)?.toInt() ?? 0;
+    final live = status == 'live';
 
     return GestureDetector(
       onTap: onTap,
@@ -170,9 +174,9 @@ class CommunityPostCard extends StatelessWidget {
               overflow: TextOverflow.ellipsis,
               style: const TextStyle(fontSize: 13, height: 1.4, color: AppColors.neutral700),
             ),
-            // How busy the thread is, so a notice with questions under it
-            // reads differently from one nobody has answered.
-            if (comments > 0) ...[
+            // Your own post off the board: how busy its thread got. A live
+            // post says this in the footer instead.
+            if (!live && comments > 0) ...[
               const SizedBox(height: 8),
               Row(
                 children: [
@@ -218,7 +222,79 @@ class CommunityPostCard extends StatelessWidget {
                 ),
               ),
             ],
+            // Likes and how busy the thread is, on every live notice, so one
+            // with questions under it reads differently from one nobody has
+            // answered. Tapping the count opens the post, like the card.
+            if (live) ...[
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                  CommunityLikeButton(post: post),
+                  const SizedBox(width: 12),
+                  const Icon(Icons.mode_comment_outlined,
+                      size: 16, color: AppColors.neutral500),
+                  const SizedBox(width: 6),
+                  Text(
+                    '$comments',
+                    style: const TextStyle(fontSize: 12.5, color: AppColors.neutral600),
+                  ),
+                ],
+              ),
+            ],
           ],
+        ),
+      ),
+    );
+  }
+}
+
+/*
+    The like on a notice: a thumb and how many. Filled when you have liked
+    it. It changes the moment it is tapped and goes back if the server
+    refuses, so a slow connection does not make it feel broken.
+*/
+class CommunityLikeButton extends StatelessWidget {
+  const CommunityLikeButton({super.key, required this.post});
+
+  final Map<String, dynamic> post;
+
+  @override
+  Widget build(BuildContext context) {
+    final board = context.watch<CommunityProvider>();
+    final like = board.likeOf(post);
+
+    return Semantics(
+      button: true,
+      label: like.liked ? 'Unlike' : 'Like',
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: () async {
+          final ok = await board.toggleLike(post);
+          if (!ok && context.mounted) {
+            AppToast.error(context, board.error ?? 'Could not like that.');
+          }
+        },
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 6),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                like.liked ? Icons.thumb_up : Icons.thumb_up_outlined,
+                size: 16,
+                color: like.liked ? AppColors.primary : AppColors.neutral500,
+              ),
+              const SizedBox(width: 6),
+              Text(
+                '${like.count}',
+                style: TextStyle(
+                  fontSize: 12.5,
+                  fontWeight: like.liked ? FontWeight.w600 : FontWeight.w400,
+                  color: like.liked ? AppColors.primary : AppColors.neutral600,
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );

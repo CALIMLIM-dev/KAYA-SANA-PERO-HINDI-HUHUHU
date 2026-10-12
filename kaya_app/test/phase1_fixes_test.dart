@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:provider/provider.dart';
 
 import 'package:kaya_app/features/community/widgets/community_post_card.dart';
+import 'package:kaya_app/providers/community_provider.dart';
 import 'package:kaya_app/features/messaging/widgets/schedule_card.dart';
 import 'package:kaya_app/providers/auth_provider.dart';
 import 'package:kaya_app/providers/schedule_provider.dart';
@@ -16,7 +17,9 @@ import 'support/render_harness.dart';
 void main() {
   testWidgets('a live notice has no countdown, and names its poster', (tester) async {
     RenderHarness.stubPlatformChannels(tester);
-    await tester.pumpWidget(MaterialApp(
+    await tester.pumpWidget(ChangeNotifierProvider(
+      create: (_) => CommunityProvider(),
+      child: MaterialApp(
       home: Scaffold(
         body: CommunityPostCard(
           onTap: () {},
@@ -31,7 +34,7 @@ void main() {
           },
         ),
       ),
-    ));
+    )));
 
     expect(find.text('Ricardo Dela Cruz'), findsOneWidget);
     expect(find.textContaining('days left'), findsNothing);

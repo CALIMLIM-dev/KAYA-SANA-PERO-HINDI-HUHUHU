@@ -58,7 +58,8 @@ class CommunityPostController extends Controller
                 ->where('title', 'like', "%{$search}%")
                 ->orWhere('body', 'like', "%{$search}%")))
             // One query for every thread's size, not one per row.
-            ->withCount(['comments as comments_count' => fn ($q) => $q->live()])
+            ->withCount(['comments as comments_count' => fn ($q) => $q->live(), 'likers as like_count'])
+            ->withExists(['likers as liked_by_me' => fn ($q) => $q->whereKey($request->user()->id)])
             /*
                 Newest first, or oldest, or whatever has been talked about
                 most. Three orderings is all a board of a few hundred
@@ -82,7 +83,8 @@ class CommunityPostController extends Controller
             ->where('user_id', $request->user()->id)
             ->with(['user:id,name,avatar,is_verified', 'user.workerProfile:id,user_id,profile_photo_path',
                     'user.employerProfile:id,user_id,image_path,company_name'])
-            ->withCount(['comments as comments_count' => fn ($q) => $q->live()])
+            ->withCount(['comments as comments_count' => fn ($q) => $q->live(), 'likers as like_count'])
+            ->withExists(['likers as liked_by_me' => fn ($q) => $q->whereKey($request->user()->id)])
             ->latest('id')
             ->take(50)
             ->get()
@@ -209,6 +211,39 @@ class CommunityPostController extends Controller
         }
 
         return $this->ok(null, 'Comment removed');
+    }
+
+    /*
+        A like, and taking it back. Free, and open to any signed-in account
+        the same as reading: a like says nothing to anybody, so it is not
+        gated the way a comment is. Both are safe to repeat - the second tap
+        of a double tap changes nothing. Only a post on the board can be
+        liked; taking a like back always works.
+    */
+    public function like(Request $request, CommunityPost $post)
+    {
+        if (! $post->isLive()) {
+            return $this->fail('This post is not on the board.', 422);
+        }
+
+        $post->likers()->syncWithoutDetaching([$request->user()->id]);
+
+        return $this->ok($this->likes($post, $request->user()));
+    }
+
+    public function unlike(Request $request, CommunityPost $post)
+    {
+        $post->likers()->detach($request->user()->id);
+
+        return $this->ok($this->likes($post, $request->user()));
+    }
+
+    private function likes(CommunityPost $post, $viewer): array
+    {
+        return [
+            'like_count'  => $post->likers()->count(),
+            'liked_by_me' => $post->likers()->whereKey($viewer->id)->exists(),
+        ];
     }
 
     private function presentComment(\App\Models\CommunityComment $comment, $viewer): array
@@ -469,6 +504,9 @@ class CommunityPostController extends Controller
                 ? $post->removed_reason
                 : null,
             'comment_count' => $post->comments_count ?? $post->comments()->live()->count(),
+            'like_count'    => $post->like_count ?? $post->likers()->count(),
+            'liked_by_me'   => (bool) ($post->liked_by_me
+                ?? ($viewer !== null && $post->likers()->whereKey($viewer->id)->exists())),
             'created_at'  => $post->created_at->toIso8601String(),
             'is_mine'     => $viewer !== null && $post->user_id === $viewer->id,
             'poster'      => [

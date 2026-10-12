@@ -22,7 +22,7 @@ Phase 2 shipped in 1.16.19 (12 Oct 2026): items 17, 16 and 15. The shared
 pop-up is `lib/core/widgets/kaya_popup.dart` (`showKayaPopup`, `tall`,
 `arguments`, `dismissible`). Applicants (`showApplicantsPopup`), Matches
 (`showMatchedWorkersPopup`) and Active (`showActivePopup`) open in it; every
-bottom sheet was converted except the search filters, left for item 13.
+bottom sheet was converted except the search filters, which stay a sheet.
 `test/popups_fit_test.dart` opens each converted pop-up at 320px and text
 scale 1.3. The in-app banner draws a message with the sender's photo and name
 (looked up in the inbox list); the shade already pops up (high-importance
@@ -36,8 +36,19 @@ photos replace the old ones and go as a multipart POST with `_method=PUT`
 (`JobProvider.updateJob(..., photos:)`). The button shows only what a longer
 post or a new boost adds.
 
-Next: item 4 (start date) waits for the user to run `/grill-me`; then Phase 4
-(community likes).
+Phase 4, item 2 shipped in 1.16.21 (13 Oct 2026): `community_post_likes`
+(unique pair), `POST`/`DELETE /community/{post}/like`, `like_count` and
+`liked_by_me` on every post payload. Likes are open to any signed-in account
+(not gated like comments) and only live posts can be liked. App:
+`CommunityLikeButton` in the card footer (with the comment count, 0 shown) and
+on the post screen's thread heading; `CommunityProvider.likeOf/toggleLike`
+holds likes by post id, optimistic with rollback.
+
+Search filters STAY a bottom sheet (user, 13 Oct 2026: "the filter still
+become a bottom sheet bcs it suits the UI"). Everything else stays a pop-up.
+
+Next: item 4 (start date) waits for the user to run `/grill-me`; then Phase 5
+(settings and the legal pages).
 
 ---
 
@@ -230,7 +241,7 @@ Every `showModalBottomSheet` in the app (count on 12 Oct: 20 in 19 files):
 | `messaging/widgets/schedule_card.dart` | propose a day | pop-up |
 | `employer/screens/roster_screen.dart` | message everyone | pop-up |
 | `notifications/open_notification.dart` | notification text | pop-up |
-| `jobs/screens/search_screen.dart` | filters | decide with item 13 |
+| `jobs/screens/search_screen.dart` | filters | stays a bottom sheet (user) |
 | `jobs/screens/post_job_screen.dart`, `edit_job_screen.dart` | category picker | pop-up |
 | `jobs/widgets/place_picker_sheet.dart` | place search | full-height pop-up |
 | `employer/screens/setup_employer_profile_screen.dart` | find what | pop-up |
@@ -297,7 +308,7 @@ So removing it outright breaks clash detection. Options in D1.
 
 ## Phase 4: community likes and counts
 
-### 2. Likes and comment counts on the card  `[ ]`
+### 2. Likes and comment counts on the card  `[x]` 1.16.21
 
 Now: no likes anywhere (no table, model or route). The card shows a comment
 count only when it is above zero (`community_post_card.dart:~138-152`).
@@ -422,8 +433,8 @@ field, a filter button opening a bottom sheet (`search_screen.dart:~799`),
 active-filter chips (`~640-670`), a Jobs / Workers segment for hybrids
 (`~375`), result count, lists. Re-scoped to the account's side in 1.16.16.
 
-Plan: redesign with the impeccable skills. Filters in the shared pop-up or as
-an inline filter row (decide in the design pass), the filters that matter per
+Plan: redesign with the impeccable skills. Filters stay in a bottom sheet:
+the user decided it suits this screen (13 Oct 2026). The filters that matter per
 side (jobs: trade, distance/town, pay, urgent, dates; workers: trade, skills,
 distance/town, verified, rating), recent searches, an empty state that says
 what to change. Hybrid keeps the side switch. Populated-overflow tests at

@@ -332,12 +332,20 @@ class _CommunityPostScreenState extends State<CommunityPostScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          comments.isEmpty
-              ? 'No comments yet'
-              : '${comments.length} comment${comments.length == 1 ? '' : 's'}',
-          style: const TextStyle(
-              fontSize: 14, fontWeight: FontWeight.w600, color: AppColors.neutral900),
+        // The like sits on the thread's heading, across from the count.
+        Row(
+          children: [
+            Expanded(
+              child: Text(
+                comments.isEmpty
+                    ? 'No comments yet'
+                    : '${comments.length} comment${comments.length == 1 ? '' : 's'}',
+                style: const TextStyle(
+                    fontSize: 14, fontWeight: FontWeight.w600, color: AppColors.neutral900),
+              ),
+            ),
+            CommunityLikeButton(post: _post),
+          ],
         ),
         const SizedBox(height: 12),
 

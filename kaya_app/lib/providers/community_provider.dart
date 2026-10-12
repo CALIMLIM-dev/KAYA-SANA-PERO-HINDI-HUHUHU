@@ -251,6 +251,56 @@ class CommunityProvider with ChangeNotifier {
     _mine = bump(_mine);
   }
 
+  /*
+      Likes, held by post id beside the posts rather than in them.
+
+      A post is opened from the board, from my posts or from a notification,
+      and only the first two are lists here. Every place that shows a post
+      reads its like from [likeOf], so a like given on the post screen is
+      already on the card when the reader goes back.
+  */
+  final Map<int, ({bool liked, int count})> _likes = {};
+  final Set<int> _liking = {};
+
+  ({bool liked, int count}) likeOf(Map<String, dynamic> post) =>
+      _likes[post['id']] ??
+      (
+        liked: post['liked_by_me'] == true,
+        count: (post['like_count'] as num?)?.toInt() ?? 0,
+      );
+
+  /// Likes or unlikes at once, and puts it back and returns false with
+  /// [error] set if the server says no. A tap while one is on its way is
+  /// ignored.
+  Future<bool> toggleLike(Map<String, dynamic> post) async {
+    final id = post['id'] as int;
+    if (!_liking.add(id)) return true;
+
+    final before = likeOf(post);
+    final liked = !before.liked;
+    _likes[id] = (liked: liked, count: before.count + (liked ? 1 : -1));
+    notifyListeners();
+
+    try {
+      final res = liked
+          ? await _api.post('/community/$id/like')
+          : await _api.delete('/community/$id/like');
+      final data = res.data['data'] as Map<String, dynamic>;
+      _likes[id] = (
+        liked: data['liked_by_me'] == true,
+        count: (data['like_count'] as num?)?.toInt() ?? 0,
+      );
+      return true;
+    } catch (e) {
+      _likes[id] = before;
+      _error = e.toString().replaceFirst('Exception: ', '');
+      return false;
+    } finally {
+      _liking.remove(id);
+      notifyListeners();
+    }
+  }
+
   Future<bool> takeDown(int id) async {
     try {
       await _api.delete('/community/$id');
@@ -292,6 +342,7 @@ class CommunityProvider with ChangeNotifier {
     _mine = const [];
     _comments.clear();
     _commentsLoading.clear();
+    _likes.clear();
     _hasLoaded = false;
     _error = null;
     _type = 'all';

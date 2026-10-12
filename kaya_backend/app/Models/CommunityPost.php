@@ -130,6 +130,7 @@ class CommunityPost extends Model
     }
 
     public function comments() { return $this->hasMany(CommunityComment::class); }
+    public function likers()   { return $this->belongsToMany(User::class, 'community_post_likes')->withTimestamps(); }
     public function reviewer() { return $this->belongsTo(User::class, 'reviewed_by'); }
     public function user()     { return $this->belongsTo(User::class); }
     public function remover()  { return $this->belongsTo(User::class, 'removed_by'); }
