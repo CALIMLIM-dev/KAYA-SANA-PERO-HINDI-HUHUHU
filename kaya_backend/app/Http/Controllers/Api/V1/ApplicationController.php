@@ -484,13 +484,13 @@ class ApplicationController extends Controller
             The job loads what JobMatchService reads, and each profile loads
             what the resume card shows, in one go rather than per row.
         */
-        $job->load(['skills', 'psgcLocation', 'category']);
+        $job->load(['skills', 'psgcLocation.parent', 'category']);
 
         $applications = $job->applications()
             ->with([
                 'worker.workerProfile.skills',
                 'worker.workerProfile.category:id,name',
-                'worker.workerProfile.psgcLocation',
+                'worker.workerProfile.psgcLocation.parent',
                 'worker.workerProfile.licenses:id,user_id,license_name',
                 'worker.workerProfile.certifications:id,user_id,certification_name',
                 'worker.workerProfile.experiences',

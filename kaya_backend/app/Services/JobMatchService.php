@@ -422,11 +422,9 @@ class JobMatchService
 
         // psgcLocation, not location — both models have a `location` string
         // column that shadows a same-named relation.
+        // The place's own centre, or its town's - see Location::centroid.
         if ($model->relationLoaded('psgcLocation') && $model->psgcLocation) {
-            $loc = $model->psgcLocation;
-            if ($loc->latitude !== null && $loc->longitude !== null) {
-                return [(float) $loc->latitude, (float) $loc->longitude];
-            }
+            return $model->psgcLocation->centroid();
         }
 
         return [null, null];

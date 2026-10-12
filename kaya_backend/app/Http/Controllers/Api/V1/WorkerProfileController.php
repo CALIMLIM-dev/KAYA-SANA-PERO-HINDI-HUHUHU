@@ -1268,7 +1268,7 @@ class WorkerProfileController extends Controller
         $query = WorkerProfile::query()
             // psgcLocation (not location — that's a string column on this
             // table) supplies the town centroid for the distance figure.
-            ->with(['user:id,name,avatar,is_verified,city', 'skills', 'category:id,name', 'psgcLocation'])
+            ->with(['user:id,name,avatar,is_verified,city', 'skills', 'category:id,name', 'psgcLocation.parent'])
             ->whereNotNull('category_id')
             ->whereNotNull('location');
 
@@ -1656,8 +1656,10 @@ class WorkerProfileController extends Controller
 
     private function workerDistance(WorkerProfile $p, ?float $lat, ?float $lng): ?float
     {
-        $wLat = $p->latitude !== null ? (float) $p->latitude : $p->psgcLocation?->latitude;
-        $wLng = $p->longitude !== null ? (float) $p->longitude : $p->psgcLocation?->longitude;
+        // The pin, or the town's centre - see Location::centroid.
+        [$townLat, $townLng] = $p->psgcLocation?->centroid() ?? [null, null];
+        $wLat = $p->latitude !== null ? (float) $p->latitude : $townLat;
+        $wLng = $p->longitude !== null ? (float) $p->longitude : $townLng;
 
         $km = \App\Services\JobMatchService::distanceBetween(
             $lat, $lng,

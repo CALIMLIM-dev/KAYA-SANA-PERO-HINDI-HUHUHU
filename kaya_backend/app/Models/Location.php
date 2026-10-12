@@ -65,6 +65,34 @@ class Location extends Model
         return $this->hasMany(self::class, 'parent_id');
     }
 
+    /*
+        Where this place is, or where its town is.
+
+        Many barangays have no coordinates of their own - geocoding them
+        needs a cache the live server could not write - so a job filed
+        under one, with no pin dropped, had no position at all, and the
+        feed left it out for every worker. The town's centre is a fair
+        stand-in for "somewhere in this barangay".
+
+        Reads the parent only when it is already loaded; callers that
+        measure many rows eager-load `psgcLocation.parent`.
+
+        @return array{0: ?float, 1: ?float}
+    */
+    public function centroid(): array
+    {
+        if ($this->latitude !== null && $this->longitude !== null) {
+            return [(float) $this->latitude, (float) $this->longitude];
+        }
+
+        $parent = $this->relationLoaded('parent') ? $this->parent : null;
+        if ($parent && $parent->latitude !== null && $parent->longitude !== null) {
+            return [(float) $parent->latitude, (float) $parent->longitude];
+        }
+
+        return [null, null];
+    }
+
     /**
      * Strips the official PSGC prefix/suffix so the value matches what a user
      * actually types. "City of Urdaneta" and "Batangas City" both reduce to the

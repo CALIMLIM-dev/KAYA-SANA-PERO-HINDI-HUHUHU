@@ -859,10 +859,10 @@ class NotificationService
             return 0;
         }
 
-        $job->loadMissing(['skills', 'psgcLocation', 'category']);
+        $job->loadMissing(['skills', 'psgcLocation.parent', 'category']);
 
         $candidates = \App\Models\WorkerProfile::query()
-            ->with(['skills', 'psgcLocation', 'category', 'user:id,is_verified', 'licenses:id,user_id', 'certifications:id,user_id'])
+            ->with(['skills', 'psgcLocation.parent', 'category', 'user:id,is_verified', 'licenses:id,user_id', 'certifications:id,user_id'])
             ->where('user_id', '!=', $job->employer_id)
             ->get()
             ->filter(fn ($profile) => $profile->isSetupCompleted());
@@ -895,10 +895,10 @@ class NotificationService
             return 0;
         }
 
-        $profile->loadMissing(['skills', 'psgcLocation', 'category', 'user:id,is_verified', 'licenses:id,user_id', 'certifications:id,user_id']);
+        $profile->loadMissing(['skills', 'psgcLocation.parent', 'category', 'user:id,is_verified', 'licenses:id,user_id', 'certifications:id,user_id']);
 
         $jobs = JobPost::query()
-            ->with(['skills', 'psgcLocation', 'category'])
+            ->with(['skills', 'psgcLocation.parent', 'category'])
             ->where('status', JobPost::STATUS_OPEN)
             ->where('employer_id', '!=', $profile->user_id)
             ->get()

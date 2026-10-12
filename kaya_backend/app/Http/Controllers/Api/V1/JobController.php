@@ -29,7 +29,7 @@ class JobController extends Controller
         // `location` is loaded for JobMatchService's proximity scoring — it
         // falls back to the town centroid when a row has no precise pin, and
         // deliberately won't lazy-load (that would be a query per job).
-        $query = JobPost::with(['employer:id,name,avatar,is_verified', 'employer.employerProfile:id,user_id,employer_type,image_path', 'employer.workerProfile:id,user_id,profile_photo_path', 'category', 'skills', 'psgcLocation'])
+        $query = JobPost::with(['employer:id,name,avatar,is_verified', 'employer.employerProfile:id,user_id,employer_type,image_path', 'employer.workerProfile:id,user_id,profile_photo_path', 'category', 'skills', 'psgcLocation.parent'])
             // live(), not status alone: the sweep runs daily and the
             // date is exact, so a post can be a day past due and still
             // marked open. The feed answers to the date.
@@ -163,7 +163,7 @@ class JobController extends Controller
         $profile = $request->user()?->workerProfile;
         // category too: JobMatchService compares trade names when the ids
         // differ, and only reads a loaded relation.
-        $profile?->load(['skills', 'psgcLocation', 'category']);
+        $profile?->load(['skills', 'psgcLocation.parent', 'category']);
 
         /*
             Near you, unless you asked otherwise.
@@ -311,10 +311,18 @@ class JobController extends Controller
         $scored = $query->orderByDesc('is_boosted')->latest()->get()->map($decorate);
 
         if ($radius !== null) {
-            // A job with no computable position is dropped: "within 10 km"
-            // cannot honestly include somewhere unknown.
+            /*
+                A job with no position is kept, not dropped.
+
+                Dropping it hid the job from every worker who has a place,
+                while applying to it was allowed all along - WorkingDistance
+                lets an unknown distance through. So a job could exist and
+                take applications and still never be seen. Now the feed
+                follows the same rule as applying, and the nearest-first sort
+                below puts these after everything that could be measured.
+            */
             $scored = $scored->filter(
-                fn (JobPost $j) => $j->distance_km !== null && $j->distance_km <= (float) $radius
+                fn (JobPost $j) => $j->distance_km === null || $j->distance_km <= (float) $radius
             );
         }
 
@@ -580,7 +588,7 @@ class JobController extends Controller
         // category as well: JobMatchService compares the two category
         // names when the ids differ, and will not fire a query per row
         // to do it.
-        $job->load(['skills', 'psgcLocation', 'category']);
+        $job->load(['skills', 'psgcLocation.parent', 'category']);
 
         /*
             Licences, certificates and work history come down with the
@@ -595,7 +603,7 @@ class JobController extends Controller
                 'user:id,name,avatar,is_verified,city',
                 'skills',
                 'category:id,name',
-                'psgcLocation',
+                'psgcLocation.parent',
                 'licenses:id,user_id,license_name',
                 'certifications:id,user_id,certification_name',
                 'experiences',
@@ -733,7 +741,7 @@ class JobController extends Controller
 
         $town = $profile->psgcLocation;
 
-        return $town?->latitude !== null && $town?->longitude !== null;
+        return $town !== null && $town->centroid()[0] !== null;
     }
 
     public function myJobs(Request $request)
@@ -968,7 +976,7 @@ class JobController extends Controller
             'employer.workerProfile:id,user_id,profile_photo_path',
             'category',
             'skills',
-            'psgcLocation',
+            'psgcLocation.parent',
         ]);
         $job->loadCount('hires as workers_filled');
 
@@ -997,7 +1005,7 @@ class JobController extends Controller
         // they saved it, and how well does it match their profile.
         if ($user->workerProfile) {
             $profile = $user->workerProfile;
-            $profile->load(['skills', 'psgcLocation']);
+            $profile->load(['skills', 'psgcLocation.parent']);
             $match = \App\Services\JobMatchService::score($job, $profile);
             $job->match_score = $match['score'];
             // For "You have 1 of 2 required skills", and the feed's order.
