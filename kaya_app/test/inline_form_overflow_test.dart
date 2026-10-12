@@ -123,7 +123,6 @@ void main() {
       label: 'Email',
       value: 'eddisoncalimlim@gmail.com',
       enabled: false,
-      disabledNote: 'Change it in Settings.',
       onSave: (_) async => null,
     ),
   };

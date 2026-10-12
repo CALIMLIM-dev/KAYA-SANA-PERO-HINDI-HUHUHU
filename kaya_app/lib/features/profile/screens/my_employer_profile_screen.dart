@@ -770,8 +770,6 @@ class _MyEmployerProfileScreenState extends State<MyEmployerProfileScreen>
                 changed in one place.
             */
             enabled: _role == 'Company',
-            disabledNote: 'This is your account name. '
-                'Change it from your worker profile or account settings.',
             onSave: (v) async {
               final p = context.read<EmployerProfileProvider>();
               final ok = await p.updateProfile(companyName: v);

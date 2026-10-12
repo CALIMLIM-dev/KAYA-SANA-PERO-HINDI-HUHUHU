@@ -34,7 +34,6 @@ class InlineEditRow extends StatefulWidget {
     this.validator,
     this.emptyLabel = 'Not set',
     this.enabled = true,
-    this.disabledNote,
   });
 
   final String label;
@@ -55,9 +54,16 @@ class InlineEditRow extends StatefulWidget {
 
   final String emptyLabel;
 
-  /// For fields that are shown but cannot be changed here.
+  /*
+      For fields that are shown but cannot be changed here.
+
+      A locked row does not answer a tap. It used to be able to carry a note
+      that came up as a black bar at the bottom of the screen, and the only
+      row that used one was the employer's name - tapped, it told a person
+      with no worker profile to change their name from their worker profile.
+      The lock where the pencil would be is the whole message.
+  */
   final bool enabled;
-  final String? disabledNote;
 
   @override
   State<InlineEditRow> createState() => _InlineEditRowState();
@@ -90,14 +96,6 @@ class _InlineEditRowState extends State<InlineEditRow> {
   }
 
   void _startEditing() {
-    if (!widget.enabled) {
-      if (widget.disabledNote != null) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(widget.disabledNote!)),
-        );
-      }
-      return;
-    }
     setState(() {
       _editing = true;
       _error = null;
@@ -183,7 +181,7 @@ class _InlineEditRowState extends State<InlineEditRow> {
         borderRadius: BorderRadius.circular(12),
         clipBehavior: Clip.antiAlias,
         child: InkWell(
-          onTap: _editing ? null : _startEditing,
+          onTap: _editing || !widget.enabled ? null : _startEditing,
           child: Container(
             padding: const EdgeInsets.fromLTRB(14, 12, 8, 12),
             decoration: BoxDecoration(
