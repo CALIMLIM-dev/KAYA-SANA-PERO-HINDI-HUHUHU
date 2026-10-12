@@ -8,7 +8,7 @@ import '../../../providers/credits_provider.dart';
 import '../../../core/utils/end_session.dart';
 import '../../../core/widgets/profile_avatar.dart';
 import '../../../core/widgets/verification_badge_widget.dart';
-import '../../legal/screens/legal_screen.dart';
+
 import 'add_second_profile_flow.dart';
 import 'badges_screen.dart';
 
@@ -299,32 +299,9 @@ class ProfileScreen extends StatelessWidget {
                         AppRouter.push(context, '/settings'),
                   ),
 
-                  const SizedBox(height: 24),
-
-                  // ── Support ──
-                  _SectionHeader(title: 'Support'),
-                  const SizedBox(height: 12),
-                  _MenuItem(
-                    icon: Icons.help_outline,
-                    title: 'Help Center',
-                    onTap: () => AppRouter.push(context, '/faq'),
-                  ),
-                  // "About" was a row with an empty onTap — it looked tappable
-                  // and did nothing, which reads as a broken app rather than a
-                  // missing screen. The only thing it carried was the version,
-                  // so that is shown plainly at the bottom instead.
-                  _MenuItem(
-                    icon: Icons.description_outlined,
-                    title: 'Terms & Privacy',
-                    // Opens the reader, not the sign-up consent sheet. The sheet
-                    // gates its button on scrolling both documents to the end,
-                    // which is right when taking consent and absurd when
-                    // somebody wants to check one clause.
-                    onTap: () => Navigator.push(
-                      context,
-                      MaterialPageRoute(builder: (_) => const LegalScreen()),
-                    ),
-                  ),
+                  // Help, the legal pages and the version are in Settings,
+                  // under Help & Support and About & Legal, where people
+                  // look for them.
 
                   const SizedBox(height: 24),
 
@@ -345,14 +322,6 @@ class ProfileScreen extends StatelessWidget {
                     ),
                   ),
 
-                  const SizedBox(height: 20),
-                  Center(
-                    child: Text(
-                      'KAYA version 1.0.0',
-                      style: TextStyle(
-                          fontSize: 12, color: AppColors.neutral400),
-                    ),
-                  ),
 
                   const SizedBox(height: 32),
                 ],

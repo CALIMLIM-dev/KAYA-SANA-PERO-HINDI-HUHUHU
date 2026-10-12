@@ -2,12 +2,18 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../../providers/auth_provider.dart';
+import '../../../providers/employer_profile_provider.dart';
 import '../../../providers/worker_profile_provider.dart';
+import '../../help/screens/faq_screen.dart';
+import '../../legal/screens/legal_screen.dart';
 import '../widgets/change_password_sheet.dart';
 import '../widgets/delete_account_sheet.dart';
 
 import '../../../core/constants/app_colors.dart';
+import '../../../core/constants/app_version.dart';
+import '../../../core/navigation/app_router.dart';
 import '../../../core/widgets/app_toast.dart';
+import '../../../core/widgets/kaya_popup.dart';
 import '../../../data/services/api_client.dart';
 
 /// Settings.
@@ -17,6 +23,10 @@ import '../../../data/services/api_client.dart';
 /// notification switches that were local widget state, a language picker with
 /// no translations behind it, and two rows badged "Soon". All of it looked
 /// functional and none of it was.
+///
+/// One card per group, the way phone settings read. Help and the legal pages
+/// live here because Settings is where people look for them, and the version
+/// is the real one, not a number typed into the profile tab once.
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
 
@@ -93,6 +103,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final auth = context.watch<AuthProvider>();
+    final hasBoth = auth.workerProfileExists && auth.employerProfileExists;
+
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
@@ -102,64 +115,87 @@ class _SettingsScreenState extends State<SettingsScreen> {
         title: const Text('Settings', style: TextStyle(fontWeight: FontWeight.w600)),
       ),
       body: ListView(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
         children: [
-          _sectionHeader('Account'),
-          const SizedBox(height: 10),
-          _menuItem(
-            icon: Icons.lock_reset_outlined,
-            title: 'Change password',
-            subtitle: 'Signs out your other devices',
-            onTap: _openChangePassword,
-          ),
-
-          const SizedBox(height: 24),
-          _sectionHeader('Notifications'),
-          const SizedBox(height: 10),
-          ..._buildNotificationSection(),
-
-          const SizedBox(height: 24),
-          _sectionHeader('Leaving'),
-          const SizedBox(height: 10),
-          /*
-              Only when there is one, and only when it is not the only one.
-
-              An account with a worker profile alone would be left signed in
-              with nothing, which is what Delete account below is for.
-          */
-          if (context.watch<AuthProvider>().workerProfileExists &&
-              context.watch<AuthProvider>().employerProfileExists) ...[
-            _menuItem(
-              icon: Icons.work_off_outlined,
-              title: 'Remove worker profile',
-              subtitle: 'Keeps your account and your employer profile',
-              onTap: () => _removeWorkerProfile(context),
+          _group('Account', [
+            _SettingsRow(
+              icon: Icons.lock_reset_outlined,
+              title: 'Change password',
+              subtitle: 'Signs out your other devices',
+              onTap: () => showChangePasswordSheet(context),
             ),
-            const SizedBox(height: 10),
-          ],
+          ]),
 
-          _menuItem(
-            icon: Icons.person_remove_outlined,
-            title: 'Delete account',
-            subtitle: 'Removes your profile and data. Cannot be undone',
-            onTap: () => showDeleteAccountSheet(context),
-          ),
+          _group('Notifications', _notificationRows()),
 
-          const SizedBox(height: 32),
+          _group('Help & Support', [
+            _SettingsRow(
+              icon: Icons.help_outline,
+              title: 'FAQs',
+              onTap: () => showKayaPopup(context, tall: true, builder: (_) => const FAQScreen()),
+            ),
+            _SettingsRow(
+              icon: Icons.support_agent_outlined,
+              title: 'Message KAYA support',
+              onTap: () => AppRouter.push(context, AppRouter.support),
+            ),
+          ]),
+
+          _group('About & Legal', [
+            _SettingsRow(
+              icon: Icons.description_outlined,
+              title: 'Terms & Conditions',
+              onTap: () => _openLegal(0),
+            ),
+            _SettingsRow(
+              icon: Icons.privacy_tip_outlined,
+              title: 'Privacy Policy',
+              onTap: () => _openLegal(1),
+            ),
+            // Information, not a control: no chevron, nothing to tap.
+            _SettingsRow(
+              icon: Icons.info_outline,
+              title: 'Version',
+              trailing: Text(
+                AppVersion.current,
+                style: const TextStyle(fontSize: 13.5, color: AppColors.neutral500),
+              ),
+            ),
+          ]),
+
+          /*
+              Leaving, in one row.
+
+              An account holding both sides can drop either one and keep the
+              rest, so the row opens the choices. With one side or none there
+              is only one thing to do, and the row goes straight to it.
+          */
+          _group('', [
+            _SettingsRow(
+              icon: Icons.person_remove_outlined,
+              title: hasBoth ? 'Delete account or a profile' : 'Delete account',
+              danger: true,
+              onTap: hasBoth ? _openLeaving : () => showDeleteAccountSheet(context),
+            ),
+          ]),
         ],
       ),
     );
   }
 
-  List<Widget> _buildNotificationSection() {
+  /// Opens the reader in a pop-up rather than a new screen. 0 is Terms,
+  /// 1 is Privacy.
+  void _openLegal(int tab) => showKayaPopup(
+        context,
+        tall: true,
+        builder: (_) => LegalScreen(initialTab: tab),
+      );
+
+  List<Widget> _notificationRows() {
     if (_prefsError != null && _prefs == null) {
       return [
-        Container(
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(12),
-          ),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 8, 8, 8),
           child: Row(
             children: [
               Expanded(
@@ -178,7 +214,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     if (_prefs == null) {
       return [
         const Padding(
-          padding: EdgeInsets.symmetric(vertical: 28),
+          padding: EdgeInsets.symmetric(vertical: 24),
           child: Center(child: CircularProgressIndicator(strokeWidth: 2)),
         ),
       ];
@@ -186,58 +222,102 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
     return _categories.entries.map((entry) {
       final (title, icon) = entry.value;
-      return _switchItem(
+      final value = _prefs![entry.key] ?? true;
+      final onChanged = _savingPrefs ? null : (bool v) => _setPref(entry.key, v);
+
+      return _SettingsRow(
         icon: icon,
         title: title,
-        value: _prefs![entry.key] ?? true,
-        onChanged: _savingPrefs ? null : (v) => _setPref(entry.key, v),
+        onTap: onChanged == null ? null : () => onChanged(!value),
+        trailing: Switch(
+          value: value,
+          onChanged: onChanged,
+          activeThumbColor: AppColors.primary,
+        ),
       );
     }).toList();
   }
 
-  // ─── pieces ──────────────────────────────────────────────────────────────────
+  /// A heading and one white card holding [rows], divided by hairlines.
+  Widget _group(String title, List<Widget> rows) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (title.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(4, 0, 4, 8),
+              child: Text(
+                title,
+                style: const TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w700,
+                  color: AppColors.neutral500,
+                  letterSpacing: 0.5,
+                ),
+              ),
+            ),
+          // The white surface is a Material so the tap ripple shows on it
+          // rather than behind it, clipped to the rounded corners.
+          Material(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(12),
+            clipBehavior: Clip.antiAlias,
+            child: Column(
+              children: [
+                for (var i = 0; i < rows.length; i++) ...[
+                  if (i > 0) const Divider(height: 1, indent: 52, color: AppColors.neutral100),
+                  rows[i],
+                ],
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 
-  Widget _sectionHeader(String title) => Text(
-        title,
-        style: const TextStyle(
-          fontSize: 12,
-          fontWeight: FontWeight.w700,
-          color: AppColors.neutral500,
-          letterSpacing: 0.5,
-        ),
-      );
+  // ─── leaving ─────────────────────────────────────────────────────────────────
 
-    /*
-        Material, not a decorated box.
+  Future<void> _openLeaving() async {
+    final choice = await showKayaPopup<String>(
+      context,
+      builder: (popupContext) => const _LeavingChoices(),
+    );
+    if (!mounted || choice == null) return;
 
-        A ListTile paints its tap ripple onto the nearest Material above it, so
-        a plain Container with a white background sits in between and hides the
-        splash completely: the row still works, it just gives no sign that it
-        was pressed. Flutter says so out loud in a debug assertion, which is how
-        this was found — every settings row in the app was a dead-feeling tap.
+    switch (choice) {
+      case 'worker':
+        await _removeProfile(worker: true);
+      case 'employer':
+        await _removeProfile(worker: false);
+      case 'account':
+        await showDeleteAccountSheet(context);
+    }
+  }
 
-        Making the white surface itself a Material puts the ink back on the
-        thing the finger is touching, and clipping it to the same radius keeps
-        the splash inside the rounded corners instead of squaring them off.
-    */
   /*
-      Removes the worker side and leaves the account alone.
+      Removes one side and leaves the account and the other side alone.
 
-      Confirmed first and named plainly: the skills, experience, credentials
-      and reviews on that profile go with it, and a worker profile is also
-      what prevents the account becoming a registered business - so somebody
-      doing this to take that path should be told what they are giving up
-      rather than discovering it afterwards.
+      Confirmed first and named plainly. What goes is what the profile holds;
+      reviews belong to the account, so they stay. The server refuses to drop
+      an employer profile while job posts are open, and says so.
   */
-  Future<void> _removeWorkerProfile(BuildContext context) async {
+  Future<void> _removeProfile({required bool worker}) async {
     final yes = await showDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        title: const Text('Remove your worker profile?'),
-        content: const Text(
-          'Your skills, experience, credentials and reviews as a worker are '
-          'removed. Your account and your employer profile stay. You can set '
-          'a worker profile up again later.',
+        title: Text(worker ? 'Remove your worker profile?' : 'Remove your employer profile?'),
+        content: Text(
+          worker
+              ? 'Your skills, experience, certifications and licences are '
+                  'removed. Your account, your employer profile and your '
+                  'reviews stay. You can set a worker profile up again later.'
+              : 'Your employer details are removed. Your account, your worker '
+                  'profile, your past job posts and your reviews stay. Close '
+                  'any open job posts first. You can set an employer profile '
+                  'up again later.',
         ),
         actions: [
           TextButton(
@@ -246,24 +326,27 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ),
           TextButton(
             onPressed: () => Navigator.pop(dialogContext, true),
-            child: const Text(
-              'Remove',
-              style: TextStyle(color: AppColors.error),
-            ),
+            child: const Text('Remove', style: TextStyle(color: AppColors.error)),
           ),
         ],
       ),
     );
 
-    if (yes != true || !context.mounted) return;
+    if (yes != true || !mounted) return;
 
-    final worker = context.read<WorkerProfileProvider>();
-    final ok = await worker.deleteProfile();
+    final String? error;
+    if (worker) {
+      final provider = context.read<WorkerProfileProvider>();
+      error = await provider.deleteProfile() ? null : (provider.errorMessage ?? 'Could not remove it.');
+    } else {
+      final provider = context.read<EmployerProfileProvider>();
+      error = await provider.deleteProfile() ? null : (provider.errorMessage ?? 'Could not remove it.');
+    }
 
-    if (!context.mounted) return;
+    if (!mounted) return;
 
-    if (!ok) {
-      AppToast.error(context, worker.errorMessage ?? 'Could not remove it.');
+    if (error != null) {
+      AppToast.error(context, error);
       return;
     }
 
@@ -271,74 +354,116 @@ class _SettingsScreenState extends State<SettingsScreen> {
     // anything renders against the old ones.
     await context.read<AuthProvider>().fetchMe();
 
-    if (!context.mounted) return;
+    if (!mounted) return;
 
-    AppToast.success(context, 'Your worker profile has been removed.');
-  }
-  Widget _menuItem({
-    required IconData icon,
-    required String title,
-    required String subtitle,
-    required VoidCallback onTap,
-  }) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
-      child: Material(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        clipBehavior: Clip.antiAlias,
-        child: ListTile(
-          leading: _iconBox(icon),
-          title: Text(title,
-              style: const TextStyle(
-                  fontSize: 14, fontWeight: FontWeight.w600, color: AppColors.neutral900)),
-          subtitle: Text(subtitle,
-              style: const TextStyle(fontSize: 12, color: AppColors.neutral500)),
-          trailing: const Icon(Icons.chevron_right, color: AppColors.neutral400),
-          onTap: onTap,
-        ),
-      ),
+    AppToast.success(
+      context,
+      worker ? 'Your worker profile has been removed.' : 'Your employer profile has been removed.',
     );
   }
+}
 
-  Widget _switchItem({
-    required IconData icon,
-    required String title,
-    required bool value,
-    required ValueChanged<bool>? onChanged,
-  }) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
-      child: Material(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        clipBehavior: Clip.antiAlias,
-        child: ListTile(
-          leading: _iconBox(icon),
-          title: Text(title,
-              style: const TextStyle(
-                  fontSize: 14, fontWeight: FontWeight.w600, color: AppColors.neutral900)),
-          trailing: Switch(
-            value: value,
-            onChanged: onChanged,
-            activeThumbColor: AppColors.primary,
+/// One row in a settings card. With no [onTap] it is information only and
+/// draws no chevron.
+class _SettingsRow extends StatelessWidget {
+  const _SettingsRow({
+    required this.icon,
+    required this.title,
+    this.subtitle,
+    this.onTap,
+    this.trailing,
+    this.danger = false,
+  });
+
+  final IconData icon;
+  final String title;
+  final String? subtitle;
+  final VoidCallback? onTap;
+  final Widget? trailing;
+  final bool danger;
+
+  @override
+  Widget build(BuildContext context) {
+    final tint = danger ? AppColors.error : AppColors.primary;
+
+    return ListTile(
+      minLeadingWidth: 20,
+      leading: Icon(icon, size: 20, color: tint),
+      title: Text(
+        title,
+        style: TextStyle(
+          fontSize: 14,
+          fontWeight: FontWeight.w500,
+          color: danger ? AppColors.error : AppColors.neutral900,
+        ),
+      ),
+      subtitle: subtitle == null
+          ? null
+          : Text(subtitle!, style: const TextStyle(fontSize: 12, color: AppColors.neutral500)),
+      trailing: trailing ??
+          (onTap == null ? null : const Icon(Icons.chevron_right, size: 20, color: AppColors.neutral400)),
+      onTap: onTap,
+    );
+  }
+}
+
+/// What an account holding both sides can leave: either side, or everything.
+class _LeavingChoices extends StatelessWidget {
+  const _LeavingChoices();
+
+  @override
+  Widget build(BuildContext context) {
+    Widget choice(String value, IconData icon, String title, String subtitle) => ListTile(
+          leading: Icon(icon, size: 22, color: value == 'account' ? AppColors.error : AppColors.primary),
+          title: Text(
+            title,
+            style: TextStyle(
+              fontSize: 14.5,
+              fontWeight: FontWeight.w600,
+              color: value == 'account' ? AppColors.error : AppColors.neutral900,
+            ),
           ),
-        ),
+          subtitle: Text(subtitle, style: const TextStyle(fontSize: 12.5, color: AppColors.neutral500)),
+          onTap: () => Navigator.pop(context, value),
+        );
+
+    return SingleChildScrollView(
+      padding: const EdgeInsets.fromLTRB(8, 20, 8, 8),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Padding(
+            padding: EdgeInsets.symmetric(horizontal: 16),
+            child: Text(
+              'Delete account or a profile',
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: AppColors.neutral900),
+            ),
+          ),
+          const SizedBox(height: 6),
+          const Padding(
+            padding: EdgeInsets.symmetric(horizontal: 16),
+            child: Text(
+              'Drop one side and keep the rest, or delete everything.',
+              style: TextStyle(fontSize: 13.5, color: AppColors.neutral600),
+            ),
+          ),
+          const SizedBox(height: 8),
+          choice('worker', Icons.engineering_outlined, 'Remove worker profile',
+              'Your account and employer profile stay'),
+          choice('employer', Icons.storefront_outlined, 'Remove employer profile',
+              'Your account and worker profile stay'),
+          choice('account', Icons.delete_forever_outlined, 'Delete account',
+              'Everything, for good'),
+          Align(
+            alignment: Alignment.centerRight,
+            child: TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Cancel'),
+            ),
+          ),
+        ],
       ),
     );
   }
-
-  Widget _iconBox(IconData icon) => Container(
-        width: 40,
-        height: 40,
-        decoration: BoxDecoration(
-          color: AppColors.primary.withValues(alpha: 0.08),
-          borderRadius: BorderRadius.circular(10),
-        ),
-        child: Icon(icon, color: AppColors.primary, size: 20),
-      );
-
-  // ─── change password ─────────────────────────────────────────────────────────
-
-  void _openChangePassword() => showChangePasswordSheet(context);
 }

@@ -330,7 +330,18 @@ Plan:
 
 ## Phase 5: settings and the legal pages
 
-### 10. Settings revamp and delete options  `[ ]`
+### 10. Settings revamp and delete options  `[x]` (committed, ships with the revamp release)
+
+Done: grouped cards (Account, Notifications, Help & Support, About & Legal,
+then the leaving row). FAQs and Terms/Privacy open as tall pop-ups and were
+removed from the Profile tab, along with its hard-coded "KAYA version 1.0.0";
+the Version row reads `AppVersion.current`. Leaving: "Delete account" for an
+account with one side, "Delete account or a profile" (pop-up: remove worker,
+remove employer, delete account) for one with both. The old worker-remove
+dialog said reviews were removed; they are keyed to the account and stay, and
+the wording now says so. No Sign out row (it stays on the Profile tab) and no
+check-for-update row (the app checks on every resume). Customization: still to
+ask the user.
 
 Now: `lib/features/profile/screens/settings_screen.dart` (344 lines): Account
 (Change password), Notifications (preferences), Leaving (Remove worker profile,
@@ -482,7 +493,7 @@ what to change. Hybrid keeps the side switch. Populated-overflow tests at
   (existing), Verifier, Support agent, Content moderator, Finance, Analyst
   (existing).
 - **D4 likes.** Notify the poster on a like? Recommended: no.
-  Answer: _pending_
+  Answer: not asked; shipped in 1.16.21 with no notification (the default).
 - **D5 more settings.** Which extra options?
   Answer (12 Oct, round 1), the user's own layout:
   - Settings > Help & Support: FAQs (and the support chat), "users look for
