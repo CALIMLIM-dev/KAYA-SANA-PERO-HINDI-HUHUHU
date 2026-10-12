@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../core/widgets/kaya_popup.dart';
 import 'package:provider/provider.dart';
 
 import '../../core/constants/app_colors.dart';
@@ -216,10 +217,8 @@ Future<void> showNotificationText(
   required String title,
   String? body,
 }) {
-  return showModalBottomSheet<void>(
-    context: context,
-    isScrollControlled: true,
-    backgroundColor: Colors.transparent,
+  return showKayaPopup<void>(
+    context,
     builder: (sheetContext) => Container(
       constraints: BoxConstraints(
         maxHeight: MediaQuery.sizeOf(sheetContext).height * 0.8,
@@ -236,16 +235,6 @@ Future<void> showNotificationText(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Center(
-                child: Container(
-                  width: 40,
-                  height: 4,
-                  decoration: BoxDecoration(
-                    color: AppColors.neutral300,
-                    borderRadius: BorderRadius.circular(2),
-                  ),
-                ),
-              ),
               const SizedBox(height: 16),
               Text(
                 title.isEmpty ? 'KAYA' : title,

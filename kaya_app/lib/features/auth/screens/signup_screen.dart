@@ -1,6 +1,7 @@
 import 'package:flutter/gestures.dart';
 import '../../../core/utils/password_check.dart';
 import 'package:flutter/material.dart';
+import '../../../core/widgets/kaya_popup.dart';
 import 'package:provider/provider.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../providers/auth_provider.dart';
@@ -39,10 +40,8 @@ class _SignupScreenState extends State<SignupScreen> {
   /// The consent sheet. Accepting ticks the box; declining leaves it as it
   /// was. [tab] is only which document shows first.
   Future<void> _openTerms(int tab) async {
-    final accepted = await showModalBottomSheet<bool>(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
+    final accepted = await showKayaPopup<bool>(
+      context,
       builder: (_) => TermsModal(initialTab: tab),
     );
     if (accepted == true && mounted) {

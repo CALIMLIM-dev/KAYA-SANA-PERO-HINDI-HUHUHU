@@ -125,16 +125,6 @@ class _TermsModalState extends State<TermsModal>
       ),
       child: Column(
         children: [
-          // Handle bar
-          Container(
-            margin: const EdgeInsets.only(top: 12, bottom: 8),
-            width: 40,
-            height: 4,
-            decoration: BoxDecoration(
-              color: AppColors.neutral300,
-              borderRadius: BorderRadius.circular(2),
-            ),
-          ),
           
           // Title
           Padding(

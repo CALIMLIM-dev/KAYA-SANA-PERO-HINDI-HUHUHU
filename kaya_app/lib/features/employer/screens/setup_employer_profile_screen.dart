@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
+import '../../../core/widgets/kaya_popup.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:image_picker/image_picker.dart';
@@ -962,8 +963,8 @@ class _SetupEmployerProfileScreenState extends State<SetupEmployerProfileScreen>
                         same as the worker photo, to stay under the upload
                         limit.
                     */
-                    final fromCamera = await showModalBottomSheet<bool>(
-                      context: context,
+                    final fromCamera = await showKayaPopup<bool>(
+                      context,
                       builder: (sheet) => SafeArea(
                         child: Column(
                           mainAxisSize: MainAxisSize.min,

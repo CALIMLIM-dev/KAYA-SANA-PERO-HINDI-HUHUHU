@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../core/widgets/kaya_popup.dart';
 
 import '../../../core/constants/app_colors.dart';
 import '../../../data/models/location_model.dart';
@@ -20,13 +21,8 @@ Future<LocationModel?> showPlacePickerSheet(
   BuildContext context, {
   String? current,
 }) {
-  return showModalBottomSheet<LocationModel>(
-    context: context,
-    isScrollControlled: true,
-    backgroundColor: Colors.white,
-    shape: const RoundedRectangleBorder(
-      borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
-    ),
+  return showKayaPopup<LocationModel>(
+    context,
     builder: (_) => _PlacePickerSheet(current: current),
   );
 }

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../core/widgets/kaya_popup.dart';
 
 import '../../../core/constants/app_colors.dart';
 import '../../../core/utils/realtime_refresh.dart';
@@ -117,13 +118,8 @@ class _RosterScreenState extends State<RosterScreen> with RealtimeRefresh {
 
   Future<void> _broadcast() async {
     final controller = TextEditingController();
-    final text = await showModalBottomSheet<String>(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.white,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
+    final text = await showKayaPopup<String>(
+      context,
       builder: (sheetContext) => Padding(
         padding: EdgeInsets.fromLTRB(20, 20, 20, 20 + MediaQuery.of(sheetContext).viewInsets.bottom),
         child: Column(

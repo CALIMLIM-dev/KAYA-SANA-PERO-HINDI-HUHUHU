@@ -1,5 +1,6 @@
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
+import '../../../core/widgets/kaya_popup.dart';
 import 'package:provider/provider.dart';
 
 import '../../../core/constants/app_colors.dart';
@@ -279,10 +280,8 @@ class _CredentialsSectionState extends State<CredentialsSection> {
       than as a new screen. Same treatment the credential pages already got.
   */
   Future<void> _showEditor({int? id, required String heading}) async {
-    await showModalBottomSheet<void>(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
+    await showKayaPopup<void>(
+      context,
       builder: (sheetContext) {
         var busy = false;
         String? error;
@@ -313,16 +312,6 @@ class _CredentialsSectionState extends State<CredentialsSection> {
                     mainAxisSize: MainAxisSize.min,
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Center(
-                        child: Container(
-                          width: 40,
-                          height: 4,
-                          decoration: BoxDecoration(
-                            color: AppColors.neutral300,
-                            borderRadius: BorderRadius.circular(2),
-                          ),
-                        ),
-                      ),
                       const SizedBox(height: 16),
                       Text(heading,
                           style: const TextStyle(

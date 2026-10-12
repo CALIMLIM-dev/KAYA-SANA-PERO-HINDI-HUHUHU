@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../core/widgets/kaya_popup.dart';
 import '../../../core/utils/password_check.dart';
 import 'package:provider/provider.dart';
 import '../../../core/constants/app_colors.dart';
@@ -47,12 +48,9 @@ class _GooglePasswordScreenState extends State<GooglePasswordScreen> {
   /// screen proceed; declining returns to sign-up, since consent is not
   /// optional for a new account.
   Future<void> _promptTerms() async {
-    final accepted = await showModalBottomSheet<bool>(
-      context: context,
-      isScrollControlled: true,
-      isDismissible: false,
-      enableDrag: false,
-      backgroundColor: Colors.transparent,
+    final accepted = await showKayaPopup<bool>(
+      context,
+      dismissible: false,
       builder: (_) => const TermsModal(),
     );
 

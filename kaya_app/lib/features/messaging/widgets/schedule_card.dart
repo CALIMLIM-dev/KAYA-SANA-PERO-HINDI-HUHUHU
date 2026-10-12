@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../core/widgets/kaya_popup.dart';
 import 'package:provider/provider.dart';
 
 import '../../../core/constants/app_colors.dart';
@@ -411,13 +412,8 @@ class ScheduleComposer {
 
     final noteController = TextEditingController();
 
-    final confirmed = await showModalBottomSheet<bool>(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.white,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
-      ),
+    final confirmed = await showKayaPopup<bool>(
+      context,
       builder: (sheetContext) => Padding(
         padding: EdgeInsets.only(
           left: 20,

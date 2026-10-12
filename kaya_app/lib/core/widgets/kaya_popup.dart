@@ -19,9 +19,12 @@ Future<T?> showKayaPopup<T>(
   required WidgetBuilder builder,
   bool tall = false,
   Object? arguments,
+  // False for a choice that must be answered, like accepting the terms.
+  bool dismissible = true,
 }) {
   return showDialog<T>(
     context: context,
+    barrierDismissible: dismissible,
     routeSettings: RouteSettings(arguments: arguments),
     builder: (dialogContext) {
       final child = builder(dialogContext);

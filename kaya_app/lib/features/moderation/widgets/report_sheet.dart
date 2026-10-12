@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
+import '../../../core/widgets/kaya_popup.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../../../core/constants/app_colors.dart';
@@ -40,10 +41,8 @@ class ReportSheet extends StatefulWidget {
     String? subjectType,
     int? subjectId,
   }) {
-    return showModalBottomSheet<void>(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
+    return showKayaPopup<void>(
+      context,
       builder: (_) => ReportSheet(
         reportedId: reportedId,
         reportedName: reportedName,
@@ -182,15 +181,6 @@ class _ReportSheetState extends State<ReportSheet> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Container(
-              margin: const EdgeInsets.only(top: 12, bottom: 4),
-              width: 40,
-              height: 4,
-              decoration: BoxDecoration(
-                color: AppColors.neutral300,
-                borderRadius: BorderRadius.circular(2),
-              ),
-            ),
             Padding(
               padding: const EdgeInsets.fromLTRB(20, 12, 20, 4),
               child: Column(

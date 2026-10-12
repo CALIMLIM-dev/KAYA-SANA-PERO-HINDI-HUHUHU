@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../core/widgets/kaya_popup.dart';
 import 'package:provider/provider.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../data/models/location_model.dart';
@@ -759,11 +760,8 @@ class _EditJobScreenState extends State<EditJobScreen> {
   }
 
   void _showCategoryPicker() {
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.white,
-      shape: const RoundedRectangleBorder(
-          borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+    showKayaPopup(
+      context,
       builder: (_) => Container(
         padding: const EdgeInsets.all(20),
         child: Column(

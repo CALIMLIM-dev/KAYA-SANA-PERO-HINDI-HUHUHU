@@ -14,6 +14,7 @@ import '../../../providers/job_provider.dart';
 import '../widgets/completion_action.dart';
 import '../../../core/navigation/app_router.dart';
 import '../../employer/widgets/manage_job_sheet.dart';
+import '../../../core/widgets/kaya_popup.dart';
 import '../../employer/screens/matched_workers_screen.dart';
 import 'view_applicants_screen.dart';
 
@@ -168,33 +169,15 @@ class _ApplicationsScreenState extends State<ApplicationsScreen>
     required List<T> Function(BuildContext) itemsBuilder,
     required Widget Function(T) cardBuilder,
   }) {
-    showModalBottomSheet<void>(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (_) => DraggableScrollableSheet(
-        initialChildSize: 0.7,
-        minChildSize: 0.4,
-        maxChildSize: 0.95,
-        expand: false,
-        builder: (_, controller) => Container(
-          decoration: const BoxDecoration(
+    showKayaPopup<void>(
+      context,
+      tall: true,
+      builder: (_) => ColoredBox(
             color: AppColors.background,
-            borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-          ),
           child: Column(
             children: [
-              const SizedBox(height: 10),
-              Container(
-                width: 40,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: AppColors.neutral300,
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
               Padding(
-                padding: const EdgeInsets.fromLTRB(20, 12, 8, 8),
+                padding: const EdgeInsets.fromLTRB(20, 16, 8, 8),
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -242,7 +225,6 @@ class _ApplicationsScreenState extends State<ApplicationsScreen>
                     return items.isEmpty
                         ? _EmptyState(title: emptyTitle, body: emptyBody)
                         : ListView(
-                            controller: controller,
                             padding: const EdgeInsets.fromLTRB(16, 4, 16, 24),
                             children: [for (final i in items) cardBuilder(i)],
                           );
@@ -251,7 +233,6 @@ class _ApplicationsScreenState extends State<ApplicationsScreen>
               ),
             ],
           ),
-        ),
       ),
     );
   }

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../core/widgets/kaya_popup.dart';
 
 import '../../../core/constants/app_colors.dart';
 import '../../../core/utils/end_session.dart';
@@ -14,13 +15,8 @@ import '../../../data/services/api_client.dart';
     way and says so; that message is shown as it comes.
 */
 Future<void> showDeleteAccountSheet(BuildContext context) {
-  return showModalBottomSheet(
-    context: context,
-    isScrollControlled: true,
-    backgroundColor: Colors.white,
-    shape: const RoundedRectangleBorder(
-      borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-    ),
+  return showKayaPopup(
+    context,
     builder: (_) => const DeleteAccountSheet(),
   );
 }
@@ -75,7 +71,9 @@ class _DeleteAccountSheetState extends State<DeleteAccountSheet> {
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
+    // Scrolls: in a pop-up on a small phone at a large text size the whole
+    // of it does not fit.
+    return SingleChildScrollView(
       padding: EdgeInsets.fromLTRB(
           20, 20, 20, MediaQuery.of(context).viewInsets.bottom + 20),
       child: Column(

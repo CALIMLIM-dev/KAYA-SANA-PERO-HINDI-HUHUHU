@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../core/widgets/kaya_popup.dart';
 import 'package:provider/provider.dart';
 
 import '../../../core/constants/app_colors.dart';
@@ -19,11 +20,8 @@ void showManageJobSheet(BuildContext context, Map<String, dynamic> job) {
   final title = (job['title'] ?? '').toString();
   final category = job['category'] as Map<String, dynamic>?;
 
-  showModalBottomSheet(
-    context: context,
-    backgroundColor: Colors.white,
-    shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+  showKayaPopup(
+    context,
     builder: (sheetContext) => Padding(
       padding: const EdgeInsets.all(20),
       child: Column(

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../core/widgets/kaya_popup.dart';
 import 'package:provider/provider.dart';
 
 import '../../../core/constants/app_colors.dart';
@@ -297,10 +298,8 @@ class _ExperienceSectionState extends State<ExperienceSection> {
       happened to finish.
   */
   Future<void> _showEditor({String? id, required String heading}) async {
-    await showModalBottomSheet<void>(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
+    await showKayaPopup<void>(
+      context,
       builder: (sheetContext) {
         var busy = false;
         String? error;
@@ -322,16 +321,6 @@ class _ExperienceSectionState extends State<ExperienceSection> {
                     mainAxisSize: MainAxisSize.min,
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Center(
-                        child: Container(
-                          width: 40,
-                          height: 4,
-                          decoration: BoxDecoration(
-                            color: AppColors.neutral300,
-                            borderRadius: BorderRadius.circular(2),
-                          ),
-                        ),
-                      ),
                       const SizedBox(height: 16),
                       Text(heading,
                           style: const TextStyle(

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../core/widgets/kaya_popup.dart';
 import '../../../core/utils/password_check.dart';
 
 import '../../../core/constants/app_colors.dart';
@@ -19,13 +20,8 @@ import '../../../data/services/api_client.dart';
     was touched.
 */
 Future<void> showChangePasswordSheet(BuildContext context) {
-  return showModalBottomSheet(
-    context: context,
-    isScrollControlled: true,
-    backgroundColor: Colors.white,
-    shape: const RoundedRectangleBorder(
-      borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-    ),
+  return showKayaPopup(
+    context,
     builder: (_) => const ChangePasswordSheet(),
   );
 }
