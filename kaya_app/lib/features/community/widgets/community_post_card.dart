@@ -1,15 +1,36 @@
 import 'package:flutter/material.dart';
 
 import '../../../core/constants/app_colors.dart';
+import '../../../core/navigation/app_router.dart';
 import '../../../core/widgets/verification_badge_widget.dart';
 import '../../../core/widgets/profile_avatar.dart';
 
 /*
-    One notice on the board: who, what, where, and how long it has left.
+    The person behind a notice, opened from their name or picture.
 
-    The whole card opens the post. Nothing else on it is tappable, so a
-    thumb landing anywhere does the one thing a person tapping a notice
-    wants, which is to read it.
+    Nothing on a notice led to who posted it, so a worker reading "Hiring"
+    could not see who was hiring, and an employer reading "Available" could
+    not see the worker's skills or reviews before answering. A worker's
+    notice opens their worker profile; an employer's or a business's opens
+    the employer profile.
+*/
+void openCommunityPoster(BuildContext context, Map<String, dynamic> post) {
+  final poster = (post['poster'] as Map?)?.cast<String, dynamic>() ?? const {};
+  final id = (poster['id'] as num?)?.toInt();
+  if (id == null) return;
+
+  if (post['type'] == 'worker') {
+    AppRouter.push(context, AppRouter.workerProfile, arguments: {'workerId': id});
+  } else {
+    AppRouter.push(context, AppRouter.employerProfile, arguments: {'employerId': id});
+  }
+}
+
+/*
+    One notice on the board: who, what and where.
+
+    The card opens the post, except the poster's picture and name, which
+    open the poster.
 */
 class CommunityPostCard extends StatelessWidget {
   const CommunityPostCard({super.key, required this.post, required this.onTap});
@@ -27,8 +48,23 @@ class CommunityPostCard extends StatelessWidget {
         .toList();
 
     final photo = photos.isEmpty ? null : photos.first;
-    final daysLeft = (post['days_left'] as num?)?.toInt();
     final status = (post['status'] ?? 'live').toString();
+
+    /*
+        No countdown on a live post.
+
+        "7 days left" sat on every notice. It is the poster's business how
+        long they paid for, not the reader's, and a pill on every card is
+        noise. What stays is what the author of the post must know about
+        their own: waiting for review, not approved, removed or ended.
+    */
+    final String? pill = switch (status) {
+      'live' => null,
+      'pending' => 'Waiting for review',
+      'rejected' => 'Not approved',
+      'removed' => 'Removed',
+      _ => 'Ended',
+    };
     final comments = (post['comment_count'] as num?)?.toInt() ?? 0;
 
     return GestureDetector(
@@ -52,6 +88,12 @@ class CommunityPostCard extends StatelessWidget {
           children: [
             Row(
               children: [
+                Expanded(
+                  child: GestureDetector(
+                    behavior: HitTestBehavior.opaque,
+                    onTap: () => openCommunityPoster(context, post),
+                    child: Row(
+                      children: [
                 ProfileAvatar(
                   imageUrl: poster['avatar'] as String?,
                   name: poster['name'] as String?,
@@ -92,30 +134,21 @@ class CommunityPostCard extends StatelessWidget {
                     ],
                   ),
                 ),
-                const SizedBox(width: 8),
-                _Pill(
-                  // A post waits to be read before it reaches the board, so
-                  // its own author needs to be told that rather than shown a
-                  // blank where a countdown goes.
-                  text: status == 'pending'
-                      ? 'Waiting for review'
-                      : status == 'rejected'
-                          ? 'Not approved'
-                          : status != 'live'
-                              ? (status == 'removed' ? 'Removed' : 'Ended')
-                              : daysLeft == null
-                                  ? ''
-                                  : daysLeft <= 0
-                                      ? 'Last day'
-                                      : '$daysLeft day${daysLeft == 1 ? '' : 's'} left',
-                  tint: status == 'pending'
-                      ? AppColors.warning
-                      : status == 'rejected'
-                          ? AppColors.error
-                          : status != 'live'
-                              ? AppColors.neutral500
-                              : (isBusiness ? AppColors.primary : AppColors.success),
+                      ],
+                    ),
+                  ),
                 ),
+                if (pill != null) ...[
+                  const SizedBox(width: 8),
+                  _Pill(
+                    text: pill,
+                    tint: status == 'pending'
+                        ? AppColors.warning
+                        : status == 'rejected'
+                            ? AppColors.error
+                            : AppColors.neutral500,
+                  ),
+                ],
               ],
             ),
             const SizedBox(height: 10),

@@ -7,6 +7,7 @@ import '../../../core/widgets/app_toast.dart';
 import '../../../core/widgets/profile_avatar.dart';
 import '../../../providers/community_provider.dart';
 import '../../moderation/widgets/report_sheet.dart';
+import '../widgets/community_post_card.dart';
 
 /*
     One notice, in full, and the thread under it.
@@ -162,7 +163,6 @@ class _CommunityPostScreenState extends State<CommunityPostScreen> {
     final refused = status == 'rejected';
     final reviewNote = (_post['review_note'] ?? '').toString();
     final photo = _post['photo_url'] as String?;
-    final daysLeft = (_post['days_left'] as num?)?.toInt();
     final where = (_post['location'] ?? '').toString();
     final category = (_post['category'] ?? '').toString();
 
@@ -222,7 +222,11 @@ class _CommunityPostScreenState extends State<CommunityPostScreen> {
       body: ListView(
         padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
         children: [
-          Row(
+          // Who posted it, opened from here. See openCommunityPoster.
+          InkWell(
+            onTap: () => openCommunityPoster(context, _post),
+            borderRadius: BorderRadius.circular(12),
+            child: Row(
             children: [
               ProfileAvatar(
                 imageUrl: _poster['avatar'] as String?,
@@ -259,7 +263,9 @@ class _CommunityPostScreenState extends State<CommunityPostScreen> {
                   ],
                 ),
               ),
+              const Icon(Icons.chevron_right, size: 20, color: AppColors.neutral400),
             ],
+          ),
           ),
           const SizedBox(height: 16),
           Text(
@@ -282,26 +288,24 @@ class _CommunityPostScreenState extends State<CommunityPostScreen> {
               ),
             ),
           ],
-          const SizedBox(height: 14),
-          Text(
-            waiting
-                ? 'Waiting for KAYA to read it. It goes on the board once it '
-                    'is approved, and your days start then.'
-                : refused
-                    ? 'This post was not approved.${reviewNote.isEmpty ? '' : ' $reviewNote'}'
-                        ' Your Barya was returned.'
-                    : !live
-                        ? 'This post has ended.'
-                        : daysLeft == null
-                            ? ''
-                            : daysLeft <= 0
-                                ? 'Last day on the board.'
-                                : '$daysLeft day${daysLeft == 1 ? '' : 's'} left on the board.',
-            style: TextStyle(
-              fontSize: 12.5,
-              color: refused ? AppColors.error : AppColors.neutral500,
+          // Only a state somebody has to know about. A live post says
+          // nothing here: no countdown, the same as its card.
+          if (!live) ...[
+            const SizedBox(height: 14),
+            Text(
+              waiting
+                  ? 'Waiting for KAYA to read it. It goes on the board once it '
+                      'is approved, and your days start then.'
+                  : refused
+                      ? 'This post was not approved.${reviewNote.isEmpty ? '' : ' $reviewNote'}'
+                          ' Your Barya was returned.'
+                      : 'This post has ended.',
+              style: TextStyle(
+                fontSize: 12.5,
+                color: refused ? AppColors.error : AppColors.neutral500,
+              ),
             ),
-          ),
+          ],
           // ── The thread ────────────────────────────────────────────────
           if (live) ...[
             const SizedBox(height: 24),
@@ -334,11 +338,6 @@ class _CommunityPostScreenState extends State<CommunityPostScreen> {
               : '${comments.length} comment${comments.length == 1 ? '' : 's'}',
           style: const TextStyle(
               fontSize: 14, fontWeight: FontWeight.w600, color: AppColors.neutral900),
-        ),
-        const SizedBox(height: 4),
-        const Text(
-          'Ask here and everyone reading can see the answer.',
-          style: TextStyle(fontSize: 12.5, color: AppColors.neutral500),
         ),
         const SizedBox(height: 12),
 
