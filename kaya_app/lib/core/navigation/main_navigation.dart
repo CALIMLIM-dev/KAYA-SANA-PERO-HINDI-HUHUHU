@@ -8,6 +8,7 @@ import '../../features/jobs/screens/search_screen.dart';
 import '../../features/community/screens/community_screen.dart';
 import '../../features/messaging/screens/messages_list_screen.dart';
 import '../../features/profile/screens/profile_screen.dart';
+import '../../providers/credits_provider.dart';
 import '../../providers/messaging_provider.dart';
 import '../../providers/notification_provider.dart';
 import '../../data/services/background_controller.dart';
@@ -113,6 +114,20 @@ class _MainNavigationState extends State<MainNavigation>
     MainNavigation.selectedTab.addListener(_onTabRequested);
 
     /*
+        The balance follows what the server pays out.
+
+        The chip on home loaded the balance once and then only changed when
+        this phone spent or claimed something. Barya the server adds on its
+        own - a badge reward, a refused post refunded, an application refunded
+        when a job closes - never showed until the wallet was opened, so it
+        looked like the points had not arrived. Each of those comes with a
+        notification, so a notification arriving is when the balance is asked
+        for again. Held as a field because dispose cannot read the tree.
+    */
+    _notifications = context.read<NotificationProvider>();
+    _notifications!.arrived.addListener(_onNotificationArrived);
+
+    /*
         Notification polling starts here, where a session actually begins.
 
         It used to start in the banner host, which is created once with the
@@ -182,9 +197,25 @@ class _MainNavigationState extends State<MainNavigation>
 
   @override
   void dispose() {
+    _notifications?.arrived.removeListener(_onNotificationArrived);
+    _balanceRefresh?.cancel();
     MainNavigation.selectedTab.removeListener(_onTabRequested);
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
+  }
+
+  NotificationProvider? _notifications;
+  Timer? _balanceRefresh;
+
+  /// One balance read for a burst of notifications, not one each.
+  void _onNotificationArrived() {
+    // A chat message never moves money; a busy thread would otherwise ask
+    // for the balance on every line.
+    if (_notifications?.arrived.value?.type.startsWith('message.') ?? true) return;
+    _balanceRefresh?.cancel();
+    _balanceRefresh = Timer(const Duration(seconds: 2), () {
+      if (mounted) context.read<CreditsProvider>().refresh();
+    });
   }
 
   /// Something asked for a tab — either the bar below, or a screen that was
@@ -206,6 +237,9 @@ class _MainNavigationState extends State<MainNavigation>
       // The badge is visible from every tab, so it is refreshed regardless of
       // which one is open.
       context.read<NotificationProvider>().load(force: true);
+
+      // So is the balance, and Barya can arrive while the app is away.
+      context.read<CreditsProvider>().refresh();
 
       /*
           And on every return to the foreground, not only on a cold start.

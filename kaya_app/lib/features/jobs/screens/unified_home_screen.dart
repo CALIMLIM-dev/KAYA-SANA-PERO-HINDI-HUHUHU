@@ -374,7 +374,9 @@ class _UnifiedHomeScreenState extends State<UnifiedHomeScreen>
   /// opened shows without restarting the app.
   Future<void> _refreshData() async {
     final side = HomeCarousel.sideFor(context.read<AppModeProvider>());
-    await Future.wait([_initializeData(), HomeCarousel.prefetch(side)]);
+    // And the balance in the header, which a pull is expected to update too.
+    final credits = context.read<CreditsProvider>();
+    await Future.wait([_initializeData(), HomeCarousel.prefetch(side), credits.refresh()]);
   }
 
   void _updateSearchQuery(String query) {
