@@ -15,10 +15,22 @@ release it shipped in). Update this file as items ship, in the same commit.
 ## WHERE WORK STANDS
 
 Phase 1 shipped in 1.16.18 (12 Oct 2026): items 14, 9, 3, 1, 6 and 5.
-Item 5 also added `GET /applications/{application}/completion` (where
-completion stands from the caller's side), which the chat's "Marked done" row
-reads before offering to confirm in place. Next: Phase 2. Item 4 (start date)
-waits for the user to run `/grill-me`.
+Item 5 added `GET /applications/{application}/completion`, which the chat's
+"Marked done" row reads before offering to confirm in place.
+
+Phase 2 shipped in 1.16.19 (12 Oct 2026): items 17, 16 and 15. The shared
+pop-up is `lib/core/widgets/kaya_popup.dart` (`showKayaPopup`, `tall`,
+`arguments`, `dismissible`). Applicants (`showApplicantsPopup`), Matches
+(`showMatchedWorkersPopup`) and Active (`showActivePopup`) open in it; every
+bottom sheet was converted except the search filters, left for item 13.
+`test/popups_fit_test.dart` opens each converted pop-up at 320px and text
+scale 1.3. The in-app banner draws a message with the sender's photo and name
+(looked up in the inbox list); the shade already pops up (high-importance
+channel). Not done: MessagingStyle with the sender's photo on the shade, which
+needs the avatar downloaded in the background.
+
+Next: Phase 3 (Edit Job revamp). Item 4 (start date) waits for the user to
+run `/grill-me`.
 
 ---
 
@@ -178,7 +190,7 @@ max width ~560, height up to ~88% of the screen, title row with a close X,
 scrollable body, optional sticky action row. Respects the keyboard. Every
 conversion below uses it, so they look like one thing.
 
-### 17. Applicants, Matches and See all as pop-ups  `[ ]`
+### 17. Applicants, Matches and See all as pop-ups  `[x]` 1.16.19
 
 Now:
 - Home Active card buttons (added in 1.16.17,
@@ -194,7 +206,7 @@ each open in the shared pop-up. The full screens stay registered for deep
 links from notifications (`open_notification.dart` routes there) but the
 in-app buttons use the pop-up.
 
-### 16. Bottom sheet audit  `[ ]`
+### 16. Bottom sheet audit  `[x]` 1.16.19
 
 Every `showModalBottomSheet` in the app (count on 12 Oct: 20 in 19 files):
 
@@ -220,7 +232,7 @@ Every `showModalBottomSheet` in the app (count on 12 Oct: 20 in 19 files):
 
 Keep the system pickers (date, time, image) as they are.
 
-### 15. Messenger-like notification pop-up  `[ ]`
+### 15. Messenger-like notification pop-up  `[x]` 1.16.19
 
 Now: `lib/core/widgets/notification_banner.dart` (430 lines). An overlay card
 that slides in, is Dismissible, auto-closes after 5 s, and opens the target on
