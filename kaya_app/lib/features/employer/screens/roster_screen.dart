@@ -75,12 +75,16 @@ class _RosterScreenState extends State<RosterScreen> with RealtimeRefresh {
         return h['status'] == 'accepted' && c?['you_confirmed'] != true;
       }).length;
 
+  /// Before the job's last day, finishing reads as asking rather than
+  /// declaring - the same wording the single cards use.
+  bool get _early => !completionHasOpened(_job);
+
   Future<void> _completeAll() async {
     final count = _waitingOnMe;
     final yes = await showDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        title: const Text('Mark everyone complete?'),
+        title: Text(_early ? 'Finished early?' : 'Mark everyone complete?'),
         content: Text(
           'This marks your side done for $count worker${count == 1 ? '' : 's'}. '
           'Each of them still confirms their own, and the job closes when all have.',
@@ -269,7 +273,14 @@ class _RosterScreenState extends State<RosterScreen> with RealtimeRefresh {
                           ),
                         ),
                       for (final hire in _hires) _hireRow(hire),
-                      if (_hires.isNotEmpty) ...[
+                      /*
+                          For more than one person only.
+
+                          With one hire these said "Message all 1 workers"
+                          and "Mark all complete" beside the row's own chat
+                          and Mark complete - two buttons for one person.
+                      */
+                      if (_hires.length > 1) ...[
                         const SizedBox(height: 12),
                         Row(
                           children: [
@@ -286,10 +297,18 @@ class _RosterScreenState extends State<RosterScreen> with RealtimeRefresh {
                                 ),
                               ),
                             ),
-                            // Not before the job's last day. Where the
-                            // button would be, the line below says when it
-                            // arrives. See completionHasOpened.
-                            if (completionHasOpened(_job)) ...[
+                            /*
+                                Whatever the date.
+
+                                This waited for the job's last day, after
+                                the server had stopped refusing early
+                                completions: each worker still confirms their
+                                own side, so nothing finishes alone. A crew
+                                that finished early had no way to say so, and
+                                this was the only place a job for several
+                                could be marked complete at all.
+                            */
+                            if (const {'open', 'in_progress'}.contains(_job?['status'])) ...[
                               const SizedBox(width: 10),
                               Expanded(
                                 child: ElevatedButton.icon(
@@ -308,14 +327,14 @@ class _RosterScreenState extends State<RosterScreen> with RealtimeRefresh {
                             ],
                           ],
                         ),
-                        if (completionWaitNote(_job) != null) ...[
-                          const SizedBox(height: 10),
-                          Text(
-                            completionWaitNote(_job)!,
-                            style: const TextStyle(
-                                fontSize: 12.5, color: AppColors.neutral600),
-                          ),
-                        ],
+                      ],
+                      if (_hires.isNotEmpty && completionWaitNote(_job) != null) ...[
+                        const SizedBox(height: 10),
+                        Text(
+                          completionWaitNote(_job)!,
+                          style: const TextStyle(
+                              fontSize: 12.5, color: AppColors.neutral600),
+                        ),
                       ],
                     ],
                   ),
@@ -331,6 +350,18 @@ class _RosterScreenState extends State<RosterScreen> with RealtimeRefresh {
     final rating = (hire['rating_avg'] as num?)?.toDouble();
     final ratingCount = (hire['rating_count'] as num?)?.toInt() ?? 0;
 
+    /*
+        Each person, on their own row.
+
+        The row said "They marked it done. Confirm." with nothing to press
+        but the button for everybody. Somebody whose part was finished
+        waited on the slowest of the crew, or got everyone else marked
+        along with them.
+    */
+    final canConfirm = hire['status'] == 'accepted' &&
+        !mine &&
+        const {'open', 'in_progress'}.contains(_job?['status']);
+
     final String standing;
     final Color tint;
     if (done) {
@@ -340,7 +371,7 @@ class _RosterScreenState extends State<RosterScreen> with RealtimeRefresh {
       standing = 'Waiting for them to confirm';
       tint = AppColors.warning;
     } else if (theirs && !mine) {
-      standing = 'They marked it done. Confirm.';
+      standing = 'They marked it done';
       tint = AppColors.primary;
     } else {
       standing = 'Working';
@@ -385,6 +416,31 @@ class _RosterScreenState extends State<RosterScreen> with RealtimeRefresh {
                   ].join(', '),
                   style: TextStyle(fontSize: 12.5, color: tint, fontWeight: FontWeight.w500),
                 ),
+                if (canConfirm) ...[
+                  const SizedBox(height: 8),
+                  OutlinedButton.icon(
+                    onPressed: _busy
+                        ? null
+                        : () => confirmCompletion(
+                              context,
+                              (hire['application_id'] as num).toInt(),
+                              'worker',
+                              _load,
+                              early: _early,
+                            ),
+                    icon: const Icon(Icons.check_circle_outline, size: 16),
+                    label: Text(theirs ? 'Confirm complete' : 'Mark complete'),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: AppColors.success,
+                      side: const BorderSide(color: AppColors.success),
+                      minimumSize: const Size(0, 34),
+                      padding: const EdgeInsets.symmetric(horizontal: 12),
+                      visualDensity: VisualDensity.compact,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(9)),
+                      textStyle: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+                    ),
+                  ),
+                ],
               ],
             ),
           ),

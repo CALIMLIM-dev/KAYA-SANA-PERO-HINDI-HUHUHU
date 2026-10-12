@@ -62,6 +62,11 @@ class RosterController extends Controller
                 'workers_filled' => $hires->count(),
                 'start_date'     => $job->start_date?->toDateString(),
                 'end_date'       => $job->end_date?->toDateString(),
+                // The day the work is due, a day agreed in the chat
+                // included. Without it the roster read the post's own end
+                // date and ignored what the pair had settled.
+                'deadline'       => $job->deadline()?->toDateString(),
+                'agreed_day'     => $job->agreedDate()?->toDateString(),
             ],
             'hires' => $hires->map(function (Application $hire) use ($user, $threads, $completion) {
                 $key = min($user->id, $hire->worker_id) . '-' . max($user->id, $hire->worker_id);
