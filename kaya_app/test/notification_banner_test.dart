@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:provider/provider.dart';
 
 import 'package:kaya_app/core/widgets/notification_banner.dart';
+import 'package:kaya_app/providers/auth_provider.dart';
 import 'package:kaya_app/providers/messaging_provider.dart';
 import 'package:kaya_app/providers/notification_provider.dart';
 
@@ -34,6 +35,7 @@ void main() {
       providers: [
         ChangeNotifierProvider<NotificationProvider>.value(value: notifications),
         ChangeNotifierProvider(create: (_) => MessagingProvider()),
+        ChangeNotifierProvider(create: (_) => AuthProvider()),
       ],
       child: MaterialApp(
         navigatorKey: key,
@@ -55,11 +57,12 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 300));
 
-    expect(find.text('New message'), findsOneWidget);
-    expect(find.textContaining('Rosa Bautista'), findsOneWidget);
+    // Drawn like Messenger: who it is from, then what they said.
+    expect(find.text('Rosa Bautista'), findsOneWidget);
+    expect(find.text('Pwede po ba bukas ng umaga?'), findsOneWidget);
 
     // Leaves on its own.
     await tester.pump(const Duration(seconds: 6));
-    expect(find.text('New message'), findsNothing);
+    expect(find.text('Rosa Bautista'), findsNothing);
   });
 }

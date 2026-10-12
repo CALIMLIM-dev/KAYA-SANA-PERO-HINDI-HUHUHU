@@ -5,9 +5,11 @@ import 'package:provider/provider.dart';
 
 import '../../data/services/realtime_service.dart';
 import '../../data/services/local_alerts.dart';
+import '../../providers/auth_provider.dart';
 import '../../providers/messaging_provider.dart';
 import '../../providers/notification_provider.dart';
 import '../constants/app_colors.dart';
+import 'profile_avatar.dart';
 import '../../features/notifications/open_notification.dart';
 
 /*
@@ -211,9 +213,12 @@ class _NotificationBannerHostState extends State<NotificationBannerHost> {
     // which keeps a burst of notifications from covering the screen.
     _remove();
 
+    final sender = _senderOf(notification);
+
     _entry = OverlayEntry(
       builder: (_) => _Banner(
         notification: notification,
+        sender: sender,
         onTap: () {
           _remove();
           _openTarget(notification);
@@ -224,6 +229,40 @@ class _NotificationBannerHostState extends State<NotificationBannerHost> {
 
     overlay.insert(_entry!);
     _dismissTimer = Timer(const Duration(seconds: 5), _remove);
+  }
+
+  /*
+      Who a message is from, the way Messenger shows it: their face.
+
+      The notification only says "New message" and "Ana: are you free
+      tomorrow?". The conversation it names is already in the inbox list, and
+      that holds both people with their pictures, so no extra request is
+      needed. When the inbox has not loaded yet the name still comes from the
+      text; only the picture waits.
+  */
+  ({String name, String? avatar, String text})? _senderOf(Map<String, dynamic> notification) {
+    if (!'${notification['type'] ?? ''}'.startsWith('message.')) return null;
+
+    final body = '${notification['body'] ?? ''}';
+    final split = body.indexOf(': ');
+    var name = split > 0 ? body.substring(0, split) : '';
+    final text = split > 0 ? body.substring(split + 2) : body;
+    String? avatar;
+
+    final context = widget.navigatorKey.currentContext;
+    final conversationId = notification['reference_id'];
+    if (context != null && notification['reference_type'] == 'conversation') {
+      final myId = context.read<AuthProvider>().user?['id'];
+      for (final conv in context.read<MessagingProvider>().conversations) {
+        if (conv['id'] != conversationId) continue;
+        final other = (conv['worker_id'] == myId ? conv['employer'] : conv['worker']) as Map?;
+        name = '${other?['name'] ?? name}';
+        avatar = other?['avatar'] as String?;
+        break;
+      }
+    }
+
+    return name.isEmpty ? null : (name: name, avatar: avatar, text: text);
   }
 
   void _remove() {
@@ -287,9 +326,13 @@ class _Banner extends StatefulWidget {
     required this.notification,
     required this.onTap,
     required this.onDismiss,
+    this.sender,
   });
 
   final Map<String, dynamic> notification;
+
+  /// Set for a message: drawn with their picture and name, like Messenger.
+  final ({String name, String? avatar, String text})? sender;
   final VoidCallback onTap;
   final VoidCallback onDismiss;
 
@@ -335,8 +378,9 @@ class _BannerState extends State<_Banner> with SingleTickerProviderStateMixin {
   @override
   Widget build(BuildContext context) {
     final look = _look;
-    final title = '${widget.notification['title'] ?? 'KAYA'}';
-    final body = '${widget.notification['body'] ?? ''}';
+    final sender = widget.sender;
+    final title = sender?.name ?? '${widget.notification['title'] ?? 'KAYA'}';
+    final body = sender?.text ?? '${widget.notification['body'] ?? ''}';
 
     return Positioned(
       top: 0,
@@ -355,19 +399,24 @@ class _BannerState extends State<_Banner> with SingleTickerProviderStateMixin {
             padding: const EdgeInsets.fromLTRB(10, 8, 10, 0),
             child: Material(
               color: Colors.transparent,
-              // Swipe it away upward, the way a real heads-up notification goes.
+              // Swipe it away upward or to either side, the way a heads-up
+              // notification goes.
               child: Dismissible(
-                key: ValueKey(widget.notification['id'] ?? title),
+                key: ValueKey('up-${widget.notification['id'] ?? title}'),
                 direction: DismissDirection.up,
+                onDismissed: (_) => widget.onDismiss(),
+                child: Dismissible(
+                key: ValueKey('side-${widget.notification['id'] ?? title}'),
+                direction: DismissDirection.horizontal,
                 onDismissed: (_) => widget.onDismiss(),
                 child: InkWell(
                   onTap: widget.onTap,
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: BorderRadius.circular(18),
                   child: Container(
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
                       color: Colors.white,
-                      borderRadius: BorderRadius.circular(12),
+                      borderRadius: BorderRadius.circular(18),
                       boxShadow: [
                         BoxShadow(
                           color: Colors.black.withValues(alpha: 0.16),
@@ -377,8 +426,13 @@ class _BannerState extends State<_Banner> with SingleTickerProviderStateMixin {
                       ],
                     ),
                     child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+                      crossAxisAlignment: sender == null
+                          ? CrossAxisAlignment.start
+                          : CrossAxisAlignment.center,
                       children: [
+                        if (sender != null)
+                          ProfileAvatar(imageUrl: sender.avatar, name: sender.name, radius: 22)
+                        else
                         Container(
                           width: 36,
                           height: 36,
@@ -395,9 +449,11 @@ class _BannerState extends State<_Banner> with SingleTickerProviderStateMixin {
                             children: [
                               Text(
                                 title,
-                                style: const TextStyle(
-                                  fontSize: 13.5,
-                                  fontWeight: FontWeight.w600,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                  fontSize: sender == null ? 13.5 : 14.5,
+                                  fontWeight: sender == null ? FontWeight.w600 : FontWeight.w700,
                                   color: AppColors.neutral900,
                                 ),
                               ),
@@ -407,9 +463,9 @@ class _BannerState extends State<_Banner> with SingleTickerProviderStateMixin {
                                   body,
                                   maxLines: 2,
                                   overflow: TextOverflow.ellipsis,
-                                  style: const TextStyle(
-                                    fontSize: 12,
-                                    color: AppColors.neutral600,
+                                  style: TextStyle(
+                                    fontSize: sender == null ? 12 : 13,
+                                    color: sender == null ? AppColors.neutral600 : AppColors.neutral700,
                                   ),
                                 ),
                               ],
@@ -420,6 +476,7 @@ class _BannerState extends State<_Banner> with SingleTickerProviderStateMixin {
                     ),
                   ),
                 ),
+              ),
               ),
             ),
           ),
