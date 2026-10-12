@@ -340,6 +340,29 @@ class AdminPanelTest extends TestCase
         $this->actingAs($admin)->get('/admin/categories')->assertOk()->assertSee('Wall framing');
     }
 
+    #[Test]
+    public function the_categories_page_finds_a_trade_by_one_of_its_skills_and_opens_the_one_asked_for(): void
+    {
+        $admin = $this->admin();
+        $plumbing = Category::create(['name' => 'Plumbing', 'icon' => 'build', 'is_active' => true]);
+        $carpentry = Category::create(['name' => 'Carpentry', 'icon' => 'build', 'is_active' => true]);
+        Skill::create(['name' => 'Pipe Repair', 'category_id' => $plumbing->id]);
+        Skill::create(['name' => 'Framing', 'category_id' => $carpentry->id]);
+
+        // Searching a skill lists the trade it is under, and opens it.
+        $this->actingAs($admin)->get('/admin/categories?q=pipe')
+            ->assertOk()
+            ->assertSee('1 of 2 match')
+            ->assertSee('Pipe Repair')
+            ->assertDontSee('Framing');
+
+        // One category is open at a time, the one in the address.
+        $this->actingAs($admin)->get("/admin/categories?category={$carpentry->id}")
+            ->assertOk()
+            ->assertSee('Framing')
+            ->assertDontSee('Pipe Repair');
+    }
+
     // ── Announcements ────────────────────────────────────────────────────────
 
     #[Test]

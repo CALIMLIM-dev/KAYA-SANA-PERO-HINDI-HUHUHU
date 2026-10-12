@@ -422,7 +422,16 @@ Plan:
 
 ## Phase 6: admin panel
 
-### 7. Categories & Skills page  `[ ]`
+### 7. Categories & Skills page  `[x]` (committed, ships with the revamp release)
+
+Done: list on the left (counts in words, Hidden and User-added marks), one
+category open on the right (`?category=`, kept across every action), search
+by category or skill name (`?q=`, also narrows synonyms, highlights the
+matching skill), skills as a table with inline rename and delete only when
+unused, hide/show with its effect stated, merge folded away with a confirm
+that names both sides, synonyms in their own section. Adding a category opens
+it; merging opens the target. Followed the Reports page look; rendered with
+`scratchpad/render_categories.php` and checked in Edge headless.
 
 Now: `kaya_backend/resources/views/admin/categories/index.blade.php` (231
 lines). Routes `routes/web.php` settings group (categories index, store,

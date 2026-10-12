@@ -23,7 +23,15 @@ use Illuminate\Validation\Rule;
 */
 class CategoryController extends Controller
 {
-    public function index()
+    /*
+        A list on the left and one category open on the right.
+
+        ?category= picks the open one and survives every action on the page,
+        because each one redirects back to where it came from. ?q= narrows
+        the list to categories whose name, or one of whose skills, contains
+        the words - finding "Pipe Repair" means finding the trade it is under.
+    */
+    public function index(Request $request)
     {
         $categories = Category::query()
             ->withCount([
@@ -46,7 +54,23 @@ class CategoryController extends Controller
 
         $aliases = SkillAlias::with('creator:id,name')->orderBy('term_a')->orderBy('term_b')->get();
 
-        return view('admin.categories.index', compact('categories', 'workersByCategory', 'workersBySkill', 'jobsBySkill', 'aliases'));
+        $q = trim((string) $request->query('q', ''));
+        $has = fn (string $text) => str_contains(mb_strtolower($text), mb_strtolower($q));
+
+        $listed = $q === ''
+            ? $categories
+            : $categories->filter(fn ($c) => $has($c->name) || $c->skills->contains(fn ($s) => $has($s->name)))->values();
+
+        if ($q !== '') {
+            $aliases = $aliases->filter(fn ($a) => $has($a->term_a) || $has($a->term_b))->values();
+        }
+
+        $selected = $categories->firstWhere('id', (int) $request->query('category')) ?? $listed->first();
+
+        return view('admin.categories.index', compact(
+            'categories', 'listed', 'selected', 'q',
+            'workersByCategory', 'workersBySkill', 'jobsBySkill', 'aliases',
+        ));
     }
 
     public function store(Request $request)
@@ -64,7 +88,9 @@ class CategoryController extends Controller
 
         AdminAction::record('category.created', 'category', $category->id, "Added category {$category->name}");
 
-        return back()->with('success', "Category {$category->name} added.");
+        // Opened, so its first skills can be added straight away.
+        return redirect()->route('admin.categories.index', ['category' => $category->id])
+            ->with('success', "Category {$category->name} added.");
     }
 
     public function update(Request $request, Category $category)
@@ -125,7 +151,9 @@ class CategoryController extends Controller
             ['from' => $category->name, 'into' => $target->name],
         );
 
-        return back()->with('success', "{$category->name} was merged into {$target->name}.");
+        // Back to the page would reopen a category that no longer exists.
+        return redirect()->route('admin.categories.index', ['category' => $target->id])
+            ->with('success', "{$category->name} was merged into {$target->name}.");
     }
 
     public function storeSkill(Request $request, Category $category)
