@@ -1297,6 +1297,10 @@ class WorkerProfileController extends Controller
             // country while the screen above it said "near you".
             'radius_km'   => ['nullable', 'numeric', 'min:1', 'max:500'],
             'sort'        => ['nullable', 'in:best,rating,jobs,nearest,newest'],
+            // Filtered in the app before, on one page of results, so a
+            // verified worker on page two was never shown.
+            'verified_only' => ['nullable', 'boolean'],
+            'min_rating'    => ['nullable', 'numeric', 'min:0', 'max:5'],
         ]);
 
         $query = WorkerProfile::query()
@@ -1393,6 +1397,14 @@ class WorkerProfileController extends Controller
             can compute.
         */
         $viewerHasPosition = $viewerLat !== null && $viewerLng !== null;
+
+        if (! empty($data['verified_only'])) {
+            $withDistance = $withDistance->filter(fn (WorkerProfile $p) => (bool) $p->user?->is_verified);
+        }
+
+        if (! empty($data['min_rating'])) {
+            $withDistance = $withDistance->filter(fn (WorkerProfile $p) => (float) $p->rating_avg >= (float) $data['min_rating']);
+        }
 
         if (!empty($data['radius_km']) && $viewerHasPosition) {
             $withDistance = $withDistance->filter(

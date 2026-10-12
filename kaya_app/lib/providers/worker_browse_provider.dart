@@ -21,6 +21,16 @@ class WorkerBrowseProvider with ChangeNotifier {
   String? get errorMessage => _errorMessage;
   List<WorkerProfile> get workers => _workers;
 
+  int _workersPage = 1;
+  int _workersTotal = 0;
+
+  /// The page of the directory last fetched, and whether there is more.
+  int get workersPage => _workersPage;
+  bool get hasMoreWorkers => _workers.length < _workersTotal;
+
+  /// How many the directory search found in all.
+  int get workersTotal => _workersTotal;
+
   // ── Single worker (public profile screen) ───────────────────────────────────
 
   bool _isDetailLoading = false;
@@ -251,6 +261,12 @@ class WorkerBrowseProvider with ChangeNotifier {
     /// nearest or newest. Null leaves it to the server, which ranks
     /// best-first.
     String? sort,
+    /// Asked of the server, which has the whole directory; filtering one
+    /// page here hid every match on the pages after it.
+    bool verifiedOnly = false,
+    double? minRating,
+    /// Past 1 adds to the list instead of replacing it.
+    int page = 1,
   }) async {
     _isLoading = true;
     _errorMessage = null;
@@ -267,13 +283,18 @@ class WorkerBrowseProvider with ChangeNotifier {
         'rate_unit': ?rateUnit,
         'radius_km': ?radiusKm,
         'sort': ?sort,
+        if (verifiedOnly) 'verified_only': 1,
+        if (minRating != null && minRating > 0) 'min_rating': minRating,
+        if (page > 1) 'page': page,
       });
 
-      final page = res.data['data'] as Map<String, dynamic>;
-      final rows = page['data'] as List;
-      _workers = rows
+      final data = res.data['data'] as Map<String, dynamic>;
+      final rows = (data['data'] as List)
           .map((w) => WorkerProfile.fromApi(w as Map<String, dynamic>))
           .toList();
+      _workers = page > 1 ? [..._workers, ...rows] : rows;
+      _workersPage = page;
+      _workersTotal = (data['total'] as num?)?.toInt() ?? _workers.length;
     } catch (e) {
       // Same rule as the job feed: a failed refresh is not an empty
       // directory, and blanking it loses what the employer was reading.

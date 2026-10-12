@@ -115,6 +115,16 @@ class JobProvider with ChangeNotifier {
     /// Hard cut-off in kilometres. The server answers 422 when the account has
     /// no location, rather than quietly returning everything.
     double? radiusKm,
+    /// Search's filters, all asked of the server so they narrow the whole
+    /// search rather than one page of it: the least the post pays, an
+    /// employer who is verified, and work starting within this many days.
+    double? payMin,
+    bool verifiedOnly = false,
+    int? startsWithinDays,
+    /// 'pay' for highest pay first. Wins over [nearestFirst].
+    String? sort,
+    /// Past 1 adds to the list instead of replacing it.
+    int page = 1,
   }) async {
     _isPublicLoading = true;
     _publicError = null;
@@ -127,14 +137,22 @@ class JobProvider with ChangeNotifier {
         if (location != null && location.isNotEmpty) 'location': location,
         'location_id': ?locationId,
         if (skillIds != null && skillIds.isNotEmpty) 'skill_ids': skillIds,
-        if (nearestFirst) 'sort': 'nearest',
+        if (sort != null) 'sort': sort else if (nearestFirst) 'sort': 'nearest',
         if (urgentOnly) 'urgent_only': true,
         'radius_km': ?radiusKm,
+        if (payMin != null && payMin > 0) 'pay_min': payMin.toInt(),
+        if (verifiedOnly) 'verified_only': 1,
+        'starts_within_days': ?startsWithinDays,
+        if (page > 1) 'page': page,
       });
 
-      final page = res.data['data'] as Map<String, dynamic>;
-      final rows = page['data'] as List;
-      _publicJobs = rows.map((j) => Job.fromApi(j as Map<String, dynamic>)).toList();
+      final data = res.data['data'] as Map<String, dynamic>;
+      final rows = (data['data'] as List)
+          .map((j) => Job.fromApi(j as Map<String, dynamic>))
+          .toList();
+      _publicJobs = page > 1 ? [..._publicJobs, ...rows] : rows;
+      _publicPage = page;
+      _publicTotal = (data['total'] as num?)?.toInt() ?? _publicJobs.length;
     } catch (e) {
       /*
           A failed refresh is not an empty feed.
@@ -150,6 +168,16 @@ class JobProvider with ChangeNotifier {
     _isPublicLoading = false;
     notifyListeners();
   }
+
+  int _publicPage = 1;
+  int _publicTotal = 0;
+
+  /// The page of public jobs last fetched, and whether the search has more.
+  int get publicPage => _publicPage;
+  bool get hasMorePublicJobs => _publicJobs.length < _publicTotal;
+
+  /// How many the search found in all, past the pages fetched so far.
+  int get publicTotal => _publicTotal;
 
   void _setLoading(bool v) { _isLoading = v; notifyListeners(); }
 

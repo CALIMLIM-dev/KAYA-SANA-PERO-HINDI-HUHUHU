@@ -47,8 +47,15 @@ holds likes by post id, optimistic with rollback.
 Search filters STAY a bottom sheet (user, 13 Oct 2026: "the filter still
 become a bottom sheet bcs it suits the UI"). Everything else stays a pop-up.
 
-Next: item 4 (start date) waits for the user to run `/grill-me`; then Phase 5
-(settings and the legal pages).
+Phases 5, 6 and 7 (items 10, 11, 7, 12, 13) are committed locally and NOT yet
+pushed or released (13 Oct 2026): the user asked to release once, after the
+whole revamp. The release needs `php artisan migrate --force` on the server
+(must_change_password; community_post_likes went out in 1.16.21).
+
+Left: item 4 (start date) waits for the user to run `/grill-me`. Settings
+customization options (D5) are still to be asked. Smaller: MessagingStyle with
+the sender's photo on the shade (item 15); no in-app way for a suspended
+account to reach support (found in item 11).
 
 ---
 
@@ -488,7 +495,26 @@ Plan:
 
 ## Phase 7: search
 
-### 13. Search revamp, both sides and hybrid  `[ ]`
+### 13. Search revamp, both sides and hybrid  `[x]` (committed, ships with the revamp release)
+
+Done: every filter goes to the server. New params: `/jobs` `pay_min`,
+`verified_only` (the employer's is_verified; the app's old filter read the
+job's requires_verification), `starts_within_days`, `sort=pay`; `/workers`
+`verified_only`, `min_rating`. Pay compares columns, not COALESCE(...), because
+SQLite gives an expression no type and the bound number compared as text.
+App (`search_screen.dart` rewritten): trade row, a skill row for workers once a
+trade is picked (`/skills?category_id=`), recent searches (6 per side,
+SharedPreferences `search_recent_jobs|workers`, saved on submit or opening a
+result), removable filter chips, the server's total as the count, sort as a
+menu beside the count, Show more (providers page and append:
+`publicPage/hasMorePublicJobs/publicTotal`, `workersPage/hasMoreWorkers/
+workersTotal`), an empty state naming what narrows it with Search everywhere
+and Clear. The filter sheet stays a bottom sheet (user's choice) and searches
+again however it closes: where (a town, or 2/5/10 km for jobs since applying
+stops at 10 km, 5/10/25/50 for workers), pay, start, rating, verified, urgent.
+Tests: `test/search_revamp_test.dart` (both sides at 412/390/360/320 x
+1.0/1.15/1.3, both sheets at 320, recent searches), backend
+`SearchFiltersTest`.
 
 Now: `lib/features/jobs/screens/search_screen.dart` (1089 lines). A search
 field, a filter button opening a bottom sheet (`search_screen.dart:~799`),

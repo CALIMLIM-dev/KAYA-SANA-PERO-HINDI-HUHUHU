@@ -147,6 +147,48 @@ class JobController extends Controller
         }
 
         /*
+            Pay, a verified employer, and when the work starts.
+
+            The app filtered pay and "verified" out of a page it had already
+            fetched - the same mistake urgent_only above was fixed for - and
+            its verified filter read the wrong field entirely: whether the job
+            asks for a verified worker, not whether the employer is one. Here
+            they narrow the whole search before it is paged.
+
+            Pay is what the post offers at most. A post with no figure
+            ("discuss") cannot be said to pay that much, so it drops out when
+            a minimum is asked for, the rule the worker directory applies to
+            rates. A post with no dates predates scheduling and is kept by
+            the start filter rather than hidden for a field it never had.
+        */
+        if (is_numeric($payMin = $request->get('pay_min')) && (float) $payMin > 0) {
+            // Column against value, not COALESCE(...) against value: an
+            // expression has no column type in SQLite, so the bound number
+            // compared as text and nothing ever matched.
+            $pay = (float) $payMin;
+            $query->where(fn ($q) => $q->where('budget_max', '>=', $pay)
+                ->orWhere(fn ($q2) => $q2->whereNull('budget_max')->where('budget_min', '>=', $pay)));
+        }
+
+        if ($request->boolean('verified_only')) {
+            $query->whereHas('employer', fn ($q) => $q->where('is_verified', true));
+        }
+
+        if (is_numeric($days = $request->get('starts_within_days'))) {
+            $by = now()->addDays(max(0, (int) $days))->toDateString();
+            $query->where(fn ($q) => $q->whereNull('start_date')->orWhereDate('start_date', '<=', $by));
+        }
+
+        // Highest pay first, inside the boosted-first rule every order keeps.
+        $payFirst = $request->get('sort') === 'pay';
+        $ordered = fn ($q) => $payFirst
+            ? $q->orderByDesc('is_boosted')
+                ->orderByRaw('COALESCE(budget_max, budget_min) IS NULL')
+                ->orderByRaw('COALESCE(budget_max, budget_min) DESC')
+                ->latest()
+            : $q->orderByDesc('is_boosted')->latest();
+
+        /*
             "Jobs near you" was not near you.
 
             The home screen headed this list with "Open jobs in {city}" while
@@ -273,7 +315,7 @@ class JobController extends Controller
         };
 
         if (!$needsDistancePass) {
-            $jobs = $query->orderByDesc('is_boosted')->latest()->paginate(20);
+            $jobs = $ordered($query)->paginate(20);
             $jobs->getCollection()->transform($decorate)->transform($redact);
             return $this->ok($jobs);
         }
@@ -303,12 +345,12 @@ class JobController extends Controller
                 );
             }
 
-            $jobs = $query->orderByDesc('is_boosted')->latest()->paginate(20);
+            $jobs = $ordered($query)->paginate(20);
             $jobs->getCollection()->transform($decorate)->transform($redact);
             return $this->ok($jobs);
         }
 
-        $scored = $query->orderByDesc('is_boosted')->latest()->get()->map($decorate);
+        $scored = $ordered($query)->get()->map($decorate);
 
         if ($radius !== null) {
             /*
@@ -341,6 +383,8 @@ class JobController extends Controller
         */
         $scored = $scored->sortBy(fn (JobPost $j) => [
             $j->is_boosted ? 0 : 1,
+            // Asked for by pay, the pay decides before the fit does.
+            $payFirst ? -((float) ($j->budget_max ?? $j->budget_min ?? -1)) : 0,
             -((int) ($j->match_tier ?? 0)),
             -((int) ($j->match_score ?? 0)),
             $nearestFirst ? ($j->distance_km ?? PHP_FLOAT_MAX) : 0,
