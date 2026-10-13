@@ -49,7 +49,7 @@ class VizCheckTest extends TestCase
         }
 
         // The rest decide server-side, so nothing is drawn over no data.
-        $this->assertStringContainsString('No accounts yet', $html);
+        $this->assertStringContainsString('No users yet', $html);
         $this->assertStringContainsString('No Barya spent in this period', $html);
         $this->assertSame(2, substr_count($html, 'No jobs posted in this period'), 'funnel and trades');
         $this->assertStringNotContainsString('id="spentChart"', $html);
@@ -81,7 +81,7 @@ class VizCheckTest extends TestCase
         $this->assertSame(2, $income['topups']);
         $this->assertSame(149, $income['per_topup']);
         $this->assertSame(49, $response->viewData('incomeBefore')['pesos']);
-        $response->assertSee('at package prices')->assertSee('₱298', false);
+        $response->assertSee('Package value')->assertSee('₱298', false);
 
         // The dashboard still makes no income claim of its own.
         $this->assertStringNotContainsString('Platform income', $this->actingAs($this->admin())->get('/admin')->getContent());
@@ -117,6 +117,70 @@ class VizCheckTest extends TestCase
     }
 
     #[Test]
+    public function the_monitoring_charts_count_real_rows(): void
+    {
+        $employer = User::factory()->create();
+        $worker = User::factory()->create(['name' => 'Ramon Aquino']);
+        \App\Models\WorkerProfile::create(['user_id' => $worker->id, 'rating_avg' => 4.6]);
+
+        $job = \App\Models\JobPost::create(['employer_id' => $employer->id, 'title' => 'x', 'description' => 'x', 'status' => 'completed']);
+        \App\Models\JobPost::create(['employer_id' => $employer->id, 'title' => 'y', 'description' => 'y', 'status' => 'open']);
+        \App\Models\Application::create(['job_id' => $job->id, 'worker_id' => $worker->id, 'status' => 'completed']);
+
+        // Hires and completions are dated by the events the chat records.
+        $conversation = DB::table('conversations')->insertGetId([
+            'job_id' => $job->id, 'employer_id' => $employer->id, 'worker_id' => $worker->id,
+            'status' => 'unlocked', 'created_at' => now(), 'updated_at' => now(),
+        ]);
+        foreach (['hired', 'completed', 'hired'] as $i => $event) {
+            DB::table('messages')->insert([
+                'conversation_id' => $conversation, 'sender_id' => $employer->id, 'message_text' => $event,
+                'is_read' => 0, 'type' => 'system', 'payload' => json_encode(['event' => $event]),
+                'created_at' => now()->subDays($i === 2 ? 60 : 1), 'updated_at' => now(),
+            ]);
+        }
+
+        foreach (['verified', 'verified', 'verified', 'rejected', 'pending'] as $status) {
+            \App\Models\Verification::create(['user_id' => User::factory()->create()->id, 'document_type' => 'government_id', 'status' => $status]);
+        }
+
+        $response = $this->actingAs($this->admin())->get('/admin/analytics?days=30');
+
+        $growth = $response->viewData('growth');
+        $this->assertSame(1, array_sum($growth['hires']), 'the hire 60 days ago is outside the period');
+        $this->assertSame(1, array_sum($growth['completions']));
+
+        // Approved out of decided: 3 of 4, pending left out.
+        $this->assertSame(['approved' => 3, 'pending' => 1, 'rejected' => 1, 'rate' => 75], $response->viewData('verifications'));
+
+        $this->assertSame(['Open' => 1, 'Completed' => 1], $response->viewData('jobStatus'));
+
+        $top = $response->viewData('topWorkers');
+        $this->assertSame(['name' => 'Ramon Aquino', 'hires' => 1, 'completed' => 1, 'rating' => 4.6], $top[0]);
+
+        $response->assertSee('Verification Status')->assertSee('Top Workers')->assertSee('Job Status')
+            ->assertSee('User Growth')->assertSee('Skill Gap');
+    }
+
+    #[Test]
+    public function the_skill_gap_sets_demand_against_supply(): void
+    {
+        $category = \App\Models\Category::create(['name' => 'Plumbing']);
+        $pipe = \App\Models\Skill::create(['name' => 'Pipe Repair', 'category_id' => $category->id]);
+        $employer = User::factory()->create();
+
+        foreach ([1, 2] as $n) {
+            $job = \App\Models\JobPost::create(['employer_id' => $employer->id, 'title' => "j$n", 'description' => 'x', 'status' => 'open']);
+            DB::table('job_skills')->insert(['job_id' => $job->id, 'skill_id' => $pipe->id]);
+        }
+        DB::table('worker_skills_new')->insert(['user_id' => User::factory()->create()->id, 'skill_id' => $pipe->id, 'skill_name' => 'Pipe Repair', 'created_at' => now(), 'updated_at' => now()]);
+
+        $skills = $this->actingAs($this->admin())->get('/admin/analytics')->viewData('skills');
+
+        $this->assertSame([['name' => 'Pipe Repair', 'demand' => 2, 'supply' => 1]], $skills);
+    }
+
+    #[Test]
     public function barya_spent_is_grouped_by_what_it_bought(): void
     {
         $user = User::factory()->create();
@@ -129,7 +193,7 @@ class VizCheckTest extends TestCase
 
         $spent = $this->actingAs($this->admin())->get('/admin/analytics')->viewData('spent');
 
-        // Invites and rehire invites are one use; a refund is not spending.
-        $this->assertSame(['Boosts' => 8, 'Applications' => 4, 'Invites' => 3], $spent);
+        // Invitations and rehire invitations are one use; a refund is not spending.
+        $this->assertSame(['Boosts' => 8, 'Applications' => 4, 'Invitations' => 3], $spent);
     }
 }

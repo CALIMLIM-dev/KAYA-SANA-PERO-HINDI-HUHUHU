@@ -289,7 +289,7 @@ class AdminPanelTest extends TestCase
         */
         $this->actingAs($this->admin())->get('/admin/analytics?days=7')
             ->assertOk()
-            ->assertSee('changes against the previous 7 days');
+            ->assertSee('vs previous 7 days');
     }
 
     #[Test]

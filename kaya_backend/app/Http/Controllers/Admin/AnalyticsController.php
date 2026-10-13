@@ -44,11 +44,11 @@ class AnalyticsController extends Controller
     /** Where spent Barya goes, by ledger reason. Invites and rehires are one use. */
     private const SPEND = [
         'application'   => 'Applications',
-        'invitation'    => 'Invites',
-        'rehire_invite' => 'Invites',
+        'invitation'    => 'Invitations',
+        'rehire_invite' => 'Invitations',
         'boost'         => 'Boosts',
-        'job_duration'  => 'Longer job posts',
-        'thread_ad'     => 'Board posts',
+        'job_duration'  => 'Job Extensions',
+        'thread_ad'     => 'Community Posts',
     ];
 
     public function index(Request $request)
@@ -76,7 +76,131 @@ class AnalyticsController extends Controller
             'incomeBefore' => $this->income($before, $from),
             'forecast' => $this->forecast(),
             'spent'    => $this->spent($from, $to),
+            'growth'   => $this->growth($from, $days),
+            'verifications' => $this->verifications(),
+            'jobStatus'     => $this->jobStatus(),
+            'topWorkers'    => $this->topWorkers(),
+            'skills'        => $this->skills($from, $to),
         ]);
+    }
+
+    /** Counts per day (or per week past 30 days) from a list of timestamps. */
+    private function buckets(iterable $times, Carbon $from, int $days): array
+    {
+        $step = $days > 30 ? 7 : 1;
+        $series = array_fill(0, (int) ceil($days / $step), 0);
+        foreach ($times as $at) {
+            $i = intdiv((int) $from->diffInDays(Carbon::parse($at), true), $step);
+            if (isset($series[$i])) {
+                $series[$i]++;
+            }
+        }
+
+        return $series;
+    }
+
+    /*
+        New users, hires and completions over the period.
+
+        A hire has no column of its own, but every one writes a "hired"
+        event into the pair's chat at the moment it happens, and every
+        completion a "completed" one - so those are the real dates.
+    */
+    private function growth(Carbon $from, int $days): array
+    {
+        $events = fn (string $event) => DB::table('messages')
+            ->where('type', 'system')
+            ->where('payload->event', $event)
+            ->where('created_at', '>=', $from)
+            ->pluck('created_at');
+
+        return [
+            'users'       => $this->buckets(User::where('user_type', '!=', 'admin')->where('created_at', '>=', $from)->pluck('created_at'), $from, $days),
+            'hires'       => $this->buckets($events('hired'), $from, $days),
+            'completions' => $this->buckets($events('completed'), $from, $days),
+        ];
+    }
+
+    /** Identity checks as they stand, and the share of decided ones approved. */
+    private function verifications(): array
+    {
+        $c = DB::table('verifications')->selectRaw('status, COUNT(*) as n')->groupBy('status')->pluck('n', 'status');
+        $approved = (int) ($c['verified'] ?? 0);
+        $rejected = (int) ($c['rejected'] ?? 0);
+
+        return [
+            'approved' => $approved,
+            'pending'  => (int) ($c['pending'] ?? 0),
+            'rejected' => $rejected,
+            'rate'     => $approved + $rejected > 0 ? (int) round($approved / ($approved + $rejected) * 100) : null,
+        ];
+    }
+
+    /** Every job post by where it stands now. */
+    private function jobStatus(): array
+    {
+        $names = ['open' => 'Open', 'in_progress' => 'In Progress', 'completed' => 'Completed',
+                  'closed' => 'Closed', 'expired' => 'Expired', 'flagged' => 'Flagged'];
+        $c = JobPost::selectRaw('status, COUNT(*) as n')->groupBy('status')->pluck('n', 'status');
+
+        $out = [];
+        foreach ($names as $key => $label) {
+            if (($c[$key] ?? 0) > 0) {
+                $out[$label] = (int) $c[$key];
+            }
+        }
+
+        return $out;
+    }
+
+    /** The most-hired workers, with how many they finished and their rating. */
+    private function topWorkers(): array
+    {
+        return DB::table('applications')
+            ->join('users', 'users.id', '=', 'applications.worker_id')
+            ->leftJoin('worker_profiles', 'worker_profiles.user_id', '=', 'users.id')
+            ->whereIn('applications.status', self::HIRED)
+            ->whereNull('users.deleted_at')
+            ->groupBy('users.id', 'users.name', 'worker_profiles.rating_avg')
+            ->selectRaw("users.name, COUNT(*) as hires, SUM(CASE WHEN applications.status = 'completed' THEN 1 ELSE 0 END) as completed, worker_profiles.rating_avg as rating")
+            ->orderByDesc('hires')
+            ->limit(8)
+            ->get()
+            ->map(fn ($r) => [
+                'name'      => $r->name,
+                'hires'     => (int) $r->hires,
+                'completed' => (int) $r->completed,
+                'rating'    => $r->rating !== null && (float) $r->rating > 0 ? round((float) $r->rating, 1) : null,
+            ])
+            ->all();
+    }
+
+    /*
+        Each skill's demand (jobs in the period asking for it) against its
+        supply (workers listing it). Plotted as points, the ones far from
+        the even line are the shortages and the surpluses.
+    */
+    private function skills(Carbon $from, Carbon $to): array
+    {
+        $demand = DB::table('job_skills')
+            ->join('jobs_posts', 'jobs_posts.id', '=', 'job_skills.job_id')
+            ->where('jobs_posts.created_at', '>=', $from)->where('jobs_posts.created_at', '<', $to)
+            ->selectRaw('job_skills.skill_id, COUNT(DISTINCT job_skills.job_id) as n')
+            ->groupBy('job_skills.skill_id')
+            ->pluck('n', 'skill_id');
+
+        $supply = DB::table('worker_skills_new')->whereNotNull('skill_id')
+            ->selectRaw('skill_id, COUNT(DISTINCT user_id) as n')
+            ->groupBy('skill_id')
+            ->pluck('n', 'skill_id');
+
+        $names = DB::table('skills')->whereIn('id', $demand->keys()->merge($supply->keys())->unique())->pluck('name', 'id');
+
+        return $names->map(fn ($name, $id) => [
+            'name'   => $name,
+            'demand' => (int) ($demand[$id] ?? 0),
+            'supply' => (int) ($supply[$id] ?? 0),
+        ])->sortByDesc(fn ($r) => $r['demand'] + $r['supply'])->take(25)->values()->all();
     }
 
     /*

@@ -4,15 +4,20 @@
 @section('content')
 
 {{--
-    Numbers first, a different graph for each question, no paragraphs: the
-    panel asked for analytics that read at a glance (October 2026 review).
+    Numbers first, one kind of graph per question, labels only (the panel's
+    October 2026 review). Each figure appears once.
 
-      people   stacked bar      each person once, the four groups adding up
-      barya    doughnut         what the Barya is spent on
-      income   bars + trend     top-up income by week, and the next four
-      activity lines            jobs posted against applications sent
-      funnel   stepped bars     what became of the jobs posted
-      trades   paired bars      demand against supply per trade
+      User Base             stacked bar        each user once, groups add up
+      Verification Status   gauge              decided checks, approval rate
+      Revenue and Forecast  bars + trend       weekly top-up value, 4 weeks on
+      Activity              lines              jobs posted, applications
+      Hiring Funnel         stepped bars       posted to completed, in jobs
+      User Growth           stacked areas      new users, hires, completions
+      Job Status            polar area         every post by where it stands
+      Barya Usage           doughnut           what Barya is spent on
+      Top Workers           ranked bars        most hired, completed, rating
+      Supply and Demand     paired bars        per trade
+      Skill Gap             scatter            per skill, against the even line
 
     See AnalyticsController for how each figure is counted. Legends are drawn
     in the page with their values; Chart.js's own legend was dropping series.
@@ -20,7 +25,7 @@
 
 <style>
     .viz { --surface: #fff; --grid: #f1f5f9; --line: #e8edf3; --ink: #0f172a; --ink-2: #475569; --ink-3: #94a3b8;
-        --s1: #2a78d6; --s2: #eb6834; --s3: #1baf7a; --s4: #94a3b8; --s5: #8b5cf6; --s6: #0ea5b7;
+        --s1: #2a78d6; --s2: #eb6834; --s3: #1baf7a; --s4: #94a3b8; --s5: #8b5cf6; --s6: #0ea5b7; --s7: #e34948;
         --up: #15803d; --down: #b91c1c; }
     .viz .card { background: var(--surface); border: 1px solid var(--line); border-radius: 16px; padding: 20px 22px; }
     .viz .card-title { font-size: 14px; font-weight: 650; color: var(--ink); }
@@ -50,20 +55,25 @@
     .viz .keyval { font-size: 20px; font-weight: 650; color: var(--ink); font-variant-numeric: tabular-nums; line-height: 1.2; }
     .viz .keylab { font-size: 12px; color: var(--ink-2); }
     .viz .keypct { font-size: 11.5px; color: var(--ink-3); font-variant-numeric: tabular-nums; }
+    .viz .num { font-size: 13px; font-weight: 650; color: var(--ink); font-variant-numeric: tabular-nums; }
 
-    .viz .stage { display: grid; grid-template-columns: 120px 1fr; align-items: center; gap: 12px; }
+    .viz .stage { display: grid; grid-template-columns: 112px 1fr; align-items: center; gap: 12px; }
     .viz .stage-label { font-size: 12px; color: var(--ink-2); font-weight: 550; }
     .viz .stage-track { height: 32px; display: flex; align-items: center; }
     .viz .stage-fill { height: 100%; border-radius: 7px; min-width: 3px; background: var(--s1); }
     .viz .stage-value { font-size: 13px; font-weight: 650; color: var(--ink); margin-left: 10px; font-variant-numeric: tabular-nums; white-space: nowrap; }
-    .viz .stage-step { padding-left: 132px; font-size: 11.5px; color: var(--ink-3); margin: 3px 0; }
+    .viz .stage-step { padding-left: 124px; font-size: 11.5px; color: var(--ink-3); margin: 3px 0; }
 
-    .viz .legend { display: flex; flex-wrap: wrap; align-items: center; gap: 16px; }
+    .viz .rank { display: grid; grid-template-columns: 22px minmax(0, 9rem) 1fr auto; align-items: center; gap: 10px; padding: 7px 0; border-top: 1px solid var(--grid); }
+    .viz .rank:first-child { border-top: 0; }
+    .viz .rank-bar { height: 10px; border-radius: 5px; background: var(--s3); min-width: 3px; }
+
+    .viz .legend { display: flex; flex-wrap: wrap; align-items: center; gap: 14px; }
     .viz .legend span { display: inline-flex; align-items: center; gap: 7px; font-size: 12px; color: var(--ink-2); }
     .viz .legend b { color: var(--ink); font-weight: 650; font-variant-numeric: tabular-nums; }
 
     .viz .csv { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 600; color: var(--ink-2);
-        background: #f8fafc; border: 1px solid var(--line); padding: 7px 12px; border-radius: 8px; }
+        background: #f8fafc; border: 1px solid var(--line); padding: 6px 11px; border-radius: 8px; }
     .viz .csv:hover { color: var(--s1); border-color: #c7ddf5; }
     .viz .csv svg { width: 13px; height: 13px; }
 
@@ -84,7 +94,7 @@
     $peso = fn ($n) => '₱' . number_format((int) $n);
 
     // A count changes by a percentage; a rate by points (40% to 50% is ten
-    // points, not 25%). The header says what it is compared with.
+    // points, not 25%). The header names the comparison period.
     $change = function ($now, $before, bool $rate = false) {
         if ($now === null || $before === null) return ['flat', '–'];
         if ($rate) {
@@ -97,35 +107,38 @@
     };
 
     $tiles = [
-        ['People',                 number_format($people['total']),         null],
-        ['Joined',                 number_format($now['new_people']),       $change($now['new_people'], $previous['new_people'])],
-        ['Employers who posted',   number_format($now['active_employers']), $change($now['active_employers'], $previous['active_employers'])],
-        ['Workers who applied',    number_format($now['active_workers']),   $change($now['active_workers'], $previous['active_workers'])],
-        ['Applications per job',   $now['apps_per_job'] ?? '–',              $change($now['apps_per_job'], $previous['apps_per_job'])],
-        ['Hire rate',              $now['hire_rate'] === null ? '–' : $now['hire_rate'] . '%', $change($now['hire_rate'], $previous['hire_rate'], true)],
-        ['Top-up income',          $peso($income['pesos']),                  $change($income['pesos'], $incomeBefore['pesos'])],
-        ['Forecast, next 4 weeks', $peso($forecast['next']),                 ['flat', $peso($forecast['weekly_avg']) . ' a week lately']],
+        ['Total Users',              number_format($people['total']),         null],
+        ['New Users',                number_format($now['new_people']),       $change($now['new_people'], $previous['new_people'])],
+        ['Active Employers',         number_format($now['active_employers']), $change($now['active_employers'], $previous['active_employers'])],
+        ['Active Workers',           number_format($now['active_workers']),   $change($now['active_workers'], $previous['active_workers'])],
+        ['Applications per Job',     $now['apps_per_job'] ?? '–',              $change($now['apps_per_job'], $previous['apps_per_job'])],
+        ['Hire Rate',                $now['hire_rate'] === null ? '–' : $now['hire_rate'] . '%', $change($now['hire_rate'], $previous['hire_rate'], true)],
+        ['Revenue',                  $peso($income['pesos']),                  $change($income['pesos'], $incomeBefore['pesos'])],
+        ['Revenue Forecast (4 wks)', $peso($forecast['next']),                 ['flat', $peso($forecast['weekly_avg']) . ' / week avg.']],
     ];
 
     $split = [
-        ['Worker only',    $people['worker_only'],   'var(--s1)'],
-        ['Employer only',  $people['employer_only'], 'var(--s2)'],
-        ['Both',           $people['both'],          'var(--s3)'],
-        ['Not set up yet', $people['none'],          'var(--s4)'],
+        ['Worker',     $people['worker_only'],   'var(--s1)'],
+        ['Employer',   $people['employer_only'], 'var(--s2)'],
+        ['Hybrid',     $people['both'],          'var(--s3)'],
+        ['No Profile', $people['none'],          'var(--s4)'],
     ];
     $share = fn (int $n) => $people['total'] > 0 ? round($n / $people['total'] * 100) : 0;
 
-    $spendColors = ['var(--s1)', 'var(--s2)', 'var(--s3)', 'var(--s5)', 'var(--s6)'];
+    $palette = ['var(--s1)', 'var(--s2)', 'var(--s3)', 'var(--s5)', 'var(--s6)', 'var(--s7)'];
     $spentTotal = array_sum($spent);
+    $jobTotal = array_sum($jobStatus);
+    $verifyTotal = $verifications['approved'] + $verifications['pending'] + $verifications['rejected'];
 
     $top = max(1, $now['jobs_posted']);
     $stageRate = fn (array $m, string $part, string $whole) => $m[$whole] > 0 ? (int) round($m[$part] / $m[$whole] * 100) : null;
     $stages = [
-        ['Jobs posted',    'jobs_posted',     null],
-        ['Got applicants', 'with_applicants', 'jobs_posted'],
-        ['Hired someone',  'filled',          'with_applicants'],
-        ['Completed',      'completed',       'filled'],
+        ['Posted',          'jobs_posted',     null],
+        ['With Applicants', 'with_applicants', 'jobs_posted'],
+        ['Hired',           'filled',          'with_applicants'],
+        ['Completed',       'completed',       'filled'],
     ];
+    $topHires = max(1, collect($topWorkers)->max('hires') ?? 1);
 @endphp
 
 <div class="viz space-y-5">
@@ -133,7 +146,7 @@
     <div class="flex flex-wrap items-center justify-between gap-3">
         <p class="text-sm text-slate-500">
             {{ \Illuminate\Support\Carbon::parse($from)->format('M j') }} – {{ \Illuminate\Support\Carbon::parse($to)->format('M j, Y') }}
-            · changes against the previous {{ $days }} days
+            · vs previous {{ $days }} days
         </p>
         <div class="period" role="group" aria-label="Period">
             @foreach ([7 => '7 days', 30 => '30 days', 90 => '90 days'] as $value => $label)
@@ -143,26 +156,22 @@
         </div>
     </div>
 
-    {{-- The numbers. --}}
+    {{-- Key figures. --}}
     <section class="tiles" aria-label="Key figures">
         @foreach ($tiles as [$label, $value, $chg])
             <div class="tile">
                 <p class="t-label">{{ $label }}</p>
                 <p class="t-value">{{ $value }}</p>
-                @if ($chg)
-                    <p class="chg {{ $chg[0] }}">{{ $chg[1] }}</p>
-                @else
-                    <p class="chg flat">&nbsp;</p>
-                @endif
+                <p class="chg {{ $chg ? $chg[0] : 'flat' }}">{!! $chg ? e($chg[1]) : '&nbsp;' !!}</p>
             </div>
         @endforeach
     </section>
 
     <div class="grid grid-cols-1 xl:grid-cols-2 gap-5">
-        {{-- People: four groups that add up to everyone, each person once. --}}
-        <section class="card" aria-labelledby="people">
+        {{-- User Base: four groups that add up to every user, each once. --}}
+        <section class="card" aria-labelledby="users">
             <div class="flex items-start justify-between gap-3">
-                <h2 id="people" class="card-title">Who uses KAYA</h2>
+                <h2 id="users" class="card-title">User Base</h2>
                 <a href="{{ $csv('admin.exports.users', false) }}" class="csv">{!! $download !!} Users</a>
             </div>
             @if ($people['total'] > 0)
@@ -185,25 +194,34 @@
                     @endforeach
                 </div>
             @else
-                <div class="empty mt-4">No accounts yet</div>
+                <div class="empty mt-4">No users yet</div>
             @endif
         </section>
 
-        {{-- Barya: what it is spent on. --}}
-        <section class="card" aria-labelledby="barya">
-            <h2 id="barya" class="card-title">Barya spent <span class="tag">{{ number_format($spentTotal) }}</span></h2>
-            @if ($spentTotal === 0)
-                <div class="empty mt-4">No Barya spent in this period</div>
+        {{-- Verification Status: a gauge with the approval rate in it. --}}
+        <section class="card" aria-labelledby="verify">
+            <div class="flex items-start justify-between gap-3">
+                <h2 id="verify" class="card-title">Verification Status <span class="tag">{{ number_format($verifyTotal) }}</span></h2>
+                <a href="{{ $csv('admin.exports.verifications') }}" class="csv">{!! $download !!} Verifications</a>
+            </div>
+            @if ($verifyTotal === 0)
+                <div class="empty mt-4">No verifications submitted</div>
             @else
-                <div class="flex flex-wrap items-center gap-6 mt-4">
-                    <div class="chart-box" style="width: 190px; height: 190px"><canvas id="spentChart"></canvas></div>
-                    <div class="flex-1 min-w-[12rem] space-y-2.5">
-                        @foreach (array_keys($spent) as $i => $label)
+                <div class="flex flex-wrap items-center gap-6 mt-3">
+                    <div class="relative" style="width: 220px; height: 130px">
+                        <div class="chart-box" style="height: 130px"><canvas id="verifyChart"></canvas></div>
+                        <div class="absolute inset-x-0 bottom-1 text-center pointer-events-none">
+                            <p class="text-2xl font-semibold text-slate-900 tabular-nums">{{ $verifications['rate'] === null ? '–' : $verifications['rate'] . '%' }}</p>
+                            <p class="text-[11px] font-semibold text-slate-400 uppercase tracking-wide">Approval Rate</p>
+                        </div>
+                    </div>
+                    <div class="flex-1 min-w-[10rem] space-y-2.5">
+                        @foreach ([['Approved', 'approved', 'var(--s3)'], ['Pending', 'pending', 'var(--s4)'], ['Rejected', 'rejected', 'var(--s7)']] as [$label, $key, $color])
                             <div class="flex items-center gap-2.5">
-                                <span class="dot" style="background: {{ $spendColors[$i % 5] }}"></span>
+                                <span class="dot" style="background: {{ $color }}"></span>
                                 <span class="keylab flex-1">{{ $label }}</span>
-                                <span class="text-sm font-semibold text-slate-900 tabular-nums">{{ number_format($spent[$label]) }}</span>
-                                <span class="keypct w-10 text-right">{{ round($spent[$label] / $spentTotal * 100) }}%</span>
+                                <span class="num">{{ number_format($verifications[$key]) }}</span>
+                                <span class="keypct w-10 text-right">{{ round($verifications[$key] / $verifyTotal * 100) }}%</span>
                             </div>
                         @endforeach
                     </div>
@@ -212,17 +230,17 @@
         </section>
     </div>
 
-    {{-- Income by week, and the four weeks ahead. --}}
-    <section class="card" aria-labelledby="income">
+    {{-- Revenue by week, and the four weeks ahead. --}}
+    <section class="card" aria-labelledby="revenue">
         <div class="flex flex-wrap items-start justify-between gap-3">
-            <h2 id="income" class="card-title">Top-up income and forecast <span class="tag">at package prices</span></h2>
+            <h2 id="revenue" class="card-title">Revenue and Forecast <span class="tag">Package value</span></h2>
             <div class="legend">
-                <span><i class="dot" style="background: var(--s1)"></i> Last 12 weeks</span>
-                <span><i class="dot" style="background: #b8d3f3"></i> Next 4 weeks</span>
+                <span><i class="dot" style="background: var(--s1)"></i> Actual</span>
+                <span><i class="dot" style="background: #b8d3f3"></i> Forecast</span>
                 <span><i class="dot" style="background: var(--s2)"></i> Trend</span>
                 <span>Top-ups <b>{{ number_format($income['topups']) }}</b></span>
-                <span>Paying accounts <b>{{ number_format($income['payers']) }}</b></span>
-                <span>Per top-up <b>{{ $income['per_topup'] === null ? '–' : $peso($income['per_topup']) }}</b></span>
+                <span>Paying Users <b>{{ number_format($income['payers']) }}</b></span>
+                <span>Avg. Top-up <b>{{ $income['per_topup'] === null ? '–' : $peso($income['per_topup']) }}</b></span>
             </div>
         </div>
         <div class="chart-box mt-4" style="height: 260px"><canvas id="incomeChart"></canvas></div>
@@ -231,9 +249,9 @@
     <div class="grid grid-cols-1 xl:grid-cols-5 gap-5">
         <section class="card xl:col-span-3" aria-labelledby="activity">
             <div class="flex flex-wrap items-start justify-between gap-3">
-                <h2 id="activity" class="card-title">Jobs and applications</h2>
+                <h2 id="activity" class="card-title">Activity</h2>
                 <div class="legend">
-                    <span><i class="dot" style="background: var(--s1)"></i> Jobs posted</span>
+                    <span><i class="dot" style="background: var(--s1)"></i> Jobs Posted</span>
                     <span><i class="dot" style="background: var(--s2)"></i> Applications</span>
                     <a href="{{ $csv('admin.exports.jobs') }}" class="csv">{!! $download !!} Jobs</a>
                     <a href="{{ $csv('admin.exports.applicants') }}" class="csv">{!! $download !!} Applications</a>
@@ -244,7 +262,7 @@
 
         <section class="card xl:col-span-2" aria-labelledby="funnel">
             <div class="flex items-start justify-between gap-3">
-                <h2 id="funnel" class="card-title">Jobs, start to finish</h2>
+                <h2 id="funnel" class="card-title">Hiring Funnel</h2>
                 <a href="{{ $csv('admin.exports.hires') }}" class="csv">{!! $download !!} Hires</a>
             </div>
             @if ($now['jobs_posted'] === 0)
@@ -277,28 +295,130 @@
         </section>
     </div>
 
-    <section class="card" aria-labelledby="trades">
-        <div class="flex flex-wrap items-start justify-between gap-3">
-            <h2 id="trades" class="card-title">Demand and supply by trade</h2>
-            <div class="legend">
-                <span><i class="dot" style="background: var(--s1)"></i> Jobs posted</span>
-                <span><i class="dot" style="background: var(--s3)"></i> Workers</span>
-                <a href="{{ $csv('admin.exports.categories', false) }}" class="csv">{!! $download !!} Trades</a>
-                <a href="{{ $csv('admin.exports.skill-demand', false) }}" class="csv">{!! $download !!} Skills</a>
+    <div class="grid grid-cols-1 xl:grid-cols-5 gap-5">
+        {{-- User Growth: stacked areas. --}}
+        <section class="card xl:col-span-3" aria-labelledby="growth">
+            <div class="flex flex-wrap items-start justify-between gap-3">
+                <h2 id="growth" class="card-title">User Growth</h2>
+                <div class="legend">
+                    <span><i class="dot" style="background: var(--s1)"></i> New Users <b>{{ number_format(array_sum($growth['users'])) }}</b></span>
+                    <span><i class="dot" style="background: var(--s3)"></i> Hires <b>{{ number_format(array_sum($growth['hires'])) }}</b></span>
+                    <span><i class="dot" style="background: var(--s5)"></i> Completions <b>{{ number_format(array_sum($growth['completions'])) }}</b></span>
+                </div>
             </div>
-        </div>
-        @if (empty($trades))
-            <div class="empty mt-4">No jobs posted in this period</div>
-        @else
-            <div class="chart-box mt-3" style="height: {{ 60 + count($trades) * 46 }}px"><canvas id="tradesChart"></canvas></div>
-        @endif
-    </section>
+            <div class="chart-box mt-4" style="height: 250px"><canvas id="growthChart"></canvas></div>
+        </section>
 
-    <section class="card flex flex-wrap items-center gap-3" aria-label="Downloads">
-        <h2 class="card-title mr-2">Downloads</h2>
-        <a href="{{ $csv('admin.exports.verifications') }}" class="csv">{!! $download !!} Verifications</a>
-        <a href="{{ $csv('admin.exports.top-workers', false) }}" class="csv">{!! $download !!} Top workers</a>
-    </section>
+        {{-- Job Status: polar area. --}}
+        <section class="card xl:col-span-2" aria-labelledby="status">
+            <div class="flex items-start justify-between gap-3">
+                <h2 id="status" class="card-title">Job Status <span class="tag">{{ number_format($jobTotal) }}</span></h2>
+            </div>
+            @if ($jobTotal === 0)
+                <div class="empty mt-4">No job posts yet</div>
+            @else
+                <div class="chart-box mt-3" style="height: 180px"><canvas id="statusChart"></canvas></div>
+                <div class="grid grid-cols-2 gap-x-5 gap-y-2 mt-4">
+                    @foreach (array_keys($jobStatus) as $i => $label)
+                        <div class="flex items-center gap-2">
+                            <span class="dot" style="background: {{ $palette[$i % 6] }}"></span>
+                            <span class="keylab flex-1">{{ $label }}</span>
+                            <span class="num">{{ number_format($jobStatus[$label]) }}</span>
+                        </div>
+                    @endforeach
+                </div>
+            @endif
+        </section>
+    </div>
+
+    <div class="grid grid-cols-1 xl:grid-cols-2 gap-5">
+        {{-- Barya Usage: doughnut. --}}
+        <section class="card" aria-labelledby="barya">
+            <h2 id="barya" class="card-title">Barya Usage <span class="tag">{{ number_format($spentTotal) }}</span></h2>
+            @if ($spentTotal === 0)
+                <div class="empty mt-4">No Barya spent in this period</div>
+            @else
+                <div class="flex flex-wrap items-center gap-6 mt-4">
+                    <div class="chart-box" style="width: 180px; height: 180px"><canvas id="spentChart"></canvas></div>
+                    <div class="flex-1 min-w-[12rem] space-y-2.5">
+                        @foreach (array_keys($spent) as $i => $label)
+                            <div class="flex items-center gap-2.5">
+                                <span class="dot" style="background: {{ $palette[$i % 6] }}"></span>
+                                <span class="keylab flex-1">{{ $label }}</span>
+                                <span class="num">{{ number_format($spent[$label]) }}</span>
+                                <span class="keypct w-10 text-right">{{ round($spent[$label] / $spentTotal * 100) }}%</span>
+                            </div>
+                        @endforeach
+                    </div>
+                </div>
+            @endif
+        </section>
+
+        {{-- Top Workers: a ranked list with bars. --}}
+        <section class="card" aria-labelledby="workers">
+            <div class="flex items-start justify-between gap-3">
+                <h2 id="workers" class="card-title">Top Workers</h2>
+                <a href="{{ $csv('admin.exports.top-workers', false) }}" class="csv">{!! $download !!} Top Workers</a>
+            </div>
+            @if (empty($topWorkers))
+                <div class="empty mt-4">No hires yet</div>
+            @else
+                <div class="mt-3">
+                    <div class="rank text-[11px] font-semibold text-slate-400 uppercase tracking-wide" style="border-top: 0">
+                        <span>#</span><span>Worker</span><span>Hires</span><span class="text-right">Completed · Rating</span>
+                    </div>
+                    @foreach ($topWorkers as $i => $w)
+                        <div class="rank">
+                            <span class="keypct">{{ $i + 1 }}</span>
+                            <span class="keylab truncate text-slate-800">{{ $w['name'] }}</span>
+                            <span class="flex items-center gap-2">
+                                <span class="rank-bar" style="width: {{ $w['hires'] / $topHires * 100 }}%"></span>
+                                <span class="num">{{ $w['hires'] }}</span>
+                            </span>
+                            <span class="keypct text-right tabular-nums">{{ $w['completed'] }} · {{ $w['rating'] ?? '–' }}</span>
+                        </div>
+                    @endforeach
+                </div>
+            @endif
+        </section>
+    </div>
+
+    <div class="grid grid-cols-1 xl:grid-cols-2 gap-5">
+        {{-- Supply and Demand by Trade: paired bars. --}}
+        <section class="card" aria-labelledby="trades">
+            <div class="flex flex-wrap items-start justify-between gap-3">
+                <h2 id="trades" class="card-title">Supply and Demand by Trade</h2>
+                <div class="legend">
+                    <span><i class="dot" style="background: var(--s1)"></i> Demand</span>
+                    <span><i class="dot" style="background: var(--s3)"></i> Supply</span>
+                    <a href="{{ $csv('admin.exports.categories', false) }}" class="csv">{!! $download !!} Trades</a>
+                </div>
+            </div>
+            @if (empty($trades))
+                <div class="empty mt-4">No jobs posted in this period</div>
+            @else
+                <div class="chart-box mt-3" style="height: {{ 50 + count($trades) * 40 }}px"><canvas id="tradesChart"></canvas></div>
+            @endif
+        </section>
+
+        {{-- Skill Gap: scatter against the even line. --}}
+        <section class="card" aria-labelledby="skills">
+            <div class="flex flex-wrap items-start justify-between gap-3">
+                <h2 id="skills" class="card-title">Skill Gap</h2>
+                <div class="legend">
+                    <span><i class="dot" style="background: var(--s7)"></i> Shortage</span>
+                    <span><i class="dot" style="background: var(--s3)"></i> Surplus</span>
+                    <span><i class="dot" style="background: var(--s4)"></i> Balanced</span>
+                    <a href="{{ $csv('admin.exports.skill-demand', false) }}" class="csv">{!! $download !!} Skills</a>
+                </div>
+            </div>
+            @if (empty($skills))
+                <div class="empty mt-4">No skills listed or requested yet</div>
+            @else
+                <div class="chart-box mt-3" style="height: 330px"><canvas id="skillsChart"></canvas></div>
+            @endif
+        </section>
+    </div>
 </div>
 
 <script>
@@ -327,20 +447,22 @@
     const empty = (id, text) => { const box = document.getElementById(id)?.closest('.chart-box'); if (box) box.innerHTML = '<div class="empty">' + text + '</div>'; };
     const sum = (a) => a.reduce((x, y) => x + (y || 0), 0);
     const peso = (v) => '₱' + Number(v).toLocaleString();
+    const palette = [c('--s1'), c('--s2'), c('--s3'), c('--s5'), c('--s6'), c('--s7')];
+    const labels = @json($trend['labels']);
 
-    // Barya spent: doughnut, the total in the tag above it.
-    const spent = @json((object) $spent);
-    const spentCanvas = document.getElementById('spentChart');
-    if (spentCanvas) {
-        const colors = [c('--s1'), c('--s2'), c('--s3'), c('--s5'), c('--s6')];
-        new Chart(spentCanvas, {
+    // Verification: a half ring.
+    const v = @json($verifications);
+    const verifyCanvas = document.getElementById('verifyChart');
+    if (verifyCanvas) {
+        new Chart(verifyCanvas, {
             type: 'doughnut',
-            data: { labels: Object.keys(spent), datasets: [{ data: Object.values(spent), backgroundColor: Object.keys(spent).map((_, i) => colors[i % 5]), borderColor: c('--surface'), borderWidth: 2 }] },
-            options: { responsive: true, maintainAspectRatio: false, cutout: '64%' },
+            data: { labels: ['Approved', 'Pending', 'Rejected'], datasets: [{ data: [v.approved, v.pending, v.rejected],
+                backgroundColor: [c('--s3'), c('--s4'), c('--s7')], borderColor: c('--surface'), borderWidth: 2 }] },
+            options: { responsive: true, maintainAspectRatio: false, rotation: -90, circumference: 180, cutout: '72%' },
         });
     }
 
-    // Income: twelve weeks of bars, four projected, one fitted trend line.
+    // Revenue: twelve weeks of bars, four forecast, one fitted trend line.
     const f = @json($forecast);
     if (sum(f.actual) === 0) {
         empty('incomeChart', 'No top-ups in the last 12 weeks');
@@ -349,7 +471,7 @@
             data: {
                 labels: f.labels,
                 datasets: [
-                    { type: 'bar', label: 'Income', data: [...f.actual, ...f.projected.map(() => null)], backgroundColor: c('--s1'), borderRadius: 4, maxBarThickness: 34 },
+                    { type: 'bar', label: 'Actual', data: [...f.actual, ...f.projected.map(() => null)], backgroundColor: c('--s1'), borderRadius: 4, maxBarThickness: 34 },
                     { type: 'bar', label: 'Forecast', data: [...f.actual.map(() => null), ...f.projected], backgroundColor: '#b8d3f3', borderRadius: 4, maxBarThickness: 34 },
                     { type: 'line', label: 'Trend', data: f.trend, borderColor: c('--s2'), borderDash: [5, 4], borderWidth: 2, pointRadius: 0, tension: 0 },
                 ],
@@ -358,29 +480,64 @@
                 responsive: true, maintainAspectRatio: false,
                 interaction: { mode: 'index', intersect: false },
                 plugins: { tooltip: { filter: (item) => item.raw !== null, callbacks: { label: (ctx) => ctx.dataset.label + ': ' + peso(ctx.raw) } } },
-                scales: {
-                    x: { ...bareAxis, stacked: true },
-                    y: { ...countAxis, ticks: { ...countAxis.ticks, callback: (v) => peso(v) } },
-                },
+                scales: { x: { ...bareAxis, stacked: true }, y: { ...countAxis, ticks: { ...countAxis.ticks, callback: (val) => peso(val) } } },
             },
         });
     }
 
-    // Activity: two lines on one axis.
+    // Activity: two lines.
     const trend = @json($trend);
     if (sum(trend.jobs) + sum(trend.applications) === 0) {
-        empty('activityChart', 'No jobs or applications in this period');
+        empty('activityChart', 'No activity in this period');
     } else {
         const line = (label, data, color) => ({ label, data, borderColor: color, backgroundColor: color, borderWidth: 2,
             pointRadius: trend.weekly ? 3 : 0, pointHoverRadius: 4, tension: 0.3 });
         new Chart(document.getElementById('activityChart'), {
             type: 'line',
-            data: { labels: trend.labels, datasets: [line('Jobs posted', trend.jobs, c('--s1')), line('Applications', trend.applications, c('--s2'))] },
+            data: { labels, datasets: [line('Jobs Posted', trend.jobs, c('--s1')), line('Applications', trend.applications, c('--s2'))] },
             options: { responsive: true, maintainAspectRatio: false, interaction: { mode: 'index', intersect: false }, scales: { y: countAxis, x: bareAxis } },
         });
     }
 
-    // Trades: paired horizontal bars.
+    // User Growth: stacked filled areas.
+    const g = @json($growth);
+    if (sum(g.users) + sum(g.hires) + sum(g.completions) === 0) {
+        empty('growthChart', 'No growth in this period');
+    } else {
+        // Each band fills down to the one beneath it, so the stack reads as layers.
+        const areaSet = (label, data, color, fill) => ({ label, data, borderColor: color, backgroundColor: color + '66', fill,
+            borderWidth: 1.5, pointRadius: 0, pointHoverRadius: 3, tension: 0.35 });
+        new Chart(document.getElementById('growthChart'), {
+            type: 'line',
+            data: { labels, datasets: [areaSet('New Users', g.users, c('--s1'), 'origin'), areaSet('Hires', g.hires, c('--s3'), '-1'), areaSet('Completions', g.completions, c('--s5'), '-1')] },
+            options: { responsive: true, maintainAspectRatio: false, interaction: { mode: 'index', intersect: false },
+                scales: { y: { ...countAxis, stacked: true }, x: bareAxis } },
+        });
+    }
+
+    // Job Status: polar area.
+    const status = @json((object) $jobStatus);
+    const statusCanvas = document.getElementById('statusChart');
+    if (statusCanvas) {
+        new Chart(statusCanvas, {
+            type: 'polarArea',
+            data: { labels: Object.keys(status), datasets: [{ data: Object.values(status), backgroundColor: Object.keys(status).map((_, i) => palette[i % 6] + 'cc'), borderColor: c('--surface'), borderWidth: 2 }] },
+            options: { responsive: true, maintainAspectRatio: false, scales: { r: { ticks: { display: false }, grid: { color: c('--grid') } } } },
+        });
+    }
+
+    // Barya Usage: doughnut.
+    const spent = @json((object) $spent);
+    const spentCanvas = document.getElementById('spentChart');
+    if (spentCanvas) {
+        new Chart(spentCanvas, {
+            type: 'doughnut',
+            data: { labels: Object.keys(spent), datasets: [{ data: Object.values(spent), backgroundColor: Object.keys(spent).map((_, i) => palette[i % 6]), borderColor: c('--surface'), borderWidth: 2 }] },
+            options: { responsive: true, maintainAspectRatio: false, cutout: '64%' },
+        });
+    }
+
+    // Supply and Demand by Trade: paired horizontal bars.
     const trades = @json($trades);
     const tradesCanvas = document.getElementById('tradesChart');
     if (tradesCanvas) {
@@ -390,12 +547,39 @@
                 // Two lines for a long name; Chart.js clips one line at the edge.
                 labels: trades.map((t) => t.name.length > 18 ? t.name.replace(/^(.{1,18})\s/, '$1\n').split('\n') : t.name),
                 datasets: [
-                    { label: 'Jobs posted', data: trades.map((t) => t.jobs), backgroundColor: c('--s1'), borderRadius: 4, barThickness: 14 },
-                    { label: 'Workers', data: trades.map((t) => t.workers), backgroundColor: c('--s3'), borderRadius: 4, barThickness: 14 },
+                    { label: 'Demand', data: trades.map((t) => t.jobs), backgroundColor: c('--s1'), borderRadius: 4, barThickness: 12 },
+                    { label: 'Supply', data: trades.map((t) => t.workers), backgroundColor: c('--s3'), borderRadius: 4, barThickness: 12 },
                 ],
             },
             options: { indexAxis: 'y', responsive: true, maintainAspectRatio: false, interaction: { mode: 'index', intersect: false },
                 scales: { x: countAxis, y: { ...bareAxis, ticks: { ...bareAxis.ticks, autoSkip: false } } } },
+        });
+    }
+
+    // Skill Gap: each skill a point, coloured by which side of the even line it falls.
+    const skills = @json($skills);
+    const skillsCanvas = document.getElementById('skillsChart');
+    if (skillsCanvas) {
+        const max = Math.max(1, ...skills.map((s) => Math.max(s.demand, s.supply)));
+        const tone = (s) => s.demand > s.supply ? c('--s7') : s.supply > s.demand ? c('--s3') : c('--s4');
+        new Chart(skillsCanvas, {
+            data: {
+                datasets: [
+                    { type: 'scatter', label: 'Skills', data: skills.map((s) => ({ x: s.supply, y: s.demand, name: s.name })),
+                      backgroundColor: skills.map(tone), pointRadius: 6, pointHoverRadius: 8 },
+                    { type: 'line', label: 'Balanced', data: [{ x: 0, y: 0 }, { x: max, y: max }], borderColor: c('--s4'),
+                      borderDash: [4, 4], borderWidth: 1.5, pointRadius: 0 },
+                ],
+            },
+            options: {
+                responsive: true, maintainAspectRatio: false,
+                plugins: { tooltip: { filter: (item) => item.datasetIndex === 0,
+                    callbacks: { label: (ctx) => ctx.raw.name + ': ' + ctx.raw.y + ' jobs, ' + ctx.raw.x + ' workers' } } },
+                scales: {
+                    x: { ...countAxis, type: 'linear', min: 0, title: { display: true, text: 'Supply (workers)', color: c('--ink-2') } },
+                    y: { ...countAxis, min: 0, title: { display: true, text: 'Demand (jobs)', color: c('--ink-2') } },
+                },
+            },
         });
     }
 })();
