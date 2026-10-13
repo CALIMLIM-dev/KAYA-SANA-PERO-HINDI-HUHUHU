@@ -47,10 +47,9 @@ holds likes by post id, optimistic with rollback.
 Search filters STAY a bottom sheet (user, 13 Oct 2026: "the filter still
 become a bottom sheet bcs it suits the UI"). Everything else stays a pop-up.
 
-Phases 5, 6 and 7 (items 10, 11, 7, 12, 13) are committed locally and NOT yet
-pushed or released (13 Oct 2026): the user asked to release once, after the
-whole revamp. The release needs `php artisan migrate --force` on the server
-(must_change_password; community_post_likes went out in 1.16.21).
+Phases 5, 6 and 7 (items 10, 11, 7, 12, 13) shipped together in 1.16.22
+(13 Oct 2026), one release after the whole revamp as the user asked. It needs
+`php artisan migrate --force` on the server (must_change_password).
 
 Left: item 4 (start date) waits for the user to run `/grill-me`. Settings
 customization options (D5) are still to be asked. Smaller: MessagingStyle with
@@ -337,7 +336,7 @@ Plan:
 
 ## Phase 5: settings and the legal pages
 
-### 10. Settings revamp and delete options  `[x]` (committed, ships with the revamp release)
+### 10. Settings revamp and delete options  `[x]` 1.16.22
 
 Done: grouped cards (Account, Notifications, Help & Support, About & Legal,
 then the leaving row). FAQs and Terms/Privacy open as tall pop-ups and were
@@ -372,7 +371,7 @@ Plan:
   Help (FAQ, Support chat, Terms, Privacy, Refund policy), About (version,
   check for update), Sign out at the bottom.
 
-### 11. FAQ, Terms, Privacy, Refund policy  `[x]` (committed, ships with the revamp release)
+### 11. FAQ, Terms, Privacy, Refund policy  `[x]` 1.16.22
 
 Done: FAQ rewritten (7 groups, searchable; a search opens the matching
 answers), Terms and Privacy corrected and expanded, Refund Policy added as
@@ -429,7 +428,7 @@ Plan:
 
 ## Phase 6: admin panel
 
-### 7. Categories & Skills page  `[x]` (committed, ships with the revamp release)
+### 7. Categories & Skills page  `[x]` 1.16.22
 
 Done: list on the left (counts in words, Hidden and User-added marks), one
 category open on the right (`?category=`, kept across every action), search
@@ -449,7 +448,7 @@ pane for one category with its skills inline-editable, merge as a guarded
 action, aliases as their own section, search. Render-check with the scratchpad
 harness (`render_reports.php` pattern) and Edge headless screenshots.
 
-### 12. Sub-admin types and their logins  `[x]` (committed, ships with the revamp release)
+### 12. Sub-admin types and their logins  `[x]` 1.16.22
 
 Done: abilities split to analytics, verify, support, content, users,
 suspend, finance, finance.adjust, catalogue, catalogue.destroy, platform,
@@ -495,7 +494,7 @@ Plan:
 
 ## Phase 7: search
 
-### 13. Search revamp, both sides and hybrid  `[x]` (committed, ships with the revamp release)
+### 13. Search revamp, both sides and hybrid  `[x]` 1.16.22
 
 Done: every filter goes to the server. New params: `/jobs` `pay_min`,
 `verified_only` (the employer's is_verified; the app's old filter read the
