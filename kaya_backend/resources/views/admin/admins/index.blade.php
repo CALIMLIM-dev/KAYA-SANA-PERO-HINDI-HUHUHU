@@ -35,24 +35,9 @@
 @endif
 
 <div class="bg-white rounded-xl border border-slate-200">
-    <div class="p-5 border-b border-slate-100">
-        <p class="font-medium text-slate-800">Who Can Do What</p>
-        <dl class="mt-4 space-y-1.5">
-            @foreach ($roles as $role)
-                <div class="flex gap-3 text-sm">
-                    <dt class="w-36 flex-shrink-0 font-medium text-slate-700">{{ $role->label() }}</dt>
-                    <dd class="text-slate-500">{{ $role->description() }}</dd>
-                </div>
-            @endforeach
-        </dl>
-    </div>
-
     {{-- New administrator. The password is generated, never typed. --}}
     <div class="p-5 border-b border-slate-100">
         <p class="font-medium text-slate-800">New Administrator</p>
-        <p class="text-sm text-slate-500 mt-1">
-            Makes a new account with a generated password, shown once after you add it.
-        </p>
         @if ($errors->any())
             <div class="mt-3 px-3 py-2 rounded-lg bg-red-50 text-red-700 text-sm border border-red-200">{{ $errors->first() }}</div>
         @endif
@@ -89,6 +74,7 @@
                 <th class="text-left font-medium px-5 py-3">Email</th>
                 <th class="text-left font-medium px-5 py-3">Access</th>
                 <th class="text-left font-medium px-5 py-3 w-72">Change</th>
+                <th class="px-5 py-3"><span class="sr-only">Remove</span></th>
             </tr>
         </thead>
         <tbody class="divide-y divide-slate-50">
@@ -96,7 +82,14 @@
                 @php $role = \App\Enums\AdminRole::fromUser($admin->admin_role); @endphp
                 <tr class="{{ $admin->is_suspended ? 'bg-slate-50 text-slate-400' : '' }}">
                     <td class="px-5 py-3 text-slate-800">
-                        {{ $admin->name }}
+                        {{-- The name, editable in place. --}}
+                        <form method="POST" action="{{ route('admin.admins.rename', $admin) }}" class="flex items-center gap-2">
+                            @csrf
+                            <label for="admin-name-{{ $admin->id }}" class="sr-only">Name</label>
+                            <input id="admin-name-{{ $admin->id }}" type="text" name="name" value="{{ $admin->name }}" required maxlength="255"
+                                   class="w-48 px-2 py-1 border border-transparent hover:border-slate-200 focus:border-slate-300 rounded text-sm">
+                            <button class="text-xs font-medium text-blue-600 hover:text-blue-700">Save</button>
+                        </form>
                         @if ($admin->id === auth()->id())
                             <span class="text-xs text-slate-400">(you)</span>
                         @endif
@@ -124,6 +117,15 @@
                                     @endforeach
                                 </select>
                                 <button class="px-3 py-1.5 bg-blue-600 text-white rounded-lg text-sm">Save</button>
+                            </form>
+                        @endif
+                    </td>
+                    <td class="px-5 py-3 text-right">
+                        @if ($admin->id !== auth()->id())
+                            <form method="POST" action="{{ route('admin.admins.remove', $admin) }}"
+                                  onsubmit="return confirm('Remove {{ addslashes($admin->name) }}? They are signed out and can no longer sign in. Their actions stay in the audit log.')">
+                                @csrf
+                                <button class="text-xs font-medium text-slate-500 hover:text-red-600">Remove</button>
                             </form>
                         @endif
                     </td>

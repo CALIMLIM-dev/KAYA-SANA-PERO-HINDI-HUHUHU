@@ -105,21 +105,6 @@ enum AdminRole: string
         };
     }
 
-    /** One line for the screen where an admin's role is chosen. */
-    public function description(): string
-    {
-        return match ($this) {
-            self::SUPER => 'Everything, including who the other administrators are.',
-            self::SUB_ADMIN => 'Every queue, the users, the catalogue and the ledger. Not the administrators, the platform settings, Barya adjustments, or deleting and merging categories.',
-            self::MODERATOR => 'Verifications, reports, the board, reviews, support and the users. No Barya, no settings.',
-            self::VERIFIER => 'The verification queue: IDs, business papers and TINs.',
-            self::SUPPORT_AGENT => 'The support inbox, and reading the accounts that write in.',
-            self::CONTENT_MODERATOR => 'Reports, the community board, reviews and closing job posts.',
-            self::FINANCE => 'The Barya ledger, and adjusting balances by hand.',
-            self::ANALYST => 'Reads the dashboard, the analytics and the exports. Changes nothing.',
-        };
-    }
-
     /*
         An admin row with no role set.
 

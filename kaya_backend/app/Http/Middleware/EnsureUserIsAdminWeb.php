@@ -20,6 +20,14 @@ class EnsureUserIsAdminWeb
                 ->withErrors(['email' => 'Admin access required.']);
         }
 
+        // Removed from the Administrators page: signed out wherever they are.
+        if ($request->user()->deleted_at) {
+            \Illuminate\Support\Facades\Auth::logout();
+
+            return redirect()->route('admin.login')
+                ->withErrors(['email' => 'This admin account has been removed.']);
+        }
+
         if ($request->user()->is_suspended) {
             return redirect()->route('admin.login')
                 ->withErrors(['email' => 'This admin account is suspended.']);

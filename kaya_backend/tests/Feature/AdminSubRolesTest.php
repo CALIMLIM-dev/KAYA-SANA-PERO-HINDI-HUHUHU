@@ -157,6 +157,55 @@ class AdminSubRolesTest extends TestCase
     }
 
     #[Test]
+    public function a_super_admin_renames_and_removes_administrators_but_keeps_their_history(): void
+    {
+        $super = $this->admin(AdminRole::SUPER);
+        $verifier = $this->admin(AdminRole::VERIFIER);
+
+        $this->actingAs($super)->post("/admin/admins/{$verifier->id}/name", ['name' => 'Ana Reyes'])
+            ->assertSessionHas('success');
+        $this->assertSame('Ana Reyes', $verifier->fresh()->name);
+
+        AdminAction::record('verification.approved', 'verification', 1, 'Approved an ID', by: $verifier->id);
+
+        $this->actingAs($super)->post("/admin/admins/{$verifier->id}/remove")->assertSessionHas('success');
+
+        $gone = $verifier->fresh();
+        $this->assertNotNull($gone->deleted_at);
+        $this->assertStringStartsWith('removed-', $gone->email);
+        // The log still says who did what.
+        $this->assertSame(1, AdminAction::where('admin_id', $verifier->id)->where('action', 'verification.approved')->count());
+        // Off the list: its rename form is gone.
+        $this->actingAs($super)->get('/admin/admins')->assertOk()->assertDontSee(route('admin.admins.rename', $verifier));
+
+        // A removed admin still signed in is turned away on the next page.
+        $this->actingAs($gone)->get('/admin')->assertRedirect(route('admin.login'));
+    }
+
+    #[Test]
+    public function nobody_removes_themselves_or_the_last_super_admin(): void
+    {
+        $super = $this->admin(AdminRole::SUPER);
+
+        $this->actingAs($super)->post("/admin/admins/{$super->id}/remove")->assertSessionHas('error');
+        $this->assertNull($super->fresh()->deleted_at);
+
+        // A super admin can remove another super admin.
+        $other = $this->admin(AdminRole::SUPER);
+        $this->actingAs($super)->post("/admin/admins/{$other->id}/remove")->assertSessionHas('success');
+
+        $third = $this->admin(AdminRole::SUPER);
+        $this->actingAs($third)->post("/admin/admins/{$super->id}/remove")->assertSessionHas('success');
+        $this->actingAs($this->admin(AdminRole::SUPER))->post("/admin/admins/{$third->id}/remove")->assertSessionHas('success');
+
+        // A sub-admin cannot remove anybody.
+        $sub = $this->admin(AdminRole::SUB_ADMIN);
+        $target = $this->admin(AdminRole::VERIFIER);
+        $this->actingAs($sub)->post("/admin/admins/{$target->id}/remove")->assertRedirect(route('admin.dashboard'));
+        $this->assertNull($target->fresh()->deleted_at);
+    }
+
+    #[Test]
     public function the_console_command_makes_one_and_prints_its_password(): void
     {
         $this->artisan('kaya:make-admin', ['email' => 'Ben@Example.ph', 'role' => 'support_agent', '--name' => 'Ben Santos'])

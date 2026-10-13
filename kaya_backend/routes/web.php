@@ -184,6 +184,8 @@ Route::prefix('admin')->name('admin.')->group(function () {
             Route::get('/admins', [AdminTeamController::class, 'index'])->name('admins.index');
             Route::post('/admins', [AdminTeamController::class, 'store'])->name('admins.store');
             Route::post('/admins/{user}/role', [AdminTeamController::class, 'setRole'])->name('admins.role');
+            Route::post('/admins/{user}/name', [AdminTeamController::class, 'rename'])->name('admins.rename');
+            Route::post('/admins/{user}/remove', [AdminTeamController::class, 'remove'])->name('admins.remove');
         });
     });
 });
