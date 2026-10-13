@@ -4,696 +4,398 @@
 @section('content')
 
 {{--
-    One page, not two. Every section shows a figure and offers the rows behind
-    it as a CSV, because splitting them meant reading a number in one place and
-    hunting for its data in another.
+    Numbers first, a different graph for each question, no paragraphs: the
+    panel asked for analytics that read at a glance (October 2026 review).
 
-    The page has a deliberate order rather than a grid of equal boxes: one large
-    trend to anchor it, the pipeline underneath, then the breakdowns, then the
-    rankings. A reader should be able to stop after the first screen and still
-    know how the marketplace is doing.
+      people   stacked bar      each person once, the four groups adding up
+      barya    doughnut         what the Barya is spent on
+      income   bars + trend     top-up income by week, and the next four
+      activity lines            jobs posted against applications sent
+      funnel   stepped bars     what became of the jobs posted
+      trades   paired bars      demand against supply per trade
 
-    Forms are chosen by the question each answers:
-
-      how busy, over time   -> stacked area, full width
-      where people drop off -> funnel, one stage per row
-      part to whole         -> doughnut with the total in the middle
-      compare magnitude     -> horizontal bar, one hue, value at the end
-      two series a side     -> grouped bar
-      current state         -> status colours, never the categorical set
-
-    No chart has two y-axes. Where two series share one, both are counts of
-    rows; a second scale would let the lines be drawn to any relationship.
+    See AnalyticsController for how each figure is counted. Legends are drawn
+    in the page with their values; Chart.js's own legend was dropping series.
 --}}
 
 <style>
-    .viz {
-        --surface:        #ffffff;
-        --grid:           #f1f5f9;
-        --text-primary:   #0f172a;
-        --text-secondary: #64748b;
-        --text-muted:     #94a3b8;
+    .viz { --surface: #fff; --grid: #f1f5f9; --line: #e8edf3; --ink: #0f172a; --ink-2: #475569; --ink-3: #94a3b8;
+        --s1: #2a78d6; --s2: #eb6834; --s3: #1baf7a; --s4: #94a3b8; --s5: #8b5cf6; --s6: #0ea5b7;
+        --up: #15803d; --down: #b91c1c; }
+    .viz .card { background: var(--surface); border: 1px solid var(--line); border-radius: 16px; padding: 20px 22px; }
+    .viz .card-title { font-size: 14px; font-weight: 650; color: var(--ink); }
+    .viz .tag { font-size: 11px; font-weight: 600; color: var(--ink-3); background: var(--grid); padding: 2px 8px; border-radius: 999px; margin-left: 6px; }
+    .viz .period { display: inline-flex; background: #e9eef4; border-radius: 10px; padding: 3px; }
+    .viz .period a { font-size: 12px; font-weight: 600; color: var(--ink-2); padding: 6px 14px; border-radius: 8px; }
+    .viz .period a.on { background: var(--surface); color: var(--ink); box-shadow: 0 1px 2px rgba(15,23,42,.08); }
 
-        /* Categorical slots, fixed order from the reference palette.
-           Assigned in order, never cycled, never generated. */
-        --series-1: #2a78d6;  /* blue   */
-        --series-2: #eb6834;  /* orange */
-        --series-3: #1baf7a;  /* aqua   */
-        --series-4: #eda100;  /* yellow */
+    .viz .tiles { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); background: var(--surface); border: 1px solid var(--line); border-radius: 16px; overflow: hidden; }
+    .viz .tile { padding: 16px 20px; border-left: 1px solid var(--grid); border-top: 1px solid var(--grid); }
+    .viz .tile:nth-child(4n+1) { border-left: 0; }
+    .viz .tile:nth-child(-n+4) { border-top: 0; }
+    .viz .t-label { font-size: 11.5px; font-weight: 600; color: var(--ink-2); }
+    .viz .t-value { font-size: 28px; font-weight: 650; color: var(--ink); letter-spacing: -0.02em; font-variant-numeric: tabular-nums; line-height: 1.15; margin-top: 4px; }
+    .viz .chg { font-size: 12px; font-weight: 600; font-variant-numeric: tabular-nums; }
+    .viz .chg.up { color: var(--up); } .viz .chg.down { color: var(--down); } .viz .chg.flat { color: var(--ink-3); }
 
-        /* Status is reserved and never reused as "another series". */
-        --good:     #1baf7a;
-        --warning:  #eda100;
-        --critical: #e34948;
-
-        --muted:    #cbd5e1;
-    }
-
-    .viz .card {
-        background: var(--surface);
-        border: 1px solid #e8edf3;
-        border-radius: 16px;
-        padding: 22px;
-        display: flex;
-        flex-direction: column;
-    }
-    .viz .card-hero { padding: 26px 26px 22px; }
-
-    .viz .card-title { font-size: 14px; font-weight: 650; color: var(--text-primary); letter-spacing: -0.01em; }
-    .viz .card-hero .card-title { font-size: 16px; }
-    .viz .card-desc { font-size: 11.5px; color: var(--text-muted); margin-top: 4px; line-height: 1.5; }
-
-    /* Download sits with the section it belongs to, quiet until hovered. */
-    .viz .csv {
-        flex-shrink: 0; display: inline-flex; align-items: center; gap: 5px;
-        font-size: 11px; font-weight: 600; color: var(--text-secondary);
-        background: #f8fafc; border: 1px solid #e8edf3;
-        padding: 6px 11px; border-radius: 8px; white-space: nowrap;
-        transition: color .12s, border-color .12s, background .12s;
-    }
-    .viz .csv:hover { color: var(--series-1); border-color: #c7ddf5; background: #f3f8fe; }
-    .viz .csv svg { width: 13px; height: 13px; }
-
-    /*
-        Every canvas sits in a box with a real height, absolutely positioned
-        inside it.
-
-        Chart.js with maintainAspectRatio:false sizes the canvas from its
-        parent. If the parent takes its height from the canvas, the two feed
-        each other, the resize observer fires every frame, and the tab locks up
-        at full CPU. Taking the canvas out of flow breaks the loop at the source.
-    */
     .viz .chart-box { position: relative; width: 100%; }
     .viz .chart-box > canvas { position: absolute; inset: 0; width: 100% !important; height: 100% !important; }
+    .viz .chart-box .empty { height: 100%; }
+    .viz .empty { min-height: 120px; display: flex; align-items: center; justify-content: center; border: 1px dashed #e2e8f0;
+        border-radius: 12px; background: #fcfdfe; font-size: 12.5px; color: var(--ink-3); }
 
-    /* Nothing recorded yet is a normal state, not a broken chart. */
-    .viz .empty {
-        height: 100%; min-height: 120px; display: flex; flex-direction: column;
-        align-items: center; justify-content: center; gap: 6px;
-        border: 1px dashed #e2e8f0; border-radius: 12px;
-        background: #fcfdfe; text-align: center; padding: 20px;
-    }
-    .viz .empty-title { font-size: 12.5px; font-weight: 600; color: var(--text-secondary); }
-    .viz .empty-hint  { font-size: 11.5px; color: var(--text-muted); max-width: 34ch; line-height: 1.55; }
+    .viz .split { display: flex; height: 22px; border-radius: 7px; overflow: hidden; background: var(--grid); }
+    .viz .split > span + span { border-left: 2px solid var(--surface); }
+    .viz .dot { width: 10px; height: 10px; border-radius: 3px; flex-shrink: 0; display: inline-block; }
+    .viz .keyval { font-size: 20px; font-weight: 650; color: var(--ink); font-variant-numeric: tabular-nums; line-height: 1.2; }
+    .viz .keylab { font-size: 12px; color: var(--ink-2); }
+    .viz .keypct { font-size: 11.5px; color: var(--ink-3); font-variant-numeric: tabular-nums; }
 
-    /* Headline tiles: one card, hairline dividers, not six floating boxes. */
-    .viz .tiles {
-        display: grid; grid-template-columns: repeat(6, minmax(0, 1fr));
-        background: var(--surface); border: 1px solid #e8edf3; border-radius: 16px; overflow: hidden;
-    }
-    .viz .tile { padding: 18px 20px; border-left: 1px solid #f1f5f9; }
-    .viz .tile:first-child { border-left: 0; }
-    .viz .tile-value {
-        font-size: 26px; font-weight: 650; color: var(--text-primary);
-        letter-spacing: -0.025em; font-variant-numeric: tabular-nums; line-height: 1.1;
-    }
-    .viz .tile-label {
-        font-size: 10px; color: var(--text-muted); margin-top: 5px;
-        text-transform: uppercase; letter-spacing: .06em; font-weight: 650;
-    }
+    .viz .stage { display: grid; grid-template-columns: 120px 1fr; align-items: center; gap: 12px; }
+    .viz .stage-label { font-size: 12px; color: var(--ink-2); font-weight: 550; }
+    .viz .stage-track { height: 32px; display: flex; align-items: center; }
+    .viz .stage-fill { height: 100%; border-radius: 7px; min-width: 3px; background: var(--s1); }
+    .viz .stage-value { font-size: 13px; font-weight: 650; color: var(--ink); margin-left: 10px; font-variant-numeric: tabular-nums; white-space: nowrap; }
+    .viz .stage-step { padding-left: 132px; font-size: 11.5px; color: var(--ink-3); margin: 3px 0; }
 
-    /* Period: one segmented control, not a row of loose pills. */
-    .viz .period { display: inline-flex; background: #f1f5f9; border-radius: 10px; padding: 3px; }
-    .viz .period a {
-        font-size: 11.5px; font-weight: 600; color: var(--text-secondary);
-        padding: 6px 13px; border-radius: 8px; transition: background .12s, color .12s;
-    }
-    .viz .period a:hover { color: var(--text-primary); }
-    .viz .period a.on { background: var(--surface); color: var(--text-primary); box-shadow: 0 1px 2px rgba(15,23,42,.08); }
+    .viz .legend { display: flex; flex-wrap: wrap; align-items: center; gap: 16px; }
+    .viz .legend span { display: inline-flex; align-items: center; gap: 7px; font-size: 12px; color: var(--ink-2); }
+    .viz .legend b { color: var(--ink); font-weight: 650; font-variant-numeric: tabular-nums; }
 
-    /*
-        Funnel. One row per stage, width proportional to the largest stage.
+    .viz .csv { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 600; color: var(--ink-2);
+        background: #f8fafc; border: 1px solid var(--line); padding: 7px 12px; border-radius: 8px; }
+    .viz .csv:hover { color: var(--s1); border-color: #c7ddf5; }
+    .viz .csv svg { width: 13px; height: 13px; }
 
-        Scaled to the largest rather than to the first, because applications are
-        counted per application and jobs per job — more applications than jobs is
-        normal, and a funnel anchored to stage one would overflow its own track.
-    */
-    .viz .funnel { display: flex; flex-direction: column; gap: 3px; }
-    .viz .stage { display: grid; grid-template-columns: 150px 1fr; align-items: center; gap: 16px; }
-    .viz .stage-label { font-size: 12px; color: var(--text-secondary); font-weight: 550; }
-    .viz .stage-track { position: relative; height: 40px; display: flex; align-items: center; }
-    .viz .stage-fill {
-        height: 100%; border-radius: 8px; min-width: 3px;
-        display: flex; align-items: center; padding-left: 12px;
-    }
-    .viz .stage-value {
-        font-size: 14px; font-weight: 650; color: #fff;
-        font-variant-numeric: tabular-nums; letter-spacing: -0.01em;
-    }
-    /* Falls outside the fill when the bar is too short to hold it. */
-    .viz .stage-value-out { font-size: 14px; font-weight: 650; color: var(--text-primary); margin-left: 10px; font-variant-numeric: tabular-nums; }
-    .viz .stage-note { font-size: 11px; color: var(--text-muted); margin-left: 12px; white-space: nowrap; }
-    .viz .stage-gap { padding-left: 166px; font-size: 10.5px; color: var(--text-muted); line-height: 1; }
-
-    /* Doughnut legends: identity is never colour alone. */
-    .viz .dl { display: flex; flex-direction: column; gap: 9px; margin-top: 16px; }
-    .viz .dl-row { display: flex; align-items: center; gap: 9px; }
-    .viz .dl-dot { width: 9px; height: 9px; border-radius: 3px; flex-shrink: 0; }
-    .viz .dl-label { font-size: 11.5px; color: var(--text-secondary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    /* Value in ink, never in the series colour — the swatch carries identity. */
-    .viz .dl-value { margin-left: auto; font-size: 12.5px; font-weight: 650; color: var(--text-primary); font-variant-numeric: tabular-nums; }
-    .viz .dl-pct { font-size: 11px; color: var(--text-muted); font-variant-numeric: tabular-nums; width: 34px; text-align: right; }
-
-    @media (max-width: 900px) {
-        .viz .tiles { grid-template-columns: repeat(3, minmax(0, 1fr)); }
-        .viz .tile:nth-child(3n+1) { border-left: 0; }
-        .viz .tile:nth-child(n+4) { border-top: 1px solid #f1f5f9; }
-    }
-    @media (max-width: 640px) {
+    @media (max-width: 1000px) {
         .viz .tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-        .viz .tile:nth-child(3n+1) { border-left: 1px solid #f1f5f9; }
+        .viz .tile:nth-child(4n+1) { border-left: 1px solid var(--grid); }
         .viz .tile:nth-child(odd) { border-left: 0; }
-        .viz .tile:nth-child(n+3) { border-top: 1px solid #f1f5f9; }
-        .viz .chart-box { height: 220px !important; }
-        .viz .stage { grid-template-columns: 1fr; gap: 4px; }
-        .viz .stage-gap { padding-left: 0; }
-        .viz .card, .viz .card-hero { padding: 18px; }
+        .viz .tile:nth-child(-n+4) { border-top: 1px solid var(--grid); }
+        .viz .tile:nth-child(-n+2) { border-top: 0; }
     }
 </style>
 
 @php
     $range = ['from' => $from, 'to' => $to];
     $csv = fn ($route, $withRange = true) => route($route, $withRange ? $range : []);
-
     $download = '<svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">'
         . '<path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>';
+    $peso = fn ($n) => '₱' . number_format((int) $n);
 
-    // Pipeline. Each note states the ratio that matters at that stage rather
-    // than a bare percentage of stage one, which would compare applications
-    // against jobs and mean nothing.
-    $funnel = [
-        ['Jobs posted',      $headline['jobs'],         'var(--series-1)', null],
-        ['Applications',     $headline['applications'], 'var(--series-2)', $headline['jobs'] > 0
-            ? round($headline['applications'] / $headline['jobs'], 1) . ' per job' : null],
-        ['Workers hired',    $headline['hires'],        'var(--series-3)', $headline['applications'] > 0
-            ? $headline['hire_rate'] . '% of applications' : null],
-        ['Jobs completed',   $headline['completed'],    'var(--series-4)', $headline['jobs'] > 0
-            ? $headline['completion_rate'] . '% of jobs' : null],
-    ];
-    $funnelMax = max(array_column($funnel, 1));
+    // A count changes by a percentage; a rate by points (40% to 50% is ten
+    // points, not 25%). The header says what it is compared with.
+    $change = function ($now, $before, bool $rate = false) {
+        if ($now === null || $before === null) return ['flat', '–'];
+        if ($rate) {
+            $d = $now - $before;
+            return $d == 0 ? ['flat', '0 pts'] : [$d > 0 ? 'up' : 'down', ($d > 0 ? '▲ ' : '▼ ') . abs($d) . (abs($d) == 1 ? ' pt' : ' pts')];
+        }
+        if ($before == 0) return $now > 0 ? ['up', '▲ new'] : ['flat', '0%'];
+        $d = (int) round(($now - $before) / $before * 100);
+        return $d === 0 ? ['flat', '0%'] : [$d > 0 ? 'up' : 'down', ($d > 0 ? '▲ ' : '▼ ') . abs($d) . '%'];
+    };
 
-    // Part to whole.
-    $breakdowns = [
-        [
-            'title' => 'Account types',
-            'id'    => 'compositionChart', 'centre' => 'Accounts',
-            'basis' => 'users',
-            'href'  => $csv('admin.exports.users'), 'label' => 'Users',
-            'items' => [
-                ['Workers',   $composition['worker_only'],   '#2a78d6'],
-                ['Employers', $composition['employer_only'], '#eb6834'],
-                ['Hybrid',    $composition['hybrid'],        '#1baf7a'],
-                ['No profile',    $composition['no_profile'],    '#cbd5e1'],
-            ],
-        ],
-        [
-            'title' => 'Jobs by status',
-            'id'    => 'jobStatusChart', 'centre' => 'Jobs',
-            'basis' => 'jobs posted',
-            'href'  => $csv('admin.exports.jobs'), 'label' => 'Jobs',
-            'items' => [
-                ['Open',        $jobStatus['open'],        '#2a78d6'],
-                ['In progress', $jobStatus['in_progress'], '#eda100'],
-                ['Completed',   $jobStatus['completed'],   '#1baf7a'],
-                ['Closed',      $jobStatus['closed'],      '#cbd5e1'],
-                ['Flagged',     $jobStatus['flagged'],     '#e34948'],
-            ],
-        ],
-        [
-            'title' => 'Verification status',
-            'id'    => 'verificationChart', 'centre' => 'Documents',
-            'basis' => 'documents submitted',
-            'href'  => $csv('admin.exports.verifications'), 'label' => 'Verifications',
-            'items' => [
-                ['Verified', $verifications['verified'], '#1baf7a'],
-                ['Pending',  $verifications['pending'],  '#eda100'],
-                ['Rejected', $verifications['rejected'], '#e34948'],
-            ],
-        ],
+    $tiles = [
+        ['People',                 number_format($people['total']),         null],
+        ['Joined',                 number_format($now['new_people']),       $change($now['new_people'], $previous['new_people'])],
+        ['Employers who posted',   number_format($now['active_employers']), $change($now['active_employers'], $previous['active_employers'])],
+        ['Workers who applied',    number_format($now['active_workers']),   $change($now['active_workers'], $previous['active_workers'])],
+        ['Applications per job',   $now['apps_per_job'] ?? '–',              $change($now['apps_per_job'], $previous['apps_per_job'])],
+        ['Hire rate',              $now['hire_rate'] === null ? '–' : $now['hire_rate'] . '%', $change($now['hire_rate'], $previous['hire_rate'], true)],
+        ['Top-up income',          $peso($income['pesos']),                  $change($income['pesos'], $incomeBefore['pesos'])],
+        ['Forecast, next 4 weeks', $peso($forecast['next']),                 ['flat', $peso($forecast['weekly_avg']) . ' a week lately']],
     ];
 
-    $rankings = [
-        [
-            'title' => 'Top categories by jobs',
-            'id'    => 'categoryChart',
-            'href'  => $csv('admin.exports.categories', false), 'label' => 'Categories',
-        ],
-        [
-            'title' => 'Top workers by hires',
-            'id'    => 'topWorkersChart',
-            'href'  => $csv('admin.exports.top-workers', false), 'label' => 'Top workers',
-        ],
+    $split = [
+        ['Worker only',    $people['worker_only'],   'var(--s1)'],
+        ['Employer only',  $people['employer_only'], 'var(--s2)'],
+        ['Both',           $people['both'],          'var(--s3)'],
+        ['Not set up yet', $people['none'],          'var(--s4)'],
+    ];
+    $share = fn (int $n) => $people['total'] > 0 ? round($n / $people['total'] * 100) : 0;
+
+    $spendColors = ['var(--s1)', 'var(--s2)', 'var(--s3)', 'var(--s5)', 'var(--s6)'];
+    $spentTotal = array_sum($spent);
+
+    $top = max(1, $now['jobs_posted']);
+    $stageRate = fn (array $m, string $part, string $whole) => $m[$whole] > 0 ? (int) round($m[$part] / $m[$whole] * 100) : null;
+    $stages = [
+        ['Jobs posted',    'jobs_posted',     null],
+        ['Got applicants', 'with_applicants', 'jobs_posted'],
+        ['Hired someone',  'filled',          'with_applicants'],
+        ['Completed',      'completed',       'filled'],
     ];
 @endphp
 
 <div class="viz space-y-5">
 
-    {{--
-        Headline figures. A number is not a chart; these are stat tiles.
-
-        Said to be all time, because they are, and because the period picker
-        for the charts below sits a few pixels away. Unlabelled, "Jobs 412"
-        under a selected "30 days" reads as 412 jobs in thirty days - the
-        number is right and every reader gets it wrong.
-    --}}
-    <div class="flex items-baseline gap-2 mb-2">
-        <h3 class="text-sm font-semibold text-slate-700">Totals, all time</h3>
-        <span class="text-xs text-slate-400">Not affected by the period below</span>
-    </div>
-    <div class="tiles">
-        @foreach ([
-            ['Users', number_format($headline['users'])],
-            // Each account counted once: a worker only, an employer only, or
-            // a hybrid holding both profiles.
-            ['Workers', number_format($composition['worker_only'])],
-            ['Employers', number_format($composition['employer_only'])],
-            ['Hybrid', number_format($composition['hybrid'])],
-            ['Jobs posted', number_format($headline['jobs'])],
-            ['Applications', number_format($headline['applications'])],
-            ['Workers hired', number_format($headline['hires'])],
-            // Both rates name what they are a share of. "Hire rate" alone does
-            // not say rate of what, and "Completed" as a percentage was the
-            // worst of them: it read as a count of finished jobs.
-            ['Applications hired', $headline['hire_rate'] . '%'],
-            ['Jobs completed', $headline['completion_rate'] . '%'],
-        ] as [$label, $value])
-            <div class="tile">
-                <p class="tile-value">{{ $value }}</p>
-                <p class="tile-label">{{ $label }}</p>
-            </div>
-        @endforeach
-    </div>
-
-    {{-- Hero. The page's anchor: how busy the marketplace is, at full width. --}}
-    <div class="card card-hero">
-        <div class="flex flex-wrap items-start justify-between gap-4">
-            <div class="min-w-0">
-                <h3 class="card-title">Jobs and applications over time</h3>
-            </div>
-            <div class="flex items-center gap-3">
-                <div class="period">
-                    @foreach ([7 => '7 days', 30 => '30 days', 90 => '90 days'] as $value => $label)
-                        <a href="{{ route('admin.analytics.index', ['days' => $value]) }}"
-                           class="{{ $days === $value ? 'on' : '' }}">{{ $label }}</a>
-                    @endforeach
-                </div>
-                <a href="{{ $csv('admin.exports.jobs') }}" class="csv">{!! $download !!} Jobs</a>
-            </div>
-        </div>
-        <p class="text-xs text-slate-400 mt-2">
-            {{ \Illuminate\Support\Carbon::parse($from)->format('M j') }}
-            &ndash;
-            {{ \Illuminate\Support\Carbon::parse($to)->format('M j, Y') }}
+    <div class="flex flex-wrap items-center justify-between gap-3">
+        <p class="text-sm text-slate-500">
+            {{ \Illuminate\Support\Carbon::parse($from)->format('M j') }} – {{ \Illuminate\Support\Carbon::parse($to)->format('M j, Y') }}
+            · changes against the previous {{ $days }} days
         </p>
-        <div class="chart-box mt-5" style="height: 320px"><canvas id="activityChart"></canvas></div>
-    </div>
-
-    {{-- Pipeline, then the two period trends beside it. --}}
-    <div class="grid grid-cols-1 lg:grid-cols-5 gap-5">
-
-        <div class="card lg:col-span-3">
-            <div class="flex items-start justify-between gap-3">
-                <div class="min-w-0">
-                    <h3 class="card-title">Hiring funnel</h3>
-                    <p class="text-xs text-slate-400 mt-0.5">All time</p>
-                </div>
-                <a href="{{ $csv('admin.exports.hires') }}" class="csv">{!! $download !!} Hires</a>
-            </div>
-
-            @if ($funnelMax === 0)
-                <div class="empty mt-5">
-                    <p class="empty-title">No data yet</p>
-                </div>
-            @else
-                <div class="funnel mt-5">
-                    @foreach ($funnel as $i => [$label, $value, $color, $note])
-                        @php $pct = $value / $funnelMax * 100; @endphp
-                        <div class="stage">
-                            <span class="stage-label">{{ $label }}</span>
-                            <div class="stage-track">
-                                <div class="stage-fill" style="width: {{ max($pct, 1.2) }}%; background: {{ $color }}">
-                                    @if ($pct >= 12)
-                                        <span class="stage-value">{{ number_format($value) }}</span>
-                                    @endif
-                                </div>
-                                @if ($pct < 12)
-                                    <span class="stage-value-out">{{ number_format($value) }}</span>
-                                @endif
-                                @if ($note)
-                                    <span class="stage-note">{{ $note }}</span>
-                                @endif
-                            </div>
-                        </div>
-                        @if ($i < count($funnel) - 1)
-                            <div class="stage-gap">&darr;</div>
-                        @endif
-                    @endforeach
-                </div>
-            @endif
-        </div>
-
-        <div class="card lg:col-span-2">
-            <div class="flex items-start justify-between gap-3">
-                <div class="min-w-0">
-                    <h3 class="card-title">New accounts</h3>
-                    <p class="text-xs text-slate-400 mt-0.5">Selected period</p>
-                </div>
-                <a href="{{ $csv('admin.exports.users') }}" class="csv">{!! $download !!} Users</a>
-            </div>
-            <div class="chart-box mt-4" style="height: 240px"><canvas id="signupsChart"></canvas></div>
+        <div class="period" role="group" aria-label="Period">
+            @foreach ([7 => '7 days', 30 => '30 days', 90 => '90 days'] as $value => $label)
+                <a href="{{ route('admin.analytics.index', ['days' => $value]) }}" class="{{ $days === $value ? 'on' : '' }}"
+                   @if ($days === $value) aria-current="true" @endif>{{ $label }}</a>
+            @endforeach
         </div>
     </div>
 
-    {{-- Breakdowns. Doughnut with the total in the middle, labelled legend below. --}}
-    <div class="grid grid-cols-1 lg:grid-cols-3 gap-5">
-        @foreach ($breakdowns as $b)
-            @php $total = array_sum(array_column($b['items'], 1)); @endphp
-            <div class="card">
-                <div class="flex items-start justify-between gap-3">
-                    <div class="min-w-0">
-                        <h3 class="card-title">{{ $b['title'] }}</h3>
-                        {{-- The actual number behind the proportions. --}}
-                        <p class="text-xs text-slate-500 mt-0.5">Based on {{ number_format($total) }} {{ $b['basis'] }}</p>
-                    </div>
-                    <a href="{{ $b['href'] }}" class="csv">{!! $download !!} {{ $b['label'] }}</a>
-                </div>
-
-                @if ($total === 0)
-                    <div class="empty mt-4" style="min-height: 180px">
-                        <p class="empty-title">No data yet</p>
-                    </div>
+    {{-- The numbers. --}}
+    <section class="tiles" aria-label="Key figures">
+        @foreach ($tiles as [$label, $value, $chg])
+            <div class="tile">
+                <p class="t-label">{{ $label }}</p>
+                <p class="t-value">{{ $value }}</p>
+                @if ($chg)
+                    <p class="chg {{ $chg[0] }}">{{ $chg[1] }}</p>
                 @else
-                    <div class="chart-box mt-4" style="height: 180px">
-                        <canvas id="{{ $b['id'] }}"
-                                data-values="{{ json_encode(array_column($b['items'], 1)) }}"
-                                data-colors="{{ json_encode(array_column($b['items'], 2)) }}"
-                                data-labels="{{ json_encode(array_column($b['items'], 0)) }}"
-                                data-centre="{{ $b['centre'] }}"></canvas>
-                    </div>
-                    <div class="dl">
-                        @foreach ($b['items'] as [$label, $value, $color])
-                            <div class="dl-row">
-                                <span class="dl-dot" style="background: {{ $color }}"></span>
-                                <span class="dl-label">{{ $label }}</span>
-                                <span class="dl-value">{{ number_format($value) }}</span>
-                                <span class="dl-pct">{{ round($value / $total * 100) }}%</span>
-                            </div>
-                        @endforeach
-                    </div>
+                    <p class="chg flat">&nbsp;</p>
                 @endif
             </div>
         @endforeach
-    </div>
+    </section>
 
-    {{-- Rankings and the hires trend. --}}
-    <div class="grid grid-cols-1 lg:grid-cols-2 gap-5">
-        @foreach ($rankings as $r)
-            <div class="card">
-                <div class="flex items-start justify-between gap-3">
-                    <div class="min-w-0">
-                        <h3 class="card-title">{{ $r['title'] }}</h3>
-                    </div>
-                    <a href="{{ $r['href'] }}" class="csv">{!! $download !!} {{ $r['label'] }}</a>
+    <div class="grid grid-cols-1 xl:grid-cols-2 gap-5">
+        {{-- People: four groups that add up to everyone, each person once. --}}
+        <section class="card" aria-labelledby="people">
+            <div class="flex items-start justify-between gap-3">
+                <h2 id="people" class="card-title">Who uses KAYA</h2>
+                <a href="{{ $csv('admin.exports.users', false) }}" class="csv">{!! $download !!} Users</a>
+            </div>
+            @if ($people['total'] > 0)
+                <div class="split mt-5" role="img" aria-label="{{ collect($split)->map(fn ($s) => $s[0] . ' ' . $s[1])->join(', ') }}">
+                    @foreach ($split as [$label, $n, $color])
+                        @if ($n > 0)
+                            <span style="width: {{ $n / $people['total'] * 100 }}%; background: {{ $color }}" title="{{ $label }}: {{ $n }}"></span>
+                        @endif
+                    @endforeach
                 </div>
-                <div class="chart-box mt-4" style="height: 290px"><canvas id="{{ $r['id'] }}"></canvas></div>
-            </div>
-        @endforeach
+                <div class="grid grid-cols-2 gap-x-6 gap-y-4 mt-5">
+                    @foreach ($split as [$label, $n, $color])
+                        <div class="flex gap-2.5">
+                            <span class="dot mt-1.5" style="background: {{ $color }}"></span>
+                            <div>
+                                <p class="keyval">{{ number_format($n) }} <span class="keypct">{{ $share($n) }}%</span></p>
+                                <p class="keylab">{{ $label }}</p>
+                            </div>
+                        </div>
+                    @endforeach
+                </div>
+            @else
+                <div class="empty mt-4">No accounts yet</div>
+            @endif
+        </section>
+
+        {{-- Barya: what it is spent on. --}}
+        <section class="card" aria-labelledby="barya">
+            <h2 id="barya" class="card-title">Barya spent <span class="tag">{{ number_format($spentTotal) }}</span></h2>
+            @if ($spentTotal === 0)
+                <div class="empty mt-4">No Barya spent in this period</div>
+            @else
+                <div class="flex flex-wrap items-center gap-6 mt-4">
+                    <div class="chart-box" style="width: 190px; height: 190px"><canvas id="spentChart"></canvas></div>
+                    <div class="flex-1 min-w-[12rem] space-y-2.5">
+                        @foreach (array_keys($spent) as $i => $label)
+                            <div class="flex items-center gap-2.5">
+                                <span class="dot" style="background: {{ $spendColors[$i % 5] }}"></span>
+                                <span class="keylab flex-1">{{ $label }}</span>
+                                <span class="text-sm font-semibold text-slate-900 tabular-nums">{{ number_format($spent[$label]) }}</span>
+                                <span class="keypct w-10 text-right">{{ round($spent[$label] / $spentTotal * 100) }}%</span>
+                            </div>
+                        @endforeach
+                    </div>
+                </div>
+            @endif
+        </section>
     </div>
 
-    <div class="card">
-        <div class="flex items-start justify-between gap-3">
-            <div class="min-w-0">
-                <h3 class="card-title">Skill demand and supply</h3>
-                <p class="text-xs text-slate-400 mt-0.5">Jobs asking for a skill against workers who list it</p>
+    {{-- Income by week, and the four weeks ahead. --}}
+    <section class="card" aria-labelledby="income">
+        <div class="flex flex-wrap items-start justify-between gap-3">
+            <h2 id="income" class="card-title">Top-up income and forecast <span class="tag">at package prices</span></h2>
+            <div class="legend">
+                <span><i class="dot" style="background: var(--s1)"></i> Last 12 weeks</span>
+                <span><i class="dot" style="background: #b8d3f3"></i> Next 4 weeks</span>
+                <span><i class="dot" style="background: var(--s2)"></i> Trend</span>
+                <span>Top-ups <b>{{ number_format($income['topups']) }}</b></span>
+                <span>Paying accounts <b>{{ number_format($income['payers']) }}</b></span>
+                <span>Per top-up <b>{{ $income['per_topup'] === null ? '–' : $peso($income['per_topup']) }}</b></span>
             </div>
-            <a href="{{ $csv('admin.exports.skill-demand', false) }}" class="csv">{!! $download !!} Skill demand</a>
         </div>
-        <div class="chart-box mt-4" style="height: 300px"><canvas id="skillsChart"></canvas></div>
+        <div class="chart-box mt-4" style="height: 260px"><canvas id="incomeChart"></canvas></div>
+    </section>
+
+    <div class="grid grid-cols-1 xl:grid-cols-5 gap-5">
+        <section class="card xl:col-span-3" aria-labelledby="activity">
+            <div class="flex flex-wrap items-start justify-between gap-3">
+                <h2 id="activity" class="card-title">Jobs and applications</h2>
+                <div class="legend">
+                    <span><i class="dot" style="background: var(--s1)"></i> Jobs posted</span>
+                    <span><i class="dot" style="background: var(--s2)"></i> Applications</span>
+                    <a href="{{ $csv('admin.exports.jobs') }}" class="csv">{!! $download !!} Jobs</a>
+                    <a href="{{ $csv('admin.exports.applicants') }}" class="csv">{!! $download !!} Applications</a>
+                </div>
+            </div>
+            <div class="chart-box mt-4" style="height: 270px"><canvas id="activityChart"></canvas></div>
+        </section>
+
+        <section class="card xl:col-span-2" aria-labelledby="funnel">
+            <div class="flex items-start justify-between gap-3">
+                <h2 id="funnel" class="card-title">Jobs, start to finish</h2>
+                <a href="{{ $csv('admin.exports.hires') }}" class="csv">{!! $download !!} Hires</a>
+            </div>
+            @if ($now['jobs_posted'] === 0)
+                <div class="empty mt-4">No jobs posted in this period</div>
+            @else
+                <div class="mt-5">
+                    @foreach ($stages as $i => [$label, $key, $of])
+                        @php $n = $now[$key]; @endphp
+                        @if ($of)
+                            @php
+                                $rate = $stageRate($now, $key, $of);
+                                [$tone, $text] = $change($rate, $stageRate($previous, $key, $of), true);
+                            @endphp
+                            <p class="stage-step">{{ $rate ?? 0 }}% <span class="chg {{ $tone }}">{{ $text }}</span></p>
+                        @endif
+                        <div class="stage">
+                            <span class="stage-label">{{ $label }}</span>
+                            <div class="stage-track">
+                                <div class="stage-fill" style="width: {{ $n / $top * 72 }}%; opacity: {{ 1 - $i * 0.18 }}"></div>
+                                <span class="stage-value">{{ number_format($n) }}</span>
+                                @if (! $of)
+                                    @php [$tone, $text] = $change($now['jobs_posted'], $previous['jobs_posted']); @endphp
+                                    <span class="chg {{ $tone }} ml-2 whitespace-nowrap">{{ $text }}</span>
+                                @endif
+                            </div>
+                        </div>
+                    @endforeach
+                </div>
+            @endif
+        </section>
     </div>
 
-    <div class="card">
-        <div class="flex items-start justify-between gap-3">
-            <div class="min-w-0">
-                <h3 class="card-title">Hires over time</h3>
-                <p class="text-xs text-slate-400 mt-0.5">Selected period</p>
+    <section class="card" aria-labelledby="trades">
+        <div class="flex flex-wrap items-start justify-between gap-3">
+            <h2 id="trades" class="card-title">Demand and supply by trade</h2>
+            <div class="legend">
+                <span><i class="dot" style="background: var(--s1)"></i> Jobs posted</span>
+                <span><i class="dot" style="background: var(--s3)"></i> Workers</span>
+                <a href="{{ $csv('admin.exports.categories', false) }}" class="csv">{!! $download !!} Trades</a>
+                <a href="{{ $csv('admin.exports.skill-demand', false) }}" class="csv">{!! $download !!} Skills</a>
             </div>
-            <a href="{{ $csv('admin.exports.hires') }}" class="csv">{!! $download !!} Hires</a>
         </div>
-        <div class="chart-box mt-4" style="height: 240px"><canvas id="hiresChart"></canvas></div>
-    </div>
+        @if (empty($trades))
+            <div class="empty mt-4">No jobs posted in this period</div>
+        @else
+            <div class="chart-box mt-3" style="height: {{ 60 + count($trades) * 46 }}px"><canvas id="tradesChart"></canvas></div>
+        @endif
+    </section>
 
-    {{-- The one export with no chart of its own: a row per application is a
-         table, not a picture. --}}
-    <div class="card flex-row items-center justify-between gap-4">
-        <div>
-            <h3 class="card-title">Applicants per job</h3>
-        </div>
-        <a href="{{ $csv('admin.exports.applicants') }}"
-           class="shrink-0 inline-flex items-center gap-2 bg-blue-600 text-white text-xs font-semibold px-4 py-2.5 rounded-lg hover:bg-blue-700">
-            Download CSV
-        </a>
-    </div>
+    <section class="card flex flex-wrap items-center gap-3" aria-label="Downloads">
+        <h2 class="card-title mr-2">Downloads</h2>
+        <a href="{{ $csv('admin.exports.verifications') }}" class="csv">{!! $download !!} Verifications</a>
+        <a href="{{ $csv('admin.exports.top-workers', false) }}" class="csv">{!! $download !!} Top workers</a>
+    </section>
 </div>
 
 <script>
 (function () {
     const root = document.querySelector('.viz');
-
-    // Chart.js comes from a CDN. If a network blocks it, leave the figures, the
-    // funnel, the legends and the downloads usable rather than throwing.
     if (!root || typeof Chart === 'undefined') {
-        document.querySelectorAll('.chart-box').forEach((box) => {
-            box.innerHTML = '<div class="empty"><p class="empty-title">Charts unavailable</p></div>';
-        });
+        document.querySelectorAll('.chart-box').forEach((box) => { box.innerHTML = '<div class="empty">Charts could not load</div>'; });
         return;
     }
-
     const css = getComputedStyle(root);
     const c = (name) => css.getPropertyValue(name).trim();
 
     Chart.defaults.font.family = "'Inter', system-ui, sans-serif";
     Chart.defaults.font.size = 11;
-    Chart.defaults.color = c('--text-muted');
-    Chart.defaults.plugins.legend.labels.usePointStyle = true;
-    Chart.defaults.plugins.legend.labels.pointStyle = 'circle';
-    Chart.defaults.plugins.legend.labels.boxWidth = 6;
-    Chart.defaults.plugins.legend.labels.boxHeight = 6;
-    Chart.defaults.plugins.legend.labels.padding = 18;
-    Chart.defaults.plugins.legend.align = 'end';
-
-    Chart.defaults.plugins.tooltip.backgroundColor = '#0f172a';
-    Chart.defaults.plugins.tooltip.padding = 11;
-    Chart.defaults.plugins.tooltip.cornerRadius = 9;
-    Chart.defaults.plugins.tooltip.titleFont = { size: 11, weight: '600' };
-    Chart.defaults.plugins.tooltip.bodyFont = { size: 11 };
-    Chart.defaults.plugins.tooltip.boxPadding = 5;
-    Chart.defaults.plugins.tooltip.usePointStyle = true;
-
-    // Dragging a window edge otherwise redraws every chart on the page.
-    Chart.defaults.resizeDelay = 120;
+    Chart.defaults.color = c('--ink-3');
     Chart.defaults.animation = false;
+    Chart.defaults.resizeDelay = 120;
+    Chart.defaults.plugins.legend.display = false;
+    Chart.defaults.plugins.tooltip.backgroundColor = '#0f172a';
+    Chart.defaults.plugins.tooltip.padding = 10;
+    Chart.defaults.plugins.tooltip.cornerRadius = 8;
 
     const grid = { color: c('--grid'), drawTicks: false };
-    // Counts are whole numbers; an axis reading 0.5 applications is nonsense.
     const countAxis = { beginAtZero: true, border: { display: false }, grid, ticks: { precision: 0, padding: 8, maxTicksLimit: 5 } };
-    const bareAxis = { border: { display: false }, grid: { display: false }, ticks: { padding: 6 } };
+    const bareAxis = { border: { display: false }, grid: { display: false }, ticks: { padding: 6, maxRotation: 0, autoSkipPadding: 16 } };
+    const empty = (id, text) => { const box = document.getElementById(id)?.closest('.chart-box'); if (box) box.innerHTML = '<div class="empty">' + text + '</div>'; };
+    const sum = (a) => a.reduce((x, y) => x + (y || 0), 0);
+    const peso = (v) => '₱' + Number(v).toLocaleString();
 
-    const sum = (a) => (a || []).reduce((x, y) => x + (Number(y) || 0), 0);
-
-    /*
-        A chart with every value at zero draws an axis, a legend and no marks,
-        which reads as broken rather than as empty. Say so in words instead.
-    */
-    const blank = (id, hint) => {
-        const box = document.getElementById(id)?.closest('.chart-box');
-        if (box) {
-            box.innerHTML = '<div class="empty"><p class="empty-title">No data yet</p></div>';
-        }
-    };
-
-    // A soft wash under a line reads as volume without competing with the line.
-    const wash = (hex, strong) => (ctx) => {
-        const { chartArea, ctx: canvas } = ctx.chart;
-        if (!chartArea) return 'transparent';
-        const g = canvas.createLinearGradient(0, chartArea.top, 0, chartArea.bottom);
-        g.addColorStop(0, hex + (strong ? '44' : '26'));
-        g.addColorStop(1, hex + '00');
-        return g;
-    };
-
-    const area = (id, labels, sets, strong) => new Chart(document.getElementById(id), {
-        type: 'line',
-        data: {
-            labels,
-            datasets: sets.map((s) => ({
-                label: s.label, data: s.data,
-                borderColor: s.color,
-                backgroundColor: wash(s.color, strong),
-                fill: true,
-                borderWidth: 2,
-                pointRadius: 0,
-                pointHoverRadius: 4,
-                pointHoverBorderWidth: 2,
-                pointHoverBorderColor: c('--surface'),
-                pointHoverBackgroundColor: s.color,
-                tension: 0.35,
-            })),
-        },
-        options: {
-            responsive: true, maintainAspectRatio: false,
-            // One hover reports every series at that date.
-            interaction: { mode: 'index', intersect: false },
-            // A single series needs no legend box; the title names it.
-            plugins: { legend: { display: sets.length > 1 } },
-            scales: { y: countAxis, x: { ...bareAxis, ticks: { ...bareAxis.ticks, maxRotation: 0, autoSkipPadding: 18 } } },
-        },
-    });
-
-    // The total belongs in the hole. Without it a doughnut shows proportion but
-    // never says proportion of what.
-    const centreTotal = {
-        id: 'centreTotal',
-        afterDatasetsDraw(chart) {
-            const { ctx, chartArea } = chart;
-            if (!chartArea) return;
-            const total = sum(chart.data.datasets[0].data);
-            const x = (chartArea.left + chartArea.right) / 2;
-            const y = (chartArea.top + chartArea.bottom) / 2;
-            ctx.save();
-            ctx.textAlign = 'center';
-            ctx.font = "650 24px 'Inter', system-ui, sans-serif";
-            ctx.fillStyle = c('--text-primary');
-            ctx.fillText(total.toLocaleString(), x, y);
-            ctx.font = "650 9.5px 'Inter', system-ui, sans-serif";
-            ctx.fillStyle = c('--text-muted');
-            ctx.fillText((chart.canvas.dataset.centre || '').toUpperCase(), x, y + 16);
-            ctx.restore();
-        },
-    };
-
-    // Prints the value at the end of each bar, so the eye does not travel back
-    // to an axis to read a number the bar already implies.
-    const endLabels = {
-        id: 'endLabels',
-        afterDatasetsDraw(chart) {
-            const { ctx } = chart;
-            ctx.save();
-            ctx.font = "650 11px 'Inter', system-ui, sans-serif";
-            ctx.fillStyle = c('--text-secondary');
-            ctx.textBaseline = 'middle';
-            chart.getDatasetMeta(0).data.forEach((bar, i) => {
-                const v = chart.data.datasets[0].data[i];
-                if (!v) return;
-                ctx.fillText(v, bar.x + 8, bar.y);
-            });
-            ctx.restore();
-        },
-    };
-
-    // Horizontal because names are long, one hue because the job is magnitude.
-    const rankedBar = (id, labels, data, label, color) =>
-        new Chart(document.getElementById(id), {
-            type: 'bar',
-            data: { labels, datasets: [{ label, data, backgroundColor: color, borderRadius: 5, borderSkipped: false, barThickness: 14 }] },
-            options: {
-                indexAxis: 'y', responsive: true, maintainAspectRatio: false,
-                // Room on the right for the printed value.
-                layout: { padding: { right: 30 } },
-                plugins: { legend: { display: false } },
-                scales: {
-                    x: { ...countAxis, ticks: { ...countAxis.ticks, display: false } },
-                    y: { ...bareAxis, ticks: { ...bareAxis.ticks, font: { size: 11 } } },
-                },
-            },
-            plugins: [endLabels],
-        });
-
-    // ── Hero ────────────────────────────────────────────────────────────────
-    const activity = @json($activity);
-    if (sum(activity.jobs) + sum(activity.applications) === 0) {
-        blank('activityChart', 'No jobs were posted and no applications were sent in this period. Try a longer range.');
-    } else {
-        area('activityChart', activity.labels, [
-            { label: 'Jobs posted',  data: activity.jobs,         color: c('--series-1') },
-            { label: 'Applications', data: activity.applications, color: c('--series-2') },
-        ], true);
-    }
-
-    const signups = @json($signups);
-    if (sum(signups.workers) + sum(signups.employers) === 0) {
-        blank('signupsChart', 'No profiles were created in this period.');
-    } else {
-        area('signupsChart', signups.labels, [
-            { label: 'Workers',   data: signups.workers,   color: c('--series-1') },
-            { label: 'Employers', data: signups.employers, color: c('--series-2') },
-        ]);
-    }
-
-    const hires = @json($hires);
-    if (sum(hires.hires) === 0) {
-        blank('hiresChart', 'No applications have been accepted in this period.');
-    } else {
-        area('hiresChart', hires.labels, [{ label: 'Hires', data: hires.hires, color: c('--series-3') }], true);
-    }
-
-    // ── Breakdowns ──────────────────────────────────────────────────────────
-    document.querySelectorAll('canvas[data-values]').forEach((canvas) => {
-        new Chart(canvas, {
+    // Barya spent: doughnut, the total in the tag above it.
+    const spent = @json((object) $spent);
+    const spentCanvas = document.getElementById('spentChart');
+    if (spentCanvas) {
+        const colors = [c('--s1'), c('--s2'), c('--s3'), c('--s5'), c('--s6')];
+        new Chart(spentCanvas, {
             type: 'doughnut',
-            data: {
-                labels: JSON.parse(canvas.dataset.labels),
-                datasets: [{
-                    data: JSON.parse(canvas.dataset.values),
-                    backgroundColor: JSON.parse(canvas.dataset.colors),
-                    // A 2px surface ring so touching arcs read as separate.
-                    borderColor: c('--surface'),
-                    borderWidth: 2,
-                    hoverOffset: 4,
-                }],
-            },
-            options: {
-                responsive: true, maintainAspectRatio: false,
-                cutout: '68%',
-                // Identity comes from the labelled legend below, not a box here.
-                plugins: { legend: { display: false } },
-            },
-            plugins: [centreTotal],
+            data: { labels: Object.keys(spent), datasets: [{ data: Object.values(spent), backgroundColor: Object.keys(spent).map((_, i) => colors[i % 5]), borderColor: c('--surface'), borderWidth: 2 }] },
+            options: { responsive: true, maintainAspectRatio: false, cutout: '64%' },
         });
-    });
-
-    // ── Rankings ────────────────────────────────────────────────────────────
-    const categories = @json($categories);
-    if (sum(categories.jobs) === 0) {
-        blank('categoryChart', 'No jobs have been posted, so no category has any activity yet.');
-    } else {
-        rankedBar('categoryChart', categories.labels, categories.jobs, 'Jobs posted', c('--series-1'));
     }
 
-    const topWorkers = @json($topWorkers);
-    if (sum(topWorkers.hires) === 0) {
-        blank('topWorkersChart', 'No worker has been hired yet, so there is nothing to rank.');
+    // Income: twelve weeks of bars, four projected, one fitted trend line.
+    const f = @json($forecast);
+    if (sum(f.actual) === 0) {
+        empty('incomeChart', 'No top-ups in the last 12 weeks');
     } else {
-        rankedBar('topWorkersChart', topWorkers.labels, topWorkers.hires, 'Times hired', c('--series-3'));
-    }
-
-    const skills = @json($skills);
-    if (sum(skills.demand) + sum(skills.supply) === 0) {
-        blank('skillsChart', 'No skill has been requested on a job or claimed by a worker yet.');
-    } else {
-        new Chart(document.getElementById('skillsChart'), {
-            type: 'bar',
+        new Chart(document.getElementById('incomeChart'), {
             data: {
-                labels: skills.labels,
+                labels: f.labels,
                 datasets: [
-                    { label: 'Jobs requiring it',   data: skills.demand, backgroundColor: c('--series-1'), borderRadius: 5, borderSkipped: false, maxBarThickness: 26 },
-                    { label: 'Workers offering it', data: skills.supply, backgroundColor: c('--series-3'), borderRadius: 5, borderSkipped: false, maxBarThickness: 26 },
+                    { type: 'bar', label: 'Income', data: [...f.actual, ...f.projected.map(() => null)], backgroundColor: c('--s1'), borderRadius: 4, maxBarThickness: 34 },
+                    { type: 'bar', label: 'Forecast', data: [...f.actual.map(() => null), ...f.projected], backgroundColor: '#b8d3f3', borderRadius: 4, maxBarThickness: 34 },
+                    { type: 'line', label: 'Trend', data: f.trend, borderColor: c('--s2'), borderDash: [5, 4], borderWidth: 2, pointRadius: 0, tension: 0 },
                 ],
             },
             options: {
                 responsive: true, maintainAspectRatio: false,
                 interaction: { mode: 'index', intersect: false },
-                scales: { y: countAxis, x: bareAxis },
+                plugins: { tooltip: { filter: (item) => item.raw !== null, callbacks: { label: (ctx) => ctx.dataset.label + ': ' + peso(ctx.raw) } } },
+                scales: {
+                    x: { ...bareAxis, stacked: true },
+                    y: { ...countAxis, ticks: { ...countAxis.ticks, callback: (v) => peso(v) } },
+                },
             },
+        });
+    }
+
+    // Activity: two lines on one axis.
+    const trend = @json($trend);
+    if (sum(trend.jobs) + sum(trend.applications) === 0) {
+        empty('activityChart', 'No jobs or applications in this period');
+    } else {
+        const line = (label, data, color) => ({ label, data, borderColor: color, backgroundColor: color, borderWidth: 2,
+            pointRadius: trend.weekly ? 3 : 0, pointHoverRadius: 4, tension: 0.3 });
+        new Chart(document.getElementById('activityChart'), {
+            type: 'line',
+            data: { labels: trend.labels, datasets: [line('Jobs posted', trend.jobs, c('--s1')), line('Applications', trend.applications, c('--s2'))] },
+            options: { responsive: true, maintainAspectRatio: false, interaction: { mode: 'index', intersect: false }, scales: { y: countAxis, x: bareAxis } },
+        });
+    }
+
+    // Trades: paired horizontal bars.
+    const trades = @json($trades);
+    const tradesCanvas = document.getElementById('tradesChart');
+    if (tradesCanvas) {
+        new Chart(tradesCanvas, {
+            type: 'bar',
+            data: {
+                // Two lines for a long name; Chart.js clips one line at the edge.
+                labels: trades.map((t) => t.name.length > 18 ? t.name.replace(/^(.{1,18})\s/, '$1\n').split('\n') : t.name),
+                datasets: [
+                    { label: 'Jobs posted', data: trades.map((t) => t.jobs), backgroundColor: c('--s1'), borderRadius: 4, barThickness: 14 },
+                    { label: 'Workers', data: trades.map((t) => t.workers), backgroundColor: c('--s3'), borderRadius: 4, barThickness: 14 },
+                ],
+            },
+            options: { indexAxis: 'y', responsive: true, maintainAspectRatio: false, interaction: { mode: 'index', intersect: false },
+                scales: { x: countAxis, y: { ...bareAxis, ticks: { ...bareAxis.ticks, autoSkip: false } } } },
         });
     }
 })();

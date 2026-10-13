@@ -4,294 +4,336 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\Application;
+use App\Models\Category;
 use App\Models\JobPost;
 use App\Models\User;
-use App\Models\Verification;
+use App\Models\WorkerProfile;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 
-/**
- * Aggregates for the analytics dashboard.
- *
- * Everything returned here is counted from real rows. Where a figure cannot be
- * produced yet — anything financial, since credits and top-up do not exist —
- * the view says so rather than plotting a zero, because a flat line at zero
- * reads as "no sales" instead of "not built".
- */
+/*
+    The analytics page.
+
+    Rebuilt after the panel's review. Their written comment: "Specify and
+    display the actual number of users represented in the analytics
+    dashboard". The old page counted the same people three times (a Users
+    tile, Workers/Employers/Hybrid tiles, and a doughnut of the same four
+    numbers), repeated every job figure in the tiles and again in the funnel,
+    and stated counts without comparing them to anything - descriptive, not
+    analysis. Its funnel also mixed units (jobs, then applications) and
+    counted only hires still marked accepted, so a finished hire stopped
+    being a hire and "Jobs completed" came out larger than "Workers hired".
+
+    Now each figure appears once, and each section answers its own question:
+
+      people     who uses KAYA, each person counted once
+      measures   how this period went, against the period before it
+      trend      when the activity happened
+      funnel     where jobs drop out, in one unit throughout: jobs
+      trades     where demand outruns supply, and by how much
+
+    A hire is an application that reached accepted, completed or unsuccessful
+    (closed unconfirmed): all three were people hired. There is no hire
+    timestamp, so nothing here claims a time-to-hire.
+*/
 class AnalyticsController extends Controller
 {
+    private const HIRED = ['accepted', 'completed', 'unsuccessful'];
+
+    /** Where spent Barya goes, by ledger reason. Invites and rehires are one use. */
+    private const SPEND = [
+        'application'   => 'Applications',
+        'invitation'    => 'Invites',
+        'rehire_invite' => 'Invites',
+        'boost'         => 'Boosts',
+        'job_duration'  => 'Longer job posts',
+        'thread_ad'     => 'Board posts',
+    ];
+
     public function index(Request $request)
     {
         $days = (int) $request->get('days', 30);
         $days = in_array($days, [7, 30, 90], true) ? $days : 30;
 
+        $from = Carbon::now()->subDays($days - 1)->startOfDay();
+        // The end of today, not this instant: an upper bound of "now" leaves
+        // out whatever was created in the same second as the page load.
+        $to = Carbon::now()->addDay()->startOfDay();
+        $before = $from->copy()->subDays($days);
+
         return view('admin.analytics.index', [
-            'days'          => $days,
-            // The CSV beside each chart covers the same period the chart shows.
-            // Downloading "last 7 days" and getting all time would make the
-            // numbers disagree with the picture they came from.
-            'from'          => Carbon::now()->subDays($days - 1)->format('Y-m-d'),
-            'to'            => Carbon::now()->format('Y-m-d'),
-            'headline'      => $this->headline(),
-            'signups'       => $this->signupsOverTime($days),
-            'activity'      => $this->activityOverTime($days),
-            'hires'         => $this->hiresOverTime($days),
-            'composition'   => $this->accountComposition(),
-            'jobStatus'     => $this->jobStatusBreakdown(),
-            'categories'    => $this->categoryActivity(),
-            'skills'        => $this->skillDemandVsSupply(),
-            'verifications' => $this->verificationOutcomes(),
-            'topWorkers'    => $this->topWorkers(),
+            'days'     => $days,
+            // The CSVs cover the same period the page shows.
+            'from'     => $from->format('Y-m-d'),
+            'to'       => Carbon::now()->format('Y-m-d'),
+            'people'   => $this->people(),
+            'now'      => $this->measures($from, $to),
+            'previous' => $this->measures($before, $from),
+            'trend'    => $this->trend($from, $days),
+            'trades'   => $this->trades($from, $to),
+            'income'   => $this->income($from, $to),
+            'incomeBefore' => $this->income($before, $from),
+            'forecast' => $this->forecast(),
+            'spent'    => $this->spent($from, $to),
         ]);
     }
 
-    /**
-     * The numbers the page leads with.
-     *
-     * Completion rate is the one worth watching: jobs that get posted but never
-     * finish are the clearest sign the marketplace is not actually working,
-     * and no other figure here surfaces that.
-     */
-    private function headline(): array
+    /*
+        Top-ups, in pesos.
+
+        Top-ups are free while KAYA is in testing, so a paid row records zero
+        and the money it would have brought is its package's price. A row
+        that records a real amount - Play Billing, later - counts as charged.
+    */
+    private function topups(Carbon $from, Carbon $to)
     {
-        $jobs      = JobPost::count();
-        $completed = JobPost::where('status', 'completed')->count();
-        $apps      = Application::count();
-        $hires     = Application::where('status', 'accepted')->count();
+        return DB::table('credit_payments')
+            ->leftJoin('credit_packages', 'credit_packages.id', '=', 'credit_payments.credit_package_id')
+            ->where('credit_payments.status', 'paid')
+            ->where('credit_payments.paid_at', '>=', $from)
+            ->where('credit_payments.paid_at', '<', $to);
+    }
+
+    private const VALUE = 'CASE WHEN credit_payments.amount_centavos > 0 THEN credit_payments.amount_centavos ELSE COALESCE(credit_packages.amount_centavos, 0) END';
+
+    private function income(Carbon $from, Carbon $to): array
+    {
+        $row = $this->topups($from, $to)
+            ->selectRaw('COUNT(*) as n, COUNT(DISTINCT credit_payments.user_id) as payers, SUM(' . self::VALUE . ') as centavos')
+            ->first();
+
+        $n = (int) $row->n;
+        $pesos = intdiv((int) $row->centavos, 100);
 
         return [
-            /*
-                Whose numbers these are, said outright.
-
-                The panel asked for the actual number of users the dashboard
-                represents, and "Users" on its own could not say whether the
-                administrators were in it - an admin is a user row too. App
-                users are the people on the marketplace, admins never; the
-                admins are counted separately so the two add up to every
-                account.
-            */
-            'users'           => User::where('user_type', '!=', 'admin')->count(),
-            'admins'          => User::where('user_type', 'admin')->count(),
-            'jobs'            => $jobs,
-            'applications'    => $apps,
-            'hires'           => $hires,
-            // The funnel needs the count, not just the rate derived from it.
-            'completed'       => $completed,
-            // Cast: round() returns a float, so these would be 50.0 rather than
-            // 50 — harmless on screen, but it makes the value awkward to
-            // compare against and would render as "50.0%" anywhere the view
-            // formatted it differently.
-            'completion_rate' => $jobs > 0 ? (int) round($completed / $jobs * 100) : 0,
-            'hire_rate'       => $apps > 0 ? (int) round($hires / $apps * 100) : 0,
+            'pesos'    => $pesos,
+            'topups'   => $n,
+            'payers'   => (int) $row->payers,
+            'per_topup' => $n > 0 ? (int) round($pesos / $n) : null,
         ];
     }
 
-    /**
-     * Fills every day in the range, including days with nothing.
-     *
-     * A time series built only from days that have rows draws a line straight
-     * across a quiet week, which reads as steady activity rather than none.
-     */
-    private function dailySeries(string $table, int $days, ?callable $constrain = null): array
-    {
-        $query = DB::table($table)
-            ->where('created_at', '>=', Carbon::now()->subDays($days - 1)->startOfDay())
-            ->selectRaw('DATE(created_at) as day, COUNT(*) as total')
-            ->groupBy('day');
+    /*
+        The next four weeks of income, from the last twelve.
 
-        if ($constrain) {
-            $constrain($query);
+        Twelve rolling seven-day windows ending today, so every bucket is a
+        whole week, and a straight line fitted through them by least squares.
+        The line carried forward four weeks is the forecast, never below zero.
+        Plain on purpose: one trend, no seasonality, which is as much as a
+        few months of a new marketplace can support.
+    */
+    private function forecast(): array
+    {
+        $weeks = 12;
+        $ahead = 4;
+        $end = Carbon::now()->addDay()->startOfDay();
+        $start = $end->copy()->subDays($weeks * 7);
+
+        $rows = $this->topups($start, $end)
+            ->selectRaw('credit_payments.paid_at as at, ' . self::VALUE . ' as centavos')
+            ->get();
+
+        $actual = array_fill(0, $weeks, 0);
+        foreach ($rows as $r) {
+            $i = intdiv((int) $start->diffInDays(Carbon::parse($r->at), true), 7);
+            if ($i >= 0 && $i < $weeks) {
+                $actual[$i] += intdiv((int) $r->centavos, 100);
+            }
         }
 
-        $counts = $query->pluck('total', 'day');
-
-        $series = [];
-        for ($i = $days - 1; $i >= 0; $i--) {
-            $date = Carbon::now()->subDays($i)->format('Y-m-d');
-            $series[] = (int) ($counts[$date] ?? 0);
+        // y = a + b x over x = 0..11.
+        $mx = ($weeks - 1) / 2;
+        $my = array_sum($actual) / $weeks;
+        $sxx = 0;
+        $sxy = 0;
+        foreach ($actual as $x => $y) {
+            $sxx += ($x - $mx) ** 2;
+            $sxy += ($x - $mx) * ($y - $my);
         }
+        $b = $sxx > 0 ? $sxy / $sxx : 0;
+        $a = $my - $b * $mx;
 
-        return $series;
-    }
+        $fit = fn (int $x) => max(0, (int) round($a + $b * $x));
+        $projected = array_map($fit, range($weeks, $weeks + $ahead - 1));
 
-    private function dayLabels(int $days): array
-    {
         $labels = [];
-        for ($i = $days - 1; $i >= 0; $i--) {
-            $labels[] = Carbon::now()->subDays($i)->format('M j');
+        for ($i = 0; $i < $weeks + $ahead; $i++) {
+            $labels[] = $start->copy()->addDays($i * 7)->format('M j');
         }
 
-        return $labels;
-    }
-
-    /** New worker and employer profiles per day. */
-    private function signupsOverTime(int $days): array
-    {
         return [
-            'labels'    => $this->dayLabels($days),
-            'workers'   => $this->dailySeries('worker_profiles', $days),
-            'employers' => $this->dailySeries('employer_profiles', $days),
+            'labels'    => $labels,
+            'actual'    => $actual,
+            'projected' => $projected,
+            'trend'     => array_map($fit, range(0, $weeks + $ahead - 1)),
+            'next'      => array_sum($projected),
+            'weekly_avg' => (int) round($my),
         ];
     }
 
-    /**
-     * Jobs posted against applications received.
-     *
-     * Both are counts of events, so they share one axis. A second y-scale would
-     * let the two lines be drawn to any relationship you like, which is exactly
-     * why it is not done.
-     */
-    private function activityOverTime(int $days): array
+    /** Barya spent in the period, by what it was spent on. */
+    private function spent(Carbon $from, Carbon $to): array
     {
-        return [
-            'labels'       => $this->dayLabels($days),
-            'jobs'         => $this->dailySeries('jobs_posts', $days),
-            'applications' => $this->dailySeries('applications', $days),
-        ];
+        $rows = DB::table('credit_transactions')
+            ->where('created_at', '>=', $from)->where('created_at', '<', $to)
+            ->where('delta', '<', 0)
+            ->whereIn('reason', array_keys(self::SPEND))
+            ->selectRaw('reason, SUM(-delta) as total')
+            ->groupBy('reason')
+            ->pluck('total', 'reason');
+
+        $byUse = [];
+        foreach ($rows as $reason => $total) {
+            $label = self::SPEND[$reason];
+            $byUse[$label] = ($byUse[$label] ?? 0) + (int) $total;
+        }
+        arsort($byUse);
+
+        return $byUse;
     }
 
-    /**
-     * Hires per day.
-     *
-     * Separate from the applications line even though both come from the same
-     * table. Applications measure interest; hires measure whether the
-     * marketplace actually works. Plotting only the first would let a healthy
-     * looking chart hide the fact that nobody is getting work.
-     */
-    private function hiresOverTime(int $days): array
-    {
-        return [
-            'labels' => $this->dayLabels($days),
-            'hires'  => $this->dailySeries(
-                'applications',
-                $days,
-                fn ($q) => $q->where('status', 'accepted'),
-            ),
-        ];
-    }
+    /*
+        Everyone on the marketplace, once each.
 
-    /**
-     * How the user base splits between the two sides.
-     *
-     * Counted by profile existence rather than an account type, so a hybrid
-     * appears in its own band instead of being forced into one side. Whether
-     * hybrids are common is worth knowing: the whole app is arranged around
-     * them being possible.
-     */
-    private function accountComposition(): array
+        Sides come from profile existence, so a person with both profiles is
+        one person in "Both", never a worker and an employer. Administrators
+        are staff, not users; a deleted account is no longer anybody. The
+        side totals are given too, because "how many workers" is a real
+        question - and showing that they overlap is what explains why
+        workers plus employers is more than the number of people.
+    */
+    private function people(): array
     {
-        $users = User::where('user_type', '!=', 'admin')
-            ->withExists('workerProfile as w')
-            ->withExists('employerProfile as e')
+        $rows = User::where('user_type', '!=', 'admin')
+            ->whereNull('deleted_at')
+            ->withExists(['workerProfile as w', 'employerProfile as e'])
             ->get(['id']);
 
+        $workerOnly = $rows->where('w', true)->where('e', false)->count();
+        $employerOnly = $rows->where('e', true)->where('w', false)->count();
+        $both = $rows->where('w', true)->where('e', true)->count();
+
         return [
-            'worker_only'   => $users->where('w', true)->where('e', false)->count(),
-            'employer_only' => $users->where('e', true)->where('w', false)->count(),
-            'hybrid'        => $users->where('w', true)->where('e', true)->count(),
-            'no_profile'    => $users->where('w', false)->where('e', false)->count(),
+            'total'         => $rows->count(),
+            'worker_only'   => $workerOnly,
+            'employer_only' => $employerOnly,
+            'both'          => $both,
+            'none'          => $rows->where('w', false)->where('e', false)->count(),
+            'workers'       => $workerOnly + $both,
+            'employers'     => $employerOnly + $both,
+            'admins'        => User::where('user_type', 'admin')->whereNull('deleted_at')->count(),
         ];
     }
 
-    /** Part to whole: where posted jobs currently stand. */
-    private function jobStatusBreakdown(): array
+    /*
+        One period's measures. Called for this period and the one before it,
+        so every figure on the page can say whether it went up or down.
+
+        The job measures follow the jobs posted in the period through to what
+        became of them, which keeps the funnel in one unit. Hire rate follows
+        the applications sent in the period the same way.
+    */
+    private function measures(Carbon $from, Carbon $to): array
     {
-        $counts = JobPost::selectRaw('status, COUNT(*) as total')
-            ->groupBy('status')
-            ->pluck('total', 'status');
+        $in = fn ($q) => $q->where('created_at', '>=', $from)->where('created_at', '<', $to);
+        $jobs = fn () => $in(JobPost::query())->select('id');
+
+        $posted = $in(JobPost::query())->count();
+        $withApplicants = Application::whereIn('job_id', $jobs())->distinct()->count('job_id');
+        $filled = Application::whereIn('job_id', $jobs())->whereIn('status', self::HIRED)->distinct()->count('job_id');
+        $completed = $in(JobPost::query())->where('status', 'completed')->count();
+        $applicationsOnJobs = Application::whereIn('job_id', $jobs())->count();
+
+        $applications = $in(Application::query())->count();
+        $hired = $in(Application::query())->whereIn('status', self::HIRED)->count();
+
+        $pct = fn (int $part, int $whole) => $whole > 0 ? (int) round($part / $whole * 100) : null;
 
         return [
-            'open' => (int) ($counts['open'] ?? 0),
-            'in_progress' => (int) ($counts['in_progress'] ?? 0),
-            'completed'   => (int) ($counts['completed'] ?? 0),
-            'closed'      => (int) ($counts['closed'] ?? 0),
-            // A real value in the enum that was being left out, so the segments
-            // added up to less than the job count with nothing to show for the
-            // difference.
-            'flagged' => (int) ($counts['flagged'] ?? 0),
+            'new_people'      => $in(User::where('user_type', '!=', 'admin'))->count(),
+            // How many were actually trading, on each side.
+            'active_employers' => $in(JobPost::query())->distinct()->count('employer_id'),
+            'active_workers'  => $in(Application::query())->distinct()->count('worker_id'),
+            'jobs_posted'     => $posted,
+            'with_applicants' => $withApplicants,
+            'filled'          => $filled,
+            'completed'       => $completed,
+            'applications'    => $applications,
+            'hired'           => $hired,
+            'apps_per_job'    => $posted > 0 ? round($applicationsOnJobs / $posted, 1) : null,
+            'hire_rate'       => $pct($hired, $applications),
+            'fill_rate'       => $pct($filled, $posted),
+            'completion_rate' => $pct($completed, $filled),
         ];
     }
 
-    /** Busiest categories. Horizontal bars, because category names are long. */
-    private function categoryActivity(): array
+    /*
+        Jobs posted and applications sent, over the period.
+
+        A day per point for 7 and 30 days; a week per point for 90, where
+        ninety daily points of mostly ones and zeros read as noise. Every
+        bucket is present, including empty ones, so a quiet week shows as a
+        dip rather than a line drawn straight across it.
+    */
+    private function trend(Carbon $from, int $days): array
     {
-        $rows = DB::table('categories')
-            ->leftJoin('jobs_posts', 'jobs_posts.category_id', '=', 'categories.id')
-            ->groupBy('categories.id', 'categories.name')
-            ->orderByDesc(DB::raw('COUNT(jobs_posts.id)'))
-            ->limit(8)
-            ->select('categories.name', DB::raw('COUNT(jobs_posts.id) as jobs'))
-            ->get();
+        $weekly = $days > 30;
+        $step = $weekly ? 7 : 1;
+        $buckets = (int) ceil($days / $step);
+
+        $count = function (string $table) use ($from, $step, $buckets) {
+            $rows = DB::table($table)->where('created_at', '>=', $from)->pluck('created_at');
+            $series = array_fill(0, $buckets, 0);
+            foreach ($rows as $at) {
+                $i = intdiv((int) $from->diffInDays(Carbon::parse($at), true), $step);
+                if ($i >= 0 && $i < $buckets) {
+                    $series[$i]++;
+                }
+            }
+
+            return $series;
+        };
+
+        $labels = [];
+        for ($i = 0; $i < $buckets; $i++) {
+            $labels[] = ($weekly ? 'Week of ' : '') . $from->copy()->addDays($i * $step)->format('M j');
+        }
 
         return [
-            'labels' => $rows->pluck('name')->all(),
-            'jobs'   => $rows->pluck('jobs')->map(fn ($n) => (int) $n)->all(),
+            'weekly'       => $weekly,
+            'labels'       => $labels,
+            'jobs'         => $count('jobs_posts'),
+            'applications' => $count('applications'),
         ];
     }
 
-    /**
-     * What employers ask for against what workers offer.
-     *
-     * The gap is the point: a skill demanded far more than it is supplied is
-     * where the marketplace is short, and that is what says which trades to
-     * recruit. Both series count rows, so they belong on one axis.
-     */
-    private function skillDemandVsSupply(): array
+    /*
+        Demand against supply, by trade.
+
+        Demand is jobs posted in the period under the trade; supply is the
+        workers whose profile is in it. The ratio is the finding: a trade
+        with more jobs than workers is where the marketplace is short, which
+        is what tells KAYA whom to recruit. Ordered by demand, the trades
+        nobody asked for this period left out.
+    */
+    private function trades(Carbon $from, Carbon $to): array
     {
-        $rows = DB::table('skills')
-            ->leftJoin('job_skills', 'job_skills.skill_id', '=', 'skills.id')
-            ->groupBy('skills.id', 'skills.name')
-            ->orderByDesc(DB::raw('COUNT(DISTINCT job_skills.job_id)'))
-            ->limit(8)
-            ->select([
-                'skills.id',
-                'skills.name',
-                DB::raw('COUNT(DISTINCT job_skills.job_id) as demand'),
-                DB::raw('(SELECT COUNT(*) FROM worker_skills_new WHERE worker_skills_new.skill_id = skills.id) as supply'),
-            ])
-            ->get();
+        $demand = JobPost::where('created_at', '>=', $from)->where('created_at', '<', $to)
+            ->whereNotNull('category_id')
+            ->selectRaw('category_id, COUNT(*) as total')->groupBy('category_id')
+            ->pluck('total', 'category_id');
 
-        return [
-            'labels' => $rows->pluck('name')->all(),
-            'demand' => $rows->pluck('demand')->map(fn ($n) => (int) $n)->all(),
-            'supply' => $rows->pluck('supply')->map(fn ($n) => (int) $n)->all(),
-        ];
+        $supply = WorkerProfile::whereNotNull('category_id')
+            ->selectRaw('category_id, COUNT(*) as total')->groupBy('category_id')
+            ->pluck('total', 'category_id');
+
+        $names = Category::whereIn('id', $demand->keys())->pluck('name', 'id');
+
+        return $demand->sortDesc()->take(8)->map(fn ($jobs, $id) => [
+            'name'    => $names[$id] ?? 'Unknown',
+            'jobs'    => (int) $jobs,
+            'workers' => (int) ($supply[$id] ?? 0),
+        ])->values()->all();
     }
-
-    /** Identity check outcomes. Uses status colours, not the categorical set. */
-    private function verificationOutcomes(): array
-    {
-        $counts = Verification::selectRaw('status, COUNT(*) as total')
-            ->groupBy('status')
-            ->pluck('total', 'status');
-
-        // The column stores 'verified', not 'approved'. Reading the wrong key
-        // reported every approved document as zero, which looked like nobody
-        // had ever been verified rather than like a mismatched string.
-        return [
-            'verified' => (int) ($counts['verified'] ?? 0),
-            'pending'  => (int) ($counts['pending'] ?? 0),
-            'rejected' => (int) ($counts['rejected'] ?? 0),
-        ];
-    }
-
-    /** Workers ranked by hires. Magnitude, so a single hue. */
-    private function topWorkers(): array
-    {
-        $rows = DB::table('users')
-            ->join('applications', 'applications.worker_id', '=', 'users.id')
-            ->where('applications.status', 'accepted')
-            ->groupBy('users.id', 'users.name')
-            ->orderByDesc(DB::raw('COUNT(applications.id)'))
-            ->limit(8)
-            ->select('users.name', DB::raw('COUNT(applications.id) as hires'))
-            ->get();
-
-        return [
-            'labels' => $rows->pluck('name')->all(),
-            'hires'  => $rows->pluck('hires')->map(fn ($n) => (int) $n)->all(),
-        ];
-    }
-
 }

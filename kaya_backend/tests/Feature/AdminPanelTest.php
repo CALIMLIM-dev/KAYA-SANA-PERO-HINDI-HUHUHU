@@ -281,18 +281,15 @@ class AdminPanelTest extends TestCase
     }
 
     #[Test]
-    public function the_analytics_page_says_which_figures_the_period_does_not_change(): void
+    public function the_analytics_page_says_which_period_its_figures_cover(): void
     {
         /*
-            The headline tiles are all-time and sit directly above a 7/30/90-day
-            picker, so without a label "Jobs posted 412" under a selected "30
-            days" reads as 412 jobs in thirty days - a right number every reader
-            gets wrong.
+            A figure under a 7/30/90-day picker reads as belonging to that
+            period. The page names the dates and what they are compared with.
         */
-        $this->actingAs($this->admin())->get('/admin/analytics')
+        $this->actingAs($this->admin())->get('/admin/analytics?days=7')
             ->assertOk()
-            ->assertSee('Totals, all time')
-            ->assertSee('Not affected by the period below');
+            ->assertSee('changes against the previous 7 days');
     }
 
     #[Test]

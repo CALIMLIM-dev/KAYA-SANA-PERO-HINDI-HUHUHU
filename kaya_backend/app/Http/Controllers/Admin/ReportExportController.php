@@ -77,6 +77,9 @@ class ReportExportController extends Controller
     {
         $query = User::query()
             ->where('user_type', '!=', 'admin')
+            // The same people the analytics page counts: a deleted account is
+            // nobody any more.
+            ->whereNull('deleted_at')
             ->withExists('workerProfile as has_worker')
             ->withExists('employerProfile as has_employer')
             ->orderByDesc('created_at');

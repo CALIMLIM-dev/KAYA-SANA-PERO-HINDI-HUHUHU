@@ -25,31 +25,25 @@ class DemoDataSeederTest extends TestCase
         $admin = User::factory()->create(['user_type' => 'admin']);
         $r = $this->actingAs($admin)->get('/admin/analytics')->assertOk();
 
-        foreach (['headline', 'signups', 'activity', 'hires', 'composition',
-                  'jobStatus', 'categories', 'skills', 'verifications', 'topWorkers'] as $key) {
+        foreach (["people", "now", "previous", "trend", "trades", "income", "forecast", "spent"] as $key) {
             $this->assertNotNull($r->viewData($key), "no $key");
         }
 
-        $h = $r->viewData('headline');
-        $this->assertGreaterThan(0, $h['jobs'], 'jobs');
-        $this->assertGreaterThan(0, $h['applications'], 'applications');
-        $this->assertGreaterThan(0, $h['hires'], 'hires');
+        $now = $r->viewData("now");
+        $this->assertGreaterThan(0, $now["jobs_posted"], "jobs");
+        $this->assertGreaterThan(0, $now["applications"], "applications");
+        $this->assertGreaterThan(0, $now["hired"], "hires");
 
-        // A hybrid account has to exist or that segment reads as unimplemented.
-        $this->assertGreaterThan(0, $r->viewData('composition')['hybrid'], 'hybrid');
-        $this->assertGreaterThan(0, $r->viewData('verifications')['verified'], 'verified');
+        // A person with both profiles has to exist or that group reads as unimplemented.
+        $this->assertGreaterThan(0, $r->viewData("people")["both"], "both");
 
-        // Every chart shows a range, so the rows must span days rather than
+        // The trend shows a range, so the rows must span days rather than
         // all landing in the moment the seeder ran.
-        $signups = $r->viewData('signups');
-        $days = count(array_filter($signups['workers'], fn ($n) => $n > 0));
-        $this->assertGreaterThan(1, $days, 'sign-ups should spread across days, not spike on one');
+        $days = count(array_filter($r->viewData("trend")["jobs"], fn ($n) => $n > 0));
+        $this->assertGreaterThan(1, $days, "jobs should spread across days, not spike on one");
 
-        $html = $r->getContent();
-        $this->assertStringNotContainsString('<div class="empty mt-5"', $html, 'funnel should have data');
-        $this->assertSame(0, substr_count($html, '<div class="empty mt-4"'), 'no breakdown should be empty');
+        $this->assertStringNotContainsString("No jobs posted in this period", $r->getContent());
     }
-
     #[Test]
     public function the_clear_command_removes_everything_it_made(): void
     {
