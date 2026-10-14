@@ -90,6 +90,8 @@ Route::prefix('admin')->name('admin.')->group(function () {
         });
 
         Route::get("/analytics", [AnalyticsController::class, "index"])->name("analytics.index");
+        // What is lacking where: the map, any place, any trade.
+        Route::get('/supply-demand', [\App\Http\Controllers\Admin\SupplyDemandController::class, 'index'])->name('supply.index');
 
         // Report generation. Separate from /reports, which is the moderation
         // queue for abuse reports — a different feature that happens to share

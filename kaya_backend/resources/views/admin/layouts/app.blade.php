@@ -34,6 +34,7 @@
                     'Overview' => [
                         ['route' => 'admin.dashboard',           'label' => 'Dashboard',           'icon' => 'layout-dashboard', 'can' => 'analytics'],
                         ['route' => 'admin.analytics.index',     'label' => 'Analytics',           'icon' => 'bar-chart-3',      'can' => 'analytics'],
+                        ['route' => 'admin.supply.index',        'label' => 'Supply & Demand',     'icon' => 'map',              'can' => 'analytics'],
                     ],
                     'Accounts' => [
                         ['route' => 'admin.users.index',         'label' => 'Users',               'icon' => 'users',       'can' => 'users'],
