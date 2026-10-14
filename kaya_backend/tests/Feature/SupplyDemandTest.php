@@ -124,16 +124,23 @@ class SupplyDemandTest extends TestCase
     }
 
     #[Test]
-    public function the_map_places_people_at_their_town_never_their_own_pin(): void
+    public function the_map_shows_towns_and_counts_never_a_person(): void
     {
         // A worker who dropped an exact pin on their house.
         $this->worker($this->urdaneta, ['latitude' => 15.98123, 'longitude' => 120.57456]);
 
-        $map = $this->actingAs($this->admin())->get('/admin/supply-demand')->viewData('map');
-        $pin = $map['workers'][0];
+        $response = $this->actingAs($this->admin())->get('/admin/supply-demand');
+        $map = $response->viewData('map');
 
-        $this->assertEqualsWithDelta(15.9761, $pin['lat'], 0.00001);
-        $this->assertEqualsWithDelta(120.5711, $pin['lng'], 0.00001);
+        $this->assertSame(['towns', 'focus'], array_keys($map));
+        $town = $map['towns'][0];
+        $this->assertSame('Urdaneta City', $town['name']);
+        $this->assertSame(1, $town['residents']);
+        // At the town's centre, not the house.
+        $this->assertEqualsWithDelta(15.9761, $town['lat'], 0.00001);
+
+        // Neither the pin nor the person reaches the page.
+        $response->assertDontSee('15.98123')->assertDontSee('Ramon Aquino');
     }
 
     #[Test]

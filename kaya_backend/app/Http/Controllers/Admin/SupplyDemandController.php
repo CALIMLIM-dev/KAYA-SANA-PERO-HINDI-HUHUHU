@@ -28,9 +28,11 @@ use Illuminate\Support\Facades\DB;
     from the town's centre. Counting only workers who live inside a place
     would call a barangay empty while its neighbours are full of plumbers.
 
-    On the map, people and jobs are placed at their barangay or town, not at
-    the pin they dropped: an admin screen shown to a panel is no place for
-    anybody's front door. Overlapping markers cluster and spread on click.
+    The map shows towns and counts, never a person. An individual pin - even
+    at barangay level - was close enough to somebody's house to be
+    uncomfortable on a screen shown to a panel, and a name with a profile
+    link on a map invites browsing people by where they live. Who exactly is
+    in a town is one click away in Users, where that belongs.
 */
 class SupplyDemandController extends Controller
 {
@@ -61,7 +63,6 @@ class SupplyDemandController extends Controller
             ->filter(fn ($t) => $t['jobs'] > 0 && ($inPlace === null || isset($inPlace[$t['id']])))
             ->sortBy([['gap', 'desc'], ['jobs', 'desc']])
             ->values()
-            ->take(25)
             ->all();
 
         return view('admin.supply.index', [
@@ -75,11 +76,8 @@ class SupplyDemandController extends Controller
             'summary'   => $this->summary($place, $workers, $employers, $jobs),
             'ranking'   => $ranking,
             'map'       => [
-                'towns'     => array_values($towns),
-                // Anybody with no place at all has nowhere to be drawn.
-                'workers'   => $workers->pluck('pin')->filter()->values(),
-                'employers' => $employers->pluck('pin')->filter()->values(),
-                'jobs'      => $jobs->pluck('pin')->filter()->values(),
+                // Towns only: names and counts, no people.
+                'towns'     => array_values(array_filter($towns, fn ($t) => $t['lat'] !== null)),
                 'focus'     => $place ? $this->focus($place) : null,
             ],
         ]);
@@ -91,7 +89,7 @@ class SupplyDemandController extends Controller
     private function workers(?int $tradeId): Collection
     {
         return WorkerProfile::query()
-            ->with(['user:id,name,is_verified,deleted_at', 'category:id,name', 'psgcLocation.parent.parent'])
+            ->with(['user:id,deleted_at', 'category:id,name', 'psgcLocation.parent.parent'])
             ->whereNotNull('category_id')
             ->when($tradeId, fn ($w) => $w->where('category_id', $tradeId))
             ->get()
@@ -104,12 +102,9 @@ class SupplyDemandController extends Controller
                     'trade_id' => $p->category_id,
                     'trade'    => $p->category?->name,
                     'loc'      => $p->psgcLocation,
+                    // Where they measure reach from; never drawn.
                     'lat'      => $lat,
                     'lng'      => $lng,
-                    'pin'      => $lat === null ? null : [
-                        'lat' => $lat, 'lng' => $lng, 'name' => $p->user->name, 'sub' => $p->category?->name,
-                        'verified' => (bool) $p->user->is_verified, 'url' => route('admin.users.show', $p->user_id),
-                    ],
                 ];
             })
             ->values();
@@ -118,23 +113,11 @@ class SupplyDemandController extends Controller
     /** @return Collection<int, array> */
     private function employers(): Collection
     {
-        $profiles = EmployerProfile::with('user:id,name,is_verified,deleted_at')->get()
+        $profiles = EmployerProfile::with('user:id,deleted_at')->get()
             ->filter(fn ($p) => $p->user && ! $p->user->deleted_at);
         $places = Location::with('parent.parent')->whereIn('id', $profiles->pluck('location_id')->filter())->get()->keyBy('id');
 
-        return $profiles->map(function (EmployerProfile $p) use ($places) {
-            $loc = $places[$p->location_id] ?? null;
-            [$lat, $lng] = $this->spot($loc, $p->latitude, $p->longitude);
-
-            return [
-                'loc' => $loc,
-                'pin' => $lat === null ? null : [
-                    'lat' => $lat, 'lng' => $lng, 'name' => $p->company_name ?: $p->user->name,
-                    'sub' => $p->company_name ? 'Business' : 'Individual',
-                    'verified' => (bool) $p->user->is_verified, 'url' => route('admin.users.show', $p->user_id),
-                ],
-            ];
-        })->values();
+        return $profiles->map(fn (EmployerProfile $p) => ['loc' => $places[$p->location_id] ?? null])->values();
     }
 
     /** Jobs posted in the period, with whether anybody was hired. */
@@ -148,7 +131,6 @@ class SupplyDemandController extends Controller
             ->when($tradeId, fn ($j) => $j->where('category_id', $tradeId))
             ->get()
             ->map(function (JobPost $j) {
-                [$lat, $lng] = $this->spot($j->psgcLocation, $j->latitude, $j->longitude);
                 $unfilled = $j->status === 'open' && ! $j->hired;
 
                 return [
@@ -160,19 +142,15 @@ class SupplyDemandController extends Controller
                     'unfilled'   => $unfilled,
                     'applicants' => (int) $j->applications_count,
                     'posted'     => $j->created_at,
-                    'pin'        => $lat === null ? null : [
-                        'lat' => $lat, 'lng' => $lng, 'name' => $j->title, 'sub' => $j->category?->name,
-                        'open' => $unfilled, 'url' => route('admin.jobs.show', $j->id),
-                    ],
                 ];
             })
             ->values();
     }
 
     /*
-        Where to put somebody on the map: their barangay or town, never
-        their own pin. With no place on file, the pin rounded to about a
-        kilometre.
+        Where a worker is measured from for reach: their barangay or town,
+        or their own pin when they have no place on file. Only used to count;
+        nothing here is drawn.
     */
     private function spot(?Location $loc, $lat, $lng): array
     {
@@ -309,7 +287,7 @@ class SupplyDemandController extends Controller
         $trades = collect($byTrade)
             ->map(fn ($v, $name) => ['name' => $name, 'jobs' => $v['jobs'] ?? 0, 'workers' => $v['workers'] ?? 0])
             ->sortByDesc(fn ($t) => [$t['jobs'] - $t['workers'], $t['jobs']])
-            ->take(10)->values()->all();
+            ->values()->all();
 
         return [
             'jobs'      => $jobs->count(),
@@ -319,7 +297,7 @@ class SupplyDemandController extends Controller
             'ratio'     => $workers->count() > 0 ? round($jobs->count() / $workers->count(), 1) : null,
             'trades'    => $trades,
             'skills'    => $this->neededSkills($jobs, $workers),
-            'waiting'   => $jobs->where('unfilled', true)->sortBy('posted')->take(10)->values()->all(),
+            'waiting'   => $jobs->where('unfilled', true)->sortBy('posted')->values()->all(),
             // Only a town or barangay is measured by reach; everywhere and a
             // province count everybody in them.
             'reach'     => $place !== null && in_array($place->type, [...self::TOWN_TYPES, Location::TYPE_BARANGAY], true),
@@ -349,7 +327,7 @@ class SupplyDemandController extends Controller
         return $demand
             ->map(fn ($s) => ['name' => $s->name, 'jobs' => (int) $s->jobs, 'workers' => (int) ($supply[$s->id] ?? 0)])
             ->sortByDesc(fn ($s) => [$s['jobs'] - $s['workers'], $s['jobs']])
-            ->take(8)->values()->all();
+            ->values()->all();
     }
 
     /** Every place inside this one, itself included, however deep. */
