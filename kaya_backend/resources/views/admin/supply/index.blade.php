@@ -4,14 +4,17 @@
 @section('content')
 
 {{--
-    What is lacking where. A plain map of the Philippines - land and sea, no
-    roads, labels or map-provider pins - with each town as a circle: sized by
-    activity, coloured by whether the workers in reach cover its jobs. Zoomed
-    in, each town shows its counts of workers, employers and jobs. Towns and
-    numbers only; never a person (see SupplyDemandController).
+    What is lacking where. A detailed map of the Philippines, kept to the
+    Philippines, with each town as a circle: sized by activity, coloured by
+    whether the workers in reach cover its jobs. Zoomed in, each town shows
+    its counts of workers, employers and jobs. Towns and numbers only; never
+    a person (see SupplyDemandController).
 
-    Region outlines: faeldon/philippines-json-maps (MIT), PSA 2023, slimmed
-    into public/maps/ph-regions.json.
+    Two bases, both Esri and both free without a key (CARTO now wants one).
+    Map is Esri Topographic: place names, coast, rivers and relief, without
+    the route badges and point icons of the standard street map. Satellite
+    is Esri's imagery alone - its label layer draws heavy border lines - and
+    the town cards carry the names close up.
 --}}
 
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.css">
@@ -19,7 +22,7 @@
 <style>
     .viz { --surface: #fff; --grid: #f1f5f9; --line: #e8edf3; --ink: #0f172a; --ink-2: #475569; --ink-3: #94a3b8;
         --short: #e34948; --even: #94a3b8; --spare: #1baf7a; --worker: #2a78d6; --employer: #eb6834; --job: #8b5cf6;
-        --sea: #f6f9fc; --land: #d4dce6; }
+        }
     .viz .card { background: var(--surface); border: 1px solid var(--line); border-radius: 16px; padding: 20px 22px; }
     .viz .card-title { font-size: 14px; font-weight: 650; color: var(--ink); }
     .viz .count { font-size: 11px; font-weight: 600; color: var(--ink-3); background: var(--grid); padding: 2px 8px; border-radius: 999px; margin-left: 6px; }
@@ -55,7 +58,10 @@
     .viz td.num, .viz th.num { text-align: right; }
     .viz .gap-short { color: var(--short); font-weight: 650; } .viz .gap-spare { color: #15803d; font-weight: 650; } .viz .gap-even { color: var(--ink-3); }
 
-    #supplyMap { height: 560px; border-radius: 12px; z-index: 0; background: var(--sea); }
+    #supplyMap { height: 560px; border-radius: 12px; z-index: 0; background: #f6f9fc; }
+    .viz .base { display: inline-flex; background: #e9eef4; border-radius: 10px; padding: 3px; }
+    .viz .base button { font-size: 12px; font-weight: 600; color: var(--ink-2); padding: 5px 12px; border-radius: 8px; }
+    .viz .base button.on { background: var(--surface); color: var(--ink); box-shadow: 0 1px 2px rgba(15,23,42,.08); }
     .town-card { background: #fff; border: 1px solid #e2e8f0; border-radius: 8px; padding: 4px 7px; box-shadow: 0 1px 3px rgba(15,23,42,.12);
         font: 600 11px Inter, sans-serif; color: #0f172a; white-space: nowrap; display: inline-flex; align-items: center; gap: 6px; transform: translate(-50%, -135%); }
     .town-card .chip { display: inline-flex; align-items: center; gap: 3px; font-weight: 650; }
@@ -145,6 +151,10 @@
                 <label class="toggle"><input type="checkbox" data-chip="workers" checked> <i class="dot" style="background: var(--worker)"></i> Workers</label>
                 <label class="toggle"><input type="checkbox" data-chip="employers" checked> <i class="dot" style="background: var(--employer)"></i> Employers</label>
                 <label class="toggle"><input type="checkbox" data-chip="jobs"> <i class="dot" style="background: var(--job)"></i> Jobs</label>
+                <div class="base" role="group" aria-label="Map style">
+                    <button type="button" data-base="map" class="on">Map</button>
+                    <button type="button" data-base="satellite">Satellite</button>
+                </div>
             </div>
             <div class="legend">
                 <span><i class="dot" style="background: var(--short)"></i> Short</span>
@@ -318,16 +328,21 @@ document.querySelectorAll('[data-expand]').forEach((btn) => {
     const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (ch) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]));
     const COUNTS_ZOOM = 10;
 
-    // The Philippines and nothing else: no tiles, and the view cannot leave it.
+    // The Philippines and nothing else: the view cannot be dragged away from it.
     const ph = L.latLngBounds([4.2, 115.8], [21.4, 127.2]);
-    const map = L.map(box, { maxBounds: ph.pad(0.05), maxBoundsViscosity: 1, minZoom: 5, maxZoom: 13, zoomSnap: 0.5, attributionControl: false });
+    const map = L.map(box, { maxBounds: ph.pad(0.05), maxBoundsViscosity: 1, minZoom: 5, maxZoom: 16, zoomSnap: 0.5 });
 
-    fetch(@json(asset('maps/ph-regions.json')))
-        .then((r) => r.json())
-        .then((geo) => {
-            L.geoJSON(geo, { interactive: false, style: { stroke: false, fillColor: c('--land'), fillOpacity: 1 } }).addTo(map).bringToBack();
-        })
-        .catch(() => {});
+    const esri = 'https://server.arcgisonline.com/ArcGIS/rest/services/';
+    const bases = {
+        map: L.tileLayer(esri + 'World_Topo_Map/MapServer/tile/{z}/{y}/{x}', { maxZoom: 19, attribution: 'Tiles &copy; Esri' }),
+        satellite: L.tileLayer(esri + 'World_Imagery/MapServer/tile/{z}/{y}/{x}', { maxZoom: 19, attribution: 'Imagery &copy; Esri' }),
+    };
+    bases.map.addTo(map);
+    document.querySelectorAll('[data-base]').forEach((btn) => btn.addEventListener('click', () => {
+        Object.values(bases).forEach((b) => map.removeLayer(b));
+        bases[btn.dataset.base].addTo(map);
+        document.querySelectorAll('[data-base]').forEach((b) => b.classList.toggle('on', b === btn));
+    }));
 
     const towns = L.layerGroup();
     const cards = L.layerGroup();
