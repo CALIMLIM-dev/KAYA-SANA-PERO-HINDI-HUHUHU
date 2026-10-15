@@ -31,8 +31,10 @@ return new class extends Migration
             $table->foreignId('issued_by')->nullable()->constrained('users')->nullOnDelete();
             // When a restriction or suspension ends; null for a warning or a ban.
             $table->timestamp('ends_at')->nullable();
-            // When it stops counting towards the ladder.
-            $table->timestamp('expires_at');
+            // When it stops counting towards the ladder. A datetime, not a
+            // timestamp: MySQL gives a second NOT NULL timestamp a zero
+            // default, which strict mode refuses (error 1067 on the server).
+            $table->dateTime('expires_at');
             // A ban holds as a long suspension until a second admin confirms it.
             $table->foreignId('confirmed_by')->nullable()->constrained('users')->nullOnDelete();
             $table->timestamp('confirmed_at')->nullable();
