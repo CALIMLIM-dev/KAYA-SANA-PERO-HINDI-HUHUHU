@@ -8,8 +8,9 @@ import '../../moderation/widgets/report_sheet.dart';
 import 'completion_action.dart';
 
 /*
-    What a live hire can still do besides finish: cancel, answer a request
-    to cancel, or say the work the other side marked done did not happen.
+    What a live hire can still do besides finish: Cancel Job, answer a
+    request to cancel, or Report a Problem when the other side marked it
+    complete and the work was not done.
 
     One widget for the four places a hire is shown - the worker's card, the
     employer's job card, the applicant list and the roster - all reading the
@@ -79,8 +80,8 @@ class HireControls extends StatelessWidget {
     final sure = await showDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        title: const Text('Cancel the Hire?'),
-        content: Text('The hire with $otherName ends now, with no mark against either of you.'),
+        title: const Text('Cancel the Job?'),
+        content: Text('Your job with $otherName will be cancelled. It will not count against either of you.'),
         actions: [
           TextButton(onPressed: () => Navigator.pop(dialogContext, false), child: const Text('Not Now')),
           ElevatedButton(onPressed: () => Navigator.pop(dialogContext, true), child: const Text('Agree to Cancel')),
@@ -89,7 +90,7 @@ class HireControls extends StatelessWidget {
     );
     if (sure != true || !context.mounted) return;
 
-    await _call(context, () => ApiClient().post('/applications/$applicationId/cancel/agree'), 'The hire is cancelled.');
+    await _call(context, () => ApiClient().post('/applications/$applicationId/cancel/agree'), 'Job cancelled.');
   }
 
   Future<void> _cancel(BuildContext context) async {
@@ -110,6 +111,7 @@ class HireControls extends StatelessWidget {
       reportedName: otherName,
       subjectType: 'application',
       subjectId: applicationId,
+      initialReason: 'work_not_done',
     );
     if (context.mounted) await _after(context);
   }
@@ -127,7 +129,7 @@ class HireControls extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            mine ? 'You asked to cancel: ${cancel['reason']}.' : '$otherName asked to cancel: ${cancel['reason']}.',
+            mine ? 'You asked to cancel. Reason: ${cancel['reason']}.' : '$otherName asked to cancel. Reason: ${cancel['reason']}.',
             style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppColors.neutral800),
           ),
           if (!mine && note.isNotEmpty) ...[
@@ -136,13 +138,13 @@ class HireControls extends StatelessWidget {
           ],
           const SizedBox(height: 2),
           Text(
-            mine ? 'It cancels on $when unless $otherName agrees sooner.' : 'Cancels on $when if there is no answer.',
+            mine ? 'Cancels on $when if $otherName does not answer.' : 'Cancels on $when if you do not answer.',
             style: const TextStyle(fontSize: 12.5, color: AppColors.neutral600),
           ),
           _link(
             mine ? 'Undo Request' : 'Agree to Cancel',
             mine
-                ? () => _call(context, () => ApiClient().delete('/applications/$applicationId/cancel'), 'The hire stays.')
+                ? () => _call(context, () => ApiClient().delete('/applications/$applicationId/cancel'), 'Cancel request removed.')
                 : () => _agree(context),
           ),
         ],
@@ -151,7 +153,7 @@ class HireControls extends StatelessWidget {
 
     if (actions['disputed'] == true) {
       return const Text(
-        'KAYA is checking this hire.',
+        'A problem was reported. KAYA will review it.',
         style: TextStyle(fontSize: 12.5, color: AppColors.neutral600),
       );
     }
@@ -159,8 +161,8 @@ class HireControls extends StatelessWidget {
     return Wrap(
       spacing: 16,
       children: [
-        if (actions['can_dispute'] == true) _link('Work Not Done', () => _dispute(context)),
-        if (actions['can_cancel'] == true) _link('Cancel Hire', () => _cancel(context)),
+        if (actions['can_dispute'] == true) _link('Report a Problem', () => _dispute(context)),
+        if (actions['can_cancel'] == true) _link('Cancel Job', () => _cancel(context)),
       ],
     );
   }
@@ -200,10 +202,10 @@ class _CancelHireForm extends StatefulWidget {
 
 class _CancelHireFormState extends State<_CancelHireForm> {
   static const _reasons = {
-    'pay': 'Could not agree on pay',
-    'schedule': 'Schedule conflict',
-    'no_show': 'Did not show up',
-    'other': 'Something else',
+    'pay': 'Could Not Agree on Pay',
+    'schedule': 'Schedule Conflict',
+    'no_show': 'Did Not Show Up',
+    'other': 'Something Else',
   };
 
   final TextEditingController _note = TextEditingController();
@@ -241,14 +243,9 @@ class _CancelHireFormState extends State<_CancelHireForm> {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text('Cancel Hire', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700)),
-          const SizedBox(height: 4),
-          Text(
-            'If the work has not started it cancels now. Otherwise ${widget.otherName} is asked, '
-            'and it cancels by itself in 2 days if they do not answer.',
-            style: const TextStyle(fontSize: 13, height: 1.4, color: AppColors.neutral600),
-          ),
+          const Text('Cancel Job', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700)),
           const SizedBox(height: 12),
+          const Text('Reason', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppColors.neutral700)),
           RadioGroup<String>(
             groupValue: _reason,
             onChanged: (v) {
@@ -289,7 +286,7 @@ class _CancelHireFormState extends State<_CancelHireForm> {
                   foregroundColor: Colors.white,
                   elevation: 0,
                 ),
-                child: const Text('Cancel Hire'),
+                child: const Text('Cancel Job'),
               ),
             ],
           ),

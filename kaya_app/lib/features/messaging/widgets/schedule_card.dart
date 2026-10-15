@@ -372,7 +372,7 @@ class ScheduleComposer {
       firstDate: today,
       lastDate: last,
       selectableDayPredicate: free,
-      helpText: busyDays.isEmpty ? 'Date' : 'Date. Greyed days are already booked.',
+      helpText: busyDays.isEmpty ? 'Date' : 'Date (Grey Days Are Booked)',
     );
 
     if (date == null || !context.mounted) return;
@@ -405,7 +405,7 @@ class ScheduleComposer {
       initialDate: date,
       firstDate: date,
       lastDate: last,
-      helpText: 'Deadline. Skip if it is one day.',
+      helpText: 'End Date (Optional)',
     );
 
     if (!context.mounted) return;

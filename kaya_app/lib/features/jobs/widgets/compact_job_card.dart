@@ -422,7 +422,7 @@ class CompactJobCard extends StatelessWidget {
       case ApplicationStatus.accepted:
         return 'Accepted';
       case ApplicationStatus.rejected:
-        return 'Not Selected';
+        return 'Rejected';
       default:
         return 'View Job';
     }

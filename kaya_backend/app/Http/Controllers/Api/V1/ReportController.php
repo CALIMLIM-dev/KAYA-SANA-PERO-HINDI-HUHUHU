@@ -162,7 +162,7 @@ class ReportController extends Controller
             how many reports someone already has turns this endpoint into a way
             to probe another user's standing.
         */
-        return $this->ok(null, 'Thank you. Our team will review this report.', 201);
+        return $this->ok(null, 'Thank you. KAYA will review this report.', 201);
     }
 
     /*
@@ -189,14 +189,14 @@ class ReportController extends Controller
             'about'        => $report->reported_type,
             'content'      => $report->snapshot,
             'filed_at'     => $report->created_at,
-            'reply_by'     => $report->replyBy(),
             'status'       => $report->status,
             'outcome'      => match (true) {
                 $report->strike !== null      => $report->strike->actionLabel(),
                 $report->status === 'resolved',
-                $report->status === 'dismissed' => 'Closed with no action against you',
+                $report->status === 'dismissed' => 'No action was taken against you.',
                 default                       => null,
             },
+            'has_strike'   => $report->strike !== null,
             'can_respond'  => $this->canRespond($report),
             'response'     => $report->response,
             'photos_sent'  => count($report->response_evidence ?? []),
@@ -234,7 +234,7 @@ class ReportController extends Controller
                 : null,
         ]);
 
-        return $this->ok(null, 'Thank you. Your side is with our team.');
+        return $this->ok(null, 'Thank you. Your reply was sent.');
     }
 
     private function canRespond(Report $report): bool

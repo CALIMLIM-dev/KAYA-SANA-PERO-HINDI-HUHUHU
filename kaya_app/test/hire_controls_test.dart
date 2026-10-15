@@ -63,13 +63,13 @@ void main() {
   testWidgets('a live hire can be cancelled with a reason', (tester) async {
     await render(tester, {'can_cancel': true, 'can_dispute': false, 'disputed': false, 'cancel': null});
 
-    await tester.tap(find.text('Cancel Hire'));
+    await tester.tap(find.text('Cancel Job'));
     await tester.pumpAndSettle();
 
-    final send = find.widgetWithText(ElevatedButton, 'Cancel Hire');
+    final send = find.widgetWithText(ElevatedButton, 'Cancel Job');
     expect(tester.widget<ElevatedButton>(send).onPressed, isNull, reason: 'a reason first');
 
-    await tester.tap(find.text('Could not agree on pay'));
+    await tester.tap(find.text('Could Not Agree on Pay'));
     await tester.pump();
     await tester.tap(send);
     await tester.pumpAndSettle();
@@ -85,8 +85,8 @@ void main() {
       'cancel': {'mine': true, 'reason': 'Could not agree on pay', 'cancels_at': '2026-10-16T07:00:00Z'},
     });
 
-    expect(find.text('You asked to cancel: Could not agree on pay.'), findsOneWidget);
-    expect(find.textContaining('unless Maria Santos agrees sooner'), findsOneWidget);
+    expect(find.text('You asked to cancel. Reason: Could not agree on pay.'), findsOneWidget);
+    expect(find.textContaining('if Maria Santos does not answer'), findsOneWidget);
 
     await tester.tap(find.text('Undo Request'));
     await tester.pumpAndSettle();
@@ -100,7 +100,7 @@ void main() {
       'cancel': {'mine': false, 'reason': 'Schedule conflict', 'note': 'I got sick.', 'cancels_at': '2026-10-16T07:00:00Z'},
     });
 
-    expect(find.text('Maria Santos asked to cancel: Schedule conflict.'), findsOneWidget);
+    expect(find.text('Maria Santos asked to cancel. Reason: Schedule conflict.'), findsOneWidget);
     expect(find.text('"I got sick."'), findsOneWidget);
 
     await tester.tap(find.text('Agree to Cancel'));
@@ -115,13 +115,13 @@ void main() {
   testWidgets("it didn't happen is offered when the other side marked it done", (tester) async {
     await render(tester, {'can_cancel': true, 'can_dispute': true});
 
-    expect(find.text('Work Not Done'), findsOneWidget);
-    expect(find.text('Cancel Hire'), findsOneWidget);
+    expect(find.text('Report a Problem'), findsOneWidget);
+    expect(find.text('Cancel Job'), findsOneWidget);
   });
 
   testWidgets('a disputed hire says who decides, and a finished one shows nothing', (tester) async {
     await render(tester, {'disputed': true});
-    expect(find.textContaining('KAYA is checking this hire'), findsOneWidget);
+    expect(find.textContaining('A problem was reported'), findsOneWidget);
 
     await render(tester, {'can_cancel': false, 'can_dispute': false, 'disputed': false, 'cancel': null});
     expect(find.text('nothing'), findsOneWidget);

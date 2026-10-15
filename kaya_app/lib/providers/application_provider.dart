@@ -1,4 +1,6 @@
+import 'package:dio/dio.dart' show FormData, ListFormat, MultipartFile;
 import 'package:flutter/foundation.dart';
+import 'package:image_picker/image_picker.dart' show XFile;
 import '../data/services/api_client.dart';
 
 class ApplicationProvider with ChangeNotifier {
@@ -216,9 +218,18 @@ class ApplicationProvider with ChangeNotifier {
   /// The work only counts as finished when both have confirmed, so this usually
   /// leaves the application where it was and the caller refetches to pick up
   /// the new timestamps.
-  Future<bool> markComplete(int applicationId) async {
+  /// [photos] are optional proof, sent as multipart - so by POST, since PHP
+  /// reads no multipart body on PATCH.
+  Future<bool> markComplete(int applicationId, {List<XFile> photos = const []}) async {
     try {
-      final res = await _api.patch('/applications/$applicationId/complete');
+      final res = photos.isEmpty
+          ? await _api.patch('/applications/$applicationId/complete')
+          : await _api.post('/applications/$applicationId/complete',
+              data: FormData.fromMap({
+                'photos': [
+                  for (final p in photos) await MultipartFile.fromFile(p.path, filename: p.name),
+                ],
+              }, ListFormat.multiCompatible));
       lastCompletionMessage = res.data['message'] as String?;
 
       /*

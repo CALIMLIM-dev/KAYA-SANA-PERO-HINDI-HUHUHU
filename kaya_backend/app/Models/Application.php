@@ -8,6 +8,9 @@ class Application extends Model
 {
     protected $fillable = ['job_id', 'worker_id', 'status', 'credit_transaction_id'];
 
+    // Storage paths. Served through ApplicationController::proof, never sent.
+    protected $hidden = ['completion_photos'];
+
     /**
      * Cast so "who confirmed first" can be compared and rendered as a time
      * rather than a string. completed_at is the moment BOTH sides agreed; the
@@ -21,6 +24,7 @@ class Application extends Model
         'cancel_requested_at'   => 'datetime',
         'cancelled_at'          => 'datetime',
         'disputed_at'           => 'datetime',
+        'completion_photos'     => 'array',
     ];
 
     public function job()

@@ -96,7 +96,11 @@ class ReportClosureTest extends TestCase
             ])
             ->assertRedirect(route('admin.reports.index'));
 
-        $this->assertStringStartsWith('No action taken', (string) $report->fresh()->resolution_note);
+        $this->assertStringStartsWith('No strike', (string) $report->fresh()->resolution_note);
+
+        // Not told "we took action" when nothing was done.
+        $this->assertSame('We checked your report. Thank you for telling us.', \App\Models\UserNotification::where('user_id', $report->reporter_id)
+            ->where('type', 'report.decided')->value('body'));
 
         // No warning - only the plain notice that it was closed.
         $this->assertDatabaseMissing('user_notifications', [

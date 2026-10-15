@@ -5,16 +5,11 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\AdminAction;
 use App\Models\Application;
-use App\Models\Conversation;
-use App\Models\Message;
 use App\Models\Report;
-use App\Models\ScheduleProposal;
-use App\Models\Strike;
 use App\Services\StrikeService;
 use App\Support\ModerationReasons;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
 
@@ -42,38 +37,7 @@ class ReportController extends Controller
             'reports' => $reports,
             'status'  => $status,
             'counts'  => $counts,
-            'stats'   => $this->stats(),
         ]);
-    }
-
-    /*
-        How moderation itself is doing, over the last 90 days: how often a
-        report is upheld, how long a decision takes, how often an appeal
-        overturns one, and how many reports were made in bad faith.
-    */
-    private function stats(): array
-    {
-        $since = now()->subDays(90);
-
-        $closed = Report::whereIn('status', ['resolved', 'dismissed'])
-            ->where('resolved_at', '>=', $since)
-            ->get(['status', 'created_at', 'resolved_at', 'baseless']);
-
-        $hours = $closed->map(fn ($r) => $r->created_at->diffInMinutes($r->resolved_at) / 60)->sort()->values();
-
-        $appeals = Strike::whereIn('appeal_status', ['upheld', 'overturned'])
-            ->where('appeal_decided_at', '>=', $since)
-            ->pluck('appeal_status');
-
-        return [
-            'decided'     => $closed->count(),
-            'upheld_rate' => $closed->isEmpty() ? null : round(100 * $closed->where('status', 'resolved')->count() / $closed->count()),
-            'median_hours' => $hours->isEmpty() ? null : round($hours[intdiv($hours->count(), 2)]),
-            'appeals'     => $appeals->count(),
-            'overturn_rate' => $appeals->isEmpty() ? null : round(100 * $appeals->filter(fn ($s) => $s === 'overturned')->count() / $appeals->count()),
-            'baseless'    => $closed->where('baseless', true)->count(),
-            'counting'    => Strike::active()->count(),
-        ];
     }
 
     /**
@@ -114,22 +78,19 @@ class ReportController extends Controller
 
         $reported = $report->reported;
 
-        /*
-            Their messages are deliberately not loaded.
+        // A problem reported on a hire: the proof photos either side added.
+        $hire = $report->reported_type === 'application' && $report->subject_id
+            ? Application::find($report->subject_id) : null;
 
-            This used to fetch the last forty between the pair so the
-            decision could be made on the words themselves. Reading two
-            users' private conversation because one of them complained is a
-            power the panel should not hold, so it no longer does. What KAYA
-            recorded on its own - jobs, agreed dates, tracking, when they
-            wrote - is shown instead; see between().
-        */
+        // Their chat is never loaded: reading a private conversation because
+        // one side complained is not a power the panel should hold.
         return view('admin.reports.show', [
             'report'            => $report,
             'history'           => $history,
             'reporterStats'     => $reporterStats,
             'counter'           => $counter,
-            'between'           => $this->between($report),
+            'pastJobs'          => $this->pastJobs($report),
+            'proof'             => $hire?->completion_photos ?? [],
             'strikesOnRecord'   => $reported ? $reported->strikes()->latest()->get() : collect(),
             // What a strike would do now, on the ladder and for a critical rule.
             'nextStep'          => $reported ? $this->strikes->nextStep($reported, 'policy_violation') : null,
@@ -138,80 +99,30 @@ class ReportController extends Controller
         ]);
     }
 
-    /*
-        What KAYA itself recorded between the two of them, never what they
-        said: the jobs they share, the date both agreed in the chat, whether
-        tracking ran and when, completion marks, and when each of them
-        wrote - by count and time only. The objective half of a no-show or
-        a misleading-job report is usually here.
-    */
-    private function between(Report $report): array
+    /** The jobs the two share, newest first. Each links to its own page. */
+    private function pastJobs(Report $report): \Illuminate\Support\Collection
     {
         [$a, $b] = [$report->reporter_id, $report->reported_id];
 
         if (! $a || ! $b) {
-            return ['jobs' => [], 'messages' => null];
+            return collect();
         }
 
-        $jobs = Application::with('job:id,title,status,employer_id')
+        return Application::with('job:id,title,status,employer_id')
             ->where(fn ($q) => $q
                 ->where(fn ($q) => $q->where('worker_id', $a)->whereHas('job', fn ($j) => $j->where('employer_id', $b)))
                 ->orWhere(fn ($q) => $q->where('worker_id', $b)->whereHas('job', fn ($j) => $j->where('employer_id', $a))))
-            ->latest()->take(5)->get()
-            ->map(function (Application $app) {
-                $agreed = ScheduleProposal::where('job_id', $app->job_id)
-                    ->where('status', 'accepted')->latest()->first();
-                $session = \App\Models\JobTrackingSession::where('application_id', $app->id)->first();
-                $pings = $session
-                    ? DB::table('job_location_pings')->where('tracking_session_id', $session->id)
-                        ->selectRaw('COUNT(*) as n, MIN(recorded_at) as first, MAX(recorded_at) as last')->first()
-                    : null;
-
-                return [
-                    'job_id'        => $app->job_id,
-                    'title'         => $app->job?->title,
-                    'job_status'    => $app->job?->status,
-                    'status'        => $app->status,
-                    'applied_at'    => $app->created_at,
-                    'agreed'        => $agreed?->scheduled_date ? $agreed->summary() : null,
-                    'worker_done'   => $app->worker_completed_at,
-                    'employer_done' => $app->employer_completed_at,
-                    'tracking'      => $session ? [
-                        'started' => $session->consented_at,
-                        'stopped' => $session->stopped_at,
-                        'pings'   => (int) $pings->n,
-                        'first'   => $pings->first,
-                        'last'    => $pings->last,
-                    ] : null,
-                ];
-            })->all();
-
-        $threads = Conversation::where('pair_low', min($a, $b))->where('pair_high', max($a, $b))->pluck('id');
-        $messages = $threads->isEmpty() ? null : Message::whereIn('conversation_id', $threads)
-            ->where(fn ($q) => $q->whereNull('type')->orWhere('type', '!=', 'system'))
-            ->selectRaw('sender_id, COUNT(*) as n, MIN(created_at) as first, MAX(created_at) as last')
-            ->groupBy('sender_id')->get()->keyBy('sender_id');
-
-        return [
-            'jobs'     => $jobs,
-            'messages' => $messages && $messages->isNotEmpty() ? [
-                'reporter' => (int) ($messages[$a]->n ?? 0),
-                'reported' => (int) ($messages[$b]->n ?? 0),
-                'first'    => $messages->min('first'),
-                'last'     => $messages->max('last'),
-                'reported_last' => $messages[$b]->last ?? null,
-            ] : null,
-        ];
+            ->latest()->take(10)->get();
     }
 
     /*
-        Dismiss it, or uphold it - with a strike, or with no action.
+        Dismiss it, or confirm it - with a strike, or with no strike.
 
-        Upholding waits for the reported person's side: until they answer or
-        their time runs out (Report::replyBy), only a dismissal is possible.
-        A strike's effect comes from the ladder, not from whoever is on shift
-        - see StrikeService. A dismissal can be marked as made in bad faith,
-        which counts against the reporter.
+        Decided whenever the admin is ready: the reported person's reply is
+        shown if it came, but nothing waits for it. A strike's effect comes
+        from the strike count, not from whoever is on shift - see
+        StrikeService. A dismissal can be marked as a false report, which
+        counts against the reporter.
 
         The finding is required every time: the panel asked for relevant
         details when processing a report, not only when filing one, and a
@@ -228,7 +139,7 @@ class ReportController extends Controller
             'resolution_note' => ['required', 'string', 'min:10', 'max:1000'],
         ], [
             'action.required_if'       => 'Say what happens to the account before closing the report.',
-            'reason_code.required_if'  => 'Choose the rule that was broken.',
+            'reason_code.required_if'  => 'Choose the violation.',
             'resolution_note.required' => 'Write your finding before closing the report.',
             'resolution_note.min'      => 'Write a little more about what you found.',
         ]);
@@ -240,11 +151,6 @@ class ReportController extends Controller
 
         $upheld = $data['status'] === 'resolved';
 
-        if ($upheld && $report->awaitingReply()) {
-            return back()->withInput()->withErrors(['resolution_note' =>
-                'They have until ' . $report->replyBy()->timezone('Asia/Manila')->format('M j, g:i A')
-                . ' to give their side. It can be dismissed now, or upheld once they reply or the time is up.']);
-        }
 
         $strike = null;
 
@@ -261,7 +167,7 @@ class ReportController extends Controller
 
         $note = match (true) {
             $strike !== null => 'Strike: ' . $strike->actionLabel() . ' (' . $strike->ruleLabel() . ') - ' . $data['resolution_note'],
-            $upheld          => 'No action taken - ' . $data['resolution_note'],
+            $upheld          => 'No strike - ' . $data['resolution_note'],
             default          => $data['resolution_note'],
         };
         $baseless = ! $upheld && (bool) ($data['baseless'] ?? false);
@@ -290,7 +196,7 @@ class ReportController extends Controller
         AdminAction::record(
             'report.' . $data['status'], 'report', $report->id,
             ucfirst($data['status']) . " report #{$report->id} against " . ($report->reported?->name ?? 'a deleted account')
-                . ($upheld ? ' (' . $note . ')' : ($baseless ? ' as made in bad faith' : '')),
+                . ($upheld ? ' (' . $note . ')' : ($baseless ? ' as a false report' : '')),
             ['reported_id' => $report->reported_id, 'action' => $data['action'] ?? null, 'strike_id' => $strike?->id,
              'baseless' => $baseless, 'note' => $data['resolution_note']],
         );
@@ -299,8 +205,8 @@ class ReportController extends Controller
             ->route('admin.reports.index')
             ->with('success', match (true) {
                 ! $upheld        => 'Report dismissed.',
-                $strike !== null => 'Report upheld. ' . $report->reported->name . ': ' . $strike->actionLabel() . '.',
-                default          => 'Report upheld with no action.',
+                $strike !== null => 'Report confirmed. ' . $report->reported->name . ': ' . $strike->actionLabel() . '.',
+                default          => 'Report confirmed. No strike given.',
             });
     }
 
@@ -326,5 +232,18 @@ class ReportController extends Controller
     public function replyEvidence(Report $report, int $index)
     {
         return $this->evidence($report, $index, 'reply');
+    }
+
+    /** A proof photo added when marking the job complete, for a problem reported on it. */
+    public function proof(Report $report, string $side, int $index)
+    {
+        abort_unless($report->reported_type === 'application' && $report->subject_id, 404);
+
+        $path = Application::find($report->subject_id)?->completion_photos[$side][$index] ?? null;
+        $disk = Storage::disk(config('filesystems.documents'));
+
+        abort_if(blank($path) || ! $disk->exists($path), 404);
+
+        return $disk->response($path);
     }
 }

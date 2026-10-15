@@ -83,7 +83,7 @@ class _ProfileViewsState extends State<_ProfileViews> {
       const SizedBox(height: 16),
       if (!unlocked) ...[
         const Text(
-          'Top up any amount once to see who viewed you and your last eight weeks.',
+          'Top up to see who viewed you.',
           style: TextStyle(fontSize: 13.5, height: 1.4, color: AppColors.neutral600),
         ),
         const SizedBox(height: 12),
@@ -166,7 +166,7 @@ class _ProfileViewsState extends State<_ProfileViews> {
 
   List<Widget> _viewers(List<Map<String, dynamic>> viewers) {
     if (viewers.isEmpty) {
-      return const [Text('Nobody in the last eight weeks.', style: TextStyle(fontSize: 13.5, color: AppColors.neutral600))];
+      return const [Text('No views yet.', style: TextStyle(fontSize: 13.5, color: AppColors.neutral600))];
     }
 
     return [

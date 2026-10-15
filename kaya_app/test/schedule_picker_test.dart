@@ -121,7 +121,7 @@ void main() {
 
     expect(tester.takeException(), isNull);
     expect(find.byType(Dialog), findsOneWidget);
-    expect(find.textContaining('already booked'), findsOneWidget);
+    expect(find.textContaining('Grey Days Are Booked'), findsOneWidget);
   });
 
   testWidgets('says nothing about greyed days when none are', (tester) async {

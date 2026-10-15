@@ -89,7 +89,7 @@ void main() {
     await tester.pumpWidget(app(const AccountStatusScreen()));
     await tester.pumpAndSettle();
 
-    expect(find.textContaining('Restricted Until Oct 15, 2026'), findsOneWidget);
+    expect(find.textContaining('Limited Until Oct 15, 2026'), findsOneWidget);
     expect(find.text('Misleading job postings'), findsOneWidget);
     expect(find.text('The post said 1500 a day and paid 800.'), findsOneWidget);
     expect(find.text('Paint a gate'), findsOneWidget);
@@ -169,7 +169,6 @@ void main() {
       'rule': 'The work, pay, or location was not what was advertised.',
       'content': {'kind': 'Job post', 'title': 'Paint a gate', 'text': '1500 for one day'},
       'filed_at': '2026-10-14T01:00:00Z',
-      'reply_by': '2026-10-16T01:00:00Z',
       'status': 'pending',
       'outcome': null,
       'can_respond': true,
@@ -183,13 +182,13 @@ void main() {
     expect(find.text('Misleading job post'), findsOneWidget);
     expect(find.text('The work, pay, or location was not what was advertised.'), findsOneWidget);
     expect(find.text('Paint a gate'), findsOneWidget);
-    expect(find.textContaining('Nothing is decided before Oct 16, 2026'), findsOneWidget);
-    expect(find.textContaining('Photos or screenshots'), findsOneWidget);
+    expect(find.textContaining('Being reviewed.'), findsOneWidget);
+    expect(find.textContaining('Photos (Optional)'), findsOneWidget);
 
     await tester.enterText(find.byType(TextField), 'I paid exactly what the chat agreed.');
     await tester.pump();
-    await tester.ensureVisible(find.text('Send My Side'));
-    await tester.tap(find.text('Send My Side'));
+    await tester.ensureVisible(find.text('Send Reply'));
+    await tester.tap(find.text('Send Reply'));
     await tester.pumpAndSettle();
 
     expect(server.calls, contains('POST /reports/9/respond'));

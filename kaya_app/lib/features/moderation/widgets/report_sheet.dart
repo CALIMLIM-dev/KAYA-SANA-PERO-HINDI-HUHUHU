@@ -24,6 +24,7 @@ class ReportSheet extends StatefulWidget {
     required this.reportedName,
     this.subjectType,
     this.subjectId,
+    this.initialReason,
   });
 
   final int reportedId;
@@ -33,12 +34,16 @@ class ReportSheet extends StatefulWidget {
   final String? subjectType;
   final int? subjectId;
 
+  /// Picked already, as Report a Problem on a hire picks "work was not done".
+  final String? initialReason;
+
   static Future<void> show(
     BuildContext context, {
     required int reportedId,
     required String reportedName,
     String? subjectType,
     int? subjectId,
+    String? initialReason,
   }) {
     return showKayaPopup<void>(
       context,
@@ -47,6 +52,7 @@ class ReportSheet extends StatefulWidget {
         reportedName: reportedName,
         subjectType: subjectType,
         subjectId: subjectId,
+        initialReason: initialReason,
       ),
     );
   }
@@ -73,6 +79,7 @@ class _ReportSheetState extends State<ReportSheet> {
   @override
   void initState() {
     super.initState();
+    _selected = widget.initialReason;
     _loadReasons();
   }
 
@@ -86,7 +93,10 @@ class _ReportSheetState extends State<ReportSheet> {
     try {
       final response = await _api.get('/report-reasons');
       final list = (response.data['data']['reasons'] as List)
-          .cast<Map<String, dynamic>>();
+          .cast<Map<String, dynamic>>()
+          // "Work was not done" belongs to a hire, not to a profile or a post.
+          .where((r) => r['code'] != 'work_not_done' || widget.subjectType == 'application')
+          .toList();
       if (!mounted) return;
       setState(() {
         _reasons = list;
@@ -139,7 +149,7 @@ class _ReportSheetState extends State<ReportSheet> {
 
       if (!mounted) return;
       Navigator.pop(context);
-      AppToast.success(context, 'Report sent. Our team will review it.');
+      AppToast.success(context, 'Report sent. KAYA will review it.');
     } catch (e) {
       if (!mounted) return;
       setState(() {
@@ -258,7 +268,7 @@ class _ReportSheetState extends State<ReportSheet> {
             maxLength: 1000,
             onChanged: (_) => setState(() {}),
             decoration: InputDecoration(
-              hintText: 'Describe what happened: when, where, and what was said or done',
+              hintText: 'What happened?',
               helperText: _detailsEnough
                   ? null
                   : 'At least $_minDetails characters '
@@ -294,7 +304,7 @@ class _ReportSheetState extends State<ReportSheet> {
   Widget _buildPhotos() {
     return EvidencePhotos(
       photos: _photos,
-      label: 'Photos or screenshots (optional, up to ${EvidencePhotos.max})',
+      label: 'Photos (Optional)',
       onChanged: (photos) => setState(() => _photos
         ..clear()
         ..addAll(photos)),

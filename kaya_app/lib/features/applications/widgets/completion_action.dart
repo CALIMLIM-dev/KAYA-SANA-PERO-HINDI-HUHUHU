@@ -1,7 +1,13 @@
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart' show XFile;
 import 'package:provider/provider.dart';
 
+import '../../../core/constants/app_colors.dart';
 import '../../../core/widgets/app_toast.dart';
+import '../../../data/services/api_client.dart';
+import '../../moderation/widgets/evidence_photos.dart';
 import '../../../providers/application_provider.dart';
 import '../../../providers/app_mode_provider.dart';
 import '../../../providers/job_provider.dart';
@@ -33,35 +39,52 @@ Future<void> confirmCompletion(
   */
   bool early = false,
 }) async {
+  final photos = <XFile>[];
   final confirmed = await showDialog<bool>(
     context: context,
-    builder: (dialogContext) => AlertDialog(
-      title: Text(early
-          ? 'Finished Early?'
-          : 'Mark This Job as Complete?'),
-      content: Text(
-        early
-            ? 'The $otherParty will be asked to confirm. The job finishes '
-                'once they do.'
-            : 'The $otherParty has to confirm as well.',
+    builder: (dialogContext) => StatefulBuilder(
+      builder: (dialogContext, setDialogState) => AlertDialog(
+        title: Text(early
+            ? 'Finished Early?'
+            : 'Mark This Job as Complete?'),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(early
+                  ? 'The $otherParty will be asked to confirm.'
+                  : 'The $otherParty also needs to confirm.'),
+              _TheirProof(applicationId: applicationId, otherParty: otherParty),
+              const SizedBox(height: 12),
+              EvidencePhotos(
+                photos: photos,
+                label: 'Photo as Proof (Optional)',
+                onChanged: (picked) => setDialogState(() => photos
+                  ..clear()
+                  ..addAll(picked)),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('Not Yet'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: Text(early ? 'Yes, Mark as Complete' : 'Mark as Complete'),
+          ),
+        ],
       ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.pop(dialogContext, false),
-          child: const Text('Not Yet'),
-        ),
-        ElevatedButton(
-          onPressed: () => Navigator.pop(dialogContext, true),
-          child: Text(early ? 'Yes, Mark as Complete' : 'Mark as Complete'),
-        ),
-      ],
     ),
   );
 
   if (confirmed != true || !context.mounted) return;
 
   final provider = context.read<ApplicationProvider>();
-  final ok = await provider.markComplete(applicationId);
+  final ok = await provider.markComplete(applicationId, photos: photos);
 
   if (!context.mounted) return;
 
@@ -97,6 +120,85 @@ Future<void> confirmCompletion(
   if (!context.mounted) return;
 
   await onChanged();
+}
+
+/// The proof photos the other side added when they marked it complete.
+/// Nothing at all when there are none, or when they cannot be loaded.
+class _TheirProof extends StatefulWidget {
+  const _TheirProof({required this.applicationId, required this.otherParty});
+
+  final int applicationId;
+  final String otherParty;
+
+  @override
+  State<_TheirProof> createState() => _TheirProofState();
+}
+
+class _TheirProofState extends State<_TheirProof> {
+  // Once, not on every rebuild of the dialog around it.
+  late final Future<List<Uint8List>> _photos = _load();
+
+  Future<List<Uint8List>> _load() async {
+    try {
+      final api = ApiClient();
+      final res = await api.get('/applications/${widget.applicationId}/completion');
+      final count = (res.data['data']?['hire_actions']?['their_photos'] as num?)?.toInt() ?? 0;
+
+      return [
+        for (var i = 0; i < count; i++)
+          Uint8List.fromList((await api.getBytes('/applications/${widget.applicationId}/proof/$i')).data ?? const []),
+      ];
+    } catch (_) {
+      return const [];
+    }
+  }
+
+  void _open(Uint8List bytes) => showDialog<void>(
+        context: context,
+        builder: (_) => Dialog(
+          backgroundColor: Colors.black,
+          insetPadding: const EdgeInsets.all(12),
+          child: InteractiveViewer(maxScale: 5, child: Image.memory(bytes, fit: BoxFit.contain)),
+        ),
+      );
+
+  @override
+  Widget build(BuildContext context) {
+    return FutureBuilder<List<Uint8List>>(
+      future: _photos,
+      builder: (context, snapshot) {
+        final photos = snapshot.data ?? const [];
+        if (photos.isEmpty) return const SizedBox.shrink();
+
+        return Padding(
+          padding: const EdgeInsets.only(top: 12),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('Photos from the ${widget.otherParty}',
+                  style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600, color: AppColors.neutral700)),
+              const SizedBox(height: 6),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  for (final bytes in photos)
+                    InkWell(
+                      onTap: () => _open(bytes),
+                      borderRadius: BorderRadius.circular(8),
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(8),
+                        child: Image.memory(bytes, width: 64, height: 64, fit: BoxFit.cover),
+                      ),
+                    ),
+                ],
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
 }
 
 /*

@@ -137,7 +137,7 @@ class _AccountStatusScreenState extends State<AccountStatusScreen> {
         const SizedBox(height: 12),
         Text(
           counting == 0
-              ? 'No strikes counting against you.'
+              ? 'No strikes.'
               : '$counting ${counting == 1 ? 'strike' : 'strikes'} counting. Each stops counting ${s['strike_days']} days after it was given.',
           style: const TextStyle(fontSize: 13, color: AppColors.neutral700),
         ),
@@ -186,20 +186,20 @@ class _StandingCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final until = status['suspended_until'] ?? status['restricted_until'];
     final (title, line) = switch (status['standing']) {
-      'banned' => ('Banned', 'This account can no longer be used. You can still request a review and write to Support.'),
+      'banned' => ('Banned', 'You can no longer use this account. You can still request a review or message Support.'),
       'suspended' => (
           until == null ? 'Suspended' : 'Suspended Until ${formatModerationDate(until, time: true)}',
-          'You can read this page, request a review, and write to Support.',
+          'You can only open this page and Support.',
         ),
       'restricted' => (
-          'Restricted Until ${formatModerationDate(until, time: true)}',
-          'You cannot apply, post jobs or notices, or invite workers until then. Everything you already have carries on.',
+          'Limited Until ${formatModerationDate(until, time: true)}',
+          'You cannot apply, post, or invite until then.',
         ),
       'under_review' => (
           'Under Review',
-          'A serious report about you is open. Until it is decided you cannot apply, post or invite. You can give your side from the notification.',
+          'A serious report about you is being checked. Until then you cannot apply, post, or invite.',
         ),
-      _ => ('Good Standing', 'Nothing limits your account.'),
+      _ => ('Good Standing', 'Your account has no limits.'),
     };
 
     return Container(
@@ -275,8 +275,8 @@ class _StrikeCard extends StatelessWidget {
             const SizedBox(height: 8),
           ],
           _line('Given', formatModerationDate(strike['issued_at'])),
-          if (limits && endsAt != null) _line('In Effect Until', formatModerationDate(endsAt, time: true)),
-          if (counting) _line('Stops Counting', formatModerationDate(strike['expires_at'])),
+          if (limits && endsAt != null) _line('Ends', formatModerationDate(endsAt, time: true)),
+          if (counting) _line('Active Until', formatModerationDate(strike['expires_at'])),
           if (appeal != null) ...[
             const Divider(height: 20),
             _line(
@@ -346,7 +346,7 @@ class _AppealFormState extends State<_AppealForm> {
       await ApiClient().post('/account/strikes/${widget.strikeId}/appeal', data: {'appeal': _text.text.trim()});
       if (!mounted) return;
       Navigator.pop(context, true);
-      AppToast.success(context, 'Request sent. A different admin will decide it.');
+      AppToast.success(context, 'Request sent.');
     } catch (e) {
       if (!mounted) return;
       setState(() => _sending = false);
@@ -372,8 +372,7 @@ class _AppealFormState extends State<_AppealForm> {
             maxLength: 2000,
             onChanged: (_) => setState(() {}),
             decoration: InputDecoration(
-              hintText: 'Why the decision is wrong, and anything we did not know',
-              helperText: 'You can request a review once.',
+              hintText: 'Why is this wrong?',
               border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
             ),
           ),

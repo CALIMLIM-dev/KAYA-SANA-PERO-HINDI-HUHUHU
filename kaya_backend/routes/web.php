@@ -124,6 +124,8 @@ Route::prefix('admin')->name('admin.')->group(function () {
             ->whereNumber('index')->name('reports.evidence');
         Route::get('/reports/{report}/reply-evidence/{index}', [ReportController::class, 'replyEvidence'])
             ->whereNumber('index')->name('reports.reply-evidence');
+        Route::get('/reports/{report}/proof/{side}/{index}', [ReportController::class, 'proof'])
+            ->whereIn('side', ['worker', 'employer'])->whereNumber('index')->name('reports.proof');
 
         // Appeals, and bans waiting for a second administrator.
         Route::get('/strikes', [\App\Http\Controllers\Admin\StrikeController::class, 'index'])->name('strikes.index');

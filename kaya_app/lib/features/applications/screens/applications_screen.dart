@@ -2080,7 +2080,7 @@ class _StageTrack extends StatelessWidget {
       'rejected' => (
           AppColors.error.withValues(alpha: 0.12),
           AppColors.error,
-          'Not Selected'
+          'Rejected'
         ),
       'withdrawn' => (
           AppColors.neutral200,

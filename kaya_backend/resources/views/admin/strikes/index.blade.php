@@ -52,7 +52,7 @@
                             <td class="py-3 px-5 text-slate-700">{{ $strike->ruleLabel() }}</td>
                             <td class="py-3 px-5 text-slate-700">
                                 {{ $strike->actionLabel() }}
-                                @if ($strike->removed_at) <span class="text-xs text-slate-500">(overturned)</span> @endif
+                                @if ($strike->removed_at) <span class="text-xs text-slate-500">(removed)</span> @endif
                             </td>
                             <td class="py-3 px-5 text-slate-500">{{ $strike->issuer->name ?? 'Unknown' }}</td>
                             <td class="py-3 px-5 text-slate-500 whitespace-nowrap">

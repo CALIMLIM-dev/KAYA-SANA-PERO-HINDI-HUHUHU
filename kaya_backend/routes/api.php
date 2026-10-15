@@ -312,6 +312,9 @@ Route::prefix('v1')->group(function () {
         // Either party marks their side done. Which side is derived from the
         // job, never taken from the request.
         Route::patch('/applications/{application}/complete', [ApplicationController::class, 'complete']);
+        // POST too: PHP reads no multipart body on PATCH, and proof photos are multipart.
+        Route::post('/applications/{application}/complete', [ApplicationController::class, 'complete']);
+        Route::get('/applications/{application}/proof/{index}', [ApplicationController::class, 'proof'])->whereNumber('index');
         Route::get('/applications/{application}/completion', [ApplicationController::class, 'completion']);
         // Cancel hire: ask (or cancel at once), take the request back, or agree to it.
         Route::post('/applications/{application}/cancel',        [ApplicationController::class, 'cancelHire']);

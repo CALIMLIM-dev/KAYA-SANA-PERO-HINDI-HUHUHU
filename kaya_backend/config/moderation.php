@@ -162,9 +162,6 @@ return [
     ],
     'ban_hold_days' => 30,
 
-    // How long the reported person has to give their side before a report
-    // can be upheld. Dismissing does not wait.
-    'reply_hours' => 48,
 
     // How long after a strike it can be appealed.
     'appeal_days' => 30,
@@ -172,10 +169,11 @@ return [
     /*
         Held from applying, posting and inviting while a serious report is
         looked at: a high-severity report with photos, or high-severity
-        reports from this many different people. Lifts by itself when the
-        reports are closed.
+        reports from this many different people. Off: one person's report,
+        photo or not, let anybody freeze a rival before an admin had looked.
+        An admin decides first now.
     */
-    'under_review' => true,
+    'under_review' => false,
     'under_review_reporters' => 2,
 
     /*

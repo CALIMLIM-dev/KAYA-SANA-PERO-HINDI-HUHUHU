@@ -290,8 +290,8 @@ class NotificationService
             userId: $application->worker_id,
             audience: UserNotification::AUDIENCE_WORKER,
             type: UserNotification::APPLICATION_REJECTED,
-            title: 'Application not selected',
-            body: 'You were not selected for "' . $job->title . '".',
+            title: 'Application rejected',
+            body: 'Your application for "' . $job->title . '" was rejected.',
             referenceType: 'job',
             referenceId: $job->id,
             actorId: $job->employer_id,
@@ -492,7 +492,7 @@ class NotificationService
             title: 'Confirm the job is complete',
             body: $who.' marked "'.$job->title.'" as complete. Confirm to finish it and leave a review.'
                 . (($on = \App\Services\JobCompletionService::settlesOn($application))
-                    ? ' If you do not answer, it completes by itself on '.$on->format('M j').'. If the work was not done, tap Work Not Done on the job card.'
+                    ? ' If you do not answer, it completes by itself on '.$on->format('M j').'. If the work was not done, tap Report a Problem on the job card.'
                     : ''),
             referenceType: 'application',
             referenceId: $application->id,
@@ -518,11 +518,11 @@ class NotificationService
             type: 'application.cancel_requested',
             // The name stays in the body: titles are Title Cased on the way
             // out, and that would change a name like "dela Cruz".
-            title: 'Request to cancel the hire',
+            title: 'Request to cancel the job',
             body: $by->name . ' asked to cancel "' . $hire->job?->title . '". Reason: '
                 . \App\Services\HireCancellation::reasonLabel($hire->cancel_reason) . '.'
                 . ($hire->cancel_note ? ' "' . $hire->cancel_note . '"' : '')
-                . ' Agree to cancel now, or it cancels on '
+                . ' Agree to cancel now, or it will be cancelled on '
                 . $at?->timezone('Asia/Manila')->format('M j, g:i A') . ' if there is no answer.',
             referenceType: 'application',
             referenceId: $hire->id,
@@ -549,7 +549,7 @@ class NotificationService
                 userId: $userId,
                 audience: $this->hireAudience($hire, $userId),
                 type: 'application.cancelled',
-                title: 'The hire was cancelled',
+                title: 'The job was cancelled',
                 body: '"' . $job->title . '"' . ($reason ? ': ' . $reason : '') . '.'
                     . ($userId === $job->employer_id && $reopened ? ' The spot is open again on your post.' : ''),
                 referenceType: 'application',
@@ -595,7 +595,7 @@ class NotificationService
         $body = match (true) {
             $when === 'deadline' => 'Today is the last day of "' . $job?->title . '". Tap Mark as Complete when the work is done.',
             (bool) $theyConfirmed => 'The other side marked "' . $job?->title . '" done. It completes by itself on ' . $on
-                . ' unless you confirm sooner or tap Work Not Done.',
+                . ' unless you confirm sooner or tap Report a Problem.',
             default => '"' . $job?->title . '" closes as unsuccessful on ' . $on . ' unless both of you confirm it was done.',
         };
 
@@ -880,17 +880,16 @@ class NotificationService
     public function strikeIssued(\App\Models\Strike $strike): void
     {
         $date = fn ($d) => $d?->timezone('Asia/Manila')->format('M j, Y g:i A');
-        $count = $strike->user->strikes()->active()->count();
 
         [$type, $title, $effect] = match ($strike->action) {
             'warning'     => ['moderation.warning', 'A warning from KAYA',
-                'This is a warning; nothing on your account is limited.'],
-            'restriction' => ['moderation.strike', "Your account is restricted for {$strike->days} days",
-                'Until ' . $date($strike->ends_at) . ' you cannot apply, post jobs or notices, or invite workers.'],
+                'This is a warning. Your account is not limited.'],
+            'restriction' => ['moderation.strike', "Your account is limited for {$strike->days} days",
+                'Until ' . $date($strike->ends_at) . ' you cannot apply, post, or invite.'],
             'suspension'  => ['moderation.strike', "Your account is suspended for {$strike->days} days",
-                'Until ' . $date($strike->ends_at) . ' you can only open Account status and Support.'],
+                'Until ' . $date($strike->ends_at) . ' you can only open Account Status and Support.'],
             default       => ['moderation.strike', 'Your account is suspended',
-                'A second administrator will review a permanent ban. Until then you can only open Account status and Support.'],
+                'A second admin will decide on a permanent ban. Until then you can only open Account Status and Support.'],
         };
 
         $this->push(
@@ -898,9 +897,7 @@ class NotificationService
             audience: UserNotification::AUDIENCE_BOTH,
             type: $type,
             title: $title,
-            body: 'Rule: ' . $strike->ruleLabel() . '. ' . $strike->finding . ' ' . $effect
-                . " Strikes counting now: {$count}. This one stops counting on " . $strike->expires_at->format('M j, Y')
-                . '. You can appeal it until ' . $strike->appealDeadline()->format('M j, Y') . ' in Account status.',
+            body: 'Violation: ' . $strike->ruleLabel() . '. ' . $effect . ' See Account Status for details.',
             referenceType: 'strike',
             referenceId: $strike->id,
         );
@@ -913,8 +910,8 @@ class NotificationService
             audience: UserNotification::AUDIENCE_BOTH,
             type: 'moderation.strike',
             title: 'Your account is permanently banned',
-            body: 'A second administrator confirmed the ban for: ' . $strike->ruleLabel() . '.'
-                . ($strike->canAppeal() ? ' You can appeal it until ' . $strike->appealDeadline()->format('M j, Y') . ' in Account status.' : ''),
+            body: 'Violation: ' . $strike->ruleLabel() . '.'
+                . ($strike->canAppeal() ? ' You can request a review in Account Status until ' . $strike->appealDeadline()->format('M j, Y') . '.' : ''),
             referenceType: 'strike',
             referenceId: $strike->id,
         );
@@ -927,7 +924,7 @@ class NotificationService
             audience: UserNotification::AUDIENCE_BOTH,
             type: 'moderation.strike',
             title: 'Your suspension will end',
-            body: 'A second administrator decided against a permanent ban. Your suspension ends on '
+            body: 'A second admin decided not to ban you. Your suspension ends on '
                 . $strike->ends_at?->timezone('Asia/Manila')->format('M j, Y g:i A') . '.',
             referenceType: 'strike',
             referenceId: $strike->id,
@@ -944,7 +941,7 @@ class NotificationService
             type: 'moderation.appeal',
             title: $won ? 'Your review request was accepted' : 'Your review request was not accepted',
             body: ($won
-                    ? 'The strike was removed and anything it limited has been lifted. '
+                    ? 'The strike was removed and your account is no longer limited. '
                     : 'The strike stays on your account. ')
                 . $strike->appeal_note,
             referenceType: 'strike',
@@ -959,8 +956,8 @@ class NotificationService
             audience: UserNotification::AUDIENCE_BOTH,
             type: 'moderation.false_report',
             title: 'About your reports',
-            body: 'Several of your recent reports were found to have no basis. Please report only what really happened: '
-                . 'another one like this will pause your reporting for ' . config('moderation.false_pause_days') . ' days.',
+            body: 'Some of your recent reports were false. Please report only what really happened. '
+                . 'One more false report and you cannot report for ' . config('moderation.false_pause_days') . ' days.',
         );
     }
 
@@ -971,8 +968,8 @@ class NotificationService
             audience: UserNotification::AUDIENCE_BOTH,
             type: 'moderation.false_report',
             title: 'Your reporting is paused',
-            body: 'Too many of your recent reports had no basis. You can file reports again on '
-                . $until->timezone('Asia/Manila')->format('M j, Y') . '. Support is still open if something is wrong.',
+            body: 'Too many of your reports were false. You can report again on '
+                . $until->timezone('Asia/Manila')->format('M j, Y') . '.',
         );
     }
 
@@ -990,9 +987,7 @@ class NotificationService
             audience: UserNotification::AUDIENCE_BOTH,
             type: 'report.filed',
             title: 'A report about your account',
-            body: 'Somebody reported your account for: ' . $report->reasonLabel()
-                . '. Tap to see what was reported and give your side. Nothing is decided before '
-                . $report->replyBy()->timezone('Asia/Manila')->format('M j, g:i A') . ' unless you reply sooner.',
+            body: 'Someone reported your account for: ' . $report->reasonLabel() . '. Tap to see it and reply.',
             referenceType: 'report',
             referenceId: $report->id,
         );
@@ -1007,27 +1002,34 @@ class NotificationService
     */
     public function reportDecided(\App\Models\Report $report): void
     {
-        $upheld = $report->status === 'resolved';
+        /*
+            "Took action" only when something was done. A report confirmed
+            with no strike used to tell the reporter action was taken while
+            the reported person was told none was.
+        */
+        $struck = $report->strike()->exists();
 
         $this->push(
             userId: $report->reporter_id,
             audience: UserNotification::AUDIENCE_BOTH,
             type: 'report.decided',
-            title: $upheld ? 'Your report was upheld' : 'Your report was reviewed',
-            body: $upheld
-                ? 'We looked into your report and took action. Thank you for telling us.'
-                : 'We looked into your report and did not find a rule broken this time.',
+            title: 'Your report was reviewed',
+            body: match (true) {
+                $struck                        => 'We checked your report and took action. Thank you for telling us.',
+                $report->status === 'resolved' => 'We checked your report. Thank you for telling us.',
+                default                        => 'We checked your report and did not find any violation.',
+            },
         );
 
         // The reported person hears it was closed, unless a warning or a
         // suspension already told them.
-        if ($report->status === 'dismissed' || ! $report->strike()->exists()) {
+        if (! $struck) {
             $this->push(
                 userId: $report->reported_id,
                 audience: UserNotification::AUDIENCE_BOTH,
                 type: 'report.closed',
                 title: 'A report about your account was closed',
-                body: 'Our team reviewed it and no action was taken.',
+                body: 'We checked the report. No action was taken against you.',
             );
         }
     }

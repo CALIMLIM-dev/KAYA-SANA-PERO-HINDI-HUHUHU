@@ -263,4 +263,37 @@ class HireCancellationTest extends TestCase
         $this->assertSame(150000, $proposal->pay_centavos);
         $this->assertStringEndsWith(', ₱1,500', $proposal->summary());
     }
+
+    // ── Proof photo ───────────────────────────────────────────────────────────
+
+    #[Test]
+    public function a_proof_photo_reaches_the_other_side_and_an_admin_but_nobody_else(): void
+    {
+        \Illuminate\Support\Facades\Storage::fake(config('filesystems.documents'));
+        $hire = $this->hire();
+        $photo = \Illuminate\Http\UploadedFile::fake()->createWithContent('done.jpg', base64_decode('/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAgGBgcGBQgHBwcJCQgKDBQNDAsLDBkSEw8UHRofHh0aHBwgJC4nICIsIxwcKDcpLDAxNDQ0Hyc5PTgyPC4zNDL/wAALCAABAAEBAREA/8QAFAABAAAAAAAAAAAAAAAAAAAACf/EABQQAQAAAAAAAAAAAAAAAAAAAAD/2gAIAQEAAD8AKp//2Q=='));
+
+        $this->actingAs($this->worker, 'sanctum')
+            ->post("/api/v1/applications/{$hire->id}/complete", ['photos' => [$photo]], ['Accept' => 'application/json'])
+            ->assertOk()
+            ->assertJsonMissingPath('data.application.completion_photos');
+
+        $this->actingAs($this->employer, 'sanctum')->getJson("/api/v1/applications/{$hire->id}/completion")
+            ->assertJsonPath('data.hire_actions.their_photos', 1);
+        $this->actingAs($this->employer, 'sanctum')->get("/api/v1/applications/{$hire->id}/proof/0")->assertOk();
+        $this->actingAs(User::factory()->create(), 'sanctum')->getJson("/api/v1/applications/{$hire->id}/proof/0")->assertStatus(403);
+
+        $report = Report::create([
+            'reporter_id' => $this->employer->id, 'reported_id' => $this->worker->id,
+            'reported_type' => 'application', 'subject_id' => $hire->id,
+            'reason_code' => 'work_not_done', 'reason' => 'Work was not done',
+            'description' => 'The gate was never painted, only primed.', 'status' => 'pending',
+        ]);
+        $admin = User::factory()->create(['user_type' => 'admin']);
+        $admin->forceFill(['admin_role' => 'super'])->save();
+
+        $this->actingAs($admin)->get("/admin/reports/{$report->id}")->assertOk()->assertSee('Proof Photos');
+        $this->actingAs($admin)->get("/admin/reports/{$report->id}/proof/worker/0")->assertOk();
+        $this->actingAs($admin)->get("/admin/reports/{$report->id}/proof/employer/0")->assertNotFound();
+    }
 }

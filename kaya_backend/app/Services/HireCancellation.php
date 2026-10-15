@@ -76,13 +76,13 @@ class HireCancellation
     public function refusal(Application $hire, User $by): ?string
     {
         if ($hire->status !== 'accepted') {
-            return 'Only a hire that is under way can be cancelled.';
+            return 'Only a job that is in progress can be cancelled.';
         }
         if ($hire->employer_completed_at && $hire->worker_completed_at) {
             return 'Both of you have marked this job complete.';
         }
         if ($hire->disputed_at) {
-            return 'Our team is looking at this hire. It is settled when they decide.';
+            return 'A problem was reported on this job. KAYA will review it.';
         }
 
         return null;
@@ -211,6 +211,9 @@ class HireCancellation
             // "It didn't happen": the other side says it is done and this side does not.
             'can_dispute' => $live && ! $pending && ! $hire->disputed_at && $theirs !== null && $mine === null,
             'disputed'    => $hire->disputed_at !== null,
+            // Proof photos the other side added when marking it complete.
+            'their_photos' => count(($hire->completion_photos ?? [])[$side === JobCompletionService::SIDE_EMPLOYER
+                ? JobCompletionService::SIDE_WORKER : JobCompletionService::SIDE_EMPLOYER] ?? []),
             'settles_on'  => $settlesOn?->toDateString(),
             'cancelled'   => $hire->status === 'cancelled' ? [
                 'reason'  => self::reasonLabel($hire->cancel_reason),

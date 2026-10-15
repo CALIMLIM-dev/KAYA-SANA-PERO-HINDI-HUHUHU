@@ -52,22 +52,6 @@ class Report extends Model
             : ($this->reason ?: 'Not given');
     }
 
-    /*
-        When the reported person's time to answer runs out.
-
-        A report cannot be upheld before this unless they have already
-        answered: deciding on one side of a story is not a decision. A
-        dismissal harms nobody and does not wait.
-    */
-    public function replyBy(): \Illuminate\Support\Carbon
-    {
-        return $this->created_at->copy()->addHours((int) config('moderation.reply_hours'));
-    }
-
-    public function awaitingReply(): bool
-    {
-        return $this->response === null && now()->lt($this->replyBy());
-    }
 
     public function strike()
     {

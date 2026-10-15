@@ -79,7 +79,7 @@ class _ReportResponseScreenState extends State<ReportResponseScreen> {
         );
       }
       if (!mounted) return;
-      AppToast.success(context, 'Thank you. Your side is with our team.');
+      AppToast.success(context, 'Reply sent.');
       await _load();
     } catch (e) {
       if (!mounted) return;
@@ -134,7 +134,7 @@ class _ReportResponseScreenState extends State<ReportResponseScreen> {
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              _label('Reported For'),
+              _label('Reason'),
               Text(
                 (report['reason'] ?? '').toString(),
                 style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: AppColors.neutral900),
@@ -162,13 +162,10 @@ class _ReportResponseScreenState extends State<ReportResponseScreen> {
             children: [
               _label('Status'),
               Text(
-                outcome ??
-                    (canRespond
-                        ? 'Nothing is decided before ${formatModerationDate(report['reply_by'], time: true)} unless you reply sooner.'
-                        : 'Being reviewed.'),
+                outcome ?? 'Being reviewed.',
                 style: const TextStyle(fontSize: 14, height: 1.4, color: AppColors.neutral900),
               ),
-              if (outcome != null && outcome != 'Closed with no action against you') ...[
+              if (report['has_strike'] == true) ...[
                 const SizedBox(height: 8),
                 InkWell(
                   onTap: () => AppRouter.push(context, AppRouter.accountStatus),
@@ -183,7 +180,7 @@ class _ReportResponseScreenState extends State<ReportResponseScreen> {
         ),
         const SizedBox(height: 16),
         if (answered.isNotEmpty) ...[
-          _label('Your Side'),
+          _label('Your Reply'),
           _card(Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -198,15 +195,14 @@ class _ReportResponseScreenState extends State<ReportResponseScreen> {
             ],
           )),
         ] else if (canRespond) ...[
-          _label('Your Side'),
+          _label('Your Reply'),
           TextField(
             controller: _answer,
             maxLines: 5,
             maxLength: 1000,
             onChanged: (_) => setState(() {}),
             decoration: InputDecoration(
-              hintText: 'What happened, as you saw it',
-              helperText: 'You can send this once.',
+              hintText: 'What happened?',
               filled: true,
               fillColor: Colors.white,
               border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
@@ -215,7 +211,7 @@ class _ReportResponseScreenState extends State<ReportResponseScreen> {
           const SizedBox(height: 8),
           EvidencePhotos(
             photos: _photos,
-            label: 'Photos or screenshots (optional, up to ${EvidencePhotos.max})',
+            label: 'Photos (Optional)',
             onChanged: (photos) => setState(() => _photos
               ..clear()
               ..addAll(photos)),
@@ -236,16 +232,10 @@ class _ReportResponseScreenState extends State<ReportResponseScreen> {
                   ? const SizedBox(
                       width: 18, height: 18,
                       child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                  : const Text('Send My Side', style: TextStyle(fontWeight: FontWeight.w700)),
+                  : const Text('Send Reply', style: TextStyle(fontWeight: FontWeight.w700)),
             ),
           ),
         ],
-        const SizedBox(height: 16),
-        const Text(
-          'Who filed it, what they wrote and any photos they sent stay private. '
-          'Our team decides using both sides.',
-          style: TextStyle(fontSize: 12.5, height: 1.4, color: AppColors.neutral600),
-        ),
       ],
     );
   }
@@ -285,7 +275,7 @@ class ReportedContent extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          'What was reported: ${(content['kind'] ?? 'Item').toString().toLowerCase()}',
+          'What Was Reported',
           style: const TextStyle(fontSize: 12, color: AppColors.neutral500),
         ),
         const SizedBox(height: 4),

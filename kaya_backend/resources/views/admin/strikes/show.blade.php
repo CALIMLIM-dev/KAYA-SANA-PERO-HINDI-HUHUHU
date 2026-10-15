@@ -35,7 +35,7 @@
                 <div>
                     <dt class="text-slate-500">Standing</dt>
                     <dd class="mt-0.5 text-slate-900">
-                        {{ $strike->removed_at ? 'Overturned ' . $at($strike->removed_at) : ($strike->isActive() ? 'Counting until ' . $strike->expires_at->format('M j, Y') : 'Expired') }}
+                        {{ $strike->removed_at ? 'Removed ' . $at($strike->removed_at) : ($strike->isActive() ? 'Active until ' . $strike->expires_at->format('M j, Y') : 'Expired') }}
                     </dd>
                     @if ($strike->ends_at && in_array($strike->action, ['restriction', 'suspension', 'ban'], true))
                         <dd class="text-slate-500 mt-0.5">In effect until {{ $at($strike->ends_at) }}</dd>
@@ -53,7 +53,7 @@
             @if ($strike->report)
                 <a href="{{ route('admin.reports.show', $strike->report) }}" class="mt-2 inline-block text-sm text-blue-600 hover:text-blue-700">Open the report it came from</a>
             @else
-                <p class="mt-2 text-xs text-slate-500">Issued from the account page, not from a report.</p>
+                <p class="mt-2 text-xs text-slate-500">Not from a report.</p>
             @endif
         </section>
 
@@ -86,7 +86,7 @@
                         <li class="py-2.5 flex items-center gap-3 text-sm">
                             <a href="{{ route('admin.strikes.show', $s) }}" class="flex-1 min-w-0 truncate text-slate-800 hover:text-blue-600">{{ $s->actionLabel() }} · {{ $s->ruleLabel() }}</a>
                             <span class="text-slate-500 whitespace-nowrap">{{ $s->created_at->format('M j, Y') }}</span>
-                            <span class="w-24 text-right text-xs text-slate-500">{{ $s->removed_at ? 'Overturned' : ($s->isActive() ? 'Counting' : 'Expired') }}</span>
+                            <span class="w-24 text-right text-xs text-slate-500">{{ $s->removed_at ? 'Removed' : ($s->isActive() ? 'Active' : 'Expired') }}</span>
                         </li>
                     @endforeach
                 </ul>
@@ -145,7 +145,6 @@
                                 <button type="submit" name="decision" value="upheld"
                                         class="px-3 py-2 border border-slate-300 text-slate-700 font-medium rounded-lg hover:bg-slate-50">Refuse</button>
                             </div>
-                            <p class="mt-2 text-xs text-slate-500">Accepting removes the strike and lifts what it limited.</p>
                         </form>
                     @endif
                 </div>

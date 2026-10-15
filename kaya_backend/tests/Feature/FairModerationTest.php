@@ -75,8 +75,8 @@ class FairModerationTest extends TestCase
         $response->assertJsonPath('data.reason', 'Misleading job post')
             ->assertJsonPath('data.rule', 'The work, pay, or location was not what was advertised.')
             ->assertJsonPath('data.content.title', 'Paint a gate')
-            ->assertJsonPath('data.can_respond', true);
-        $this->assertNotNull($response->json('data.reply_by'));
+            ->assertJsonPath('data.can_respond', true)
+            ->assertJsonPath('data.has_strike', false);
 
         $body = $response->getContent();
         $this->assertStringNotContainsString('Maria Santos', $body);
@@ -105,19 +105,15 @@ class FairModerationTest extends TestCase
     }
 
     #[Test]
-    public function upholding_waits_for_their_side_but_dismissing_does_not(): void
+    public function a_report_can_be_decided_right_away(): void
     {
+        // Filed an hour ago, no reply yet: an admin does not have to wait.
         $report = $this->notice(hoursAgo: 1);
         $admin = $this->admin();
-        $uphold = ['status' => 'resolved', 'action' => 'strike', 'reason_code' => 'misleading_postings',
-                   'resolution_note' => 'The post and the pay did not match.'];
+        $confirm = ['status' => 'resolved', 'action' => 'strike', 'reason_code' => 'misleading_postings',
+                    'resolution_note' => 'The post and the pay did not match.'];
 
-        $this->actingAs($admin)->post("/admin/reports/{$report->id}/resolve", $uphold)->assertSessionHasErrors('resolution_note');
-        $this->assertSame('pending', $report->fresh()->status);
-
-        // As soon as they answer, it can be decided.
-        $report->update(['response' => 'I paid what we agreed.', 'responded_at' => now()]);
-        $this->actingAs($admin)->post("/admin/reports/{$report->id}/resolve", $uphold)->assertRedirect(route('admin.reports.index'));
+        $this->actingAs($admin)->post("/admin/reports/{$report->id}/resolve", $confirm)->assertRedirect(route('admin.reports.index'));
         $this->assertSame('resolved', $report->fresh()->status);
 
         $other = $this->notice(['reason_code' => 'spam'], hoursAgo: 1);
@@ -185,8 +181,8 @@ class FairModerationTest extends TestCase
 
         $notice = UserNotification::where('user_id', $this->reported->id)->where('type', 'moderation.warning')->firstOrFail();
         $this->assertStringContainsString('Misleading job postings', $notice->body);
-        $this->assertStringContainsString('The post did not match the work.', $notice->body);
-        $this->assertStringContainsString($strike->appealDeadline()->format('M j, Y'), $notice->body);
+        $this->assertStringContainsString('Account Status', $notice->body);
+        $this->assertSame('The post did not match the work.', $strike->finding, 'the finding is on Account Status');
         $this->assertSame('strike', $notice->reference_type);
 
         // Muting account notices does not mute this.
@@ -287,18 +283,13 @@ class FairModerationTest extends TestCase
     // ── Holding and abuse ─────────────────────────────────────────────────────
 
     #[Test]
-    public function a_serious_report_with_photos_holds_the_account_until_it_is_decided(): void
+    public function a_report_alone_does_not_freeze_the_account(): void
     {
-        $report = $this->notice(['reason_code' => 'scam', 'evidence' => ['report_evidence/1/a.jpg']], hoursAgo: 1);
-        $this->assertTrue($this->reported->isUnderReview());
+        // A serious report with a photo used to freeze the account before an
+        // admin had looked, so anyone could freeze a rival.
+        $this->notice(['reason_code' => 'scam', 'evidence' => ['report_evidence/1/a.jpg']], hoursAgo: 1);
+        $this->notice(['reason_code' => 'scam'], hoursAgo: 1);
 
-        $this->actingAs($this->reported, 'sanctum')
-            ->postJson('/api/v1/community', ['title' => 'Gate painting', 'body' => 'Available this week.'])
-            ->assertStatus(403)->assertJsonPath('data.under_review', true);
-
-        $this->actingAs($this->admin())->post("/admin/reports/{$report->id}/resolve", [
-            'status' => 'dismissed', 'resolution_note' => 'The photo shows an ordinary quotation.',
-        ]);
         $this->assertFalse($this->reported->isUnderReview());
     }
 
@@ -336,10 +327,11 @@ class FairModerationTest extends TestCase
         $strike->update(['appeal' => 'I never took any money from anyone.', 'appealed_at' => now(), 'appeal_status' => 'pending']);
 
         $this->actingAs($issuer)->get("/admin/reports/{$report->id}")->assertOk()
-            ->assertSee('History Between Them')
+            ->assertSee('Past Jobs Together')
             ->assertSee('Strike History');
 
-        $this->actingAs($issuer)->get('/admin/reports')->assertOk()->assertSee('Strikes Counting');
+        $this->actingAs($issuer)->get('/admin/reports')->assertOk()->assertSee('Juan Dela Cruz')
+            ->assertDontSee('Made in Bad Faith');
         $this->actingAs($issuer)->get('/admin/strikes')->assertOk()->assertSee('Juan Dela Cruz');
         // The issuer is told somebody else decides.
         $this->actingAs($issuer)->get("/admin/strikes/{$strike->id}")->assertOk()

@@ -58,6 +58,12 @@ class ModerationReasons
             'description' => 'The work, pay, or location was not what was advertised.',
             'severity'    => 'medium',
         ],
+        // Report a Problem on a hire the other side marked complete.
+        'work_not_done' => [
+            'label'       => 'Work was not done',
+            'description' => 'They marked the job complete, but the work was not done.',
+            'severity'    => 'medium',
+        ],
         'spam' => [
             'label'       => 'Spam',
             'description' => 'Repeated unwanted messages or advertising.',
@@ -154,6 +160,7 @@ class ModerationReasons
         'inappropriate'  => 'inappropriate_content',
         'no_show'        => 'repeated_no_show',
         'misleading_job' => 'misleading_postings',
+        'work_not_done'  => 'policy_violation',
         'spam'           => 'spam',
         'other'          => 'policy_violation',
     ];

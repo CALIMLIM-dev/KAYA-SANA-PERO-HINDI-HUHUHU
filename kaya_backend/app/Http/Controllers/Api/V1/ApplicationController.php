@@ -15,6 +15,7 @@ use App\Models\CreditTransaction;
 use App\Services\CreditLedger;
 use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Storage;
 
 class ApplicationController extends Controller
 {
@@ -676,7 +677,7 @@ class ApplicationController extends Controller
         }
         if ($application->cancel_requested_at !== null) {
             return $this->fail((int) $application->cancel_requested_by === $user->id
-                ? 'You have already asked to cancel this hire.'
+                ? 'You already asked to cancel this job.'
                 : 'The other side has already asked to cancel. You can agree to it.', 422);
         }
 
@@ -688,9 +689,9 @@ class ApplicationController extends Controller
         $outcome = $cancellations->request($application, $user, $data['reason'], $data['note'] ?? null);
 
         return $this->ok(['outcome' => $outcome], $outcome === 'cancelled'
-            ? 'The hire is cancelled.'
-            : 'Asked. It cancels when they agree, or by itself on '
-                . $cancellations->cancelsAt($application)->timezone('Asia/Manila')->format('M j, g:i A') . '.');
+            ? 'Job cancelled.'
+            : 'Request sent. It will be cancelled on '
+                . $cancellations->cancelsAt($application)->timezone('Asia/Manila')->format('M j, g:i A') . ' if they do not answer.');
     }
 
     /** Take back your own request to cancel. */
@@ -702,7 +703,7 @@ class ApplicationController extends Controller
 
         $cancellations->withdraw($application);
 
-        return $this->ok(null, 'The hire stays.');
+        return $this->ok(null, 'Cancel request removed.');
     }
 
     /** The other side agrees: cancelled now, with no mark on either. */
@@ -721,7 +722,7 @@ class ApplicationController extends Controller
 
         $cancellations->agree($application);
 
-        return $this->ok(null, 'The hire is cancelled.');
+        return $this->ok(null, 'Job cancelled.');
     }
 
     public function complete(Request $request, Application $application)
@@ -773,8 +774,25 @@ class ApplicationController extends Controller
             side can finish a job alone, which was the whole intent.
         */
 
+        $request->validate([
+            'photos'   => ['nullable', 'array', 'max:3'],
+            'photos.*' => ['image', 'mimes:jpg,jpeg,png,webp', 'max:5120'],
+        ]);
+
         $application = $service->confirm($application, $side);
         $recorded = $service->lastConfirmationWasNew;
+
+        // Optional proof: the other side sees it when confirming, an admin
+        // when a problem is reported on the job.
+        if ($request->hasFile('photos')) {
+            $disk = config('filesystems.documents');
+            $application->forceFill(['completion_photos' => [
+                ...($application->completion_photos ?? []),
+                $side => collect($request->file('photos'))
+                    ->map(fn ($photo) => $photo->store("completion_proof/{$application->id}/{$side}", $disk))
+                    ->values()->all(),
+            ]])->save();
+        }
 
         /*
             Say which of the three things happened.
@@ -798,6 +816,25 @@ class ApplicationController extends Controller
             'job_status'  => $application->job?->fresh()?->status,
             'recorded'    => $recorded,
         ], $message);
+    }
+
+    /** One proof photo the other side added when they marked the job complete. */
+    public function proof(Request $request, Application $application, int $index)
+    {
+        $application->loadMissing('job');
+        $side = app(JobCompletionService::class)->sideFor($application, $request->user());
+
+        if ($side === null) {
+            return $this->fail('You were not part of this job', 403);
+        }
+
+        $theirs = $side === JobCompletionService::SIDE_EMPLOYER ? JobCompletionService::SIDE_WORKER : JobCompletionService::SIDE_EMPLOYER;
+        $path = $application->completion_photos[$theirs][$index] ?? null;
+        $disk = Storage::disk(config('filesystems.documents'));
+
+        abort_if(blank($path) || ! $disk->exists($path), 404);
+
+        return $disk->response($path);
     }
 
     public function accept(Request $request, Application $application)
