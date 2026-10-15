@@ -55,22 +55,30 @@ class StrikeService
         };
 
         $strike = DB::transaction(function () use ($user, $reasonCode, $finding, $admin, $report, $step) {
-            $hold = $step['action'] === 'ban' ? (int) config('moderation.ban_hold_days') : $step['days'];
+            $ban = $step['action'] === 'ban';
 
+            // A ban is permanent at once: one admin decides, as with
+            // everything else on the panel.
             $strike = Strike::create([
-                'user_id'     => $user->id,
-                'report_id'   => $report?->id,
-                'reason_code' => $reasonCode,
-                'action'      => $step['action'],
-                'days'        => $step['days'],
-                'finding'     => $finding,
-                'issued_by'   => $admin->id,
-                'ends_at'     => $hold ? now()->addDays($hold) : null,
-                'expires_at'  => now()->addDays((int) config('moderation.strike_days')),
+                'user_id'      => $user->id,
+                'report_id'    => $report?->id,
+                'reason_code'  => $reasonCode,
+                'action'       => $step['action'],
+                'days'         => $step['days'],
+                'finding'      => $finding,
+                'issued_by'    => $admin->id,
+                'ends_at'      => $step['days'] ? now()->addDays($step['days']) : null,
+                'expires_at'   => now()->addDays((int) config('moderation.strike_days')),
+                'confirmed_by' => $ban ? $admin->id : null,
+                'confirmed_at' => $ban ? now() : null,
             ]);
 
-            if (in_array($step['action'], ['suspension', 'ban'], true)) {
-                $this->suspensions->suspend($user, $reasonCode, (string) $hold, $finding, $admin);
+            if ($step['action'] === 'suspension') {
+                $this->suspensions->suspend($user, $reasonCode, (string) $step['days'], $finding, $admin);
+            }
+            if ($ban) {
+                $this->suspensions->suspend($user, $reasonCode, 'permanent', $finding, $admin);
+                $this->banIdentities($strike);
             }
 
             return $strike;
@@ -81,50 +89,44 @@ class StrikeService
         return $strike;
     }
 
-    /** A second administrator makes a ban permanent. Returns an error, or null. */
-    public function confirmBan(Strike $strike, User $admin): ?string
+    /*
+        An admin takes an offense back, without waiting for an appeal: it
+        stops counting and whatever it limited is lifted.
+    */
+    public function remove(Strike $strike): ?string
     {
-        if (! $strike->isPendingBan()) {
-            return 'This ban is not waiting for confirmation.';
-        }
-        if ($strike->issued_by === $admin->id) {
-            return 'A ban needs a second administrator. Somebody else has to confirm it.';
+        if ($strike->removed_at !== null) {
+            return 'This offense was already removed.';
         }
 
-        DB::transaction(function () use ($strike, $admin) {
-            $strike->update(['confirmed_by' => $admin->id, 'confirmed_at' => now(), 'ends_at' => null]);
-            $this->suspensions->suspend($strike->user, $strike->reason_code, 'permanent', $strike->finding, $admin);
-            $this->banIdentities($strike);
+        DB::transaction(function () use ($strike) {
+            $strike->update(['removed_at' => now()]);
+            DB::table('banned_identities')->where('strike_id', $strike->id)->delete();
+            $this->restoreStanding($strike->user);
         });
 
-        $this->notify->banConfirmed($strike->fresh());
+        $this->notify->offenseRemoved($strike->fresh());
 
         return null;
     }
 
     /*
-        The second administrator does not agree it should be permanent. It
-        stays what it already was in effect: a suspension for the hold.
+        Lifts a suspension or ban early. The offenses stay on record and
+        keep counting; only what holds the account ends now.
     */
-    public function declineBan(Strike $strike, User $admin): ?string
+    public function liftSuspension(User $user): void
     {
-        if (! $strike->isPendingBan()) {
-            return 'This ban is not waiting for confirmation.';
-        }
-        if ($strike->issued_by === $admin->id) {
-            return 'Somebody other than the administrator who proposed it has to review it.';
-        }
+        DB::transaction(function () use ($user) {
+            $user->strikes()->whereNull('removed_at')->where('action', 'suspension')
+                ->where('ends_at', '>', now())->update(['ends_at' => now()]);
+            $bans = $user->strikes()->whereNull('removed_at')->where('action', 'ban')->pluck('id');
+            $user->strikes()->whereIn('id', $bans)->update(['removed_at' => now()]);
+            DB::table('banned_identities')->whereIn('strike_id', $bans)->delete();
 
-        $strike->update([
-            'action'       => 'suspension',
-            'days'         => (int) config('moderation.ban_hold_days'),
-            'confirmed_by' => $admin->id,
-            'confirmed_at' => now(),
-        ]);
+            $this->suspensions->reinstate($user);
+        });
 
-        $this->notify->banDeclined($strike->fresh());
-
-        return null;
+        $this->notify->suspensionLifted($user);
     }
 
     public function appeal(Strike $strike, string $text): void
@@ -136,10 +138,7 @@ class StrikeService
     public function decideAppeal(Strike $strike, User $admin, bool $overturn, string $note): ?string
     {
         if ($strike->appeal_status !== 'pending') {
-            return 'This appeal has already been decided.';
-        }
-        if ($strike->issued_by === $admin->id) {
-            return 'An appeal is decided by somebody other than the administrator who issued the strike.';
+            return 'This request has already been decided.';
         }
 
         DB::transaction(function () use ($strike, $admin, $overturn, $note) {
@@ -171,8 +170,7 @@ class StrikeService
     {
         $holding = $user->strikes()->whereNull('removed_at')
             ->whereIn('action', ['suspension', 'ban'])
-            ->where(fn ($q) => $q->where('ends_at', '>', now())
-                ->orWhere(fn ($q) => $q->where('action', 'ban')->whereNotNull('confirmed_at')))
+            ->where(fn ($q) => $q->where('ends_at', '>', now())->orWhere('action', 'ban'))
             ->get();
 
         if ($holding->isEmpty()) {
@@ -183,7 +181,7 @@ class StrikeService
             return;
         }
 
-        $permanent = $holding->contains(fn ($s) => $s->action === 'ban' && $s->confirmed_at !== null);
+        $permanent = $holding->contains(fn ($s) => $s->action === 'ban');
         $user->forceFill(['suspended_until' => $permanent ? null : $holding->max('ends_at')])->save();
     }
 

@@ -106,7 +106,8 @@ void main() {
 
     // The topped-up applicant is laid out in full; the free one is a name.
     expect(find.text('Ramon Villanueva'), findsOneWidget);
-    expect(find.textContaining('6 years experience'), findsOneWidget);
+    expect(find.text('6 years'), findsOneWidget);
+    expect(find.text('Experience'), findsOneWidget);
     expect(find.text('Carlo Dela Cruz'), findsOneWidget);
     expect(find.textContaining('Required skills'), findsOneWidget, reason: 'only on the full card');
 

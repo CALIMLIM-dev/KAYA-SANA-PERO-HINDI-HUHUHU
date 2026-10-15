@@ -108,8 +108,8 @@
     };
 
     $tiles = [
-        ['Total Users',              number_format($people['total']),         null],
-        ['New Users',                number_format($now['new_people']),       $change($now['new_people'], $previous['new_people'])],
+        ['Registered Members',       number_format($people['total']),         null],
+        ['New Members',              number_format($now['new_people']),       $change($now['new_people'], $previous['new_people'])],
         ['Active Employers',         number_format($now['active_employers']), $change($now['active_employers'], $previous['active_employers'])],
         ['Active Workers',           number_format($now['active_workers']),   $change($now['active_workers'], $previous['active_workers'])],
         ['Applications per Job',     $now['apps_per_job'] ?? '–',              $change($now['apps_per_job'], $previous['apps_per_job'])],
@@ -172,8 +172,8 @@
         {{-- User Base: four groups that add up to every user, each once. --}}
         <section class="card" aria-labelledby="users">
             <div class="flex items-start justify-between gap-3">
-                <h2 id="users" class="card-title">User Base</h2>
-                <a href="{{ $csv('admin.exports.users', false) }}" class="csv">{!! $download !!} Users</a>
+                <h2 id="users" class="card-title">Member Base</h2>
+                <a href="{{ $csv('admin.exports.users', false) }}" class="csv">{!! $download !!} Members</a>
             </div>
             @if ($people['total'] > 0)
                 <div class="split mt-5" role="img" aria-label="{{ collect($split)->map(fn ($s) => $s[0] . ' ' . $s[1])->join(', ') }}">
@@ -300,9 +300,9 @@
         {{-- User Growth: stacked areas. --}}
         <section class="card xl:col-span-3" aria-labelledby="growth">
             <div class="flex flex-wrap items-start justify-between gap-3">
-                <h2 id="growth" class="card-title">User Growth</h2>
+                <h2 id="growth" class="card-title">Member Growth</h2>
                 <div class="legend">
-                    <span><i class="dot" style="background: var(--s1)"></i> New Users <b>{{ number_format(array_sum($growth['users'])) }}</b></span>
+                    <span><i class="dot" style="background: var(--s1)"></i> New Members <b>{{ number_format(array_sum($growth['users'])) }}</b></span>
                     <span><i class="dot" style="background: var(--s3)"></i> Hires <b>{{ number_format(array_sum($growth['hires'])) }}</b></span>
                     <span><i class="dot" style="background: var(--s5)"></i> Completions <b>{{ number_format(array_sum($growth['completions'])) }}</b></span>
                 </div>
@@ -510,7 +510,7 @@
             borderWidth: 1.5, pointRadius: 0, pointHoverRadius: 3, tension: 0.35 });
         new Chart(document.getElementById('growthChart'), {
             type: 'line',
-            data: { labels, datasets: [areaSet('New Users', g.users, c('--s1'), 'origin'), areaSet('Hires', g.hires, c('--s3'), '-1'), areaSet('Completions', g.completions, c('--s5'), '-1')] },
+            data: { labels, datasets: [areaSet('New Members', g.users, c('--s1'), 'origin'), areaSet('Hires', g.hires, c('--s3'), '-1'), areaSet('Completions', g.completions, c('--s5'), '-1')] },
             options: { responsive: true, maintainAspectRatio: false, interaction: { mode: 'index', intersect: false },
                 scales: { y: { ...countAxis, stacked: true }, x: bareAxis } },
         });

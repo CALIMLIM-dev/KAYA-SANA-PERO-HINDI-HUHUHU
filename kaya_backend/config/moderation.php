@@ -160,7 +160,7 @@ return [
         4 => ['action' => 'suspension',  'days' => 30],
         5 => ['action' => 'ban',         'days' => null],
     ],
-    'ban_hold_days' => 30,
+
 
 
     // How long after a strike it can be appealed.

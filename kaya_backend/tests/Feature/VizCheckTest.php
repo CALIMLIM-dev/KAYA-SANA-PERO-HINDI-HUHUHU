@@ -159,7 +159,7 @@ class VizCheckTest extends TestCase
         $this->assertSame(['name' => 'Ramon Aquino', 'hires' => 1, 'completed' => 1, 'rating' => 4.6], $top[0]);
 
         $response->assertSee('Verification Status')->assertSee('Top Workers')->assertSee('Job Status')
-            ->assertSee('User Growth')->assertSee('Skill Shortages');
+            ->assertSee('Member Growth')->assertSee('Skill Shortages');
     }
 
     #[Test]

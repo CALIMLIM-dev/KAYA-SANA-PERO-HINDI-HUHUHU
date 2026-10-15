@@ -42,6 +42,12 @@ class SupportController extends Controller
         return view('admin.support.index', compact('threads', 'show', 'waiting'));
     }
 
+    /** Their one thread, opened if they have never written. */
+    public function forUser(\App\Models\User $user)
+    {
+        return redirect()->route('admin.support.show', SupportThread::firstOrCreate(['user_id' => $user->id]));
+    }
+
     public function show(SupportThread $thread)
     {
         $thread->load(['user', 'messages.sender:id,name']);

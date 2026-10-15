@@ -119,14 +119,13 @@ class ModerationTest extends TestCase
     // ── Suspending ───────────────────────────────────────────────────────────
 
     #[Test]
-    public function suspending_records_who_why_and_until_when(): void
+    public function an_offense_from_the_users_page_records_who_and_why(): void
     {
         $admin = $this->admin();
         $user  = User::factory()->create();
 
         $this->actingAs($admin)->post("/admin/users/{$user->id}/suspend", [
             'reason_code' => 'fake_documents',
-            'duration'    => '30',
             'note'        => 'Barangay clearance was edited.',
         ])->assertRedirect();
 
@@ -135,35 +134,39 @@ class ModerationTest extends TestCase
         $this->assertSame('fake_documents', $user->suspended_reason_code);
         $this->assertSame($admin->id, $user->suspended_by);
         $this->assertNotNull($user->suspended_at);
-        $this->assertNotNull($user->suspended_until);
         $this->assertSame('Barangay clearance was edited.', $user->suspension_note);
     }
 
     #[Test]
-    public function a_permanent_ban_needs_a_second_administrator(): void
+    public function the_users_page_follows_the_same_count_as_reports(): void
     {
         $user = User::factory()->create();
-        $first = $this->admin();
+        $admin = $this->admin();
+        $give = fn () => $this->actingAs($admin)->post("/admin/users/{$user->id}/suspend", [
+            'reason_code' => 'spam', 'note' => 'Posted the same advert in every chat.',
+        ])->assertRedirect();
 
-        $this->actingAs($first)->post("/admin/users/{$user->id}/suspend", [
+        $give();
+        $this->assertFalse($user->fresh()->is_suspended, 'the first offense is a warning');
+        $give();
+        $give();
+        $this->assertTrue($user->fresh()->is_suspended, 'the third is a suspension');
+        $this->assertNotNull($user->fresh()->suspended_until);
+    }
+
+    #[Test]
+    public function a_ban_is_permanent_at_once(): void
+    {
+        $user = User::factory()->create();
+
+        $this->actingAs($this->admin())->post("/admin/users/{$user->id}/suspend", [
             'reason_code' => 'fraud',
-            'duration'    => 'permanent',
             'note'        => 'Took a deposit and never came.',
         ])->assertRedirect();
 
-        // In effect at once, as a suspension with an end, until confirmed.
-        $this->assertTrue($user->fresh()->is_suspended);
-        $this->assertNotNull($user->fresh()->suspended_until);
-        $strike = $user->strikes()->firstOrFail();
-        $this->assertTrue($strike->isPendingBan());
-
-        // Not by the administrator who proposed it.
-        $this->actingAs($first)->post("/admin/strikes/{$strike->id}/confirm")->assertSessionHasErrors('ban');
-        $this->assertNotNull($user->fresh()->suspended_until);
-
-        $this->actingAs($this->admin())->post("/admin/strikes/{$strike->id}/confirm")->assertRedirect();
         $this->assertTrue($user->fresh()->is_suspended);
         $this->assertNull($user->fresh()->suspended_until);
+        $this->assertNotNull($user->strikes()->firstOrFail()->confirmed_at);
     }
 
     #[Test]

@@ -61,6 +61,11 @@ void main() {
     await tester.tap(find.widgetWithText(ElevatedButton, 'Delete Account'));
     await tester.pumpAndSettle();
 
+    // One last, plain question first.
+    expect(find.text('Delete Your Account?'), findsOneWidget);
+    await tester.tap(find.widgetWithText(ElevatedButton, 'Delete'));
+    await tester.pumpAndSettle();
+
     expect(adapter.sentPassword, 'secret123');
     expect(adapter.method, 'DELETE');
     expect(find.text('You have 1 job with a worker on it. Finish or cancel it first.'), findsOneWidget);

@@ -6,11 +6,12 @@ use App\Support\ModerationReasons;
 use Illuminate\Database\Eloquent\Model;
 
 /*
-    One upheld finding against an account, and what it led to.
+    An offense: one confirmed finding against an account, and what it led
+    to. ("Strike" in the code; "Offense" on every screen.)
 
-    Counts towards the ladder until it expires or is overturned on appeal.
-    A ban is a strike too: it holds as a long suspension until a second
-    administrator confirms it. See StrikeService.
+    Counts towards the next penalty until it expires or is removed. A ban is
+    an offense too, and permanent from the moment it is given. See
+    StrikeService.
 */
 class Strike extends Model
 {
@@ -76,19 +77,15 @@ class Strike extends Model
         return ModerationReasons::SUSPENSION[$this->reason_code]['description'] ?? '';
     }
 
-    public function isPendingBan(): bool
-    {
-        return $this->action === 'ban' && $this->confirmed_at === null && $this->removed_at === null;
-    }
 
     /** What it did, in words. */
     public function actionLabel(): string
     {
         return match ($this->action) {
             'warning'     => 'Warning',
-            'restriction' => "Restricted for {$this->days} days",
+            'restriction' => "Limited for {$this->days} days",
             'suspension'  => "Suspended for {$this->days} days",
-            'ban'         => $this->confirmed_at ? 'Permanent ban' : 'Suspended, ban under review',
+            'ban'         => 'Permanent ban',
             default       => ucfirst($this->action),
         };
     }

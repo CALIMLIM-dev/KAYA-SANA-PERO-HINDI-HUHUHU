@@ -40,7 +40,7 @@
                         ['route' => 'admin.users.index',         'label' => 'Users',               'icon' => 'users',       'can' => 'users'],
                         ['route' => 'admin.verifications.index', 'label' => 'Verifications',       'icon' => 'badge-check', 'can' => 'verify', 'queue' => 'verifications'],
                         ['route' => 'admin.reports.index',       'label' => 'Reports',             'icon' => 'flag',        'can' => 'content', 'queue' => 'reports'],
-                        ['route' => 'admin.strikes.index',       'label' => 'Appeals & Bans',      'icon' => 'scale',       'can' => 'content', 'queue' => 'strikes'],
+                        ['route' => 'admin.strikes.index',       'label' => 'Offenses',            'icon' => 'scale',       'can' => 'content', 'queue' => 'strikes'],
                         ['route' => 'admin.reviews.index',       'label' => 'Reviews',             'icon' => 'star',        'can' => 'content'],
                     ],
                     'Postings' => [

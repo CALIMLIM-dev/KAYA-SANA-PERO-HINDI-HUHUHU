@@ -349,7 +349,9 @@ return [
             FILTER_VALIDATE_BOOLEAN,
         ),
 
-        'api_key' => env('EMBEDDING_API_KEY'),
+        // GOOGLE_API_KEY too: that is the name the key was saved under, and
+        // reading only EMBEDDING_API_KEY left matching by meaning switched off.
+        'api_key' => env('EMBEDDING_API_KEY', env('GOOGLE_API_KEY')),
 
         // Pinned deliberately. A provider silently moving the model would
         // make every stored vector incomparable with every new one, and

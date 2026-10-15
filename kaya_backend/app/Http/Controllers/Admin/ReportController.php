@@ -159,15 +159,15 @@ class ReportController extends Controller
                 return back()->withErrors(['reason_code' => 'The reported account no longer exists.']);
             }
             if ($report->reported->isAdmin()) {
-                return back()->withErrors(['reason_code' => 'Administrator accounts cannot be given strikes.']);
+                return back()->withErrors(['reason_code' => 'Administrator accounts cannot be given offenses.']);
             }
 
             $strike = $this->strikes->issue($report->reported, $data['reason_code'], $data['resolution_note'], Auth::user(), $report);
         }
 
         $note = match (true) {
-            $strike !== null => 'Strike: ' . $strike->actionLabel() . ' (' . $strike->ruleLabel() . ') - ' . $data['resolution_note'],
-            $upheld          => 'No strike - ' . $data['resolution_note'],
+            $strike !== null => 'Offense: ' . $strike->actionLabel() . ' (' . $strike->ruleLabel() . ') - ' . $data['resolution_note'],
+            $upheld          => 'No offense - ' . $data['resolution_note'],
             default          => $data['resolution_note'],
         };
         $baseless = ! $upheld && (bool) ($data['baseless'] ?? false);
@@ -206,7 +206,7 @@ class ReportController extends Controller
             ->with('success', match (true) {
                 ! $upheld        => 'Report dismissed.',
                 $strike !== null => 'Report confirmed. ' . $report->reported->name . ': ' . $strike->actionLabel() . '.',
-                default          => 'Report confirmed. No strike given.',
+                default          => 'Report confirmed. No offense given.',
             });
     }
 

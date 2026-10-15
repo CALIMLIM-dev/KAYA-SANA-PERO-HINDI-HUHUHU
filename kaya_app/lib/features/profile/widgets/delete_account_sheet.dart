@@ -46,6 +46,26 @@ class _DeleteAccountSheetState extends State<DeleteAccountSheet> {
   bool get _canSubmit =>
       _understood && _password.text.isNotEmpty && !_submitting;
 
+  /// One last, plain question before anything is deleted.
+  Future<void> _confirmThenSubmit() async {
+    final sure = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Delete Your Account?'),
+        content: const Text('This cannot be undone.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(dialogContext, false), child: const Text('Cancel')),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            style: ElevatedButton.styleFrom(backgroundColor: AppColors.error, foregroundColor: Colors.white),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+    if (sure == true && mounted) await _submit();
+  }
+
   Future<void> _submit() async {
     setState(() {
       _submitting = true;
@@ -86,20 +106,28 @@ class _DeleteAccountSheetState extends State<DeleteAccountSheet> {
                   fontWeight: FontWeight.w700,
                   color: AppColors.neutral900)),
           const SizedBox(height: 12),
-          const Text(
-            'This cannot be undone. Your profile, photos, documents, '
-            'saved jobs and notifications are removed. Open job posts are '
-            'closed and their applicants refunded. Remaining barya is '
-            'forfeited. Messages you sent stay in the other person\'s chat '
-            'under the name Deleted account.',
-            style: TextStyle(fontSize: 13.5, height: 1.5, color: AppColors.neutral700),
-          ),
-          const SizedBox(height: 8),
-          const Text(
-            'If you are hired on a job, or have hired someone, finish or '
-            'cancel that job first.',
-            style: TextStyle(fontSize: 13.5, height: 1.5, color: AppColors.neutral700),
-          ),
+          for (final line in const [
+            'Your profile, photos and documents will be deleted.',
+            'Your open job posts will be closed.',
+            'Your Barya will be lost.',
+            'Finish or cancel any job you are hired on first.',
+          ])
+            Padding(
+              padding: const EdgeInsets.only(bottom: 6),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Padding(
+                    padding: EdgeInsets.only(top: 7, right: 8),
+                    child: Icon(Icons.circle, size: 5, color: AppColors.neutral500),
+                  ),
+                  Expanded(
+                    child: Text(line,
+                        style: const TextStyle(fontSize: 13.5, height: 1.4, color: AppColors.neutral700)),
+                  ),
+                ],
+              ),
+            ),
           const SizedBox(height: 16),
           TextField(
             controller: _password,
@@ -140,7 +168,7 @@ class _DeleteAccountSheetState extends State<DeleteAccountSheet> {
               const SizedBox(width: 12),
               Expanded(
                 child: ElevatedButton(
-                  onPressed: _canSubmit ? _submit : null,
+                  onPressed: _canSubmit ? _confirmThenSubmit : null,
                   style: ElevatedButton.styleFrom(
                     backgroundColor: AppColors.error,
                     foregroundColor: Colors.white,

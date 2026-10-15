@@ -29,7 +29,7 @@
                     <form method="POST" action="{{ route('admin.users.activate', $user) }}" class="inline">
                         @csrf
                         <button type="submit" class="px-4 py-2 bg-green-600 text-white text-sm rounded-lg hover:bg-green-700">
-                            Reactivate Account
+                            Lift Suspension
                         </button>
                     </form>
                     @endif
@@ -38,7 +38,7 @@
                     @if (auth()->user()->adminCan('suspend'))
                     <button onclick="openSuspendModal()"
                             class="px-4 py-2 bg-red-50 text-red-600 border border-red-200 text-sm rounded-lg hover:bg-red-100">
-                        Suspend Account
+                        Give an Offense
                     </button>
                     @endif
                 @endif
@@ -64,6 +64,22 @@
                 @endif
             </dd></div>
         </dl>
+
+        {{-- The same offenses Reports give, so this page and Reports never disagree. --}}
+        <h3 class="text-sm font-semibold text-slate-700 mb-2">Offense History</h3>
+        @if ($offenses->isEmpty())
+            <p class="text-sm text-slate-500 mb-6">None.</p>
+        @else
+            <ul class="mb-6 divide-y divide-slate-200 border-y border-slate-200">
+                @foreach ($offenses as $o)
+                    <li class="py-2.5 flex items-center gap-3 text-sm">
+                        <a href="{{ route('admin.strikes.show', $o) }}" class="flex-1 min-w-0 truncate text-slate-800 hover:text-blue-600">{{ $o->actionLabel() }} · {{ $o->ruleLabel() }}</a>
+                        <span class="text-slate-500 whitespace-nowrap">{{ $o->created_at->format('M j, Y') }}</span>
+                        <span class="w-20 text-right text-xs text-slate-600">{{ $o->removed_at ? 'Removed' : ($o->isActive() ? 'Active' : 'Expired') }}</span>
+                    </li>
+                @endforeach
+            </ul>
+        @endif
 
         @if ($user->employerProfile)
             @php $ep = $user->employerProfile; @endphp
@@ -383,52 +399,38 @@
         <form method="POST" action="{{ route('admin.users.suspend', $user) }}">
             @csrf
             <div class="px-5 py-4 border-b border-slate-200">
-                <h3 class="text-base font-semibold text-slate-900">Suspend {{ $user->name }}</h3>
+                <h3 class="text-base font-semibold text-slate-900">Give an Offense to {{ $user->name }}</h3>
             </div>
 
             <div class="px-5 py-4 space-y-4">
-                {{-- Grouped by severity so the list is scanned rather than read.
-                     Options come from the shared catalogue, so the app, the
-                     report queue and this dialog cannot disagree on wording. --}}
+                {{-- The same list and the same count as Reports. --}}
                 <div>
-                    <label for="reasonSelect" class="block text-xs font-semibold text-slate-600 mb-1.5">Reason</label>
+                    <label for="reasonSelect" class="block text-xs font-semibold text-slate-600 mb-1.5">Violation</label>
                     <div class="mod-arrow">
                         <select name="reason_code" id="reasonSelect" class="mod-select" required>
-                            <option value="" disabled selected>Choose a reason...</option>
-                            @foreach (['critical' => 'Serious, usually permanent', 'serious' => 'Serious', 'moderate' => 'Moderate'] as $sev => $groupLabel)
+                            <option value="" disabled selected>Choose a violation</option>
+                            @foreach (['critical' => 'Critical (Straight to Ban)', 'serious' => 'Serious', 'moderate' => 'Moderate'] as $sev => $groupLabel)
                                 @php $group = collect($suspensionReasons)->filter(fn ($r) => $r['severity'] === $sev); @endphp
                                 @if ($group->isNotEmpty())
                                     <optgroup label="{{ $groupLabel }}">
                                         @foreach ($group as $code => $reason)
-                                            <option value="{{ $code }}"
-                                                    data-days="{{ $reason['default_days'] ?? 'permanent' }}"
-                                                    data-severity="{{ $reason['severity'] }}"
-                                                    data-description="{{ $reason['description'] }}">{{ $reason['label'] }}</option>
+                                            <option value="{{ $code }}" data-critical="{{ $sev === 'critical' ? 1 : 0 }}">{{ $reason['label'] }}</option>
                                         @endforeach
                                     </optgroup>
                                 @endif
                             @endforeach
                         </select>
                     </div>
-
-                    {{-- One severity chip, no sentence. The label already says
-                         what the reason is. --}}
-                    <div id="reasonHint" class="hidden mt-2">
-                        <span id="reasonSeverity" class="sev"></span>
-                    </div>
-                </div>
-
-                <div>
-                    <label for="durationSelect" class="block text-xs font-semibold text-slate-600 mb-1.5">Length</label>
-                    <div class="mod-arrow">
-                        <select name="duration" id="durationSelect" class="mod-select" required>
-                            <option value="7">7 days</option>
-                            <option value="14">14 days</option>
-                            <option value="30">30 days</option>
-                            <option value="90">90 days</option>
-                            <option value="permanent">Permanent</option>
-                        </select>
-                    </div>
+                    @php
+                        $penalty = match ($nextStep['action']) {
+                            'warning'     => 'a warning',
+                            'restriction' => "a {$nextStep['days']}-day limit on applying, posting and inviting",
+                            'suspension'  => "a {$nextStep['days']}-day suspension",
+                            default       => 'a permanent ban',
+                        };
+                    @endphp
+                    <p id="stepNormal" class="mt-2 text-xs text-slate-600">This will be offense {{ $nextStep['number'] }}: {{ $penalty }}.</p>
+                    <p id="stepCritical" class="hidden mt-2 text-xs text-slate-600">This will be a permanent ban.</p>
                 </div>
 
                 <div>
@@ -439,10 +441,6 @@
                               placeholder="What happened. Sent to the account as the reason."></textarea>
                 </div>
 
-                <p class="text-xs text-slate-500">
-                    Counts as a strike and can be appealed. Permanent holds as a
-                    {{ config('moderation.ban_hold_days') }}-day suspension until a second administrator confirms it.
-                </p>
             </div>
 
             <div class="px-5 py-4 bg-slate-50 rounded-b-xl flex gap-3 border-t border-slate-200">
@@ -452,7 +450,7 @@
                 </button>
                 <button type="submit"
                         class="flex-1 px-4 py-2 bg-red-600 text-white text-sm font-semibold rounded-lg hover:bg-red-700">
-                    Suspend Account
+                    Give Offense
                 </button>
             </div>
         </form>
@@ -468,20 +466,13 @@ function closeSuspendModal() {
     document.getElementById('suspendModal').classList.add('hidden');
     document.getElementById('reasonSelect').selectedIndex = 0;
     document.getElementById('suspendNote').value = '';
-    document.getElementById('reasonHint').classList.add('hidden');
 }
 
-// Selecting a reason explains it and pre-fills the length that usually goes
-// with it. A starting point, not a rule; the length stays editable.
+// A critical violation goes straight to a ban; say so instead of the count.
 document.getElementById('reasonSelect')?.addEventListener('change', function () {
-    const option = this.options[this.selectedIndex];
-    const severity = document.getElementById('reasonSeverity');
-
-    severity.textContent = option.dataset.severity || '';
-    severity.className = 'sev sev-' + (option.dataset.severity || 'moderate');
-    document.getElementById('reasonHint').classList.remove('hidden');
-
-    document.getElementById('durationSelect').value = option.dataset.days || 'permanent';
+    const critical = this.options[this.selectedIndex]?.dataset.critical === '1';
+    document.getElementById('stepNormal').classList.toggle('hidden', critical);
+    document.getElementById('stepCritical').classList.toggle('hidden', !critical);
 });
 
 document.getElementById('suspendModal')?.addEventListener('click', function (e) {

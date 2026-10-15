@@ -509,13 +509,9 @@ required bool accept,
 }
 
 /*
-    A topped-up worker's application, in full.
-
-    The facts a hirer weighs, as plain lines: who and where and when they
-    applied, how they fit this job, experience, finished jobs and rating,
-    whether you have hired them before, every skill, then the licence and
-    certificate names. White, like every other card in the app: the blue
-    header and the pills it had read as a template rather than a person.
+    A topped-up worker's application, as a resume: who and where, three
+    numbers an employer weighs, the skills with the ones this job asks for
+    ticked, then licenses and certificates as badges.
 
     Licence and certificate names only; the scans carry a date of birth and
     an address and stay behind the profile's own access rule.
@@ -565,18 +561,17 @@ class _FullCard extends StatelessWidget {
     final jobsDone = asInt(applicant['jobs_completed']);
     final licenses = _names('licenses');
     final certifications = _names('certifications');
+    final matched = _names('matched_skills').map((s) => s.toLowerCase()).toSet();
     final fit = employerFitLine(applicant);
-
-    const muted = TextStyle(fontSize: 12.5, height: 1.35, color: AppColors.neutral600);
 
     return Container(
       margin: const EdgeInsets.only(bottom: 10),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(14),
         border: Border.all(color: AppColors.neutral200),
       ),
-      padding: const EdgeInsets.fromLTRB(12, 12, 12, 10),
+      padding: const EdgeInsets.fromLTRB(14, 14, 14, 10),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -588,25 +583,21 @@ class _FullCard extends StatelessWidget {
               children: [
                 if (rank != null)
                   Padding(
-                    padding: const EdgeInsets.only(top: 10),
+                    padding: const EdgeInsets.only(top: 14),
                     child: RankNumber(rank: rank!),
                   ),
                 CircleAvatar(
-                  radius: 22,
+                  radius: 26,
                   backgroundColor: AppColors.neutral100,
                   backgroundImage: photoUrl.isNotEmpty ? NetworkImage(photoUrl) : null,
                   child: photoUrl.isNotEmpty
                       ? null
                       : Text(
                           name.isNotEmpty ? name[0].toUpperCase() : '?',
-                          style: const TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.w700,
-                            color: AppColors.neutral600,
-                          ),
+                          style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: AppColors.neutral600),
                         ),
                 ),
-                const SizedBox(width: 10),
+                const SizedBox(width: 12),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -618,11 +609,7 @@ class _FullCard extends StatelessWidget {
                               name,
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(
-                                fontSize: 15.5,
-                                fontWeight: FontWeight.w700,
-                                color: AppColors.neutral900,
-                              ),
+                              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: AppColors.neutral900),
                             ),
                           ),
                           const SizedBox(width: 6),
@@ -631,58 +618,68 @@ class _FullCard extends StatelessWidget {
                       ),
                       if (where.isNotEmpty) ...[
                         const SizedBox(height: 2),
-                        Text(where, maxLines: 2, overflow: TextOverflow.ellipsis, style: muted),
+                        Text(where,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(fontSize: 13, color: AppColors.neutral600)),
                       ],
                       if (applied != null) ...[
                         const SizedBox(height: 1),
-                        Text('Applied $applied',
-                            style: const TextStyle(fontSize: 12, color: AppColors.neutral500)),
+                        Text('Applied $applied', style: const TextStyle(fontSize: 12, color: AppColors.neutral500)),
                       ],
                     ],
                   ),
                 ),
                 ?statusBadge,
-                if (onOpen != null)
-                  const Icon(Icons.chevron_right, size: 20, color: AppColors.neutral400),
+                if (onOpen != null) const Icon(Icons.chevron_right, size: 20, color: AppColors.neutral400),
               ],
             ),
           ),
-          if (fit != null) ...[
-            const SizedBox(height: 10),
-            FitLine(text: fit, strong: meetsRequirements(applicant)),
-          ],
-          const SizedBox(height: 10),
-          Text.rich(
-            TextSpan(
-              style: const TextStyle(fontSize: 13, height: 1.4, color: AppColors.neutral800),
+          const SizedBox(height: 14),
+          Row(
+            children: [
+              _stat(reviewCount > 0 ? rating.toStringAsFixed(1) : '–',
+                  reviewCount > 0
+                      ? '$reviewCount Review${reviewCount == 1 ? '' : 's'}'
+                      : (applicant['is_new'] == true ? 'New on KAYA' : 'No Reviews'),
+                  star: reviewCount > 0),
+              const SizedBox(width: 8),
+              _stat('$jobsDone', 'Jobs Done'),
+              const SizedBox(width: 8),
+              _stat(experience.isNotEmpty ? experience : '–', 'Experience'),
+            ],
+          ),
+          if (skills.isNotEmpty) ...[
+            _heading('Skills'),
+            Wrap(
+              spacing: 6,
+              runSpacing: 6,
               children: [
-                TextSpan(text: experience.isNotEmpty ? '$experience experience' : 'No experience listed'),
-                TextSpan(text: '  ·  $jobsDone job${jobsDone == 1 ? '' : 's'} done  ·  '),
-                if (reviewCount > 0) ...[
-                  const WidgetSpan(
-                    alignment: PlaceholderAlignment.middle,
-                    child: Icon(Icons.star, size: 14, color: AppColors.accent),
-                  ),
-                  TextSpan(
-                      text: ' ${rating.toStringAsFixed(1)} ($reviewCount review${reviewCount == 1 ? '' : 's'})'),
-                ] else
-                  TextSpan(
-                      text: applicant['is_new'] == true ? 'New on KAYA' : 'No reviews yet'),
+                for (final skill in skills) _chip(skill, ticked: matched.contains(skill.toLowerCase())),
               ],
             ),
-          ),
+          ],
+          if (licenses.isNotEmpty) ...[
+            _heading('Licenses'),
+            Wrap(spacing: 6, runSpacing: 6, children: [for (final l in licenses) _badge(l)]),
+          ],
+          if (certifications.isNotEmpty) ...[
+            _heading('Certificates'),
+            Wrap(spacing: 6, runSpacing: 6, children: [for (final c in certifications) _badge(c)]),
+          ],
+          if (fit != null || timesHiredBefore > 0) ...[
+            const SizedBox(height: 12),
+            const Divider(height: 1, color: AppColors.neutral200),
+            const SizedBox(height: 10),
+          ],
+          if (fit != null) FitLine(text: fit, strong: meetsRequirements(applicant)),
           if (timesHiredBefore > 0) ...[
             const SizedBox(height: 4),
             Text(
-              timesHiredBefore == 1
-                  ? 'Hired by you before'
-                  : 'Hired by you $timesHiredBefore times',
+              timesHiredBefore == 1 ? 'Hired by you before' : 'Hired by you $timesHiredBefore times',
               style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppColors.neutral800),
             ),
           ],
-          if (skills.isNotEmpty) _detail('Skills', skills.join(', ')),
-          if (licenses.isNotEmpty) _detail('Licences', licenses.join(', ')),
-          if (certifications.isNotEmpty) _detail('Certificates', certifications.join(', ')),
           const SizedBox(height: 4),
           ...actions,
         ],
@@ -690,14 +687,90 @@ class _FullCard extends StatelessWidget {
     );
   }
 
-  Widget _detail(String label, String value) => Padding(
-        padding: const EdgeInsets.only(top: 8),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+  Widget _stat(String value, String label, {bool star = false}) => Expanded(
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 6),
+          decoration: BoxDecoration(
+            color: AppColors.neutral50,
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(color: AppColors.neutral200),
+          ),
+          child: Column(
+            children: [
+              FittedBox(
+                fit: BoxFit.scaleDown,
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    if (star) ...[
+                      const Icon(Icons.star_rounded, size: 17, color: AppColors.accent),
+                      const SizedBox(width: 2),
+                    ],
+                    Text(value,
+                        maxLines: 1,
+                        style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: AppColors.neutral900)),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 2),
+              FittedBox(
+                fit: BoxFit.scaleDown,
+                child: Text(label, maxLines: 1, style: const TextStyle(fontSize: 11.5, color: AppColors.neutral600)),
+              ),
+            ],
+          ),
+        ),
+      );
+
+  Widget _heading(String text) => Padding(
+        padding: const EdgeInsets.only(top: 14, bottom: 6),
+        child: Text(text, style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700, color: AppColors.neutral700)),
+      );
+
+  Widget _chip(String text, {required bool ticked}) => Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+        decoration: BoxDecoration(
+          color: ticked ? AppColors.primary.withValues(alpha: 0.08) : Colors.white,
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: ticked ? AppColors.primary.withValues(alpha: 0.35) : AppColors.neutral300),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
           children: [
-            Text(label, style: const TextStyle(fontSize: 11.5, color: AppColors.neutral500)),
-            const SizedBox(height: 1),
-            Text(value, style: const TextStyle(fontSize: 13.5, height: 1.35, color: AppColors.neutral900)),
+            if (ticked) ...[
+              const Icon(Icons.check, size: 14, color: AppColors.primary),
+              const SizedBox(width: 4),
+            ],
+            Flexible(
+              child: Text(text,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: 12.5,
+                    fontWeight: ticked ? FontWeight.w600 : FontWeight.w500,
+                    color: ticked ? AppColors.primary : AppColors.neutral800,
+                  )),
+            ),
+          ],
+        ),
+      );
+
+  Widget _badge(String text) => Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+        decoration: BoxDecoration(
+          color: AppColors.neutral50,
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: AppColors.neutral200),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.workspace_premium_outlined, size: 14, color: AppColors.neutral600),
+            const SizedBox(width: 4),
+            Flexible(
+              child: Text(text,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(fontSize: 12.5, color: AppColors.neutral800)),
+            ),
           ],
         ),
       );

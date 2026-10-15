@@ -139,19 +139,19 @@ class AdminPanelTest extends TestCase
 
         $this->actingAs($admin)->post("/admin/verifications/{$doc->id}/reject", ['reason' => 'Blurry scan']);
         $this->actingAs($admin)->post("/admin/users/{$user->id}/suspend", [
-            'reason_code' => 'fraud', 'duration' => '7', 'note' => 'Business permit was forged.',
+            'reason_code' => 'fraud', 'note' => 'Business permit was forged.',
         ]);
         $this->actingAs($admin)->post("/admin/users/{$user->id}/activate");
 
         $this->assertSame(
-            ['user.reinstated', 'user.suspended', 'verification.rejected'],
+            ['user.reinstated', 'user.offense', 'verification.rejected'],
             AdminAction::latest('id')->pluck('action')->all(),
         );
 
         $this->actingAs($admin)->get('/admin/audit')
             ->assertOk()
             ->assertSee('Blurry scan')
-            ->assertSee('Suspended ' . $user->name);
+            ->assertSee('Gave ' . $user->name);
     }
 
     // ── Jobs ─────────────────────────────────────────────────────────────────

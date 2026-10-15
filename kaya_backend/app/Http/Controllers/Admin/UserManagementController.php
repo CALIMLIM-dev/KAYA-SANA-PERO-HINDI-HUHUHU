@@ -79,6 +79,8 @@ class UserManagementController extends Controller
             'user'              => $user,
             'balance'           => app(\App\Services\CreditLedger::class)->balance($user),
             'suspensionReasons' => ModerationReasons::SUSPENSION,
+            'offenses'          => $user->strikes()->latest()->get(),
+            'nextStep'          => app(\App\Services\StrikeService::class)->nextStep($user, 'policy_violation'),
         ]);
     }
 
@@ -131,7 +133,6 @@ class UserManagementController extends Controller
     {
         $data = $request->validate([
             'reason_code' => ['required', Rule::in(ModerationReasons::suspensionCodes())],
-            'duration'    => ['required', Rule::in(['7', '14', '30', '90', 'permanent'])],
             'note'        => ['required', 'string', 'min:10', 'max:1000'],
         ], [
             'note.required' => 'Write your finding; it is sent to the account as the reason.',
@@ -144,26 +145,25 @@ class UserManagementController extends Controller
             return back()->withErrors(['reason_code' => 'Administrator accounts cannot be suspended.']);
         }
 
-        $strikes->issue($user, $data['reason_code'], $data['note'], Auth::user(), duration: $data['duration']);
+        // The same count Reports use: the same offense costs the same
+        // whichever page it was given from.
+        $offense = $strikes->issue($user, $data['reason_code'], $data['note'], Auth::user());
 
         AdminAction::record(
-            'user.suspended', 'user', $user->id,
-            "Suspended {$user->name} for " . ModerationReasons::suspensionLabel($data['reason_code'])
-                . ($data['duration'] === 'permanent' ? ', permanently' : ", {$data['duration']} days"),
+            'user.offense', 'user', $user->id,
+            "Gave {$user->name} an offense: " . $offense->actionLabel() . ' (' . $offense->ruleLabel() . ')',
             $data,
         );
 
-        return back()->with('success', $data['duration'] === 'permanent'
-            ? "{$user->name} is suspended. The permanent ban waits for a second administrator under Appeals & Bans."
-            : "{$user->name} has been suspended.");
+        return back()->with('success', "{$user->name}: " . $offense->actionLabel() . '.');
     }
 
-    public function activate(User $user, SuspensionService $suspensions)
+    public function activate(User $user, \App\Services\StrikeService $strikes)
     {
-        $suspensions->reinstate($user);
+        $strikes->liftSuspension($user);
 
-        AdminAction::record('user.reinstated', 'user', $user->id, "Reinstated {$user->name}");
+        AdminAction::record('user.reinstated', 'user', $user->id, "Lifted the suspension on {$user->name}");
 
-        return back()->with('success', "{$user->name} has been reactivated.");
+        return back()->with('success', "{$user->name} is active again.");
     }
 }

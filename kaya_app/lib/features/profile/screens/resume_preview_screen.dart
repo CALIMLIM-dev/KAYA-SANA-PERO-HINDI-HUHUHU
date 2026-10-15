@@ -6,29 +6,22 @@ import '../../../data/services/api_client.dart';
 import '../../applications/widgets/applicant_card.dart';
 
 /*
-    The worker's own card, as an employer's Applicants list shows it.
-
-    A top-up opens a worker's card as a resume on the employer's list, and
-    the worker never saw it: it only ever appeared on somebody else's phone,
-    so what they had paid for was something they had to take on trust. This
-    draws the very card the list draws, from the same fields, sent by the
-    same helper on the server (ResumeBlock).
-
-    Without a top-up it shows the card employers see now and, under it, the
-    resume it would open as. Said plainly, not sold.
+    The worker's own card, as an employer's Applicants list shows it, in a
+    pop-up: the card the list draws, from the same fields the server sends
+    (ResumeBlock). Without a top-up it shows the card now and the resume a
+    top-up opens it as.
 */
-class ResumePreviewScreen extends StatefulWidget {
-  const ResumePreviewScreen({super.key});
+class ResumePreviewPopup extends StatefulWidget {
+  const ResumePreviewPopup({super.key});
 
   @override
-  State<ResumePreviewScreen> createState() => _ResumePreviewScreenState();
+  State<ResumePreviewPopup> createState() => _ResumePreviewPopupState();
 }
 
-class _ResumePreviewScreenState extends State<ResumePreviewScreen> {
+class _ResumePreviewPopupState extends State<ResumePreviewPopup> {
   final ApiClient _api = ApiClient();
 
   Map<String, dynamic>? _card;
-  bool _loading = true;
   String? _error;
 
   @override
@@ -38,28 +31,18 @@ class _ResumePreviewScreenState extends State<ResumePreviewScreen> {
   }
 
   Future<void> _load() async {
-    setState(() {
-      _loading = true;
-      _error = null;
-    });
+    setState(() => _error = null);
     try {
       final res = await _api.get('/worker/profile/resume-preview');
       if (!mounted) return;
-      setState(() {
-        _card = (res.data['data'] as Map).cast<String, dynamic>();
-        _loading = false;
-      });
+      setState(() => _card = (res.data['data'] as Map).cast<String, dynamic>());
     } catch (e) {
       if (!mounted) return;
-      setState(() {
-        _error = e.toString().replaceFirst('Exception: ', '');
-        _loading = false;
-      });
+      setState(() => _error = e.toString().replaceFirst('Exception: ', ''));
     }
   }
 
-  /// The card as the Applicants list would hold it: a pending application,
-  /// nothing to accept or reject from here.
+  /// The card as the Applicants list holds it: nothing to accept or reject here.
   Widget _cardAs({required bool premium}) => ApplicantCard(
         applicant: {
           ..._card!,
@@ -74,86 +57,91 @@ class _ResumePreviewScreenState extends State<ResumePreviewScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: AppColors.background,
-      appBar: AppBar(
-        backgroundColor: AppColors.primary,
-        foregroundColor: Colors.white,
-        elevation: 0,
-        title: const Text('What Employers See',
-            style: TextStyle(fontWeight: FontWeight.w600)),
-      ),
-      body: _loading
-          ? const Center(child: CircularProgressIndicator())
-          : _error != null
-              ? Center(
-                  child: Padding(
-                    padding: const EdgeInsets.all(32),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(_error!,
-                            textAlign: TextAlign.center,
-                            style: const TextStyle(color: AppColors.neutral600)),
-                        const SizedBox(height: 12),
-                        TextButton(onPressed: _load, child: const Text('Try Again')),
-                      ],
-                    ),
-                  ),
-                )
-              : _body(),
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(20, 16, 8, 4),
+          child: Row(
+            children: [
+              const Expanded(
+                child: Text('What Employers See',
+                    style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700, color: AppColors.neutral900)),
+              ),
+              IconButton(
+                tooltip: 'Close',
+                icon: const Icon(Icons.close),
+                onPressed: () => Navigator.pop(context),
+              ),
+            ],
+          ),
+        ),
+        Flexible(child: _body()),
+      ],
     );
   }
 
   Widget _body() {
+    if (_error != null) {
+      return Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(_error!, textAlign: TextAlign.center, style: const TextStyle(color: AppColors.neutral600)),
+            const SizedBox(height: 12),
+            TextButton(onPressed: _load, child: const Text('Try Again')),
+          ],
+        ),
+      );
+    }
+    if (_card == null) {
+      return const Padding(
+        padding: EdgeInsets.symmetric(vertical: 48),
+        child: Center(child: CircularProgressIndicator()),
+      );
+    }
+
     final premium = _card!['is_premium'] == true;
 
-    return RefreshIndicator(
-      onRefresh: _load,
-      child: ListView(
-        padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
-        children: [
-          _caption(premium
-              ? 'Your card on an employer\'s Applicants list. You have topped up, so it opens as a resume.'
-              : 'Your card on an employer\'s Applicants list, as it shows now.'),
-          _cardAs(premium: premium),
-          if (!premium) ...[
-            const SizedBox(height: 12),
-            _caption('After a top-up it opens as a resume, like this:'),
-            _cardAs(premium: true),
-            Align(
-              alignment: Alignment.centerLeft,
-              child: TextButton(
-                onPressed: () => AppRouter.push(context, AppRouter.wallet),
-                style: TextButton.styleFrom(
-                  foregroundColor: AppColors.primary,
-                  padding: EdgeInsets.zero,
-                  textStyle: const TextStyle(
-                      fontSize: 13.5, fontWeight: FontWeight.w600),
-                ),
-                child: const Text('Go to Wallet'),
-              ),
-            ),
-          ],
+    return ListView(
+      shrinkWrap: true,
+      padding: const EdgeInsets.fromLTRB(16, 4, 16, 16),
+      children: [
+        if (premium)
+          _cardAs(premium: true)
+        else ...[
+          _label('Now'),
+          _cardAs(premium: false),
           const SizedBox(height: 8),
-          // The rule, so nobody tops up expecting to be moved up the list.
-          const Text(
-            'Your place in the list is the same either way. Employers see '
-            'applicants in order of fit to the job.',
-            style: TextStyle(
-                fontSize: 12.5, height: 1.4, color: AppColors.neutral500),
+          _label('With Top Up'),
+          _cardAs(premium: true),
+          const SizedBox(height: 4),
+          ElevatedButton(
+            onPressed: () {
+              // The navigator first: this pop-up's context is gone once it closes.
+              final navigator = Navigator.of(context);
+              navigator.pop();
+              navigator.pushNamed(AppRouter.wallet);
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.primary,
+              foregroundColor: Colors.white,
+              elevation: 0,
+              padding: const EdgeInsets.symmetric(vertical: 13),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            ),
+            child: const Text('Top Up', style: TextStyle(fontWeight: FontWeight.w700)),
           ),
         ],
-      ),
+      ],
     );
   }
 
-  Widget _caption(String text) => Padding(
-        padding: const EdgeInsets.only(bottom: 10),
-        child: Text(
-          text,
-          style: const TextStyle(
-              fontSize: 13.5, height: 1.4, color: AppColors.neutral700),
-        ),
+  Widget _label(String text) => Padding(
+        padding: const EdgeInsets.only(bottom: 6),
+        child: Text(text,
+            style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700, color: AppColors.neutral600)),
       );
 }

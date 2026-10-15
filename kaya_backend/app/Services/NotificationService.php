@@ -888,8 +888,8 @@ class NotificationService
                 'Until ' . $date($strike->ends_at) . ' you cannot apply, post, or invite.'],
             'suspension'  => ['moderation.strike', "Your account is suspended for {$strike->days} days",
                 'Until ' . $date($strike->ends_at) . ' you can only open Account Status and Support.'],
-            default       => ['moderation.strike', 'Your account is suspended',
-                'A second admin will decide on a permanent ban. Until then you can only open Account Status and Support.'],
+            default       => ['moderation.strike', 'Your account is permanently banned',
+                'You can no longer use this account. You can only open Account Status and Support.'],
         };
 
         $this->push(
@@ -903,31 +903,27 @@ class NotificationService
         );
     }
 
-    public function banConfirmed(\App\Models\Strike $strike): void
+    public function offenseRemoved(\App\Models\Strike $strike): void
     {
         $this->push(
             userId: $strike->user_id,
             audience: UserNotification::AUDIENCE_BOTH,
             type: 'moderation.strike',
-            title: 'Your account is permanently banned',
-            body: 'Violation: ' . $strike->ruleLabel() . '.'
-                . ($strike->canAppeal() ? ' You can request a review in Account Status until ' . $strike->appealDeadline()->format('M j, Y') . '.' : ''),
+            title: 'An offense was removed',
+            body: 'KAYA removed the offense for: ' . $strike->ruleLabel() . '. It no longer counts against your account.',
             referenceType: 'strike',
             referenceId: $strike->id,
         );
     }
 
-    public function banDeclined(\App\Models\Strike $strike): void
+    public function suspensionLifted(\App\Models\User $user): void
     {
         $this->push(
-            userId: $strike->user_id,
+            userId: $user->id,
             audience: UserNotification::AUDIENCE_BOTH,
             type: 'moderation.strike',
-            title: 'Your suspension will end',
-            body: 'A second admin decided not to ban you. Your suspension ends on '
-                . $strike->ends_at?->timezone('Asia/Manila')->format('M j, Y g:i A') . '.',
-            referenceType: 'strike',
-            referenceId: $strike->id,
+            title: 'Your account is active again',
+            body: 'KAYA lifted the suspension on your account. You can use KAYA as usual.',
         );
     }
 
@@ -941,8 +937,8 @@ class NotificationService
             type: 'moderation.appeal',
             title: $won ? 'Your review request was accepted' : 'Your review request was not accepted',
             body: ($won
-                    ? 'The strike was removed and your account is no longer limited. '
-                    : 'The strike stays on your account. ')
+                    ? 'The offense was removed and your account is no longer limited. '
+                    : 'The offense stays on your account. ')
                 . $strike->appeal_note,
             referenceType: 'strike',
             referenceId: $strike->id,

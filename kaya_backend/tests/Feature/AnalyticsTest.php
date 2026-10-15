@@ -75,7 +75,7 @@ class AnalyticsTest extends TestCase
         $this->assertSame(2, $people['employers']);
         $this->assertSame(2, $people['admins']);
         // Four groups that add up to the total, so nobody appears twice.
-        $response->assertSee('User Base')->assertSee('Worker')->assertSee('Employer')->assertSee('Hybrid')->assertSee('No Profile');
+        $response->assertSee('Member Base')->assertSee('Worker')->assertSee('Employer')->assertSee('Hybrid')->assertSee('No Profile');
     }
 
     /** @test */

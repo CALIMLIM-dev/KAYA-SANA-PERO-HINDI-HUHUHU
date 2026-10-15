@@ -74,7 +74,7 @@ class AccountStandingController extends Controller
 
         if (! $strike->canAppeal()) {
             return response()->json(['success' => false, 'data' => null, 'message' => $strike->appealed_at
-                ? 'You already requested a review of this strike.'
+                ? 'You already requested a review of this offense.'
                 : 'The time to request a review has passed.'], 422);
         }
 

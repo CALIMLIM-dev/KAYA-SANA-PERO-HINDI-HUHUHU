@@ -19,12 +19,11 @@
     $reportedName = $report->reported->name ?? 'Deleted account';
     $reporterName = $report->reporter->name ?? 'Deleted account';
     $at = fn ($d) => $d ? \Illuminate\Support\Carbon::parse($d)->timezone('Asia/Manila')->format('M j, Y g:i A') : null;
-    $holdDays = config('moderation.ban_hold_days');
     $stepText = fn ($step) => match ($step['action']) {
         'warning'     => 'a warning',
         'restriction' => "a {$step['days']}-day limit on applying, posting and inviting",
         'suspension'  => "a {$step['days']}-day suspension",
-        default       => "a ban, held as a {$holdDays}-day suspension until a second admin confirms it",
+        default       => 'a permanent ban',
     };
     $hireLabel = ['pending' => 'Applied', 'accepted' => 'Hired', 'completed' => 'Completed', 'rejected' => 'Rejected',
         'withdrawn' => 'Withdrawn', 'cancelled' => 'Cancelled', 'unsuccessful' => 'Unsuccessful'];
@@ -70,7 +69,7 @@
                     </dd>
                     <dd class="mt-1 text-xs text-slate-500 tabular-nums">
                         {{ $history->count() }} other {{ Str::plural('report', $history->count()) }}
-                        · {{ $strikesOnRecord->filter->isActive()->count() }} active {{ Str::plural('strike', $strikesOnRecord->filter->isActive()->count()) }}
+                        · {{ $strikesOnRecord->filter->isActive()->count() }} active {{ Str::plural('offense', $strikesOnRecord->filter->isActive()->count()) }}
                     </dd>
                 </div>
                 <div class="rounded-lg border border-slate-200 px-4 py-3">
@@ -229,7 +228,7 @@
         </section>
 
         <section class="{{ $section }}">
-            <h3 class="{{ $heading }}">Strike History</h3>
+            <h3 class="{{ $heading }}">Offense History</h3>
             @if ($strikesOnRecord->isEmpty())
                 <p class="{{ $none }}">None.</p>
             @else
@@ -265,7 +264,7 @@
                     <p class="mt-3 text-slate-500">Marked as a false report.</p>
                 @endif
                 @if ($report->strike)
-                    <a href="{{ route('admin.strikes.show', $report->strike) }}" class="mt-3 inline-block text-blue-600 hover:text-blue-700">Open Strike</a>
+                    <a href="{{ route('admin.strikes.show', $report->strike) }}" class="mt-3 inline-block text-blue-600 hover:text-blue-700">Open Offense</a>
                 @endif
             </div>
         @else
@@ -288,11 +287,11 @@
                         <div class="mt-2 flex gap-5">
                             <label class="flex items-center gap-2 text-sm text-slate-700">
                                 <input type="radio" name="action" value="strike" class="accent-blue-600" {{ old('action', 'strike') === 'strike' ? 'checked' : '' }}>
-                                Give a Strike
+                                Give an Offense
                             </label>
                             <label class="flex items-center gap-2 text-sm text-slate-700">
                                 <input type="radio" name="action" value="none" class="accent-blue-600" {{ old('action') === 'none' ? 'checked' : '' }}>
-                                No Strike
+                                No Offense
                             </label>
                         </div>
 
@@ -316,7 +315,7 @@
 
                         @if ($nextStep)
                             <p id="stepNormal" class="mt-2 text-xs text-slate-600">
-                                This will be strike {{ $nextStep['number'] }}: {{ $stepText($nextStep) }}.
+                                This will be offense {{ $nextStep['number'] }}: {{ $stepText($nextStep) }}.
                             </p>
                             <p id="stepCritical" class="hidden mt-2 text-xs text-slate-600">
                                 This will be {{ $stepText(['action' => 'ban', 'days' => null]) }}.

@@ -11,6 +11,7 @@ import '../widgets/experience_section.dart';
 import '../widgets/inline_edit_row.dart';
 import '../widgets/inline_location_row.dart';
 import '../../../core/widgets/hint_bubble.dart';
+import '../../../core/widgets/kaya_popup.dart';
 import '../widgets/contact_verify_row.dart';
 import '../widgets/profile_section_card.dart';
 import '../../../data/services/api_client.dart';
@@ -1118,29 +1119,18 @@ class _MyWorkerProfileScreenState extends State<MyWorkerProfileScreen> with Sing
 
     return Padding(
       padding: const EdgeInsets.only(bottom: 16),
-      child: Row(
-        children: [
-          Expanded(
-            child: Text(
-              credits.hasToppedUp
-                  ? 'Employers see your card open as a resume.'
-                  : 'Workers who have topped up show their full profile to employers.',
-              style: const TextStyle(fontSize: 12.5, color: AppColors.neutral600),
-            ),
+      child: Align(
+        alignment: Alignment.centerLeft,
+        child: TextButton.icon(
+          onPressed: () => showKayaPopup(context, tall: true, builder: (_) => const ResumePreviewPopup()),
+          icon: const Icon(Icons.visibility_outlined, size: 16),
+          style: TextButton.styleFrom(
+            foregroundColor: AppColors.primary,
+            padding: EdgeInsets.zero,
+            textStyle: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
           ),
-          TextButton(
-            onPressed: () => Navigator.push(
-              context,
-              MaterialPageRoute(builder: (_) => const ResumePreviewScreen()),
-            ),
-            style: TextButton.styleFrom(
-              foregroundColor: AppColors.primary,
-              textStyle:
-                  const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600),
-            ),
-            child: const Text('See What Employers See'),
-          ),
-        ],
+          label: const Text('See What Employers See'),
+        ),
       ),
     );
   }

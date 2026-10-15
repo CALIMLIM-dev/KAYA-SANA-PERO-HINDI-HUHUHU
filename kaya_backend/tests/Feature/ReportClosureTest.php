@@ -75,7 +75,7 @@ class ReportClosureTest extends TestCase
         $report->refresh();
 
         $this->assertSame('resolved', $report->status);
-        $this->assertStringStartsWith('Strike: Warning', (string) $report->resolution_note);
+        $this->assertStringStartsWith('Offense: Warning', (string) $report->resolution_note);
 
         $this->assertDatabaseHas('user_notifications', [
             'user_id' => $report->reported_id,
@@ -96,7 +96,7 @@ class ReportClosureTest extends TestCase
             ])
             ->assertRedirect(route('admin.reports.index'));
 
-        $this->assertStringStartsWith('No strike', (string) $report->fresh()->resolution_note);
+        $this->assertStringStartsWith('No offense', (string) $report->fresh()->resolution_note);
 
         // Not told "we took action" when nothing was done.
         $this->assertSame('We checked your report. Thank you for telling us.', \App\Models\UserNotification::where('user_id', $report->reporter_id)

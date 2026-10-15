@@ -111,6 +111,8 @@ Route::prefix('admin')->name('admin.')->group(function () {
 
         Route::middleware('admin.can:support')->group(function () {
         Route::get('/support', [AdminSupportController::class, 'index'])->name('support.index');
+        // Message someone from their account or offense page: their thread, opened if new.
+        Route::get('/support/user/{user}', [AdminSupportController::class, 'forUser'])->name('support.user');
         Route::get('/support/{thread}', [AdminSupportController::class, 'show'])->name('support.show');
         Route::get('/support/{thread}/since', [AdminSupportController::class, 'since'])->name('support.since');
         Route::post('/support/{thread}/reply', [AdminSupportController::class, 'reply'])->name('support.reply');
@@ -127,12 +129,11 @@ Route::prefix('admin')->name('admin.')->group(function () {
         Route::get('/reports/{report}/proof/{side}/{index}', [ReportController::class, 'proof'])
             ->whereIn('side', ['worker', 'employer'])->whereNumber('index')->name('reports.proof');
 
-        // Appeals, and bans waiting for a second administrator.
+        // Offenses and review requests ("strikes" in the code).
         Route::get('/strikes', [\App\Http\Controllers\Admin\StrikeController::class, 'index'])->name('strikes.index');
         Route::get('/strikes/{strike}', [\App\Http\Controllers\Admin\StrikeController::class, 'show'])->name('strikes.show');
         Route::post('/strikes/{strike}/appeal', [\App\Http\Controllers\Admin\StrikeController::class, 'decideAppeal'])->name('strikes.appeal');
-        Route::post('/strikes/{strike}/confirm', [\App\Http\Controllers\Admin\StrikeController::class, 'confirmBan'])->name('strikes.confirm');
-        Route::post('/strikes/{strike}/decline', [\App\Http\Controllers\Admin\StrikeController::class, 'declineBan'])->name('strikes.decline');
+        Route::post('/strikes/{strike}/remove', [\App\Http\Controllers\Admin\StrikeController::class, 'remove'])->name('strikes.remove');
 
         Route::get('/jobs', [AdminJobController::class, 'index'])->name('jobs.index');
         Route::get('/jobs/{job}', [AdminJobController::class, 'show'])->name('jobs.show');

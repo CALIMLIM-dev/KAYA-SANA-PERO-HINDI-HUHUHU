@@ -161,9 +161,11 @@ class FairModerationTest extends TestCase
     {
         $strike = $this->strike('fraud');
 
+        // Permanent at once: no second admin, no hold that runs out.
         $this->assertSame('ban', $strike->action);
-        $this->assertTrue($strike->isPendingBan());
+        $this->assertNotNull($strike->confirmed_at);
         $this->assertTrue($this->reported->fresh()->is_suspended);
+        $this->assertNull($this->reported->fresh()->suspended_until);
     }
 
     #[Test]
@@ -194,7 +196,7 @@ class FairModerationTest extends TestCase
     // ── Appeals ───────────────────────────────────────────────────────────────
 
     #[Test]
-    public function an_appeal_is_decided_by_somebody_else_and_a_win_lifts_the_strike(): void
+    public function an_accepted_review_request_lifts_the_offense(): void
     {
         $issuer = $this->admin();
         $this->strike(admin: $issuer);
@@ -209,10 +211,9 @@ class FairModerationTest extends TestCase
             ->postJson("/api/v1/account/strikes/{$suspending->id}/appeal", ['appeal' => 'Sending it a second time, just in case.'])
             ->assertStatus(422);
 
+        // One admin decides, the one who gave it included.
         $decision = ['decision' => 'overturned', 'note' => 'The receipt shows the work was done.'];
-        $this->actingAs($issuer)->post("/admin/strikes/{$suspending->id}/appeal", $decision)->assertSessionHasErrors('note');
-
-        $this->actingAs($this->admin())->post("/admin/strikes/{$suspending->id}/appeal", $decision)->assertRedirect();
+        $this->actingAs($issuer)->post("/admin/strikes/{$suspending->id}/appeal", $decision)->assertRedirect();
 
         $this->assertNotNull($suspending->fresh()->removed_at);
         $this->assertFalse($this->reported->fresh()->is_suspended, 'the suspension it caused is lifted');
@@ -244,7 +245,7 @@ class FairModerationTest extends TestCase
         $this->assertNotEmpty($token);
 
         $auth = ['Authorization' => "Bearer {$token}"];
-        $this->getJson('/api/v1/account/standing', $auth)->assertOk()->assertJsonPath('data.standing', 'suspended')
+        $this->getJson('/api/v1/account/standing', $auth)->assertOk()->assertJsonPath('data.standing', 'banned')
             ->assertJsonPath('data.strikes.0.rule', 'Scam or fraudulent activity')
             ->assertJsonPath('data.strikes.0.can_appeal', true);
         $this->getJson('/api/v1/support', $auth)->assertOk();
@@ -254,12 +255,10 @@ class FairModerationTest extends TestCase
     // ── Bans ──────────────────────────────────────────────────────────────────
 
     #[Test]
-    public function a_confirmed_ban_cannot_be_signed_straight_back_up_to(): void
+    public function a_ban_cannot_be_signed_straight_back_up_to(): void
     {
         $this->reported->forceFill(['email' => 'Juan@Example.com', 'phone' => '09171234567'])->save();
-        $strike = $this->strike('fraud');
-
-        $this->actingAs($this->admin())->post("/admin/strikes/{$strike->id}/confirm")->assertRedirect();
+        $this->strike('fraud');
 
         $this->assertTrue(StrikeService::isBanned(email: 'juan@example.com'));
         $this->assertTrue(StrikeService::isBanned(phone: '+639171234567'));
@@ -270,14 +269,22 @@ class FairModerationTest extends TestCase
     }
 
     #[Test]
-    public function declining_a_ban_leaves_the_suspension_to_run_out(): void
+    public function an_admin_can_remove_an_offense_or_lift_a_suspension(): void
     {
-        $strike = $this->strike('fraud');
+        $admin = $this->admin();
+        $ban = $this->strike('fraud', $admin);
 
-        $this->actingAs($this->admin())->post("/admin/strikes/{$strike->id}/decline")->assertRedirect();
+        // Lifting ends the ban and lets them sign up again.
+        $this->actingAs($admin)->post("/admin/users/{$this->reported->id}/activate")->assertRedirect();
+        $this->assertFalse($this->reported->fresh()->is_suspended);
+        $this->assertNotNull($ban->fresh()->removed_at);
+        $this->assertFalse(StrikeService::isBanned(email: $this->reported->email));
 
-        $this->assertSame('suspension', $strike->fresh()->action);
-        $this->assertNotNull($this->reported->fresh()->suspended_until);
+        // Removing a warning takes it off the count.
+        $warning = $this->strike();
+        $this->actingAs($admin)->post("/admin/strikes/{$warning->id}/remove")->assertRedirect();
+        $this->assertNotNull($warning->fresh()->removed_at);
+        $this->assertSame(0, $this->reported->strikes()->active()->count());
     }
 
     // ── Holding and abuse ─────────────────────────────────────────────────────
@@ -328,16 +335,17 @@ class FairModerationTest extends TestCase
 
         $this->actingAs($issuer)->get("/admin/reports/{$report->id}")->assertOk()
             ->assertSee('Past Jobs Together')
-            ->assertSee('Strike History');
+            ->assertSee('Offense History');
 
         $this->actingAs($issuer)->get('/admin/reports')->assertOk()->assertSee('Juan Dela Cruz')
             ->assertDontSee('Made in Bad Faith');
-        $this->actingAs($issuer)->get('/admin/strikes')->assertOk()->assertSee('Juan Dela Cruz');
-        // The issuer is told somebody else decides.
+        $this->actingAs($issuer)->get('/admin/strikes')->assertOk()->assertSee('Juan Dela Cruz')
+            ->assertSee('I never took any money from anyone.')->assertSee('Accept');
+        $this->actingAs($issuer)->get('/admin/strikes?q=Juan')->assertOk()->assertSee('Juan Dela Cruz');
+        $this->actingAs($issuer)->get('/admin/strikes?q=Nobody')->assertOk()->assertDontSee('Juan Dela Cruz');
         $this->actingAs($issuer)->get("/admin/strikes/{$strike->id}")->assertOk()
-            ->assertSee('Another administrator has to confirm or decline it.')
-            ->assertSee('Another administrator decides the appeal.');
-        $this->actingAs($this->admin())->get("/admin/strikes/{$strike->id}")->assertOk()
-            ->assertSee('Confirm Ban')->assertSee('I never took any money from anyone.');
+            ->assertSee('Remove Offense')->assertSee('Lift Suspension')->assertSee('Message Juan Dela Cruz');
+        $this->actingAs($issuer)->get("/admin/users/{$this->reported->id}")->assertOk()
+            ->assertSee('Offense History')->assertSee('Permanent ban');
     }
 }
