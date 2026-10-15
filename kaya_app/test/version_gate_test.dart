@@ -55,15 +55,15 @@ void main() {
 
     VersionGate.check(ctx);
     await tester.pumpAndSettle();
-    expect(find.text('Update available'), findsOneWidget);
+    expect(find.text('Update Available'), findsOneWidget);
 
     await tester.tap(find.text('Later'));
     await tester.pumpAndSettle();
-    expect(find.text('Update available'), findsNothing);
+    expect(find.text('Update Available'), findsNothing);
 
     VersionGate.check(ctx);
     await tester.pumpAndSettle();
-    expect(find.text('Update available'), findsNothing);
+    expect(find.text('Update Available'), findsNothing);
   });
 
   testWidgets('a newer version asks again', (tester) async {
@@ -79,7 +79,7 @@ void main() {
     adapter.latest = '9.9.10';
     VersionGate.check(ctx);
     await tester.pumpAndSettle();
-    expect(find.text('Update available'), findsOneWidget);
+    expect(find.text('Update Available'), findsOneWidget);
   });
 
   testWidgets('a required update is asked every time', (tester) async {
@@ -89,7 +89,7 @@ void main() {
 
     VersionGate.check(ctx);
     await tester.pumpAndSettle();
-    expect(find.text('Update needed'), findsOneWidget);
+    expect(find.text('Update Needed'), findsOneWidget);
   });
 
   testWidgets('a current build is left alone', (tester) async {

@@ -68,7 +68,7 @@ class RosterController extends Controller
                 'deadline'       => $job->deadline()?->toDateString(),
                 'agreed_day'     => $job->agreedDate()?->toDateString(),
             ],
-            'hires' => $hires->map(function (Application $hire) use ($user, $threads, $completion) {
+            'hires' => $hires->map(function (Application $hire) use ($user, $threads, $completion, $job) {
                 $key = min($user->id, $hire->worker_id) . '-' . max($user->id, $hire->worker_id);
 
                 return [
@@ -82,6 +82,8 @@ class RosterController extends Controller
                     'rating_count'    => (int) ($hire->worker?->workerProfile?->rating_count ?? 0),
                     'status'          => $hire->status,
                     'completion'      => $completion->state($hire, JobCompletionService::SIDE_EMPLOYER),
+                    'hire_actions'    => app(\App\Services\HireCancellation::class)
+                        ->actions($hire->setRelation('job', $job), JobCompletionService::SIDE_EMPLOYER),
                     'conversation_id' => $threads->get($key)?->id,
                     'hired_at'        => $hire->updated_at?->toIso8601String(),
                 ];

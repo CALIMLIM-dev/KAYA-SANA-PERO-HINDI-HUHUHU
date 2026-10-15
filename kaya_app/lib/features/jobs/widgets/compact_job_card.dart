@@ -97,7 +97,7 @@ class CompactJobCard extends StatelessWidget {
                           children: [
                             Flexible(
                               child: Text(
-                                job.company.isEmpty ? 'Private employer' : job.company,
+                                job.company.isEmpty ? 'Private Employer' : job.company,
                                 style: Theme.of(context).textTheme.bodySmall?.copyWith(
                                   color: AppColors.neutral600,
                                   fontSize: 11,
@@ -422,9 +422,9 @@ class CompactJobCard extends StatelessWidget {
       case ApplicationStatus.accepted:
         return 'Accepted';
       case ApplicationStatus.rejected:
-        return 'Rejected';
+        return 'Not Selected';
       default:
-        return 'View job';
+        return 'View Job';
     }
   }
 }

@@ -42,6 +42,58 @@ class SupplyDemandController extends Controller
 
     public function index(Request $request)
     {
+        ['days' => $days, 'tradeId' => $tradeId, 'place' => $place, 'q' => $q, 'workers' => $workers,
+         'employers' => $employers, 'jobs' => $jobs, 'towns' => $towns, 'ranking' => $ranking] = $this->scope($request);
+
+        return view('admin.supply.index', [
+            'days'      => $days,
+            'trades'    => Category::where('is_active', true)->orderBy('name')->get(['id', 'name']),
+            'tradeId'   => $tradeId,
+            'place'     => $place,
+            'trail'     => $place ? $this->trail($place) : [],
+            'q'         => $q,
+            'matches'   => $q === '' ? collect() : $this->search($q),
+            'summary'   => $this->summary($place, $workers, $employers, $jobs),
+            'ranking'   => $ranking,
+            'map'       => [
+                // Towns only: names and counts, no people.
+                'towns'     => array_values(array_filter($towns, fn ($t) => $t['lat'] !== null)),
+                'focus'     => $place ? $this->focus($place) : null,
+            ],
+        ]);
+    }
+
+    /*
+        The Shortage by Place table as a workbook - Report Generation, the
+        same filters as the page (period, trade, place), for an agency like
+        PESO to work from.
+    */
+    public function export(Request $request, \App\Services\XlsxExporter $xlsx)
+    {
+        ['from' => $from, 'tradeId' => $tradeId, 'place' => $place, 'ranking' => $ranking] = $this->scope($request);
+
+        $trade = $tradeId ? Category::find($tradeId)?->name : null;
+        $rank = 0;
+
+        return $xlsx->download(
+            'supply_demand',
+            'Supply and Demand by Place' . ($place ? ' - ' . $place->name : '') . ($trade ? ' (' . $trade . ')' : ''),
+            ['Rank' => 'int', 'Town' => 'text', 'Province' => 'text', 'Jobs' => 'int', 'Unfilled' => 'int',
+             'Workers in Reach' => 'int', 'Employers' => 'int', 'Short By' => 'int', 'Workers to Spare' => 'int',
+             'Most Short Trade' => 'text'],
+            $ranking,
+            function (array $t) use (&$rank) {
+                return [++$rank, $t['name'], $t['province'], $t['jobs'], $t['unfilled'], $t['workers'], $t['employers'],
+                    $t['gap'] > 0 ? $t['gap'] : null, $t['gap'] < 0 ? -$t['gap'] : null, $t['short'] ?? null];
+            },
+            $from->toDateString(), now()->toDateString(),
+            periodNote: 'jobs posted',
+        );
+    }
+
+    /** What both the page and the download are built from. */
+    private function scope(Request $request): array
+    {
         $days = (int) $request->query('days', 30);
         $days = in_array($days, [7, 30, 90], true) ? $days : 30;
         $from = Carbon::now()->subDays($days - 1)->startOfDay();
@@ -65,22 +117,7 @@ class SupplyDemandController extends Controller
             ->values()
             ->all();
 
-        return view('admin.supply.index', [
-            'days'      => $days,
-            'trades'    => Category::where('is_active', true)->orderBy('name')->get(['id', 'name']),
-            'tradeId'   => $tradeId,
-            'place'     => $place,
-            'trail'     => $place ? $this->trail($place) : [],
-            'q'         => $q,
-            'matches'   => $q === '' ? collect() : $this->search($q),
-            'summary'   => $this->summary($place, $workers, $employers, $jobs),
-            'ranking'   => $ranking,
-            'map'       => [
-                // Towns only: names and counts, no people.
-                'towns'     => array_values(array_filter($towns, fn ($t) => $t['lat'] !== null)),
-                'focus'     => $place ? $this->focus($place) : null,
-            ],
-        ]);
+        return compact('days', 'from', 'to', 'tradeId', 'place', 'q', 'workers', 'employers', 'jobs', 'towns', 'ranking');
     }
 
     // ── Who and what, and where ──────────────────────────────────────────────

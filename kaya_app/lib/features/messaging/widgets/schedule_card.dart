@@ -411,6 +411,7 @@ class ScheduleComposer {
     if (!context.mounted) return;
 
     final noteController = TextEditingController();
+    final payController = TextEditingController();
 
     final confirmed = await showKayaPopup<bool>(
       context,
@@ -443,6 +444,28 @@ class ScheduleComposer {
               ],
             ),
             const SizedBox(height: 14),
+            /*
+                The pay, agreed beside the day.
+
+                Optional, and nothing is paid through KAYA - but an amount
+                both of them accepted is the record that settles an argument
+                about pay later, which is the commonest way a hire goes wrong.
+            */
+            TextField(
+              controller: payController,
+              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              decoration: InputDecoration(
+                hintText: 'Pay agreed (optional)',
+                prefixText: '₱ ',
+                filled: true,
+                fillColor: AppColors.neutral100,
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(10),
+                  borderSide: BorderSide.none,
+                ),
+              ),
+            ),
+            const SizedBox(height: 10),
             TextField(
               controller: noteController,
               maxLength: 280,
@@ -486,6 +509,7 @@ class ScheduleComposer {
       time: _apiTime(time),
       deadline: deadline,
       note: noteController.text,
+      pay: num.tryParse(payController.text.replaceAll(',', '').trim()),
       jobId: jobId,
     );
 

@@ -104,16 +104,16 @@ class _MyEmployerProfileScreenState extends State<MyEmployerProfileScreen>
     return Column(
       children: [
         ContactVerifyRow(
-          label: 'Phone number',
+          label: 'Phone Number',
           value: auth.user?['phone'] as String?,
           verified: auth.user?['phone_verified'] == true,
-          onTap: () => open('phone', 'Verify phone'),
+          onTap: () => open('phone', 'Verify Phone'),
         ),
         ContactVerifyRow(
           label: 'Email',
           value: auth.user?['email'] as String?,
           verified: auth.user?['email_verified'] == true,
-          onTap: () => open('email', 'Verify email'),
+          onTap: () => open('email', 'Verify Email'),
         ),
       ],
     );
@@ -407,7 +407,7 @@ class _MyEmployerProfileScreenState extends State<MyEmployerProfileScreen>
                       final choice = await showDialog<String>(
                         context: context,
                         builder: (dialogContext) => SimpleDialog(
-                          title: const Text('Profile photo'),
+                          title: const Text('Profile Photo'),
                           children: [
                             if (hasPhoto)
                               SimpleDialogOption(
@@ -419,8 +419,8 @@ class _MyEmployerProfileScreenState extends State<MyEmployerProfileScreen>
                               onPressed: () =>
                                   Navigator.pop(dialogContext, 'gallery'),
                               child: Text(hasPhoto
-                                  ? 'Choose a new one'
-                                  : 'Choose from gallery'),
+                                  ? 'Choose a New One'
+                                  : 'Choose from Gallery'),
                             ),
                             SimpleDialogOption(
                               onPressed: () =>
@@ -751,7 +751,7 @@ class _MyEmployerProfileScreenState extends State<MyEmployerProfileScreen>
               navigation and the chance to forget the save call.
           */
           InlineEditRow(
-            label: _role == 'Company' ? 'Company name' : 'Your name',
+            label: _role == 'Company' ? 'Company Name' : 'Your Name',
             value: _name,
             maxLength: 120,
             validator: (v) => v.isEmpty ? 'A name is required.' : null,
@@ -778,7 +778,7 @@ class _MyEmployerProfileScreenState extends State<MyEmployerProfileScreen>
           ),
 
           InlineEditRow(
-            label: _role == 'Company' ? 'About the company' : 'About you',
+            label: _role == 'Company' ? 'About the Company' : 'About You',
             value: _description,
             maxLines: 4,
             maxLength: 1000,
@@ -815,7 +815,7 @@ class _MyEmployerProfileScreenState extends State<MyEmployerProfileScreen>
             ),
 
             InlineEditRow(
-              label: 'Website or page',
+              label: 'Website or Page',
               value: _profile?.website,
               keyboardType: TextInputType.url,
               maxLength: 255,

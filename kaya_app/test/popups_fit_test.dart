@@ -18,7 +18,7 @@ import 'support/render_harness.dart';
 */
 void main() {
   final popups = <String, (String, Future<void> Function(BuildContext))>{
-    'change password': ('Change password', showChangePasswordSheet),
+    'change password': ('Change Password', showChangePasswordSheet),
     'delete account': ('I understand this cannot be undone', showDeleteAccountSheet),
     'report': ('Report Ricardo Dela Cruz', (c) => ReportSheet.show(c, reportedId: 9, reportedName: 'Ricardo Dela Cruz')),
     'place picker': ('Show Workers Here', (c) => showPlacePickerSheet(c)),

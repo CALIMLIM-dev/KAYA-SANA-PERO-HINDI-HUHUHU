@@ -133,7 +133,7 @@ class _ComposeCommunityPostScreenState extends State<ComposeCommunityPostScreen>
     final go = await showDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        title: const Text('Post this?'),
+        title: const Text('Post This?'),
         content: Text(
           // Said before the charge, because the wait is the part people are
           // not expecting. The days start on approval, so nothing is lost
@@ -193,7 +193,7 @@ class _ComposeCommunityPostScreenState extends State<ComposeCommunityPostScreen>
         backgroundColor: Colors.white,
         elevation: 0,
         foregroundColor: AppColors.neutral900,
-        title: const Text('New post', style: TextStyle(fontWeight: FontWeight.w600)),
+        title: const Text('New Post', style: TextStyle(fontWeight: FontWeight.w600)),
       ),
       body: _type == null
           ? _noSide()

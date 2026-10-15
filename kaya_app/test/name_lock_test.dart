@@ -90,10 +90,10 @@ void main() {
     for (final label in const [
       'Last Name *',
       'First Name *',
-      'Middle Name (optional)',
+      'Middle Name (Optional)',
       // Says optional now, like the middle name beside it and like the
       // employer form. Nothing required it; only the label implied it did.
-      'Suffix (optional)',
+      'Suffix (Optional)',
     ]) {
       expect(find.text(label), findsOneWidget);
       expect(takesTyping(tester, label), isFalse,

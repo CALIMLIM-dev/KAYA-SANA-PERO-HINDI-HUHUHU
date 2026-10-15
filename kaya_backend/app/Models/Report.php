@@ -11,7 +11,7 @@ class Report extends Model
         'reporter_id', 'reported_id', 'reported_type', 'subject_id',
         'reason', 'reason_code', 'description',
         'status', 'resolution_note', 'resolved_at', 'reviewed_by',
-        'evidence', 'snapshot', 'response', 'responded_at',
+        'evidence', 'snapshot', 'response', 'responded_at', 'response_evidence', 'baseless',
     ];
 
     protected $casts = [
@@ -19,6 +19,8 @@ class Report extends Model
         'responded_at' => 'datetime',
         'evidence'     => 'array',
         'snapshot'     => 'array',
+        'response_evidence' => 'array',
+        'baseless'     => 'boolean',
     ];
 
     public function reporter()
@@ -48,6 +50,28 @@ class Report extends Model
         return $this->reason_code
             ? ModerationReasons::reportLabel($this->reason_code)
             : ($this->reason ?: 'Not given');
+    }
+
+    /*
+        When the reported person's time to answer runs out.
+
+        A report cannot be upheld before this unless they have already
+        answered: deciding on one side of a story is not a decision. A
+        dismissal harms nobody and does not wait.
+    */
+    public function replyBy(): \Illuminate\Support\Carbon
+    {
+        return $this->created_at->copy()->addHours((int) config('moderation.reply_hours'));
+    }
+
+    public function awaitingReply(): bool
+    {
+        return $this->response === null && now()->lt($this->replyBy());
+    }
+
+    public function strike()
+    {
+        return $this->hasOne(Strike::class);
     }
 
     public function severity(): string

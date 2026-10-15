@@ -3,7 +3,7 @@
 
 @section('content')
 @php
-    $tabs = ['all' => 'All', 'open' => 'Open', 'in_progress' => 'In progress', 'completed' => 'Completed', 'expired' => 'Ended', 'closed' => 'Closed'];
+    $tabs = ['all' => 'All', 'open' => 'Open', 'in_progress' => 'In Progress', 'completed' => 'Completed', 'expired' => 'Ended', 'closed' => 'Closed'];
     $badge = fn ($s) => ['open' => 'badge-verified', 'in_progress' => 'bg-blue-50 text-blue-700', 'completed' => 'bg-slate-100 text-slate-600',
                          'expired' => 'badge-pending', 'closed' => 'badge-suspended'][$s] ?? 'bg-slate-100 text-slate-600';
 @endphp

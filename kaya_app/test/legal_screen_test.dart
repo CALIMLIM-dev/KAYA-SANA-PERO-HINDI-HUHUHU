@@ -48,13 +48,13 @@ void main() {
   testWidgets('expand all opens everything, then collapses it', (tester) async {
     await pump(tester);
 
-    await tester.tap(find.text('Expand all'));
+    await tester.tap(find.text('Expand All'));
     await tester.pumpAndSettle();
-    expect(find.text('Collapse all'), findsOneWidget);
+    expect(find.text('Collapse All'), findsOneWidget);
     // First body is on screen without scrolling.
     expect(find.text(LegalDocuments.terms.sections.first.body), findsOneWidget);
 
-    await tester.tap(find.text('Collapse all'));
+    await tester.tap(find.text('Collapse All'));
     await tester.pumpAndSettle();
     expect(find.text(LegalDocuments.terms.sections.first.body), findsNothing);
   });

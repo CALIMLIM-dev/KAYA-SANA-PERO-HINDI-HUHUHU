@@ -95,7 +95,7 @@ class ChangePasswordSheetState extends State<ChangePasswordSheet> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text('Change password',
+            const Text('Change Password',
                 style: TextStyle(
                     fontSize: 18,
                     fontWeight: FontWeight.w700,
@@ -103,14 +103,14 @@ class ChangePasswordSheetState extends State<ChangePasswordSheet> {
             const SizedBox(height: 16),
             _field(
               controller: _current,
-              label: 'Current password',
+              label: 'Current Password',
               validator: (v) =>
                   (v == null || v.isEmpty) ? 'Enter your current password' : null,
             ),
             const SizedBox(height: 12),
             _field(
               controller: _next,
-              label: 'New password',
+              label: 'New Password',
               validator: (v) {
                 if (v == null || v.isEmpty) return 'Enter a new password';
                 if (v == _current.text) return 'Choose a different password';
@@ -122,7 +122,7 @@ class ChangePasswordSheetState extends State<ChangePasswordSheet> {
             const SizedBox(height: 12),
             _field(
               controller: _confirm,
-              label: 'Confirm new password',
+              label: 'Confirm New Password',
               validator: (v) => v != _next.text ? 'Passwords do not match' : null,
             ),
             if (_error != null) ...[
@@ -152,7 +152,7 @@ class ChangePasswordSheetState extends State<ChangePasswordSheet> {
                           valueColor: AlwaysStoppedAnimation(Colors.white),
                         ),
                       )
-                    : const Text('Update password',
+                    : const Text('Update Password',
                         style: TextStyle(fontWeight: FontWeight.w600)),
               ),
             ),

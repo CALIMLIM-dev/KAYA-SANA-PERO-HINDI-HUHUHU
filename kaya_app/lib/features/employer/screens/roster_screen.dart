@@ -9,6 +9,7 @@ import '../../../core/widgets/verification_badge_widget.dart';
 import '../../../data/services/api_client.dart';
 import '../../../core/navigation/app_router.dart';
 import '../../applications/widgets/completion_action.dart';
+import '../../applications/widgets/hire_controls.dart';
 
 /*
     Everyone hired on one job, on one screen.
@@ -85,7 +86,7 @@ class _RosterScreenState extends State<RosterScreen> with RealtimeRefresh {
     final yes = await showDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        title: Text(_early ? 'Finished early?' : 'Mark everyone complete?'),
+        title: Text(_early ? 'Finished Early?' : 'Mark Everyone as Complete?'),
         content: Text(
           'This marks your side done for $count worker${count == 1 ? '' : 's'}. '
           'Each of them still confirms their own, and the job closes when all have.',
@@ -95,7 +96,7 @@ class _RosterScreenState extends State<RosterScreen> with RealtimeRefresh {
           ElevatedButton(
             style: ElevatedButton.styleFrom(backgroundColor: AppColors.success, foregroundColor: Colors.white),
             onPressed: () => Navigator.pop(dialogContext, true),
-            child: const Text('Mark Complete'),
+            child: const Text('Mark as Complete'),
           ),
         ],
       ),
@@ -127,7 +128,7 @@ class _RosterScreenState extends State<RosterScreen> with RealtimeRefresh {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'Message all ${_hires.length} workers',
+              'Message All ${_hires.length} Workers',
               style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: AppColors.neutral900),
             ),
             const SizedBox(height: 4),
@@ -225,7 +226,7 @@ class _RosterScreenState extends State<RosterScreen> with RealtimeRefresh {
         backgroundColor: Colors.white,
         elevation: 0,
         foregroundColor: AppColors.neutral900,
-        title: const Text('Roster', style: TextStyle(fontWeight: FontWeight.w600)),
+        title: const Text('Hired Workers', style: TextStyle(fontWeight: FontWeight.w600)),
       ),
       body: _loading
           ? const Center(child: CircularProgressIndicator())
@@ -310,7 +311,7 @@ class _RosterScreenState extends State<RosterScreen> with RealtimeRefresh {
                                 child: ElevatedButton.icon(
                                   onPressed: _busy || _waitingOnMe == 0 ? null : _completeAll,
                                   icon: const Icon(Icons.done_all, size: 18),
-                                  label: Text(_waitingOnMe == 0 ? 'All marked' : 'Mark all complete'),
+                                  label: Text(_waitingOnMe == 0 ? 'All Marked' : 'Mark All as Complete'),
                                   style: ElevatedButton.styleFrom(
                                     backgroundColor: AppColors.success,
                                     foregroundColor: Colors.white,
@@ -336,6 +337,18 @@ class _RosterScreenState extends State<RosterScreen> with RealtimeRefresh {
                   ),
                 ),
     );
+  }
+
+  /// Cancel hire and the rest, under the worker's name. See HireControls.
+  List<Widget>? _controls(Map<String, dynamic> hire) {
+    final controls = HireControls.maybe(
+      actions: hire['hire_actions'],
+      applicationId: hire['application_id'],
+      otherName: (hire['name'] ?? 'the worker').toString(),
+      otherId: hire['worker_id'],
+      onChanged: _load,
+    );
+    return controls == null ? null : [const SizedBox(height: 4), controls];
   }
 
   Widget _hireRow(Map<String, dynamic> hire) {
@@ -425,7 +438,7 @@ class _RosterScreenState extends State<RosterScreen> with RealtimeRefresh {
                               early: _early,
                             ),
                     icon: const Icon(Icons.check_circle_outline, size: 16),
-                    label: Text(theirs ? 'Confirm complete' : 'Mark complete'),
+                    label: Text(theirs ? 'Confirm as Complete' : 'Mark as Complete'),
                     style: OutlinedButton.styleFrom(
                       foregroundColor: AppColors.success,
                       side: const BorderSide(color: AppColors.success),
@@ -437,6 +450,7 @@ class _RosterScreenState extends State<RosterScreen> with RealtimeRefresh {
                     ),
                   ),
                 ],
+                ...?_controls(hire),
               ],
             ),
           ),

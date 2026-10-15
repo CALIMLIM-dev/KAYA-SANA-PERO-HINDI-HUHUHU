@@ -246,10 +246,10 @@ class JobTrackingProvider with ChangeNotifier {
               distanceFilter: 25,
               intervalDuration: pingInterval,
               foregroundNotificationConfig: const ForegroundNotificationConfig(
-                notificationTitle: 'KAYA is sharing your location',
+                notificationTitle: 'KAYA Is Sharing Your Location',
                 notificationText:
                     'Your employer can see where you are until you stop sharing.',
-                notificationChannelName: 'Job location sharing',
+                notificationChannelName: 'Job Location Sharing',
                 enableWakeLock: true,
                 setOngoing: true,
               ),

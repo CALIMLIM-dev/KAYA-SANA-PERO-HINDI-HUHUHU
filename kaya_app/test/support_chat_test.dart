@@ -90,7 +90,7 @@ void main() {
   testWidgets('an empty thread says what to write', (tester) async {
     await render(tester, width: 390, textScale: 1.0, messages: const []);
 
-    expect(find.text('Tell us what happened'), findsOneWidget);
+    expect(find.text('Tell Us What Happened'), findsOneWidget);
     expect(find.textContaining('which account, job or payment'), findsOneWidget);
     expect(find.text('What can we help with?'), findsOneWidget);
   });

@@ -31,7 +31,7 @@
                 <input type="text" name="search" value="{{ $search }}" placeholder="Name or words in the review"
                        class="w-64 px-3 py-2 border border-slate-300 rounded-lg text-sm">
                 <select name="rating" class="px-3 py-2 border border-slate-300 rounded-lg text-sm">
-                    <option value="">Any stars</option>
+                    <option value="">Any Stars</option>
                     @for ($i = 1; $i <= 5; $i++)
                         <option value="{{ $i }}" @selected($rating === $i)>{{ $i }} star{{ $i > 1 ? 's' : '' }}</option>
                     @endfor
@@ -47,7 +47,7 @@
             one stream you had to read row by row to separate.
         --}}
         <div class="flex gap-1">
-            @foreach (['all' => 'Everyone', 'worker' => 'Workers reviewed', 'employer' => 'Employers reviewed'] as $key => $label)
+            @foreach (['all' => 'Everyone', 'worker' => 'Workers Reviewed', 'employer' => 'Employers Reviewed'] as $key => $label)
                 <a href="{{ route('admin.reviews.index', array_merge($carry, ['role' => $key === 'all' ? null : $key])) }}"
                    class="px-3 py-1.5 rounded-lg text-sm {{ $role === $key ? 'bg-blue-50 text-blue-700 font-medium' : 'text-slate-500 hover:bg-slate-50' }}">
                     {{ $label }}

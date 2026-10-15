@@ -5,6 +5,7 @@ import '../../../providers/auth_provider.dart';
 import '../../../shared/widgets/ph_phone_field.dart';
 import '../../../shared/widgets/suspension_dialog.dart';
 import '../../../core/navigation/app_router.dart';
+import '../../moderation/screens/account_status_screen.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -69,6 +70,12 @@ class _LoginScreenState extends State<LoginScreen> {
     return inputErr == null && passErr == null;
   }
 
+  void _openStanding(String token) {
+    Navigator.of(context).push(MaterialPageRoute(
+      builder: (_) => AccountStatusScreen(standingToken: token),
+    ));
+  }
+
   Future<void> _handleLogin(AuthProvider auth) async {
     if (!_validate()) return;
 
@@ -84,8 +91,15 @@ class _LoginScreenState extends State<LoginScreen> {
 
     setState(() => _emailBusy = false);
 
-    // Check if account is suspended - ALWAYS show generic message on login
+    // Suspended: the account's own status page, with the reasons and the
+    // appeal, on a session that reaches nothing else. The generic dialog
+    // is left for a server too old to send that session.
     if (result['is_suspended'] == true) {
+      final token = result['standing_token'] as String?;
+      if (token != null) {
+        _openStanding(token);
+        return;
+      }
       SuspensionDialog.showOnLogin(
         context,
         'Your account has been suspended.', // Generic message, no specific reason
@@ -301,6 +315,8 @@ class _LoginScreenState extends State<LoginScreen> {
 
                     if (success) {
                       Navigator.pushReplacementNamed(context, '/home');
+                    } else if (auth.standingToken != null) {
+                      _openStanding(auth.standingToken!);
                     } else {
                       setState(() => _googleError = auth.errorMessage ?? 'Google Sign-In failed. Please try again.');
                     }

@@ -195,6 +195,36 @@ class JobExpiryTest extends TestCase
         $this->assertSame($before, $ledger->balance($worker));
     }
 
+    /*
+        A job for several workers is still open with some hired. Its date
+        ending stops the hiring; the hired workers keep their chat and can
+        still mark the job complete.
+    */
+    public function test_a_post_with_hired_workers_stops_hiring_and_the_work_carries_on(): void
+    {
+        $employer = $this->employer();
+        $job = $this->job($employer, ['workers_needed' => 3, 'expires_at' => now()->subMinute()]);
+        $hired = $this->worker();
+        $waiting = $this->worker();
+
+        $hire = Application::create(['job_id' => $job->id, 'worker_id' => $hired->id, 'status' => 'accepted']);
+        Application::create(['job_id' => $job->id, 'worker_id' => $waiting->id, 'status' => 'pending']);
+        $thread = \App\Models\Conversation::create(['job_id' => $job->id, 'employer_id' => $employer->id, 'worker_id' => $hired->id,
+            'pair_low' => min($employer->id, $hired->id), 'pair_high' => max($employer->id, $hired->id)]);
+
+        $this->artisan('kaya:expire-job-posts')->assertExitCode(0);
+
+        $this->assertSame('in_progress', $job->fresh()->status, 'off the feed, not ended');
+        $this->assertSame('accepted', $hire->fresh()->status);
+        $this->assertSame('cancelled', Application::where('worker_id', $waiting->id)->first()->status);
+        $this->assertNull($thread->fresh()->archived_at, 'the hired pair keeps their chat');
+
+        $this->actingAs($hired, 'sanctum')
+            ->patchJson("/api/v1/applications/{$hire->id}/complete")
+            ->assertOk();
+        $this->assertNotNull($hire->fresh()->worker_completed_at);
+    }
+
     public function test_the_sweep_leaves_a_post_that_is_still_inside_its_date(): void
     {
         $job = $this->job($this->employer(), ['expires_at' => now()->addDays(20)]);

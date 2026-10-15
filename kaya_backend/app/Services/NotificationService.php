@@ -48,7 +48,9 @@ class NotificationService
             the list waiting to be dismissed.
         */
         $recipient = \App\Models\User::find($userId);
-        if ($recipient && !$recipient->wantsNotification(UserNotification::categoryFor($type))) {
+        // A statement of reasons cannot be switched off: it is how somebody
+        // learns what was decided about them and how to appeal it.
+        if ($recipient && ! str_starts_with($type, 'moderation.') && !$recipient->wantsNotification(UserNotification::categoryFor($type))) {
             return null;
         }
 
@@ -213,15 +215,19 @@ class NotificationService
         will want to know, and being told after the fact that money came back
         is very different from noticing a balance changed.
     */
-    public function jobExpired(JobPost $job, \Illuminate\Support\Collection $applicantIds): void
+    /** @param  bool  $hired  Somebody is already working on it: only the hiring ended. */
+    public function jobExpired(JobPost $job, \Illuminate\Support\Collection $applicantIds, bool $hired = false): void
     {
         $this->push(
             userId: $job->employer_id,
             audience: UserNotification::AUDIENCE_EMPLOYER,
             type: 'job.expired',
-            title: 'Your job post has ended',
-            body: '"' . $job->title . '" reached its end date and is off '
-                . 'the feed. Post it again if you are still hiring.',
+            title: $hired ? 'Your job post stopped taking applicants' : 'Your job post has ended',
+            body: $hired
+                ? '"' . $job->title . '" reached its end date and is off the feed. '
+                    . 'The workers you hired carry on as before.'
+                : '"' . $job->title . '" reached its end date and is off '
+                    . 'the feed. Post it again if you are still hiring.',
             referenceType: 'job',
             referenceId: $job->id,
         );
@@ -232,8 +238,8 @@ class NotificationService
                 audience: UserNotification::AUDIENCE_WORKER,
                 type: 'job.expired',
                 title: 'A job you applied for has ended',
-                body: '"' . $job->title . '" reached its end date before anyone '
-                    . 'was hired. Your Barya has been returned.',
+                body: '"' . $job->title . '" reached its end date before you '
+                    . 'were hired. Your Barya has been returned.',
                 referenceType: 'job',
                 referenceId: $job->id,
             );
@@ -483,11 +489,139 @@ class NotificationService
                 ? UserNotification::AUDIENCE_WORKER
                 : UserNotification::AUDIENCE_EMPLOYER,
             type: UserNotification::APPLICATION_COMPLETION_PENDING,
-            title: 'Confirm the job is done',
-            body: $who.' marked "'.$job->title.'" as complete. Confirm to finish it and leave a review.',
+            title: 'Confirm the job is complete',
+            body: $who.' marked "'.$job->title.'" as complete. Confirm to finish it and leave a review.'
+                . (($on = \App\Services\JobCompletionService::settlesOn($application))
+                    ? ' If you do not answer, it completes by itself on '.$on->format('M j').'. If the work was not done, tap Work Not Done on the job card.'
+                    : ''),
             referenceType: 'application',
             referenceId: $application->id,
             actorId: $actorId,
+        );
+    }
+
+    // ── Cancelling a hire, and settling one nobody finished ─────────────────
+
+    /** Which side of a hire a user is on, for the audience of a notice. */
+    private function hireAudience(Application $hire, int $userId): string
+    {
+        return $userId === $hire->worker_id ? UserNotification::AUDIENCE_WORKER : UserNotification::AUDIENCE_EMPLOYER;
+    }
+
+    public function hireCancelRequested(Application $hire, \App\Models\User $to, \App\Models\User $by): void
+    {
+        $at = app(\App\Services\HireCancellation::class)->cancelsAt($hire);
+
+        $this->push(
+            userId: $to->id,
+            audience: $this->hireAudience($hire, $to->id),
+            type: 'application.cancel_requested',
+            // The name stays in the body: titles are Title Cased on the way
+            // out, and that would change a name like "dela Cruz".
+            title: 'Request to cancel the hire',
+            body: $by->name . ' asked to cancel "' . $hire->job?->title . '". Reason: '
+                . \App\Services\HireCancellation::reasonLabel($hire->cancel_reason) . '.'
+                . ($hire->cancel_note ? ' "' . $hire->cancel_note . '"' : '')
+                . ' Agree to cancel now, or it cancels on '
+                . $at?->timezone('Asia/Manila')->format('M j, g:i A') . ' if there is no answer.',
+            referenceType: 'application',
+            referenceId: $hire->id,
+            actorId: $by->id,
+        );
+    }
+
+    public function hireCancelled(Application $hire, ?\App\Models\User $by): void
+    {
+        $job = $hire->job;
+        if (! $job) {
+            return;
+        }
+
+        $reason = \App\Services\HireCancellation::reasonLabel($hire->cancel_reason);
+        $reopened = $job->fresh()->status === 'open';
+
+        foreach ([$job->employer_id, $hire->worker_id] as $userId) {
+            if ($by && $userId === $by->id && $hire->cancel_outcome !== 'one_sided') {
+                continue; // They did it; their screen already said so.
+            }
+
+            $this->push(
+                userId: $userId,
+                audience: $this->hireAudience($hire, $userId),
+                type: 'application.cancelled',
+                title: 'The hire was cancelled',
+                body: '"' . $job->title . '"' . ($reason ? ': ' . $reason : '') . '.'
+                    . ($userId === $job->employer_id && $reopened ? ' The spot is open again on your post.' : ''),
+                referenceType: 'application',
+                referenceId: $hire->id,
+            );
+        }
+    }
+
+    public function hireCompletedBySilence(Application $hire): void
+    {
+        $job = $hire->job;
+        if (! $job) {
+            return;
+        }
+
+        $silent = $hire->employer_completed_at === null ? $job->employer_id : $hire->worker_id;
+
+        foreach ([$job->employer_id, $hire->worker_id] as $userId) {
+            $this->push(
+                userId: $userId,
+                audience: $this->hireAudience($hire, $userId),
+                type: 'application.completed',
+                title: 'The job is complete',
+                body: '"' . $job->title . '" ' . ($userId === $silent
+                    ? 'was marked done by the other side and you did not answer in time, so it now counts as complete.'
+                    : 'counts as complete: you marked it done and the other side did not answer in time.')
+                    . ' You can leave a review.',
+                referenceType: 'application',
+                referenceId: $hire->id,
+            );
+        }
+    }
+
+    /**
+     * @param  string  $when  'deadline' (today is the last day) or 'closing' (the window ends soon)
+     */
+    public function hireReminder(Application $hire, int $userId, string $when): void
+    {
+        $job = $hire->job;
+        $on = \App\Services\JobCompletionService::settlesOn($hire)?->format('M j');
+        $theyConfirmed = $userId === $hire->worker_id ? $hire->employer_completed_at : $hire->worker_completed_at;
+
+        $body = match (true) {
+            $when === 'deadline' => 'Today is the last day of "' . $job?->title . '". Tap Mark as Complete when the work is done.',
+            (bool) $theyConfirmed => 'The other side marked "' . $job?->title . '" done. It completes by itself on ' . $on
+                . ' unless you confirm sooner or tap Work Not Done.',
+            default => '"' . $job?->title . '" closes as unsuccessful on ' . $on . ' unless both of you confirm it was done.',
+        };
+
+        $this->push(
+            userId: $userId,
+            audience: $this->hireAudience($hire, $userId),
+            type: 'application.reminder',
+            title: $when === 'deadline' ? 'Last day of the job' : 'Confirm the job',
+            body: $body,
+            referenceType: 'application',
+            referenceId: $hire->id,
+        );
+    }
+
+    /** The side that confirmed hears the other says it did not happen. */
+    public function hireDisputed(Application $hire, int $confirmerId): void
+    {
+        $this->push(
+            userId: $confirmerId,
+            audience: $this->hireAudience($hire, $confirmerId),
+            type: 'application.disputed',
+            title: 'The other side says the work was not done',
+            body: '"' . $hire->job?->title . '" will not complete by itself. KAYA will check both sides '
+                . 'and may ask for yours.',
+            referenceType: 'application',
+            referenceId: $hire->id,
         );
     }
 
@@ -736,16 +870,109 @@ class NotificationService
         Lands in the account category rather than under worker or employer:
         it is about the account, whichever side of it was complained about.
     */
-    public function moderationWarning(\App\Models\User $user, ?string $note = null): void
+    /*
+        A statement of reasons, with every strike.
+
+        The rule, what was found, what it does and until when, where this
+        strike leaves them, and how to appeal. The full record is on the
+        Account status screen the notification opens.
+    */
+    public function strikeIssued(\App\Models\Strike $strike): void
+    {
+        $date = fn ($d) => $d?->timezone('Asia/Manila')->format('M j, Y g:i A');
+        $count = $strike->user->strikes()->active()->count();
+
+        [$type, $title, $effect] = match ($strike->action) {
+            'warning'     => ['moderation.warning', 'A warning from KAYA',
+                'This is a warning; nothing on your account is limited.'],
+            'restriction' => ['moderation.strike', "Your account is restricted for {$strike->days} days",
+                'Until ' . $date($strike->ends_at) . ' you cannot apply, post jobs or notices, or invite workers.'],
+            'suspension'  => ['moderation.strike', "Your account is suspended for {$strike->days} days",
+                'Until ' . $date($strike->ends_at) . ' you can only open Account status and Support.'],
+            default       => ['moderation.strike', 'Your account is suspended',
+                'A second administrator will review a permanent ban. Until then you can only open Account status and Support.'],
+        };
+
+        $this->push(
+            userId: $strike->user_id,
+            audience: UserNotification::AUDIENCE_BOTH,
+            type: $type,
+            title: $title,
+            body: 'Rule: ' . $strike->ruleLabel() . '. ' . $strike->finding . ' ' . $effect
+                . " Strikes counting now: {$count}. This one stops counting on " . $strike->expires_at->format('M j, Y')
+                . '. You can appeal it until ' . $strike->appealDeadline()->format('M j, Y') . ' in Account status.',
+            referenceType: 'strike',
+            referenceId: $strike->id,
+        );
+    }
+
+    public function banConfirmed(\App\Models\Strike $strike): void
+    {
+        $this->push(
+            userId: $strike->user_id,
+            audience: UserNotification::AUDIENCE_BOTH,
+            type: 'moderation.strike',
+            title: 'Your account is permanently banned',
+            body: 'A second administrator confirmed the ban for: ' . $strike->ruleLabel() . '.'
+                . ($strike->canAppeal() ? ' You can appeal it until ' . $strike->appealDeadline()->format('M j, Y') . ' in Account status.' : ''),
+            referenceType: 'strike',
+            referenceId: $strike->id,
+        );
+    }
+
+    public function banDeclined(\App\Models\Strike $strike): void
+    {
+        $this->push(
+            userId: $strike->user_id,
+            audience: UserNotification::AUDIENCE_BOTH,
+            type: 'moderation.strike',
+            title: 'Your suspension will end',
+            body: 'A second administrator decided against a permanent ban. Your suspension ends on '
+                . $strike->ends_at?->timezone('Asia/Manila')->format('M j, Y g:i A') . '.',
+            referenceType: 'strike',
+            referenceId: $strike->id,
+        );
+    }
+
+    public function appealDecided(\App\Models\Strike $strike): void
+    {
+        $won = $strike->appeal_status === 'overturned';
+
+        $this->push(
+            userId: $strike->user_id,
+            audience: UserNotification::AUDIENCE_BOTH,
+            type: 'moderation.appeal',
+            title: $won ? 'Your review request was accepted' : 'Your review request was not accepted',
+            body: ($won
+                    ? 'The strike was removed and anything it limited has been lifted. '
+                    : 'The strike stays on your account. ')
+                . $strike->appeal_note,
+            referenceType: 'strike',
+            referenceId: $strike->id,
+        );
+    }
+
+    public function falseReportWarning(\App\Models\User $user): void
     {
         $this->push(
             userId: $user->id,
             audience: UserNotification::AUDIENCE_BOTH,
-            type: 'moderation.warning',
-            title: 'A warning from KAYA',
-            body: 'Somebody reported your account and we looked into it. '
-                . ($note ?: 'Please keep to the community rules.')
-                . ' Another report like this can lead to a suspension.',
+            type: 'moderation.false_report',
+            title: 'About your reports',
+            body: 'Several of your recent reports were found to have no basis. Please report only what really happened: '
+                . 'another one like this will pause your reporting for ' . config('moderation.false_pause_days') . ' days.',
+        );
+    }
+
+    public function reportsPaused(\App\Models\User $user, \Illuminate\Support\Carbon $until): void
+    {
+        $this->push(
+            userId: $user->id,
+            audience: UserNotification::AUDIENCE_BOTH,
+            type: 'moderation.false_report',
+            title: 'Your reporting is paused',
+            body: 'Too many of your recent reports had no basis. You can file reports again on '
+                . $until->timezone('Asia/Manila')->format('M j, Y') . '. Support is still open if something is wrong.',
         );
     }
 
@@ -764,7 +991,8 @@ class NotificationService
             type: 'report.filed',
             title: 'A report about your account',
             body: 'Somebody reported your account for: ' . $report->reasonLabel()
-                . '. Tap to tell our team your side before a decision is made.',
+                . '. Tap to see what was reported and give your side. Nothing is decided before '
+                . $report->replyBy()->timezone('Asia/Manila')->format('M j, g:i A') . ' unless you reply sooner.',
             referenceType: 'report',
             referenceId: $report->id,
         );
@@ -793,7 +1021,7 @@ class NotificationService
 
         // The reported person hears it was closed, unless a warning or a
         // suspension already told them.
-        if ($report->status === 'dismissed' || str_starts_with((string) $report->resolution_note, 'No action taken')) {
+        if ($report->status === 'dismissed' || ! $report->strike()->exists()) {
             $this->push(
                 userId: $report->reported_id,
                 audience: UserNotification::AUDIENCE_BOTH,

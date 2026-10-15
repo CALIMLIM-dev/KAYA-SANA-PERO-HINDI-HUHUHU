@@ -72,7 +72,7 @@ class _MyInvitationsScreenState extends State<MyInvitationsScreen>
               padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
               children: [
                 if (waiting.isNotEmpty) ...[
-                  _heading('Waiting for your answer', waiting.length),
+                  _heading('Waiting for Your Answer', waiting.length),
                   for (final i in waiting) InvitationCard(key: ValueKey(i['id']), invitation: i),
                 ],
                 if (earlier.isNotEmpty) ...[

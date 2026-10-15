@@ -267,7 +267,7 @@ class _PinLocationScreenState extends State<PinLocationScreen> {
         backgroundColor: AppColors.primary,
         foregroundColor: Colors.white,
         elevation: 0,
-        title: const Text('Pin exact location',
+        title: const Text('Pin Exact Location',
             style: TextStyle(fontWeight: FontWeight.w600)),
       ),
       body: Column(
@@ -445,7 +445,7 @@ class _PinLocationScreenState extends State<PinLocationScreen> {
                               child: CircularProgressIndicator(
                                   strokeWidth: 2, color: Colors.white),
                             )
-                          : const Text('Set this location'),
+                          : const Text('Set This Location'),
                     ),
                   ),
                 ],

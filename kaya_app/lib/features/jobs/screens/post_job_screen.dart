@@ -461,7 +461,7 @@ class _PostJobScreenState extends State<PostJobScreen> {
     final name = await showDialog<String>(
       context: sheetContext,
       builder: (dialogContext) => AlertDialog(
-        title: const Text('Add a category'),
+        title: const Text('Add a Category'),
         content: TextField(
           controller: controller,
           autofocus: true,
@@ -643,7 +643,7 @@ class _PostJobScreenState extends State<PostJobScreen> {
             ordering anywhere. Placement is a real, paid thing now.
         */
         builder: (context) => AlertDialog(
-          title: const Text('Boost this job to the top?'),
+          title: const Text('Boost This Job to the Top?'),
           content: Text(
             'Job boost puts your post at the top of the job feed for '
             '${context.read<CreditsProvider>().boostDays ?? JobBoost.days} days, above posts that are '
@@ -1204,7 +1204,7 @@ class _PostJobScreenState extends State<PostJobScreen> {
                     children: [
                       Expanded(
                         child: _buildToggleButton(
-                          label: 'Job boost',
+                          label: 'Job Boost',
                           icon: Icons.flash_on,
                           isActive: _isUrgent,
                           onTap: _handleUrgentToggle,
@@ -1837,7 +1837,7 @@ class _PostJobScreenState extends State<PostJobScreen> {
     return await showDialog<bool>(
           context: context,
           builder: (context) => AlertDialog(
-            title: const Text('Pin is somewhere else'),
+            title: const Text('Pin Is Somewhere Else'),
             content: Text(
               'Your pin is in ${resolved.displayName}, not '
               '${_selectedLocation?.displayName ?? 'the selected location'}.',
@@ -2113,7 +2113,7 @@ class _PostJobScreenState extends State<PostJobScreen> {
                           leading: const Icon(Icons.add,
                               color: AppColors.primary),
                           title: const Text(
-                            'Add a category',
+                            'Add a Category',
                             style: TextStyle(
                               fontWeight: FontWeight.w600,
                               color: AppColors.primary,

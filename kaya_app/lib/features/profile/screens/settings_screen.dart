@@ -52,9 +52,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
     'applications': ('Applications', Icons.description_outlined),
     'invitations': ('Invitations', Icons.mail_outline),
     'messages': ('Messages', Icons.chat_bubble_outline),
-    'jobs': ('Job updates', Icons.work_outline),
+    'jobs': ('Job Updates', Icons.work_outline),
     'reviews': ('Reviews', Icons.star_outline),
-    'account': ('Account and verification', Icons.verified_user_outlined),
+    'account': ('Account and Verification', Icons.verified_user_outlined),
   };
 
   @override
@@ -120,9 +120,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
           _group('Account', [
             _SettingsRow(
               icon: Icons.lock_reset_outlined,
-              title: 'Change password',
+              title: 'Change Password',
               subtitle: 'Signs out your other devices',
               onTap: () => showChangePasswordSheet(context),
+            ),
+            _SettingsRow(
+              icon: Icons.shield_outlined,
+              title: 'Account Status',
+              subtitle: 'Strikes, limits and review requests',
+              onTap: () => AppRouter.push(context, AppRouter.accountStatus),
             ),
           ]),
 
@@ -136,7 +142,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             ),
             _SettingsRow(
               icon: Icons.support_agent_outlined,
-              title: 'Message KAYA support',
+              title: 'Message KAYA Support',
               onTap: () => AppRouter.push(context, AppRouter.support),
             ),
           ]),
@@ -178,7 +184,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           _group('', [
             _SettingsRow(
               icon: Icons.person_remove_outlined,
-              title: hasBoth ? 'Delete account or a profile' : 'Delete account',
+              title: hasBoth ? 'Delete Account or a Profile' : 'Delete Account',
               danger: true,
               onTap: hasBoth ? _openLeaving : () => showDeleteAccountSheet(context),
             ),
@@ -313,7 +319,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     final yes = await showDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        title: Text(worker ? 'Remove your worker profile?' : 'Remove your employer profile?'),
+        title: Text(worker ? 'Remove Your Worker Profile?' : 'Remove Your Employer Profile?'),
         content: Text(
           worker
               ? 'Your skills, experience, certifications and licences are '
@@ -441,7 +447,7 @@ class _LeavingChoices extends StatelessWidget {
           const Padding(
             padding: EdgeInsets.symmetric(horizontal: 16),
             child: Text(
-              'Delete account or a profile',
+              'Delete Account or a Profile',
               style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: AppColors.neutral900),
             ),
           ),
@@ -454,11 +460,11 @@ class _LeavingChoices extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 8),
-          choice('worker', Icons.engineering_outlined, 'Remove worker profile',
+          choice('worker', Icons.engineering_outlined, 'Remove Worker Profile',
               'Your account and employer profile stay'),
-          choice('employer', Icons.storefront_outlined, 'Remove employer profile',
+          choice('employer', Icons.storefront_outlined, 'Remove Employer Profile',
               'Your account and worker profile stay'),
-          choice('account', Icons.delete_forever_outlined, 'Delete account',
+          choice('account', Icons.delete_forever_outlined, 'Delete Account',
               'Everything, for good'),
           Align(
             alignment: Alignment.centerRight,

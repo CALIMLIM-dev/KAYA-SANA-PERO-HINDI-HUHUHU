@@ -89,7 +89,7 @@ class JobListCard extends StatelessWidget {
                             Flexible(
                               child: Text(
                                 job.company.isEmpty
-                                    ? 'Private employer'
+                                    ? 'Private Employer'
                                     : job.company,
                                 style: const TextStyle(
                                   fontSize: 12.5,
@@ -383,9 +383,9 @@ class JobListCard extends StatelessWidget {
       case ApplicationStatus.accepted:
         return 'Accepted';
       case ApplicationStatus.rejected:
-        return 'Rejected';
+        return 'Not Selected';
       default:
-        return 'View job';
+        return 'View Job';
     }
   }
 }

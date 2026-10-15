@@ -36,7 +36,7 @@ void main() {
   }
 
   ElevatedButton button(WidgetTester tester) => tester.widget<ElevatedButton>(
-      find.widgetWithText(ElevatedButton, 'Delete account'));
+      find.widgetWithText(ElevatedButton, 'Delete Account'));
 
   testWidgets('the button waits for the password and the tick', (tester) async {
     await pump(tester);
@@ -58,7 +58,7 @@ void main() {
     await tester.enterText(find.byType(TextField), 'secret123');
     await tester.tap(find.byType(Checkbox));
     await tester.pump();
-    await tester.tap(find.widgetWithText(ElevatedButton, 'Delete account'));
+    await tester.tap(find.widgetWithText(ElevatedButton, 'Delete Account'));
     await tester.pumpAndSettle();
 
     expect(adapter.sentPassword, 'secret123');

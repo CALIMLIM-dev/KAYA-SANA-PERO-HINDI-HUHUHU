@@ -199,7 +199,7 @@ class _Header extends StatelessWidget {
             tapTargetSize: MaterialTapTargetSize.shrinkWrap,
           ),
           child: Text(
-            allOpen ? 'Collapse all' : 'Expand all',
+            allOpen ? 'Collapse All' : 'Expand All',
             style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
           ),
         ),

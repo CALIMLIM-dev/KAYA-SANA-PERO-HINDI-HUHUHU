@@ -36,6 +36,7 @@ import '../../features/messaging/screens/chat_screen.dart';
 // Notification Screens
 import '../../features/credits/screens/wallet_screen.dart';
 import '../../features/credits/screens/wallet_history_screen.dart';
+import '../../features/moderation/screens/account_status_screen.dart';
 import '../../features/moderation/screens/report_response_screen.dart';
 import '../../features/notifications/screens/notifications_screen.dart';
 
@@ -88,6 +89,7 @@ class AppRouter {
   static const String wallet = '/wallet';
   static const String walletHistory = '/wallet/history';
   static const String reportResponse = '/report-response';
+  static const String accountStatus = '/account-status';
   static const String profile = '/profile';
   static const String myWorkerProfile = '/my-worker-profile';
   static const String setupWorkerProfile = '/setup-worker-profile';
@@ -293,6 +295,8 @@ class AppRouter {
               ? const NotificationsScreen()
               : ReportResponseScreen(reportId: reportId),
         );
+      case accountStatus:
+        return MaterialPageRoute(settings: settings, builder: (_) => const AccountStatusScreen());
 
       
       case profile:
@@ -394,7 +398,7 @@ class AppRouter {
               const Icon(Icons.error_outline, size: 64, color: Colors.red),
               const SizedBox(height: 16),
               const Text(
-                'Something went wrong',
+                'Something Went Wrong',
                 style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
               ),
               const SizedBox(height: 8),

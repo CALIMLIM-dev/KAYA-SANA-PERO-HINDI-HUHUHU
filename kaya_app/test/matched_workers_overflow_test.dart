@@ -261,7 +261,7 @@ void main() {
     );
     await tester.pump();
 
-    expect(find.text('Nobody matches yet'), findsOneWidget);
+    expect(find.text('Nobody Matches Yet'), findsOneWidget);
     // And it does not imply the post is broken - it is still open.
     expect(find.textContaining('still open'), findsOneWidget);
   });

@@ -121,12 +121,21 @@ class UserManagementController extends Controller
         return $disk->response($path);
     }
 
-    public function suspend(Request $request, User $user, SuspensionService $suspensions)
+    /*
+        A suspension straight from the account page, for what cannot wait
+        for a report. It is still a strike: it counts, it sends a statement
+        of reasons, and it can be appealed. Permanent still needs a second
+        administrator - see StrikeService.
+    */
+    public function suspend(Request $request, User $user, \App\Services\StrikeService $strikes)
     {
         $data = $request->validate([
             'reason_code' => ['required', Rule::in(ModerationReasons::suspensionCodes())],
             'duration'    => ['required', Rule::in(['7', '14', '30', '90', 'permanent'])],
-            'note'        => ['nullable', 'string', 'max:1000'],
+            'note'        => ['required', 'string', 'min:10', 'max:1000'],
+        ], [
+            'note.required' => 'Write your finding; it is sent to the account as the reason.',
+            'note.min'      => 'Write a little more about what you found.',
         ]);
 
         // An administrator locking out another administrator is not moderation,
@@ -135,13 +144,7 @@ class UserManagementController extends Controller
             return back()->withErrors(['reason_code' => 'Administrator accounts cannot be suspended.']);
         }
 
-        $suspensions->suspend(
-            user: $user,
-            reasonCode: $data['reason_code'],
-            duration: $data['duration'],
-            note: $data['note'] ?? null,
-            admin: Auth::user(),
-        );
+        $strikes->issue($user, $data['reason_code'], $data['note'], Auth::user(), duration: $data['duration']);
 
         AdminAction::record(
             'user.suspended', 'user', $user->id,
@@ -150,7 +153,9 @@ class UserManagementController extends Controller
             $data,
         );
 
-        return back()->with('success', "{$user->name} has been suspended.");
+        return back()->with('success', $data['duration'] === 'permanent'
+            ? "{$user->name} is suspended. The permanent ban waits for a second administrator under Appeals & Bans."
+            : "{$user->name} has been suspended.");
     }
 
     public function activate(User $user, SuspensionService $suspensions)

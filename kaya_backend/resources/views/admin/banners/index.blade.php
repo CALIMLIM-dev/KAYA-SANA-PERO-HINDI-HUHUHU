@@ -4,7 +4,7 @@
 @section('content')
 <div class="grid grid-cols-3 gap-6">
     <div class="col-span-1 bg-white rounded-xl border border-slate-200 p-6 self-start">
-        <h3 class="text-sm font-semibold text-slate-700 mb-1">Add a banner</h3>
+        <h3 class="text-sm font-semibold text-slate-700 mb-1">Add a Banner</h3>
         <p class="text-xs text-slate-500 mb-4">
             Shown in the carousel at the top of the home screen, taking turns with boosted workers and jobs.
             If your design already has its words in it, leave the headline empty: the app shows the whole
@@ -28,12 +28,12 @@
             </div>
             <p id="banner-note" class="hidden text-xs text-slate-500 mb-3"></p>
 
-            <label class="text-xs text-slate-500">Headline (optional)</label>
+            <label class="text-xs text-slate-500">Headline (Optional)</label>
             <input type="text" name="title" value="{{ old('title') }}" maxlength="60"
                    placeholder="Need a plumber today?"
                    class="w-full mt-1 mb-3 px-3 py-2 border border-slate-300 rounded-lg text-sm">
 
-            <label class="text-xs text-slate-500">Line under it (optional)</label>
+            <label class="text-xs text-slate-500">Line Under It (Optional)</label>
             <input type="text" name="body" value="{{ old('body') }}" maxlength="120"
                    placeholder="Verified workers near you, ready this week."
                    class="w-full mt-1 mb-3 px-3 py-2 border border-slate-300 rounded-lg text-sm">
@@ -45,18 +45,18 @@
                 <option value="employer" @selected(old('audience') === 'employer')>Employers</option>
             </select>
 
-            <label class="text-xs text-slate-500">Tapping opens</label>
+            <label class="text-xs text-slate-500">Tapping Opens</label>
             <select name="action" class="w-full mt-1 mb-3 px-3 py-2 border border-slate-300 rounded-lg text-sm">
                 @foreach ($actions as $value => $label)
                     <option value="{{ $value }}" @selected(old('action') === $value)>{{ $label }}</option>
                 @endforeach
             </select>
 
-            <label class="text-xs text-slate-500">Order (lower shows first)</label>
+            <label class="text-xs text-slate-500">Order (Lower Shows First)</label>
             <input type="number" name="sort_order" value="{{ old('sort_order', 0) }}" min="0" max="999"
                    class="w-full mt-1 mb-4 px-3 py-2 border border-slate-300 rounded-lg text-sm">
 
-            <button id="banner-submit" class="px-5 py-2.5 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700">Add banner</button>
+            <button id="banner-submit" class="px-5 py-2.5 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700">Add Banner</button>
         </form>
     </div>
 

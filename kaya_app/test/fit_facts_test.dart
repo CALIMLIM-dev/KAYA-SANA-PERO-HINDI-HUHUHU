@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 import 'package:kaya_app/data/models/job_model.dart';
 import 'package:kaya_app/features/applications/widgets/applicant_card.dart';
 import 'package:kaya_app/features/applications/widgets/fit_facts.dart';
+import 'package:kaya_app/core/widgets/verification_badge_widget.dart';
 import 'package:kaya_app/providers/application_provider.dart';
 
 import 'support/render_harness.dart';
@@ -103,16 +104,26 @@ void main() {
         onChanged: () async {},
       );
 
+  testWidgets('a free applicant is their name and verification, nothing more', (tester) async {
+    await pump(tester, card(applicant(isNew: true, premium: false)));
+
+    expect(find.textContaining('Required skills'), findsNothing);
+    expect(find.textContaining('New on KAYA'), findsNothing);
+    expect(find.byType(VerificationChip), findsOneWidget);
+  });
+
   for (final premium in [false, true]) {
-    final layout = premium ? 'resume card' : 'compact card';
+    final layout = premium ? 'full card' : 'name row';
 
-    testWidgets('the $layout states the fit and tags a newcomer', (tester) async {
-      await pump(tester, card(applicant(isNew: true, premium: premium)));
+    if (premium) {
+      testWidgets('the $layout states the fit and tags a newcomer', (tester) async {
+        await pump(tester, card(applicant(isNew: true, premium: premium)));
 
-      expect(find.textContaining('Required skills: 1 of 2'), findsOneWidget);
-      expect(find.text('New on KAYA'), findsOneWidget);
-      expect(find.textContaining('%'), findsNothing);
-    });
+        expect(find.textContaining('Required skills: 1 of 2'), findsOneWidget);
+        expect(find.textContaining('New on KAYA'), findsOneWidget);
+        expect(find.textContaining('%'), findsNothing);
+      });
+    }
 
     for (final width in <double>[360, 320]) {
       testWidgets('the $layout fits ${width.toInt()}px at scale 1.3', (tester) async {
@@ -131,7 +142,7 @@ void main() {
           FlutterError.onError = previous;
         }
 
-        expect(find.textContaining('Required skills'), findsOneWidget);
+        expect(find.textContaining(premium ? 'Required skills' : 'Eddison'), findsOneWidget);
         expect(complaints, isEmpty, reason: complaints.join('\n'));
       });
     }

@@ -63,7 +63,7 @@
                     @endforeach
                 </select>
             </div>
-            <button class="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700">Add administrator</button>
+            <button class="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700">Add Administrator</button>
         </form>
     </div>
 

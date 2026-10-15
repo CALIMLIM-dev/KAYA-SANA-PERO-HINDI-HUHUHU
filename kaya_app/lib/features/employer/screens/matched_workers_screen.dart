@@ -50,7 +50,7 @@ class MatchedWorkersScreen extends StatelessWidget {
       appBar: AppBar(
         backgroundColor: AppColors.primary,
         foregroundColor: Colors.white,
-        title: const Text('Matched workers'),
+        title: const Text('Suggested Workers'),
       ),
       body: MatchedWorkersList(jobId: jobId, jobTitle: jobTitle),
     );
@@ -120,7 +120,7 @@ class _SheetHeader extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       const Text(
-                        'Matched workers',
+                        'Suggested Workers',
                         style: TextStyle(
                           fontSize: 18,
                           fontWeight: FontWeight.w700,
@@ -144,7 +144,7 @@ class _SheetHeader extends StatelessWidget {
                         child: Text(
                           !ready
                               ? 'Finding who fits...'
-                              : '$count ${count == 1 ? 'worker fits' : 'workers fit'}, best first',
+                              : '$count ${count == 1 ? 'worker' : 'workers'}, best match first',
                           key: ValueKey(ready ? count : -1),
                           style: const TextStyle(
                             fontSize: 12.5,
@@ -224,61 +224,15 @@ class _MatchedWorkersListState extends State<MatchedWorkersList> {
       said the price and asked; this is the same.
   */
   Future<void> _invite(int workerId, String name) async {
-    final credits = context.read<CreditsProvider>();
-    await credits.load();
-    if (!mounted) return;
-
-    final cost = credits.costOf('invite');
-    if (cost != null && credits.balance < cost) {
-      AppToast.error(context, 'You need ${Credits.amount(cost)} to invite someone.');
-      return;
-    }
-
-    final go = await showDialog<bool>(
-      context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: Text('Invite $name?'),
-        content: Text(cost == null
-            ? '$name will be asked to take this job.'
-            : '$name will be asked to take this job. It costs ${Credits.amount(cost)}.'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(dialogContext, false),
-            child: const Text('Cancel'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(dialogContext, true),
-            child: const Text('Invite'),
-          ),
-        ],
-      ),
-    );
-    if (go != true || !mounted) return;
-
     setState(() => _inviting = workerId);
-
-    final provider = context.read<InvitationProvider>();
-    final sent = await provider.sendInvitation(
-      jobId: widget.jobId,
-      workerId: workerId,
-    );
-
+    final sent = await inviteMatchedWorker(context, jobId: widget.jobId, workerId: workerId, name: name);
     if (!mounted) return;
-
     setState(() {
       _inviting = null;
       if (sent) _invited.add(workerId);
     });
-
-    if (sent) {
-      // The balance just moved.
-      await credits.refresh();
-      if (!mounted) return;
-      AppToast.success(context, '$name has been invited.');
-    } else {
-      AppToast.error(context, provider.errorMessage ?? 'Could not invite them.');
-    }
   }
+
 
   @override
   Widget build(BuildContext context) {
@@ -447,7 +401,7 @@ class _MatchedWorkersListState extends State<MatchedWorkersList> {
             Icon(Icons.person_search_outlined, size: 44, color: AppColors.neutral400),
             SizedBox(height: 16),
             Text(
-              'Nobody matches yet',
+              'Nobody Matches Yet',
               style: TextStyle(
                 fontSize: 16,
                 fontWeight: FontWeight.w600,
@@ -466,4 +420,64 @@ class _MatchedWorkersListState extends State<MatchedWorkersList> {
       ),
     );
   }
+}
+
+/*
+    Invites one matched worker to one job, after saying the price.
+
+    An invitation costs Barya, so it is asked first, with the price. This
+    sent on the tap once - no cost shown, no chance to stop, and the wallet
+    left showing the old balance. Shared by the Matches screen and the
+    applicants list, so both ask the same way. True when it was sent.
+*/
+Future<bool> inviteMatchedWorker(
+  BuildContext context, {
+  required int jobId,
+  required int workerId,
+  required String name,
+}) async {
+  final credits = context.read<CreditsProvider>();
+  await credits.load();
+  if (!context.mounted) return false;
+
+  final cost = credits.costOf('invite');
+  if (cost != null && credits.balance < cost) {
+    AppToast.error(context, 'You need ${Credits.amount(cost)} to invite someone.');
+    return false;
+  }
+
+  final go = await showDialog<bool>(
+    context: context,
+    builder: (dialogContext) => AlertDialog(
+      title: Text('Invite $name?'),
+      content: Text(cost == null
+          ? '$name will be asked to take this job.'
+          : '$name will be asked to take this job. It costs ${Credits.amount(cost)}.'),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(dialogContext, false),
+          child: const Text('Cancel'),
+        ),
+        TextButton(
+          onPressed: () => Navigator.pop(dialogContext, true),
+          child: const Text('Invite'),
+        ),
+      ],
+    ),
+  );
+  if (go != true || !context.mounted) return false;
+
+  final provider = context.read<InvitationProvider>();
+  final sent = await provider.sendInvitation(jobId: jobId, workerId: workerId);
+  if (!context.mounted) return sent;
+
+  if (sent) {
+    // The balance just moved.
+    await credits.refresh();
+    if (context.mounted) AppToast.success(context, '$name has been invited.');
+  } else {
+    AppToast.error(context, provider.errorMessage ?? 'Could not invite them.');
+  }
+
+  return sent;
 }

@@ -81,10 +81,10 @@ class _CommunityPostScreenState extends State<CommunityPostScreen> {
     final yes = await showDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        title: const Text('Remove this comment?'),
+        title: const Text('Remove This Comment?'),
         content: const Text('The comment is removed. Nothing else changes.'),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(dialogContext, false), child: const Text('Keep it')),
+          TextButton(onPressed: () => Navigator.pop(dialogContext, false), child: const Text('Keep It')),
           TextButton(onPressed: () => Navigator.pop(dialogContext, true), child: const Text('Remove')),
         ],
       ),
@@ -117,7 +117,7 @@ class _CommunityPostScreenState extends State<CommunityPostScreen> {
     final yes = await showDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        title: Text(waiting ? 'Withdraw this post?' : 'Take this post down?'),
+        title: Text(waiting ? 'Withdraw This Post?' : 'Take This Post Down?'),
         content: Text(waiting
             ? 'It will not go up, and your Barya is returned.'
             : 'It leaves the board now. The Barya is not returned.'),

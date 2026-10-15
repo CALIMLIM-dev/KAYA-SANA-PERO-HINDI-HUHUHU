@@ -51,7 +51,7 @@
         <label for="new-category" class="sr-only">New category name</label>
         <input id="new-category" type="text" name="name" required maxlength="60" placeholder="New category, e.g. Roofing"
                class="w-64 px-3 py-2 border border-slate-300 rounded-lg text-sm bg-white">
-        <button class="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700">Add category</button>
+        <button class="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700">Add Category</button>
     </form>
 </div>
 
@@ -132,7 +132,7 @@
                 <div class="flex gap-2">
                     <input id="category-name" type="text" name="name" value="{{ $selected->name }}" required maxlength="60"
                            class="w-80 max-w-full px-3 py-2 border border-slate-300 rounded-lg text-sm">
-                    <button class="px-4 py-2 border border-slate-300 rounded-lg text-sm text-slate-700 hover:bg-slate-50">Save name</button>
+                    <button class="px-4 py-2 border border-slate-300 rounded-lg text-sm text-slate-700 hover:bg-slate-50">Save Name</button>
                 </div>
             </form>
 
@@ -198,7 +198,7 @@
                     <label for="new-skill" class="sr-only">New skill</label>
                     <input id="new-skill" type="text" name="name" required maxlength="60" placeholder="New skill, e.g. Cabinet making"
                            class="w-80 max-w-full px-3 py-2 border border-slate-300 rounded-lg text-sm">
-                    <button class="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700">Add skill</button>
+                    <button class="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700">Add Skill</button>
                 </form>
             </div>
 
@@ -238,7 +238,7 @@
                             @endforeach
                         </select>
                         <button class="px-3 py-2 border border-red-300 text-red-600 rounded-lg text-sm font-medium hover:bg-red-50">
-                            Merge and delete
+                            Merge and Delete
                         </button>
                     </div>
                 </form>
@@ -262,7 +262,7 @@
 {{-- Synonyms: they pair names across categories, so they belong to none. --}}
 <section class="mt-6 bg-white rounded-xl border border-slate-200" aria-labelledby="synonyms">
     <div class="px-5 py-4 border-b border-slate-100">
-        <h2 id="synonyms" class="text-sm font-semibold text-slate-700">Skill synonyms</h2>
+        <h2 id="synonyms" class="text-sm font-semibold text-slate-700">Skill Synonyms</h2>
         <p class="text-xs text-slate-500 mt-0.5">
             Two names for the same work, such as Screen Replacement and LCD Replacement. Once linked, jobs and workers
             using either name match each other.

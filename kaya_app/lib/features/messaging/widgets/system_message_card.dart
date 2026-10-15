@@ -63,10 +63,10 @@ class SystemMessageCard extends StatelessWidget {
     final yes = await showDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        title: const Text('Confirm the job is done?'),
+        title: const Text('Confirm the Job Is Complete?'),
         content: Text('$who marked it done. Confirming finishes the job, and you can both leave a review.'),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(dialogContext, false), child: const Text('Not yet')),
+          TextButton(onPressed: () => Navigator.pop(dialogContext, false), child: const Text('Not Yet')),
           ElevatedButton(onPressed: () => Navigator.pop(dialogContext, true), child: const Text('Confirm')),
         ],
       ),
@@ -95,9 +95,9 @@ class SystemMessageCard extends StatelessWidget {
 
     final (icon, color, label) = switch (event) {
       'hired' => (Icons.handshake_outlined, AppColors.primary, 'Hired'),
-      'confirmed' => (Icons.hourglass_top, AppColors.warning, 'Marked done'),
-      'completed' => (Icons.check_circle_outline, AppColors.success, 'Job complete'),
-      'ended' => (Icons.block, AppColors.neutral600, 'Job ended'),
+      'confirmed' => (Icons.hourglass_top, AppColors.warning, 'Marked as Complete'),
+      'completed' => (Icons.check_circle_outline, AppColors.success, 'Job Completed'),
+      'ended' => (Icons.block, AppColors.neutral600, 'Job Ended'),
       _ => (Icons.info_outline, AppColors.neutral600, 'Update'),
     };
 

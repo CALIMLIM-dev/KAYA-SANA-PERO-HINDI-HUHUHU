@@ -647,7 +647,7 @@ class _SetupEmployerProfileScreenState extends State<SetupEmployerProfileScreen>
           const Icon(Icons.business_center, size: 64, color: AppColors.primary),
           const SizedBox(height: 24),
           const Text(
-            'Set up your employer profile',
+            'Set Up Your Employer Profile',
             style: TextStyle(
               fontSize: 24,
               fontWeight: FontWeight.bold,
@@ -723,7 +723,7 @@ class _SetupEmployerProfileScreenState extends State<SetupEmployerProfileScreen>
             ),
             const SizedBox(height: 24),
             Text(
-              _isCompany ? 'Business details' : 'Personal details',
+              _isCompany ? 'Business Details' : 'Personal Details',
               style: const TextStyle(
                 fontSize: 24,
                 fontWeight: FontWeight.bold,
@@ -839,7 +839,7 @@ class _SetupEmployerProfileScreenState extends State<SetupEmployerProfileScreen>
               const SizedBox(height: 12),
               _textField(
                 controller: _middleNameController,
-                label: 'Middle Name (optional)',
+                label: 'Middle Name (Optional)',
                 icon: Icons.person_outline,
                 textCapitalization: TextCapitalization.words,
                 readOnly: _nameIsLocked,
@@ -847,7 +847,7 @@ class _SetupEmployerProfileScreenState extends State<SetupEmployerProfileScreen>
               const SizedBox(height: 12),
               _textField(
                 controller: _suffixController,
-                label: 'Suffix (optional)',
+                label: 'Suffix (Optional)',
                 icon: Icons.more_horiz,
                 textCapitalization: TextCapitalization.characters,
                 readOnly: _nameIsLocked,
@@ -905,7 +905,7 @@ class _SetupEmployerProfileScreenState extends State<SetupEmployerProfileScreen>
           ),
           const SizedBox(height: 24),
           Text(
-            _isCompany ? 'Add a business logo' : 'Add a profile photo',
+            _isCompany ? 'Add a Business Logo' : 'Add a Profile Photo',
             style: const TextStyle(
               fontSize: 24,
               fontWeight: FontWeight.bold,
@@ -976,7 +976,7 @@ class _SetupEmployerProfileScreenState extends State<SetupEmployerProfileScreen>
                             ),
                             ListTile(
                               leading: const Icon(Icons.photo_library_outlined),
-                              title: const Text('Choose from gallery'),
+                              title: const Text('Choose from Gallery'),
                               onTap: () => Navigator.pop(sheet, false),
                             ),
                           ],
@@ -1019,7 +1019,7 @@ class _SetupEmployerProfileScreenState extends State<SetupEmployerProfileScreen>
   Widget _buildIdentityVerificationStep() {
     return _buildVerificationStep(
       icon: Icons.badge,
-      title: 'Verify your identity',
+      title: 'Verify Your Identity',
       body:
           'A Philippine government ID and a selfie holding it. Needed before you can post a job.',
       documentType: 'government_id',
@@ -1031,7 +1031,7 @@ class _SetupEmployerProfileScreenState extends State<SetupEmployerProfileScreen>
   Widget _buildBusinessVerificationStep() {
     return _buildVerificationStep(
       icon: Icons.verified_user,
-      title: 'Verify your business',
+      title: 'Verify Your Business',
       body:
           'Upload a DTI certificate, SEC registration, or Mayor\'s Permit for admin review.',
       documentType: 'business_reg',

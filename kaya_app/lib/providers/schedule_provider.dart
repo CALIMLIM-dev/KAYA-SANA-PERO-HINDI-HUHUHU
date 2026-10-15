@@ -94,6 +94,9 @@ class ScheduleProvider with ChangeNotifier {
     */
     DateTime? deadline,
     String? note,
+    /// The pay agreed, in pesos. KAYA holds no money; this is the record
+    /// both of them accepted, which is what a dispute about pay reads.
+    num? pay,
     int? jobId,
   }) async {
     _busy = true;
@@ -105,6 +108,7 @@ class ScheduleProvider with ChangeNotifier {
         'scheduled_time': time,
         if (deadline != null) 'deadline': _apiDate(deadline),
         if (note != null && note.trim().isNotEmpty) 'note': note.trim(),
+        'pay': ?pay,
         'job_id': ?jobId,
       });
 

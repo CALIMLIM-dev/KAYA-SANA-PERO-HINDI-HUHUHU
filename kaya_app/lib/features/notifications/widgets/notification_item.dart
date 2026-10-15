@@ -10,13 +10,17 @@ enum NotificationType {
   system,
 }
 
-class NotificationItem extends StatelessWidget {
+class NotificationItem extends StatefulWidget {
   final NotificationType type;
   final String title;
   final String message;
   final String timestamp;
   final bool isRead;
   final VoidCallback onTap;
+
+  /// Inform-only: a tap shows the whole message in place rather than
+  /// opening anything.
+  final bool expandOnTap;
 
   const NotificationItem({
     super.key,
@@ -26,12 +30,29 @@ class NotificationItem extends StatelessWidget {
     required this.timestamp,
     required this.isRead,
     required this.onTap,
+    this.expandOnTap = false,
   });
+
+  @override
+  State<NotificationItem> createState() => _NotificationItemState();
+}
+
+class _NotificationItemState extends State<NotificationItem> {
+  bool _expanded = false;
+
+  NotificationType get type => widget.type;
+  String get title => widget.title;
+  String get message => widget.message;
+  String get timestamp => widget.timestamp;
+  bool get isRead => widget.isRead;
 
   @override
   Widget build(BuildContext context) {
     return InkWell(
-      onTap: onTap,
+      onTap: () {
+        if (widget.expandOnTap) setState(() => _expanded = !_expanded);
+        widget.onTap();
+      },
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
         decoration: BoxDecoration(
@@ -95,8 +116,8 @@ class NotificationItem extends StatelessWidget {
                       color: AppColors.neutral700,
                       height: 1.4,
                     ),
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
+                    maxLines: _expanded ? null : 2,
+                    overflow: _expanded ? TextOverflow.visible : TextOverflow.ellipsis,
                   ),
                   const SizedBox(height: 4),
                   Text(

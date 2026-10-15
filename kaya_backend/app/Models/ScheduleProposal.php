@@ -29,6 +29,9 @@ class ScheduleProposal extends Model
         'note',
         'status',
         'responded_at',
+        // The pay both agreed, in centavos. Optional: plenty of pairs only
+        // need the day settled.
+        'pay_centavos',
     ];
 
     protected $casts = [
@@ -121,6 +124,13 @@ class ScheduleProposal extends Model
     */
     public function summary(): string
     {
-        return $this->scheduled_date->format('D j M') . ', ' . $this->timeLabel();
+        return $this->scheduled_date->format('D j M') . ', ' . $this->timeLabel()
+            . ($this->pay_centavos !== null ? ', ' . self::peso($this->pay_centavos) : '');
+    }
+
+    /** "₱1,500", or "₱1,500.50" when there are centavos. */
+    public static function peso(int $centavos): string
+    {
+        return '₱' . number_format($centavos / 100, $centavos % 100 === 0 ? 0 : 2);
     }
 }

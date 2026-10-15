@@ -209,12 +209,12 @@ void main() {
     await tester.pump(const Duration(milliseconds: 300));
 
     // One button for the four, saying which is showing.
-    expect(find.text('All posts'), findsOneWidget);
+    expect(find.text('All Posts'), findsOneWidget);
     expect(tester.takeException(), isNull);
     await expectLater(find.byType(MaterialApp), matchesGoldenFile('goldens/community_filter.png'));
 
     // And it opens them.
-    await tester.tap(find.text('All posts'));
+    await tester.tap(find.text('All Posts'));
     await tester.pumpAndSettle();
     for (final option in ['Workers', 'Employers', 'Businesses']) {
       expect(find.text(option), findsOneWidget, reason: option);
@@ -286,8 +286,8 @@ void main() {
       await tester.pump(const Duration(milliseconds: 120));
     }
 
-    expect(find.text('Matched workers'), findsOneWidget);
-    expect(find.text('2 workers fit, best first'), findsOneWidget);
+    expect(find.text('Suggested Workers'), findsOneWidget);
+    expect(find.text('2 workers, best match first'), findsOneWidget);
     await expectLater(find.byType(MaterialApp), matchesGoldenFile('goldens/matched_sheet.png'));
   });
 }

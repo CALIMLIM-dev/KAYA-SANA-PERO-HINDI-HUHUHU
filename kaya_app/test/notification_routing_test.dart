@@ -64,21 +64,16 @@ void main() {
     );
   });
 
-  test('employer-side job notifications never open the public advert', () {
-    for (final type in const [
-      'application.withdrawn',
-      'application.cancelled',
-      'invitation.declined',
-    ]) {
+  /*
+      Inform-only notifications open nothing: an outcome, a post that
+      ended, a badge, an announcement. Their words are the whole of them.
+  */
+  test('a notification that only informs opens no screen', () {
+    for (final type in informOnlyNotifications) {
       expect(
-        destinationFor(
-          type: type,
-          audience: 'employer',
-          referenceType: 'job',
-          referenceId: 7,
-        ),
-        'applicants',
-        reason: '$type sent an employer to a page with an Apply button',
+        destinationFor(type: type, audience: 'employer', referenceType: 'job', referenceId: 7),
+        'fullText',
+        reason: type,
       );
     }
   });
@@ -90,8 +85,8 @@ void main() {
       job by invitation is not - they are on the job's card in My Jobs, with
       Message and Mark as complete. A closed post is in My Jobs' History.
   */
-  test('a hire by invitation and a closed post open My Jobs', () {
-    for (final type in const ['invitation.accepted', 'job.closed']) {
+  test('a hire by invitation opens My Jobs', () {
+    for (final type in const ['invitation.accepted']) {
       expect(
         destinationFor(type: type, audience: 'employer', referenceType: 'job', referenceId: 7),
         'manageJobs',
@@ -122,10 +117,8 @@ void main() {
 
   test('every other kind has a place to go', () {
     expect(destinationFor(type: 'support.replied', audience: 'both', referenceType: ''), 'support');
-    expect(destinationFor(type: 'badge.earned', audience: 'worker', referenceType: ''), 'workerProfile');
-    expect(destinationFor(type: 'badge.earned', audience: 'employer', referenceType: ''), 'employerProfile');
     expect(
-      destinationFor(type: 'community.removed', audience: 'worker', referenceType: 'community_post', referenceId: 4),
+      destinationFor(type: 'community.comment', audience: 'worker', referenceType: 'community_post', referenceId: 4),
       'communityPost',
     );
     expect(
@@ -142,8 +135,8 @@ void main() {
     );
   });
 
-  test('expiry takes the employer where extending is', () {
-    for (final type in const ['job.expiring', 'job.expired']) {
+  test('a post about to expire takes the employer where extending is', () {
+    for (final type in const ['job.expiring']) {
       expect(
         destinationFor(
           type: type,
@@ -201,7 +194,7 @@ void main() {
       'active',
     );
 
-    // Anything else about an application is not live work.
+    // Not selected is only news: it opens nothing.
     expect(
       destinationFor(
         type: 'application.rejected',
@@ -209,7 +202,7 @@ void main() {
         referenceType: 'application',
         referenceId: 3,
       ),
-      'applications',
+      'fullText',
     );
   });
 

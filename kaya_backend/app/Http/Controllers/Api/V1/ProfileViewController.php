@@ -32,6 +32,66 @@ class ProfileViewController extends Controller
      * else's view counts, because that turns an encouraging number on your own
      * profile into a way to size up a competitor.
      */
+    /*
+        GET /profile-views/insights?as=worker|employer
+
+        Who viewed you and how your weeks went - a top-up benefit. Every
+        account gets the headline count; the names and the weeks are what
+        topping up shows. Only ever the signed-in user's own.
+
+        Sources are not given: the app has never sent one, so a split by
+        where the view came from would be invented.
+    */
+    public function insights(Request $request)
+    {
+        $user = $request->user();
+        $as = $request->query('as') === ProfileView::AS_EMPLOYER ? ProfileView::AS_EMPLOYER : ProfileView::AS_WORKER;
+        $unlocked = $user->hasToppedUp();
+
+        $rows = ProfileView::where('viewed_id', $user->id)
+            ->where('viewed_as', $as)
+            ->where('viewed_on', '>=', now()->subWeeks(8)->startOfWeek()->toDateString())
+            ->get(['viewer_id', 'viewed_on']);
+
+        $thisWeek = $rows->filter(fn ($r) => \Illuminate\Support\Carbon::parse($r->viewed_on)->gte(now()->startOfWeek()));
+
+        $weeks = null;
+        $viewers = null;
+
+        if ($unlocked) {
+            // Eight weeks, oldest first, each starting on a Monday.
+            $weeks = collect(range(7, 0))->map(function (int $back) use ($rows) {
+                $start = now()->subWeeks($back)->startOfWeek();
+                $end = $start->copy()->endOfWeek();
+                $in = $rows->filter(fn ($r) => \Illuminate\Support\Carbon::parse($r->viewed_on)->between($start, $end));
+
+                return ['week_of' => $start->toDateString(), 'views' => $in->count(), 'people' => $in->pluck('viewer_id')->unique()->count()];
+            })->values();
+
+            // Latest visit per person, newest first.
+            $last = $rows->groupBy('viewer_id')->map(fn ($g) => $g->max(fn ($r) => $r->viewed_on->toDateString()))->sortDesc();
+            $people = \App\Models\User::whereIn('id', $last->keys())->whereNull('deleted_at')
+                ->with(['workerProfile:id,user_id,category_id', 'workerProfile.category:id,name', 'employerProfile:id,user_id,company_name'])
+                ->get()->keyBy('id');
+
+            $viewers = $last->map(fn ($day, $id) => isset($people[$id]) ? [
+                'id'         => (int) $id,
+                'name'       => $people[$id]->employerProfile?->company_name ?: $people[$id]->name,
+                'avatar'     => $people[$id]->resolvedAvatarUrl(),
+                'verification_state' => $people[$id]->verification_state,
+                'viewed_on'  => \Illuminate\Support\Carbon::parse($day)->toDateString(),
+            ] : null)->filter()->values()->take(50);
+        }
+
+        return $this->ok([
+            'as'          => $as,
+            'unlocked'    => $unlocked,
+            'this_week'   => ['views' => $thisWeek->count(), 'people' => $thisWeek->pluck('viewer_id')->unique()->count()],
+            'weeks'       => $weeks,
+            'viewers'     => $viewers,
+        ]);
+    }
+
     public function summary(Request $request)
     {
         $user = $request->user();

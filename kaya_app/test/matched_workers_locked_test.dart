@@ -31,7 +31,7 @@ void main() {
 
     expect(find.text('8 workers match this job'), findsOneWidget);
     expect(find.text('Top up'), findsOneWidget);
-    expect(find.text('Nobody matches yet'), findsNothing);
+    expect(find.text('Nobody Matches Yet'), findsNothing);
   });
 
   testWidgets('unlocked: the list itself', (tester) async {

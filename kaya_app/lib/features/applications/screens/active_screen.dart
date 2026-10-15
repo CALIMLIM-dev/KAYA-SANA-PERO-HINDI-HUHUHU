@@ -83,7 +83,7 @@ class _ActiveScreenState extends State<ActiveScreen> with RealtimeRefresh {
                   else
                     const Center(
                       child: Text(
-                        'Nothing running',
+                        'Nothing Running',
                         style: TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.w600,

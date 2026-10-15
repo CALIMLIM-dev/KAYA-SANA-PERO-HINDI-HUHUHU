@@ -150,7 +150,7 @@ class FreeVsTopUpTest extends TestCase
         $this->assertFalse($data['has_topped_up']);
 
         $labels = array_column($data['comparison'], 'label');
-        $this->assertContains('Apply to a job (4 barya, about 5 a month on free barya)', $labels);
+        $this->assertContains('Apply to a job (4 Barya, about 5 a month on free Barya)', $labels);
 
         // Every row is a yes on the Top-up side; the crosses are all Free's.
         $this->assertSame([true], array_values(array_unique(array_column($data['comparison'], 'topped_up'))));

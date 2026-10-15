@@ -96,7 +96,7 @@ void main() {
   testWidgets('a notice waiting for review has nothing to like', (tester) async {
     await render(tester, CommunityProvider(_LikeApi()), {...post, 'status': 'pending'});
 
-    expect(find.text('Waiting for review'), findsOneWidget);
+    expect(find.text('Waiting for Review'), findsOneWidget);
     expect(find.byIcon(Icons.thumb_up_outlined), findsNothing);
   });
 }

@@ -63,13 +63,21 @@ class ReportController extends Controller
             'photos'      => ['nullable', 'array', 'max:3'],
             'photos.*'    => ['image', 'mimes:jpg,jpeg,png,webp', 'max:5120'],
             'subject_id'  => ['nullable', 'integer'],
-            'subject_type' => ['nullable', Rule::in(['user', 'job', 'message', 'community_post'])],
+            // 'application': "it didn't happen" - a hire the other side marked done.
+            'subject_type' => ['nullable', Rule::in(['user', 'job', 'message', 'community_post', 'application'])],
         ]);
 
         $reporter = $request->user();
 
         if ((int) $data['reported_id'] === $reporter->id) {
             return $this->fail('You cannot report yourself.', 422);
+        }
+
+        // Paused for reports made in bad faith. See StrikeService::recordFalseReport.
+        if ($reporter->reports_paused_until?->isFuture()) {
+            return $this->fail('Your reporting is paused until '
+                . $reporter->reports_paused_until->timezone('Asia/Manila')->format('M j, Y')
+                . '. If something is wrong, write to Support.', 403);
         }
 
         $reported = User::find($data['reported_id']);
@@ -128,6 +136,26 @@ class ReportController extends Controller
         app(\App\Services\NotificationService::class)->reportFiled($report);
 
         /*
+            "It didn't happen."
+
+            The side that has not confirmed a hire says the work the other
+            side marked done never took place. That stops the hire completing
+            by itself when the window closes; an administrator settles it
+            when they close this report. See JobCompletionService::settleDispute.
+        */
+        if (($data['subject_type'] ?? null) === 'application' && isset($data['subject_id'])) {
+            $hire = \App\Models\Application::with('job')->find($data['subject_id']);
+            $side = $hire ? app(\App\Services\JobCompletionService::class)->sideFor($hire, $reporter) : null;
+            $mine = $side === 'employer' ? $hire?->employer_completed_at : $hire?->worker_completed_at;
+            $theirs = $side === 'employer' ? $hire?->worker_completed_at : $hire?->employer_completed_at;
+
+            if ($side && $hire->status === 'accepted' && $theirs && ! $mine && ! $hire->disputed_at) {
+                $hire->forceFill(['disputed_at' => now()])->save();
+                app(\App\Services\NotificationService::class)->hireDisputed($hire, $reported->id);
+            }
+        }
+
+        /*
             Deliberately no detail in the response.
 
             Confirming that a report "will be reviewed within X" or revealing
@@ -138,11 +166,13 @@ class ReportController extends Controller
     }
 
     /*
-        The report as the reported person may see it.
+        The report as the reported person may see it: fair notice.
 
-        The reason and the day, so they know what to answer - never who
-        filed it or what they wrote, which would turn a report into a
-        conversation the reporter did not ask for.
+        The rule and what it covers, the day, and their own content that was
+        reported, as it was at that moment - enough to answer it. Never who
+        filed it, what they wrote, or the photos they sent: those would turn
+        a report into a conversation the reporter did not ask for, and a
+        screenshot can name them.
     */
     public function showForReported(Request $request, Report $report)
     {
@@ -150,18 +180,30 @@ class ReportController extends Controller
             return $this->fail('Not found.', 404);
         }
 
+        $report->load('strike');
+
         return $this->ok([
             'id'           => $report->id,
             'reason'       => $report->reasonLabel(),
+            'rule'         => ModerationReasons::REPORT[$report->reason_code]['description'] ?? null,
             'about'        => $report->reported_type,
+            'content'      => $report->snapshot,
             'filed_at'     => $report->created_at,
+            'reply_by'     => $report->replyBy(),
             'status'       => $report->status,
+            'outcome'      => match (true) {
+                $report->strike !== null      => $report->strike->actionLabel(),
+                $report->status === 'resolved',
+                $report->status === 'dismissed' => 'Closed with no action against you',
+                default                       => null,
+            },
             'can_respond'  => $this->canRespond($report),
             'response'     => $report->response,
+            'photos_sent'  => count($report->response_evidence ?? []),
         ]);
     }
 
-    /** Their side, once, while the report is still open. */
+    /** Their side, once, while the report is still open, with up to three photos. */
     public function respond(Request $request, Report $report)
     {
         if ($report->reported_id !== $request->user()->id) {
@@ -176,11 +218,20 @@ class ReportController extends Controller
 
         $data = $request->validate([
             'response' => ['required', 'string', 'min:10', 'max:1000'],
+            'photos'   => ['nullable', 'array', 'max:3'],
+            'photos.*' => ['image', 'mimes:jpg,jpeg,png,webp', 'max:5120'],
         ]);
 
+        $disk = config('filesystems.documents');
+
         $report->update([
-            'response'     => $data['response'],
-            'responded_at' => now(),
+            'response'          => $data['response'],
+            'responded_at'      => now(),
+            'response_evidence' => $request->hasFile('photos')
+                ? collect($request->file('photos'))
+                    ->map(fn ($photo) => $photo->store("report_evidence/{$report->id}/reply", $disk))
+                    ->values()->all()
+                : null,
         ]);
 
         return $this->ok(null, 'Thank you. Your side is with our team.');
@@ -223,6 +274,20 @@ class ReportController extends Controller
                     ? ['kind' => 'Job post', 'title' => $job->title, 'text' => $job->description,
                        'location' => $job->location, 'status' => $job->status]
                     : null;
+            })(),
+            'application' => (function () use ($id, $reported, $reporter) {
+                $hire = $id ? \App\Models\Application::with('job')->find($id) : null;
+                $pair = $hire ? [(int) $hire->worker_id, (int) $hire->job?->employer_id] : [];
+
+                if (! $hire || ! in_array($reporter->id, $pair, true) || ! in_array($reported->id, $pair, true)) {
+                    return null;
+                }
+
+                $marked = $reported->id === $hire->worker_id ? $hire->worker_completed_at : $hire->employer_completed_at;
+
+                return ['kind' => 'Hire', 'title' => $hire->job?->title,
+                        'text' => $marked ? 'Marked done on ' . $marked->timezone('Asia/Manila')->format('M j, Y g:i A') . '.' : null,
+                        'status' => $hire->status];
             })(),
             'community_post' => (function () use ($id, $reported) {
                 $post = $id ? \App\Models\CommunityPost::find($id) : null;

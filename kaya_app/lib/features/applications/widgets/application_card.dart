@@ -142,7 +142,7 @@ class ApplicationCard extends StatelessWidget {
             ],
             if (rejectedDate != null) ...[
               Text(
-                'Rejected $rejectedDate',
+                'Not selected $rejectedDate',
                 style: Theme.of(context).textTheme.bodySmall?.copyWith(
                   color: AppColors.error,
                 ),

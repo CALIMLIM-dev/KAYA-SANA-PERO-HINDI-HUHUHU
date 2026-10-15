@@ -167,6 +167,9 @@ void openNotification(
       AppRouter.push(context, AppRouter.reportResponse,
           arguments: {'reportId': referenceId});
 
+    case NotificationDestination.accountStatus:
+      AppRouter.push(context, AppRouter.accountStatus);
+
     case NotificationDestination.support:
       AppRouter.push(context, AppRouter.support);
 

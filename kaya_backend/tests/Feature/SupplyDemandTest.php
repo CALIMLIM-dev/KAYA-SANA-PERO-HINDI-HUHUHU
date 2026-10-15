@@ -160,6 +160,33 @@ class SupplyDemandTest extends TestCase
     }
 
     #[Test]
+    public function the_shortage_table_downloads_as_a_workbook(): void
+    {
+        foreach (range(1, 3) as $_) {
+            $this->job($this->urdaneta);
+        }
+        $this->worker($this->lingayen);
+
+        $response = $this->actingAs($this->admin())->get('/admin/supply-demand/export?days=30')->assertOk();
+        $this->assertStringContainsString('.xlsx', $response->headers->get('Content-Disposition'));
+
+        ob_start();
+        $response->baseResponse->sendContent();
+        $path = tempnam(sys_get_temp_dir(), 'xlsx');
+        file_put_contents($path, ob_get_clean());
+
+        $zip = new \ZipArchive();
+        $this->assertTrue($zip->open($path) === true);
+        $sheet = $zip->getFromName('xl/worksheets/sheet1.xml');
+        $zip->close();
+        unlink($path);
+
+        $this->assertStringContainsString('Supply and Demand by Place', $sheet);
+        $this->assertStringContainsString('Urdaneta City', $sheet);
+        $this->assertStringContainsString('Short By', $sheet);
+    }
+
+    #[Test]
     public function it_is_an_admin_page(): void
     {
         $this->actingAs(User::factory()->create())->get('/admin/supply-demand')->assertRedirect();

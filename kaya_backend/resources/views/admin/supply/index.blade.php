@@ -100,7 +100,7 @@
             @if ($place) <input type="hidden" name="place" value="{{ $place->id }}"> @endif
             <label for="trade" class="sr-only">Trade</label>
             <select id="trade" name="trade" onchange="this.form.submit()" class="px-3 py-2 border border-slate-300 rounded-lg text-sm bg-white">
-                <option value="">All trades</option>
+                <option value="">All Trades</option>
                 @foreach ($trades as $t)
                     <option value="{{ $t->id }}" @selected($tradeId === $t->id)>{{ $t->name }}</option>
                 @endforeach
@@ -198,7 +198,7 @@
                     <div class="chart-box" style="height: {{ 40 + count($summary['trades']) * 36 }}px"><canvas id="tradeChart"></canvas></div>
                 </div>
                 @if (count($summary['trades']) > 9)
-                    <button type="button" class="see-all mt-2" data-expand="trade-scroll">See all ({{ count($summary['trades']) }})</button>
+                    <button type="button" class="see-all mt-2" data-expand="trade-scroll">See All ({{ count($summary['trades']) }})</button>
                 @endif
             @endif
         </section>
@@ -207,7 +207,7 @@
             <div class="flex items-center justify-between gap-3">
                 <h2 id="skills" class="card-title">Most-Needed Skills <span class="count">{{ count($summary['skills']) }}</span></h2>
                 @if (count($summary['skills']) > 8)
-                    <button type="button" class="see-all" data-expand="skills-scroll">See all</button>
+                    <button type="button" class="see-all" data-expand="skills-scroll">See All</button>
                 @endif
             </div>
             @if (empty($summary['skills']))
@@ -238,9 +238,14 @@
         <section class="card" aria-labelledby="ranking">
             <div class="flex items-center justify-between gap-3">
                 <h2 id="ranking" class="card-title">Shortage by Place <span class="count">{{ count($ranking) }}</span></h2>
-                @if (count($ranking) > 8)
-                    <button type="button" class="see-all" data-expand="ranking-scroll">See all</button>
-                @endif
+                <div class="flex items-center gap-4">
+                    @if (count($ranking) > 8)
+                        <button type="button" class="see-all" data-expand="ranking-scroll">See All</button>
+                    @endif
+                    @if (! empty($ranking))
+                        <a href="{{ route('admin.supply.export', request()->query()) }}" class="see-all">Download Excel</a>
+                    @endif
+                </div>
             </div>
             @if (empty($ranking))
                 <div class="empty mt-4">No jobs posted here in this period</div>
@@ -276,7 +281,7 @@
         <div class="flex items-center justify-between gap-3">
             <h2 id="waiting" class="card-title">Unfilled Jobs <span class="count">{{ count($summary['waiting']) }}</span></h2>
             @if (count($summary['waiting']) > 8)
-                <button type="button" class="see-all" data-expand="waiting-scroll">See all</button>
+                <button type="button" class="see-all" data-expand="waiting-scroll">See All</button>
             @endif
         </div>
         @if (empty($summary['waiting']))

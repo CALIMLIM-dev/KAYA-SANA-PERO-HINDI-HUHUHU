@@ -118,7 +118,8 @@ void main() {
     expect(find.text('Active'), findsOneWidget);
     expect(find.textContaining('Repaint a steel gate'), findsWidgets);
     expect(find.text('Applicants (0)'), findsOneWidget);
-    expect(find.text('Matches'), findsOneWidget);
+    // Matches live inside the applicants list now, not on a button of their own.
+    expect(find.text('Matches'), findsNothing);
     expect(find.text('Manage'), findsOneWidget);
   });
 
@@ -130,7 +131,7 @@ void main() {
       ]),
     );
 
-    expect(find.text('Roster (2 of 5 hired)'), findsOneWidget);
+    expect(find.text('Hired Workers (2 of 5)'), findsOneWidget);
   });
 
   /*
@@ -187,7 +188,7 @@ void main() {
 
     expect(find.textContaining('Job number 2'), findsWidgets);
     expect(find.textContaining('Job number 3'), findsNothing);
-    expect(find.text('See all 4'), findsOneWidget);
+    expect(find.text('See All 4'), findsOneWidget);
     expect(
       find.byWidgetPredicate((w) => w is SingleChildScrollView && w.scrollDirection == Axis.horizontal),
       findsNothing,
@@ -201,7 +202,7 @@ void main() {
     );
 
     expect(find.textContaining('Job number 2'), findsWidgets);
-    expect(find.textContaining('See all'), findsNothing);
+    expect(find.textContaining('See All'), findsNothing);
   });
 
   testWidgets('nothing active means nothing drawn', (tester) async {

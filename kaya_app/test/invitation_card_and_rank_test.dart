@@ -158,8 +158,8 @@ void main() {
       ]),
     );
 
-    expect(find.text('#1 Best fit'), findsOneWidget);
-    expect(find.text('#2'), findsOneWidget);
+    expect(find.text('1'), findsOneWidget);
+    expect(find.text('2'), findsOneWidget);
   });
 
   for (final width in <double>[412, 360, 320]) {

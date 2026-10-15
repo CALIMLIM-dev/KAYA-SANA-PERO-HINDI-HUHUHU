@@ -124,11 +124,27 @@ class ExpireJobPosts extends Command
 
             $applicantIds = $open->pluck('worker_id');
 
-            DB::transaction(function () use ($job, $open) {
-                $job->forceFill(['status' => 'expired'])->save();
+            /*
+                A post with somebody already hired on it stops advertising,
+                and nothing else.
+
+                A job for several workers stays open until every spot is
+                filled, so it reached this sweep with people already working
+                on it - and expired like an empty post. "Expired" archived
+                each hired pair's chat and refused Mark complete, while they
+                were still on site; a week past the deadline the unconfirmed
+                sweep then wrote every one of those hires off as unsuccessful
+                against both people. In progress takes it off the feed and
+                leaves the work alone.
+            */
+            $hired = $job->applications()->where('status', 'accepted')->exists();
+
+            DB::transaction(function () use ($job, $open, $hired) {
+                $job->forceFill(['status' => $hired ? 'in_progress' : 'expired'])->save();
 
                 // And the threads it opened, for the same reason a
-                // finished job closes its own.
+                // finished job closes its own. A hired pair's stays: their
+                // work is live, which is what settleJob asks.
                 app(\App\Services\ConversationArchivist::class)->settleJob($job);
 
                 Application::whereIn('id', $open->pluck('id'))
@@ -151,7 +167,7 @@ class ExpireJobPosts extends Command
                 $ledger->refund($charge, 'the job post expired');
             }
 
-            $notifications->jobExpired($job, $applicantIds);
+            $notifications->jobExpired($job, $applicantIds, $hired);
         }
 
         return $due->count();

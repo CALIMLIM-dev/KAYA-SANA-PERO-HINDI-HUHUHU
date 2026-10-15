@@ -272,7 +272,7 @@ void main() {
           disposed, so looking once at the end finds nothing whether it
           rendered or not.
       */
-      final rowHeading = find.text(workerMode ? 'Promoted jobs' : 'Most hired');
+      final rowHeading = find.text(workerMode ? 'Promoted Jobs' : 'Most Hired');
       var sawRow = rowHeading.evaluate().isNotEmpty;
 
       // Scrolled, because a sliver list only lays out what is on screen and

@@ -73,14 +73,14 @@ Future<void> showInviteToJobSheet(
     final postNow = await showDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        title: const Text('No open jobs'),
+        title: const Text('No Open Jobs'),
         content: Text(
           'Post a job first, then invite $workerName from it.',
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(dialogContext, false),
-            child: const Text('Not now'),
+            child: const Text('Not Now'),
           ),
           ElevatedButton(
             onPressed: () => Navigator.pop(dialogContext, true),

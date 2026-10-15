@@ -292,7 +292,28 @@ class ApplicationController extends Controller
             ->groupBy('employer_id')
             ->pluck('total', 'employer_id');
 
-        $applications->each(function ($application) use ($conversations, $reviews, $user, $agreed, $openJobs) {
+        /*
+            When each hirer opened this worker's profile, for "the hirer
+            opened your profile" - a top-up benefit. Read from the views KAYA
+            already records when a profile is opened; one query for the list.
+        */
+        $openedBy = $user->hasToppedUp()
+            ? \App\Models\ProfileView::where('viewed_id', $user->id)
+                ->where('viewed_as', \App\Models\ProfileView::AS_WORKER)
+                ->whereIn('viewer_id', $applications->pluck('job.employer_id')->filter()->unique())
+                ->orderBy('viewed_on')
+                ->get(['viewer_id', 'viewed_on'])
+                ->groupBy('viewer_id')
+            : null;
+
+        $applications->each(function ($application) use ($conversations, $reviews, $user, $agreed, $openJobs, $openedBy) {
+            // The first time this hirer opened the profile on or after the
+            // day of the application. Null when they have not, or when this
+            // account has not topped up.
+            $application->seen_by_hirer_on = $openedBy === null ? null
+                : ($openedBy[$application->job?->employer_id] ?? collect())
+                    ->first(fn ($v) => \Illuminate\Support\Carbon::parse($v->viewed_on)->gte($application->created_at->copy()->startOfDay()))
+                    ?->viewed_on?->toDateString();
             $application->employer_open_jobs =
                 (int) ($openJobs[$application->job->employer_id ?? null] ?? 0);
 
@@ -308,6 +329,9 @@ class ApplicationController extends Controller
                 $application->job->deadline = $application->job->deadline()?->toDateString();
                 $application->job->agreed_day = $day ? \Illuminate\Support\Carbon::parse($day)->toDateString() : null;
             }
+
+            // Cancel hire, "it didn't happen", and when it settles. See HireCancellation::actions.
+            $application->hire_actions = app(\App\Services\HireCancellation::class)->actions($application, 'worker');
 
             /*
                 Only where this application actually unlocked messaging.
@@ -557,6 +581,8 @@ class ApplicationController extends Controller
                     // How many of this employer's other jobs this worker has
                     // already finished. 0 for a stranger.
                     'times_hired_before'    => (int) ($previousHires[$worker->id] ?? 0),
+                    'hire_actions'          => app(\App\Services\HireCancellation::class)
+                        ->actions($app->setRelation('job', $job), 'employer'),
                     // Who they are, and the resume block. Shared with the
                     // worker's own preview of this card - see ResumeBlock.
                     ...\App\Support\ResumeBlock::fields($worker, $profile, $experience),
@@ -627,9 +653,75 @@ class ApplicationController extends Controller
 
         return $this->ok([
             ...$service->state($application, $side),
-            'status'     => $application->status,
-            'job_status' => $application->job?->status,
+            'status'       => $application->status,
+            'job_status'   => $application->job?->status,
+            'hire_actions' => app(\App\Services\HireCancellation::class)->actions($application, $side),
         ]);
+    }
+
+    /*
+        Cancel hire. See HireCancellation for when it ends at once and when
+        it waits for the other side.
+    */
+    public function cancelHire(Request $request, Application $application, \App\Services\HireCancellation $cancellations)
+    {
+        $application->loadMissing('job.employer', 'worker');
+        $user = $request->user();
+
+        if (app(JobCompletionService::class)->sideFor($application, $user) === null) {
+            return $this->fail('You were not part of this job', 403);
+        }
+        if ($why = $cancellations->refusal($application, $user)) {
+            return $this->fail($why, 422);
+        }
+        if ($application->cancel_requested_at !== null) {
+            return $this->fail((int) $application->cancel_requested_by === $user->id
+                ? 'You have already asked to cancel this hire.'
+                : 'The other side has already asked to cancel. You can agree to it.', 422);
+        }
+
+        $data = $request->validate([
+            'reason' => ['required', \Illuminate\Validation\Rule::in(array_keys(\App\Services\HireCancellation::REASONS))],
+            'note'   => ['nullable', 'string', 'max:280'],
+        ]);
+
+        $outcome = $cancellations->request($application, $user, $data['reason'], $data['note'] ?? null);
+
+        return $this->ok(['outcome' => $outcome], $outcome === 'cancelled'
+            ? 'The hire is cancelled.'
+            : 'Asked. It cancels when they agree, or by itself on '
+                . $cancellations->cancelsAt($application)->timezone('Asia/Manila')->format('M j, g:i A') . '.');
+    }
+
+    /** Take back your own request to cancel. */
+    public function keepHire(Request $request, Application $application, \App\Services\HireCancellation $cancellations)
+    {
+        if ($application->status !== 'accepted' || (int) $application->cancel_requested_by !== $request->user()->id) {
+            return $this->fail('There is no request of yours to take back.', 422);
+        }
+
+        $cancellations->withdraw($application);
+
+        return $this->ok(null, 'The hire stays.');
+    }
+
+    /** The other side agrees: cancelled now, with no mark on either. */
+    public function agreeToCancel(Request $request, Application $application, \App\Services\HireCancellation $cancellations)
+    {
+        $application->loadMissing('job.employer', 'worker');
+        $user = $request->user();
+
+        if (app(JobCompletionService::class)->sideFor($application, $user) === null) {
+            return $this->fail('You were not part of this job', 403);
+        }
+        if ($application->status !== 'accepted' || $application->cancel_requested_at === null
+            || (int) $application->cancel_requested_by === $user->id) {
+            return $this->fail('There is no request from the other side to agree to.', 422);
+        }
+
+        $cancellations->agree($application);
+
+        return $this->ok(null, 'The hire is cancelled.');
     }
 
     public function complete(Request $request, Application $application)
@@ -675,10 +767,10 @@ class ApplicationController extends Controller
             What the deadline gates now is the *lone* confirmation, which is
             the thing it was really protecting against: an employer leaning on
             somebody to confirm, or a worker collecting a review early. Before
-            the deadline a single confirmation is a request and waits. After
-            the deadline plus the grace window, kaya:settle-overdue-jobs takes
-            it as agreed. Neither side can finish a job alone on the day they
-            were hired, which was the whole intent.
+            the deadline a single confirmation is a request and waits. A hire
+            still short of both confirmations a week past the deadline is
+            closed as unsuccessful by kaya:close-unconfirmed-hires. Neither
+            side can finish a job alone, which was the whole intent.
         */
 
         $application = $service->confirm($application, $side);

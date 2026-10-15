@@ -228,7 +228,7 @@ class _InvitationCardState extends State<InvitationCard> {
           : () => AppRouter.push(context, AppRouter.jobDetails,
               arguments: {'jobId': jobId}),
       style: _outlined(AppColors.primary),
-      child: const Text('View job'),
+      child: const Text('View Job'),
     );
 
     if (status == 'pending') {
@@ -324,7 +324,7 @@ class _InvitationCardState extends State<InvitationCard> {
     final ok = await showDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        title: const Text('Accept invitation?'),
+        title: const Text('Accept Invitation?'),
         content: Text('You will be hired for "$_jobTitle" and can message the employer after.'),
         actions: [
           TextButton(
@@ -376,7 +376,7 @@ class _InvitationCardState extends State<InvitationCard> {
     final ok = await showDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        title: const Text('Decline invitation?'),
+        title: const Text('Decline Invitation?'),
         content: Text('Decline the invitation for "$_jobTitle"?'),
         actions: [
           TextButton(

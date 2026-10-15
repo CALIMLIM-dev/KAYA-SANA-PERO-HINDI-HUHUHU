@@ -140,15 +140,28 @@ class ModerationTest extends TestCase
     }
 
     #[Test]
-    public function a_permanent_suspension_has_no_end_date(): void
+    public function a_permanent_ban_needs_a_second_administrator(): void
     {
         $user = User::factory()->create();
+        $first = $this->admin();
 
-        $this->actingAs($this->admin())->post("/admin/users/{$user->id}/suspend", [
+        $this->actingAs($first)->post("/admin/users/{$user->id}/suspend", [
             'reason_code' => 'fraud',
             'duration'    => 'permanent',
+            'note'        => 'Took a deposit and never came.',
         ])->assertRedirect();
 
+        // In effect at once, as a suspension with an end, until confirmed.
+        $this->assertTrue($user->fresh()->is_suspended);
+        $this->assertNotNull($user->fresh()->suspended_until);
+        $strike = $user->strikes()->firstOrFail();
+        $this->assertTrue($strike->isPendingBan());
+
+        // Not by the administrator who proposed it.
+        $this->actingAs($first)->post("/admin/strikes/{$strike->id}/confirm")->assertSessionHasErrors('ban');
+        $this->assertNotNull($user->fresh()->suspended_until);
+
+        $this->actingAs($this->admin())->post("/admin/strikes/{$strike->id}/confirm")->assertRedirect();
         $this->assertTrue($user->fresh()->is_suspended);
         $this->assertNull($user->fresh()->suspended_until);
     }
@@ -164,6 +177,7 @@ class ModerationTest extends TestCase
         $this->actingAs($this->admin())->post("/admin/users/{$user->id}/suspend", [
             'reason_code' => 'harassment',
             'duration'    => 'permanent',
+            'note'        => 'Threatening messages to two workers.',
         ]);
 
         // A ban that leaves a live session on a phone is not a ban until that
@@ -193,6 +207,7 @@ class ModerationTest extends TestCase
         $this->actingAs($this->admin())->post("/admin/users/{$other->id}/suspend", [
             'reason_code' => 'fraud',
             'duration'    => 'permanent',
+            'note'        => 'An administrator is not moderated here.',
         ]);
 
         $this->assertFalse($other->fresh()->is_suspended);
@@ -222,7 +237,7 @@ class ModerationTest extends TestCase
     // ── Acting on a report ───────────────────────────────────────────────────
 
     #[Test]
-    public function suspending_from_a_report_closes_it_in_the_same_action(): void
+    public function a_strike_from_a_report_closes_it_in_the_same_action(): void
     {
         $admin  = $this->admin();
         $target = User::factory()->create();
@@ -234,11 +249,15 @@ class ModerationTest extends TestCase
             'reason'      => 'Scam or fraud',
             'status'      => 'pending',
         ]);
+        // Past the time they had to answer.
+        $report->forceFill(['created_at' => now()->subDays(3)])->save();
 
-        $this->actingAs($admin)->post("/admin/reports/{$report->id}/suspend", [
-            'reason_code' => 'fraud',
-            'duration'    => 'permanent',
-            'note'        => 'Three separate complaints.',
+        // Fraud skips the ladder: a ban, held as a suspension until confirmed.
+        $this->actingAs($admin)->post("/admin/reports/{$report->id}/resolve", [
+            'status'          => 'resolved',
+            'action'          => 'strike',
+            'reason_code'     => 'fraud',
+            'resolution_note' => 'Three separate complaints.',
         ])->assertRedirect();
 
         // Both halves, or the report is marked handled against an untouched account.

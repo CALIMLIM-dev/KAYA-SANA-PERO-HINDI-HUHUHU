@@ -44,19 +44,29 @@ class AccountDeletionService
     /** Why the account cannot be deleted right now, or null when it can. */
     public function blocker(User $user): ?string
     {
-        $hiring = $user->postedJobs()->where('status', 'in_progress')->count();
+        /*
+            Any live hire, not only jobs marked in progress.
+
+            A job for several workers stays open until it is full, so its
+            hires were invisible to this check and either person could
+            delete their account in the middle of the work.
+        */
+        $hiring = $user->postedJobs()
+            ->whereIn('status', ['open', 'in_progress'])
+            ->whereHas('applications', fn ($q) => $q->where('status', 'accepted'))
+            ->count();
         if ($hiring > 0) {
             return 'You have ' . $hiring . ' job' . ($hiring === 1 ? '' : 's')
-                . ' with a worker on it. Finish or cancel ' . ($hiring === 1 ? 'it' : 'them') . ' first.';
+                . ' with a worker on it. Finish ' . ($hiring === 1 ? 'it' : 'them') . ' or cancel the hire first.';
         }
 
         $working = Application::where('worker_id', $user->id)
             ->where('status', 'accepted')
-            ->whereHas('job', fn ($q) => $q->where('status', 'in_progress'))
+            ->whereHas('job', fn ($q) => $q->whereIn('status', ['open', 'in_progress']))
             ->count();
         if ($working > 0) {
             return 'You are hired on ' . $working . ' job' . ($working === 1 ? '' : 's')
-                . ' that is not finished. Finish ' . ($working === 1 ? 'it' : 'them') . ' first.';
+                . ' that is not finished. Finish ' . ($working === 1 ? 'it' : 'them') . ' or cancel the hire first.';
         }
 
         return null;

@@ -139,7 +139,7 @@ class AdminPanelTest extends TestCase
 
         $this->actingAs($admin)->post("/admin/verifications/{$doc->id}/reject", ['reason' => 'Blurry scan']);
         $this->actingAs($admin)->post("/admin/users/{$user->id}/suspend", [
-            'reason_code' => 'fraud', 'duration' => '7',
+            'reason_code' => 'fraud', 'duration' => '7', 'note' => 'Business permit was forged.',
         ]);
         $this->actingAs($admin)->post("/admin/users/{$user->id}/activate");
 
@@ -411,7 +411,7 @@ class AdminPanelTest extends TestCase
             ->assertSee('Verifications waiting')
             ->assertSee('TINs not checked')
             // "On the platform" named no list. It is the recent activity feed.
-            ->assertSee('Recent activity')
+            ->assertSee('Recent Activity')
             ->assertSee('Admin Actions');
     }
 
@@ -444,7 +444,7 @@ class AdminPanelTest extends TestCase
         $this->actingAs($this->admin())->get("/admin/users/{$company->id}")
             ->assertOk()
             ->assertSee('Business reg')
-            ->assertSee('Open document (PDF)')
+            ->assertSee('Open Document (PDF)')
             ->assertSee(route('admin.verifications.show', $doc));
 
         $this->actingAs($this->admin())->get("/admin/verifications/{$doc->id}")

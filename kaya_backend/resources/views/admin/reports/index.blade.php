@@ -18,6 +18,24 @@
     $severityTone = ['high' => 'text-red-700', 'medium' => 'text-amber-700', 'low' => 'text-slate-500'];
 @endphp
 
+{{-- How moderation itself is doing, last 90 days. --}}
+<div class="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-3 mb-4">
+    @foreach ([
+        ['Decided', $stats['decided'], ''],
+        ['Upheld', $stats['upheld_rate'], '%'],
+        ['Median Time to Decide', $stats['median_hours'], ' h'],
+        ['Appeals Overturned', $stats['overturn_rate'], '%'],
+        ['Made in Bad Faith', $stats['baseless'], ''],
+        ['Strikes Counting', $stats['counting'], ''],
+    ] as [$label, $value, $unit])
+        <div class="bg-white rounded-xl border border-slate-200 px-4 py-3">
+            <p class="text-xs text-slate-500">{{ $label }}</p>
+            <p class="mt-1 text-xl font-semibold text-slate-900 tabular-nums">{{ $value === null ? '-' : $value . $unit }}</p>
+        </div>
+    @endforeach
+</div>
+<p class="-mt-2 mb-4 text-xs text-slate-400">Last 90 days. Appeals overturned is out of {{ $stats['appeals'] }} decided.</p>
+
 <div class="bg-white rounded-xl border border-slate-200">
     {{-- The same tabs as Community, the other queue that is worked through. --}}
     <div class="px-5 py-4 border-b border-slate-100 flex flex-wrap items-center gap-1">
@@ -55,7 +73,7 @@
             <table class="w-full text-sm">
                 <thead>
                     <tr class="text-left text-xs text-slate-400 border-b border-slate-100">
-                        <th class="py-3 px-5 font-medium">Reported account</th>
+                        <th class="py-3 px-5 font-medium">Reported Account</th>
                         <th class="py-3 px-5 font-medium">Reason</th>
                         <th class="py-3 px-5 font-medium">Severity</th>
                         <th class="py-3 px-5 font-medium">Filed by</th>

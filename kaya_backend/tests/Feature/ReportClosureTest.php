@@ -31,7 +31,7 @@ class ReportClosureTest extends TestCase
 
     private function report(): Report
     {
-        return Report::create([
+        $report = Report::create([
             'reporter_id' => User::factory()->create()->id,
             'reported_id' => User::factory()->create()->id,
             'reason'      => 'harassment',
@@ -39,6 +39,10 @@ class ReportClosureTest extends TestCase
             'details'     => 'Abusive messages.',
             'status'      => 'pending',
         ]);
+        // Past the time the reported person had to give their side.
+        $report->forceFill(['created_at' => now()->subDays(3)])->save();
+
+        return $report;
     }
 
     #[Test]
@@ -61,7 +65,9 @@ class ReportClosureTest extends TestCase
         $this->actingAs($this->admin())
             ->post("/admin/reports/{$report->id}/resolve", [
                 'status'          => 'resolved',
-                'action'          => 'warned',
+                'action'          => 'strike',
+                // A first strike for a ladder rule is a warning.
+                'reason_code'     => 'inappropriate_content',
                 'resolution_note' => 'Keep the language civil.',
             ])
             ->assertRedirect(route('admin.reports.index'));
@@ -69,7 +75,7 @@ class ReportClosureTest extends TestCase
         $report->refresh();
 
         $this->assertSame('resolved', $report->status);
-        $this->assertStringStartsWith('Warned', (string) $report->resolution_note);
+        $this->assertStringStartsWith('Strike: Warning', (string) $report->resolution_note);
 
         $this->assertDatabaseHas('user_notifications', [
             'user_id' => $report->reported_id,

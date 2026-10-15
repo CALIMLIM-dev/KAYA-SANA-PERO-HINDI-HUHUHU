@@ -162,18 +162,18 @@ class _BadgesScreenState extends State<BadgesScreen> {
           ),
           const SizedBox(height: 16),
           if (_account.isNotEmpty) ...[
-            _heading('Your account'),
+            _heading('Your Account'),
             ..._account.map(_tile),
           ],
           if (_worker.isNotEmpty) ...[
             if (_account.isNotEmpty) const SizedBox(height: 24),
-            _heading('As a worker'),
+            _heading('As a Worker'),
             ..._worker.map(_tile),
           ],
           if (_employer.isNotEmpty) ...[
             if (_account.isNotEmpty || _worker.isNotEmpty)
               const SizedBox(height: 24),
-            _heading('As an employer'),
+            _heading('As an Employer'),
             ..._employer.map(_tile),
           ],
           if (_account.isEmpty && _worker.isEmpty && _employer.isEmpty)

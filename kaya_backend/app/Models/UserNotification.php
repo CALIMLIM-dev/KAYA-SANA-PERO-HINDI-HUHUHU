@@ -118,6 +118,7 @@ class UserNotification extends Model
             'community'    => 'account',
             // Being reported, and hearing the outcome, is account business.
             'report'       => 'account',
+            'moderation'   => 'account',
         ][explode('.', $type)[0]] ?? 'jobs';
     }
 
@@ -145,7 +146,7 @@ class UserNotification extends Model
             'id'             => $this->id,
             'type'           => $this->type,
             'audience'       => $this->audience,
-            'title'          => $this->title,
+            'title'          => $this->type === 'announcement.sent' ? $this->title : self::titleCase((string) $this->title),
             'body'           => $this->body,
             'reference_type' => $this->reference_type,
             'reference_id'   => $this->reference_id,
@@ -154,6 +155,28 @@ class UserNotification extends Model
             'created_at'     => $this->created_at?->toIso8601String(),
             'age'            => $this->created_at?->diffForHumans(),
         ];
+    }
+
+    /**
+     * Titles are labels in the app, so they read in Title Case. Done here, on
+     * the way out, so every title follows one rule - rows written before it
+     * included. Only the first letter of a word is raised, never the rest
+     * lowered, so "KAYA" stays KAYA. An admin's announcement is shown as typed.
+     */
+    public static function titleCase(string $title): string
+    {
+        $minor = ['a', 'an', 'the', 'and', 'or', 'nor', 'but', 'of', 'to', 'in', 'on', 'at', 'for', 'by', 'with', 'from', 'per', 'as', 'via'];
+        $words = explode(' ', $title);
+        $last = count($words) - 1;
+
+        foreach ($words as $i => $word) {
+            if ($i > 0 && $i < $last && in_array(mb_strtolower($word), $minor, true)) {
+                continue;
+            }
+            $words[$i] = mb_strtoupper(mb_substr($word, 0, 1)) . mb_substr($word, 1);
+        }
+
+        return implode(' ', $words);
     }
 
     public function scopeUnread($query)

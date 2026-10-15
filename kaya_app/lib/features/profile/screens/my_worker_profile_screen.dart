@@ -24,6 +24,7 @@ import '../../../core/widgets/app_toast.dart';
 import '../../../core/widgets/verification_card.dart';
 import '../../../core/widgets/verify_gate.dart';
 import '../../../core/widgets/verification_badge_widget.dart';
+import '../widgets/profile_views_popup.dart';
 import '../../../core/navigation/app_router.dart';
 
 /// My Worker Profile - JobStreet-inspired card layout
@@ -186,7 +187,7 @@ class _MyWorkerProfileScreenState extends State<MyWorkerProfileScreen> with Sing
     final choice = await showDialog<String>(
       context: context,
       builder: (_) => SimpleDialog(
-        title: const Text('Profile photo'),
+        title: const Text('Profile Photo'),
         children: [
           if (hasPhoto)
             SimpleDialogOption(
@@ -195,7 +196,7 @@ class _MyWorkerProfileScreenState extends State<MyWorkerProfileScreen> with Sing
             ),
           SimpleDialogOption(
             onPressed: () => Navigator.pop(context, 'gallery'),
-            child: Text(hasPhoto ? 'Choose a new one' : 'Choose from gallery'),
+            child: Text(hasPhoto ? 'Choose a New One' : 'Choose from Gallery'),
           ),
           SimpleDialogOption(
             onPressed: () => Navigator.pop(context, 'camera'),
@@ -515,7 +516,7 @@ class _MyWorkerProfileScreenState extends State<MyWorkerProfileScreen> with Sing
                                   children: [
                                     // Name — always visible
                                     Text(
-                                      context.watch<WorkerProfileProvider>().name ?? 'Add your name',
+                                      context.watch<WorkerProfileProvider>().name ?? 'Add Your Name',
                                       style: TextStyle(
                                         fontSize: 20,
                                         fontWeight: FontWeight.bold,
@@ -728,7 +729,7 @@ class _MyWorkerProfileScreenState extends State<MyWorkerProfileScreen> with Sing
                                       Icon(Icons.visibility, size: 13, color: AppColors.primary),
                                       SizedBox(width: 5),
                                       Text(
-                                        'Set your profile visibility',
+                                        'Set Your Profile Visibility',
                                         style: TextStyle(
                                           fontSize: 11,
                                           fontWeight: FontWeight.w600,
@@ -915,7 +916,7 @@ class _MyWorkerProfileScreenState extends State<MyWorkerProfileScreen> with Sing
     final yes = await showDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        title: const Text('Update your location?'),
+        title: const Text('Update Your Location?'),
         content: Text(
           'Your pin is in ${resolved.displayName}. Match your profile to it?',
         ),
@@ -972,7 +973,7 @@ class _MyWorkerProfileScreenState extends State<MyWorkerProfileScreen> with Sing
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  boosted ? 'Your profile is boosted' : 'Boost your profile',
+                  boosted ? 'Your Profile Is Boosted' : 'Boost Your Profile',
                   style: const TextStyle(
                     fontSize: 14.5,
                     fontWeight: FontWeight.w600,
@@ -1137,7 +1138,7 @@ class _MyWorkerProfileScreenState extends State<MyWorkerProfileScreen> with Sing
               textStyle:
                   const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600),
             ),
-            child: const Text('See what employers see'),
+            child: const Text('See What Employers See'),
           ),
         ],
       ),
@@ -1155,40 +1156,49 @@ class _MyWorkerProfileScreenState extends State<MyWorkerProfileScreen> with Sing
     final people = n == 1 ? 'employer' : 'employers';
     final window = views.days == 7 ? 'this week' : 'in the last ${views.days} days';
 
-    return Container(
-      margin: const EdgeInsets.only(bottom: 16),
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-      decoration: BoxDecoration(
-        color: AppColors.primary.withValues(alpha: 0.08),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.primary.withValues(alpha: 0.2)),
-      ),
-      child: Row(
-        children: [
-          const Icon(Icons.visibility_outlined,
-              size: 20, color: AppColors.primary),
-          const SizedBox(width: 12),
-          // Expanded + soft wrapping: the sentence changes length with the
-          // number and the window, and a fixed row here would overflow on a
-          // narrow screen.
-          Expanded(
-            child: RichText(
-              text: TextSpan(
-                style: const TextStyle(
-                    fontSize: 13.5, color: AppColors.neutral700),
-                children: [
-                  TextSpan(
-                    text: '$n $people ',
-                    style: const TextStyle(
-                        fontWeight: FontWeight.w700,
-                        color: AppColors.neutral900),
-                  ),
-                  TextSpan(text: 'viewed your profile $window'),
-                ],
+    // Opens who viewed you and your weeks - a top-up benefit; the count
+    // here stays free.
+    return InkWell(
+      onTap: () => showProfileViewsPopup(context),
+      borderRadius: BorderRadius.circular(12),
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 16),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        decoration: BoxDecoration(
+          color: AppColors.primary.withValues(alpha: 0.08),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: AppColors.primary.withValues(alpha: 0.2)),
+        ),
+        child: Row(
+          children: [
+            const Icon(Icons.visibility_outlined,
+                size: 20, color: AppColors.primary),
+            const SizedBox(width: 12),
+            // Expanded + soft wrapping: the sentence changes length with the
+            // number and the window, and a fixed row here would overflow on a
+            // narrow screen.
+            Expanded(
+              child: RichText(
+                text: TextSpan(
+                  style: const TextStyle(
+                      fontSize: 13.5, color: AppColors.neutral700),
+                  children: [
+                    TextSpan(
+                      text: '$n $people ',
+                      style: const TextStyle(
+                          fontWeight: FontWeight.w700,
+                          color: AppColors.neutral900),
+                    ),
+                    TextSpan(text: 'viewed your profile $window'),
+                  ],
+                ),
               ),
             ),
-          ),
-        ],
+            const Text('View',
+                style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppColors.primary)),
+            const Icon(Icons.chevron_right, size: 18, color: AppColors.primary),
+          ],
+        ),
       ),
     );
   }
@@ -1212,7 +1222,7 @@ class _MyWorkerProfileScreenState extends State<MyWorkerProfileScreen> with Sing
         */
         if (!p.isBoosted) _buildBoostCard(),
 
-        ProfileSectionHeading('About you'),
+        ProfileSectionHeading('About You'),
 
         /*
             Edited here rather than on a screen of its own.
@@ -1230,7 +1240,7 @@ class _MyWorkerProfileScreenState extends State<MyWorkerProfileScreen> with Sing
             rather than as a rule. It now says so before the tap.
         */
         InlineEditRow(
-          label: 'Full name',
+          label: 'Full Name',
           value: p.name,
           maxLength: 100,
           // No note, and so no popup on tap: the row carries a lock
@@ -1258,7 +1268,7 @@ class _MyWorkerProfileScreenState extends State<MyWorkerProfileScreen> with Sing
             since it was built, and this is the first place it can be typed.
         */
         InlineEditRow(
-          label: 'About your work',
+          label: 'About Your Work',
           value: p.bio,
           emptyLabel: 'Not written yet',
           maxLines: 4,
@@ -1325,7 +1335,7 @@ class _MyWorkerProfileScreenState extends State<MyWorkerProfileScreen> with Sing
             copy could finish the job. One row now holds both: enter it, get a
             code, confirm it.
         */
-        ProfileSectionHeading('Your work'),
+        ProfileSectionHeading('Your Work'),
 
         // Skills Card - Using Selector to prevent unnecessary rebuilds
         Selector<WorkerProfileProvider, List<WorkerSkillModel>>(
@@ -1609,16 +1619,16 @@ class _MyWorkerProfileScreenState extends State<MyWorkerProfileScreen> with Sing
     return Column(
       children: [
         ContactVerifyRow(
-          label: 'Phone number',
+          label: 'Phone Number',
           value: auth.user?['phone'] as String?,
           verified: auth.user?['phone_verified'] == true,
-          onTap: () => open('phone', 'Verify phone'),
+          onTap: () => open('phone', 'Verify Phone'),
         ),
         ContactVerifyRow(
           label: 'Email',
           value: auth.user?['email'] as String?,
           verified: auth.user?['email_verified'] == true,
-          onTap: () => open('email', 'Verify email'),
+          onTap: () => open('email', 'Verify Email'),
         ),
       ],
     );

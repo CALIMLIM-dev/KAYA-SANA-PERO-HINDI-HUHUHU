@@ -961,6 +961,8 @@ class JobController extends Controller
                         'status'                => $hire->status,
                         'employer_completed_at' => $hire->employer_completed_at,
                         'worker_completed_at'   => $hire->worker_completed_at,
+                        'hire_actions'          => app(\App\Services\HireCancellation::class)
+                            ->actions($hire->setRelation('job', $job), 'employer'),
                         'i_reviewed_them'       => isset($reviewsGiven[$job->id]),
                         // The Review button goes when the window does.
                         'review_closes_at'      => $hire->reviewClosesAt()?->toIso8601String(),
@@ -1194,6 +1196,26 @@ class JobController extends Controller
         $skillIds = $data['required_skill_ids'] ?? null;
         unset($data['required_skill_ids']);
 
+        /*
+            The pay somebody was hired at does not move under them.
+
+            A job for several workers stays open, and editable, after its
+            first hire - so the pay a worker agreed to could be lowered the
+            day after. Anything different is agreed in the chat with the
+            people it affects.
+        */
+        if ($job->filledCount() > 0) {
+            $changed = fn (string $f) => array_key_exists($f, $data) && (
+                in_array($f, ['budget_min', 'budget_max'], true)
+                    ? ($data[$f] === null) !== ($job->{$f} === null) || (float) $data[$f] !== (float) $job->{$f}
+                    : (string) $data[$f] !== (string) $job->{$f}
+            );
+
+            if ($changed('budget_min') || $changed('budget_max') || $changed('budget_period')) {
+                return $this->fail('Somebody is already hired at this pay, so it cannot change. Agree any change in the chat.', 422);
+            }
+        }
+
         // Fewer spots than people already hired would leave somebody hired
         // on a job that has no place for them.
         if (isset($data['workers_needed']) && (int) $data['workers_needed'] < $job->filledCount()) {
@@ -1367,6 +1389,19 @@ class JobController extends Controller
             return $this->ok($job, $job->status === 'completed'
                 ? 'Both sides confirmed — this job is complete'
                 : 'Marked complete. Waiting for the worker to confirm.');
+        }
+
+        /*
+            Not closed with somebody hired on it.
+
+            Closing was the only way out of a hire, and it was a silent one:
+            the worker was never told, could no longer mark the job complete,
+            and a week past the deadline the hire was written off against
+            both of them. Cancel hire is the way out now, and it tells them.
+        */
+        if ($request->status === 'closed'
+            && Application::where('job_id', $job->id)->where('status', 'accepted')->exists()) {
+            return $this->fail('Somebody is hired on this job. Cancel the hire first.', 422);
         }
 
         \Illuminate\Support\Facades\DB::transaction(function () use ($job, $request) {

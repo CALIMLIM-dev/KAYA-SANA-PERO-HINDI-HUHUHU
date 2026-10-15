@@ -80,11 +80,11 @@ class AccountDeletionTest extends TestCase
 
         $this->actingAs($employer)->deleteJson('/api/v1/me', ['password' => 'secret123'])
             ->assertStatus(422)
-            ->assertJsonPath('message', 'You have 1 job with a worker on it. Finish or cancel it first.');
+            ->assertJsonPath('message', 'You have 1 job with a worker on it. Finish it or cancel the hire first.');
 
         $this->actingAs($worker)->deleteJson('/api/v1/me', ['password' => 'secret123'])
             ->assertStatus(422)
-            ->assertJsonPath('message', 'You are hired on 1 job that is not finished. Finish it first.');
+            ->assertJsonPath('message', 'You are hired on 1 job that is not finished. Finish it or cancel the hire first.');
     }
 
     #[Test]

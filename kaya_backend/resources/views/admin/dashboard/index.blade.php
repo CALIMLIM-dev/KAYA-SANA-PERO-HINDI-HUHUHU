@@ -26,7 +26,7 @@
     </div>
     <div class="grid grid-cols-5 gap-4">
         @php
-            $labels = ['signups' => 'Sign-ups', 'jobs' => 'Jobs posted', 'applications' => 'Applications', 'hires' => 'Hires', 'revenue' => 'Top-up revenue'];
+            $labels = ['signups' => 'Sign-ups', 'jobs' => 'Jobs Posted', 'applications' => 'Applications', 'hires' => 'Hires', 'revenue' => 'Top-up Revenue'];
         @endphp
         @foreach ($daily as $key => $pair)
             @php
@@ -49,7 +49,7 @@
     {{-- Signup trend --}}
     <div class="col-span-2 bg-white rounded-xl border border-slate-200 p-5">
         <div class="flex items-center justify-between mb-4">
-            <h3 class="text-sm font-semibold text-slate-700">New accounts, last 14 days</h3>
+            <h3 class="text-sm font-semibold text-slate-700">New Accounts, Last 14 Days</h3>
             <span class="text-xs text-slate-400">{{ $stats['total_users'] }} users: {{ $stats['total_workers'] }} workers, {{ $stats['total_employers'] }} employers, {{ $stats['suspended_users'] }} suspended</span>
         </div>
         <canvas id="signupChart" height="110"></canvas>
@@ -58,7 +58,7 @@
     {{-- Jobs by category --}}
     <div class="bg-white rounded-xl border border-slate-200 p-5">
         <div class="flex items-center justify-between mb-4">
-            <h3 class="text-sm font-semibold text-slate-700">Jobs by category</h3>
+            <h3 class="text-sm font-semibold text-slate-700">Jobs by Category</h3>
             <a href="{{ route('admin.jobs.index') }}" class="text-xs text-blue-600 font-medium">{{ $stats['open_jobs'] }} open</a>
         </div>
         <canvas id="categoryChart" height="180"></canvas>
@@ -68,7 +68,7 @@
 <div class="grid grid-cols-2 gap-4">
     {{-- What happened --}}
     <div class="bg-white rounded-xl border border-slate-200 p-5">
-        <h3 class="text-sm font-semibold text-slate-700 mb-4">Recent activity</h3>
+        <h3 class="text-sm font-semibold text-slate-700 mb-4">Recent Activity</h3>
         <div class="space-y-3">
             @forelse ($activity as $item)
                 @php
@@ -96,7 +96,7 @@
     <div class="bg-white rounded-xl border border-slate-200 p-5">
         <div class="flex items-center justify-between mb-4">
             <h3 class="text-sm font-semibold text-slate-700">Admin Actions</h3>
-            <a href="{{ route('admin.audit.index') }}" class="text-xs text-blue-600 font-medium">Full log</a>
+            <a href="{{ route('admin.audit.index') }}" class="text-xs text-blue-600 font-medium">Full Log</a>
         </div>
         <div class="space-y-3">
             @forelse ($adminActions as $action)

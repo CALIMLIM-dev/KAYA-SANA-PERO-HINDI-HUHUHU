@@ -127,7 +127,7 @@ class _JobDetailsScreenState extends State<JobDetailsScreen>
             children: [
               const Icon(Icons.cloud_off, size: 56, color: AppColors.neutral300),
               const SizedBox(height: 16),
-              const Text('Could not load this job',
+              const Text('Could Not Load This Job',
                   style: TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.w600,
@@ -890,12 +890,12 @@ class _JobDetailsScreenState extends State<JobDetailsScreen>
       final goToWallet = await showDialog<bool>(
         context: context,
         builder: (dialogContext) => AlertDialog(
-          title: Text('Not enough ${Credits.plural}'),
+          title: Text('Not Enough ${Credits.plural}'),
           content: Text(failure.message),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(dialogContext, false),
-              child: const Text('Not now'),
+              child: const Text('Not Now'),
             ),
             ElevatedButton(
               onPressed: () => Navigator.pop(dialogContext, true),

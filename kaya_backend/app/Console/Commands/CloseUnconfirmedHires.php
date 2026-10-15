@@ -7,35 +7,38 @@ use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
 
 /*
-    Closes hires that nobody finished confirming.
+    Settles hires that are still waiting on a confirmation.
 
     Completion takes both sides, and nothing timed out the side that never
-    came. A hire where one person confirmed and the other stopped opening the
-    app sat in 'accepted' forever: the job never reached 'completed', neither
-    party could be reviewed, the employer's card never cleared, and no screen
-    could say why.
+    came, so a hire could sit in 'accepted' forever. Once the window after the
+    deadline has passed:
 
-    The first version of this auto-confirmed on the silent party's behalf. That
-    unsticks it, but it also records that work was done which nobody vouched
-    for, and it makes confirming pointless — if the app will finish the job for
-    you, there is no reason to press the button. So the window closing is a
-    real outcome now: the hire is marked unsuccessful, and it counts against
-    the completion record of both people.
+        one side confirmed, the other silent   completed. Silence counts as
+                                               agreement - the person who
+                                               confirmed is not made to pay for
+                                               the other's absence, and an
+                                               employer cannot deny a worker a
+                                               finished job by never pressing
+                                               the button.
+        neither side confirmed                 unsuccessful, against both.
+                                               Two people who agreed to work
+                                               and neither says it happened is
+                                               exactly a job that did not.
 
-    Both, deliberately, and it is worth being honest that this is rough on
-    whoever did confirm. The per-side timestamps are kept, so a later scoring
-    rule can tell "I confirmed, they went quiet" from "neither of us bothered"
-    without any new data. What is not acceptable is the status quo, where
-    silence costs nothing and the other person is stuck for good.
+    Left alone: a hire whose silent side said the work did not happen (a
+    dispute - an administrator decides) and one with a cancel request open
+    (it settles that way instead).
 
-    A hire nobody confirmed at all is included: two people agreed to work and
-    neither says it happened, which is exactly a job that did not complete.
-*/
-class CloseUnconfirmedHires extends Command
+    Nobody is surprised by it. On the deadline day both sides are reminded
+    to confirm, and `remind_before_days` before the window closes whoever has
+    not confirmed is told exactly what will happen and when.
+
+    Runs once a day, so each reminder is a date match and goes out once.
+*/class CloseUnconfirmedHires extends Command
 {
     protected $signature = 'kaya:close-unconfirmed-hires {--dry-run : List what would be closed and change nothing}';
 
-    protected $description = 'Mark hires unsuccessful when the completion window passes without both sides confirming';
+    protected $description = 'Remind, then settle hires the deadline window has passed: completed if one side confirmed, unsuccessful if neither';
 
     public function handle(): int
     {
@@ -46,89 +49,94 @@ class CloseUnconfirmedHires extends Command
             return self::SUCCESS;
         }
 
-        $cutoff = now()->subDays($days);
         $dryRun = (bool) $this->option('dry-run');
+        $today = now()->startOfDay();
+        $remindAhead = (int) config('kaya.completion.remind_before_days');
+        $notify = app(\App\Services\NotificationService::class);
+        $completion = app(\App\Services\JobCompletionService::class);
+        $completed = 0;
         $closed = 0;
 
-        /*
-            Measured from the deadline, not from the first day of work.
-
-            It used to run from started_at, which is stamped when the job goes
-            in progress - so a job with a month of work in it had its hire
-            marked unsuccessful on day seven, while the two of them were still
-            on site. The window was meant to catch silence after the work was
-            over and it was catching the work itself.
-
-            JobPost::deadline() is the day they are actually held to: the
-            deadline on an accepted schedule proposal, or the post's own last
-            day, and it is exactly what the app shows them. A post with no
-            dates at all has no deadline, and those fall back to the old
-            anchor so nothing sits forever.
-
-            The cutoff cannot be expressed in SQL because the deadline can
-            come from a proposal, so the query narrows it to hires that are
-            waiting on somebody and the window is applied per row.
-        */
         Application::query()
             ->where('status', 'accepted')
             ->where(function ($q) {
                 $q->whereNull('employer_completed_at')->orWhereNull('worker_completed_at');
             })
+            ->whereNull('disputed_at')
+            ->whereNull('cancel_requested_at')
             ->with('job')
-            ->chunkById(200, function ($applications) use ($cutoff, $days, $dryRun, &$closed) {
+            ->chunkById(200, function ($applications) use ($today, $remindAhead, $dryRun, $notify, $completion, &$completed, &$closed) {
                 foreach ($applications as $application) {
-                    $deadline = $application->job?->deadline();
+                    $job = $application->job;
+                    $settlesOn = \App\Services\JobCompletionService::settlesOn($application);
 
-                    $due = $deadline
-                        ?? $application->started_at
-                        ?? $application->created_at;
-
-                    if ($due === null || $due->greaterThan($cutoff)) {
+                    if (! $job || $settlesOn === null) {
                         continue;
                     }
 
-                    // Written as a whole clause, because the three cases do
-                    // not share one. "neither side" plus "never confirmed"
-                    // read as a double negative: "neither side never
-                    // confirmed".
-                    $waiting = $application->employer_completed_at === null
-                        ? ($application->worker_completed_at === null
-                            ? 'neither side confirmed'
-                            : 'the employer never confirmed')
-                        : 'the worker never confirmed';
+                    $waitingOn = array_values(array_filter([
+                        $application->employer_completed_at === null ? $job->employer_id : null,
+                        $application->worker_completed_at === null ? $application->worker_id : null,
+                    ]));
 
-                    $this->line(($dryRun ? '[dry-run] ' : '')
-                        . "application {$application->id}: unsuccessful, {$waiting}");
+                    // ── reminders ─────────────────────────────────────────
+                    if ($today->lt($settlesOn)) {
+                        $deadline = $job->deadline();
+                        $when = match (true) {
+                            $deadline !== null && $deadline->isSameDay($today) => 'deadline',
+                            $settlesOn->copy()->subDays($remindAhead)->isSameDay($today) => 'closing',
+                            default => null,
+                        };
 
-                    if (! $dryRun) {
-                        DB::transaction(function () use ($application) {
-                            $application->status = 'unsuccessful';
-                            $application->save();
+                        if ($when !== null) {
+                            $this->line(($dryRun ? '[dry-run] ' : '') . "application {$application->id}: {$when} reminder");
+                            if (! $dryRun) {
+                                // Whoever is still to confirm; the other side already has.
+                                foreach ($waitingOn as $userId) {
+                                    $notify->hireReminder($application, $userId, $when);
+                                }
+                            }
+                        }
 
-                            /*
-                                And the job, and the thread.
-
-                                Closing the hire and stopping there is why a
-                                job never died: settleJob only runs inside a
-                                completion, so a post whose every hire had
-                                been closed as unsuccessful stayed in progress
-                                for good - on the employer's list, with Mark
-                                Complete still on the card, and the pair's
-                                thread still open. The hire was settled and
-                                nothing above it was told.
-                            */
-                            app(\App\Services\JobCompletionService::class)
-                                ->closeIfNothingLive($application->job);
-                        });
+                        continue;
                     }
 
+                    // ── settling ──────────────────────────────────────────
+                    $oneConfirmed = count($waitingOn) === 1;
+
+                    $this->line(($dryRun ? '[dry-run] ' : '') . "application {$application->id}: "
+                        . ($oneConfirmed ? 'completed, the other side never answered' : 'unsuccessful, neither side confirmed'));
+
+                    if ($dryRun) {
+                        $oneConfirmed ? $completed++ : $closed++;
+                        continue;
+                    }
+
+                    if ($oneConfirmed) {
+                        $completion->completeUnanswered($application);
+                        $completed++;
+                        continue;
+                    }
+
+                    DB::transaction(function () use ($application, $completion) {
+                        $application->status = 'unsuccessful';
+                        $application->save();
+
+                        /*
+                            And the job, and the thread.
+
+                            Closing the hire and stopping there is why a
+                            job never died: a post whose every hire had been
+                            closed as unsuccessful stayed in progress for
+                            good, with Mark Complete still on the card and
+                            the pair's thread open.
+                        */
+                        $completion->closeIfNothingLive($application->job);
+                    });
                     $closed++;
                 }
             });
-
-        $this->info($dryRun
-            ? "{$closed} hire(s) would be closed as unsuccessful."
-            : "{$closed} hire(s) closed as unsuccessful after {$days} days.");
+        $this->info(($dryRun ? '[dry-run] ' : '') . "{$completed} hire(s) completed, {$closed} closed as unsuccessful.");
 
         return self::SUCCESS;
     }

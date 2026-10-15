@@ -196,11 +196,17 @@ class AnalyticsController extends Controller
 
         $names = DB::table('skills')->whereIn('id', $demand->keys()->merge($supply->keys())->unique())->pluck('name', 'id');
 
+        // Only the skills that lack workers, the biggest shortage first. A
+        // skill with enough workers answers no question here; the full list
+        // is in the Skills download.
         return $names->map(fn ($name, $id) => [
             'name'   => $name,
             'demand' => (int) ($demand[$id] ?? 0),
             'supply' => (int) ($supply[$id] ?? 0),
-        ])->sortByDesc(fn ($r) => $r['demand'] + $r['supply'])->take(25)->values()->all();
+            'short'  => (int) ($demand[$id] ?? 0) - (int) ($supply[$id] ?? 0),
+        ])->filter(fn ($r) => $r['short'] > 0)
+            ->sortByDesc(fn ($r) => [$r['short'], $r['demand']])
+            ->take(12)->values()->all();
     }
 
     /*

@@ -267,7 +267,7 @@ class _MessagesListScreenState extends State<MessagesListScreen>
         children: [
           Icon(Icons.chat_bubble_outline, size: 56, color: AppColors.neutral300),
           const SizedBox(height: 16),
-          const Text('No conversations yet',
+          const Text('No Conversations Yet',
               style: TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.w600,

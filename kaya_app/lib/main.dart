@@ -62,7 +62,7 @@ void main() async {
               const Icon(Icons.warning_amber_rounded, size: 48, color: Colors.orange),
               const SizedBox(height: 16),
               const Text(
-                'This screen could not open',
+                'This Screen Could Not Open',
                 style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
               ),
               const SizedBox(height: 8),

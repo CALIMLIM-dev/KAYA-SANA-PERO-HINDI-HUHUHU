@@ -32,6 +32,12 @@ class ChatEvents
             $employer->name . ' hired ' . $worker->name . '.');
     }
 
+    public function cancelled(Conversation $conversation, JobPost $job, User $by, ?string $reason): void
+    {
+        $this->write($conversation, $by, 'cancelled', $job,
+            $by->name . ' cancelled the hire' . ($reason ? ': ' . $reason : '') . '.');
+    }
+
     public function confirmed(Conversation $conversation, JobPost $job, User $by): void
     {
         $this->write($conversation, $by, 'confirmed', $job,

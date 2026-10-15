@@ -53,7 +53,7 @@ void main() {
 
     expect(find.text('Help & Support'), findsOneWidget);
     expect(find.text('FAQs'), findsOneWidget);
-    expect(find.text('Message KAYA support'), findsOneWidget);
+    expect(find.text('Message KAYA Support'), findsOneWidget);
     expect(find.text('About & Legal'), findsOneWidget);
     expect(find.text('Terms & Conditions'), findsOneWidget);
     expect(find.text('Privacy Policy'), findsOneWidget);
@@ -64,29 +64,29 @@ void main() {
   testWidgets('one side only: the row goes straight to deleting the account', (tester) async {
     await render(tester, worker: true, employer: false);
 
-    await tester.scrollUntilVisible(find.text('Delete account'), 200);
-    expect(find.text('Delete account or a profile'), findsNothing);
+    await tester.scrollUntilVisible(find.text('Delete Account'), 200);
+    expect(find.text('Delete Account or a Profile'), findsNothing);
     await drain(tester);
   });
 
   testWidgets('both sides: the row offers either side, or everything', (tester) async {
     await render(tester, worker: true, employer: true);
 
-    await tester.scrollUntilVisible(find.text('Delete account or a profile'), 200);
+    await tester.scrollUntilVisible(find.text('Delete Account or a Profile'), 200);
     // Fully on screen, not just its top edge, so the tap lands on it.
-    await tester.ensureVisible(find.text('Delete account or a profile'));
+    await tester.ensureVisible(find.text('Delete Account or a Profile'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Delete account or a profile'));
-    await tester.pumpAndSettle();
-
-    expect(find.text('Remove worker profile'), findsOneWidget);
-    expect(find.text('Remove employer profile'), findsOneWidget);
-    expect(find.text('Delete account'), findsOneWidget);
-
-    await tester.tap(find.text('Remove employer profile'));
+    await tester.tap(find.text('Delete Account or a Profile'));
     await tester.pumpAndSettle();
 
-    expect(find.text('Remove your employer profile?'), findsOneWidget);
+    expect(find.text('Remove Worker Profile'), findsOneWidget);
+    expect(find.text('Remove Employer Profile'), findsOneWidget);
+    expect(find.text('Delete Account'), findsOneWidget);
+
+    await tester.tap(find.text('Remove Employer Profile'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Remove Your Employer Profile?'), findsOneWidget);
     expect(find.textContaining('your reviews stay'), findsOneWidget);
     await drain(tester);
   });

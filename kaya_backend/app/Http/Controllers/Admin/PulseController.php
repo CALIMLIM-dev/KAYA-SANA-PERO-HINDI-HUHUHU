@@ -37,6 +37,7 @@ class PulseController extends Controller
         'credit_payments',
         'admin_actions',
         'employer_profiles',
+        'strikes',
     ];
 
     public function index()
@@ -44,7 +45,7 @@ class PulseController extends Controller
         $parts = [];
 
         foreach (self::TABLES as $table) {
-            $hasUpdated = in_array($table, ['users', 'verifications', 'reports', 'reviews', 'jobs_posts', 'applications', 'community_posts', 'credit_payments', 'employer_profiles'], true);
+            $hasUpdated = in_array($table, ['users', 'verifications', 'reports', 'reviews', 'jobs_posts', 'applications', 'community_posts', 'credit_payments', 'employer_profiles', 'strikes'], true);
 
             $row = DB::table($table)
                 ->selectRaw($hasUpdated
@@ -60,6 +61,10 @@ class PulseController extends Controller
             'queues' => [
                 'verifications' => Verification::where('status', 'pending')->count(),
                 'reports'       => Report::where('status', 'pending')->count(),
+                // Appeals to decide, and bans waiting for a second admin.
+                'strikes'       => \App\Models\Strike::where('appeal_status', 'pending')
+                    ->orWhere(fn ($q) => $q->where('action', 'ban')->whereNull('confirmed_at')->whereNull('removed_at'))
+                    ->count(),
                 // Posts nobody outside KAYA can see until somebody looks.
                 'community'     => \App\Models\CommunityPost::where('status', \App\Models\CommunityPost::STATUS_PENDING)->count(),
                 // People who wrote in and have not been answered.

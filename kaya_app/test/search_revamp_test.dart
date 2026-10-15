@@ -140,12 +140,12 @@ void main() {
         expect(find.text('Where'), findsOneWidget);
         // The sheet's last control, scrolled to, so it is laid out too.
         await tester.dragUntilVisible(
-          find.text(employer ? 'Verified workers only' : 'Urgent jobs only'),
+          find.text(employer ? 'Verified Workers Only' : 'Urgent Jobs Only'),
           find.byType(ListView).last,
           const Offset(0, -200),
         );
-        expect(find.text(employer ? 'Verified workers only' : 'Verified employers only'), findsOneWidget);
-        expect(find.text('Show results'), findsOneWidget);
+        expect(find.text(employer ? 'Verified Workers Only' : 'Verified Employers Only'), findsOneWidget);
+        expect(find.text('Show Results'), findsOneWidget);
       }
     } finally {
       FlutterError.onError = previous;

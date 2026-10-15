@@ -49,7 +49,7 @@ class VerificationCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final (Color tone, IconData mark, String? label) = switch (status) {
       'verified' => (AppColors.success, Icons.check_circle, 'Verified'),
-      'pending' => (AppColors.warning, Icons.hourglass_top, 'Under review'),
+      'pending' => (AppColors.warning, Icons.hourglass_top, 'Under Review'),
       'rejected' => (AppColors.error, Icons.error_outline, 'Rejected'),
       _ => (AppColors.neutral600, icon, null),
     };

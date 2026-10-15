@@ -75,7 +75,7 @@ void main() {
       children: [
         InlineField(
           controller: TextEditingController(text: 'Site foreman'),
-          label: 'Job title',
+          label: 'Job Title',
         ),
         InlineField(
           controller: TextEditingController(
@@ -110,12 +110,12 @@ void main() {
   final cases = <String, Widget>{
     'expanded inline form': expandedForm(),
     'inline edit row': InlineEditRow(
-      label: 'Full name',
+      label: 'Full Name',
       value: 'Ricardo Bumanglag Dela Cruz Jr.',
       onSave: (_) async => null,
     ),
     'inline edit row, empty': InlineEditRow(
-      label: 'Phone number',
+      label: 'Phone Number',
       value: null,
       onSave: (_) async => null,
     ),

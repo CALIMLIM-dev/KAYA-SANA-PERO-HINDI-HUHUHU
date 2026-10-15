@@ -28,6 +28,9 @@ Schedule::command('kaya:lift-expired-suspensions')->hourly();
 */
 Schedule::command('kaya:close-unconfirmed-hires')->dailyAt('04:00');
 
+// Cancel requests nobody answered. Hourly: two days is the promise.
+Schedule::command('kaya:settle-hire-cancellations')->hourly();
+
 /*
     Takes down posts that ran out of days, and warns the ones a week off.
 

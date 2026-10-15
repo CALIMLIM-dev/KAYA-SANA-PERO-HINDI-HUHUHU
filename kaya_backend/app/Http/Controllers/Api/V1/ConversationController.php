@@ -296,6 +296,15 @@ class ConversationController extends Controller
             */
             'deadline'       => ['nullable', 'date', 'after_or_equal:scheduled_date'],
             'note'           => ['nullable', 'string', 'max:280'],
+            /*
+                The pay, in pesos, agreed beside the day.
+
+                Optional. KAYA holds no money - payment is between the two
+                of them - but an amount both accepted is the record a
+                dispute about pay is decided on, and arguing about pay
+                after the work is the commonest way a hire goes wrong.
+            */
+            'pay'            => ['nullable', 'numeric', 'min:1', 'max:1000000'],
             'job_id'         => ['nullable', 'integer', 'exists:jobs_posts,id'],
         ], [
             'scheduled_date.after_or_equal' => 'Pick a day that has not passed.',
@@ -341,6 +350,7 @@ class ConversationController extends Controller
                 'deadline'        => $data['deadline'] ?? null,
                 'scheduled_time'  => $data['scheduled_time'],
                 'note'            => $data['note'] ?? null,
+                'pay_centavos'    => isset($data['pay']) ? (int) round($data['pay'] * 100) : null,
                 'status'          => 'proposed',
             ]);
         });
@@ -466,6 +476,8 @@ class ConversationController extends Controller
             'deadline'       => $proposal->deadline?->toDateString(),
             'scheduled_time' => $proposal->timeLabel(),
             'note'           => $proposal->note,
+            // Pesos, or null when only the day was agreed.
+            'pay'            => $proposal->pay_centavos === null ? null : $proposal->pay_centavos / 100,
             'status'         => $proposal->status,
             // Written by the model so every surface says the same date the
             // same way.

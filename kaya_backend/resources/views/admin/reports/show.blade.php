@@ -6,15 +6,11 @@
 {{--
     One report, with enough context to judge it.
 
-    The queue could not say whether this was a one-off or the fifth complaint
-    about the same person, so every decision was made blind. Both sides' history
-    is on this page, and the suspension happens here rather than on a separate
-    screen the administrator has to remember to visit afterwards.
-
-    The case reads down the left; the decision sits on the right, beside it,
-    so the evidence is still on screen while the finding is written. It was
-    one long column before, with the right third of the page empty and the
-    decision below the fold.
+    The case reads down the left: both sides' accounts and photos, what was
+    reported as it was, what KAYA itself recorded between the two of them,
+    reports the other way, and the account's record. The decision sits on
+    the right, beside it, so the evidence is still on screen while the
+    finding is written.
 --}}
 @php
     $severityTone = ['high' => 'text-red-700', 'medium' => 'text-amber-700', 'low' => 'text-slate-500'];
@@ -24,6 +20,15 @@
         default     => 'badge-pending',
     };
     $reportedName = $report->reported->name ?? 'Deleted account';
+    $reporterName = $report->reporter->name ?? 'Deleted account';
+    $at = fn ($d) => $d ? \Illuminate\Support\Carbon::parse($d)->timezone('Asia/Manila')->format('M j, Y g:i A') : null;
+    $holdDays = config('moderation.ban_hold_days');
+    $stepText = fn ($step) => match ($step['action']) {
+        'warning'     => 'a warning',
+        'restriction' => "a {$step['days']}-day restriction on applying, posting and inviting",
+        'suspension'  => "a {$step['days']}-day suspension",
+        default       => "a ban, held as a {$holdDays}-day suspension until a second administrator confirms it",
+    };
 @endphp
 
 <a href="{{ route('admin.reports.index') }}"
@@ -44,13 +49,13 @@
             </div>
             <p class="mt-1 text-sm text-slate-500">
                 <span class="font-medium {{ $severityTone[$report->severity()] ?? 'text-slate-500' }}">{{ ucfirst($report->severity()) }} severity</span>
-                · Filed {{ $report->created_at->format('M j, Y g:i A') }}
+                · Filed {{ $at($report->created_at) }}
                 ({{ $report->created_at->diffForHumans() }})
             </p>
 
             <dl class="mt-5 grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-4 text-sm">
                 <div>
-                    <dt class="text-slate-500">Reported account</dt>
+                    <dt class="text-slate-500">Reported Account</dt>
                     <dd class="mt-0.5">
                         @if ($report->reported)
                             <a href="{{ route('admin.users.show', $report->reported_id) }}"
@@ -62,8 +67,9 @@
                             <span class="badge-suspended ml-1.5 text-xs px-2 py-0.5 rounded-full">Suspended</span>
                         @endif
                     </dd>
-                    <dd class="text-slate-500 mt-0.5">
-                        {{ $history->isEmpty() ? 'No earlier reports' : trans_choice('{1} 1 earlier report|[2,*] :count earlier reports', $history->count(), ['count' => $history->count()]) }}
+                    <dd class="text-slate-500 mt-0.5 tabular-nums">
+                        {{ $history->count() }} earlier {{ Str::plural('report', $history->count()) }}
+                        · {{ $strikesOnRecord->filter->isActive()->count() }} {{ Str::plural('strike', $strikesOnRecord->filter->isActive()->count()) }} counting
                     </dd>
                 </div>
                 <div>
@@ -71,39 +77,35 @@
                     <dd class="mt-0.5">
                         @if ($report->reporter)
                             <a href="{{ route('admin.users.show', $report->reporter_id) }}"
-                               class="font-medium text-slate-900 hover:text-blue-600">{{ $report->reporter->name }}</a>
+                               class="font-medium text-slate-900 hover:text-blue-600">{{ $reporterName }}</a>
                         @else
-                            <span class="font-medium text-slate-900">Deleted account</span>
+                            <span class="font-medium text-slate-900">{{ $reporterName }}</span>
                         @endif
                     </dd>
                     {{-- A reporter who files constantly and is never upheld is its own signal. --}}
                     <dd class="text-slate-500 mt-0.5 tabular-nums">
                         {{ $reporterStats['filed'] }} filed · {{ $reporterStats['upheld'] }} upheld · {{ $reporterStats['dismissed'] }} dismissed
+                        @if ($reporterStats['baseless']) · {{ $reporterStats['baseless'] }} false @endif
                     </dd>
                 </div>
             </dl>
         </header>
 
-        {{--
-            The evidence: the reporter's account, what was reported as it was
-            at the time, the photos they attached, and the reported person's
-            side. The panel asked for substantial supporting evidence and
-            relevant details when submitting or processing a report.
-        --}}
         <section class="px-6 py-5">
-            <h3 class="text-sm font-semibold text-slate-700">What the reporter wrote</h3>
+            <h3 class="text-sm font-semibold text-slate-700">What the Reporter Wrote</h3>
             @if ($report->description)
                 <p class="mt-2 text-sm text-slate-800 leading-relaxed whitespace-pre-line max-w-prose">{{ $report->description }}</p>
             @else
                 <p class="mt-2 text-sm text-slate-500">They chose a reason and wrote nothing more.</p>
             @endif
+            <p class="mt-2 text-xs text-slate-500">Not shown to {{ $reportedName }}.</p>
         </section>
 
         @if ($report->snapshot)
             <section class="px-6 py-5">
-                <h3 class="text-sm font-semibold text-slate-700">What was reported</h3>
+                <h3 class="text-sm font-semibold text-slate-700">What Was Reported</h3>
                 <p class="mt-0.5 text-xs text-slate-500">
-                    {{ $report->snapshot['kind'] ?? 'Item' }}, as it was when the report was filed
+                    {{ $report->snapshot['kind'] ?? 'Item' }}, as it was when the report was filed. {{ $reportedName }} sees this too.
                 </p>
                 <div class="mt-3 rounded-lg bg-slate-50 px-4 py-3 text-sm text-slate-800 max-w-prose">
                     @foreach (['name' => 'Name', 'company' => 'Business', 'title' => 'Title', 'location' => 'Location', 'status' => 'Status'] as $key => $label)
@@ -115,14 +117,14 @@
                         <p class="mt-2 leading-relaxed whitespace-pre-line">{{ $report->snapshot['text'] }}</p>
                     @endif
                     @if (!empty($report->snapshot['sent_at']))
-                        <p class="mt-2 text-xs text-slate-500">Sent {{ \Illuminate\Support\Carbon::parse($report->snapshot['sent_at'])->format('M j, Y g:i A') }}</p>
+                        <p class="mt-2 text-xs text-slate-500">Sent {{ $at($report->snapshot['sent_at']) }}</p>
                     @endif
                 </div>
             </section>
         @endif
 
         <section class="px-6 py-5">
-            <h3 class="text-sm font-semibold text-slate-700">Photos from the reporter</h3>
+            <h3 class="text-sm font-semibold text-slate-700">Photos from the Reporter</h3>
             @if (!empty($report->evidence))
                 <div class="mt-3 flex flex-wrap gap-3">
                     @foreach ($report->evidence as $i => $path)
@@ -133,31 +135,103 @@
                         </a>
                     @endforeach
                 </div>
-                <p class="mt-2 text-xs text-slate-500">Opens full size in a new tab.</p>
+                <p class="mt-2 text-xs text-slate-500">Opens full size in a new tab. Not shown to {{ $reportedName }}.</p>
             @else
                 <p class="mt-2 text-sm text-slate-500">None attached.</p>
             @endif
         </section>
 
         <section class="px-6 py-5">
-            <h3 class="text-sm font-semibold text-slate-700">{{ $report->reported ? $reportedName . "'s reply" : 'Their reply' }}</h3>
+            <h3 class="text-sm font-semibold text-slate-700">{{ $report->reported ? $reportedName . "'s side" : 'Their side' }}</h3>
             @if ($report->response)
                 <p class="mt-2 text-sm text-slate-800 leading-relaxed whitespace-pre-line max-w-prose">{{ $report->response }}</p>
-                <p class="mt-1.5 text-xs text-slate-500">Sent {{ $report->responded_at?->format('M j, Y g:i A') }}</p>
+                <p class="mt-1.5 text-xs text-slate-500">Sent {{ $at($report->responded_at) }}</p>
+                @if (!empty($report->response_evidence))
+                    <div class="mt-3 flex flex-wrap gap-3">
+                        @foreach ($report->response_evidence as $i => $path)
+                            <a href="{{ route('admin.reports.reply-evidence', [$report, $i]) }}" target="_blank" rel="noopener"
+                               class="block w-32 h-32 rounded-lg overflow-hidden border border-slate-200 bg-slate-100 hover:border-slate-400">
+                                <img src="{{ route('admin.reports.reply-evidence', [$report, $i]) }}" alt="Photo {{ $i + 1 }} sent with their side"
+                                     class="w-full h-full object-cover">
+                            </a>
+                        @endforeach
+                    </div>
+                @endif
+            @elseif ($report->status === 'pending' && $report->awaitingReply())
+                <p class="mt-2 text-sm text-slate-500">Told about the report. They can reply until {{ $at($report->replyBy()) }}.</p>
             @else
-                <p class="mt-2 text-sm text-slate-500">
-                    {{ $report->status === 'pending' ? 'They have been told about the report and can still reply.' : 'They did not reply.' }}
-                </p>
+                <p class="mt-2 text-sm text-slate-500">They did not reply{{ $report->status === 'pending' ? ' in the ' . config('moderation.reply_hours') . ' hours they had' : '' }}.</p>
             @endif
         </section>
 
         {{--
-            The pattern. The controller has always loaded the last ten reports
-            about the same account and the page never showed them, so the
-            "one-off or the fifth complaint" question above went unanswered.
+            What KAYA recorded on its own. Never the words of their chat -
+            only that it happened, how much, and when.
         --}}
         <section class="px-6 py-5">
-            <h3 class="text-sm font-semibold text-slate-700">Earlier reports about {{ $report->reported ? $reportedName : 'this account' }}</h3>
+            <h3 class="text-sm font-semibold text-slate-700">History Between Them</h3>
+            @if (empty($between['jobs']) && ! $between['messages'])
+                <p class="mt-2 text-sm text-slate-500">No shared job and no chat between them.</p>
+            @else
+                @foreach ($between['jobs'] as $job)
+                    <div class="mt-3 rounded-lg border border-slate-200 px-4 py-3 text-sm max-w-prose">
+                        <a href="{{ route('admin.jobs.show', $job['job_id']) }}" class="font-medium text-slate-900 hover:text-blue-600">{{ $job['title'] ?? 'Job #' . $job['job_id'] }}</a>
+                        <dl class="mt-2 grid grid-cols-[9rem_1fr] gap-x-3 gap-y-1 text-slate-700">
+                            <dt class="text-slate-500">Application</dt><dd>{{ ucfirst(str_replace('_', ' ', $job['status'])) }}, {{ $at($job['applied_at']) }}</dd>
+                            <dt class="text-slate-500">Job</dt><dd>{{ ucfirst(str_replace('_', ' ', (string) $job['job_status'])) }}</dd>
+                            <dt class="text-slate-500">Agreed in Chat</dt><dd>{{ $job['agreed'] ?? 'No date agreed' }}</dd>
+                            <dt class="text-slate-500">Tracking</dt>
+                            <dd>
+                                @if ($job['tracking'])
+                                    Shared from {{ $at($job['tracking']['started']) }}{{ $job['tracking']['stopped'] ? ' to ' . $at($job['tracking']['stopped']) : '' }};
+                                    {{ $job['tracking']['pings'] }} {{ Str::plural('location', $job['tracking']['pings']) }} recorded
+                                    @if ($job['tracking']['pings']) ({{ $at($job['tracking']['first']) }} to {{ $at($job['tracking']['last']) }}) @endif
+                                @else
+                                    Never turned on
+                                @endif
+                            </dd>
+                            <dt class="text-slate-500">Marked as Complete</dt>
+                            <dd>
+                                Worker {{ $job['worker_done'] ? $at($job['worker_done']) : 'no' }} ·
+                                Employer {{ $job['employer_done'] ? $at($job['employer_done']) : 'no' }}
+                            </dd>
+                        </dl>
+                    </div>
+                @endforeach
+                @if ($between['messages'])
+                    <p class="mt-3 text-sm text-slate-700">
+                        Chat: {{ $reporterName }} sent {{ $between['messages']['reporter'] }},
+                        {{ $reportedName }} sent {{ $between['messages']['reported'] }},
+                        from {{ $at($between['messages']['first']) }} to {{ $at($between['messages']['last']) }}.
+                        @if ($between['messages']['reported_last'])
+                            {{ $reportedName }} last wrote {{ $at($between['messages']['reported_last']) }}.
+                        @endif
+                    </p>
+                @endif
+                <p class="mt-2 text-xs text-slate-500">Counts and times only. The words of their chat are not shown.</p>
+            @endif
+        </section>
+
+        @if ($counter->isNotEmpty())
+            <section class="px-6 py-5">
+                <h3 class="text-sm font-semibold text-slate-700">Reports Against the Reporter</h3>
+                <p class="mt-0.5 text-xs text-slate-500">{{ $reportedName }} reporting {{ $reporterName }}. A report filed in return can be retaliation, which is its own rule.</p>
+                <ul class="mt-3 divide-y divide-slate-100 border-y border-slate-100">
+                    @foreach ($counter as $other)
+                        <li class="py-2.5 flex items-center gap-3 text-sm">
+                            <a href="{{ route('admin.reports.show', $other) }}" class="flex-1 min-w-0 truncate text-slate-800 hover:text-blue-600">{{ $other->reasonLabel() }}</a>
+                            <span class="text-slate-500 whitespace-nowrap">
+                                {{ $at($other->created_at) }}
+                                ({{ $other->created_at->lt($report->created_at) ? $other->created_at->diffForHumans($report->created_at, true) . ' before' : $report->created_at->diffForHumans($other->created_at, true) . ' after' }})
+                            </span>
+                        </li>
+                    @endforeach
+                </ul>
+            </section>
+        @endif
+
+        <section class="px-6 py-5">
+            <h3 class="text-sm font-semibold text-slate-700">Earlier Reports About {{ $report->reported ? $reportedName : 'this account' }}</h3>
             @if ($history->isEmpty())
                 <p class="mt-2 text-sm text-slate-500">None. This is the first.</p>
             @else
@@ -178,6 +252,27 @@
                 </ul>
             @endif
         </section>
+
+        <section class="px-6 py-5">
+            <h3 class="text-sm font-semibold text-slate-700">Strike History</h3>
+            @if ($strikesOnRecord->isEmpty())
+                <p class="mt-2 text-sm text-slate-500">None.</p>
+            @else
+                <ul class="mt-3 divide-y divide-slate-100 border-y border-slate-100">
+                    @foreach ($strikesOnRecord as $s)
+                        <li class="py-2.5 flex items-center gap-3 text-sm">
+                            <a href="{{ route('admin.strikes.show', $s) }}" class="flex-1 min-w-0 truncate text-slate-800 hover:text-blue-600">
+                                {{ $s->actionLabel() }} · {{ $s->ruleLabel() }}
+                            </a>
+                            <span class="text-slate-500 whitespace-nowrap">{{ $s->created_at->format('M j, Y') }}</span>
+                            <span class="w-28 text-right text-xs text-slate-500">
+                                {{ $s->removed_at ? 'Overturned' : ($s->isActive() ? 'Counting' : 'Expired') }}
+                            </span>
+                        </li>
+                    @endforeach
+                </ul>
+            @endif
+        </section>
     </article>
 
     {{-- ── The decision ── --}}
@@ -191,178 +286,125 @@
                 <p class="text-slate-500">
                     {{ $report->status === 'resolved' ? 'Upheld' : 'Dismissed' }}
                     by {{ $report->reviewer->name ?? 'an administrator' }}
-                    @if ($report->resolved_at) on {{ $report->resolved_at->format('M j, Y g:i A') }} @endif
+                    @if ($report->resolved_at) on {{ $at($report->resolved_at) }} @endif
                 </p>
                 <p class="mt-3 text-slate-800 leading-relaxed whitespace-pre-line">{{ $report->resolution_note ?: 'No finding was recorded.' }}</p>
+                @if ($report->baseless)
+                    <p class="mt-3 text-slate-500">Marked as a false report.</p>
+                @endif
+                @if ($report->strike)
+                    <a href="{{ route('admin.strikes.show', $report->strike) }}" class="mt-3 inline-block text-blue-600 hover:text-blue-700">Open the strike</a>
+                @endif
             </div>
         @else
             {{--
-                The decision is not a set of separate cards any more.
-
-                It was a red Suspend card and a Close card below it, each with
-                its own box for the finding, so changing your mind between the
-                two meant writing it again. One finding now, then the action:
-                close the report, or suspend the account. The two forms post
-                exactly as before; the finding is copied into whichever one
-                is sent.
-
-                The conversation is not shown. It used to print the last forty
-                messages between the two of them, which is a power the panel
-                should not have; decisions are made on the report, both sides'
-                own accounts of it, and the pattern of earlier reports.
+                One form, two answers. Uphold - with a strike from the ladder,
+                or with no action - or dismiss. Upholding waits for the
+                reported person's side; dismissing does not.
             --}}
-            <div class="px-6 py-5 space-y-5">
+            <form method="POST" action="{{ route('admin.reports.resolve', $report) }}" class="px-6 py-5 space-y-5">
+                @csrf
                 @if ($errors->any())
                     <p class="text-sm text-red-700" role="alert">{{ $errors->first() }}</p>
                 @endif
 
                 <div>
-                    <label for="finding" class="block text-sm font-medium text-slate-800">Your finding</label>
+                    <label for="finding" class="block text-sm font-medium text-slate-800">Your Finding</label>
                     <p id="finding-help" class="text-xs text-slate-500 mt-0.5">
-                        What the evidence shows. It is kept with the report, and a warning or suspension sends it to the account.
+                        What the evidence shows. Kept with the report; a strike sends it to the account as the reason.
                     </p>
-                    <textarea id="finding" rows="5" maxlength="1000" aria-describedby="finding-help finding-error"
+                    <textarea id="finding" name="resolution_note" rows="5" minlength="10" maxlength="1000" required aria-describedby="finding-help"
                               class="mt-2 w-full px-3 py-2 border border-slate-300 rounded-lg text-sm
-                                     focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500">{{ old('resolution_note', old('note')) }}</textarea>
-                    <p id="finding-error" class="hidden text-xs text-red-700 mt-1" role="alert">
-                        Write your finding first, at least ten characters.
-                    </p>
+                                     focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500">{{ old('resolution_note') }}</textarea>
                 </div>
 
-                {{-- Close the report, upheld or not. --}}
-                <form method="POST" action="{{ route('admin.reports.resolve', $report) }}" data-needs-finding="resolution_note">
-                    @csrf
-                    <input type="hidden" name="resolution_note">
-
-                    <fieldset>
-                        <legend class="text-sm font-medium text-slate-800">If it is upheld</legend>
-                        <div class="mt-2 space-y-2">
-                            <label class="flex items-start gap-2.5 text-sm text-slate-700">
-                                <input type="radio" name="action" value="warned" class="mt-0.5 accent-blue-600" checked>
-                                <span><span class="font-medium text-slate-800">Warn them.</span> They are told another report can lead to a suspension.</span>
-                            </label>
-                            <label class="flex items-start gap-2.5 text-sm text-slate-700">
-                                <input type="radio" name="action" value="none" class="mt-0.5 accent-blue-600">
-                                <span><span class="font-medium text-slate-800">No action.</span> Kept on their record; nothing is sent.</span>
-                            </label>
-                        </div>
-                    </fieldset>
-
-                    <div class="mt-4 grid grid-cols-1 gap-2">
-                        <button type="submit" name="status" value="resolved"
-                                class="px-3 py-2 bg-slate-800 text-white text-sm font-medium rounded-lg hover:bg-slate-900
-                                       focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-slate-500">
-                            Close as upheld
-                        </button>
-                        <button type="submit" name="status" value="dismissed"
-                                class="px-3 py-2 border border-slate-300 text-slate-700 text-sm font-medium rounded-lg hover:bg-slate-50
-                                       focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-slate-400">
-                            Dismiss
-                        </button>
+                <fieldset>
+                    <legend class="text-sm font-medium text-slate-800">If Upheld</legend>
+                    <div class="mt-2 space-y-2">
+                        <label class="flex items-start gap-2.5 text-sm text-slate-700">
+                            <input type="radio" name="action" value="strike" class="mt-0.5 accent-blue-600" {{ old('action', 'strike') === 'strike' ? 'checked' : '' }}>
+                            <span><span class="font-medium text-slate-800">Give a strike.</span> What it does follows the ladder.</span>
+                        </label>
+                        <label class="flex items-start gap-2.5 text-sm text-slate-700">
+                            <input type="radio" name="action" value="none" class="mt-0.5 accent-blue-600" {{ old('action') === 'none' ? 'checked' : '' }}>
+                            <span><span class="font-medium text-slate-800">No action.</span> Kept on the report; nothing counts against them.</span>
+                        </label>
                     </div>
-                    <p class="mt-2 text-xs text-slate-500">Dismiss when the complaint is not upheld. Nothing is sent to the account.</p>
-                </form>
 
-                {{-- Or the account itself. --}}
-                <form method="POST" action="{{ route('admin.reports.suspend', $report) }}" data-needs-finding="note"
-                      class="pt-5 border-t border-slate-100"
-                      onsubmit="return confirm('Suspend {{ addslashes($reportedName) }}?');">
-                    @csrf
-                    <input type="hidden" name="note">
-
-                    <p class="text-sm font-medium text-slate-800">Or suspend the account</p>
-
-                    <label for="reasonSelect" class="block text-xs text-slate-500 mt-3 mb-1">Reason</label>
-                    <select name="reason_code" id="reasonSelect" required
+                    <label for="reasonSelect" class="block text-xs text-slate-500 mt-3 mb-1">Rule Broken</label>
+                    <select name="reason_code" id="reasonSelect"
                             class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm bg-white
                                    focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
-                        <option value="" disabled {{ $suggested ? '' : 'selected' }}>Choose a reason</option>
-                        @foreach (['critical' => 'Serious, usually permanent', 'serious' => 'Serious', 'moderate' => 'Moderate'] as $sev => $groupLabel)
+                        <option value="" disabled {{ old('reason_code', $suggested) ? '' : 'selected' }}>Choose a rule</option>
+                        @foreach (['critical' => 'Critical (Skips the Ladder)', 'serious' => 'Serious', 'moderate' => 'Moderate'] as $sev => $groupLabel)
                             @php $group = collect($suspensionReasons)->filter(fn ($r) => $r['severity'] === $sev); @endphp
                             @if ($group->isNotEmpty())
                                 <optgroup label="{{ $groupLabel }}">
                                     @foreach ($group as $code => $reason)
-                                        <option value="{{ $code }}"
-                                                data-days="{{ $reason['default_days'] ?? 'permanent' }}"
-                                                data-description="{{ $reason['description'] }}"
-                                                {{ $suggested === $code ? 'selected' : '' }}>{{ $reason['label'] }}</option>
+                                        <option value="{{ $code }}" data-critical="{{ $sev === 'critical' ? 1 : 0 }}"
+                                                {{ old('reason_code', $suggested) === $code ? 'selected' : '' }}>{{ $reason['label'] }}</option>
                                     @endforeach
                                 </optgroup>
                             @endif
                         @endforeach
                     </select>
-                    <p id="reasonHint" class="hidden mt-1.5 text-xs text-slate-500"></p>
 
-                    <label for="durationSelect" class="block text-xs text-slate-500 mt-3 mb-1">Length</label>
-                    <select name="duration" id="durationSelect" required
-                            class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm bg-white
-                                   focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
-                        <option value="7">7 days</option>
-                        <option value="14">14 days</option>
-                        <option value="30">30 days</option>
-                        <option value="90">90 days</option>
-                        <option value="permanent">Permanent</option>
-                    </select>
+                    @if ($nextStep)
+                        <p id="stepLadder" class="mt-2 text-xs text-slate-600">
+                            This would be strike {{ $nextStep['number'] }}: {{ $stepText($nextStep) }}.
+                        </p>
+                        <p id="stepCritical" class="hidden mt-2 text-xs text-slate-600">
+                            This rule skips the ladder: {{ $stepText(['action' => 'ban', 'days' => null]) }}.
+                        </p>
+                    @endif
+                </fieldset>
 
-                    <button type="submit"
-                            class="mt-4 w-full px-3 py-2 bg-red-600 text-white text-sm font-medium rounded-lg hover:bg-red-700
-                                   focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500">
-                        Suspend account
+                @if ($report->awaitingReply())
+                    <p class="text-xs text-slate-600 bg-slate-50 rounded-lg px-3 py-2">
+                        {{ $reportedName }} can give their side until {{ $at($report->replyBy()) }}. Upholding opens then, or as soon as they reply.
+                    </p>
+                @endif
+
+                <button type="submit" name="status" value="resolved" {{ $report->awaitingReply() ? 'disabled' : '' }}
+                        class="w-full px-3 py-2 bg-slate-800 text-white text-sm font-medium rounded-lg hover:bg-slate-900
+                               disabled:opacity-40 disabled:cursor-not-allowed
+                               focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-slate-500">
+                    Uphold
+                </button>
+
+                <div class="pt-5 border-t border-slate-100">
+                    <label class="flex items-start gap-2.5 text-sm text-slate-700">
+                        <input type="checkbox" name="baseless" value="1" class="mt-0.5 accent-blue-600">
+                        <span><span class="font-medium text-slate-800">False report.</span> Counts against {{ $reporterName }}; repeated ones pause their reporting.</span>
+                    </label>
+                    <button type="submit" name="status" value="dismissed"
+                            class="mt-3 w-full px-3 py-2 border border-slate-300 text-slate-700 text-sm font-medium rounded-lg hover:bg-slate-50
+                                   focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-slate-400">
+                        Dismiss
                     </button>
-                </form>
-            </div>
+                    <p class="mt-2 text-xs text-slate-500">Both people are told it was closed. A finding is still needed.</p>
+                </div>
+            </form>
         @endif
     </aside>
 </div>
 
 <script>
 (function () {
-    // One finding for both forms: copied into whichever one is sent, and
-    // checked here first so a short one is caught before the page reloads.
-    const finding = document.getElementById('finding');
-    const error = document.getElementById('finding-error');
-
-    document.querySelectorAll('form[data-needs-finding]').forEach(function (form) {
-        form.addEventListener('submit', function (event) {
-            const text = finding ? finding.value.trim() : '';
-            if (text.length < 10) {
-                event.preventDefault();
-                event.stopImmediatePropagation();
-                error.classList.remove('hidden');
-                finding.focus();
-                return;
-            }
-            error.classList.add('hidden');
-            form.querySelector('input[name="' + form.dataset.needsFinding + '"]').value = text;
-        }, true);
-    });
-
-    if (finding) {
-        finding.addEventListener('input', function () {
-            if (finding.value.trim().length >= 10) error.classList.add('hidden');
-        });
-    }
-
-    // Says what the chosen reason covers and fills in the length that usually
-    // fits it. A starting point, not a rule: the length stays editable.
+    // Which line says what a strike would do: the ladder, or a ban for a rule that skips it.
     const select = document.getElementById('reasonSelect');
-    if (!select) return;
+    const ladder = document.getElementById('stepLadder');
+    const critical = document.getElementById('stepCritical');
+    if (!select || !ladder) return;
 
-    const apply = function () {
+    const show = function () {
         const option = select.options[select.selectedIndex];
-        if (!option || !option.value) return;
-
-        const days = option.dataset.days || 'permanent';
-        const hint = document.getElementById('reasonHint');
-        hint.textContent = option.dataset.description + ' Usually ' + (days === 'permanent' ? 'permanent' : days + ' days') + '.';
-        hint.classList.remove('hidden');
-
-        document.getElementById('durationSelect').value = days;
+        const skips = option && option.dataset.critical === '1';
+        ladder.classList.toggle('hidden', skips);
+        critical.classList.toggle('hidden', !skips);
     };
-
-    select.addEventListener('change', apply);
-    // On load too, so a suggested reason arrives explained.
-    apply();
+    select.addEventListener('change', show);
+    show();
 })();
 </script>
 @endsection

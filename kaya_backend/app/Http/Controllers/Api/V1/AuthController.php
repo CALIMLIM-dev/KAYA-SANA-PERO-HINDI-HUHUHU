@@ -61,6 +61,14 @@ class AuthController extends Controller
         $input = $request->input('email');
         $isPhone = str_starts_with($input, '+') || ctype_digit(ltrim($input, '+'));
 
+        // A banned person cannot sign straight back up. See StrikeService.
+        if (\App\Services\StrikeService::isBanned(
+            email: $isPhone ? null : $input,
+            phone: $isPhone ? $input : $request->input('phone'),
+        )) {
+            return $this->fail('This email or phone number cannot be used to create an account.', 403);
+        }
+
         if ($isPhone) {
             // Check phone not already taken
             if (User::where('phone', $input)->exists()) {
@@ -138,14 +146,7 @@ class AuthController extends Controller
         }
 
         if ($user->is_suspended) {
-            return response()->json([
-                'success' => false,
-                'data' => [
-                    'is_suspended' => true,
-                    'suspended_reason' => $user->suspended_reason,
-                ],
-                'message' => 'Account suspended',
-            ], 403);
+            return $this->suspendedSignIn($user);
         }
 
         $token = $user->createToken('kaya_app')->plainTextToken;
@@ -420,6 +421,29 @@ class AuthController extends Controller
             'employer' => $sideOnly($employer),
         ]);
     }
+    /*
+        A suspended account signs in to one place only.
+
+        It used to be refused outright, which left a suspended person no way
+        to read why or to appeal - Support was open to them on paper and
+        unreachable in practice. They now get a short session that
+        EnsureNotSuspended keeps to Account status and Support, and nothing
+        else.
+    */
+    private function suspendedSignIn(User $user)
+    {
+        return response()->json([
+            'success' => false,
+            'data' => [
+                'is_suspended'     => true,
+                'suspended_reason' => $user->suspended_reason,
+                'suspended_until'  => $user->suspended_until,
+                'standing_token'   => $user->createToken('standing', ['*'], now()->addHours(2))->plainTextToken,
+            ],
+            'message' => 'Account suspended',
+        ], 403);
+    }
+
     /**
      * Check suspension status (called periodically by app)
      */
@@ -716,14 +740,7 @@ class AuthController extends Controller
             }
 
             if ($existingUser->is_suspended) {
-                return response()->json([
-                    'success' => false,
-                    'data' => [
-                        'is_suspended'     => true,
-                        'suspended_reason' => $existingUser->suspended_reason,
-                    ],
-                    'message' => 'Account suspended',
-                ], 403);
+                return $this->suspendedSignIn($existingUser);
             }
 
             // Existing user - just log them in (LOGIN flow)
@@ -749,6 +766,10 @@ class AuthController extends Controller
 
             $token = $existingUser->createToken('kaya_app')->plainTextToken;
             return $this->ok(['user' => $this->accountPayload($existingUser), 'token' => $token], 'Google login successful');
+        }
+
+        if (\App\Services\StrikeService::isBanned(email: $email, googleId: $googleId)) {
+            return $this->fail('This Google account cannot be used to create an account.', 403);
         }
 
         // New user attempting to login

@@ -92,6 +92,7 @@ Route::prefix('admin')->name('admin.')->group(function () {
         Route::get("/analytics", [AnalyticsController::class, "index"])->name("analytics.index");
         // What is lacking where: the map, any place, any trade.
         Route::get('/supply-demand', [\App\Http\Controllers\Admin\SupplyDemandController::class, 'index'])->name('supply.index');
+        Route::get('/supply-demand/export', [\App\Http\Controllers\Admin\SupplyDemandController::class, 'export'])->name('supply.export');
 
         // Report generation. Separate from /reports, which is the moderation
         // queue for abuse reports — a different feature that happens to share
@@ -121,9 +122,15 @@ Route::prefix('admin')->name('admin.')->group(function () {
         Route::post('/reports/{report}/resolve', [ReportController::class, 'resolve'])->name('reports.resolve');
         Route::get('/reports/{report}/evidence/{index}', [ReportController::class, 'evidence'])
             ->whereNumber('index')->name('reports.evidence');
-        // Suspends the reported account and closes the report together, so the
-        // two cannot fall out of step.
-        Route::post('/reports/{report}/suspend', [ReportController::class, 'suspend'])->name('reports.suspend');
+        Route::get('/reports/{report}/reply-evidence/{index}', [ReportController::class, 'replyEvidence'])
+            ->whereNumber('index')->name('reports.reply-evidence');
+
+        // Appeals, and bans waiting for a second administrator.
+        Route::get('/strikes', [\App\Http\Controllers\Admin\StrikeController::class, 'index'])->name('strikes.index');
+        Route::get('/strikes/{strike}', [\App\Http\Controllers\Admin\StrikeController::class, 'show'])->name('strikes.show');
+        Route::post('/strikes/{strike}/appeal', [\App\Http\Controllers\Admin\StrikeController::class, 'decideAppeal'])->name('strikes.appeal');
+        Route::post('/strikes/{strike}/confirm', [\App\Http\Controllers\Admin\StrikeController::class, 'confirmBan'])->name('strikes.confirm');
+        Route::post('/strikes/{strike}/decline', [\App\Http\Controllers\Admin\StrikeController::class, 'declineBan'])->name('strikes.decline');
 
         Route::get('/jobs', [AdminJobController::class, 'index'])->name('jobs.index');
         Route::get('/jobs/{job}', [AdminJobController::class, 'show'])->name('jobs.show');

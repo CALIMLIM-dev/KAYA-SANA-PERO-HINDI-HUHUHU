@@ -206,6 +206,7 @@ class User extends Authenticatable
         'password_reset_expires_at' => 'datetime',
         'notification_preferences'  => 'array',
         'phone_verified_at'         => 'datetime',
+        'reports_paused_until'      => 'datetime',
         // Touched by TouchLastSeen on authenticated API requests; drives the
         // activity dot in chat. Not hidden — it is only ever loaded for the
         // other party on a conversation you are already part of.
@@ -354,6 +355,45 @@ class User extends Authenticatable
      * the Blade admin panel (EnsureUserIsAdminWeb) gates on.
      */
     public function isAdmin(): bool { return $this->user_type === 'admin'; }
+
+    public function strikes() { return $this->hasMany(Strike::class); }
+
+    /*
+        Held back from applying, posting and inviting - by a restriction
+        strike, until it ends, or while a serious report about them is open
+        (see config/moderation.php). Null when free to act.
+
+        Worked out from the strikes and reports themselves rather than stored,
+        so overturning a strike or closing a report lifts it with nothing to
+        remember to clear.
+    */
+    public function restrictedUntil(): ?\Illuminate\Support\Carbon
+    {
+        $until = $this->strikes()->whereNull('removed_at')
+            ->where('action', 'restriction')
+            ->where('ends_at', '>', now())
+            ->max('ends_at');
+
+        return $until ? \Illuminate\Support\Carbon::parse($until) : null;
+    }
+
+    public function isUnderReview(): bool
+    {
+        if (! config('moderation.under_review')) {
+            return false;
+        }
+
+        $serious = collect(\App\Support\ModerationReasons::REPORT)
+            ->filter(fn ($r) => $r['severity'] === 'high')->keys()->all();
+
+        $open = Report::where('reported_id', $this->id)
+            ->whereIn('status', ['pending', 'reviewed'])
+            ->whereIn('reason_code', $serious)
+            ->get(['reporter_id', 'evidence']);
+
+        return $open->contains(fn ($r) => ! empty($r->evidence))
+            || $open->pluck('reporter_id')->unique()->count() >= (int) config('moderation.under_review_reporters');
+    }
 
     /*
         Verified, pending, or not - said the same way on every payload.

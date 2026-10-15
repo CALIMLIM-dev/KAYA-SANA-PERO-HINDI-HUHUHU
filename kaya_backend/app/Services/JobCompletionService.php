@@ -167,6 +167,89 @@ class JobCompletionService
         app(ConversationArchivist::class)->settleJob($job);
     }
 
+    /*
+        The day a hire stops waiting for confirmations.
+
+        Measured from the deadline the two of them are held to (JobPost::
+        deadline), or for a post with no dates from when the work started,
+        or failing that when they were hired - so nothing waits forever.
+    */
+    public static function settlesOn(Application $application): ?\Illuminate\Support\Carbon
+    {
+        $from = $application->job?->deadline()
+            ?? $application->started_at
+            ?? $application->created_at;
+
+        return $from?->copy()->startOfDay()->addDays((int) config('kaya.completion.auto_confirm_after_days'));
+    }
+
+    /*
+        One side confirmed, the other stayed silent past the window.
+
+        Silence counts as agreement - the person who did confirm is not
+        made to pay for the other's absence, and an employer cannot deny a
+        worker a finished job by simply never pressing the button. The
+        silent side had a reminder, and "it didn't happen" (a dispute) to
+        stop this; they used neither.
+
+        The silent side's own timestamp is left empty: nobody pretends they
+        confirmed. The hire is completed, which opens the reviews.
+    */
+    public function completeUnanswered(Application $application): Application
+    {
+        DB::transaction(function () use ($application) {
+            $application->forceFill(['status' => 'completed', 'completed_at' => now()])->save();
+            $this->settleJob($application->job);
+        });
+
+        $job = $application->job;
+        $by = $application->employer_completed_at ? $job?->employer : $application->worker;
+
+        if ($job && $by) {
+            $events = app(ChatEvents::class);
+            if ($thread = $events->threadFor($job, $application)) {
+                $events->completed($thread, $job, $by);
+            }
+        }
+
+        app(NotificationService::class)->hireCompletedBySilence($application->fresh(['job', 'worker']));
+
+        return $application;
+    }
+
+    /*
+        An administrator closed the report behind "it didn't happen".
+
+        Upheld: the work did not happen as the other side claimed - the hire
+        is unsuccessful. Not upheld: the claim stands - completed, as it
+        would have been had nobody objected.
+    */
+    public function settleDispute(Application $application, bool $upheld): void
+    {
+        if ($application->status !== 'accepted' || $application->disputed_at === null) {
+            return;
+        }
+
+        $confirmed = $application->employer_completed_at || $application->worker_completed_at;
+
+        if (! $upheld && $confirmed) {
+            $this->completeUnanswered($application);
+
+            return;
+        }
+
+        DB::transaction(function () use ($application) {
+            $application->forceFill(['status' => 'unsuccessful'])->save();
+            $this->closeIfNothingLive($application->job);
+        });
+    }
+
+    /** settleJob for callers outside this class: a hire on the job just ended. */
+    public function settle(?JobPost $job): void
+    {
+        $this->settleJob($job);
+    }
+
     /**
      * A job is finished when every hire on it is.
      *

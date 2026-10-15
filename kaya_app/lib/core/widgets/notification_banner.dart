@@ -11,6 +11,7 @@ import '../../providers/notification_provider.dart';
 import '../constants/app_colors.dart';
 import 'profile_avatar.dart';
 import '../../features/notifications/open_notification.dart';
+import '../../features/notifications/notification_destination.dart';
 
 /*
     Notifications you can actually see arrive.
@@ -286,6 +287,9 @@ class _NotificationBannerHostState extends State<NotificationBannerHost> {
     if (id != null && context != null) {
       context.read<NotificationProvider>().markRead(id);
     }
+
+    // Inform-only: the banner already showed it; there is nowhere to go.
+    if (informOnlyNotifications.contains('${notification['type'] ?? ''}')) return;
 
     /*
         Same destinations as tapping the row in the notification centre,

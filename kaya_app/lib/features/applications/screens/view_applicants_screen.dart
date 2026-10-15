@@ -3,11 +3,13 @@ import 'package:provider/provider.dart';
 import '../../../core/utils/realtime_refresh.dart';
 
 import '../../../core/constants/app_colors.dart';
+import '../../../core/navigation/app_router.dart';
 import '../../../core/widgets/kaya_popup.dart';
 import '../../../providers/application_provider.dart';
 import '../../../providers/job_provider.dart';
 import '../../../providers/worker_browse_provider.dart';
 import '../../employer/screens/matched_workers_screen.dart';
+import '../../employer/widgets/matched_worker_card.dart';
 import '../widgets/applicant_card.dart';
 
 /// View Applicants Screen — employer sees everyone who actually applied to a
@@ -28,6 +30,17 @@ Future<void> showApplicantsPopup(BuildContext context, int jobId) {
   );
 }
 
+/*
+    One list for one job: who applied, ranked by fit; who is hired; then
+    the other workers who fit and have not applied; and, folded away, who
+    was declined.
+
+    It was three tabs, a banner above them, and a second pop-up of matches
+    that opened itself on top - four ways into what is one question: who
+    could do this job. The matches are the panel's "list of job seekers
+    whose profiles match" for a hirer who has topped up; a hirer who has
+    not sees how many, and the way to see who.
+*/
 class ViewApplicantsScreen extends StatefulWidget {
   const ViewApplicantsScreen({super.key});
 
@@ -36,20 +49,14 @@ class ViewApplicantsScreen extends StatefulWidget {
 }
 
 class _ViewApplicantsScreenState extends State<ViewApplicantsScreen>
-    with SingleTickerProviderStateMixin, RealtimeRefresh {
-  late TabController _tabController;
+    with RealtimeRefresh {
   int? _jobId;
   bool _initialized = false;
+  bool _showDeclined = false;
 
-  /*
-      Jobs whose matched workers have already popped up this session.
-
-      The panel asked that a hirer who avails of points "automatically
-      receives" the list, so it opens by itself the first time a job's
-      applicants are viewed - once, not every visit. The banner above the
-      tabs opens it again whenever it is wanted.
-  */
-  static final Set<int> _matchesShown = {};
+  /// Matched workers invited from this list, and the one being invited now.
+  final Set<int> _invited = {};
+  int? _inviting;
 
   /// Job status and title, needed to decide whether reviewing is possible.
   ///
@@ -62,10 +69,6 @@ class _ViewApplicantsScreenState extends State<ViewApplicantsScreen>
   String get _jobTitle =>
       context.watch<JobProvider>().selectedJob?.title ?? 'this job';
 
-  // Completion and reviewing are now judged per hire rather than per job — a
-  // job with two people on it only finishes once both are done, and the first
-  // pair should not have to wait on the second. See _buildApplicantCard.
-
   /// An employer watching this screen sees a new applicant appear without
   /// touching anything — which is the moment they most want to act on.
   @override
@@ -75,12 +78,6 @@ class _ViewApplicantsScreenState extends State<ViewApplicantsScreen>
   void onRealtimeRefresh() {
     if (_jobId == null) return;
     context.read<ApplicationProvider>().fetchApplicants(_jobId!);
-  }
-
-  @override
-  void initState() {
-    super.initState();
-    _tabController = TabController(length: 3, vsync: this);
   }
 
   @override
@@ -97,89 +94,29 @@ class _ViewApplicantsScreenState extends State<ViewApplicantsScreen>
         if (!mounted) return;
         context.read<ApplicationProvider>().fetchApplicants(_jobId!);
         bindRealtimeRefresh();
-        // The job (status, title) and its matched workers together.
-        _loadJobAndMatches(_jobId!);
+        context.read<JobProvider>().fetchJobDetail(_jobId!);
+        context.read<WorkerBrowseProvider>().fetchMatches(_jobId!);
       });
     }
   }
 
-  Future<void> _loadJobAndMatches(int jobId) async {
-    final jobs = context.read<JobProvider>();
-    final browse = context.read<WorkerBrowseProvider>();
+  Future<void> _refresh() => Future.wait([
+        context.read<ApplicationProvider>().fetchApplicants(_jobId!),
+        context.read<WorkerBrowseProvider>().fetchMatches(_jobId!),
+      ]);
 
-    await Future.wait([jobs.fetchJobDetail(jobId), browse.fetchMatches(jobId)]);
+  Future<void> _invite(int workerId, String name) async {
+    setState(() => _inviting = workerId);
+    final sent = await inviteMatchedWorker(context, jobId: _jobId!, workerId: workerId, name: name);
     if (!mounted) return;
-
-    // Only while the job is still looking for people, and only once.
-    final open = jobs.selectedJob?.status == 'open';
-    if (open && browse.matchCount > 0 && _matchesShown.add(jobId)) {
-      showMatchedWorkersPopup(context, jobId: jobId, jobTitle: jobs.selectedJob?.title);
-    }
+    setState(() {
+      _inviting = null;
+      if (sent) _invited.add(workerId);
+    });
   }
 
-  /// "8 workers match this job", above the tabs, while the job is open.
-  Widget _matchesBanner() {
-    final browse = context.watch<WorkerBrowseProvider>();
-    final open = context.watch<JobProvider>().selectedJob?.status == 'open';
-
-    if (!open || browse.matchesJobId != _jobId || browse.matchCount == 0) {
-      return const SizedBox.shrink();
-    }
-
-    final count = browse.matchCount;
-    final locked = browse.matchesLocked;
-
-    return Material(
-      color: Colors.white,
-      child: InkWell(
-        onTap: () => showMatchedWorkersPopup(context, jobId: _jobId!, jobTitle: _jobTitle),
-        child: Container(
-          padding: const EdgeInsets.fromLTRB(16, 12, 12, 12),
-          decoration: const BoxDecoration(
-            border: Border(bottom: BorderSide(color: AppColors.neutral200)),
-          ),
-          child: Row(
-            children: [
-              Icon(locked ? Icons.lock_outline : Icons.person_search_outlined,
-                  size: 20, color: AppColors.primary),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Text(
-                  locked
-                      ? '$count worker${count == 1 ? '' : 's'} match this job. Top up to see them.'
-                      : '$count worker${count == 1 ? '' : 's'} match this job',
-                  style: const TextStyle(
-                    fontSize: 13.5,
-                    fontWeight: FontWeight.w600,
-                    color: AppColors.neutral900,
-                  ),
-                ),
-              ),
-              const Text(
-                'See',
-                style: TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w700,
-                  color: AppColors.primary,
-                ),
-              ),
-              const Icon(Icons.chevron_right, size: 20, color: AppColors.primary),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  @override
-  void dispose() {
-    _tabController.dispose();
-    super.dispose();
-  }
-
-  List<Map<String, dynamic>> _byStatus(
-          List<Map<String, dynamic>> applicants, String status) =>
-      applicants.where((a) => a['application_status'] == status).toList();
+  bool _isStatus(Map<String, dynamic> a, Set<String> statuses) =>
+      statuses.contains((a['application_status'] ?? '').toString());
 
   @override
   Widget build(BuildContext context) {
@@ -193,38 +130,39 @@ class _ViewApplicantsScreenState extends State<ViewApplicantsScreen>
     return Consumer<ApplicationProvider>(
       builder: (context, provider, _) {
         final all = provider.applicants;
-        final pending = _byStatus(all, 'pending');
-        // Hired, finished or not: a finished hire on a crew job was in no
-        // tab at all, so it could not be reviewed.
-        final accepted = all
-            .where((a) => const {'accepted', 'completed'}
-                .contains((a['application_status'] ?? '').toString()))
-            .toList();
-        final rejected = _byStatus(all, 'rejected');
+        final pending = all.where((a) => _isStatus(a, const {'pending'})).toList();
+        // Hired, finished or not: a finished hire on a crew job has to stay
+        // reachable, or it could not be reviewed.
+        final hired = all.where((a) => _isStatus(a, const {'accepted', 'completed'})).toList();
+        final declined = all.where((a) => _isStatus(a, const {'rejected'})).toList();
 
         /*
             Message and Mark complete belong on the job, not on each row.
 
-            The job card in My Jobs already carries both for a hire, so
-            every accepted applicant here repeated the two buttons the
-            employer had just used one screen back — two places to finish
-            the same job, and no way to tell which one was the real one.
-
-            They stay for the one case the card genuinely cannot express:
-            more than one person hired on a single job. The server sends
-            `hire` as null then, precisely because the card cannot say who
-            you mean, so this list is the only place those actions exist.
+            The job card already carries both for a single hire. They stay
+            here for the one case the card cannot express: more than one
+            person hired on one job.
         */
-        final hiredCount = all
-            .where((a) => const {'accepted', 'completed'}
-                .contains((a['application_status'] ?? '').toString()))
-            .length;
-        final perWorkerActions = hiredCount > 1;
+        final perWorkerActions = hired.length > 1;
 
         // Spots on the job, and whether any are left. Counted from the
         // list rather than the job so it is right the moment one is taken.
         final spots = context.watch<JobProvider>().selectedJob?.workersNeeded ?? 1;
-        final full = hiredCount >= spots;
+        final full = hired.length >= spots;
+        final job = context.watch<JobProvider>().selectedJob;
+
+        Widget card(Map<String, dynamic> a, {int? rank, bool actions = false}) => ApplicantCard(
+              applicant: a,
+              rank: rank,
+              showActions: actions,
+              perWorkerActions: perWorkerActions,
+              full: full,
+              jobId: _jobId,
+              jobTitle: _jobTitle,
+              jobStatus: _jobStatus,
+              job: job,
+              onChanged: () => context.read<ApplicationProvider>().fetchApplicants(_jobId!),
+            );
 
         return Scaffold(
           backgroundColor: AppColors.background,
@@ -232,63 +170,173 @@ class _ViewApplicantsScreenState extends State<ViewApplicantsScreen>
             backgroundColor: AppColors.primary,
             foregroundColor: Colors.white,
             elevation: 0,
-            title: const Text('Applicants',
-                style: TextStyle(fontWeight: FontWeight.w600)),
-            bottom: TabBar(
-              controller: _tabController,
-              indicatorColor: AppColors.accent,
-              indicatorWeight: 3,
-              labelColor: Colors.white,
-              unselectedLabelColor: Colors.white60,
-              labelStyle:
-                  const TextStyle(fontWeight: FontWeight.w600, fontSize: 13.5),
-              tabs: [
-                Tab(text: 'Pending (${pending.length})'),
-                Tab(text: 'Accepted (${accepted.length})'),
-                Tab(text: 'Rejected (${rejected.length})'),
-              ],
-            ),
+            title: Text(_jobTitle, maxLines: 1, overflow: TextOverflow.ellipsis,
+                style: const TextStyle(fontWeight: FontWeight.w600)),
           ),
           body: provider.isApplicantsLoading && all.isEmpty
               ? const Center(child: CircularProgressIndicator())
               : provider.applicantsErrorMessage != null && all.isEmpty
                   ? _errorState(provider.applicantsErrorMessage!)
-                  : Column(
-                      children: [
-                        _matchesBanner(),
-                        Expanded(
-                          child: TabBarView(
-                      controller: _tabController,
-                      children: [
-                        _buildList(pending,
-                            emptyTitle: all.isEmpty ? 'No applicants yet' : 'Nobody waiting',
-                            emptyBody: all.isEmpty
-                                ? 'People who apply to this job show here.'
-                                : 'Anyone who applied has been answered or withdrew.',
-                            showActions: true,
-                            perWorkerActions: perWorkerActions,
-                            spots: spots,
-                            hired: hiredCount,
-                            full: full),
-                        _buildList(accepted,
-                            emptyTitle: 'Nobody hired yet',
-                            emptyBody: 'People you accept show here.',
-                            showActions: false,
-                            perWorkerActions: perWorkerActions),
-                        _buildList(rejected,
-                            emptyTitle: 'Nobody declined',
-                            emptyBody: 'Applicants you decline show here.',
-                            showActions: false,
-                            perWorkerActions: perWorkerActions),
-                      ],
-                    ),
-                        ),
-                      ],
+                  : RefreshIndicator(
+                      onRefresh: _refresh,
+                      child: ListView(
+                        physics: const AlwaysScrollableScrollPhysics(),
+                        padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+                        children: [
+                          if (spots > 1) _spots(spots, hired.length, full),
+                          _title('Applicants', pending.length, note: pending.length > 1 ? 'Best match first' : null),
+                          if (pending.isEmpty)
+                            _quiet(all.isEmpty
+                                ? 'Nobody has applied yet.'
+                                : 'No applicants waiting.')
+                          else
+                            for (final (i, a) in pending.indexed) card(a, rank: i + 1, actions: true),
+                          if (hired.isNotEmpty) ...[
+                            _title('Hired', hired.length),
+                            for (final a in hired) card(a),
+                          ],
+                          if (job?.status == 'open') _matches(all),
+                          if (declined.isNotEmpty) ...[
+                            const SizedBox(height: 6),
+                            TextButton(
+                              onPressed: () => setState(() => _showDeclined = !_showDeclined),
+                              style: TextButton.styleFrom(
+                                foregroundColor: AppColors.neutral600,
+                                padding: EdgeInsets.zero,
+                                alignment: Alignment.centerLeft,
+                              ),
+                              child: Text('${_showDeclined ? 'Hide' : 'Show'} Rejected (${declined.length})'),
+                            ),
+                            if (_showDeclined)
+                              for (final a in declined) card(a),
+                          ],
+                        ],
+                      ),
                     ),
         );
       },
     );
   }
+
+  /// Workers who fit and have not applied. Names for a hirer who has topped
+  /// up; for one who has not, how many and the way to see who.
+  Widget _matches(List<Map<String, dynamic>> applicants) {
+    final browse = context.watch<WorkerBrowseProvider>();
+    if (browse.matchesJobId != _jobId) return const SizedBox.shrink();
+
+    if (browse.matchesLocked) {
+      final count = browse.matchCount;
+      if (count == 0) return const SizedBox.shrink();
+
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _title('Suggested Workers', count),
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: AppColors.neutral200),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  '$count ${count == 1 ? 'worker matches' : 'workers match'} this job. Top up any amount to see and invite them.',
+                  style: const TextStyle(fontSize: 13.5, height: 1.4, color: AppColors.neutral800),
+                ),
+                const SizedBox(height: 10),
+                ElevatedButton(
+                  onPressed: () async {
+                    await AppRouter.push(context, AppRouter.wallet);
+                    if (!mounted) return;
+                    context.read<WorkerBrowseProvider>().fetchMatches(_jobId!);
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.primary,
+                    foregroundColor: Colors.white,
+                    elevation: 0,
+                  ),
+                  child: const Text('Top Up to View'),
+                ),
+              ],
+            ),
+          ),
+        ],
+      );
+    }
+
+    // Somebody who already applied is above, not here again.
+    final applied = applicants.map((a) => (a['worker_id'] as num?)?.toInt()).toSet();
+    final rows = browse.matches
+        .where((m) => !applied.contains((m['user_id'] as num?)?.toInt()))
+        .toList();
+    if (rows.isEmpty) return const SizedBox.shrink();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _title('Suggested Workers', rows.length),
+        for (final row in rows)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 10),
+            child: MatchedWorkerCard(
+              row: row,
+              onInvite: _invite,
+              inviting: _inviting != null && _inviting == (row['user_id'] as num?)?.toInt(),
+              alreadyInvited: _invited.contains((row['user_id'] as num?)?.toInt()),
+            ),
+          ),
+      ],
+    );
+  }
+
+  Widget _title(String text, int count, {String? note}) => Padding(
+        padding: const EdgeInsets.fromLTRB(2, 12, 2, 8),
+        child: Row(
+          children: [
+            Text('$text ($count)',
+                style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: AppColors.neutral900)),
+            if (note != null) ...[
+              const SizedBox(width: 8),
+              Flexible(
+                child: Text(note,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(fontSize: 12, color: AppColors.neutral500)),
+              ),
+            ],
+          ],
+        ),
+      );
+
+  Widget _quiet(String text) => Padding(
+        padding: const EdgeInsets.fromLTRB(2, 0, 2, 8),
+        child: Text(text, style: const TextStyle(fontSize: 13.5, color: AppColors.neutral600)),
+      );
+
+  // A job for several people says how many are still open, and Accept stops
+  // once they are all taken.
+  Widget _spots(int spots, int hired, bool full) => Padding(
+        padding: const EdgeInsets.only(top: 4),
+        child: Row(
+          children: [
+            Icon(full ? Icons.group : Icons.group_outlined,
+                size: 16, color: full ? AppColors.success : AppColors.neutral600),
+            const SizedBox(width: 6),
+            Text(
+              full ? 'All $spots spots filled.' : '$hired of $spots hired. ${spots - hired} more to accept.',
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w500,
+                color: full ? AppColors.success : AppColors.neutral700,
+              ),
+            ),
+          ],
+        ),
+      );
 
   Widget _errorState(String message) {
     return Center(
@@ -299,7 +347,7 @@ class _ViewApplicantsScreenState extends State<ViewApplicantsScreen>
           children: [
             const Icon(Icons.cloud_off, size: 56, color: AppColors.neutral300),
             const SizedBox(height: 16),
-            const Text('Could not load applicants',
+            const Text('Could Not Load Applicants',
                 style: TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.w600,
@@ -316,142 +364,6 @@ class _ViewApplicantsScreenState extends State<ViewApplicantsScreen>
             ),
           ],
         ),
-      ),
-    );
-  }
-
-  Widget _buildList(List<Map<String, dynamic>> applicants,
-      {required String emptyTitle,
-      required String emptyBody,
-      required bool showActions,
-      required bool perWorkerActions,
-      int spots = 1,
-      int hired = 0,
-      bool full = false}) {
-    if (applicants.isEmpty) {
-      // A list, so it pulls to refresh like the full one.
-      return RefreshIndicator(
-        onRefresh: () =>
-            context.read<ApplicationProvider>().fetchApplicants(_jobId!),
-        child: ListView(
-          physics: const AlwaysScrollableScrollPhysics(),
-          children: [
-            const SizedBox(height: 120),
-            Icon(Icons.people_outline, size: 56, color: AppColors.neutral300),
-            const SizedBox(height: 16),
-            Text(emptyTitle,
-                textAlign: TextAlign.center,
-                style: const TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                    color: AppColors.neutral600)),
-            const SizedBox(height: 8),
-            /*
-                Says why it is empty.
-
-                A notification about an applicant stays in the list after the
-                applicant is gone — withdrawn, or already accepted or
-                declined — so tapping an old one lands here. "No applicants
-                here" over a job the employer knows had applicants reads as
-                the screen having failed to load them.
-            */
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 40),
-              child: Text(
-                emptyBody,
-                textAlign: TextAlign.center,
-                style: const TextStyle(fontSize: 14, color: AppColors.neutral400),
-              ),
-            ),
-          ],
-        ),
-      );
-    }
-
-    // A job for several people says how many are still open above the
-    // pending list, and Accept stops once they are all taken.
-    final spotsLine = showActions && spots > 1
-        ? Padding(
-            padding: const EdgeInsets.only(bottom: 12),
-            child: Row(
-              children: [
-                Icon(full ? Icons.group : Icons.group_outlined,
-                    size: 16, color: full ? AppColors.success : AppColors.neutral600),
-                const SizedBox(width: 6),
-                Text(
-                  full
-                      ? 'All $spots spots filled.'
-                      : '$hired of $spots hired. ${spots - hired} more to accept.',
-                  style: TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w500,
-                    color: full ? AppColors.success : AppColors.neutral700,
-                  ),
-                ),
-              ],
-            ),
-          )
-        : null;
-
-    /*
-        The pending list is a ranking - the server sorts it by fit - so it
-        says so, and each card carries its place.
-    */
-    final header = showActions
-        ? Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              ?spotsLine,
-              Container(
-                width: double.infinity,
-                margin: const EdgeInsets.only(bottom: 12),
-                padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
-                decoration: BoxDecoration(
-                  color: AppColors.primary.withValues(alpha: 0.06),
-                  borderRadius: BorderRadius.circular(10),
-                  border: Border.all(color: AppColors.primary.withValues(alpha: 0.15)),
-                ),
-                child: const Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Icon(Icons.leaderboard_outlined, size: 17, color: AppColors.primary),
-                    SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        'Ranked by best fit for this job: the trade, the skills it needs, and how close they are.',
-                        style: TextStyle(fontSize: 12.5, height: 1.35, color: AppColors.neutral700),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          )
-        : null;
-
-    return RefreshIndicator(
-      onRefresh: () =>
-          context.read<ApplicationProvider>().fetchApplicants(_jobId!),
-      child: ListView.builder(
-        padding: const EdgeInsets.all(16),
-        itemCount: applicants.length + (header == null ? 0 : 1),
-        itemBuilder: (context, index) {
-          if (header != null && index == 0) return header;
-          final position = index - (header == null ? 0 : 1);
-          return ApplicantCard(
-            applicant: applicants[position],
-            rank: showActions ? position + 1 : null,
-            showActions: showActions,
-            perWorkerActions: perWorkerActions,
-            full: full,
-            jobId: _jobId,
-            jobTitle: _jobTitle,
-            jobStatus: _jobStatus,
-            job: context.watch<JobProvider>().selectedJob,
-            onChanged: () =>
-                context.read<ApplicationProvider>().fetchApplicants(_jobId!),
-          );
-        },
       ),
     );
   }

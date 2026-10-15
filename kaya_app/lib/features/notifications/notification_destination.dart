@@ -58,6 +58,9 @@ enum NotificationDestination {
   /// A report about this account, to read and answer.
   reportResponse,
 
+  /// A strike, an appeal's outcome: where the account stands.
+  accountStatus,
+
   /// A notice on the community board. Carries the post id.
   communityPost,
 
@@ -77,6 +80,35 @@ enum NotificationDestination {
   fullText,
 }
 
+/*
+    Notifications that only inform.
+
+    An outcome, a post that ended, a badge, an announcement: the words are
+    the whole of it, and there is nothing to do anywhere else. Tapping one
+    marks it read and shows all of it where it is - it opens no screen.
+    Only a notification with something to do (answer, confirm, reply,
+    apply, extend, appeal, resubmit) takes you somewhere.
+*/
+const informOnlyNotifications = {
+  'application.rejected',
+  'application.withdrawn',
+  'application.cancelled',
+  'application.disputed',
+  'invitation.declined',
+  'job.expired',
+  'job.closed',
+  'verification.approved',
+  'badge.earned',
+  'report.decided',
+  'report.closed',
+  'moderation.appeal',
+  'moderation.false_report',
+  'community.approved',
+  'community.rejected',
+  'community.removed',
+  'announcement.sent',
+};
+
 /// Which screen a notification belongs on, from what the server sent with it.
 NotificationDestination notificationDestination({
   required String type,
@@ -84,6 +116,8 @@ NotificationDestination notificationDestination({
   required String? referenceType,
   int? referenceId,
 }) {
+  if (informOnlyNotifications.contains(type)) return NotificationDestination.fullText;
+
   // Checked before reference_type: the notification is about the applicant,
   // not about the advert they answered.
   if (type == 'application.received' && referenceId != null) {
@@ -152,6 +186,7 @@ NotificationDestination notificationDestination({
     'report' => referenceId != null
         ? NotificationDestination.reportResponse
         : NotificationDestination.fullText,
+    'strike' => NotificationDestination.accountStatus,
     'community_post' => referenceId != null
         ? NotificationDestination.communityPost
         : NotificationDestination.fullText,

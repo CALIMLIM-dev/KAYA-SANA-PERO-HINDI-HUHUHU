@@ -141,7 +141,7 @@ class _ChatJobStripState extends State<ChatJobStrip> {
 
   Widget _pill(String status) {
     final (label, color) = switch (status) {
-      'in_progress' => ('In progress', AppColors.info),
+      'in_progress' => ('In Progress', AppColors.info),
       'completed' => ('Completed', AppColors.success),
       'closed' || 'expired' => ('Closed', AppColors.neutral600),
       _ => ('Open', AppColors.primary),

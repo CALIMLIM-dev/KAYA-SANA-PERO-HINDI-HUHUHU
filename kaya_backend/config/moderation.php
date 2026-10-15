@@ -142,4 +142,48 @@ return [
         'cfone' => 'cellphone', 'cellfone' => 'cellphone',
         'fon' => 'phone', 'pone' => 'phone',
     ],
+
+    /*
+        Reports, strikes and appeals. See StrikeService.
+
+        A strike counts for `strike_days`, then drops off. The ladder is what
+        the Nth strike still counting leads to; anything past the last rung
+        repeats it. Reasons marked critical in ModerationReasons skip the
+        ladder and go to a ban, which needs a second administrator before it
+        is permanent and holds as a `ban_hold_days` suspension until then.
+    */
+    'strike_days' => 180,
+    'ladder' => [
+        1 => ['action' => 'warning',     'days' => null],
+        2 => ['action' => 'restriction', 'days' => 3],
+        3 => ['action' => 'suspension',  'days' => 7],
+        4 => ['action' => 'suspension',  'days' => 30],
+        5 => ['action' => 'ban',         'days' => null],
+    ],
+    'ban_hold_days' => 30,
+
+    // How long the reported person has to give their side before a report
+    // can be upheld. Dismissing does not wait.
+    'reply_hours' => 48,
+
+    // How long after a strike it can be appealed.
+    'appeal_days' => 30,
+
+    /*
+        Held from applying, posting and inviting while a serious report is
+        looked at: a high-severity report with photos, or high-severity
+        reports from this many different people. Lifts by itself when the
+        reports are closed.
+    */
+    'under_review' => true,
+    'under_review_reporters' => 2,
+
+    /*
+        Reports made in bad faith. The `false_warn_at`th within
+        `false_window_days` earns a warning; every one after it pauses
+        reporting for `false_pause_days`.
+    */
+    'false_window_days' => 30,
+    'false_warn_at' => 3,
+    'false_pause_days' => 30,
 ];

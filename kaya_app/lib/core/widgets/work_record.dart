@@ -69,7 +69,7 @@ class CompletionRecord extends StatelessWidget {
                 style: TextStyle(
                     fontSize: 20, fontWeight: FontWeight.w700, color: colour)),
             const SizedBox(width: 8),
-            const Text('completion rate',
+            const Text('Completion Rate',
                 style: TextStyle(fontSize: 13, color: AppColors.neutral600)),
           ],
         ),

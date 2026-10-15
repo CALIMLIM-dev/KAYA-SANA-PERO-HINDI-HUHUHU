@@ -6,7 +6,7 @@
     <div class="p-5 border-b border-slate-100 flex items-center gap-3">
         <div class="flex gap-1">
             {{-- Waiting first, because a support queue has only ever needed one ordering. --}}
-            @foreach (['waiting' => 'Waiting on us', 'all' => 'All'] as $key => $label)
+            @foreach (['waiting' => 'Waiting on Us', 'all' => 'All'] as $key => $label)
                 <a href="{{ route('admin.support.index', ['show' => $key]) }}"
                    class="px-3 py-1.5 rounded-lg text-sm {{ $show === $key ? 'bg-blue-50 text-blue-700 font-medium' : 'text-slate-500 hover:bg-slate-50' }}">
                     {{ $label }}

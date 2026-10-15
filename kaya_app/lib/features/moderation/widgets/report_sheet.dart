@@ -1,5 +1,3 @@
-import 'dart:io';
-
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import '../../../core/widgets/kaya_popup.dart';
@@ -8,6 +6,7 @@ import 'package:image_picker/image_picker.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/widgets/app_toast.dart';
 import '../../../data/services/api_client.dart';
+import 'evidence_photos.dart';
 
 /// Reports another user.
 ///
@@ -65,7 +64,6 @@ class _ReportSheetState extends State<ReportSheet> {
   /// Screenshots or photos, up to three. The panel asked for substantial
   /// supporting evidence; a picture of what happened is the most of it.
   final List<XFile> _photos = [];
-  static const _maxPhotos = 3;
   static const _minDetails = 20;
   String? _selected;
   bool _loading = true;
@@ -113,16 +111,6 @@ class _ReportSheetState extends State<ReportSheet> {
 
   bool get _canSubmit => _selected != null && !_submitting && _detailsEnough;
 
-  Future<void> _addPhoto() async {
-    if (_photos.length >= _maxPhotos) return;
-    final picked = await ImagePicker().pickImage(
-      source: ImageSource.gallery,
-      imageQuality: 75,
-      maxWidth: 1600,
-    );
-    if (picked == null || !mounted) return;
-    setState(() => _photos.add(picked));
-  }
 
   Future<void> _submit() async {
     setState(() {
@@ -145,10 +133,7 @@ class _ReportSheetState extends State<ReportSheet> {
             ? fields
             : FormData.fromMap({
                 ...fields,
-                'photos': [
-                  for (final p in _photos)
-                    await MultipartFile.fromFile(p.path, filename: p.name),
-                ],
+                'photos': await EvidencePhotos.files(_photos),
               }, ListFormat.multiCompatible),
       );
 
@@ -306,69 +291,15 @@ class _ReportSheetState extends State<ReportSheet> {
     );
   }
 
-  /// Up to three photos, each removable, with an Add tile while there is room.
   Widget _buildPhotos() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          'Photos or screenshots (optional, up to $_maxPhotos)',
-          style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600, color: AppColors.neutral700),
-        ),
-        const SizedBox(height: 8),
-        Wrap(
-          spacing: 8,
-          runSpacing: 8,
-          children: [
-            for (var i = 0; i < _photos.length; i++)
-              Stack(
-                clipBehavior: Clip.none,
-                children: [
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(10),
-                    child: Image.file(File(_photos[i].path), width: 72, height: 72, fit: BoxFit.cover),
-                  ),
-                  Positioned(
-                    top: -6,
-                    right: -6,
-                    child: InkWell(
-                      onTap: () => setState(() => _photos.removeAt(i)),
-                      child: Container(
-                        padding: const EdgeInsets.all(3),
-                        decoration: const BoxDecoration(color: AppColors.neutral900, shape: BoxShape.circle),
-                        child: const Icon(Icons.close, size: 13, color: Colors.white),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            if (_photos.length < _maxPhotos)
-              InkWell(
-                onTap: _addPhoto,
-                borderRadius: BorderRadius.circular(10),
-                child: Container(
-                  width: 72,
-                  height: 72,
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(10),
-                    border: Border.all(color: AppColors.neutral300),
-                  ),
-                  child: const Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(Icons.add_photo_alternate_outlined, color: AppColors.neutral500),
-                      SizedBox(height: 2),
-                      Text('Add', style: TextStyle(fontSize: 11, color: AppColors.neutral500)),
-                    ],
-                  ),
-                ),
-              ),
-          ],
-        ),
-      ],
+    return EvidencePhotos(
+      photos: _photos,
+      label: 'Photos or screenshots (optional, up to ${EvidencePhotos.max})',
+      onChanged: (photos) => setState(() => _photos
+        ..clear()
+        ..addAll(photos)),
     );
   }
-
   Widget _buildFooter() {
     return Container(
       padding: const EdgeInsets.all(20),
@@ -416,7 +347,7 @@ class _ReportSheetState extends State<ReportSheet> {
                           valueColor: AlwaysStoppedAnimation(Colors.white),
                         ),
                       )
-                    : const Text('Send report'),
+                    : const Text('Send Report'),
               ),
             ),
           ],

@@ -667,17 +667,17 @@ class _WorkerSetupFlowScreenState extends State<WorkerSetupFlowScreen> {
               Expanded(
                 flex: 2,
                 child: _nameField(
-                    _middleNameController, 'Middle Name (optional)'),
+                    _middleNameController, 'Middle Name (Optional)'),
               ),
               const SizedBox(width: 12),
               Expanded(
-                // '(optional)', the same as the employer form and the same
+                // '(Optional)', the same as the employer form and the same
                 // as the middle name beside it. The comment above has claimed
                 // for months that it said so; it did not, so a field nothing
                 // requires looked required.
                 child: _nameField(
                   _suffixController,
-                  'Suffix (optional)',
+                  'Suffix (Optional)',
                   capitalization: TextCapitalization.characters,
                 ),
               ),
@@ -775,7 +775,7 @@ class _WorkerSetupFlowScreenState extends State<WorkerSetupFlowScreen> {
               visualDensity: VisualDensity.compact,
               constraints: const BoxConstraints(),
               padding: const EdgeInsets.only(left: 8),
-              tooltip: 'Remove pin',
+              tooltip: 'Remove Pin',
               onPressed: () => setState(() {
                 _pinnedLat = null;
                 _pinnedLng = null;
@@ -851,7 +851,7 @@ class _WorkerSetupFlowScreenState extends State<WorkerSetupFlowScreen> {
     return await showDialog<bool>(
           context: context,
           builder: (context) => AlertDialog(
-            title: const Text('Pin is somewhere else'),
+            title: const Text('Pin Is Somewhere Else'),
             content: Text(
               'Your pin is in ${resolved.displayName}, not '
               '${_selectedLocation?.displayName ?? 'the location you chose'}.',
@@ -1575,7 +1575,7 @@ class _WorkerSetupFlowScreenState extends State<WorkerSetupFlowScreen> {
           const Icon(Icons.camera_alt, size: 64, color: AppColors.primary),
           const SizedBox(height: 24),
           const Text(
-            'Add a profile photo',
+            'Add a Profile Photo',
             style: TextStyle(
               fontSize: 24,
               fontWeight: FontWeight.bold,

@@ -250,6 +250,7 @@ class WorkerCard extends StatelessWidget {
             // ── Row 3: availability + match % + rating ─────────────────────
             Row(
               crossAxisAlignment: CrossAxisAlignment.center,
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
@@ -273,7 +274,7 @@ class WorkerCard extends StatelessWidget {
                       ),
                       const SizedBox(width: 6),
                       Text(
-                        isAvailable ? 'Available now' : 'Currently busy',
+                        isAvailable ? 'Available Now' : 'Currently Busy',
                         style: TextStyle(
                           fontSize: 12,
                           fontWeight: FontWeight.w600,
@@ -285,15 +286,26 @@ class WorkerCard extends StatelessWidget {
                     ],
                   ),
                 ),
-                const Spacer(),
-                if (reviews.isNotEmpty) ...[
-                  const Icon(Icons.star_rounded, color: Colors.amber, size: 15),
-                  const SizedBox(width: 3),
-                  Text(
-                    '$rating $reviews',
-                    style: const TextStyle(fontSize: 12, color: AppColors.neutral500),
+                // The rating gives way, not the row: at 320 wide with large
+                // text it shortens rather than overflowing past the card.
+                if (reviews.isNotEmpty)
+                  Flexible(
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(Icons.star_rounded, color: Colors.amber, size: 15),
+                        const SizedBox(width: 3),
+                        Flexible(
+                          child: Text(
+                            '$rating $reviews',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(fontSize: 12, color: AppColors.neutral500),
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
-                ],
               ],
             ),
 

@@ -97,6 +97,17 @@ class ModerationReasons
             'severity'     => 'critical',
             'default_days' => null,
         ],
+        /*
+            Getting back at somebody for reporting you - threats, abuse, or
+            a report filed in return - is its own violation, whatever the
+            original report turns out to be worth.
+        */
+        'retaliation' => [
+            'label'        => 'Retaliation against a reporter',
+            'description'  => 'Threatened, harassed or reported somebody back because they made a report.',
+            'severity'     => 'serious',
+            'default_days' => 30,
+        ],
         'inappropriate_content' => [
             'label'        => 'Inappropriate content',
             'description'  => 'Offensive, sexual, or discriminatory material on the profile or in messages.',
@@ -174,6 +185,12 @@ class ModerationReasons
     public static function suspensionLabel(?string $code): string
     {
         return self::SUSPENSION[$code]['label'] ?? ($code ? str_replace('_', ' ', ucfirst($code)) : 'Not given');
+    }
+
+    /** Scam, fake papers, threats: these skip the strike ladder. */
+    public static function isCritical(?string $suspensionCode): bool
+    {
+        return (self::SUSPENSION[$suspensionCode]['severity'] ?? null) === 'critical';
     }
 
     public static function reportSeverity(?string $code): string

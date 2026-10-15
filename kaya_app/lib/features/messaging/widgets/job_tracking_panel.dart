@@ -105,14 +105,14 @@ class _JobTrackingPanelState extends State<JobTrackingPanel> {
     return await showDialog<bool>(
           context: context,
           builder: (context) => AlertDialog(
-            title: const Text('Share your location?'),
+            title: const Text('Share Your Location?'),
             content: Text(
               '${widget.otherPartyName} can see where you are until this job ends.',
             ),
             actions: [
               TextButton(
                 onPressed: () => Navigator.pop(context, false),
-                child: const Text('Not now'),
+                child: const Text('Not Now'),
               ),
               ElevatedButton(
                 onPressed: () => Navigator.pop(context, true),
@@ -162,7 +162,7 @@ class _JobTrackingPanelState extends State<JobTrackingPanel> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  sharing ? 'Sharing your location' : 'Share your location',
+                  sharing ? 'Sharing Your Location' : 'Share Your Location',
                   style: const TextStyle(
                       fontSize: 13.5,
                       fontWeight: FontWeight.w600,

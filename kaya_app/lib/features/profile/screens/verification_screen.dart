@@ -176,7 +176,7 @@ class _VerificationScreenState extends State<VerificationScreen> {
           _header(Icons.phone_android, 'Verify Phone Number', subtitle),
           const SizedBox(height: 32),
           if (!_otpSent) ...[
-            _label('Phone number'),
+            _label('Phone Number'),
             const SizedBox(height: 8),
             TextField(
               controller: _phoneCtrl,
@@ -202,7 +202,7 @@ class _VerificationScreenState extends State<VerificationScreen> {
             ],
             const SizedBox(height: 24),
             _primaryButton(
-              label: 'Send code',
+              label: 'Send Code',
               enabled: _phoneCtrl.text.trim().isNotEmpty && !_isLoading,
               isLoading: _isLoading,
               onPressed: _sendOTP,
@@ -236,7 +236,7 @@ class _VerificationScreenState extends State<VerificationScreen> {
           _header(Icons.email_outlined, 'Verify Email Address', subtitle),
           const SizedBox(height: 32),
           if (!_emailSent) ...[
-            _label('Email address'),
+            _label('Email Address'),
             const SizedBox(height: 8),
             /*
                 Shown, not edited.
@@ -282,7 +282,7 @@ class _VerificationScreenState extends State<VerificationScreen> {
             ],
             const SizedBox(height: 24),
             _primaryButton(
-              label: 'Send code',
+              label: 'Send Code',
               enabled: _emailCtrl.text.trim().isNotEmpty && !_isLoading,
               isLoading: _isLoading,
               onPressed: _sendEmail,
@@ -1172,7 +1172,7 @@ class _VerificationScreenState extends State<VerificationScreen> {
         else
           GestureDetector(
             onTap: _isLoading ? null : onResend,
-            child: const Text('Send a new code',
+            child: const Text('Send a New Code',
                 style: TextStyle(
                     fontSize: 13.5,
                     fontWeight: FontWeight.w600,

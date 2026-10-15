@@ -333,4 +333,20 @@ class NotificationTest extends TestCase
             'title'    => 'New applicant',
         ]);
     }
+
+    /** @test */
+    public function titles_go_out_in_title_case_and_announcements_as_typed()
+    {
+        $this->assertSame('A Job You Applied for Has Ended', UserNotification::titleCase('A job you applied for has ended'));
+        $this->assertSame('Your Job Post Ends in 3 Days', UserNotification::titleCase('Your job post ends in 3 days'));
+        $this->assertSame('Your Community Post Is Up', UserNotification::titleCase('Your community post is up'));
+        $this->assertSame('A Warning from KAYA', UserNotification::titleCase('A warning from KAYA'));
+
+        $user = User::factory()->create();
+        $plain = UserNotification::create(['user_id' => $user->id, 'audience' => 'both', 'type' => 'job.expired', 'title' => 'Your job post has ended', 'body' => 'x']);
+        $typed = UserNotification::create(['user_id' => $user->id, 'audience' => 'both', 'type' => 'announcement.sent', 'title' => 'Bagong update sa app', 'body' => 'x']);
+
+        $this->assertSame('Your Job Post Has Ended', $plain->toPayload()['title']);
+        $this->assertSame('Bagong update sa app', $typed->toPayload()['title']);
+    }
 }

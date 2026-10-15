@@ -80,18 +80,24 @@ class CreditController extends Controller
         ];
 
         return [
-            $row("{$grant} free barya every month", true),
+            $row("{$grant} free Barya every month", true),
             $row('Browse jobs and workers', true),
             $row("Post a job, first {$freeDays} days free", true),
             $row('Receive applications', true),
-            $row(sprintf('Apply to a job (%d barya, about %d a month on free barya)', $apply, intdiv($grant, max(1, $apply))), true),
-            $row("Invite a worker ({$invite} barya)", true),
-            $row("Unlock a contact ({$unlock} barya)", true),
+            $row(sprintf('Apply to a job (%d Barya, about %d a month on free Barya)', $apply, intdiv($grant, max(1, $apply))), true),
+            $row("Invite a worker ({$invite} Barya)", true),
+            $row("Unlock a contact ({$unlock} Barya)", true),
             $row('Chat, schedule, complete and review a hire', true),
-            $row("Keep a job post up past {$freeDays} days (1 barya per {$perBarya} days)", false),
-            $row("Boost a job or profile to the top ({$boost} barya, {$boostDays} days)", false),
+            $row("Keep a job post up past {$freeDays} days (1 Barya per {$perBarya} days)", false),
+            $row("Boost a job or profile to the top ({$boost} Barya, {$boostDays} days)", false),
             $row('More than 1 community board post at once (up to 3)', false),
+            // Employer: the panel's "receives a list of job seekers whose
+            // profiles match". It was top-up only and missing from this list.
+            $row('See suggested workers for your job and invite them', false),
             $row('Your full profile shown to employers when you apply', false),
+            $row('See who viewed your profile', false),
+            $row('Know when an employer viewed your profile after you applied', false),
+            $row('Your profile views each week', false),
         ];
     }
 

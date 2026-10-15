@@ -103,11 +103,11 @@ class _SearchScreenState extends State<SearchScreen> {
   /// Skills per trade, fetched once each, for the worker skill row.
   final Map<int, List<(int, String)>> _skillsByCategory = {};
 
-  static const _jobSorts = {'best': 'Best match', 'nearest': 'Nearest', 'pay': 'Highest pay'};
+  static const _jobSorts = {'best': 'Best Match', 'nearest': 'Nearest', 'pay': 'Highest Pay'};
   static const _workerSorts = {
-    'best': 'Best match',
-    'rating': 'Top rated',
-    'jobs': 'Most jobs',
+    'best': 'Best Match',
+    'rating': 'Top Rated',
+    'jobs': 'Most Jobs',
     'nearest': 'Nearest',
     'newest': 'Newest',
   };
@@ -117,7 +117,7 @@ class _SearchScreenState extends State<SearchScreen> {
   static const _jobDistances = [2.0, 5.0, 10.0];
   static const _workerDistances = [5.0, 10.0, 25.0, 50.0];
   static const _pays = [500.0, 1000.0, 2000.0, 5000.0];
-  static const _starts = {0: 'Today', 7: 'This week', 30: 'This month'};
+  static const _starts = {0: 'Today', 7: 'This Week', 30: 'This Month'};
   static const _ratings = [3.0, 4.0, 4.5];
 
   bool get _jobs => _searchType == 'Jobs';
@@ -352,8 +352,8 @@ class _SearchScreenState extends State<SearchScreen> {
         if (_radiusKm != null) ('Within ${_km(_radiusKm!)}', () => _radiusKm = null),
         if (_jobs && _payMin != null) ('${_peso(_payMin!)} and up', () => _payMin = null),
         if (_jobs && _startsWithin != null) ('Starts ${_starts[_startsWithin]!.toLowerCase()}', () => _startsWithin = null),
-        if (!_jobs && _minRating != null) ('${_rating(_minRating!)}+ rating', () => _minRating = null),
-        if (_verifiedOnly) (_jobs ? 'Verified employers' : 'Verified workers', () => _verifiedOnly = false),
+        if (!_jobs && _minRating != null) ('${_rating(_minRating!)}+ Rating', () => _minRating = null),
+        if (_verifiedOnly) (_jobs ? 'Verified Employers' : 'Verified Workers', () => _verifiedOnly = false),
         if (_jobs && _urgentOnly) ('Urgent', () => _urgentOnly = false),
       ];
 
@@ -437,7 +437,7 @@ class _SearchScreenState extends State<SearchScreen> {
                       // A skill inside it, for workers.
                       if (skills != null && skills.isNotEmpty)
                         _chipRow([
-                          _choice('Any skill', _skillId == null, () => _set(() => _skillId = null), quiet: true),
+                          _choice('Any Skill', _skillId == null, () => _set(() => _skillId = null), quiet: true),
                           for (final (id, name) in skills)
                             _choice(name, _skillId == id, () => _set(() => _skillId = _skillId == id ? null : id), quiet: true),
                         ]),
@@ -508,7 +508,7 @@ class _SearchScreenState extends State<SearchScreen> {
                               padding: EdgeInsets.all(12),
                               child: SizedBox(width: 22, height: 22, child: CircularProgressIndicator(strokeWidth: 2)),
                             )
-                          : OutlinedButton(onPressed: _loadMore, child: const Text('Show more')),
+                          : OutlinedButton(onPressed: _loadMore, child: const Text('Show More')),
                     ),
                   ),
                 ),
@@ -763,7 +763,7 @@ class _SearchScreenState extends State<SearchScreen> {
           children: [
             const Icon(Icons.swap_vert, size: 16, color: AppColors.neutral600),
             const SizedBox(width: 4),
-            Text(_sorts[_sort] ?? 'Best match',
+            Text(_sorts[_sort] ?? 'Best Match',
                 style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600, color: AppColors.neutral700)),
           ],
         ),
@@ -819,7 +819,7 @@ class _SearchScreenState extends State<SearchScreen> {
           children: [
             const Icon(Icons.cloud_off, size: 48, color: AppColors.neutral300),
             const SizedBox(height: 14),
-            const Text('Could not load results',
+            const Text('Could Not Load Results',
                 style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: AppColors.neutral700)),
             const SizedBox(height: 6),
             Text(message, textAlign: TextAlign.center, style: const TextStyle(fontSize: 13.5, color: AppColors.neutral500)),
@@ -855,7 +855,7 @@ class _SearchScreenState extends State<SearchScreen> {
           children: [
             const Icon(Icons.search_off, size: 48, color: AppColors.neutral300),
             const SizedBox(height: 14),
-            Text(_jobs ? 'No jobs match' : 'No workers match',
+            Text(_jobs ? 'No Jobs Match' : 'No Workers Match',
                 style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: AppColors.neutral700)),
             const SizedBox(height: 6),
             Text(
@@ -878,7 +878,7 @@ class _SearchScreenState extends State<SearchScreen> {
                       _placeLabel = null;
                       _radiusKm = null;
                     }),
-                    child: const Text('Search everywhere'),
+                    child: const Text('Search Everywhere'),
                   ),
                 if (filters.isNotEmpty || _categoryId != null || typed.isNotEmpty)
                   TextButton(
@@ -888,7 +888,7 @@ class _SearchScreenState extends State<SearchScreen> {
                       _skillId = null;
                       _clearFilters();
                     }),
-                    child: const Text('Clear search and filters'),
+                    child: const Text('Clear Search and Filters'),
                   ),
               ],
             ),
@@ -981,7 +981,7 @@ class _SearchScreenState extends State<SearchScreen> {
                               const SizedBox(width: 8),
                               Expanded(
                                 child: Text(
-                                  _placeLabel ?? 'Any town',
+                                  _placeLabel ?? 'Any Town',
                                   maxLines: 1,
                                   overflow: TextOverflow.ellipsis,
                                   style: TextStyle(
@@ -1029,12 +1029,12 @@ class _SearchScreenState extends State<SearchScreen> {
 
                       if (_jobs) ...[
                         const SizedBox(height: 20),
-                        _sheetLabel('Pays at least'),
+                        _sheetLabel('Pays at Least'),
                         _sheetChoices<double>(
                           [for (final p in _pays) (p, _peso(p))],
                           _payMin,
                           (v) => change(() => _payMin = v),
-                          anyLabel: 'Any pay',
+                          anyLabel: 'Any Pay',
                         ),
                         const SizedBox(height: 20),
                         _sheetLabel('Starts'),
@@ -1042,7 +1042,7 @@ class _SearchScreenState extends State<SearchScreen> {
                           [for (final e in _starts.entries) (e.key, e.value)],
                           _startsWithin,
                           (v) => change(() => _startsWithin = v),
-                          anyLabel: 'Any time',
+                          anyLabel: 'Any Time',
                         ),
                       ] else ...[
                         const SizedBox(height: 20),
@@ -1058,7 +1058,7 @@ class _SearchScreenState extends State<SearchScreen> {
                       const SizedBox(height: 12),
                       SwitchListTile(
                         contentPadding: EdgeInsets.zero,
-                        title: Text(_jobs ? 'Verified employers only' : 'Verified workers only',
+                        title: Text(_jobs ? 'Verified Employers Only' : 'Verified Workers Only',
                             style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500)),
                         value: _verifiedOnly,
                         activeThumbColor: AppColors.primary,
@@ -1067,7 +1067,7 @@ class _SearchScreenState extends State<SearchScreen> {
                       if (_jobs)
                         SwitchListTile(
                           contentPadding: EdgeInsets.zero,
-                          title: const Text('Urgent jobs only',
+                          title: const Text('Urgent Jobs Only',
                               style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500)),
                           value: _urgentOnly,
                           activeThumbColor: AppColors.primary,
@@ -1090,7 +1090,7 @@ class _SearchScreenState extends State<SearchScreen> {
                           padding: const EdgeInsets.symmetric(vertical: 14),
                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                         ),
-                        child: const Text('Show results', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
+                        child: const Text('Show Results', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
                       ),
                     ),
                   ),

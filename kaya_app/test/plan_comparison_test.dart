@@ -29,7 +29,15 @@ void main() {
         free: false,
         toppedUp: true),
     ComparisonRow(
-        label: 'Your full profile shown to employers when you apply',
+        label: 'Your full profile shown to hirers when you apply',
+        free: false,
+        toppedUp: true),
+    ComparisonRow(
+        label: 'See which workers fit your job, ranked, and invite them',
+        free: false,
+        toppedUp: true),
+    ComparisonRow(
+        label: 'Know when a hirer opened your profile after you applied',
         free: false,
         toppedUp: true),
   ];
@@ -77,8 +85,10 @@ void main() {
 
     expect(find.text('Free'), findsOneWidget);
     expect(find.text('Top-up'), findsOneWidget);
-    expect(find.byIcon(Icons.close), findsNWidgets(3));
-    expect(find.byIcon(Icons.check), findsNWidgets(7));
+    // Counted from the rows, so adding a benefit does not break the sum.
+    final notFree = rows.where((r) => !r.free).length;
+    expect(find.byIcon(Icons.close), findsNWidgets(notFree));
+    expect(find.byIcon(Icons.check), findsNWidgets(rows.length * 2 - notFree));
   });
 
   for (final width in <double>[412, 360, 320]) {

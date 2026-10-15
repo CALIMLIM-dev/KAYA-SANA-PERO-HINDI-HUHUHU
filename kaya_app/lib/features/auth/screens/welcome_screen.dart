@@ -53,7 +53,7 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
   final List<OnboardingPage> _pages = [
     OnboardingPage(
       icon: Icons.work_outline,
-      title: 'Find workers near you',
+      title: 'Find Workers Near You',
       description: 'Plumbers, electricians, carpenters, cleaners and more, sorted by distance from you.',
     ),
     OnboardingPage(
@@ -63,7 +63,7 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
     ),
     OnboardingPage(
       icon: Icons.chat_bubble_outline,
-      title: 'Chat after a hire',
+      title: 'Chat After a Hire',
       description: 'Once an application is accepted, the two of you get a chat, a schedule and location sharing.',
     ),
   ];

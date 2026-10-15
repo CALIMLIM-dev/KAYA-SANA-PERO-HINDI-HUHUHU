@@ -112,7 +112,7 @@ class ApiClient {
     // Inject auth token on every request
     _dio.interceptors.add(InterceptorsWrapper(
       onRequest: (options, handler) async {
-        final token = await _storage.read(key: _tokenKey);
+        final token = sessionOverride ?? await _storage.read(key: _tokenKey);
         if (token != null) {
           options.headers['Authorization'] = 'Bearer $token';
         }
@@ -201,6 +201,16 @@ class ApiClient {
       return false;
     }
   }
+
+  /*
+      A suspended account's short session, held in memory only.
+
+      Signing in to a suspended account returns a token that reaches Account
+      status and Support and nothing else (the server enforces that). It is
+      never saved, so closing the app leaves nobody signed in; the Account
+      status screen sets it and clears it on the way out.
+  */
+  static String? sessionOverride;
 
   /// Called once when a request fails because the session is no longer valid.
   ///
@@ -485,6 +495,9 @@ class ApiClient {
               (needsVerification
                   ? 'Verify your account to do that.'
                   : 'Your account has been suspended. Contact support.'),
+          standingToken: data is Map && data['data'] is Map
+              ? data['data']['standing_token'] as String?
+              : null,
         );
       /*
           Not enough credits.
@@ -569,7 +582,8 @@ class ApiClient {
 /// do `e.toString().replaceFirst('Exception: ', '')`, and keeping that working
 /// is what turned this from a sixteen file change into a one file change.
 class ApiException implements Exception {
-  const ApiException(this.status, this.code, this.message, {this.required, this.balance});
+  const ApiException(this.status, this.code, this.message,
+      {this.required, this.balance, this.standingToken});
 
   /// HTTP status, when there was a response at all.
   final int? status;
@@ -582,6 +596,10 @@ class ApiException implements Exception {
   /// Only on 402: how many credits the action needed, and how many are held.
   final int? required;
   final int? balance;
+
+  /// Only when signing in to a suspended account: the short session that
+  /// opens Account status and Support. See ApiClient.sessionOverride.
+  final String? standingToken;
 
   bool get isInsufficientCredits => code == 'insufficient_credits';
 

@@ -60,7 +60,7 @@ class TopUpSection extends StatelessWidget {
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 18, 16, 6),
             child: Text(
-              hasToppedUp ? 'Add more ${Credits.plural}' : 'Choose a package',
+              hasToppedUp ? 'Add More ${Credits.plural}' : 'Choose a Package',
               style: const TextStyle(
                 fontSize: 14,
                 fontWeight: FontWeight.w700,

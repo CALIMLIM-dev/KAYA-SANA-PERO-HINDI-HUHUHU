@@ -1,6 +1,7 @@
 <?php
 
 use Illuminate\Support\Facades\Route;
+use App\Http\Controllers\Api\V1\AccountStandingController;
 use App\Http\Controllers\Api\V1\AuthController;
 use App\Http\Controllers\Api\V1\CommunityPostController;
 use App\Http\Controllers\Api\V1\RosterController;
@@ -208,7 +209,7 @@ Route::prefix('v1')->group(function () {
         // Jobs
         Route::get('/jobs',                     [JobController::class, 'index']);
         Route::post('/jobs',                    [JobController::class, 'store'])
-            ->middleware('verified:employer');
+            ->middleware(['verified:employer', 'not.restricted']);
         Route::get('/jobs/my',                  [JobController::class, 'myJobs']);
         // The trade a title names, for Post a Job to suggest as it is typed.
         Route::get('/jobs/title-trade',         [JobController::class, 'titleTrade']);
@@ -239,9 +240,9 @@ Route::prefix('v1')->group(function () {
         Route::post('/jobs/{job}/roster/complete',   [RosterController::class, 'completeAll']);
         Route::post('/jobs/{job}/roster/broadcast',  [RosterController::class, 'broadcast']);
         Route::post('/jobs/{job}/apply',        [ApplicationController::class, 'apply'])
-            ->middleware('verified:worker');
+            ->middleware(['verified:worker', 'not.restricted']);
         Route::post('/jobs/{job}/invite',       [InvitationController::class, 'send'])
-            ->middleware('verified:employer');
+            ->middleware(['verified:employer', 'not.restricted']);
 
         /*
             Paid placement. Gated like every other spend.
@@ -267,7 +268,7 @@ Route::prefix('v1')->group(function () {
         Route::get('/community/mine',            [CommunityPostController::class, 'mine']);
         Route::get('/community/{post}',          [CommunityPostController::class, 'show']);
         Route::post('/community',                [CommunityPostController::class, 'store'])
-            ->middleware('verified');
+            ->middleware(['verified', 'not.restricted']);
         Route::delete('/community/{post}',       [CommunityPostController::class, 'destroy']);
 
         /*
@@ -279,7 +280,7 @@ Route::prefix('v1')->group(function () {
         */
         Route::get('/community/{post}/comments',  [CommunityPostController::class, 'comments']);
         Route::post('/community/{post}/comments', [CommunityPostController::class, 'comment'])
-            ->middleware('verified');
+            ->middleware(['verified', 'not.restricted']);
         Route::delete('/community/comments/{comment}', [CommunityPostController::class, 'removeComment']);
         Route::post('/community/{post}/like',     [CommunityPostController::class, 'like']);
         Route::delete('/community/{post}/like',   [CommunityPostController::class, 'unlike']);
@@ -312,6 +313,10 @@ Route::prefix('v1')->group(function () {
         // job, never taken from the request.
         Route::patch('/applications/{application}/complete', [ApplicationController::class, 'complete']);
         Route::get('/applications/{application}/completion', [ApplicationController::class, 'completion']);
+        // Cancel hire: ask (or cancel at once), take the request back, or agree to it.
+        Route::post('/applications/{application}/cancel',        [ApplicationController::class, 'cancelHire']);
+        Route::delete('/applications/{application}/cancel',      [ApplicationController::class, 'keepHire']);
+        Route::post('/applications/{application}/cancel/agree',  [ApplicationController::class, 'agreeToCancel']);
         Route::delete('/applications/{application}',        [ApplicationController::class, 'withdraw']);
         Route::patch('/applications/{application}/accept',  [ApplicationController::class, 'accept']);
         Route::patch('/applications/{application}/reject',  [ApplicationController::class, 'reject']);
@@ -337,9 +342,9 @@ Route::prefix('v1')->group(function () {
             notification in somebody else's list.
         */
         Route::post('/employers/{employer}/work-again',      [InvitationController::class, 'workAgain'])
-            ->middleware('verified:worker');
+            ->middleware(['verified:worker', 'not.restricted']);
         Route::patch('/invitations/{invitation}/accept',    [InvitationController::class, 'accept'])
-            ->middleware('verified:worker');
+            ->middleware(['verified:worker', 'not.restricted']);
         Route::patch('/invitations/{invitation}/decline',   [InvitationController::class, 'decline']);
 
         // Messaging
@@ -398,6 +403,8 @@ Route::prefix('v1')->group(function () {
 
         // Who has been looking at you. Own account only — see the controller.
         Route::get('/profile-views/summary',            [ProfileViewController::class, 'summary']);
+        // Who viewed you, week by week. Names and weeks need a top-up.
+        Route::get('/profile-views/insights',           [ProfileViewController::class, 'insights']);
         Route::post('/notifications/read-all',          [NotificationController::class, 'readAll']);
         Route::patch('/notifications/{notification}/read', [NotificationController::class, 'markRead']);
 
@@ -414,6 +421,19 @@ Route::prefix('v1')->group(function () {
         // The reported person's view of a report about them, and their side.
         Route::get('/reports/{report}', [ReportController::class, 'showForReported']);
         Route::post('/reports/{report}/respond', [ReportController::class, 'respond'])
+            ->middleware('throttle:reports');
+
+        /*
+            Where an account stands: strikes, what they limit, and appeals.
+
+            Open while suspended, like Support: a suspension that also takes
+            away the way to see why and to argue against it is one nobody can
+            be shown to be wrong about.
+        */
+        Route::get('/account/standing', [AccountStandingController::class, 'show'])
+            ->withoutMiddleware('not.suspended');
+        Route::post('/account/strikes/{strike}/appeal', [AccountStandingController::class, 'appeal'])
+            ->withoutMiddleware('not.suspended')
             ->middleware('throttle:reports');
 
         /*

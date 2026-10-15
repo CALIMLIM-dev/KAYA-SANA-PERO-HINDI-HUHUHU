@@ -1087,7 +1087,7 @@ class _UnifiedHomeScreenState extends State<UnifiedHomeScreen>
                       return Column(
                         children: [
                           RecommendationRow(
-                            title: 'Promoted jobs',
+                            title: 'Promoted Jobs',
                             subtitle:
                                 'Employers paid to put these in front of you',
                             jobs: promoted,
@@ -1131,7 +1131,7 @@ class _UnifiedHomeScreenState extends State<UnifiedHomeScreen>
                 SliverToBoxAdapter(
                   child: Consumer<WorkerBrowseProvider>(
                     builder: (context, browse, _) => RecommendationRow(
-                      title: 'Most hired',
+                      title: 'Most Hired',
                       subtitle: 'The workers with the most finished jobs',
                       workers: browse.mostHired.take(10).toList(),
                       onWorkerTap: _onWorkerTap,

@@ -12,10 +12,10 @@ import '../../../providers/invitation_provider.dart';
 import '../../invitations/widgets/invitation_card.dart';
 import '../../../providers/job_provider.dart';
 import '../widgets/completion_action.dart';
+import '../widgets/hire_controls.dart';
 import '../../../core/navigation/app_router.dart';
 import '../../employer/widgets/manage_job_sheet.dart';
 import '../../../core/widgets/kaya_popup.dart';
-import '../../employer/screens/matched_workers_screen.dart';
 import 'view_applicants_screen.dart';
 
 /*
@@ -137,7 +137,7 @@ class _ApplicationsScreenState extends State<ApplicationsScreen>
     _showListSheet(
       context,
       title: 'Applied',
-      emptyTitle: 'Nothing waiting',
+      emptyTitle: 'Nothing Waiting',
       emptyBody: 'Applications you send appear here until an employer answers. '
           'Once you are hired, the job moves to Active.',
       itemsBuilder: (context) => context
@@ -151,7 +151,7 @@ class _ApplicationsScreenState extends State<ApplicationsScreen>
     _showListSheet(
       context,
       title: 'Invited',
-      emptyTitle: 'No invitations',
+      emptyTitle: 'No Invitations',
       emptyBody: 'Employers who invite you to a job will show up here.',
       itemsBuilder: (context) => context
           .watch<InvitationProvider>()
@@ -489,7 +489,7 @@ class _ApplicationsScreenState extends State<ApplicationsScreen>
         label: 'History',
         includesApplications: hasWorker,
         includesJobs: hasEmployer,
-        emptyTitle: 'No history yet',
+        emptyTitle: 'No History Yet',
         emptyBody: 'Finished and past work will appear here',
         items: [
           if (hasWorker)
@@ -542,7 +542,7 @@ class _ApplicationsScreenState extends State<ApplicationsScreen>
               const Icon(Icons.inbox_outlined,
                   size: 56, color: AppColors.neutral300),
               const SizedBox(height: 16),
-              const Text('Nothing to show yet',
+              const Text('Nothing to Show Yet',
                   style: TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.w600,
@@ -707,7 +707,7 @@ class _TabBody extends StatelessWidget {
     if (error != null && tab.items.isEmpty) {
       return _message(
         icon: Icons.cloud_off,
-        title: 'Could not load',
+        title: 'Could Not Load',
         body: error!,
         actionLabel: 'Retry',
         onAction: onRefresh,
@@ -871,8 +871,18 @@ class ApplicationCard extends StatelessWidget {
         !iReviewed &&
         reviewWindowOpen(application['review_closes_at']);
 
-    final String? reviewNote = !isHired
+    /*
+        While waiting: whether the hirer has opened this worker's profile
+        since they applied. A top-up benefit - the server sends the day only
+        to a worker who has topped up - so a free card simply has no line.
+    */
+    final seenOn = DateTime.tryParse('${application['seen_by_hirer_on']}');
+    final String? seenNote = status != 'pending' || seenOn == null
         ? null
+        : 'The employer viewed your profile ${_dayWord(seenOn)}';
+
+    final String? reviewNote = !isHired
+        ? seenNote
         : !workDone
             // Completion first — the review note would be noise before there is
             // anything to review.
@@ -920,6 +930,14 @@ class ApplicationCard extends StatelessWidget {
       subtitle: (employer?['name'] ?? 'Employer').toString(),
       status: status,
       trailing: null,
+      // Cancel hire, a request to answer, or "it didn't happen".
+      tools: HireControls.maybe(
+        actions: application['hire_actions'],
+        applicationId: application['id'],
+        otherName: (employer?['name'] ?? 'the employer').toString(),
+        otherId: employer?['id'],
+        onChanged: onChanged,
+      ),
       category: category,
       place: place.isEmpty ? null : place,
       compact: compact,
@@ -927,6 +945,7 @@ class ApplicationCard extends StatelessWidget {
       age: timeAgo(job?['created_at'] as String?),
       note: reviewNote,
       noteIsCompletion: isHired && !workDone,
+      noteIcon: seenNote != null && reviewNote == seenNote ? Icons.visibility_outlined : null,
       stage: _stageOf(hired: isHired, done: workDone, job: job),
       // Completion comes before reviewing, and they never both apply — you
       // cannot review work that is not finished — so one slot serves both.
@@ -1021,7 +1040,7 @@ class ApplicationCard extends StatelessWidget {
       actionLabel: canConfirm
           ? 'Mark as Complete'
           : canReview
-              ? 'Review employer'
+              ? 'Review Employer'
               : null,
       onAction: canConfirm
           ? () => confirmCompletion(
@@ -1198,7 +1217,16 @@ class JobPostCard extends StatelessWidget {
       trailing: hired || tools != null
           ? null
           : '$applicants applicant${applicants == 1 ? '' : 's'}',
-      tools: tools,
+      tools: _withHireControls(
+        tools,
+        HireControls.maybe(
+          actions: hire?['hire_actions'],
+          applicationId: hire?['application_id'],
+          otherName: workerName,
+          otherId: hire?['worker_id'],
+          onChanged: onChanged,
+        ),
+      ),
       compact: compact,
       category: (job['category'] as Map<String, dynamic>?)?['name']?.toString(),
       place: (job['city'] ?? job['location'] ?? '').toString().isEmpty
@@ -1270,6 +1298,27 @@ class JobPostCard extends StatelessWidget {
   }
 }
 
+/// "today", "yesterday" or "on Oct 14".
+String _dayWord(DateTime day) {
+  const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  final now = DateTime.now();
+  final today = DateTime(now.year, now.month, now.day);
+  final d = DateTime(day.year, day.month, day.day);
+  final ago = today.difference(d).inDays;
+
+  return ago == 0 ? 'today' : ago == 1 ? 'yesterday' : 'on ${months[d.month - 1]} ${d.day}';
+}
+
+/// A post's own tools and its hire's controls, stacked, or whichever exists.
+Widget? _withHireControls(Widget? tools, Widget? hire) => tools == null
+    ? hire
+    : hire == null
+        ? tools
+        : Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [tools, const SizedBox(height: 8), hire],
+          );
+
 Widget _cardShell({
   required String title,
   required String subtitle,
@@ -1327,6 +1376,9 @@ Widget _cardShell({
   /// was announced with a pencil-and-paper mark — the icon said review while
   /// the sentence said completion.
   bool noteIsCompletion = false,
+  /// An icon of its own for a note that is neither, like "the hirer opened
+  /// your profile".
+  IconData? noteIcon,
   /*
       The home screen's card: the same facts and actions, tighter.
 
@@ -1614,9 +1666,10 @@ Widget _cardShell({
               Row(
                 children: [
                   Icon(
-                      noteIsCompletion
-                          ? Icons.hourglass_bottom
-                          : Icons.rate_review_outlined,
+                      noteIcon ??
+                          (noteIsCompletion
+                              ? Icons.hourglass_bottom
+                              : Icons.rate_review_outlined),
                       size: 14,
                       color: AppColors.neutral400),
                   const SizedBox(width: 6),
@@ -1873,18 +1926,11 @@ class _EmployerTools extends StatelessWidget {
         if (_taking(job))
           Row(
             children: [
+              // One list: who applied, then who else fits.
               Expanded(
                 child: _tool(
                   'Applicants ($applicants)',
                   () => showApplicantsPopup(context, jobId),
-                ),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: _tool(
-                  'Matches',
-                  () => showMatchedWorkersPopup(context,
-                      jobId: jobId, jobTitle: job['title'] as String?),
                 ),
               ),
               const SizedBox(width: 8),
@@ -1895,7 +1941,7 @@ class _EmployerTools extends StatelessWidget {
         if (_hasRoster(job)) ...[
           if (_taking(job)) const SizedBox(height: 8),
           _tool(
-            'Roster (${_filled(job)} of ${_needed(job)} hired)',
+            'Hired Workers (${_filled(job)} of ${_needed(job)})',
             () => openRoster(context, jobId),
           ),
         ],
@@ -2034,7 +2080,7 @@ class _StageTrack extends StatelessWidget {
       'rejected' => (
           AppColors.error.withValues(alpha: 0.12),
           AppColors.error,
-          'Rejected'
+          'Not Selected'
         ),
       'withdrawn' => (
           AppColors.neutral200,

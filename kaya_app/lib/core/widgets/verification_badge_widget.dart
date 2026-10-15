@@ -15,9 +15,9 @@ import '../constants/app_colors.dart';
 */
 enum VerificationState {
   verified('Verified', Icons.verified, Color(0xFF2E7D32), AppColors.verified),
-  verifiedBusiness('Verified business', Icons.verified, Color(0xFF2E7D32), AppColors.verified),
-  pending('Pending review', Icons.schedule, Color(0xFF9A5B00), AppColors.pending),
-  unverified('Not verified', Icons.info_outline, AppColors.neutral600, AppColors.unverified);
+  verifiedBusiness('Verified Business', Icons.verified, Color(0xFF2E7D32), AppColors.verified),
+  pending('Pending Review', Icons.schedule, Color(0xFF9A5B00), AppColors.pending),
+  unverified('Not Verified', Icons.info_outline, AppColors.neutral600, AppColors.unverified);
 
   const VerificationState(this.label, this.icon, this.text, this.tint);
 

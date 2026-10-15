@@ -6,13 +6,13 @@
     <div class="p-5 border-b border-slate-100 flex items-center gap-3">
         <form method="GET" class="flex items-center gap-2 ml-auto">
             <select name="area" class="px-3 py-2 border border-slate-300 rounded-lg text-sm">
-                <option value="all">All areas</option>
+                <option value="all">All Areas</option>
                 @foreach ($areas as $a)
                     <option value="{{ $a }}" @selected($area === $a)>{{ ucfirst($a) }}</option>
                 @endforeach
             </select>
             <select name="admin" class="px-3 py-2 border border-slate-300 rounded-lg text-sm">
-                <option value="">All admins</option>
+                <option value="">All Admins</option>
                 @foreach ($admins as $a)
                     <option value="{{ $a->id }}" @selected($adminId === $a->id)>{{ $a->name }}</option>
                 @endforeach

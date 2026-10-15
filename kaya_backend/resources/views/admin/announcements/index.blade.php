@@ -4,7 +4,7 @@
 @section('content')
 <div class="grid grid-cols-3 gap-6">
     <div class="col-span-2 bg-white rounded-xl border border-slate-200 p-6">
-        <h3 class="text-sm font-semibold text-slate-700 mb-1">Send an announcement</h3>
+        <h3 class="text-sm font-semibold text-slate-700 mb-1">Send an Announcement</h3>
 
         @if ($errors->any())
             <div class="mb-4 px-4 py-3 rounded-lg bg-red-50 text-red-700 text-sm border border-red-200">{{ $errors->first() }}</div>
@@ -32,7 +32,7 @@
     </div>
 
     <div class="bg-white rounded-xl border border-slate-200 p-6">
-        <h3 class="text-sm font-semibold text-slate-700 mb-3">Past announcements</h3>
+        <h3 class="text-sm font-semibold text-slate-700 mb-3">Past Announcements</h3>
         <div class="space-y-3">
             @forelse ($sent as $item)
                 <div class="text-sm border-b border-slate-50 pb-3">

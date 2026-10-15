@@ -103,37 +103,28 @@ class UnfinishedJobsEndTest extends TestCase
     }
 
     /*
-        A lone confirmation is not taken as agreement.
+        A lone confirmation, unanswered past the window, now completes.
 
-        My first version of this completed the job on the strength of one
-        confirmation once the window passed, on the reasoning that silence for
-        a week after the deadline is consent. The codebase had already
-        considered exactly that and rejected it in writing: auto-confirming
-        records work nobody vouched for, and it makes confirming pointless,
-        because if the app finishes the job for you there is no reason to press
-        the button.
-
-        That is the better argument, so the outcome is the one already
-        chosen - the hire is closed as unsuccessful, and it counts against the
-        record of both people. What is new is only that the job and the thread
-        now follow it.
+        This used to close as unsuccessful against both people, on the
+        argument that auto-confirming records work nobody vouched for. It
+        punished the person who did confirm for the other's absence, and let
+        an employer deny a worker a finished job by never pressing the
+        button. Now the silent side is reminded before the window closes and
+        can say the work did not happen (a dispute, which stops this); past
+        that, silence counts as agreement.
     */
     #[Test]
-    public function a_hire_left_hanging_past_the_deadline_is_closed_unsuccessful(): void
+    public function a_hire_left_hanging_past_the_deadline_completes_on_the_one_confirmation(): void
     {
         $job = $this->job();
         $this->hire($job, ['worker_completed_at' => now()->subDays(20)]);
 
         $this->artisan('kaya:close-unconfirmed-hires')->assertSuccessful();
 
-        $this->assertSame(
-            'unsuccessful',
-            Application::where('job_id', $job->id)->value('status'),
-        );
+        $this->assertSame('completed', Application::where('job_id', $job->id)->value('status'));
 
-        // And the job, which is the part that was missing: it used to stay
-        // in progress for good once its hire had been closed.
-        $this->assertSame('closed', $job->fresh()->status);
+        // And the job and the thread follow it.
+        $this->assertSame('completed', $job->fresh()->status);
         $this->assertTrue($this->thread()->isArchived());
     }
 

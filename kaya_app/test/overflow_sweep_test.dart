@@ -221,7 +221,7 @@ void main() {
           const VerificationScreen(),
           {
             'type': 'phone',
-            'title': 'Verify phone',
+            'title': 'Verify Phone',
             'subtitle':
                 'Confirm the number employers and workers will reach you on.',
           },
@@ -230,7 +230,7 @@ void main() {
           const VerificationScreen(),
           {
             'type': 'email',
-            'title': 'Verify email',
+            'title': 'Verify Email',
             'subtitle': 'Confirm the address your account signs in with.',
           },
         ),

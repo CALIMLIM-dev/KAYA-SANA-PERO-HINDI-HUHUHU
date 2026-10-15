@@ -164,7 +164,7 @@ class _WalletScreenState extends State<WalletScreen> with WidgetsBindingObserver
                   _claimCard(
                     type: 'welcome',
                     amount: credits.claimableWelcome,
-                    title: 'Welcome gift',
+                    title: 'Welcome Gift',
                     subtitle: 'For joining KAYA',
                     needsVerification: credits.claimNeedsVerification,
                   ),
@@ -174,7 +174,7 @@ class _WalletScreenState extends State<WalletScreen> with WidgetsBindingObserver
                   _claimCard(
                     type: 'monthly',
                     amount: credits.claimableMonthly,
-                    title: 'Free this month',
+                    title: 'Free This Month',
                     subtitle: 'Yours every month',
                     needsVerification: credits.claimNeedsVerification,
                   ),
@@ -207,7 +207,7 @@ class _WalletScreenState extends State<WalletScreen> with WidgetsBindingObserver
                           textStyle: const TextStyle(
                               fontSize: 13, fontWeight: FontWeight.w600),
                         ),
-                        child: const Text('See all'),
+                        child: const Text('See All'),
                       ),
                   ],
                 ),
@@ -262,7 +262,7 @@ class _WalletScreenState extends State<WalletScreen> with WidgetsBindingObserver
           Row(
             children: [
               Text(
-                'Your balance',
+                'Your Balance',
                 style: TextStyle(fontSize: 13, color: Colors.white.withValues(alpha: 0.8)),
               ),
               const SizedBox(width: 6),

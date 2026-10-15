@@ -70,7 +70,7 @@ class ActiveSection extends StatelessWidget {
                       textStyle: const TextStyle(
                           fontSize: 13, fontWeight: FontWeight.w600),
                     ),
-                    child: Text('See all ${items.length}'),
+                    child: Text('See All ${items.length}'),
                   ),
               ],
             ),

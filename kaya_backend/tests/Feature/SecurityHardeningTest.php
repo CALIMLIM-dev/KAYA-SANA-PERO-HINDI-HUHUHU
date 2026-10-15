@@ -66,11 +66,17 @@ class SecurityHardeningTest extends TestCase
 
         // Suspending deletes their tokens, which is exactly what sent them back
         // to the sign-in screen — where this handed them a fresh one.
-        $this->postJson('/api/v1/google-login', ['id_token' => 'valid'])
+        $token = $this->postJson('/api/v1/google-login', ['id_token' => 'valid'])
             ->assertStatus(403)
-            ->assertJsonPath('data.is_suspended', true);
+            ->assertJsonPath('data.is_suspended', true)
+            ->json('data.standing_token');
 
-        $this->assertSame(0, $user->fresh()->tokens()->count());
+        // The only session is the short one that reaches Account status and
+        // Support, so they can read why and appeal. Nothing else.
+        $tokens = $user->fresh()->tokens;
+        $this->assertSame(['standing'], $tokens->pluck('name')->all());
+        $this->assertNotNull($tokens->first()->expires_at);
+        $this->getJson('/api/v1/jobs', ['Authorization' => "Bearer {$token}"])->assertStatus(403);
     }
 
     #[Test]

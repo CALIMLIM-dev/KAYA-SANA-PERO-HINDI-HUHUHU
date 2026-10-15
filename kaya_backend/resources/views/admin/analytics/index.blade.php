@@ -17,7 +17,7 @@
       Barya Usage           doughnut           what Barya is spent on
       Top Workers           ranked bars        most hired, completed, rating
       Supply and Demand     paired bars        per trade
-      Skill Gap             scatter            per skill, against the even line
+      Skill Shortages bars, one series  per skill, workers needed
 
     See AnalyticsController for how each figure is counted. Legends are drawn
     in the page with their values; Chart.js's own legend was dropping series.
@@ -52,6 +52,7 @@
     .viz .split { display: flex; height: 22px; border-radius: 7px; overflow: hidden; background: var(--grid); }
     .viz .split > span + span { border-left: 2px solid var(--surface); }
     .viz .dot { width: 10px; height: 10px; border-radius: 3px; flex-shrink: 0; display: inline-block; }
+    .viz .bar { width: 14px; height: 4px; border-radius: 2px; flex-shrink: 0; display: inline-block; }
     .viz .keyval { font-size: 20px; font-weight: 650; color: var(--ink); font-variant-numeric: tabular-nums; line-height: 1.2; }
     .viz .keylab { font-size: 12px; color: var(--ink-2); }
     .viz .keypct { font-size: 11.5px; color: var(--ink-3); font-variant-numeric: tabular-nums; }
@@ -401,21 +402,21 @@
             @endif
         </section>
 
-        {{-- Skill Gap: scatter against the even line. --}}
+        {{--
+            Skill Shortages: one bar per skill that has more jobs than
+            workers, its length the workers needed. Nothing else on it.
+        --}}
         <section class="card" aria-labelledby="skills">
             <div class="flex flex-wrap items-start justify-between gap-3">
-                <h2 id="skills" class="card-title">Skill Gap</h2>
+                <h2 id="skills" class="card-title">Skill Shortages</h2>
                 <div class="legend">
-                    <span><i class="dot" style="background: var(--s7)"></i> Shortage</span>
-                    <span><i class="dot" style="background: var(--s3)"></i> Surplus</span>
-                    <span><i class="dot" style="background: var(--s4)"></i> Balanced</span>
                     <a href="{{ $csv('admin.exports.skill-demand', false) }}" class="csv">{!! $download !!} Skills</a>
                 </div>
             </div>
             @if (empty($skills))
-                <div class="empty mt-4">No skills listed or requested yet</div>
+                <div class="empty mt-4">No skill is short of workers in this period</div>
             @else
-                <div class="chart-box mt-3" style="height: 330px"><canvas id="skillsChart"></canvas></div>
+                <div class="chart-box mt-3" style="height: {{ 40 + count($skills) * 34 }}px"><canvas id="skillsChart"></canvas></div>
             @endif
         </section>
     </div>
@@ -556,28 +557,39 @@
         });
     }
 
-    // Skill Gap: each skill a point, coloured by which side of the even line it falls.
+    // Skill Shortages: one bar each, its number written at the end.
     const skills = @json($skills);
     const skillsCanvas = document.getElementById('skillsChart');
     if (skillsCanvas) {
-        const max = Math.max(1, ...skills.map((s) => Math.max(s.demand, s.supply)));
-        const tone = (s) => s.demand > s.supply ? c('--s7') : s.supply > s.demand ? c('--s3') : c('--s4');
-        new Chart(skillsCanvas, {
-            data: {
-                datasets: [
-                    { type: 'scatter', label: 'Skills', data: skills.map((s) => ({ x: s.supply, y: s.demand, name: s.name })),
-                      backgroundColor: skills.map(tone), pointRadius: 6, pointHoverRadius: 8 },
-                    { type: 'line', label: 'Balanced', data: [{ x: 0, y: 0 }, { x: max, y: max }], borderColor: c('--s4'),
-                      borderDash: [4, 4], borderWidth: 1.5, pointRadius: 0 },
-                ],
+        const endLabels = {
+            id: 'endLabels',
+            afterDatasetsDraw(chart) {
+                const { ctx } = chart;
+                ctx.save();
+                ctx.font = '600 12px Inter, system-ui, sans-serif';
+                ctx.fillStyle = c('--ink');
+                ctx.textBaseline = 'middle';
+                chart.getDatasetMeta(0).data.forEach((bar, i) => ctx.fillText(skills[i].short, bar.x + 6, bar.y));
+                ctx.restore();
             },
+        };
+        new Chart(skillsCanvas, {
+            type: 'bar',
+            data: {
+                labels: skills.map((s) => s.name.length > 24 ? s.name.replace(/^(.{1,24})\s/, '$1\n').split('\n') : s.name),
+                datasets: [{ label: 'Workers needed', data: skills.map((s) => s.short),
+                             backgroundColor: c('--s7'), borderRadius: 4, barThickness: 14 }],
+            },
+            plugins: [endLabels],
             options: {
-                responsive: true, maintainAspectRatio: false,
-                plugins: { tooltip: { filter: (item) => item.datasetIndex === 0,
-                    callbacks: { label: (ctx) => ctx.raw.name + ': ' + ctx.raw.y + ' jobs, ' + ctx.raw.x + ' workers' } } },
+                indexAxis: 'y', responsive: true, maintainAspectRatio: false,
+                layout: { padding: { right: 28 } },
+                plugins: { tooltip: { callbacks: {
+                    label: (ctx) => { const s = skills[ctx.dataIndex]; return s.short + ' workers needed (' + s.demand + ' jobs, ' + s.supply + ' workers)'; },
+                } } },
                 scales: {
-                    x: { ...countAxis, type: 'linear', min: 0, title: { display: true, text: 'Supply (workers)', color: c('--ink-2') } },
-                    y: { ...countAxis, min: 0, title: { display: true, text: 'Demand (jobs)', color: c('--ink-2') } },
+                    x: { ...countAxis, min: 0, ticks: { ...countAxis.ticks, display: false }, grid: { display: false } },
+                    y: { ...bareAxis, ticks: { ...bareAxis.ticks, autoSkip: false } },
                 },
             },
         });

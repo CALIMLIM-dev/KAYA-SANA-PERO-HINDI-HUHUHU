@@ -118,7 +118,7 @@ void main() {
         reason: 'It should say what did not load, not just that something did.',
       );
 
-      await tester.tap(find.text('Try again'));
+      await tester.tap(find.text('Try Again'));
       expect(retried, 1);
     });
 
@@ -128,7 +128,7 @@ void main() {
         home: Scaffold(body: OfflineNotice()),
       ));
 
-      expect(find.text('Try again'), findsNothing);
+      expect(find.text('Try Again'), findsNothing);
     });
 
     testWidgets('the bar appears and goes without disturbing the screen',

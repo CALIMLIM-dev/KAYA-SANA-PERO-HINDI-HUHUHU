@@ -29,7 +29,8 @@ class SuspensionDialog {
         canPop: false,
         child: _buildDialog(
           context: context,
-          reason: reason, // Show actual reason from admin
+          // Show actual reason from admin, and where the rest of it is.
+          reason: '$reason\n\nSign in again to see the full reasons and to request a review.',
           showLogoutButton: true,
           onClose: () async {
             // Resolve both providers before the first await — reading them off
@@ -66,12 +67,12 @@ class SuspensionDialog {
     required VoidCallback onClose,
   }) {
     return AlertDialog(
-      title: const Text('Account suspended'),
+      title: const Text('Account Suspended'),
       content: Text(reason),
       actions: [
         TextButton(
           onPressed: onClose,
-          child: Text(showLogoutButton ? 'Sign out' : 'OK'),
+          child: Text(showLogoutButton ? 'Sign Out' : 'OK'),
         ),
       ],
     );

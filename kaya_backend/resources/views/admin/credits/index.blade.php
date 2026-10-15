@@ -4,10 +4,10 @@
 @section('content')
 @php
     $peso = fn ($centavos) => 'P' . number_format($centavos / 100, 2);
-    $reasonLabel = fn ($r) => ['topup' => 'Top-up', 'monthly_grant' => 'Monthly grant', 'launch_grant' => 'Welcome grant',
-        'application' => 'Application', 'invitation' => 'Invitation', 'unlock' => 'Contact unlock', 'boost' => 'Boost',
-        'job_duration' => 'Post days', 'thread_ad' => 'Thread ad', 'rehire_invite' => 'Rehire invite',
-        'refund' => 'Refund', 'admin_adjustment' => 'Admin adjustment'][$r] ?? str_replace('_', ' ', ucfirst($r));
+    $reasonLabel = fn ($r) => ['topup' => 'Top-up', 'monthly_grant' => 'Monthly Grant', 'launch_grant' => 'Welcome Grant',
+        'application' => 'Application', 'invitation' => 'Invitation', 'unlock' => 'Contact Unlock', 'boost' => 'Boost',
+        'job_duration' => 'Post Days', 'thread_ad' => 'Board Post', 'rehire_invite' => 'Rehire Invite',
+        'refund' => 'Refund', 'admin_adjustment' => 'Admin Adjustment'][$r] ?? str_replace('_', ' ', ucfirst($r));
 @endphp
 
 <div class="grid grid-cols-4 gap-4 mb-6">
@@ -35,7 +35,7 @@
 
 <div class="grid grid-cols-3 gap-4 mb-6">
     <div class="bg-white rounded-xl border border-slate-200 p-5">
-        <h3 class="text-sm font-semibold text-slate-700 mb-3">Barya spent, last 30 days</h3>
+        <h3 class="text-sm font-semibold text-slate-700 mb-3">Barya Spent, Last 30 Days</h3>
         @forelse ($spendByReason as $row)
             <div class="flex justify-between text-sm py-1.5 border-b border-slate-50">
                 <span class="text-slate-600">{{ $reasonLabel($row['reason']) }} <span class="text-xs text-slate-400">{{ $row['lines'] }}x</span></span>
@@ -87,14 +87,14 @@
         @if ($focus)
             <span class="text-xs px-2 py-1 rounded-full bg-blue-50 text-blue-700">
                 {{ $focus->name }}, balance {{ app(\App\Services\CreditLedger::class)->balance($focus) }}
-                <a href="{{ route('admin.credits.index') }}" class="ml-1 text-blue-500">clear</a>
+                <a href="{{ route('admin.credits.index') }}" class="ml-1 text-blue-500">Clear</a>
             </span>
         @endif
         <form method="GET" class="flex items-center gap-2 ml-auto">
             <input type="text" name="search" value="{{ $search }}" placeholder="Name or email"
                    class="w-56 px-3 py-2 border border-slate-300 rounded-lg text-sm">
             <select name="reason" class="px-3 py-2 border border-slate-300 rounded-lg text-sm">
-                <option value="all">All reasons</option>
+                <option value="all">All Reasons</option>
                 @foreach ($reasons as $r)
                     <option value="{{ $r }}" @selected($reason === $r)>{{ $reasonLabel($r) }}</option>
                 @endforeach

@@ -53,7 +53,7 @@ const _groups = <(String, List<_FAQ>)>[
             'first. Deleting the account asks for your password and cannot be undone. It is '
             'refused while you are hired on a job in progress or have a worker on one.'),
   ]),
-  ('Looking for work', [
+  ('Looking for Work', [
     _FAQ('How do I apply for a job?',
         'Open the job and tap Apply Now. The price in Barya is on the button. You get it back '
             'if you withdraw within an hour of applying, or if the job is deleted or its post '
@@ -85,12 +85,12 @@ const _groups = <(String, List<_FAQ>)>[
             'rating and whether you have hired them before. Accept or reject from there.'),
     _FAQ('Can I hire more than one person for a job?',
         'Yes. Set how many workers the job needs, from one to twenty. The post takes applicants '
-            'until every spot is filled, and the Roster lists everyone hired.'),
+            'until every spot is filled, and the Hired Workers list shows everyone hired.'),
     _FAQ('How do I change a job I posted?',
         'Home, My Jobs, Manage, then Edit. It is the same form as posting. You pay only for '
             'days or a boost you add.'),
   ]),
-  ('Finishing a job', [
+  ('Finishing a Job', [
     _FAQ('How does a job get marked complete?',
         'When the work is done, you and the other person each tap Mark as Complete. It counts '
             'as complete once both have. If one side has not confirmed seven days after the day '
@@ -103,7 +103,7 @@ const _groups = <(String, List<_FAQ>)>[
             'A review cannot be edited after it is sent. An admin can hide a review that breaks '
             'the rules.'),
   ]),
-  ('Barya and payment', [
+  ('Barya and Payment', [
     _FAQ('What is Barya?',
         'KAYA\'s credit. Claim free Barya in My Wallet when you start and again each month, and '
             'earn some with badges. Applying, inviting, boosting, keeping a job post up past its '
@@ -123,7 +123,7 @@ const _groups = <(String, List<_FAQ>)>[
         'In set cases, automatically. The Refund Policy in Settings, About & Legal lists them, '
             'and it is linked at the bottom of My Wallet.'),
   ]),
-  ('Community board', [
+  ('Community Board', [
     _FAQ('What is the community board?',
         'The Community tab. Workers post that they are available; employers and verified '
             'businesses post that they are hiring. Anyone signed in can read and like posts, and '
@@ -135,7 +135,7 @@ const _groups = <(String, List<_FAQ>)>[
         'One at a time, or three once your account has topped up. Posts waiting for review '
             'count toward that.'),
   ]),
-  ('Safety and support', [
+  ('Safety and Support', [
     _FAQ('How do I report someone?',
         'In a chat, open the menu at the top right and choose Report User; on a community post, '
             'use the menu on the post. You can add up to three photos as evidence. The person is '

@@ -56,8 +56,8 @@ void main() {
     ));
 
     expect(find.text('Verified'), findsOneWidget);
-    expect(find.text('Verified business'), findsOneWidget);
-    expect(find.text('Pending review'), findsOneWidget);
-    expect(find.text('Not verified'), findsOneWidget);
+    expect(find.text('Verified Business'), findsOneWidget);
+    expect(find.text('Pending Review'), findsOneWidget);
+    expect(find.text('Not Verified'), findsOneWidget);
   });
 }

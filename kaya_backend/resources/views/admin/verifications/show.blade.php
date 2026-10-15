@@ -33,7 +33,7 @@
                 <div class="flex justify-between"><dt class="text-slate-400">Company</dt><dd class="text-right">{{ $profile->company_name ?: 'Not given' }}</dd></div>
                 <div class="flex justify-between"><dt class="text-slate-400">TIN</dt><dd class="font-mono">{{ $profile->tin ?: 'Not given' }}</dd></div>
                 @if ($profile->tin_verified_at)
-                    <div class="flex justify-between"><dt class="text-slate-400">TIN checked</dt><dd class="text-right">{{ $profile->tin_verified_at->format('M j, Y') }}<br><span class="text-xs text-slate-400">by {{ $profile->tinVerifier?->name ?? 'admin' }}</span></dd></div>
+                    <div class="flex justify-between"><dt class="text-slate-400">TIN Checked</dt><dd class="text-right">{{ $profile->tin_verified_at->format('M j, Y') }}<br><span class="text-xs text-slate-400">by {{ $profile->tinVerifier?->name ?? 'admin' }}</span></dd></div>
                 @endif
             @endif
             <div class="flex justify-between"><dt class="text-slate-400">Submitted</dt><dd>{{ $verification->created_at->format('M j, Y') }}</dd></div>
@@ -122,7 +122,7 @@
 
                 <form id="rejectForm" method="POST" action="{{ route('admin.verifications.reject', $verification) }}" class="hidden mt-4">
                     @csrf
-                    <label class="text-xs text-slate-500">Reason for rejection</label>
+                    <label class="text-xs text-slate-500">Reason for Rejection</label>
                     <div class="mt-1">
                         @include('admin.partials.reason-picker', ['reasons' => ['Photo is too blurry to read', 'ID is expired', 'Name does not match the profile', 'Document is cropped or incomplete', 'Selfie does not match the ID', 'Not an accepted government ID', 'Looks altered or not genuine'], 'placeholder' => 'Reason the person will see'])
                     </div>

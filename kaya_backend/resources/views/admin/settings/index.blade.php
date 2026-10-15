@@ -28,7 +28,7 @@
     </div>
 
     <button class="mt-5 px-5 py-2.5 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700">
-        Save prices
+        Save Prices
     </button>
 </form>
 @endsection

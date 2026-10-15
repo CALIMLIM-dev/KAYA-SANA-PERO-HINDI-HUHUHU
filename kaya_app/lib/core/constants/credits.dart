@@ -40,19 +40,19 @@ class Credits {
     if (isRefund) return 'Refunded';
 
     return switch (reason) {
-      'application' => 'Applied to a job',
-      'invitation' => 'Invited a worker',
-      'rehire_invite' => 'Invited a past worker',
-      'unlock' => 'Unlocked contact details',
-      'boost' => 'Boosted to the top',
-      'job_duration' => 'Kept a job post up longer',
-      'thread_ad' => 'Community board post',
-      'topup' => 'Topped up',
-      'monthly_grant' => 'Free monthly $plural',
+      'application' => 'Applied to a Job',
+      'invitation' => 'Invited a Worker',
+      'rehire_invite' => 'Invited a Past Worker',
+      'unlock' => 'Unlocked Contact Details',
+      'boost' => 'Boosted to the Top',
+      'job_duration' => 'Kept a Job Post Up Longer',
+      'thread_ad' => 'Community Board Post',
+      'topup' => 'Topped Up',
+      'monthly_grant' => 'Free Monthly $plural',
       'launch_grant' => 'Welcome $plural',
-      'badge_reward' => 'Badge reward',
+      'badge_reward' => 'Badge Reward',
       'refund' => 'Refunded',
-      'admin_adjustment' => 'Adjusted by support',
+      'admin_adjustment' => 'Adjusted by Support',
       _ => 'Other',
     };
   }

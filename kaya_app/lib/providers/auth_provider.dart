@@ -252,6 +252,8 @@ class AuthProvider with ChangeNotifier {
           'success': false,
           'is_suspended': true,
           'suspended_reason': '', // NEVER show actual reason on login
+          // Opens Account status, where the reasons are - see LoginScreen.
+          'standing_token': e is ApiException ? e.standingToken : null,
         };
       }
       
@@ -372,6 +374,7 @@ class AuthProvider with ChangeNotifier {
   }) async {
     _isLoading = true;
     _errorMessage = null;
+    standingToken = null;
     notifyListeners();
 
     try {
@@ -395,11 +398,16 @@ class AuthProvider with ChangeNotifier {
       return true;
     } catch (e) {
       _errorMessage = e.toString().replaceFirst('Exception: ', '');
+      standingToken = e is ApiException ? e.standingToken : null;
       _isLoading = false;
       notifyListeners();
       return false;
     }
   }
+
+  /// Set when a Google sign-in found the account suspended: the short session
+  /// for Account status. Null otherwise.
+  String? standingToken;
 
   // ── Logout ────────────────────────────────────────────────────────────────────
 

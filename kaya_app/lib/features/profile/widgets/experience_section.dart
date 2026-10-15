@@ -208,7 +208,7 @@ class _ExperienceSectionState extends State<ExperienceSection> {
     final sure = await showDialog<bool>(
       context: context,
       builder: (_) => AlertDialog(
-        title: const Text('Remove this experience?'),
+        title: const Text('Remove This Experience?'),
         content: Text('"${exp['title'] ?? 'This entry'}" comes off your profile.'),
         actions: [
           TextButton(
@@ -244,7 +244,7 @@ class _ExperienceSectionState extends State<ExperienceSection> {
   List<Widget> _fields() => [
         InlineField(
           controller: _title,
-          label: 'Job title',
+          label: 'Job Title',
         ),
         InlineField(
           controller: _company,
@@ -283,7 +283,7 @@ class _ExperienceSectionState extends State<ExperienceSection> {
         ),
         InlineField(
           controller: _description,
-          label: 'What you did',
+          label: 'What You Did',
           hint: 'Optional',
           maxLines: 3,
         ),
@@ -426,7 +426,7 @@ class _ExperienceSectionState extends State<ExperienceSection> {
             hasDocument: false,
             onTap: () {
               _openEntry(exp);
-              _showEditor(id: exp['id'], heading: 'Edit experience');
+              _showEditor(id: exp['id'], heading: 'Edit Experience');
             },
             onDelete: () => _delete(exp),
           ),
@@ -436,7 +436,7 @@ class _ExperienceSectionState extends State<ExperienceSection> {
               : 'Add another',
           onTap: () {
             _openNew();
-            _showEditor(heading: 'New experience');
+            _showEditor(heading: 'New Experience');
           },
         ),
       ],

@@ -74,7 +74,7 @@
                     <div><dt class="text-slate-400">Company</dt><dd class="text-slate-700">{{ $ep->company_name ?: 'Not given' }}</dd></div>
                     <div><dt class="text-slate-400">TIN</dt><dd class="text-slate-700 font-mono">{{ $ep->tin ?: 'Not given' }}</dd></div>
                     <div>
-                        <dt class="text-slate-400">TIN check</dt>
+                        <dt class="text-slate-400">TIN Check</dt>
                         <dd>
                             @if ($ep->tin_verified_at)
                                 <span class="badge-verified text-xs px-2.5 py-1 rounded-full">Checked on ORUS</span>
@@ -154,7 +154,7 @@
                                         <div class="flex items-center gap-3 text-xs">
                                             @if ($verification->document_front_url)
                                                 <a href="{{ route('admin.verifications.document', [$verification, 'front']) }}" target="_blank" rel="noopener" class="text-blue-600 hover:underline">
-                                                    Open document{{ str_ends_with(strtolower($verification->document_front_url), '.pdf') ? ' (PDF)' : '' }}
+                                                    Open Document{{ str_ends_with(strtolower($verification->document_front_url), '.pdf') ? ' (PDF)' : '' }}
                                                 </a>
                                             @else
                                                 <span class="text-slate-400">No file uploaded</span>
@@ -281,7 +281,7 @@
                                         @endif
                                         <a href="{{ $url }}" target="_blank"
                                            class="inline-flex items-center gap-1 text-xs text-blue-600 hover:underline">
-                                            View full document
+                                            View Full Document
                                         </a>
                                     @else
                                         <span class="text-xs text-slate-400">No document uploaded</span>
@@ -341,7 +341,7 @@
                                         @endif
                                         <a href="{{ $url }}" target="_blank"
                                            class="inline-flex items-center gap-1 text-xs text-blue-600 hover:underline">
-                                            View full document
+                                            View Full Document
                                         </a>
                                     @else
                                         <span class="text-xs text-slate-400">No document uploaded</span>
@@ -432,12 +432,17 @@
                 </div>
 
                 <div>
-                    <label for="suspendNote" class="block text-xs font-semibold text-slate-600 mb-1.5">Note</label>
-                    <textarea name="note" id="suspendNote" rows="2" maxlength="1000"
+                    <label for="suspendNote" class="block text-xs font-semibold text-slate-600 mb-1.5">Finding</label>
+                    <textarea name="note" id="suspendNote" rows="3" minlength="10" maxlength="1000" required
                               class="w-full px-3 py-2 border border-slate-300 rounded-lg text-[13px]
                                      focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-red-500"
-                              placeholder="Optional, internal"></textarea>
+                              placeholder="What happened. Sent to the account as the reason."></textarea>
                 </div>
+
+                <p class="text-xs text-slate-500">
+                    Counts as a strike and can be appealed. Permanent holds as a
+                    {{ config('moderation.ban_hold_days') }}-day suspension until a second administrator confirms it.
+                </p>
             </div>
 
             <div class="px-5 py-4 bg-slate-50 rounded-b-xl flex gap-3 border-t border-slate-200">
@@ -447,7 +452,7 @@
                 </button>
                 <button type="submit"
                         class="flex-1 px-4 py-2 bg-red-600 text-white text-sm font-semibold rounded-lg hover:bg-red-700">
-                    Suspend account
+                    Suspend Account
                 </button>
             </div>
         </form>

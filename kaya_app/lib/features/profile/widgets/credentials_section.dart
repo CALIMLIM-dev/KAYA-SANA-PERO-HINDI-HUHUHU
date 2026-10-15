@@ -160,7 +160,7 @@ class _CredentialsSectionState extends State<CredentialsSection> {
     final sure = await showDialog<bool>(
       context: context,
       builder: (_) => AlertDialog(
-        title: Text(_isLicence ? 'Remove this license?' : 'Remove this certificate?'),
+        title: Text(_isLicence ? 'Remove This License?' : 'Remove This Certificate?'),
         content: Text('"$label" is removed from your profile, along with its document.'),
         actions: [
           TextButton(
@@ -388,11 +388,11 @@ class _CredentialsSectionState extends State<CredentialsSection> {
         ),
         InlineField(
           controller: _issuer,
-          label: _isLicence ? 'Issuing authority' : 'Issuing organisation',
+          label: _isLicence ? 'Issuing Authority' : 'Issuing Organization',
         ),
         InlineField(
           controller: _reference,
-          label: _isLicence ? 'License number' : 'Credential ID',
+          label: _isLicence ? 'License Number' : 'Credential ID',
           hint: 'Optional',
         ),
         _documentField(),
@@ -450,7 +450,7 @@ class _CredentialsSectionState extends State<CredentialsSection> {
           onTap: () {
             _reset();
             _showEditor(
-              heading: _isLicence ? 'New license' : 'New certificate',
+              heading: _isLicence ? 'New License' : 'New Certificate',
             );
           },
         ),

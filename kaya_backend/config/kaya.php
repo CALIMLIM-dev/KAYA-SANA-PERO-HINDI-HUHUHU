@@ -63,7 +63,21 @@ return [
         is memory, not observation.
     */
     'completion' => [
+        /*
+            How long after the deadline a hire waits for both confirmations.
+            Then: one side confirmed and the other stayed silent - completed,
+            silence counting as agreement; neither - unsuccessful. A side that
+            says "it didn't happen" stops this and an administrator decides.
+            See kaya:close-unconfirmed-hires.
+        */
         'auto_confirm_after_days' => (int) env('COMPLETION_AUTO_CONFIRM_DAYS', 7),
+
+        // The reminder before that happens, this many days ahead of it.
+        'remind_before_days' => (int) env('COMPLETION_REMIND_BEFORE_DAYS', 2),
+
+        // How long the other side has to answer a request to cancel a hire
+        // before it is cancelled anyway. Nobody can be held to a job.
+        'cancel_answer_hours' => (int) env('HIRE_CANCEL_ANSWER_HOURS', 48),
     ],
 
     'reviews' => [

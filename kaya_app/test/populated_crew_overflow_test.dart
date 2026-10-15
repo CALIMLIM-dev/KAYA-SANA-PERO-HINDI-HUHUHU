@@ -121,9 +121,9 @@ void main() {
       );
       await tester.pump(const Duration(milliseconds: 300));
 
-      expect(find.text('Roster (2 of 5 hired)'), findsOneWidget,
+      expect(find.text('Hired Workers (2 of 5)'), findsOneWidget,
           reason: 'The open crew job never rendered, so nothing was checked.');
-      expect(find.text('Roster (5 of 5 hired)'), findsOneWidget,
+      expect(find.text('Hired Workers (5 of 5)'), findsOneWidget,
           reason: 'The crew job under way never rendered.');
 
       for (var i = 0; i < 3; i++) {

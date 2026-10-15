@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../providers/app_mode_provider.dart';
 import '../../../providers/notification_provider.dart';
+import '../notification_destination.dart';
 import '../open_notification.dart';
 import '../widgets/notification_item.dart';
 
@@ -89,7 +90,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
           const SizedBox(height: 12),
           Center(
             child: Text(
-              provider.error ?? 'No notifications yet',
+              provider.error ?? 'No Notifications Yet',
               style: TextStyle(color: AppColors.neutral600, fontSize: 15),
             ),
           ),
@@ -116,13 +117,18 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
         if (entry is _Header) return _SectionHeader(title: entry.title);
 
         final n = (entry as _Row).notification;
+        // Inform-only: read in place, never a screen or a pop-up.
+        final informOnly = informOnlyNotifications.contains(n.type);
         return NotificationItem(
           type: _typeOf(n.type),
           title: n.title,
           message: n.body ?? '',
           timestamp: n.age ?? '',
           isRead: n.isRead,
-          onTap: () => _open(n),
+          expandOnTap: informOnly,
+          onTap: informOnly
+              ? () => context.read<NotificationProvider>().markRead(n.id)
+              : () => _open(n),
         );
       },
     );

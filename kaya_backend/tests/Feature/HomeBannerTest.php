@@ -89,7 +89,7 @@ class HomeBannerTest extends TestCase
         $this->actingAs($this->admin('analyst'))->get('/admin/banners')->assertRedirect(route('admin.dashboard'));
         $this->actingAs($this->admin('analyst'))->post('/admin/banners', ['title' => 'x'])->assertRedirect(route('admin.dashboard'));
         $this->assertSame(0, Banner::count());
-        $this->actingAs($this->admin())->get('/admin/banners')->assertOk()->assertSee('Add a banner');
+        $this->actingAs($this->admin())->get('/admin/banners')->assertOk()->assertSee('Add a Banner');
     }
 
     #[Test]

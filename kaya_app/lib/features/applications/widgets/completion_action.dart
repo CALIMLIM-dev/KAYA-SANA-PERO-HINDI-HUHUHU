@@ -37,8 +37,8 @@ Future<void> confirmCompletion(
     context: context,
     builder: (dialogContext) => AlertDialog(
       title: Text(early
-          ? 'Finished early?'
-          : 'Mark this job complete?'),
+          ? 'Finished Early?'
+          : 'Mark This Job as Complete?'),
       content: Text(
         early
             ? 'The $otherParty will be asked to confirm. The job finishes '
@@ -48,11 +48,11 @@ Future<void> confirmCompletion(
       actions: [
         TextButton(
           onPressed: () => Navigator.pop(dialogContext, false),
-          child: const Text('Not yet'),
+          child: const Text('Not Yet'),
         ),
         ElevatedButton(
           onPressed: () => Navigator.pop(dialogContext, true),
-          child: Text(early ? 'Yes, It Is Done' : 'Mark Complete'),
+          child: Text(early ? 'Yes, Mark as Complete' : 'Mark as Complete'),
         ),
       ],
     ),
@@ -75,7 +75,7 @@ Future<void> confirmCompletion(
   // would tell the user the job is finished when it is not.
   AppToast.show(
     context,
-    provider.lastCompletionMessage ?? 'Marked complete',
+    provider.lastCompletionMessage ?? 'Marked as complete',
     type: ToastType.success,
   );
 

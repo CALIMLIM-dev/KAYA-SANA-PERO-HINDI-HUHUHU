@@ -298,7 +298,7 @@ class _SupportChatScreenState extends State<SupportChatScreen> {
                   size: 48, color: AppColors.neutral300),
               SizedBox(height: 14),
               Text(
-                'Tell us what happened',
+                'Tell Us What Happened',
                 style: TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.w600,

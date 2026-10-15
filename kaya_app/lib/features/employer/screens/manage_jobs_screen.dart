@@ -11,7 +11,6 @@ import '../../../core/constants/credits.dart';
 import '../../invitations/widgets/invite_to_job.dart';
 import '../widgets/manage_job_sheet.dart';
 import '../../applications/screens/view_applicants_screen.dart';
-import 'matched_workers_screen.dart';
 
 /*
     My Jobs: the employer's posts that are over.
@@ -117,7 +116,7 @@ class _ManageJobsScreenState extends State<ManageJobsScreen>
           children: [
             const Icon(Icons.cloud_off, size: 56, color: AppColors.neutral300),
             const SizedBox(height: 16),
-            const Text('Could not load your jobs',
+            const Text('Could Not Load Your Jobs',
                 style: TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.w600,
@@ -148,7 +147,7 @@ class _ManageJobsScreenState extends State<ManageJobsScreen>
               Icon(Icons.work_outline, size: 56, color: AppColors.neutral300),
               SizedBox(height: 16),
               Text(
-                'No past jobs yet',
+                'No Past Jobs Yet',
                 style: TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.w600,
@@ -415,31 +414,7 @@ class _ManageJobsScreenState extends State<ManageJobsScreen>
                         ),
                       ),
                     ),
-                    const SizedBox(width: 10),
-                    /*
-                        Find workers, next to waiting for them.
 
-                        Applicants is who came to you; this is who the
-                        server thinks fits the post. The scoring has
-                        existed all along with no way to reach it.
-                    */
-                    Expanded(
-                      child: OutlinedButton.icon(
-                        onPressed: () => showMatchedWorkersPopup(context,
-                            jobId: jobId, jobTitle: job['title'] as String?),
-                        icon: const Icon(Icons.person_search, size: 16),
-                        label: const Text('Matches'),
-                        style: OutlinedButton.styleFrom(
-                          foregroundColor: AppColors.primary,
-                          side: const BorderSide(color: AppColors.primary),
-                          padding: const EdgeInsets.symmetric(vertical: 10),
-                          shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(8)),
-                          textStyle: const TextStyle(
-                              fontSize: 13.5, fontWeight: FontWeight.w600),
-                        ),
-                      ),
-                    ),
                     const SizedBox(width: 10),
                     OutlinedButton(
                       onPressed: () => showManageJobSheet(context, job),
@@ -464,7 +439,7 @@ class _ManageJobsScreenState extends State<ManageJobsScreen>
                     child: OutlinedButton.icon(
                       onPressed: () => _openRoster(jobId),
                       icon: const Icon(Icons.group_outlined, size: 16),
-                      label: Text('Roster ($workersFilled hired)'),
+                      label: Text('Hired Workers ($workersFilled)'),
                       style: OutlinedButton.styleFrom(
                         foregroundColor: AppColors.primary,
                         side: const BorderSide(color: AppColors.primary),
@@ -489,7 +464,7 @@ class _ManageJobsScreenState extends State<ManageJobsScreen>
                   child: OutlinedButton.icon(
                     onPressed: () => _openRoster(jobId),
                     icon: const Icon(Icons.group_outlined, size: 16),
-                    label: Text('Roster ($workersFilled)'),
+                    label: Text('Hired Workers ($workersFilled)'),
                     style: OutlinedButton.styleFrom(
                       foregroundColor: AppColors.primary,
                       side: const BorderSide(color: AppColors.primary),
@@ -582,7 +557,7 @@ class _ManageJobsScreenState extends State<ManageJobsScreen>
                         shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(8)),
                       ),
-                      child: const Text('Mark Complete',
+                      child: const Text('Mark as Complete',
                           style: TextStyle(
                               fontSize: 13.5, fontWeight: FontWeight.w600)),
                     ),
@@ -764,7 +739,7 @@ class _ManageJobsScreenState extends State<ManageJobsScreen>
     showDialog(
       context: context,
       builder: (_) => AlertDialog(
-        title: const Text('Mark this job complete?'),
+        title: const Text('Mark This Job as Complete?'),
         // Says what actually happens. Completion is two-sided now: this records
         // the employer's half and the worker still has to confirm.
         content: Text(
@@ -773,7 +748,7 @@ class _ManageJobsScreenState extends State<ManageJobsScreen>
         actions: [
           TextButton(
               onPressed: () => Navigator.pop(context),
-              child: const Text('Not yet')),
+              child: const Text('Not Yet')),
           ElevatedButton(
             onPressed: () async {
               Navigator.pop(context);
@@ -818,7 +793,7 @@ class _ManageJobsScreenState extends State<ManageJobsScreen>
               );
             },
             style: ElevatedButton.styleFrom(backgroundColor: AppColors.success),
-            child: const Text('Mark Complete',
+            child: const Text('Mark as Complete',
                 style: TextStyle(color: Colors.white)),
           ),
         ],

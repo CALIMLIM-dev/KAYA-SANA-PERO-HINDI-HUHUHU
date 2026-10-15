@@ -3,7 +3,7 @@
 
 @section('content')
 @php
-    $statusLabel = ['open' => 'Open', 'in_progress' => 'In progress', 'completed' => 'Completed', 'expired' => 'Ended', 'closed' => 'Closed'][$job->status] ?? ucfirst($job->status);
+    $statusLabel = ['open' => 'Open', 'in_progress' => 'In Progress', 'completed' => 'Completed', 'expired' => 'Ended', 'closed' => 'Closed'][$job->status] ?? ucfirst($job->status);
     $badge = ['open' => 'badge-verified', 'in_progress' => 'bg-blue-50 text-blue-700', 'completed' => 'bg-slate-100 text-slate-600',
               'expired' => 'badge-pending', 'closed' => 'badge-suspended'][$job->status] ?? 'bg-slate-100 text-slate-600';
     $appBadge = fn ($s) => ['pending' => 'badge-pending', 'accepted' => 'badge-verified', 'completed' => 'bg-slate-100 text-slate-600',
@@ -51,10 +51,10 @@
                         @if ($job->budget_period) per {{ $job->budget_period }} @endif
                     @else Not given @endif
                 </dd></div>
-                <div><dt class="text-slate-400">Work dates</dt><dd class="text-slate-700">
+                <div><dt class="text-slate-400">Work Dates</dt><dd class="text-slate-700">
                     {{ $job->start_date?->format('M j, Y') ?? 'Not set' }}@if ($job->end_date) to {{ $job->end_date->format('M j, Y') }}@endif
                 </dd></div>
-                <div><dt class="text-slate-400">Post ends</dt><dd class="text-slate-700">{{ $job->expires_at?->format('M j, Y') ?? 'No date' }}</dd></div>
+                <div><dt class="text-slate-400">Post Ends</dt><dd class="text-slate-700">{{ $job->expires_at?->format('M j, Y') ?? 'No date' }}</dd></div>
                 <div><dt class="text-slate-400">Posted</dt><dd class="text-slate-700">{{ $job->created_at->format('M j, Y g:i A') }}</dd></div>
                 <div><dt class="text-slate-400">Address Given</dt><dd class="text-slate-700">{{ $job->address_line ?: 'None' }}</dd></div>
                 <div><dt class="text-slate-400">Boosted</dt><dd class="text-slate-700">{{ $job->is_urgent ? 'Yes' : 'No' }}</dd></div>
@@ -104,7 +104,7 @@
         </div>
 
         <div class="bg-white rounded-xl border border-slate-200 p-6">
-            <h3 class="text-sm font-semibold text-slate-700 mb-3">Barya on this post</h3>
+            <h3 class="text-sm font-semibold text-slate-700 mb-3">Barya on This Post</h3>
             @forelse ($charges as $line)
                 <div class="flex justify-between text-sm py-1">
                     <span class="text-slate-600">{{ str_replace('_', ' ', ucfirst($line->reason)) }}</span>
@@ -117,12 +117,12 @@
 
         @if (in_array($job->status, ['open', 'in_progress']))
             <div class="bg-white rounded-xl border border-slate-200 p-6">
-                <h3 class="text-sm font-semibold text-slate-700 mb-1">Close this post</h3>
+                <h3 class="text-sm font-semibold text-slate-700 mb-1">Close This Post</h3>
                 <form method="POST" action="{{ route('admin.jobs.close', $job) }}" onsubmit="return confirm('Close this post?')">
                     @csrf
                     @include('admin.partials.reason-picker', ['reasons' => ['Not a real job', 'Contact details in the description', 'Spam or advertising', 'Illegal or unsafe work', 'Duplicate post'], 'placeholder' => 'Reason the employer will see'])
                            class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm mb-2">
-                    <button class="w-full px-4 py-2 bg-red-600 text-white rounded-lg text-sm font-medium hover:bg-red-700">Close post</button>
+                    <button class="w-full px-4 py-2 bg-red-600 text-white rounded-lg text-sm font-medium hover:bg-red-700">Close Post</button>
                 </form>
             </div>
         @endif

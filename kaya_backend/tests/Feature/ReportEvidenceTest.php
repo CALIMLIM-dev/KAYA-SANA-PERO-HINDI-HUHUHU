@@ -154,10 +154,10 @@ class ReportEvidenceTest extends TestCase
 
         $this->actingAs($admin)->get("/admin/reports/{$report->id}")
             ->assertOk()
-            ->assertSee('What was reported')
+            ->assertSee('What Was Reported')
             ->assertSee('Juan Dela Cruz')
             // Their side, under their own name.
-            ->assertSee("Juan Dela Cruz's reply")
+            ->assertSee("Juan Dela Cruz's side")
             ->assertSee('I only asked for materials money.');
     }
 
@@ -168,8 +168,10 @@ class ReportEvidenceTest extends TestCase
         $report = Report::firstOrFail();
         $admin = User::factory()->create(['user_type' => 'admin']);
 
+        $report->update(['response' => 'It was for materials.', 'responded_at' => now()]);
+
         $this->actingAs($admin)->post("/admin/reports/{$report->id}/resolve", [
-            'status' => 'resolved', 'action' => 'warned',
+            'status' => 'resolved', 'action' => 'strike', 'reason_code' => 'misleading_postings',
             'resolution_note' => 'The messages show a deposit was demanded.',
         ])->assertRedirect();
 

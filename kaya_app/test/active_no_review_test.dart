@@ -101,7 +101,7 @@ void main() {
 
   testWidgets('so does the worker', (tester) async {
     await pump(tester, {...finishedWork(closes: inDays(5)), '_isJob': false});
-    expect(find.text('Review employer'), findsOneWidget);
+    expect(find.text('Review Employer'), findsOneWidget);
   });
 
   testWidgets('a closed window offers nothing to press', (tester) async {

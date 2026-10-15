@@ -79,7 +79,7 @@ Future<bool> ensureVerified(
       await showDialog<void>(
         context: context,
         builder: (dialogContext) => AlertDialog(
-          title: const Text('Still under review'),
+          title: const Text('Still Under Review'),
           content: Text(
             'You can $action once your documents are approved.',
           ),
@@ -108,7 +108,7 @@ Future<bool> ensureVerified(
   final goNow = await showDialog<bool>(
     context: context,
     builder: (dialogContext) => AlertDialog(
-      title: const Text('Verify your account'),
+      title: const Text('Verify Your Account'),
       content: Text(
         isCompany
             ? 'Upload your business registration to $action.'
@@ -117,7 +117,7 @@ Future<bool> ensureVerified(
       actions: [
         TextButton(
           onPressed: () => Navigator.pop(dialogContext, false),
-          child: const Text('Not now'),
+          child: const Text('Not Now'),
         ),
         ElevatedButton(
           style: ElevatedButton.styleFrom(

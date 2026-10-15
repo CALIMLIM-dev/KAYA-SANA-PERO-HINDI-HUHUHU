@@ -121,7 +121,13 @@ class CompletionAndReviewWindowsTest extends TestCase
     /*
         The stuck hire, which is what the command exists for.
     */
-    public function test_a_hire_waiting_past_the_window_is_closed_as_unsuccessful(): void
+    /*
+        One side confirmed, the other stayed silent past the window: the
+        hire completes. The silent side was reminded and could have said the
+        work did not happen; their own stamp stays empty - nobody pretends
+        they confirmed.
+    */
+    public function test_a_hire_one_side_confirmed_completes_when_the_other_stays_silent(): void
     {
         $hire = $this->hire([
             'started_at'          => now()->subDays(10),
@@ -132,13 +138,8 @@ class CompletionAndReviewWindowsTest extends TestCase
 
         $hire->refresh();
 
-        $this->assertSame(
-            'unsuccessful',
-            $hire->status,
-            'The job did not complete. Confirming for the silent side would '
-            . 'assert work nobody vouched for, and would make pressing the '
-            . 'button pointless.'
-        );
+        $this->assertSame('completed', $hire->status);
+        $this->assertNotNull($hire->completed_at);
         $this->assertNull($hire->employer_completed_at);
     }
 

@@ -168,7 +168,7 @@ class _UpdateDialogState extends State<_UpdateDialog> {
     return PopScope(
       canPop: !widget.required && !_busy,
       child: AlertDialog(
-        title: Text(widget.required ? 'Update needed' : 'Update available'),
+        title: Text(widget.required ? 'Update Needed' : 'Update Available'),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,

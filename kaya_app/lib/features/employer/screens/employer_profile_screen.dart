@@ -342,7 +342,7 @@ class _EmployerProfileScreenState extends State<EmployerProfileScreen> {
           */
           SliverToBoxAdapter(
             child: _section(
-              title: 'Completion record',
+              title: 'Completion Record',
               child: CompletionRecord(
                 completed: (e['jobs_completed'] as num?)?.toInt() ?? 0,
                 unsuccessful: (e['jobs_unsuccessful'] as num?)?.toInt() ?? 0,
@@ -357,7 +357,7 @@ class _EmployerProfileScreenState extends State<EmployerProfileScreen> {
           */
           SliverToBoxAdapter(
             child: _section(
-              title: 'Work history on KAYA',
+              title: 'Work History on KAYA',
               child: WorkHistoryList(
                 history: ((e['history'] as List?) ?? [])
                     .map((h) => Map<String, dynamic>.from(h as Map))

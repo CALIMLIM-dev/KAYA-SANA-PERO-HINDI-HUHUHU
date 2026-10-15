@@ -159,7 +159,7 @@ class VizCheckTest extends TestCase
         $this->assertSame(['name' => 'Ramon Aquino', 'hires' => 1, 'completed' => 1, 'rating' => 4.6], $top[0]);
 
         $response->assertSee('Verification Status')->assertSee('Top Workers')->assertSee('Job Status')
-            ->assertSee('User Growth')->assertSee('Skill Gap');
+            ->assertSee('User Growth')->assertSee('Skill Shortages');
     }
 
     #[Test]
@@ -177,7 +177,7 @@ class VizCheckTest extends TestCase
 
         $skills = $this->actingAs($this->admin())->get('/admin/analytics')->viewData('skills');
 
-        $this->assertSame([['name' => 'Pipe Repair', 'demand' => 2, 'supply' => 1]], $skills);
+        $this->assertSame([['name' => 'Pipe Repair', 'demand' => 2, 'supply' => 1, 'short' => 1]], $skills);
     }
 
     #[Test]

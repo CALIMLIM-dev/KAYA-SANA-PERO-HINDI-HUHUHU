@@ -419,7 +419,7 @@ class _WorkerProfileScreenState extends State<WorkerProfileScreen> {
           */
           SliverToBoxAdapter(
             child: _section(
-              title: 'Completion record',
+              title: 'Completion Record',
               child: CompletionRecord(
                 completed: asInt(w['jobs_completed']),
                 unsuccessful: asInt(w['jobs_unsuccessful']),
@@ -434,7 +434,7 @@ class _WorkerProfileScreenState extends State<WorkerProfileScreen> {
           */
           SliverToBoxAdapter(
             child: _section(
-              title: 'Work history on KAYA',
+              title: 'Work History on KAYA',
               child: WorkHistoryList(
                 history: ((w['history'] as List?) ?? [])
                     .map((h) => Map<String, dynamic>.from(h as Map))
@@ -636,7 +636,7 @@ class _WorkerProfileScreenState extends State<WorkerProfileScreen> {
               child: _section(
                 title: 'Reviews & Ratings',
                 showSeeAll: reviews.length > 3,
-                seeAllLabel: _showAllReviews ? 'Show less' : 'See all',
+                seeAllLabel: _showAllReviews ? 'Show Less' : 'See All',
                 onSeeAll: () =>
                     setState(() => _showAllReviews = !_showAllReviews),
                 child: Column(
@@ -695,7 +695,7 @@ class _WorkerProfileScreenState extends State<WorkerProfileScreen> {
     required String title,
     required Widget child,
     bool showSeeAll = false,
-    String seeAllLabel = 'See all',
+    String seeAllLabel = 'See All',
     VoidCallback? onSeeAll,
     String? subtitle,
   }) {
@@ -949,7 +949,7 @@ class _WorkerProfileScreenState extends State<WorkerProfileScreen> {
                             color: AppColors.primary,
                           ),
                           const SizedBox(width: 5),
-                          const Text('View document',
+                          const Text('View Document',
                               style: TextStyle(
                                   fontSize: 12,
                                   fontWeight: FontWeight.w600,
@@ -996,7 +996,7 @@ class _WorkerProfileScreenState extends State<WorkerProfileScreen> {
                     fit: BoxFit.contain,
                     errorBuilder: (_, _, _) => const Padding(
                       padding: EdgeInsets.all(40),
-                      child: Text('Could not load document',
+                      child: Text('Could Not Load Document',
                           style: TextStyle(color: Colors.white)),
                     ),
                     loadingBuilder: (c, child, progress) => progress == null

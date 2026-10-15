@@ -101,7 +101,7 @@ class _CommunityScreenState extends State<CommunityScreen> {
               children: [
                 _MenuPill<String>(
                   icon: Icons.filter_list,
-                  label: _typeLabels[board.type] ?? 'All posts',
+                  label: _typeLabels[board.type] ?? 'All Posts',
                   active: board.type != 'all',
                   tooltip: 'Filter',
                   current: board.type,
@@ -201,7 +201,7 @@ class _CommunityScreenState extends State<CommunityScreen> {
 
 /// What each filter and sort is called on its button.
 const Map<String, String> _typeLabels = {
-  'all': 'All posts',
+  'all': 'All Posts',
   'worker': 'Workers',
   'employer': 'Employers',
   'business': 'Businesses',

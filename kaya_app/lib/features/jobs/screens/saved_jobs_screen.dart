@@ -88,7 +88,7 @@ class _SavedJobsScreenState extends State<SavedJobsScreen>
     if (jobs.savedErrorMessage != null && saved.isEmpty) {
       return _message(
         icon: Icons.cloud_off_rounded,
-        title: 'Could not load your saved jobs',
+        title: 'Could Not Load Your Saved Jobs',
         body: jobs.savedErrorMessage!,
         action: TextButton(onPressed: _load, child: const Text('Try Again')),
       );
@@ -97,7 +97,7 @@ class _SavedJobsScreenState extends State<SavedJobsScreen>
     if (saved.isEmpty) {
       return _message(
         icon: Icons.bookmark_border_rounded,
-        title: 'No saved jobs yet',
+        title: 'No Saved Jobs Yet',
         body: 'Tap the bookmark on a job to keep it here.',
       );
     }
@@ -173,7 +173,7 @@ class _SavedJobsScreenState extends State<SavedJobsScreen>
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        title: const Text('Clear all saved jobs'),
+        title: const Text('Clear All Saved Jobs'),
         content: Text(
           'Remove all $count saved ${count == 1 ? 'job' : 'jobs'}?',
         ),

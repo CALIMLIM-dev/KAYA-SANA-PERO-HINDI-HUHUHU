@@ -80,7 +80,7 @@ class _DeleteAccountSheetState extends State<DeleteAccountSheet> {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text('Delete account',
+          const Text('Delete Account',
               style: TextStyle(
                   fontSize: 18,
                   fontWeight: FontWeight.w700,
@@ -106,7 +106,7 @@ class _DeleteAccountSheetState extends State<DeleteAccountSheet> {
             obscureText: _hidden,
             onChanged: (_) => setState(() {}),
             decoration: InputDecoration(
-              labelText: 'Your password',
+              labelText: 'Your Password',
               border: const OutlineInputBorder(),
               suffixIcon: IconButton(
                 icon: Icon(_hidden ? Icons.visibility_off : Icons.visibility),
@@ -151,7 +151,7 @@ class _DeleteAccountSheetState extends State<DeleteAccountSheet> {
                           height: 18,
                           child: CircularProgressIndicator(
                               strokeWidth: 2, color: Colors.white))
-                      : const Text('Delete account'),
+                      : const Text('Delete Account'),
                 ),
               ),
             ],

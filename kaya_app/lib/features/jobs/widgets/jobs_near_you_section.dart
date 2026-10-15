@@ -114,7 +114,7 @@ class JobsNearYouSection extends StatelessWidget {
                               const SizedBox(width: 3),
                               Flexible(
                                 child: Text(
-                                  placeLabel ?? userLocation ?? 'Near you',
+                                  placeLabel ?? userLocation ?? 'Near You',
                                   maxLines: 1,
                                   overflow: TextOverflow.ellipsis,
                                   style: Theme.of(context).textTheme.bodySmall?.copyWith(

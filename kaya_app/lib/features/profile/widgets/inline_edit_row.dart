@@ -139,7 +139,7 @@ class _InlineEditRowState extends State<InlineEditRow> {
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context, false),
-              child: const Text('Keep it'),
+              child: const Text('Keep It'),
             ),
             TextButton(
               onPressed: () => Navigator.pop(context, true),

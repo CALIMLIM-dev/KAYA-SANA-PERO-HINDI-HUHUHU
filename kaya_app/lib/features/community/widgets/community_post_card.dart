@@ -63,8 +63,8 @@ class CommunityPostCard extends StatelessWidget {
     */
     final String? pill = switch (status) {
       'live' => null,
-      'pending' => 'Waiting for review',
-      'rejected' => 'Not approved',
+      'pending' => 'Waiting for Review',
+      'rejected' => 'Not Approved',
       'removed' => 'Removed',
       _ => 'Ended',
     };

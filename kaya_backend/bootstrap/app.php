@@ -30,6 +30,8 @@ return Application::configure(basePath: dirname(__DIR__))
             // One ability, named on the route. See App\Enums\AdminRole.
             'admin.can'      => \App\Http\Middleware\EnsureAdminCan::class,
             'not.suspended'  => \App\Http\Middleware\EnsureNotSuspended::class,
+            // Restricted by a strike, or held while a serious report is read.
+            'not.restricted' => \App\Http\Middleware\EnsureNotRestricted::class,
             'verified'       => \App\Http\Middleware\EnsureVerified::class,
             'not.company'    => \App\Http\Middleware\EnsureNotCompanyEmployer::class,
         ]);

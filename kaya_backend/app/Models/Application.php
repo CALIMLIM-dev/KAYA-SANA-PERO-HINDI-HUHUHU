@@ -18,6 +18,9 @@ class Application extends Model
         'completed_at'          => 'datetime',
         'employer_completed_at' => 'datetime',
         'worker_completed_at'   => 'datetime',
+        'cancel_requested_at'   => 'datetime',
+        'cancelled_at'          => 'datetime',
+        'disputed_at'           => 'datetime',
     ];
 
     public function job()

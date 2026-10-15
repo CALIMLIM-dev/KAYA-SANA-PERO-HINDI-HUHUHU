@@ -372,7 +372,7 @@ class MatchedWorkerCard extends StatelessWidget {
       ?experience,
       if (jobsDone > 0) '$jobsDone job${jobsDone == 1 ? '' : 's'} done',
       if (hiredBefore > 0)
-        hiredBefore == 1 ? 'Hired before' : 'Hired ${hiredBefore}x before',
+        hiredBefore == 1 ? 'Hired by you before' : 'Hired by you $hiredBefore times',
     ];
 
     return Column(

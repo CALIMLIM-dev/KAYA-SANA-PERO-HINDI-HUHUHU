@@ -780,7 +780,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                   children: [
                     Icon(Icons.work_outline, size: 18, color: AppColors.primary),
                     SizedBox(width: 10),
-                    Text('Invite to another job'),
+                    Text('Invite to Another Job'),
                   ],
                 ),
               ),

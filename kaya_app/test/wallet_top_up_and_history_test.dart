@@ -26,7 +26,7 @@ void main() {
         free: false,
         toppedUp: true),
     ComparisonRow(
-        label: 'Full profile shown to employers when you apply',
+        label: 'Full profile shown to hirers when you apply',
         free: false,
         toppedUp: true),
   ];
@@ -126,8 +126,8 @@ void main() {
     await pump(tester, WalletHistory(entries: entries(), loading: false));
 
     expect(find.text('Today'), findsOneWidget);
-    expect(find.text('Boosted to the top'), findsOneWidget);
-    expect(find.text('Kept a job post up longer'), findsOneWidget);
+    expect(find.text('Boosted to the Top'), findsOneWidget);
+    expect(find.text('Kept a Job Post Up Longer'), findsOneWidget);
     expect(find.text('job_duration'), findsNothing);
     expect(find.text('Balance 134'), findsOneWidget);
   });
@@ -138,8 +138,8 @@ void main() {
     await tester.tap(find.text('Received').last);
     await tester.pump();
 
-    expect(find.text('Topped up'), findsOneWidget);
-    expect(find.text('Boosted to the top'), findsNothing);
+    expect(find.text('Topped Up'), findsOneWidget);
+    expect(find.text('Boosted to the Top'), findsNothing);
   });
 
   testWidgets('the wallet shows only the newest lines, no totals or filter',
@@ -147,8 +147,8 @@ void main() {
     await pump(tester,
         WalletHistory(entries: entries(), loading: false, previewRows: 3));
 
-    expect(find.text('Topped up'), findsOneWidget);
-    expect(find.text('Kept a job post up longer'), findsOneWidget);
+    expect(find.text('Topped Up'), findsOneWidget);
+    expect(find.text('Kept a Job Post Up Longer'), findsOneWidget);
     // The fourth line lives on the history screen.
     expect(find.text('Free monthly Barya'), findsNothing);
     expect(find.text('Spent'), findsNothing);
@@ -170,7 +170,7 @@ void main() {
         );
 
         expect(find.text('₱600'), findsOneWidget);
-        expect(find.text('Kept a job post up longer'), findsOneWidget);
+        expect(find.text('Kept a Job Post Up Longer'), findsOneWidget);
         expect(complaints, isEmpty, reason: complaints.join('\n'));
       });
     }
