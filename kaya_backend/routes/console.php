@@ -54,6 +54,9 @@ Schedule::command('kaya:expire-job-posts')->dailyAt('05:00');
 */
 Schedule::command('kaya:embed-skills')->dailyAt('04:30');
 
+// Typed words not linked yet: Gemini was down, or the day's limit was hit.
+Schedule::command('kaya:link-skills')->dailyAt('04:40');
+
 
 /*
     The free monthly credits are CLAIMED in the app, not deposited on a

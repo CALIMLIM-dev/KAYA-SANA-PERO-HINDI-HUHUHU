@@ -16,6 +16,7 @@ import '../../../core/widgets/verify_gate.dart';
 import '../../../core/widgets/profile_avatar.dart';
 import '../../../core/widgets/verification_badge_widget.dart';
 import '../../applications/screens/view_applicants_screen.dart';
+import '../../applications/widgets/fit_facts.dart';
 import '../../../providers/credits_provider.dart';
 
 /// Job Details — a single real job, fetched via GET /jobs/{id}.
@@ -372,7 +373,8 @@ class _JobDetailsScreenState extends State<JobDetailsScreen>
                 runSpacing: 8,
                 children: job.requiredSkills.map((s) {
                   final matched = job.matchedSkills
-                      .any((m) => m.toLowerCase() == s.toLowerCase());
+                          .any((m) => m.toLowerCase() == s.toLowerCase()) ||
+                      job.matchedPairs.containsKey(s.toLowerCase());
                   return Container(
                     padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
                     decoration: BoxDecoration(
@@ -408,6 +410,14 @@ class _JobDetailsScreenState extends State<JobDetailsScreen>
                 }).toList(),
               ),
             ),
+          // Their own words that met a requirement worded differently.
+          for (final s in job.requiredSkills)
+            if (job.matchedPairs[s.toLowerCase()] case final held?
+                when held.toLowerCase() != s.toLowerCase())
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 0, 16, 6),
+                child: MatchWordsLine(text: '$s · your skill: $held'),
+              ),
 
               // Applicant count moved up into the facts row — it was a whole
               // card of its own for one short sentence.

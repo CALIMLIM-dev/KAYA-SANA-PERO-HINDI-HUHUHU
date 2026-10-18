@@ -54,6 +54,12 @@ class WorkerSkill extends Model
                     '[embeddings] on-save failed for "'.$term.'": '.$e->getMessage(),
                 );
             }
+
+            // Their own words, linked to the catalogue after the reply.
+            $linker = app(\App\Services\SkillLinker::class);
+            if ($row->skill_id === null && $linker->enabled()) {
+                \Illuminate\Support\defer(fn () => $linker->linkWorkerSkill($row));
+            }
         });
     }
 

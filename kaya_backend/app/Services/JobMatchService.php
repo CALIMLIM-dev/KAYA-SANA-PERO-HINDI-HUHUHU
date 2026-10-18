@@ -89,8 +89,9 @@ class JobMatchService
                 ? $job->skills
                 : $job->skills()->get())
             ->map(fn ($skill) => [
-                'id'   => $skill->id === null ? null : (int) $skill->id,
-                'name' => mb_strtolower(trim((string) $skill->name)),
+                'id'    => $skill->id === null ? null : (int) $skill->id,
+                'name'  => mb_strtolower(trim((string) $skill->name)),
+                'label' => trim((string) $skill->name),
             ])
             ->filter(fn ($r) => $r['name'] !== '')
             ->values();
@@ -227,6 +228,8 @@ class JobMatchService
             'matched_count' => $matched->count(),
             'same_trade' => $sameTrade,
             'matched_skills' => $matched->all(),
+            // [{required, held}]: the employer's word and the worker's own word that met it.
+            'matched_pairs' => $coverage['pairs'],
             'reasons' => $reasons,
             'distance_km' => $distance,
         ];

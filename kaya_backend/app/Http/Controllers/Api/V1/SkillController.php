@@ -52,6 +52,8 @@ class SkillController extends Controller
         $skill = Skill::create([
             'name' => $request->name,
             'category_id' => $request->category_id,
+            // Typed by a worker or employer: the System links it to what it means.
+            'source' => 'user',
         ]);
 
         return response()->json([

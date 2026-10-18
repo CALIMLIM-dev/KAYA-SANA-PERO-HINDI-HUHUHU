@@ -7,6 +7,8 @@ use App\Models\AdminAction;
 use App\Models\Category;
 use App\Models\Skill;
 use App\Models\SkillAlias;
+use App\Models\SkillLink;
+use App\Models\SkillLinkLog;
 use App\Models\WorkerSkill;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -65,11 +67,32 @@ class CategoryController extends Controller
             $aliases = $aliases->filter(fn ($a) => $has($a->term_a) || $has($a->term_b))->values();
         }
 
+        // Words the System linked, newest first, one line per word.
+        $links = SkillLink::with('skill:id,name')->latest('id')->take(500)->get()
+            ->groupBy('term')
+            ->filter(fn ($rows, $term) => $q === '' || $has($term) || $rows->contains(fn ($r) => $r->skill && $has($r->skill->name)));
+
+        // How many workers typed each word, for the Linked Words list.
+        $usedBy = WorkerSkill::whereNull('skill_id')->pluck('skill_name')
+            ->map(fn ($name) => \App\Services\SkillMatcher::normalise((string) $name))->countBy();
+
+        // The System's Gemini checks: usage in Philippine days, and the latest lines.
+        $since = fn ($start) => $start->setTimezone(config('app.timezone'));
+        $linkUsage = [
+            'today'   => SkillLinkLog::where('created_at', '>=', $since(now('Asia/Manila')->startOfDay()))->count(),
+            'month'   => SkillLinkLog::where('created_at', '>=', $since(now('Asia/Manila')->startOfMonth()))->count(),
+            'failed'  => SkillLinkLog::where('outcome', 'failed')->where('created_at', '>=', $since(now('Asia/Manila')->startOfDay()))->count(),
+            'created' => Skill::where('source', 'system')->count(),
+            'linked'  => SkillLink::whereNotNull('skill_id')->distinct()->count('term'),
+        ];
+        $linkLog = SkillLinkLog::latest('id')->take(50)->get();
+
         $selected = $categories->firstWhere('id', (int) $request->query('category')) ?? $listed->first();
 
         return view('admin.categories.index', compact(
             'categories', 'listed', 'selected', 'q',
-            'workersByCategory', 'workersBySkill', 'jobsBySkill', 'aliases',
+            'workersByCategory', 'workersBySkill', 'jobsBySkill', 'aliases', 'links',
+            'usedBy', 'linkUsage', 'linkLog',
         ));
     }
 
@@ -236,6 +259,17 @@ class CategoryController extends Controller
         }
 
         return back()->with('success', "{$a} and {$b} now match each other.");
+    }
+
+    /** A wrong link: the word is kept as "means none", so it is not linked again. */
+    public function unlinkWord(Request $request)
+    {
+        $term = (string) $request->validate(['term' => ['required', 'string', 'max:120']])['term'];
+
+        SkillLink::record($term, []);
+        AdminAction::record('skill_link.removed', 'skill_link', null, "Unlinked the word \"{$term}\"");
+
+        return back()->with('success', "\"{$term}\" is no longer linked.");
     }
 
     public function destroyAlias(SkillAlias $alias)

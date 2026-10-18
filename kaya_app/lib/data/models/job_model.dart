@@ -83,6 +83,9 @@ class Job {
   final int? matchScore;
   final List<String> matchedSkills;
 
+  /// Required skill (lower case) => the worker's own skill that met it.
+  final Map<String, String> matchedPairs;
+
   /// Where this job sits for the signed-in worker: 2 holds a required skill
   /// (or, for a job naming none, works in its trade), 1 the trade only, 0
   /// neither. Null without a worker profile. Orders the feed; never shown.
@@ -291,6 +294,7 @@ class Job {
     this.workersFilled,
     this.matchScore,
     this.matchedSkills = const [],
+    this.matchedPairs = const {},
     this.matchTier,
     this.requiredCount = 0,
     this.matchedCount = 0,
@@ -390,6 +394,11 @@ class Job {
               ?.map((s) => s.toString())
               .toList() ??
           const [],
+      matchedPairs: {
+        for (final p in (json['matched_pairs'] as List?) ?? const [])
+          if (p is Map && p['required'] != null && p['held'] != null)
+            '${p['required']}'.toLowerCase(): '${p['held']}',
+      },
       employerId: (employerInfo?['employer_id'] ?? json['employer_id']) as int?,
       /*
           Three shapes, one field.

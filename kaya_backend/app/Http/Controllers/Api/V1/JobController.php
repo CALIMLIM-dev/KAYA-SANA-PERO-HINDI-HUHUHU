@@ -261,6 +261,7 @@ class JobController extends Controller
             $job->required_count = $match['required_count'];
             $job->matched_count = $match['matched_count'];
             $job->matched_skills = $match['matched_skills'];
+            $job->matched_pairs = $match['matched_pairs'];
             $job->match_reasons = $match['reasons'];
             // Exact here, because the radius filter and the nearest sort
             // below need it. Coarsened by $redact before anything is sent.
@@ -691,6 +692,7 @@ class JobController extends Controller
                 'rating_count'   => $profile->rating_count,
                 'skills'         => $profile->skills->pluck('skill_name')->values(),
                 'matched_skills' => $match['matched_skills'],
+                'matched_pairs'  => $match['matched_pairs'],
                 'match_reasons'  => $match['reasons'],
                 'match_score'    => $match['score'],
                 'match_tier'     => $match['tier'],
@@ -1085,6 +1087,7 @@ class JobController extends Controller
             $job->required_count = $match['required_count'];
             $job->matched_count = $match['matched_count'];
             $job->matched_skills = $match['matched_skills'];
+            $job->matched_pairs = $match['matched_pairs'];
             $job->match_reasons = $match['reasons'];
             /*
                 Exact only for somebody already on this job.

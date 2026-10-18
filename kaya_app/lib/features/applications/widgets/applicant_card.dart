@@ -561,7 +561,7 @@ class _FullCard extends StatelessWidget {
     final jobsDone = asInt(applicant['jobs_completed']);
     final licenses = _names('licenses');
     final certifications = _names('certifications');
-    final matched = _names('matched_skills').map((s) => s.toLowerCase()).toSet();
+    final matched = {..._names('matched_skills').map((s) => s.toLowerCase()), ...matchedHeld(applicant)};
     final fit = employerFitLine(applicant);
 
     return Container(
@@ -658,6 +658,8 @@ class _FullCard extends StatelessWidget {
                 for (final skill in skills) _chip(skill, ticked: matched.contains(skill.toLowerCase())),
               ],
             ),
+            for (final p in differentWords(applicant))
+              MatchWordsLine(text: '${p.held} matches your "${p.required}"'),
           ],
           if (licenses.isNotEmpty) ...[
             _heading('Licenses'),

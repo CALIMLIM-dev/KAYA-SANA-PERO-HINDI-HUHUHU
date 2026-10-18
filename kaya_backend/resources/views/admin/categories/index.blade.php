@@ -172,6 +172,9 @@
                                             <input id="skill-name-{{ $skill->id }}" type="text" name="name" value="{{ $skill->name }}" required maxlength="60"
                                                    class="w-full max-w-xs px-2 py-1 bg-transparent border border-transparent hover:border-slate-200 focus:border-slate-300 focus:bg-white rounded text-sm">
                                         </form>
+                                        @if ($skill->source === 'system')
+                                            <span class="ml-2 text-[11px] px-1.5 py-0.5 rounded bg-slate-100 text-slate-600">Added by System</span>
+                                        @endif
                                     </td>
                                     <td class="py-1.5 px-3 text-right tabular-nums text-slate-600">{{ $skillWorkers }}</td>
                                     <td class="py-1.5 px-3 text-right tabular-nums text-slate-600">{{ $skillJobs }}</td>
@@ -298,6 +301,83 @@
                         @csrf
                         <button class="text-xs text-slate-500 hover:text-red-600">Unlink</button>
                     </form>
+                </li>
+            @endforeach
+        </ul>
+    @endif
+</section>
+
+{{-- The System's Gemini checks: how many, and what each one did. --}}
+<section class="mt-6 bg-white rounded-xl border border-slate-200" aria-labelledby="system-log">
+    <div class="px-5 py-4 border-b border-slate-200">
+        <h2 id="system-log" class="text-sm font-semibold text-slate-700">System Log</h2>
+    </div>
+    <div class="grid grid-cols-2 sm:grid-cols-5 divide-x divide-slate-200 border-b border-slate-200">
+        @foreach ([['Requests Today', $linkUsage['today']], ['Requests This Month', $linkUsage['month']],
+                   ['Failed Today', $linkUsage['failed']], ['Words Linked', $linkUsage['linked']],
+                   ['Skills Added by System', $linkUsage['created']]] as [$label, $value])
+            <div class="px-5 py-3">
+                <p class="text-xs text-slate-500">{{ $label }}</p>
+                <p class="mt-0.5 text-lg font-semibold text-slate-900 tabular-nums">{{ number_format($value) }}</p>
+            </div>
+        @endforeach
+    </div>
+    @if ($linkLog->isEmpty())
+        <p class="px-5 py-6 text-sm text-slate-500">None.</p>
+    @else
+        <div class="overflow-x-auto">
+            <table class="w-full text-sm">
+                <thead>
+                    <tr class="text-left text-xs text-slate-500 border-b border-slate-200">
+                        <th class="py-2.5 px-5 font-medium">Time</th>
+                        <th class="py-2.5 px-5 font-medium">Word</th>
+                        <th class="py-2.5 px-5 font-medium">Result</th>
+                        <th class="py-2.5 px-5 font-medium">Skills</th>
+                        <th class="py-2.5 px-5 font-medium text-right">Took</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach ($linkLog as $entry)
+                        <tr class="border-b border-slate-200 last:border-0">
+                            <td class="py-2 px-5 text-slate-500 whitespace-nowrap">{{ $entry->created_at->timezone('Asia/Manila')->format('M j, g:i A') }}</td>
+                            <td class="py-2 px-5 text-slate-800">{{ $entry->term }}</td>
+                            <td class="py-2 px-5 whitespace-nowrap {{ $entry->outcome === 'failed' ? 'text-red-700' : 'text-slate-700' }}">
+                                {{ ['linked' => 'Linked', 'created' => 'New Skill', 'none' => 'Not a Skill', 'failed' => 'Failed'][$entry->outcome] ?? ucfirst($entry->outcome) }}
+                            </td>
+                            <td class="py-2 px-5 text-slate-600">{{ $entry->skills ?? $entry->error ?? '' }}</td>
+                            <td class="py-2 px-5 text-right text-slate-500 tabular-nums">{{ number_format($entry->ms / 1000, 1) }}s</td>
+                        </tr>
+                    @endforeach
+                </tbody>
+            </table>
+        </div>
+    @endif
+</section>
+
+{{-- What people typed, and the skills the System linked it to. --}}
+<section class="mt-6 bg-white rounded-xl border border-slate-200" aria-labelledby="linked-words">
+    <div class="px-5 py-4 border-b border-slate-200">
+        <h2 id="linked-words" class="text-sm font-semibold text-slate-700">Linked Words</h2>
+    </div>
+    @if ($links->isEmpty())
+        <p class="px-5 py-6 text-sm text-slate-500">None.</p>
+    @else
+        <ul class="divide-y divide-slate-200">
+            @foreach ($links as $term => $rows)
+                @php $skills = $rows->pluck('skill.name')->filter(); @endphp
+                <li class="px-5 py-2.5 flex items-center justify-between gap-3 text-sm">
+                    <span class="text-slate-700">
+                        {{ $term }} <span class="text-slate-400">→</span>
+                        {{ $skills->isEmpty() ? 'Not a Skill' : $skills->join(', ') }}
+                        <span class="ml-2 text-xs text-slate-500">Used by {{ $usedBy[$term] ?? 0 }}</span>
+                    </span>
+                    @if ($skills->isNotEmpty())
+                        <form method="POST" action="{{ route('admin.skill-links.unlink') }}">
+                            @csrf
+                            <input type="hidden" name="term" value="{{ $term }}">
+                            <button class="text-xs text-slate-500 hover:text-red-600">Unlink</button>
+                        </form>
+                    @endif
                 </li>
             @endforeach
         </ul>

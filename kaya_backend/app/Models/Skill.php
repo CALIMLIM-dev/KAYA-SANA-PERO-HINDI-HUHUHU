@@ -6,7 +6,7 @@ use Illuminate\Database\Eloquent\Model;
 
 class Skill extends Model
 {
-    protected $fillable = ['name', 'category_id'];
+    protected $fillable = ['name', 'category_id', 'source'];
 
 
     /*
@@ -41,6 +41,13 @@ class Skill extends Model
                 \Illuminate\Support\Facades\Log::info(
                     '[embeddings] on-save failed for "'.$term.'": '.$e->getMessage(),
                 );
+            }
+
+            // A skill a worker or employer typed: linked to what it means,
+            // after the reply has gone out, so nobody waits on it.
+            $linker = app(\App\Services\SkillLinker::class);
+            if ($row->source === 'user' && $linker->enabled()) {
+                \Illuminate\Support\defer(fn () => $linker->linkSkill($row));
             }
         });
     }

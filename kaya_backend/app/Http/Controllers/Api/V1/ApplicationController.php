@@ -611,6 +611,7 @@ class ApplicationController extends Controller
                     'required_count'        => (int) ($match['required_count'] ?? 0),
                     'matched_count'         => (int) ($match['matched_count'] ?? 0),
                     'matched_skills'        => $match['matched_skills'] ?? [],
+                    'matched_pairs'         => $match['matched_pairs'] ?? [],
                     'same_trade'            => (bool) ($match['same_trade'] ?? false),
                     'distance_label'        => \App\Support\DistanceBand::label($match['distance_km'] ?? null),
                 ];

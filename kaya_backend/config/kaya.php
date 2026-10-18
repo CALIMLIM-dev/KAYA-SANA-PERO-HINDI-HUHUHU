@@ -349,9 +349,18 @@ return [
             FILTER_VALIDATE_BOOLEAN,
         ),
 
-        // GOOGLE_API_KEY too: that is the name the key was saved under, and
-        // reading only EMBEDDING_API_KEY left matching by meaning switched off.
-        'api_key' => env('EMBEDDING_API_KEY', env('GOOGLE_API_KEY')),
+        'api_key' => env('EMBEDDING_API_KEY'),
+
+        /*
+            Linking typed words to the catalogue (SkillLinker), with the same
+            key. A text model, because meaning scores could not tell Tagalog
+            apart. The model is a setting: when Google retires one (as it
+            did 2.5-flash-lite), change this line, no release needed.
+        */
+        'linking_enabled' => filter_var(env('SKILL_LINKING_ENABLED', true), FILTER_VALIDATE_BOOLEAN),
+        // -lite: the free tier gives 3.5-flash only 20 requests a day per project.
+        'link_model'      => env('SKILL_LINK_MODEL', 'gemini-3.5-flash-lite'),
+        'link_timeout'    => (int) env('SKILL_LINK_TIMEOUT', 15),
 
         // Pinned deliberately. A provider silently moving the model would
         // make every stored vector incomparable with every new one, and

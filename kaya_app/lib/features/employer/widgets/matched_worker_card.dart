@@ -179,7 +179,10 @@ class MatchedWorkerCard extends StatelessWidget {
           */
           if (skills.isNotEmpty || matchedSkills.isNotEmpty) ...[
             const SizedBox(height: 11),
-            _skillChips(skills, matchedSkills),
+            _skillChips(skills, {...matchedSkills, ...matchedHeld(row)},
+                linked: matchedPairs(row).map((p) => p.required.toLowerCase()).toSet()),
+            for (final p in differentWords(row))
+              MatchWordsLine(text: '${p.held} matches your "${p.required}"'),
           ],
 
           // ── How they fit, then why ──
@@ -266,13 +269,15 @@ class MatchedWorkerCard extends StatelessWidget {
   }
 
   /// Held skills filled, asked-for-and-missing outlined.
-  Widget _skillChips(List<String> held, Set<String> matched) {
+  Widget _skillChips(List<String> held, Set<String> matched, {Set<String> linked = const {}}) {
     // Everything the job wanted and they do not have. matched_skills is what
     // the job asked for *and* they hold, so anything in it that is not in
     // their own list is a name the matcher connected rather than a literal
     // one - still theirs, so it is shown as held.
     final heldLower = held.map((s) => s.toLowerCase()).toSet();
-    final inferred = matched.where((m) => !heldLower.contains(m)).toList();
+    // A requirement met through the worker's own different words is told
+    // on its own line below, not shown again as a chip.
+    final inferred = matched.where((m) => !heldLower.contains(m) && !linked.contains(m)).toList();
 
     /*
         LayoutBuilder, because Wrap gives each child unbounded width.

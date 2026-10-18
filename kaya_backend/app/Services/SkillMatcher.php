@@ -46,6 +46,7 @@ class SkillMatcher
     public const RULE_ID       = 'id';
     public const RULE_EXACT    = 'exact';
     public const RULE_ALIAS    = 'alias';
+    public const RULE_LINKED   = 'linked';
     public const RULE_STEM     = 'stem';
     public const RULE_TOKENS   = 'tokens';
     public const RULE_CONTAINS = 'contains';
@@ -143,6 +144,20 @@ class SkillMatcher
             return $this->hit(1.0, self::RULE_ALIAS);
         }
 
+        // ── linked by the System: both words mean the same catalogue skill
+        if (array_intersect(self::meaning($rid, $a), self::meaning($hid, $b)) !== []) {
+            return $this->hit(1.0, self::RULE_LINKED);
+        }
+
+        /*
+            The System read a typed word and it means something else. The
+            weaker guesses below do not overrule that: "Pintor ng bahay" and
+            "Paglilinis ng bahay" share "bahay" and are still different work.
+        */
+        if (self::linkedSomewhere($a) || ($hid === null && self::linkedSomewhere($b))) {
+            return $this->miss();
+        }
+
         // ── stem ──────────────────────────────────────────────────────────
         $sa = self::stem($a);
         $sb = self::stem($b);
@@ -201,12 +216,13 @@ class SkillMatcher
     public function coverage(array $required, array $held): array
     {
         if ($required === []) {
-            return ['score' => 0.0, 'matched' => [], 'reasons' => []];
+            return ['score' => 0.0, 'matched' => [], 'reasons' => [], 'pairs' => []];
         }
 
         $total = 0.0;
         $matched = [];
         $reasons = [];
+        $pairs = [];
 
         foreach ($required as $want) {
             $best = ['confidence' => 0.0, 'rule' => self::RULE_NONE];
@@ -228,6 +244,7 @@ class SkillMatcher
             $total += $best['confidence'];
             $name = self::normalise($want['name'] ?? '');
             $matched[] = $name;
+            $pairs[] = ['required' => (string) ($want['label'] ?? $want['name'] ?? ''), 'held' => (string) $bestHeld];
 
             // Only the inferred rules are worth explaining. "Same skill"
             // needs no sentence.
@@ -247,6 +264,7 @@ class SkillMatcher
             'score'   => $total / count($required),
             'matched' => array_values(array_unique($matched)),
             'reasons' => $reasons,
+            'pairs'   => $pairs,
         ];
     }
 
@@ -299,6 +317,33 @@ class SkillMatcher
         Fails closed: with no table to read (a unit test with no database, a
         migration not yet run) it says no rather than breaking every match.
     */
+    /**
+     * The catalogue skills a name stands for: its own row, and what the
+     * System linked the words to. "tubero" and "ayos ng tagas" meet at
+     * Pipe Leak Repair. Fails closed with no table, like aliased().
+     *
+     * @return list<int>
+     */
+    private static function meaning(?int $id, string $normalised): array
+    {
+        try {
+            $ids = \App\Models\SkillLink::meaningOf($normalised);
+        } catch (\Throwable) {
+            $ids = [];
+        }
+
+        return $id !== null ? [...$ids, (int) $id] : $ids;
+    }
+
+    private static function linkedSomewhere(string $normalised): bool
+    {
+        try {
+            return \App\Models\SkillLink::meaningOf($normalised) !== [];
+        } catch (\Throwable) {
+            return false;
+        }
+    }
+
     private function aliased(string $a, string $b): bool
     {
         try {

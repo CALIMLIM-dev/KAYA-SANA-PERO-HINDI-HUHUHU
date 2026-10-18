@@ -154,6 +154,7 @@ Route::prefix('admin')->name('admin.')->group(function () {
         Route::post('/skills/{skill}', [AdminCategoryController::class, 'updateSkill'])->name('skills.update');
         Route::post('/skill-aliases', [AdminCategoryController::class, 'storeAlias'])->name('skill-aliases.store');
         Route::post('/skill-aliases/{alias}/delete', [AdminCategoryController::class, 'destroyAlias'])->name('skill-aliases.destroy');
+        Route::post('/skill-links/unlink', [AdminCategoryController::class, 'unlinkWord'])->name('skill-links.unlink');
         });
 
         Route::middleware('admin.can:catalogue.destroy')->group(function () {
