@@ -116,12 +116,12 @@ class MatchingDecisionsTest extends TestCase
         $job = $this->job([$this->lcd->id, Skill::create(['name' => 'Battery Swap', 'category_id' => $this->phone->id])->id,
             Skill::create(['name' => 'Charging Port Repair', 'category_id' => $this->phone->id])->id]);
 
-        $veteran = $this->worker('Trade only veteran', $this->phone->id, [['Brake Service', $this->auto->id]],
+        $veteran = $this->worker('Trade Only Veteran', $this->phone->id, [['Brake Service', $this->auto->id]],
             ['rating_avg' => 5, 'rating_count' => 30, 'jobs_completed' => 40]);
-        $holder = $this->worker('One skill newcomer', $this->auto->id, [['LCD', $this->auto->id]]);
+        $holder = $this->worker('One Skill Newcomer', $this->auto->id, [['LCD', $this->auto->id]]);
         $this->apply($job, $holder, $veteran);
 
-        $this->assertSame(['One skill newcomer', 'Trade only veteran'], $this->applicantNames($job),
+        $this->assertSame(['One Skill Newcomer', 'Trade Only Veteran'], $this->applicantNames($job),
             'a strong profile never jumps the tier');
     }
 
@@ -273,7 +273,7 @@ class MatchingDecisionsTest extends TestCase
     {
         $job = $this->job([], ['category_id' => $this->auto->id, 'start_date' => now()->addDays(2)->toDateString(),
             'end_date' => now()->addDays(3)->toDateString()]);
-        $worker = $this->worker('Has it', $this->phone->id, [['LCD Replacement', $this->phone->id]]);
+        $worker = $this->worker('Has It', $this->phone->id, [['LCD Replacement', $this->phone->id]]);
         $this->assertSame(0, $this->notified($worker, $job));
 
         $this->actingAs($this->employer, 'sanctum')->putJson("/api/v1/jobs/{$job->id}", [

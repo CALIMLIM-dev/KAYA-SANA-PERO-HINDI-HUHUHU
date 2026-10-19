@@ -83,7 +83,7 @@ class Strike extends Model
     {
         return match ($this->action) {
             'warning'     => 'Warning',
-            'restriction' => "Limited for {$this->days} days",
+            'restriction' => "No Applying or Posting ({$this->days} Days)",
             'suspension'  => "Suspended for {$this->days} days",
             'ban'         => 'Permanent ban',
             default       => ucfirst($this->action),

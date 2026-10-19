@@ -120,4 +120,28 @@ class JobController extends Controller
 
         return back()->with('success', "\"{$job->title}\" was closed. {$open->count()} pending application(s) cancelled and refunded.");
     }
+
+    /*
+        Delete a post for good: one that was never a real job ("dddddd",
+        "hehe"). Its photos go first, here as the web server that wrote
+        them; its applications, invitations and messages follow through the
+        foreign keys.
+    */
+    public function destroy(JobPost $job)
+    {
+        foreach ((array) $job->photos as $path) {
+            try {
+                \Illuminate\Support\Facades\Storage::disk(config('filesystems.media'))->delete($path);
+            } catch (\Throwable) {
+                // A file already gone must not keep the post.
+            }
+        }
+
+        $title = $job->title;
+        $job->delete();
+
+        AdminAction::record('job.delete', 'job', $job->id, "Deleted \"{$title}\" for good");
+
+        return redirect()->route('admin.jobs.index')->with('success', "\"{$title}\" was deleted.");
+    }
 }

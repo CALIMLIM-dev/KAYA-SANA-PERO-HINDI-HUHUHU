@@ -94,16 +94,16 @@ class MatchingStrengthTest extends TestCase
     #[Test]
     public function a_skill_filed_under_the_jobs_trade_counts_as_that_trade(): void
     {
-        $this->applicant('Other trade, phone skill', $this->auto->id, [['Screen Calibration', $this->phone->id]]);
-        $this->applicant('Phone trade, no skill', $this->phone->id, [['Brake Service', $this->auto->id]]);
+        $this->applicant('Other Trade, Phone Skill', $this->auto->id, [['Screen Calibration', $this->phone->id]]);
+        $this->applicant('Phone Trade, No Skill', $this->phone->id, [['Brake Service', $this->auto->id]]);
 
         $rows = collect($this->actingAs($this->employer, 'sanctum')
             ->getJson("/api/v1/jobs/{$this->job->id}/applicants")->json('data'))
             ->keyBy('worker_name');
 
         $this->assertSame(
-            $rows['Phone trade, no skill']['match_score'],
-            $rows['Other trade, phone skill']['match_score'],
+            $rows['Phone Trade, No Skill']['match_score'],
+            $rows['Other Trade, Phone Skill']['match_score'],
             'Holding a skill in the trade is as good as having picked it at setup.',
         );
     }

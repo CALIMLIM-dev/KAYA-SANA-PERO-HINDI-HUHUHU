@@ -115,6 +115,25 @@ class User extends Authenticatable
     protected static function booted(): void
     {
         static::saving(function (self $user) {
+            /*
+                Names as a form would print them.
+
+                People typed "eddison calimlim" all lower case, and "N/A"
+                into the optional middle name and suffix, so the card read
+                "Harvey N. Reyes N/A" - the N/A became an initial too. A
+                deleted account keeps the words it was given.
+            */
+            if ($user->deleted_at === null && $user->user_type !== 'admin') {
+                foreach (['first_name', 'middle_name', 'last_name', 'suffix'] as $part) {
+                    if (! $user->exists || $user->isDirty($part)) {
+                        $user->{$part} = self::tidyNamePart($part, $user->{$part});
+                    }
+                }
+                if (blank($user->first_name) && blank($user->last_name) && filled($user->name) && $user->isDirty('name')) {
+                    $user->name = self::titleCase($user->name);
+                }
+            }
+
             if (blank($user->first_name) && blank($user->last_name)) {
                 return;
             }
@@ -138,6 +157,54 @@ class User extends Authenticatable
         convention and is deliberately not used, because this string is a
         display name shown next to avatars in chat and job cards, not an index.
     */
+    /*
+        "juan" -> "Juan", "CALIMLIM" -> "Calimlim", "ma. theresa" -> "Ma. Theresa".
+
+        Word by word, and only what was clearly not meant: a word typed all
+        in lower case gets its capital, and one typed all in capitals and
+        longer than three letters is brought down. Short capitals are
+        initials ("JL Garin") and mixed case was typed on purpose
+        ("McDonald"), so both are left as they are.
+    */
+    public static function titleCase(string $value): string
+    {
+        $words = preg_split('/\s+/u', trim($value), -1, PREG_SPLIT_NO_EMPTY);
+
+        return implode(' ', array_map(fn (string $word) => implode('-', array_map(function (string $piece) {
+            $lower = mb_strtolower($piece);
+            if ($piece === $lower || ($piece === mb_strtoupper($piece) && mb_strlen($piece) > 3)) {
+                return mb_strtoupper(mb_substr($lower, 0, 1)) . mb_substr($lower, 1);
+            }
+
+            return $piece;
+        }, explode('-', $word))), $words));
+    }
+
+    /** Words that mean "none" in an optional name box. */
+    private const NO_VALUE = '#^(n\s*/?\s*a|none|wala|null|nil|no|x|-+|\.+)$#i';
+
+    /** Suffixes as they are written. */
+    private const SUFFIXES = ['jr' => 'Jr.', 'sr' => 'Sr.', 'ii' => 'II', 'iii' => 'III', 'iv' => 'IV', 'v' => 'V'];
+
+    public static function tidyNamePart(string $part, ?string $value): ?string
+    {
+        $value = trim((string) $value);
+        if ($value === '') {
+            return null;
+        }
+
+        // Only the optional boxes: nobody's given name is "None".
+        if (in_array($part, ['middle_name', 'suffix'], true) && preg_match(self::NO_VALUE, $value)) {
+            return null;
+        }
+
+        if ($part === 'suffix') {
+            return self::SUFFIXES[mb_strtolower(rtrim($value, '.'))] ?? self::titleCase($value);
+        }
+
+        return self::titleCase($value);
+    }
+
     public static function composeName(
         ?string $first,
         ?string $middle,

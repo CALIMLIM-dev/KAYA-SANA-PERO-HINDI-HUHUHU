@@ -192,7 +192,7 @@ class _StandingCard extends StatelessWidget {
           'You can only open this page and Support.',
         ),
       'restricted' => (
-          'Limited Until ${formatModerationDate(until, time: true)}',
+          'No Applying or Posting Until ${formatModerationDate(until, time: true)}',
           'You cannot apply, post, or invite until then.',
         ),
       'under_review' => (

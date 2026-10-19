@@ -21,7 +21,7 @@
     $at = fn ($d) => $d ? \Illuminate\Support\Carbon::parse($d)->timezone('Asia/Manila')->format('M j, Y g:i A') : null;
     $stepText = fn ($step) => match ($step['action']) {
         'warning'     => 'a warning',
-        'restriction' => "a {$step['days']}-day limit on applying, posting and inviting",
+        'restriction' => "no applying or posting for {$step['days']} days",
         'suspension'  => "a {$step['days']}-day suspension",
         default       => 'a permanent ban',
     };

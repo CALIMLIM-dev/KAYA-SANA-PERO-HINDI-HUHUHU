@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
+import '../../../core/widgets/suffix_picker.dart';
 import '../../../core/widgets/kaya_popup.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
@@ -845,12 +846,24 @@ class _SetupEmployerProfileScreenState extends State<SetupEmployerProfileScreen>
                 readOnly: _nameIsLocked,
               ),
               const SizedBox(height: 12),
-              _textField(
+              SuffixPicker(
                 controller: _suffixController,
-                label: 'Suffix (Optional)',
-                icon: Icons.more_horiz,
-                textCapitalization: TextCapitalization.characters,
-                readOnly: _nameIsLocked,
+                enabled: !_nameIsLocked,
+                decoration: InputDecoration(
+                  labelText: 'Suffix (Optional)',
+                  prefixIcon: const Icon(Icons.more_horiz, color: AppColors.neutral500, size: 20),
+                  filled: true,
+                  fillColor: Colors.white,
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: const BorderSide(color: AppColors.neutral300),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: const BorderSide(color: AppColors.primary, width: 2),
+                  ),
+                ),
               ),
             ],
             const SizedBox(height: 16),

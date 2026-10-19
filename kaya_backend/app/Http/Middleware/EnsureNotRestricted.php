@@ -25,8 +25,8 @@ class EnsureNotRestricted
 
         if ($user && ($until = $user->restrictedUntil())) {
             return $this->refuse(
-                'Your account is restricted until ' . $until->timezone('Asia/Manila')->format('M j, g:i A')
-                    . '. See Account status for why.',
+                'You can\'t apply or post until ' . $until->timezone('Asia/Manila')->format('M j, g:i A')
+                    . '. See Account Status for why.',
                 ['restricted_until' => $until],
             );
         }

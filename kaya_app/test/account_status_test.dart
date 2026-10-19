@@ -89,7 +89,7 @@ void main() {
     await tester.pumpWidget(app(const AccountStatusScreen()));
     await tester.pumpAndSettle();
 
-    expect(find.textContaining('Limited Until Oct 15, 2026'), findsOneWidget);
+    expect(find.textContaining('No Applying or Posting Until Oct 15, 2026'), findsOneWidget);
     expect(find.text('Misleading job postings'), findsOneWidget);
     expect(find.text('The post said 1500 a day and paid 800.'), findsOneWidget);
     expect(find.text('Paint a gate'), findsOneWidget);

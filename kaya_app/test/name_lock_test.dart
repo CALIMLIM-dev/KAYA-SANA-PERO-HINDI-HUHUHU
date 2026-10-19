@@ -76,6 +76,12 @@ void main() {
       );
 
   bool takesTyping(WidgetTester tester, String label) {
+    // The suffix is picked from a list now, not typed; locked, it has no
+    // onChanged.
+    final picker = find.ancestor(of: find.text(label), matching: find.byType(DropdownButton<String>));
+    if (picker.evaluate().isNotEmpty) {
+      return tester.widget<DropdownButton<String>>(picker.first).onChanged != null;
+    }
     final field = tester.widget<TextField>(fieldFor(label).first);
     return !field.readOnly && (field.enabled ?? true);
   }

@@ -57,12 +57,15 @@ enum AdminRole: string
     public const PLATFORM = 'platform';
     public const AUDIT = 'audit';
     public const ADMINS = 'admins';
+    // Deleting an account or a job post for good. Not the moderator's
+    // suspend: a suspension can be lifted, this cannot.
+    public const DESTROY = 'destroy';
 
     /** Every ability. */
     public const ALL = [
         self::ANALYTICS, self::VERIFY, self::SUPPORT, self::CONTENT, self::USERS, self::SUSPEND,
         self::FINANCE_VIEW, self::FINANCE_ADJUST, self::CATALOGUE, self::CATALOGUE_DESTROY,
-        self::PLATFORM, self::AUDIT, self::ADMINS,
+        self::PLATFORM, self::AUDIT, self::ADMINS, self::DESTROY,
     ];
 
     /** What only the owner keeps. */

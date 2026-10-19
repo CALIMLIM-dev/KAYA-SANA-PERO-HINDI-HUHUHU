@@ -107,10 +107,10 @@ class TitleTradeMatchingTest extends TestCase
     {
         $job = $this->job('Tubero', $this->labour);
 
-        $typed = $this->worker('Typed it', $this->painting, ['Tubero']);
+        $typed = $this->worker('Typed It', $this->painting, ['Tubero']);
         $painter = $this->worker('Painter', $this->painting, [], ['rating_avg' => 5, 'rating_count' => 20, 'jobs_completed' => 30]);
 
-        $this->assertSame(['Typed it', 'Painter'], $this->applicantNames($job, $painter, $typed));
+        $this->assertSame(['Typed It', 'Painter'], $this->applicantNames($job, $painter, $typed));
     }
 
     #[Test]

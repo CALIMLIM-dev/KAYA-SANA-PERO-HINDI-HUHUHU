@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:dio/dio.dart';
+import '../../../core/widgets/suffix_picker.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/widgets/form_sheet.dart';
 import '../../../core/utils/pin_location_match.dart';
@@ -661,27 +662,27 @@ class _WorkerSetupFlowScreenState extends State<WorkerSetupFlowScreen> {
           const SizedBox(height: 12),
           _nameField(_firstNameController, 'First Name *'),
           const SizedBox(height: 12),
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Expanded(
-                flex: 2,
-                child: _nameField(
-                    _middleNameController, 'Middle Name (Optional)'),
+          // One row each, as on the employer form: side by side, both labels
+          // were cut to "Middle Name (Optio..." and "Suffix (Op...".
+          _nameField(_middleNameController, 'Middle Name (Optional)'),
+          const SizedBox(height: 12),
+          SuffixPicker(
+            controller: _suffixController,
+            enabled: !_nameIsLocked,
+            onChanged: () => setState(() {}),
+            decoration: InputDecoration(
+              labelText: 'Suffix (Optional)',
+              filled: true,
+              fillColor: Colors.white,
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: BorderSide.none,
               ),
-              const SizedBox(width: 12),
-              Expanded(
-                // '(Optional)', the same as the employer form and the same
-                // as the middle name beside it. The comment above has claimed
-                // for months that it said so; it did not, so a field nothing
-                // requires looked required.
-                child: _nameField(
-                  _suffixController,
-                  'Suffix (Optional)',
-                  capitalization: TextCapitalization.characters,
-                ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: const BorderSide(color: AppColors.primary, width: 2),
               ),
-            ],
+            ),
           ),
           const SizedBox(height: 16),
           

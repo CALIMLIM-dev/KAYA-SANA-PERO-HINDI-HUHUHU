@@ -77,6 +77,12 @@ Route::prefix('admin')->name('admin.')->group(function () {
         Route::post('/users/{user}/activate', [UserManagementController::class, 'activate'])->name('users.activate');
         });
 
+        // For good: junk and test accounts, and job posts that are not real.
+        Route::middleware('admin.can:destroy')->group(function () {
+            Route::post('/users/{user}/delete', [UserManagementController::class, 'destroy'])->name('users.destroy');
+            Route::post('/jobs/{job}/delete', [AdminJobController::class, 'destroy'])->name('jobs.destroy');
+        });
+
         Route::middleware('admin.can:verify')->group(function () {
         Route::get('/verifications', [VerificationController::class, 'index'])->name('verifications.index');
         Route::get('/verifications/{verification}', [VerificationController::class, 'show'])->name('verifications.show');

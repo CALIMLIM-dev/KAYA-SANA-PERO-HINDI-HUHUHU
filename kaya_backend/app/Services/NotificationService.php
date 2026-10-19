@@ -885,8 +885,8 @@ class NotificationService
         [$type, $title, $effect] = match ($strike->action) {
             'warning'     => ['moderation.warning', 'A warning from KAYA',
                 'This is a warning. Your account is not limited.'],
-            'restriction' => ['moderation.strike', "Your account is limited for {$strike->days} days",
-                'Until ' . $date($strike->ends_at) . ' you cannot apply, post, or invite.'],
+            'restriction' => ['moderation.strike', "You can't apply or post for {$strike->days} days",
+                'Until ' . $date($strike->ends_at) . ' you cannot apply, post jobs, invite, or post on the board. You can still chat and finish the jobs you have.'],
             'suspension'  => ['moderation.strike', "Your account is suspended for {$strike->days} days",
                 'Until ' . $date($strike->ends_at) . ' you can only open Account Status and Support.'],
             default       => ['moderation.strike', 'Your account is permanently banned',

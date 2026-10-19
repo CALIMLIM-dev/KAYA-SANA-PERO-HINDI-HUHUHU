@@ -121,8 +121,17 @@
                 <form method="POST" action="{{ route('admin.jobs.close', $job) }}" onsubmit="return confirm('Close this post?')">
                     @csrf
                     @include('admin.partials.reason-picker', ['reasons' => ['Not a real job', 'Contact details in the description', 'Spam or advertising', 'Illegal or unsafe work', 'Duplicate post'], 'placeholder' => 'Reason the employer will see'])
-                           class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm mb-2">
                     <button class="w-full px-4 py-2 bg-red-600 text-white rounded-lg text-sm font-medium hover:bg-red-700">Close Post</button>
+                </form>
+            </div>
+        @endif
+
+        @if (auth()->user()->adminCan('destroy'))
+            <div class="bg-white rounded-xl border border-slate-200 p-6">
+                <form method="POST" action="{{ route('admin.jobs.destroy', $job) }}"
+                      onsubmit="return confirm('Delete this post for good? Its applications and messages go too. This cannot be undone.');">
+                    @csrf
+                    <button class="w-full px-4 py-2 border border-slate-300 text-slate-700 rounded-lg text-sm font-medium hover:bg-slate-50">Delete Post</button>
                 </form>
             </div>
         @endif
