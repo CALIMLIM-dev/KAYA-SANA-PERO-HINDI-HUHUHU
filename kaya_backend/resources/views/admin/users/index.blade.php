@@ -41,9 +41,7 @@
                 <tr class="border-b border-slate-50 hover:bg-slate-50">
                     <td class="py-3 px-5">
                         <div class="flex items-center gap-3">
-                            <div class="w-8 h-8 rounded-full bg-slate-200 flex items-center justify-center text-xs font-semibold text-slate-600">
-                                {{ strtoupper(substr($user->name, 0, 1)) }}
-                            </div>
+                            @include('admin.partials.avatar', ['user' => $user, 'class' => 'w-8 h-8 text-xs'])
                             <div>
                                 <p class="font-medium text-slate-700">{{ $user->name }}</p>
                                 <p class="text-xs text-slate-400">{{ $user->email }}</p>

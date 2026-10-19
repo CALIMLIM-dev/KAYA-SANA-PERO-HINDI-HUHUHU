@@ -91,6 +91,17 @@ class AccountCleanupTest extends TestCase
     }
 
     #[Test]
+    public function the_users_list_shows_faces(): void
+    {
+        // It drew the first letter for everybody, photo or not.
+        User::factory()->create(['first_name' => 'Ana', 'last_name' => 'Reyes', 'avatar' => 'profile_photos/ana.jpg']);
+
+        $this->actingAs($this->admin())->get('/admin/users')
+            ->assertOk()
+            ->assertSee('profile_photos/ana.jpg');
+    }
+
+    #[Test]
     public function a_limit_says_what_it_blocks(): void
     {
         $user = User::factory()->create(['is_verified' => true]);

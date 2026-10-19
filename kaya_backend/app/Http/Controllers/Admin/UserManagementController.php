@@ -19,7 +19,7 @@ class UserManagementController extends Controller
         // The type rides along so each row's verification badge does not ask
         // for it again (User::verification_state reads it).
         $query = User::where('user_type', '!=', 'admin')
-            ->with('employerProfile:id,user_id,employer_type');
+            ->with(['employerProfile:id,user_id,employer_type,image_path', 'workerProfile:id,user_id,profile_photo_path']);
 
         if ($search = $request->get('search')) {
             $query->where(function ($q) use ($search) {

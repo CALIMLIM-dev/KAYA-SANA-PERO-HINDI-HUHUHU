@@ -8,14 +8,7 @@
         {{-- User Details Card (RED) --}}
         <div class="bg-white rounded-xl border border-slate-200 p-6">
         <div class="flex items-center gap-4 mb-6">
-            <div class="w-14 h-14 rounded-full bg-slate-200 flex items-center justify-center text-lg font-semibold text-slate-600 overflow-hidden">
-                {{-- Read profile_photo, a column that does not exist, so no user ever had a face here. --}}
-                @if ($user->resolvedAvatarUrl())
-                    <img src="{{ $user->resolvedAvatarUrl() }}" class="w-full h-full object-cover" alt="{{ $user->name }}">
-                @else
-                    {{ strtoupper(substr($user->name, 0, 1)) }}
-                @endif
-            </div>
+            @include('admin.partials.avatar', ['user' => $user, 'class' => 'w-14 h-14 text-lg'])
             <div>
                 <h2 class="text-lg font-semibold text-slate-800">{{ $user->name }}</h2>
                 <p class="text-sm text-slate-400">{{ $user->email }} · {{ $user->roleLabel() }}</p>
