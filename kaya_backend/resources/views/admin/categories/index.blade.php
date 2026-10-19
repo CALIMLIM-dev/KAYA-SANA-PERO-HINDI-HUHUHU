@@ -219,33 +219,40 @@
                 </span>
             </form>
 
-            {{-- Merge: deletes this category, so it is folded away and asks first. --}}
-            <details class="px-5 py-4 group">
-                <summary class="text-sm font-medium text-red-600 cursor-pointer select-none">
-                    Merge {{ $selected->name }} into another category
-                </summary>
-                <form method="POST" action="{{ route('admin.categories.merge', $selected) }}" class="mt-3 space-y-2"
-                      onsubmit="return confirm('Move every job, worker and skill under {{ addslashes($selected->name) }} into ' + this.into.options[this.into.selectedIndex].text + ', then delete {{ addslashes($selected->name) }}? This cannot be undone.')">
-                    @csrf
-                    <p class="text-xs text-slate-500">
-                        Every job, worker and skill under {{ $selected->name }} moves to the category you choose, and
-                        {{ $selected->name }} is deleted. Use it for a duplicate, such as a user-added
-                        &ldquo;Plumbing Services&rdquo; beside &ldquo;Plumbing&rdquo;.
-                    </p>
-                    <div class="flex flex-wrap items-center gap-2">
-                        <label for="merge-into" class="sr-only">Merge into</label>
-                        <select id="merge-into" name="into" required class="px-2 py-2 border border-slate-300 rounded-lg text-sm">
-                            <option value="">Choose a category</option>
-                            @foreach ($categories->where('id', '!=', $selected->id) as $other)
-                                <option value="{{ $other->id }}">{{ $other->name }}</option>
-                            @endforeach
-                        </select>
+            {{--
+                Delete. A category still in use has its jobs and workers moved
+                first: deleted outright, it would take their skills with it.
+            --}}
+            <div class="px-5 py-4">
+                <p class="text-sm font-medium text-slate-800">Delete Category</p>
+                @if ($selectedInUse)
+                    <form method="POST" action="{{ route('admin.categories.merge', $selected) }}" class="mt-2 space-y-2"
+                          onsubmit="return confirm('Move everything under {{ addslashes($selected->name) }} to ' + this.into.options[this.into.selectedIndex].text + ' and delete {{ addslashes($selected->name) }}? This cannot be undone.')">
+                        @csrf
+                        <p class="text-xs text-slate-500">Its jobs and workers move to the category you choose.</p>
+                        <div class="flex flex-wrap items-center gap-2">
+                            <label for="merge-into" class="sr-only">Move To</label>
+                            <select id="merge-into" name="into" required class="px-2 py-2 border border-slate-300 rounded-lg text-sm">
+                                <option value="">Move To...</option>
+                                @foreach ($categories->where('id', '!=', $selected->id) as $other)
+                                    <option value="{{ $other->id }}">{{ $other->name }}</option>
+                                @endforeach
+                            </select>
+                            <button class="px-3 py-2 border border-red-300 text-red-600 rounded-lg text-sm font-medium hover:bg-red-50">
+                                Delete Category
+                            </button>
+                        </div>
+                    </form>
+                @else
+                    <form method="POST" action="{{ route('admin.categories.destroy', $selected) }}" class="mt-2"
+                          onsubmit="return confirm('Delete {{ addslashes($selected->name) }}? This cannot be undone.')">
+                        @csrf
                         <button class="px-3 py-2 border border-red-300 text-red-600 rounded-lg text-sm font-medium hover:bg-red-50">
-                            Merge and Delete
+                            Delete Category
                         </button>
-                    </div>
-                </form>
-            </details>
+                    </form>
+                @endif
+            </div>
             @endif
         </section>
     @else

@@ -166,6 +166,7 @@ Route::prefix('admin')->name('admin.')->group(function () {
         Route::middleware('admin.can:catalogue.destroy')->group(function () {
         Route::post('/categories/{category}/toggle', [AdminCategoryController::class, 'toggle'])->name('categories.toggle');
         Route::post('/categories/{category}/merge', [AdminCategoryController::class, 'merge'])->name('categories.merge');
+        Route::post('/categories/{category}/delete', [AdminCategoryController::class, 'destroy'])->name('categories.destroy');
         Route::post('/skills/{skill}/delete', [AdminCategoryController::class, 'destroySkill'])->name('skills.destroy');
         });
 

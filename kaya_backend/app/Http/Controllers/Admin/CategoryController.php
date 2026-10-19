@@ -88,9 +88,10 @@ class CategoryController extends Controller
         $linkLog = SkillLinkLog::latest('id')->take(50)->get();
 
         $selected = $categories->firstWhere('id', (int) $request->query('category')) ?? $listed->first();
+        $selectedInUse = $selected?->isInUse() ?? false;
 
         return view('admin.categories.index', compact(
-            'categories', 'listed', 'selected', 'q',
+            'categories', 'listed', 'selected', 'selectedInUse', 'q',
             'workersByCategory', 'workersBySkill', 'jobsBySkill', 'aliases', 'links',
             'usedBy', 'linkUsage', 'linkLog',
         ));
@@ -177,6 +178,22 @@ class CategoryController extends Controller
         // Back to the page would reopen a category that no longer exists.
         return redirect()->route('admin.categories.index', ['category' => $target->id])
             ->with('success', "{$category->name} was merged into {$target->name}.");
+    }
+
+    /** A category nothing uses. One in use is moved into another first - see merge. */
+    public function destroy(Category $category)
+    {
+        if ($category->isInUse()) {
+            return back()->with('error', "{$category->name} is still used. Choose where its jobs and workers go, then delete it.");
+        }
+
+        $name = $category->name;
+        // Its skills go with it; nobody uses them either.
+        $category->delete();
+
+        AdminAction::record('category.deleted', 'category', null, "Deleted category {$name}");
+
+        return redirect()->route('admin.categories.index')->with('success', "{$name} deleted.");
     }
 
     public function storeSkill(Request $request, Category $category)

@@ -317,6 +317,30 @@ class AdminPanelTest extends TestCase
     }
 
     #[Test]
+    public function a_category_nothing_uses_is_deleted_and_one_in_use_moves_its_people_first(): void
+    {
+        // Asked for: a Delete for the categories testers added.
+        $admin = $this->admin();
+        $junk = Category::create(['name' => 'asdfgh', 'is_active' => true, 'is_custom' => true]);
+        Skill::create(['name' => 'qwerty', 'category_id' => $junk->id]);
+
+        $this->actingAs($admin)->get("/admin/categories?category={$junk->id}")->assertOk()->assertSee('Delete Category');
+        $this->actingAs($admin)->post("/admin/categories/{$junk->id}/delete")->assertRedirect(route('admin.categories.index'));
+        $this->assertDatabaseMissing('categories', ['id' => $junk->id]);
+        $this->assertDatabaseMissing('skills', ['name' => 'qwerty']);
+
+        // In use: deleting outright would cascade the worker's skills away.
+        $used = Category::create(['name' => 'Mortician/Embalmer', 'is_active' => true, 'is_custom' => true]);
+        $worker = User::factory()->create();
+        \App\Models\WorkerSkill::create(['user_id' => $worker->id, 'skill_name' => 'Embalming', 'category_id' => $used->id]);
+
+        $this->actingAs($admin)->post("/admin/categories/{$used->id}/delete")->assertSessionHas('error');
+        $this->assertDatabaseHas('categories', ['id' => $used->id]);
+        $this->assertDatabaseHas('worker_skills_new', ['user_id' => $worker->id, 'skill_name' => 'Embalming']);
+        $this->actingAs($admin)->get("/admin/categories?category={$used->id}")->assertOk()->assertSee('Move To...');
+    }
+
+    #[Test]
     public function a_skill_in_use_cannot_be_removed(): void
     {
         $admin = $this->admin();
