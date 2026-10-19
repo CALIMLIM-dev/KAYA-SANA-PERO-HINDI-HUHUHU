@@ -1149,7 +1149,9 @@ class JobController extends Controller
         */
         $job->deadline = $job->deadline()?->toDateString();
 
-        $job->has_applied = $job->applications()->where('worker_id', $user->id)->exists();
+        // Withdrawn is not applied: the worker may apply again (see apply).
+        $job->has_applied = $job->applications()->where('worker_id', $user->id)
+            ->where('status', '!=', 'withdrawn')->exists();
         $job->application_status = $job->applications()
             ->where('worker_id', $user->id)
             ->latest()

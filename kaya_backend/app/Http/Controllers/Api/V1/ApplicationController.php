@@ -70,8 +70,20 @@ class ApplicationController extends Controller
             return $this->fail('You cannot apply to your own job', 422);
         }
 
-        if (Application::where('job_id', $job->id)->where('worker_id', $user->id)->exists()) {
-            return $this->fail('You have already applied to this job', 422);
+        /*
+            One row per worker per job (a unique index), so applying again
+            after withdrawing reuses it.
+
+            A withdrawn application blocked the job for good, with "You have
+            already applied" - to somebody who had just taken theirs back.
+            Found on the live test of 19 Oct 2026. Withdrawn can apply again
+            and pays again; every other status says what actually happened.
+        */
+        $previous = Application::where('job_id', $job->id)->where('worker_id', $user->id)->first();
+        if ($previous && $previous->status !== 'withdrawn') {
+            return $this->fail($previous->status === 'rejected'
+                ? 'You were not picked for this job.'
+                : 'You have already applied to this job', 422);
         }
 
         // Too far to be worth the fare. See WorkingDistance.
@@ -185,15 +197,22 @@ class ApplicationController extends Controller
                 reason: CreditTransaction::REASON_APPLICATION,
                 referenceType: 'job',
                 referenceId: $job->id,
-                using: function (CreditTransaction $charge) use ($job, $user) {
-                    $application = Application::create([
+                using: function (CreditTransaction $charge) use ($job, $user, $previous) {
+                    $fields = [
                         'job_id'    => $job->id,
                         'worker_id' => $user->id,
                         'status'    => 'pending',
                         // Which charge paid for this, so a refund knows what to
                         // reverse without searching the ledger by shape.
                         'credit_transaction_id' => $charge->id,
-                    ]);
+                    ];
+                    if ($previous) {
+                        // A fresh start: the refund window runs from now.
+                        $previous->forceFill($fields + ['created_at' => now()])->save();
+                        $application = $previous;
+                    } else {
+                        $application = Application::create($fields);
+                    }
 
                     $job->increment('application_count');
 

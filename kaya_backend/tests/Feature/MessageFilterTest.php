@@ -62,6 +62,9 @@ class MessageFilterTest extends TestCase
             'txt mo nlng aq',
             'wag na dito sa app',
             'sa labas na lang tayo',
+            // Missed on the live test of 19 Oct 2026.
+            'tara usap tayo sa labas ng app',
+            'sa ibang app na lang tayo mag-usap',
             // Naming the app by its colour is the oldest way round a filter.
             'message mo ako sa blue app',
             'sa yellow app na lang tayo',
@@ -90,6 +93,8 @@ class MessageFilterTest extends TestCase
             'Order po ng leche flan at 50 pieces',
             'Tapos na po ang 2 units kahapon',
             'May 10 years experience po ako sa tiling',
+            // "Outside" about the work itself is not leaving the app.
+            'Usap tayo sa labas ng bahay pagdating ko',
         ] as $text) {
             $read = $this->filter()->inspect($text);
 

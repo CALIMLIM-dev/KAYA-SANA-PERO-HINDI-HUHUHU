@@ -3,7 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>@yield('title', 'Dashboard') · KAYA Admin</title>
+    {{-- No page sets 'title'; every tab read "Dashboard". --}}
+    <title>@yield('page-title', 'Dashboard') · KAYA Admin</title>
     <meta name="csrf-token" content="{{ csrf_token() }}">
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
@@ -39,8 +40,8 @@
                     'Accounts' => [
                         ['route' => 'admin.users.index',         'label' => 'Users',               'icon' => 'users',       'can' => 'users'],
                         ['route' => 'admin.verifications.index', 'label' => 'Verifications',       'icon' => 'badge-check', 'can' => 'verify', 'queue' => 'verifications'],
-                        ['route' => 'admin.reports.index',       'label' => 'Reported Incidents',  'icon' => 'flag',        'can' => 'content', 'queue' => 'reports'],
-                        ['route' => 'admin.strikes.index',       'label' => 'Violations',          'icon' => 'scale',       'can' => 'content', 'queue' => 'strikes'],
+                        ['route' => 'admin.reports.index',       'label' => 'Reports',             'icon' => 'flag',        'can' => 'content', 'queue' => 'reports'],
+                        ['route' => 'admin.strikes.index',       'label' => 'Appeals & Bans',      'icon' => 'scale',       'can' => 'content', 'queue' => 'strikes'],
                         ['route' => 'admin.reviews.index',       'label' => 'Reviews',             'icon' => 'star',        'can' => 'content'],
                     ],
                     'Postings' => [

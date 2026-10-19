@@ -197,6 +197,31 @@ class CreditSpendingTest extends TestCase
     }
 
     /** @test */
+    public function applying_again_after_withdrawing_works_and_pays_again()
+    {
+        // Was "You have already applied" for good - found on the live test.
+        $worker = $this->worker(50);
+        $job = $this->job($this->employer());
+        $cost = (int) config('kaya.credits.apply');
+
+        $this->actingAs($worker, 'sanctum')->postJson("/api/v1/jobs/{$job->id}/apply")->assertCreated();
+        $application = Application::firstOrFail();
+        $this->actingAs($worker, 'sanctum')->deleteJson("/api/v1/applications/{$application->id}")->assertOk();
+
+        $this->actingAs($worker, 'sanctum')->postJson("/api/v1/jobs/{$job->id}/apply")->assertCreated();
+
+        $this->assertSame('pending', $application->fresh()->status);
+        $this->assertSame(1, Application::count(), 'the same row, not a second one');
+        $this->assertSame(50 - $cost, $this->balance($worker));
+        $this->assertSame(1, (int) $job->fresh()->application_count);
+
+        // Rejected is final, and says so.
+        $application->update(['status' => 'rejected']);
+        $this->actingAs($worker, 'sanctum')->postJson("/api/v1/jobs/{$job->id}/apply")
+            ->assertStatus(422)->assertJsonPath('message', 'You were not picked for this job.');
+    }
+
+    /** @test */
     public function withdrawing_late_does_not_return_the_credits()
     {
         // Beyond the window, "apply, get seen, withdraw" would be free.

@@ -856,7 +856,8 @@ class NotificationService
                 : UserNotification::AUDIENCE_WORKER,
             type: 'badge.earned',
             title: 'You earned the ' . $label . ' badge',
-            body: 'It is on your profile now, and ' . $amount . ' Barya has been added to your wallet.',
+            // Which profile: a hybrid earns a badge on each and saw two identical lines.
+            body: 'It is on your ' . $side . ' profile now, and ' . $amount . ' Barya has been added to your wallet.',
         );
     }
 

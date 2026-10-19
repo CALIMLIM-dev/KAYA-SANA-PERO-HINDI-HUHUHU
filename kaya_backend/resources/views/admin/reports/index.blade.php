@@ -1,5 +1,5 @@
 @extends('admin.layouts.app')
-@section('page-title', 'Reported Incidents')
+@section('page-title', 'Reports')
 
 @section('content')
 

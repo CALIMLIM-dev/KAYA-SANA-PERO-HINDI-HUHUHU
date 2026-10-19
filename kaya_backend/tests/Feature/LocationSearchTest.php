@@ -102,6 +102,21 @@ class LocationSearchTest extends TestCase
     }
 
     #[Test]
+    public function a_barangay_and_its_city_together_find_the_barangay(): void
+    {
+        $city = $this->city('City of Tagbilaran', 'Tagbilaran City, Bohol', 'Bohol');
+        Location::create([
+            'psgc_code' => '071242001', 'name' => 'Cogon', 'search_name' => 'cogon',
+            'display_name' => 'Cogon, Tagbilaran City, Bohol', 'type' => 'barangay', 'parent_id' => $city->id,
+            'province_name' => 'Bohol', 'region_name' => 'Central Visayas',
+        ]);
+
+        // How people type it, with no comma; found nothing on the live test.
+        $this->assertContains('Cogon, Tagbilaran City, Bohol', $this->found('Cogon Tagbilaran'));
+        $this->assertSame([], $this->found('Cogon Urdaneta'));
+    }
+
+    #[Test]
     public function searching_for_a_place_that_does_not_exist_finds_nothing(): void
     {
         $this->city('City of Urdaneta', 'Urdaneta City');

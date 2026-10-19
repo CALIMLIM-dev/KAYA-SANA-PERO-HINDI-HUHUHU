@@ -188,12 +188,29 @@ class Location extends Model
             $term = $raw;
         }
 
+        /*
+            "Cogon Tagbilaran": the barangay, then its city. The display name
+            is "Cogon, Tagbilaran City, Bohol", so the words were never found
+            together and the search came back empty - found on the live test
+            of 19 Oct 2026. With more than one word, every word somewhere in
+            the full name is a match.
+        */
+        $words = preg_split('/[\s,]+/', $raw, -1, PREG_SPLIT_NO_EMPTY);
+
         return $query
-            ->where(function (Builder $q) use ($term, $raw) {
+            ->where(function (Builder $q) use ($term, $raw, $words) {
                 $q->where('search_name', 'like', "{$term}%")
                     ->orWhere('search_name', 'like', "%{$term}%")
                     ->orWhere('display_name', 'like', "%{$raw}%")
                     ->orWhere('province_name', 'like', "{$term}%");
+
+                if (count($words) > 1) {
+                    $q->orWhere(function (Builder $all) use ($words) {
+                        foreach ($words as $word) {
+                            $all->where('display_name', 'like', "%{$word}%");
+                        }
+                    });
+                }
             })
             // Exact match first — typing "urdaneta" in full should not be
             // outranked by "Urdaneta Norte" just because both are prefixes.

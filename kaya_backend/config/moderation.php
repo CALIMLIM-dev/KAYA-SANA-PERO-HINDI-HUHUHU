@@ -105,6 +105,10 @@ return [
         'message mo ako sa', 'chat mo ako sa', 'chat na lang tayo sa',
         'sa labas na lang', 'sa labas tayo', 'labas na lang tayo',
         'labas tayo sa app', 'lbs na lang',
+        // "tara usap tayo sa labas ng app" went through on the live test of
+        // 19 Oct 2026. Only with "app" or "kaya": "sa labas ng bahay" is work.
+        'labas ng app', 'labas sa app', 'labas ng kaya', 'sa ibang app', 'ibang app na lang',
+        'outside the app', 'outside of the app', 'outside kaya', 'off the app',
         'wag na dito', 'wag dito sa app', 'wag na sa app', 'huwag na dito',
         'wag na tayo dito', 'hindi na dito',
         'direct na lang', 'direkta na lang', 'direct message na lang',

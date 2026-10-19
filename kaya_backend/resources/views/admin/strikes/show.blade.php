@@ -1,5 +1,5 @@
 @extends('admin.layouts.app')
-@section('page-title', 'Violations > Violation')
+@section('page-title', 'Appeals & Bans > Violation')
 
 @section('content')
 @php
@@ -12,7 +12,7 @@
 
 <a href="{{ route('admin.strikes.index') }}" class="inline-flex items-center gap-1.5 text-sm text-slate-500 hover:text-slate-800">
     <i data-lucide="arrow-left" class="w-4 h-4"></i>
-    Violations
+    Appeals & Bans
 </a>
 
 <div class="grid grid-cols-1 xl:grid-cols-3 gap-6 mt-4 items-start">
