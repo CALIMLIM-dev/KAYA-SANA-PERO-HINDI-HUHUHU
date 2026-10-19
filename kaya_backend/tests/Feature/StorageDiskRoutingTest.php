@@ -61,7 +61,7 @@ class StorageDiskRoutingTest extends TestCase
 
         $response->assertOk();
 
-        $stored = WorkerProfile::where('user_id', $worker->id)->value('photo_path')
+        $stored = WorkerProfile::where('user_id', $worker->id)->value('profile_photo_path')
             ?? User::find($worker->id)->avatar;
 
         $this->assertNotEmpty($stored, 'the upload recorded no path');

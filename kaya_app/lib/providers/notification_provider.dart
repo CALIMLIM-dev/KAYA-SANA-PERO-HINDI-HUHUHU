@@ -371,9 +371,18 @@ class NotificationProvider with ChangeNotifier {
 
   Future<void> _pollOnce() async {
     try {
-      final response = await _api.get('/notifications', queryParameters: {
-        'per_page': 10,
-      });
+      /*
+          Only what is new, once the mark is set.
+
+          Every poll fetched the newest ten rows whole, and the server
+          counted the whole list for a page total nobody read - twelve
+          times a minute while the app is open, nearly always to learn
+          nothing had changed. after_id answers with what arrived since the
+          last one seen, which is usually an empty list. The background
+          service has asked this way from the start.
+      */
+      final response = await _api.get('/notifications',
+          queryParameters: _primed ? {'after_id': _newestSeenId} : {'per_page': 10});
 
       final payload = response.data['data'];
       final rows = payload is Map ? payload['data'] : payload;

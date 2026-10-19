@@ -8,6 +8,7 @@ import '../../../core/navigation/app_router.dart';
 import '../../../core/navigation/main_navigation.dart';
 import '../../../core/utils/job_summary.dart';
 import '../../../core/widgets/app_toast.dart';
+import '../../../core/widgets/profile_avatar.dart';
 import '../../../core/widgets/verify_gate.dart';
 import '../../../core/widgets/verification_badge_widget.dart';
 import '../../../data/services/api_client.dart';
@@ -98,7 +99,7 @@ class _InvitationCardState extends State<InvitationCard> {
                 CircleAvatar(
                   radius: 20,
                   backgroundColor: AppColors.primary.withValues(alpha: 0.1),
-                  backgroundImage: avatar.isNotEmpty ? NetworkImage(avatar) : null,
+                  backgroundImage: avatar.isNotEmpty ? avatarImage(context, avatar, 20) : null,
                   child: avatar.isNotEmpty
                       ? null
                       : Icon(isCompany ? Icons.business : Icons.person,

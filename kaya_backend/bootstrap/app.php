@@ -110,4 +110,10 @@ return Application::configure(basePath: dirname(__DIR__))
         $exceptions->shouldRenderJsonWhen(
             fn ($request, Throwable $e) => $request->is('api/*') || $request->expectsJson()
         );
+
+        // Every reported error, on the admin panel's Server Errors page.
+        // Validation, 404s and sign-in failures are not reported, so not here.
+        $exceptions->report(function (Throwable $e) {
+            \App\Models\ServerError::capture($e);
+        });
     })->create();

@@ -210,7 +210,9 @@ class HireCancellation
             ] : null,
             // "It didn't happen": the other side says it is done and this side does not.
             'can_dispute' => $live && ! $pending && ! $hire->disputed_at && $theirs !== null && $mine === null,
-            'disputed'    => $hire->disputed_at !== null,
+            // Only while it is open: once an administrator settles it, the
+            // hire is over and "KAYA will review it" is no longer true.
+            'disputed'    => $live && $hire->disputed_at !== null,
             // Proof photos the other side added when marking it complete.
             'their_photos' => count(($hire->completion_photos ?? [])[$side === JobCompletionService::SIDE_EMPLOYER
                 ? JobCompletionService::SIDE_WORKER : JobCompletionService::SIDE_EMPLOYER] ?? []),

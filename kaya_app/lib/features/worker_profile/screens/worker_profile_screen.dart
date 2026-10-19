@@ -123,7 +123,7 @@ class _WorkerProfileScreenState extends State<WorkerProfileScreen> {
     final reviewCount = asInt(w['rating_count']);
     final verification = VerificationState.of(w);
     final isVerified = verification.isVerified;
-    final availability = (w['availability_status'] as String?) ?? 'unavailable';
+    final availability = (w['availability_status'] as String?) ?? 'available';
     final isAvailable = availability == 'available';
     final bio = (w['bio'] as String?) ?? '';
 
@@ -334,7 +334,11 @@ class _WorkerProfileScreenState extends State<WorkerProfileScreen> {
                   Expanded(
                     child: _statCard(
                       icon: Icons.work_outline,
-                      value: isAvailable ? 'Available' : 'Unavailable',
+                      value: switch (availability) {
+                        'unavailable' => 'Not Available',
+                        'busy' => 'Busy',
+                        _ => 'Available',
+                      },
                       label: 'Status',
                       color: isAvailable ? AppColors.success : AppColors.neutral400,
                     ),
@@ -380,9 +384,12 @@ class _WorkerProfileScreenState extends State<WorkerProfileScreen> {
               child: SizedBox(
                 width: double.infinity,
                 child: ElevatedButton.icon(
-                  onPressed: () => _showInviteDialog(context, name),
+                  // Closed only by the worker's own switch, as on the server.
+                  onPressed: availability == 'unavailable'
+                      ? null
+                      : () => _showInviteDialog(context, name),
                   icon: const Icon(Icons.person_add_outlined, size: 20),
-                  label: const Text('Invite to Apply'),
+                  label: Text(availability == 'unavailable' ? 'Not Available' : 'Invite to Apply'),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: AppColors.primary,
                     foregroundColor: Colors.white,

@@ -127,7 +127,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             _SettingsRow(
               icon: Icons.shield_outlined,
               title: 'Account Status',
-              subtitle: 'Offenses, limits and review requests',
+              subtitle: 'Violations, limits and review requests',
               onTap: () => AppRouter.push(context, AppRouter.accountStatus),
             ),
           ]),

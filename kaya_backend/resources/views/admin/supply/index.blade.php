@@ -1,5 +1,5 @@
 @extends('admin.layouts.app')
-@section('page-title', 'Supply & Demand')
+@section('page-title', 'Workers & Jobs')
 
 @section('content')
 
@@ -185,10 +185,10 @@
     <div class="grid grid-cols-1 xl:grid-cols-5 gap-5">
         <section class="card xl:col-span-3" aria-labelledby="by-trade">
             <div class="flex flex-wrap items-center justify-between gap-3">
-                <h2 id="by-trade" class="card-title">Supply and Demand by Trade</h2>
+                <h2 id="by-trade" class="card-title">Workers and Jobs by Trade</h2>
                 <div class="legend">
-                    <span><i class="dot" style="background: #2a78d6"></i> Demand</span>
-                    <span><i class="dot" style="background: #1baf7a"></i> Supply</span>
+                    <span><i class="dot" style="background: #2a78d6"></i> Jobs</span>
+                    <span><i class="dot" style="background: #1baf7a"></i> Workers</span>
                 </div>
             </div>
             @if (empty($summary['trades']))
@@ -411,8 +411,8 @@ document.querySelectorAll('[data-expand]').forEach((btn) => {
         data: {
             labels: trades.map((t) => t.name.length > 18 ? t.name.replace(/^(.{1,18})\s/, '$1\n').split('\n') : t.name),
             datasets: [
-                { label: 'Demand', data: trades.map((t) => t.jobs), backgroundColor: '#2a78d6', borderRadius: 4, barThickness: 11 },
-                { label: 'Supply', data: trades.map((t) => t.workers), backgroundColor: '#1baf7a', borderRadius: 4, barThickness: 11 },
+                { label: 'Jobs', data: trades.map((t) => t.jobs), backgroundColor: '#2a78d6', borderRadius: 4, barThickness: 11 },
+                { label: 'Workers', data: trades.map((t) => t.workers), backgroundColor: '#1baf7a', borderRadius: 4, barThickness: 11 },
             ],
         },
         options: {

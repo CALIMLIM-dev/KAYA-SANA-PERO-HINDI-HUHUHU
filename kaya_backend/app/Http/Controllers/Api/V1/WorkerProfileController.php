@@ -276,7 +276,40 @@ class WorkerProfileController extends Controller
     }
     
     // ==================== BASIC PROFILE ====================
-    
+
+    /*
+        Work Status: whether this worker is taking work at all. See
+        WorkerProfile::isTakingWork for what switching it off does.
+    */
+    public function setAvailability(Request $request)
+    {
+        $data = $request->validate(['available' => ['required', 'boolean']]);
+
+        $profile = WorkerProfile::where('user_id', $request->user()->id)->first();
+        if (! $profile) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Set up your worker profile first.',
+                'data'    => null,
+            ], 404);
+        }
+
+        $profile->forceFill([
+            'availability_status' => $data['available'] ? 'available' : WorkerProfile::NOT_TAKING_WORK,
+        ])->save();
+
+        // Back on: the open jobs they fit now, the same as adding a skill.
+        if ($data['available']) {
+            app(\App\Services\NotificationService::class)->workerMatched($profile->fresh());
+        }
+
+        return response()->json([
+            'success' => true,
+            'message' => $data['available'] ? 'Work Status: Available' : 'Work Status: Not Available',
+            'data'    => ['availability_status' => $profile->availability_status],
+        ]);
+    }
+
     public function updateBasicInfo(Request $request)
     {
         $validator = Validator::make($request->all(), [
@@ -1579,10 +1612,10 @@ class WorkerProfileController extends Controller
                     'rating_avg'   => (float) $p->rating_avg,
                     'rating_count' => (int) $p->rating_count,
                     'skills'       => $p->skills->pluck('skill_name')->filter()->values(),
-                    // Derived, not read. See availabilityOf.
-                    'availability_status' => in_array($p->user_id, $onAJob, true)
-                        ? 'busy'
-                        : 'available',
+                    // See availabilityOf.
+                    'availability_status' => ! $p->isTakingWork()
+                        ? 'unavailable'
+                        : (in_array($p->user_id, $onAJob, true) ? 'busy' : 'available'),
                 ]),
                 'current_page' => $page,
                 'per_page'     => $perPage,
@@ -1656,9 +1689,17 @@ class WorkerProfileController extends Controller
         progress. That is a fact with a row behind it, and it is the
         question an employer is really asking.
     */
-    private function availabilityOf(int $userId): string
+    private function availabilityOf(WorkerProfile $profile): string
     {
-        return $this->workersOnAJob([$userId]) === []
+        /*
+            The worker's own switch first. Off is "Not Available" whatever
+            the hires say; on, a hire that runs today still reads Busy.
+        */
+        if (! $profile->isTakingWork()) {
+            return 'unavailable';
+        }
+
+        return $this->workersOnAJob([(int) $profile->user_id]) === []
             ? 'available'
             : 'busy';
     }
@@ -1851,8 +1892,8 @@ class WorkerProfileController extends Controller
                 'category'            => $profile->category?->name,
                 'category_id'         => $profile->category_id,
                 'bio'                 => $profile->bio,
-                // Derived, not read. See availabilityOf.
-                'availability_status' => $this->availabilityOf($profile->user_id),
+                // See availabilityOf.
+                'availability_status' => $this->availabilityOf($profile),
                 /*
                     Cast, because decimal:2 serialises as the STRING "5.00".
 

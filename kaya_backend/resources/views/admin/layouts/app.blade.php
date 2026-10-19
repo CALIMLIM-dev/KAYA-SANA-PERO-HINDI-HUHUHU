@@ -34,13 +34,13 @@
                     'Overview' => [
                         ['route' => 'admin.dashboard',           'label' => 'Dashboard',           'icon' => 'layout-dashboard', 'can' => 'analytics'],
                         ['route' => 'admin.analytics.index',     'label' => 'Analytics',           'icon' => 'bar-chart-3',      'can' => 'analytics'],
-                        ['route' => 'admin.supply.index',        'label' => 'Supply & Demand',     'icon' => 'map',              'can' => 'analytics'],
+                        ['route' => 'admin.supply.index',        'label' => 'Workers & Jobs',      'icon' => 'map',              'can' => 'analytics'],
                     ],
                     'Accounts' => [
                         ['route' => 'admin.users.index',         'label' => 'Users',               'icon' => 'users',       'can' => 'users'],
                         ['route' => 'admin.verifications.index', 'label' => 'Verifications',       'icon' => 'badge-check', 'can' => 'verify', 'queue' => 'verifications'],
-                        ['route' => 'admin.reports.index',       'label' => 'Reports',             'icon' => 'flag',        'can' => 'content', 'queue' => 'reports'],
-                        ['route' => 'admin.strikes.index',       'label' => 'Offenses',            'icon' => 'scale',       'can' => 'content', 'queue' => 'strikes'],
+                        ['route' => 'admin.reports.index',       'label' => 'Reported Incidents',  'icon' => 'flag',        'can' => 'content', 'queue' => 'reports'],
+                        ['route' => 'admin.strikes.index',       'label' => 'Violations',          'icon' => 'scale',       'can' => 'content', 'queue' => 'strikes'],
                         ['route' => 'admin.reviews.index',       'label' => 'Reviews',             'icon' => 'star',        'can' => 'content'],
                     ],
                     'Postings' => [
@@ -74,6 +74,7 @@
                     'System' => [
                         ['route' => 'admin.admins.index',        'label' => 'Administrators',      'icon' => 'shield',       'can' => 'admins'],
                         ['route' => 'admin.audit.index',         'label' => 'Audit Log',           'icon' => 'scroll-text',  'can' => 'audit'],
+                        ['route' => 'admin.audit.errors',        'label' => 'Server Errors',       'icon' => 'triangle-alert', 'can' => 'audit'],
                     ],
                 ];
 

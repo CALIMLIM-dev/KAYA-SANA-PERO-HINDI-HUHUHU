@@ -388,10 +388,10 @@
         {{-- Supply and Demand by Trade: paired bars. --}}
         <section class="card" aria-labelledby="trades">
             <div class="flex flex-wrap items-start justify-between gap-3">
-                <h2 id="trades" class="card-title">Supply and Demand by Trade</h2>
+                <h2 id="trades" class="card-title">Workers and Jobs by Trade</h2>
                 <div class="legend">
-                    <span><i class="dot" style="background: var(--s1)"></i> Demand</span>
-                    <span><i class="dot" style="background: var(--s3)"></i> Supply</span>
+                    <span><i class="dot" style="background: var(--s1)"></i> Jobs</span>
+                    <span><i class="dot" style="background: var(--s3)"></i> Workers</span>
                     <a href="{{ $csv('admin.exports.categories', false) }}" class="csv">{!! $download !!} Trades</a>
                 </div>
             </div>
@@ -548,8 +548,8 @@
                 // Two lines for a long name; Chart.js clips one line at the edge.
                 labels: trades.map((t) => t.name.length > 18 ? t.name.replace(/^(.{1,18})\s/, '$1\n').split('\n') : t.name),
                 datasets: [
-                    { label: 'Demand', data: trades.map((t) => t.jobs), backgroundColor: c('--s1'), borderRadius: 4, barThickness: 12 },
-                    { label: 'Supply', data: trades.map((t) => t.workers), backgroundColor: c('--s3'), borderRadius: 4, barThickness: 12 },
+                    { label: 'Jobs', data: trades.map((t) => t.jobs), backgroundColor: c('--s1'), borderRadius: 4, barThickness: 12 },
+                    { label: 'Workers', data: trades.map((t) => t.workers), backgroundColor: c('--s3'), borderRadius: 4, barThickness: 12 },
                 ],
             },
             options: { indexAxis: 'y', responsive: true, maintainAspectRatio: false, interaction: { mode: 'index', intersect: false },

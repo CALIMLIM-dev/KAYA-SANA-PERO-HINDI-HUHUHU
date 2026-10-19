@@ -977,6 +977,8 @@ class AuthController extends Controller
             'rate_label' => $worker?->rateLabel(),
             'available_days' => $worker?->available_days,
             'travel_km' => $worker?->travel_km,
+            // The Work Status switch, as the worker set it.
+            'availability_status' => $worker === null ? null : ($worker->isTakingWork() ? 'available' : 'unavailable'),
             'worker_profile_missing' => array_values($worker?->missingForCompletion() ?? []),
             'boosted_until' => $boostedUntil?->toIso8601String(),
         ], 'User retrieved successfully');

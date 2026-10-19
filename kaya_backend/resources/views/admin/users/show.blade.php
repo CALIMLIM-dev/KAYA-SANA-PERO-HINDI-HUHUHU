@@ -38,7 +38,7 @@
                     @if (auth()->user()->adminCan('suspend'))
                     <button onclick="openSuspendModal()"
                             class="px-4 py-2 bg-red-50 text-red-600 border border-red-200 text-sm rounded-lg hover:bg-red-100">
-                        Give an Offense
+                        Add a Violation
                     </button>
                     @endif
                 @endif
@@ -60,13 +60,13 @@
             <div><dt class="text-slate-400">Barya</dt><dd class="text-slate-700">
                 {{ $balance }}
                 @if (auth()->user()->adminCan('finance'))
-                    <a href="{{ route('admin.credits.index', ['user' => $user->id]) }}" class="text-xs text-blue-600 ml-1">ledger</a>
+                    <a href="{{ route('admin.credits.index', ['user' => $user->id]) }}" class="text-xs text-blue-600 ml-1">transactions</a>
                 @endif
             </dd></div>
         </dl>
 
         {{-- The same offenses Reports give, so this page and Reports never disagree. --}}
-        <h3 class="text-sm font-semibold text-slate-700 mb-2">Offense History</h3>
+        <h3 class="text-sm font-semibold text-slate-700 mb-2">Violation History</h3>
         @if ($offenses->isEmpty())
             <p class="text-sm text-slate-500 mb-6">None.</p>
         @else
@@ -399,7 +399,7 @@
         <form method="POST" action="{{ route('admin.users.suspend', $user) }}">
             @csrf
             <div class="px-5 py-4 border-b border-slate-200">
-                <h3 class="text-base font-semibold text-slate-900">Give an Offense to {{ $user->name }}</h3>
+                <h3 class="text-base font-semibold text-slate-900">Add a Violation to {{ $user->name }}</h3>
             </div>
 
             <div class="px-5 py-4 space-y-4">
@@ -414,7 +414,7 @@
                                 @if ($group->isNotEmpty())
                                     <optgroup label="{{ $groupLabel }}">
                                         @foreach ($group as $code => $reason)
-                                            <option value="{{ $code }}" data-critical="{{ $sev === 'critical' ? 1 : 0 }}">{{ $reason['label'] }}</option>
+                                            <option value="{{ $code }}" data-critical="{{ $sev === 'critical' ? 1 : 0 }}" data-message="{{ $reason['description'] }}">{{ $reason['label'] }}</option>
                                         @endforeach
                                     </optgroup>
                                 @endif
@@ -429,16 +429,15 @@
                             default       => 'a permanent ban',
                         };
                     @endphp
-                    <p id="stepNormal" class="mt-2 text-xs text-slate-600">This will be offense {{ $nextStep['number'] }}: {{ $penalty }}.</p>
+                    <p id="stepNormal" class="mt-2 text-xs text-slate-600">This will be violation {{ $nextStep['number'] }}: {{ $penalty }}.</p>
                     <p id="stepCritical" class="hidden mt-2 text-xs text-slate-600">This will be a permanent ban.</p>
                 </div>
 
                 <div>
-                    <label for="suspendNote" class="block text-xs font-semibold text-slate-600 mb-1.5">Finding</label>
-                    <textarea name="note" id="suspendNote" rows="3" minlength="10" maxlength="1000" required
+                    <label for="suspendNote" class="block text-xs font-semibold text-slate-600 mb-1.5">Note (Optional)</label>
+                    <textarea name="note" id="suspendNote" rows="3" maxlength="1000"
                               class="w-full px-3 py-2 border border-slate-300 rounded-lg text-[13px]
-                                     focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-red-500"
-                              placeholder="What happened. Sent to the account as the reason."></textarea>
+                                     focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-red-500"></textarea>
                 </div>
 
             </div>
@@ -450,7 +449,7 @@
                 </button>
                 <button type="submit"
                         class="flex-1 px-4 py-2 bg-red-600 text-white text-sm font-semibold rounded-lg hover:bg-red-700">
-                    Give Offense
+                    Add Violation
                 </button>
             </div>
         </form>
@@ -473,6 +472,8 @@ document.getElementById('reasonSelect')?.addEventListener('change', function () 
     const critical = this.options[this.selectedIndex]?.dataset.critical === '1';
     document.getElementById('stepNormal').classList.toggle('hidden', critical);
     document.getElementById('stepCritical').classList.toggle('hidden', !critical);
+    // The words sent if the note is left empty.
+    document.getElementById('suspendNote').placeholder = this.options[this.selectedIndex]?.dataset.message || '';
 });
 
 document.getElementById('suspendModal')?.addEventListener('click', function (e) {

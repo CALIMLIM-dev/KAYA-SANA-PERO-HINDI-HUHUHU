@@ -51,11 +51,13 @@ class CreditController extends Controller
         // Where the Barya went, last 30 days, by what it paid for.
         $spendByReason = CreditTransaction::where('delta', '<', 0)
             ->where('created_at', '>=', Carbon::now()->subDays(30))
-            ->selectRaw('reason, COUNT(*) as lines, SUM(delta) as total')
+            // Not "as lines": LINES is reserved in MySQL, and the page was a
+            // 500 on the server while SQLite let every test pass.
+            ->selectRaw('reason, COUNT(*) as line_count, SUM(delta) as total')
             ->groupBy('reason')
             ->orderBy('total')
             ->get()
-            ->map(fn ($row) => ['reason' => $row->reason, 'lines' => (int) $row->lines, 'total' => (int) abs($row->total)]);
+            ->map(fn ($row) => ['reason' => $row->reason, 'lines' => (int) $row->line_count, 'total' => (int) abs($row->total)]);
 
         $lines = CreditTransaction::query()
             ->with(['user:id,name,email', 'actor:id,name'])

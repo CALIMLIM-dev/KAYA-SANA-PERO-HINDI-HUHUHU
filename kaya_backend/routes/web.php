@@ -191,6 +191,8 @@ Route::prefix('admin')->name('admin.')->group(function () {
 
         Route::get('/audit', [AuditController::class, 'index'])->name('audit.index')
             ->middleware('admin.can:audit');
+        Route::get('/errors', [AuditController::class, 'errors'])->name('audit.errors')
+            ->middleware('admin.can:audit');
 
         // Who the administrators are, and what each of them may do.
         Route::middleware('admin.can:admins')->group(function () {

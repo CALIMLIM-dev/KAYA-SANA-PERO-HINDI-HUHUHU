@@ -151,6 +151,12 @@ class JobMatchService
             General Labour - the title wins the tier below: the employer
             wrote the title in their own words and picked the category from
             a list.
+
+            Where they agree, only the title's words for that trade count.
+            "Pintura ng bubong" filed under Painting names roofing too, but
+            it asks for a painter; reading every trade a title mentions made
+            a roofer the right trade for it, and a house cleaner the right
+            trade for "Aircon cleaning" filed under HVAC.
         */
         $titles = app(TitleTrades::class);
         $titleTrade = $titles->of($job->title);
@@ -158,9 +164,14 @@ class JobMatchService
         $titleDisagrees = false;
 
         if ($titleTrade['terms'] !== []) {
-            $titleFit = $titles->fits($titleTrade, $profile, $heldSkills);
             $titleDisagrees = $titleTrade['category_ids'] !== []
                 && ! in_array((int) $job->category_id, $titleTrade['category_ids'], true);
+
+            if ($job->category_id && in_array((int) $job->category_id, $titleTrade['category_ids'], true)) {
+                $titleTrade = $titles->narrow($titleTrade, (int) $job->category_id);
+            }
+
+            $titleFit = $titles->fits($titleTrade, $profile, $heldSkills);
 
             if ($titleFit && $categoryScore < self::WEIGHT_CATEGORY) {
                 $categoryScore = (float) self::WEIGHT_CATEGORY;

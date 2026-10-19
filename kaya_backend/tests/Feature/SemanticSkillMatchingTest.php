@@ -222,6 +222,27 @@ class SemanticSkillMatchingTest extends TestCase
     }
 
     #[Test]
+    public function a_word_with_no_vector_yet_is_not_fetched_while_comparing(): void
+    {
+        /*
+            The half the test above missed. With no stored vector the
+            lookup asked Google, up to two seconds, inside the feed - once
+            per worker, because each score built a fresh matcher. A missing
+            vector is no opinion; kaya:embed-skills fetches it.
+        */
+        Http::preventStrayRequests();
+        Http::fake();
+
+        $result = $this->matcher()->compare(
+            ['id' => null, 'name' => 'Massage'],
+            ['id' => null, 'name' => 'Hilot'],
+        );
+
+        $this->assertSame(SkillMatcher::RULE_NONE, $result['rule']);
+        Http::assertNothingSent();
+    }
+
+    #[Test]
     public function the_coverage_score_uses_the_semantic_confidence(): void
     {
         $this->vector('hilot', [1.0, 0.0, 0.0, 0.0]);

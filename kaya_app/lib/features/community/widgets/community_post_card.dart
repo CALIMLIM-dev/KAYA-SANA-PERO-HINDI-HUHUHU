@@ -213,6 +213,10 @@ class CommunityPostCard extends StatelessWidget {
                   child: Image.network(
                     photo,
                     fit: BoxFit.cover,
+                    // Decoded at the card's width, not the 1600 it went up at.
+                    cacheWidth: (MediaQuery.sizeOf(context).width *
+                            MediaQuery.devicePixelRatioOf(context))
+                        .round(),
                     errorBuilder: (_, _, _) => Container(
                       color: AppColors.neutral100,
                       alignment: Alignment.center,

@@ -795,6 +795,7 @@ class _SearchScreenState extends State<SearchScreen> {
       rating: worker.reviewCount > 0 ? worker.rating.toStringAsFixed(1) : '',
       reviews: worker.reviewCount > 0 ? '(${worker.reviewCount} reviews)' : '',
       isAvailable: worker.isAvailable,
+      availabilityLabel: worker.availabilityLabel,
       isVerified: worker.isVerified,
       verification: worker.verification,
       skills: worker.skills,

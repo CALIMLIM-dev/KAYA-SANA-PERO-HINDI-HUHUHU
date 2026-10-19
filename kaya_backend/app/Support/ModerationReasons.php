@@ -120,6 +120,18 @@ class ModerationReasons
             'severity'     => 'serious',
             'default_days' => 30,
         ],
+        'no_show' => [
+            'label'        => 'Did not show up',
+            'description'  => 'Accepted a job and did not show up, with no notice.',
+            'severity'     => 'moderate',
+            'default_days' => 7,
+        ],
+        'false_completion' => [
+            'label'        => 'Marked work done that was not done',
+            'description'  => 'Marked a job complete when the work was not done.',
+            'severity'     => 'moderate',
+            'default_days' => 7,
+        ],
         'repeated_no_show' => [
             'label'        => 'Repeatedly failed to show up',
             'description'  => 'Accepted work and did not appear, more than once.',
@@ -146,7 +158,7 @@ class ModerationReasons
         ],
         'policy_violation' => [
             'label'        => 'Other policy violation',
-            'description'  => 'Breached the terms in a way not covered above. Explain in the note.',
+            'description'  => 'Broke the KAYA rules.',
             'severity'     => 'moderate',
             'default_days' => 7,
         ],
@@ -158,9 +170,9 @@ class ModerationReasons
         'fake_identity'  => 'fake_documents',
         'harassment'     => 'harassment',
         'inappropriate'  => 'inappropriate_content',
-        'no_show'        => 'repeated_no_show',
+        'no_show'        => 'no_show',
         'misleading_job' => 'misleading_postings',
-        'work_not_done'  => 'policy_violation',
+        'work_not_done'  => 'false_completion',
         'spam'           => 'spam',
         'other'          => 'policy_violation',
     ];
@@ -192,6 +204,33 @@ class ModerationReasons
     public static function suspensionLabel(?string $code): string
     {
         return self::SUSPENSION[$code]['label'] ?? ($code ? str_replace('_', ' ', ucfirst($code)) : 'Not given');
+    }
+
+    /*
+        Ready-made words, so an administrator never has to type.
+
+        A note was required on every decision, which meant writing the same
+        sentence by hand all day. Left empty, a decision now says one of
+        these: the violation's own description, or a plain line for no
+        violation. A typed note still replaces it.
+    */
+    public const NO_VIOLATION = 'We checked and found no violation.';
+    public const CONFIRMED_NO_VIOLATION = 'The report was correct. No violation was added.';
+    public const REVIEW_ACCEPTED = 'We checked again and removed this violation.';
+    public const REVIEW_REFUSED = 'We checked again. The violation stays.';
+
+    /** What a violation says when no note was written. */
+    public static function message(?string $suspensionCode): string
+    {
+        return self::SUSPENSION[$suspensionCode]['description'] ?? 'Broke the KAYA rules.';
+    }
+
+    /** The note as typed, or the ready-made words when it was left empty. */
+    public static function noteOr(?string $typed, string $readyMade): string
+    {
+        $typed = trim((string) $typed);
+
+        return $typed === '' ? $readyMade : $typed;
     }
 
     /** Scam, fake papers, threats: these skip the strike ladder. */

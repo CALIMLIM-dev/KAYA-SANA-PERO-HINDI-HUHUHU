@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../data/services/api_client.dart';
 import '../constants/app_colors.dart';
 
 /*
@@ -18,6 +19,28 @@ import '../constants/app_colors.dart';
     with no photo, while a generic icon reads as a broken image, and most
     accounts here will never upload one.
 */
+/*
+    A photo decoded at the size it is drawn.
+
+    Photos go up at 1024 pixels, and a 26-radius circle draws about 150 of
+    them on a 3x phone. Without a size the whole 1024x1024 was decoded and
+    kept - 4 MB of memory per face, so a list of twenty workers held 80 MB
+    of pixels to show circles the size of a thumbnail.
+
+    And a stored path made into an address. users.avatar holds each
+    account's latest picture as a path ("profile_photos/x.jpg"), and every
+    payload that embeds a user row as it is sends that path. A path is not
+    a URL, the image failed, and the circle fell back to a letter for
+    somebody who had a photo - in reviews, in My Applications, wherever a
+    user arrived embedded rather than through resolvedAvatarUrl.
+*/
+ImageProvider avatarImage(BuildContext context, String url, double radius) =>
+    ResizeImage.resizeIfNeeded(
+      (radius * 2 * MediaQuery.devicePixelRatioOf(context)).round(),
+      null,
+      NetworkImage(ApiClient.fileUrl(url.trim())),
+    );
+
 class ProfileAvatar extends StatelessWidget {
   const ProfileAvatar({
     super.key,
@@ -61,7 +84,7 @@ class ProfileAvatar extends StatelessWidget {
         // foregroundImage, not backgroundImage: a failed load falls through to
         // the child rather than leaving a blank circle, so a broken URL still
         // shows the initial instead of a hole.
-        foregroundImage: NetworkImage(imageUrl!.trim()),
+        foregroundImage: avatarImage(context, imageUrl!, radius),
         onForegroundImageError: (_, _) {},
         child: _fallback(fg),
       );

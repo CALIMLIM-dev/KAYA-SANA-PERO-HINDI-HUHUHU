@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/navigation/app_router.dart';
 import '../../../core/widgets/kaya_popup.dart';
+import '../../../core/widgets/profile_avatar.dart';
 import '../../../core/widgets/verification_badge_widget.dart';
 import '../../../data/services/api_client.dart';
 
@@ -178,7 +179,7 @@ class _ProfileViewsState extends State<_ProfileViews> {
               CircleAvatar(
                 radius: 16,
                 backgroundColor: AppColors.neutral100,
-                backgroundImage: (v['avatar'] as String?)?.isNotEmpty == true ? NetworkImage(v['avatar'] as String) : null,
+                backgroundImage: (v['avatar'] as String?)?.isNotEmpty == true ? avatarImage(context, v['avatar'] as String, 16) : null,
                 child: (v['avatar'] as String?)?.isNotEmpty == true
                     ? null
                     : Text('${v['name'] ?? '?'}'.isEmpty ? '?' : '${v['name']}'[0].toUpperCase(),

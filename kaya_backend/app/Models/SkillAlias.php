@@ -14,13 +14,21 @@ class SkillAlias extends Model
 {
     private const CACHE_KEY = 'skill_aliases.pairs';
 
+    private const MEMO = 'skill_aliases.memo';
+
     protected $fillable = ['term_a', 'term_b', 'created_by'];
 
     protected static function booted(): void
     {
         // The matcher reads every pair on every comparison, from the cache.
-        static::saved(fn () => Cache::forget(self::CACHE_KEY));
-        static::deleted(fn () => Cache::forget(self::CACHE_KEY));
+        static::saved(fn () => self::forget());
+        static::deleted(fn () => self::forget());
+    }
+
+    private static function forget(): void
+    {
+        Cache::forget(self::CACHE_KEY);
+        app()->forgetInstance(self::MEMO);
     }
 
     public function creator(): BelongsTo
@@ -44,10 +52,15 @@ class SkillAlias extends Model
      */
     public static function pairs(): array
     {
-        return Cache::rememberForever(self::CACHE_KEY, fn () => static::query()
+        // Once per request, as SkillLink::map: the cache store is the database.
+        if (app()->bound(self::MEMO)) {
+            return app(self::MEMO);
+        }
+
+        return app()->instance(self::MEMO, Cache::rememberForever(self::CACHE_KEY, fn () => static::query()
             ->get(['term_a', 'term_b'])
             ->mapWithKeys(fn (self $a) => [$a->term_a . '|' . $a->term_b => true])
-            ->all());
+            ->all()));
     }
 
     public static function confirms(string $one, string $two): bool

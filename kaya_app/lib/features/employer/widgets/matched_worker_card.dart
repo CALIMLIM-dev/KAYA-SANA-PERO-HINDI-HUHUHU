@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/navigation/app_router.dart';
 import '../../../core/utils/format.dart';
+import '../../../core/widgets/profile_avatar.dart';
 import '../../../core/widgets/verification_badge_widget.dart';
 import '../../applications/widgets/fit_facts.dart';
 import '../../jobs/widgets/fit_line.dart';
@@ -103,7 +104,7 @@ class MatchedWorkerCard extends StatelessWidget {
                 radius: 22,
                 backgroundColor: AppColors.neutral200,
                 backgroundImage: (row['avatar'] as String?)?.isNotEmpty == true
-                    ? NetworkImage(row['avatar'] as String)
+                    ? avatarImage(context, row['avatar'] as String, 22)
                     : null,
                 child: (row['avatar'] as String?)?.isNotEmpty == true
                     ? null

@@ -195,4 +195,29 @@ class WorkerProfile extends Model
     {
         return $this->isSetupCompleted();
     }
+
+    /*
+        Work Status, the worker's own switch.
+
+        availability_status was written 'available' everywhere and read
+        nowhere, so it never said anything. It now holds the one thing only
+        the worker knows: whether they are taking work at all. Off, they are
+        left out of Suggested Workers and job alerts and cannot be invited.
+        Busy is not stored - it is worked out from a hire that runs today.
+        Applying, or accepting an invitation, turns it back on.
+    */
+    public const NOT_TAKING_WORK = 'unavailable';
+
+    public function isTakingWork(): bool
+    {
+        return $this->availability_status !== self::NOT_TAKING_WORK;
+    }
+
+    /** Back on, for a worker who just asked for a job. */
+    public function takeWorkAgain(): void
+    {
+        if (! $this->isTakingWork()) {
+            $this->forceFill(['availability_status' => 'available'])->save();
+        }
+    }
 }

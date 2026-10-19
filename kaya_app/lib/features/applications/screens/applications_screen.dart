@@ -499,6 +499,7 @@ class _ApplicationsScreenState extends State<ApplicationsScreen>
                       'rejected',
                       'withdrawn',
                       'cancelled',
+                      'unsuccessful',
                     }.contains(statusOf(a)))
                 .map((a) => {...a, '_isJob': false}),
           /*
@@ -2091,6 +2092,11 @@ class _StageTrack extends StatelessWidget {
           AppColors.neutral200,
           AppColors.neutral600,
           'Cancelled'
+        ),
+      'unsuccessful' => (
+          AppColors.neutral200,
+          AppColors.neutral600,
+          'Not Completed'
         ),
       'closed' => (AppColors.neutral200, AppColors.neutral600, 'Closed'),
       _ => (AppColors.neutral200, AppColors.neutral600, status),

@@ -264,6 +264,7 @@ class _StatusBadge extends StatelessWidget {
   }
 
   String _getLabel() {
+    if (status == 'unsuccessful') return 'Not Completed';
     return status[0].toUpperCase() + status.substring(1);
   }
 

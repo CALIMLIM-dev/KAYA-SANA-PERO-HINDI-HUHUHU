@@ -54,6 +54,11 @@ class InvitationController extends Controller
         if (!$worker->isWorker()) return $this->fail('User is not a worker', 422);
         if ($worker->is_suspended) return $this->fail('Worker account is suspended', 422);
 
+        // Their own switch. See WorkerProfile::isTakingWork.
+        if ($worker->workerProfile && ! $worker->workerProfile->isTakingWork()) {
+            return $this->fail($worker->name . ' is not available for work right now.', 422);
+        }
+
         // Too far to be worth the fare. See WorkingDistance.
         if ($why = app(\App\Services\WorkingDistance::class)->refusalFor($job, $worker, 'employer')) {
             return $this->fail($why, 422);
@@ -435,6 +440,9 @@ class InvitationController extends Controller
         app(\App\Services\ChatEvents::class)->hired($conversation, $job, $job->employer, $user);
 
         InvitationAccepted::dispatch($invitation->load(['job', 'worker']));
+
+        // Taking a job is taking work. See WorkerProfile::isTakingWork.
+        $user->workerProfile?->takeWorkAgain();
 
         return $this->ok([
             'invitation'      => $invitation,

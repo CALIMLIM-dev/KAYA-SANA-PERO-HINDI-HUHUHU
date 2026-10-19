@@ -30,7 +30,8 @@ class WorkRecord
     {
         return $this->summarise(
             Application::where('worker_id', $user->id),
-            Application::where('worker_id', $user->id)
+            Application::where('worker_id', $user->id),
+            'worker',
         );
     }
 
@@ -44,13 +45,19 @@ class WorkRecord
             fn ($q) => $q->where('employer_id', $user->id)
         );
 
-        return $this->summarise($scope(), $scope());
+        return $this->summarise($scope(), $scope(), 'employer');
     }
 
-    private function summarise($countQuery, $historyQuery): array
+    private function summarise($countQuery, $historyQuery, string $side): array
     {
+        /*
+            An unsuccessful hire counts against the side found at fault, and
+            against both when nobody was - see the fault column.
+        */
         $counts = (clone $countQuery)
-            ->whereIn('status', ['completed', 'unsuccessful'])
+            ->where(fn ($q) => $q->where('status', 'completed')
+                ->orWhere(fn ($q) => $q->where('status', 'unsuccessful')
+                    ->where(fn ($q) => $q->whereNull('fault')->orWhere('fault', $side))))
             ->selectRaw('status, COUNT(*) as total')
             ->groupBy('status')
             ->pluck('total', 'status');

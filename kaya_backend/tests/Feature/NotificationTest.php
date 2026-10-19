@@ -150,11 +150,12 @@ class NotificationTest extends TestCase
 
         // The sender is never notified of their own message. Kept because this
         // is the guard that a refactor of the recipient logic silently breaks.
-        $this->assertDatabaseMissing('user_notifications', [
-            'user_id' => $worker->id,
-            'actor_id' => $worker->id,
-            'type' => UserNotification::MESSAGE_RECEIVED,
-        ]);
+        // One each, for the message each one received. (This asked for an
+        // actor_id column that does not exist; SQLite read it as text.)
+        foreach ([$worker, $employer] as $person) {
+            $this->assertSame(1, UserNotification::where('user_id', $person->id)
+                ->where('type', UserNotification::MESSAGE_RECEIVED)->count());
+        }
     }
 
     /*

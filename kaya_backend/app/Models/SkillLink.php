@@ -14,13 +14,22 @@ class SkillLink extends Model
 {
     private const CACHE_KEY = 'skill_links.map';
 
+    /** The map, held in the container for the rest of the request. */
+    private const MEMO = 'skill_links.memo';
+
     protected $fillable = ['term', 'skill_id'];
 
     protected static function booted(): void
     {
         // The matcher reads the whole map on every comparison, from the cache.
-        static::saved(fn () => Cache::forget(self::CACHE_KEY));
-        static::deleted(fn () => Cache::forget(self::CACHE_KEY));
+        static::saved(fn () => self::forget());
+        static::deleted(fn () => self::forget());
+    }
+
+    private static function forget(): void
+    {
+        Cache::forget(self::CACHE_KEY);
+        app()->forgetInstance(self::MEMO);
     }
 
     public function skill(): BelongsTo
@@ -35,7 +44,19 @@ class SkillLink extends Model
      */
     public static function map(): array
     {
-        return Cache::rememberForever(self::CACHE_KEY, function () {
+        /*
+            Read from the cache once per request, not once per comparison.
+
+            The cache store is the database, so every comparison was a query:
+            a feed or a list of workers compares every required skill with
+            every held one, twice over, and paid a few hundred reads for one
+            screen. The container is new each request and each test.
+        */
+        if (app()->bound(self::MEMO)) {
+            return app(self::MEMO);
+        }
+
+        return app()->instance(self::MEMO, Cache::rememberForever(self::CACHE_KEY, function () {
             $map = [];
             foreach (static::query()->get(['term', 'skill_id']) as $row) {
                 $map[$row->term] ??= [];
@@ -45,7 +66,7 @@ class SkillLink extends Model
             }
 
             return $map;
-        });
+        }));
     }
 
     /** @return list<int> */
@@ -72,6 +93,6 @@ class SkillLink extends Model
             }
         });
 
-        Cache::forget(self::CACHE_KEY);
+        self::forget();
     }
 }

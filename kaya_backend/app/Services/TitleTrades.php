@@ -58,6 +58,17 @@ class TitleTrades
         'general', 'any', 'anything', 'kahit ano',
     ];
 
+    /*
+        Trades whose word is also something done to another trade's things.
+
+        "Aircon cleaning" is aircon work: cleaning beside another trade's
+        word says which kind of that work, not a second trade. Read as
+        Cleaning, it put a house cleaner in the right trade for an aircon job
+        on a live test, and "Linis ng aircon" offered Cleaning first on Post
+        a Job.
+    */
+    private const YIELDS = ['cleaning'];
+
     private SkillMatcher $matcher;
 
     /** @var array{categories: list<array{id:int,name:string,norm:string,custom:bool}>, skills: list<array{id:int,name:string,category_id:?int}>}|null */
@@ -120,7 +131,7 @@ class TitleTrades
 
     private function resolve(string $title): array
     {
-        $none = ['terms' => [], 'category_ids' => [], 'skills' => []];
+        $none = ['terms' => [], 'category_ids' => [], 'skills' => [], 'by_term' => []];
 
         if ($title === '') {
             return $none;
@@ -155,19 +166,26 @@ class TitleTrades
 
         $terms = array_values(array_unique($terms));
 
+        if (count($terms) > 1) {
+            $terms = array_values(array_diff($terms, self::YIELDS)) ?: $terms;
+        }
+
         if ($terms === []) {
             return $none;
         }
 
         $categoryIds = [];
         $skills = [];
+        $byTerm = [];
 
         foreach ($terms as $term) {
             $named = false;
+            $byTerm[$term] = ['category_ids' => [], 'skill_ids' => []];
 
             foreach ($this->catalogue()['categories'] as $category) {
                 if ($this->agrees($term, $category['name'], self::CATEGORY_RULES)) {
                     $categoryIds[] = $category['id'];
+                    $byTerm[$term]['category_ids'][] = $category['id'];
                     $named = true;
                 }
             }
@@ -178,11 +196,13 @@ class TitleTrades
                 }
 
                 $skills[$skill['id']] = $skill;
+                $byTerm[$term]['skill_ids'][] = $skill['id'];
 
                 // Masonry is a skill filed under Construction, not a
                 // category of its own: the skill says which trade.
                 if (! $named && $skill['category_id']) {
                     $categoryIds[] = $skill['category_id'];
+                    $byTerm[$term]['category_ids'][] = $skill['category_id'];
                 }
             }
         }
@@ -191,6 +211,32 @@ class TitleTrades
             'terms'        => $terms,
             'category_ids' => array_values(array_unique($categoryIds)),
             'skills'       => array_values($skills),
+            // Which trade each word named, for narrow().
+            'by_term'      => $byTerm,
+        ];
+    }
+
+    /**
+     * The title cut down to its words for one trade.
+     *
+     * For a title that agrees with the post's own trade: there, the other
+     * trades it names describe the work rather than ask for another kind of
+     * worker. See JobMatchService.
+     */
+    public function narrow(array $trade, int $categoryId): array
+    {
+        $byTerm = $trade['by_term'] ?? [];
+        $terms = array_values(array_filter(
+            $trade['terms'],
+            fn (string $t) => in_array($categoryId, $byTerm[$t]['category_ids'] ?? [], true),
+        ));
+        $skillIds = array_merge([], ...array_map(fn (string $t) => $byTerm[$t]['skill_ids'], $terms));
+
+        return [
+            'terms'        => $terms,
+            'category_ids' => $terms === [] ? [] : [$categoryId],
+            'skills'       => array_values(array_filter($trade['skills'], fn (array $s) => in_array($s['id'], $skillIds, true))),
+            'by_term'      => array_intersect_key($byTerm, array_flip($terms)),
         ];
     }
 

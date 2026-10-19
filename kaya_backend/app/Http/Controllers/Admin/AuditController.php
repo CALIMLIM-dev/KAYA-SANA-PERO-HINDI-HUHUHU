@@ -35,4 +35,13 @@ class AuditController extends Controller
 
         return view('admin.audit.index', compact('actions', 'area', 'areas', 'adminId', 'admins'));
     }
+
+    /** What failed on the server, most recent first. See ServerError. */
+    public function errors()
+    {
+        // Not $errors: views reserve that name for the validation messages.
+        $failures = \App\Models\ServerError::with('user:id,name')->latest('last_seen_at')->paginate(30);
+
+        return view('admin.audit.errors', compact('failures'));
+    }
 }

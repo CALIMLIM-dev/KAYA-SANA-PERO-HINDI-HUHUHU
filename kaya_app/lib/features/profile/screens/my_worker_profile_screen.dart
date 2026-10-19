@@ -807,6 +807,77 @@ class _MyWorkerProfileScreenState extends State<MyWorkerProfileScreen> with Sing
       action on the same data, and two different-looking controls for it is
       how someone ends up unsure whether they are the same thing.
   */
+  /*
+      Work Status, the one switch only the worker can answer.
+
+      Off, they are left out of Suggested Workers and job alerts and cannot
+      be invited, until they switch it back or apply for something. Built
+      like the rows below it: label, value, and the switch where the edit
+      pencil would be.
+  */
+  Widget _workStatusRow(WorkerProfileProvider p) {
+    final on = p.availableForWork;
+
+    Future<void> flip(bool value) async {
+      final ok = await context.read<WorkerProfileProvider>().setAvailableForWork(value);
+      if (!ok && mounted) {
+        AppToast.error(context, p.errorMessage ?? 'Could not change your Work Status.');
+      }
+    }
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Material(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          onTap: () => flip(!on),
+          child: Container(
+            padding: const EdgeInsets.fromLTRB(14, 8, 8, 8),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: AppColors.neutral200),
+            ),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'Work Status',
+                        style: TextStyle(
+                          fontSize: 11.5,
+                          fontWeight: FontWeight.w600,
+                          letterSpacing: 0.3,
+                          color: AppColors.neutral500,
+                        ),
+                      ),
+                      const SizedBox(height: 3),
+                      Text(
+                        on ? 'Available' : 'Not Available',
+                        style: TextStyle(
+                          fontSize: 14.5,
+                          color: on ? AppColors.neutral900 : AppColors.neutral500,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                Switch(
+                  value: on,
+                  onChanged: flip,
+                  activeThumbColor: AppColors.primary,
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget _pinRow(WorkerProfileProvider p) {
     final pinned = p.hasPinnedLocation;
     final hasCity = (p.location ?? '').trim().isNotEmpty;
@@ -1201,6 +1272,7 @@ class _MyWorkerProfileScreenState extends State<MyWorkerProfileScreen> with Sing
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 96),
       children: [
         _buildViewsBanner(),
+        _workStatusRow(p),
         _buildResumeLink(),
         /*
             Only while there is something to buy.

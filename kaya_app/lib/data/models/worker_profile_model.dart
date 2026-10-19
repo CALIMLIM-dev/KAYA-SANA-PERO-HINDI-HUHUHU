@@ -26,6 +26,10 @@ class WorkerProfile {
   final bool isBoosted;
 
   final bool isAvailable;
+
+  /// Work Status: 'available', 'busy' (on a hire today) or 'unavailable'
+  /// (the worker switched it off). See WorkerProfile::isTakingWork.
+  final String availability;
   final double? distance; // in kilometers
 
   /// The distance in words, as the server phrased it.
@@ -68,6 +72,7 @@ class WorkerProfile {
     this.verificationState,
     this.isBoosted = false,
     this.isAvailable = true,
+    this.availability = 'available',
     this.distance,
     this.distanceLabel,
     this.bio,
@@ -114,6 +119,7 @@ class WorkerProfile {
       verificationState: json['verification_state'] as String?,
       isBoosted: json['is_boosted'] == true || json['is_boosted'] == 1,
       isAvailable: (json['availability_status'] ?? 'available') == 'available',
+      availability: (json['availability_status'] ?? 'available').toString(),
       bio: json['bio'] as String?,
       profileImageUrl: json['avatar'] as String?,
       matchScore: (json['match_score'] as num?)?.toInt(),
@@ -138,6 +144,9 @@ class WorkerProfile {
       verificationState: json['verification_state'] as String?,
       isBoosted: json['is_boosted'] == true || json['is_boosted'] == 1,
       isAvailable: json['is_available'] ?? true,
+      availability: (json['availability_status'] ??
+              ((json['is_available'] ?? true) == true ? 'available' : 'busy'))
+          .toString(),
       distance: json['distance_km']?.toDouble(),
       distanceLabel: json['distance_label'] as String?,
       bio: json['bio'],
@@ -213,6 +222,7 @@ class WorkerProfile {
       isVerified: isVerified ?? this.isVerified,
       verificationState: verificationState,
       isAvailable: isAvailable ?? this.isAvailable,
+      availability: availability,
       distance: distance ?? this.distance,
       distanceLabel: distanceLabel ?? this.distanceLabel,
       bio: bio ?? this.bio,
@@ -234,27 +244,20 @@ class WorkerProfile {
     return name.isNotEmpty ? name[0].toUpperCase() : '?';
   }
 
-  /// Get display name for availability status
-  String get availabilityText {
-    if (!isAvailable) return 'Busy';
-    if (lastActive != null) {
-      final difference = DateTime.now().difference(lastActive!);
-      if (difference.inMinutes < 30) return 'Online';
-      if (difference.inHours < 24) return 'Recently active';
-    }
-    return 'Available';
-  }
+  /// Work Status, said the same way on every card.
+  String get availabilityLabel => switch (availability) {
+        'unavailable' => 'Not Available',
+        'busy' => 'Busy',
+        _ => 'Available',
+      };
+
+  /// Busy can still be invited: two hires on the same days are allowed.
+  /// Only the worker's own switch closes it, and the server says the same.
+  bool get canInvite => availability != 'unavailable';
 
   /// Get color for availability status
-  int get availabilityColorValue {
-    if (!isAvailable) return 0xFF9E9E9E; // neutral400
-    if (lastActive != null) {
-      final difference = DateTime.now().difference(lastActive!);
-      if (difference.inMinutes < 30) return 0xFF4CAF50; // success
-      if (difference.inHours < 24) return 0xFFFF9800; // warning
-    }
-    return 0xFF4CAF50; // success
-  }
+  int get availabilityColorValue =>
+      isAvailable ? 0xFF4CAF50 : 0xFF9E9E9E; // success : neutral400
 
   /// Format rating display
   String get ratingDisplay {

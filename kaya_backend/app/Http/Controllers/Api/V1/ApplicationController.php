@@ -155,6 +155,9 @@ class ApplicationController extends Controller
                 $invitation->load(['job', 'worker'])
             );
 
+            // Asking for a job is taking work. See WorkerProfile::isTakingWork.
+            $user->workerProfile?->takeWorkAgain();
+
             return $this->ok([
                 'application'     => $application,
                 'application_id'  => $application->id,
@@ -204,6 +207,9 @@ class ApplicationController extends Controller
         // After the charge commits. An event announcing an application that
         // then rolled back would be worse than one arriving a moment late.
         ApplicationSubmitted::dispatch($application->load(['job', 'worker']));
+
+        // Asking for a job is taking work. See WorkerProfile::isTakingWork.
+        $user->workerProfile?->takeWorkAgain();
 
         return $this->ok($application->load('job'), 'Application submitted', 201);
     }

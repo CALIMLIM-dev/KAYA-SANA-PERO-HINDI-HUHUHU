@@ -121,6 +121,27 @@ class Embeddings
     }
 
     /**
+     * For a save hook: a stored vector for this term, asking the provider
+     * only when there is none. Unlike vectorFor it ignores a miss remembered
+     * earlier in the request - a list compared against the new word before
+     * the hook ran would otherwise stop it ever being fetched.
+     */
+    public function ensure(string $term): void
+    {
+        $term = $this->normalise($term);
+
+        if ($term === '' || ! $this->enabled()) {
+            return;
+        }
+
+        if (SkillVector::where('term', $term)->where('model', $this->model())->exists()) {
+            return;
+        }
+
+        $this->memo[$term] = $this->fetchAndStore($term);
+    }
+
+    /**
      * Asks the provider and writes the row. Null on any failure.
      *
      * @return list<float>|null
@@ -210,8 +231,19 @@ class Embeddings
             return 1.0;
         }
 
-        $va = $this->vectorFor($a);
-        $vb = $this->vectorFor($b);
+        /*
+            Stored vectors only.
+
+            This went through vectorFor, which asks the provider for any term
+            without a row - so a word nobody had embedded yet cost a call to
+            Google, up to two seconds, inside whichever feed or list was
+            comparing it, and again for every worker in that list. Comparing
+            is a read. A missing vector is no opinion; kaya:embed-skills and
+            the save hooks fill it in.
+        */
+        $stored = $this->vectorsFor([$a, $b]);
+        $va = $stored[$a] ?? null;
+        $vb = $stored[$b] ?? null;
 
         if ($va === null || $vb === null) {
             return null;

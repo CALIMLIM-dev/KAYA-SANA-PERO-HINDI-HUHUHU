@@ -133,11 +133,10 @@ class UserManagementController extends Controller
     {
         $data = $request->validate([
             'reason_code' => ['required', Rule::in(ModerationReasons::suspensionCodes())],
-            'note'        => ['required', 'string', 'min:10', 'max:1000'],
-        ], [
-            'note.required' => 'Write your finding; it is sent to the account as the reason.',
-            'note.min'      => 'Write a little more about what you found.',
+            'note'        => ['nullable', 'string', 'max:1000'],
         ]);
+
+        $data['note'] = ModerationReasons::noteOr($data['note'] ?? null, ModerationReasons::message($data['reason_code']));
 
         // An administrator locking out another administrator is not moderation,
         // and there is no way back in through this panel.
@@ -151,7 +150,7 @@ class UserManagementController extends Controller
 
         AdminAction::record(
             'user.offense', 'user', $user->id,
-            "Gave {$user->name} an offense: " . $offense->actionLabel() . ' (' . $offense->ruleLabel() . ')',
+            "Gave {$user->name} a violation: " . $offense->actionLabel() . ' (' . $offense->ruleLabel() . ')',
             $data,
         );
 

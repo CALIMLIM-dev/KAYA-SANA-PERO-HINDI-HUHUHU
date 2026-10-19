@@ -190,6 +190,6 @@ class SupplyDemandTest extends TestCase
     public function it_is_an_admin_page(): void
     {
         $this->actingAs(User::factory()->create())->get('/admin/supply-demand')->assertRedirect();
-        $this->actingAs($this->admin())->get('/admin')->assertSee('Supply &amp; Demand', false);
+        $this->actingAs($this->admin())->get('/admin')->assertSee('Workers &amp; Jobs', false);
     }
 }

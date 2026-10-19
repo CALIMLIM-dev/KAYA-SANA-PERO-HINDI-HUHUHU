@@ -1,5 +1,5 @@
 @extends('admin.layouts.app')
-@section('page-title', 'Offenses > Offense')
+@section('page-title', 'Violations > Violation')
 
 @section('content')
 @php
@@ -12,7 +12,7 @@
 
 <a href="{{ route('admin.strikes.index') }}" class="inline-flex items-center gap-1.5 text-sm text-slate-500 hover:text-slate-800">
     <i data-lucide="arrow-left" class="w-4 h-4"></i>
-    Offenses
+    Violations
 </a>
 
 <div class="grid grid-cols-1 xl:grid-cols-3 gap-6 mt-4 items-start">
@@ -72,7 +72,7 @@
         </section>
 
         <section class="{{ $section }}">
-            <h3 class="{{ $heading }}">Other Offenses</h3>
+            <h3 class="{{ $heading }}">Other Violations</h3>
             @if ($others->isEmpty())
                 <p class="mt-2 text-sm text-slate-500">None.</p>
             @else
@@ -102,8 +102,8 @@
             <form method="POST" action="{{ route('admin.strikes.appeal', $strike) }}" class="px-6 py-5">
                 @csrf
                 <label for="appealNote" class="block font-medium text-slate-800">Decide the Review Request</label>
-                <textarea id="appealNote" name="note" rows="4" minlength="10" maxlength="1000" required
-                          placeholder="Reason for your decision (sent to them)"
+                <textarea id="appealNote" name="note" rows="3" maxlength="1000"
+                          placeholder="Note (Optional)"
                           class="mt-2 w-full px-3 py-2 border border-slate-300 rounded-lg text-sm
                                  focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500">{{ old('note') }}</textarea>
                 <div class="mt-3 grid grid-cols-2 gap-2">
@@ -125,9 +125,9 @@
             @endif
             @if (! $strike->removed_at)
                 <form method="POST" action="{{ route('admin.strikes.remove', $strike) }}"
-                      onsubmit="return confirm('Remove this offense? It will no longer count against {{ addslashes($name) }}.');">
+                      onsubmit="return confirm('Remove this violation? It will no longer count against {{ addslashes($name) }}.');">
                     @csrf
-                    <button class="w-full px-3 py-2 border border-slate-300 text-slate-700 font-medium rounded-lg hover:bg-slate-50">Remove Offense</button>
+                    <button class="w-full px-3 py-2 border border-slate-300 text-slate-700 font-medium rounded-lg hover:bg-slate-50">Remove Violation</button>
                 </form>
             @endif
             @if ($strike->user && $admin->adminCan('support'))

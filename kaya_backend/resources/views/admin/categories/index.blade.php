@@ -265,7 +265,7 @@
 {{-- Synonyms: they pair names across categories, so they belong to none. --}}
 <section class="mt-6 bg-white rounded-xl border border-slate-200" aria-labelledby="synonyms">
     <div class="px-5 py-4 border-b border-slate-100">
-        <h2 id="synonyms" class="text-sm font-semibold text-slate-700">Skill Synonyms</h2>
+        <h2 id="synonyms" class="text-sm font-semibold text-slate-700">Words That Mean the Same</h2>
         <p class="text-xs text-slate-500 mt-0.5">
             Two names for the same work, such as Screen Replacement and LCD Replacement. Once linked, jobs and workers
             using either name match each other.

@@ -909,8 +909,8 @@ class NotificationService
             userId: $strike->user_id,
             audience: UserNotification::AUDIENCE_BOTH,
             type: 'moderation.strike',
-            title: 'An offense was removed',
-            body: 'KAYA removed the offense for: ' . $strike->ruleLabel() . '. It no longer counts against your account.',
+            title: 'A violation was removed',
+            body: 'KAYA removed the violation for: ' . $strike->ruleLabel() . '. It no longer counts against your account.',
             referenceType: 'strike',
             referenceId: $strike->id,
         );
@@ -937,8 +937,8 @@ class NotificationService
             type: 'moderation.appeal',
             title: $won ? 'Your review request was accepted' : 'Your review request was not accepted',
             body: ($won
-                    ? 'The offense was removed and your account is no longer limited. '
-                    : 'The offense stays on your account. ')
+                    ? 'The violation was removed and your account is no longer limited. '
+                    : 'The violation stays on your account. ')
                 . $strike->appeal_note,
             referenceType: 'strike',
             referenceId: $strike->id,
@@ -1090,6 +1090,17 @@ class NotificationService
         $candidates = \App\Models\WorkerProfile::query()
             ->with(['skills', 'psgcLocation.parent', 'category', 'user:id,is_verified', 'licenses:id,user_id', 'certifications:id,user_id'])
             ->where('user_id', '!=', $job->employer_id)
+            /*
+                Only people who could act on it.
+
+                A worker who switched Work Status off, a suspended account and
+                one limited by an offense cannot apply, so a "New job for you"
+                was an alert to a door that would not open - and it spent one
+                of the three a day the worker is allowed.
+            */
+            ->where('availability_status', '!=', \App\Models\WorkerProfile::NOT_TAKING_WORK)
+            ->whereHas('user', fn ($q) => $q->where('is_suspended', false))
+            ->whereNotIn('user_id', $this->heldBack())
             ->get()
             ->filter(fn ($profile) => $profile->isSetupCompleted());
 
@@ -1117,11 +1128,17 @@ class NotificationService
     */
     public function workerMatched(\App\Models\WorkerProfile $profile): int
     {
-        if (! $profile->isSetupCompleted()) {
+        if (! $profile->isSetupCompleted() || ! $profile->isTakingWork()) {
             return 0;
         }
 
         $profile->loadMissing(['skills', 'psgcLocation.parent', 'category', 'user:id,is_verified', 'licenses:id,user_id', 'certifications:id,user_id']);
+
+        // The same people jobMatched leaves out.
+        $suspended = (bool) \App\Models\User::whereKey($profile->user_id)->value('is_suspended');
+        if ($suspended || in_array((int) $profile->user_id, $this->heldBack(), true)) {
+            return 0;
+        }
 
         $jobs = JobPost::query()
             ->with(['skills', 'psgcLocation.parent', 'category'])
@@ -1153,15 +1170,17 @@ class NotificationService
      */
     private function matchFor(JobPost $job, \App\Models\WorkerProfile $profile): ?array
     {
-        $match = \App\Services\JobMatchService::score($job, $profile);
-
-        if ($match['tier'] !== \App\Services\JobMatchService::TIER_MEETS) {
+        // Unknown distance does not block, the same as applying. Measured
+        // before scoring: it is arithmetic, and the score is the whole skill
+        // matcher, run on every worker on the platform when a job goes up.
+        $km = \App\Services\JobMatchService::distanceKm($job, $profile);
+        if ($km !== null && $km > \App\Services\WorkingDistance::LIMIT_KM) {
             return null;
         }
 
-        // Unknown distance does not block, the same as applying.
-        $km = $match['distance_km'];
-        if ($km !== null && $km > \App\Services\WorkingDistance::LIMIT_KM) {
+        $match = \App\Services\JobMatchService::score($job, $profile);
+
+        if ($match['tier'] !== \App\Services\JobMatchService::TIER_MEETS) {
             return null;
         }
 
@@ -1173,6 +1192,24 @@ class NotificationService
                 \App\Services\JobMatchService::strength($profile),
             ),
         ];
+    }
+
+    /**
+     * Who an offense currently holds back from applying. One query for a
+     * whole list, where User::restrictedUntil is one per person.
+     *
+     * @return list<int>
+     */
+    private function heldBack(): array
+    {
+        return \App\Models\Strike::whereNull('removed_at')
+            ->where('action', 'restriction')
+            ->where('ends_at', '>', now())
+            ->pluck('user_id')
+            ->map(fn ($id) => (int) $id)
+            ->unique()
+            ->values()
+            ->all();
     }
 
     /** Sends one job-match notification, unless it was sent before or today's cap is reached. */

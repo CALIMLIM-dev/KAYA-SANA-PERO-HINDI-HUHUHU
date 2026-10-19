@@ -16,8 +16,8 @@ class ResetTestDataTest extends TestCase
     public function it_wipes_users_and_data_but_keeps_admin(): void
     {
         $admin = User::factory()->create(['user_type' => 'admin']);
-        $worker = User::factory()->create(['user_type' => 'user']);
-        $employer = User::factory()->create(['user_type' => 'user']);
+        $worker = User::factory()->create(['user_type' => 'worker']);
+        $employer = User::factory()->create(['user_type' => 'worker']);
 
         WorkerProfile::create(['user_id' => $worker->id]);
         JobPost::create([
@@ -40,7 +40,7 @@ class ResetTestDataTest extends TestCase
     #[\PHPUnit\Framework\Attributes\Test]
     public function it_refuses_when_there_is_no_admin(): void
     {
-        User::factory()->create(['user_type' => 'user']);
+        User::factory()->create(['user_type' => 'worker']);
 
         $this->artisan('test:reset --force')->assertFailed();
 

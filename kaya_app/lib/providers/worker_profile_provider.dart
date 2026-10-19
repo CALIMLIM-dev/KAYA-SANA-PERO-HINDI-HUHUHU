@@ -56,6 +56,10 @@ class WorkerProfileProvider with ChangeNotifier {
   /// A few lines about the work, in the worker's own words.
   String? bio;
 
+  /// Work Status, the worker's own switch. Off keeps them out of Suggested
+  /// Workers, job alerts and invites; applying turns it back on.
+  bool availableForWork = true;
+
   /// When the current boost runs out, or null when there is none.
   DateTime? boostedUntil;
   bool get isBoosted =>
@@ -148,6 +152,7 @@ class WorkerProfileProvider with ChangeNotifier {
         locationId = (userData['location_id'] as num?)?.toInt();
         profilePhotoPath = userData['avatar'] as String?;
         bio = userData['bio'] as String?;
+        availableForWork = userData['availability_status'] != 'unavailable';
         boostedUntil = DateTime.tryParse('${userData['boosted_until'] ?? ''}');
       }
       
@@ -235,6 +240,26 @@ class WorkerProfileProvider with ChangeNotifier {
       return false;
     }
   }
+  /// Shown at once and put back if the server refuses.
+  Future<bool> setAvailableForWork(bool on) async {
+    final before = availableForWork;
+    availableForWork = on;
+    notifyListeners();
+
+    try {
+      final response = await _apiClient.put('/worker/availability', data: {'available': on});
+      final data = response.data;
+      if (data is Map && data['success'] == true) return true;
+      _errorMessage = data is Map ? data['message'] as String? : null;
+    } catch (e) {
+      _errorMessage = e.toString().replaceFirst('Exception: ', '');
+    }
+
+    availableForWork = before;
+    notifyListeners();
+    return false;
+  }
+
   Future<bool> updateBio(String text) async {
     try {
       final response =

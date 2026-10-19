@@ -1,5 +1,5 @@
 @extends('admin.layouts.app')
-@section('page-title', 'Reports > Review')
+@section('page-title', 'Reported Incidents > Review')
 
 @section('content')
 
@@ -69,7 +69,7 @@
                     </dd>
                     <dd class="mt-1 text-xs text-slate-500 tabular-nums">
                         {{ $history->count() }} other {{ Str::plural('report', $history->count()) }}
-                        · {{ $strikesOnRecord->filter->isActive()->count() }} active {{ Str::plural('offense', $strikesOnRecord->filter->isActive()->count()) }}
+                        · {{ $strikesOnRecord->filter->isActive()->count() }} active {{ Str::plural('violation', $strikesOnRecord->filter->isActive()->count()) }}
                     </dd>
                 </div>
                 <div class="rounded-lg border border-slate-200 px-4 py-3">
@@ -228,7 +228,7 @@
         </section>
 
         <section class="{{ $section }}">
-            <h3 class="{{ $heading }}">Offense History</h3>
+            <h3 class="{{ $heading }}">Violation History</h3>
             @if ($strikesOnRecord->isEmpty())
                 <p class="{{ $none }}">None.</p>
             @else
@@ -264,7 +264,7 @@
                     <p class="mt-3 text-slate-500">Marked as a false report.</p>
                 @endif
                 @if ($report->strike)
-                    <a href="{{ route('admin.strikes.show', $report->strike) }}" class="mt-3 inline-block text-blue-600 hover:text-blue-700">Open Offense</a>
+                    <a href="{{ route('admin.strikes.show', $report->strike) }}" class="mt-3 inline-block text-blue-600 hover:text-blue-700">Open Violation</a>
                 @endif
             </div>
         @else
@@ -276,8 +276,9 @@
                     @endif
 
                     <div>
-                        <label for="finding" class="block text-sm font-medium text-slate-800">Your Finding</label>
-                        <textarea id="finding" name="resolution_note" rows="5" minlength="10" maxlength="1000" required
+                        <label for="finding" class="block text-sm font-medium text-slate-800">Note (Optional)</label>
+                        <textarea id="finding" name="resolution_note" rows="4" maxlength="1000"
+                                  data-ready-made="{{ \App\Support\ModerationReasons::CONFIRMED_NO_VIOLATION }}"
                                   class="mt-2 w-full px-3 py-2 border border-slate-300 rounded-lg text-sm
                                          focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500">{{ old('resolution_note') }}</textarea>
                     </div>
@@ -287,11 +288,11 @@
                         <div class="mt-2 flex gap-5">
                             <label class="flex items-center gap-2 text-sm text-slate-700">
                                 <input type="radio" name="action" value="strike" class="accent-blue-600" {{ old('action', 'strike') === 'strike' ? 'checked' : '' }}>
-                                Give an Offense
+                                Add a Violation
                             </label>
                             <label class="flex items-center gap-2 text-sm text-slate-700">
                                 <input type="radio" name="action" value="none" class="accent-blue-600" {{ old('action') === 'none' ? 'checked' : '' }}>
-                                No Offense
+                                No Violation
                             </label>
                         </div>
 
@@ -305,7 +306,7 @@
                                 @if ($group->isNotEmpty())
                                     <optgroup label="{{ $groupLabel }}">
                                         @foreach ($group as $code => $reason)
-                                            <option value="{{ $code }}" data-critical="{{ $sev === 'critical' ? 1 : 0 }}"
+                                            <option value="{{ $code }}" data-critical="{{ $sev === 'critical' ? 1 : 0 }}" data-message="{{ $reason['description'] }}"
                                                     {{ old('reason_code', $suggested) === $code ? 'selected' : '' }}>{{ $reason['label'] }}</option>
                                         @endforeach
                                     </optgroup>
@@ -315,7 +316,7 @@
 
                         @if ($nextStep)
                             <p id="stepNormal" class="mt-2 text-xs text-slate-600">
-                                This will be offense {{ $nextStep['number'] }}: {{ $stepText($nextStep) }}.
+                                This will be violation {{ $nextStep['number'] }}: {{ $stepText($nextStep) }}.
                             </p>
                             <p id="stepCritical" class="hidden mt-2 text-xs text-slate-600">
                                 This will be {{ $stepText(['action' => 'ban', 'days' => null]) }}.
@@ -354,13 +355,23 @@
     const critical = document.getElementById('stepCritical');
     if (!select || !normal) return;
 
+    // The note box shows the words that will be sent if it is left empty.
+    const note = document.getElementById('finding');
+    const strike = document.querySelector('input[name="action"][value="strike"]');
+
     const show = function () {
         const option = select.options[select.selectedIndex];
         const isCritical = option && option.dataset.critical === '1';
         normal.classList.toggle('hidden', isCritical);
         critical.classList.toggle('hidden', !isCritical);
+        if (note) {
+            note.placeholder = strike && strike.checked && option && option.dataset.message
+                ? option.dataset.message
+                : note.dataset.readyMade;
+        }
     };
     select.addEventListener('change', show);
+    document.querySelectorAll('input[name="action"]').forEach(function (r) { r.addEventListener('change', show); });
     show();
 })();
 </script>

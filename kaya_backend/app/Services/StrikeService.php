@@ -96,7 +96,7 @@ class StrikeService
     public function remove(Strike $strike): ?string
     {
         if ($strike->removed_at !== null) {
-            return 'This offense was already removed.';
+            return 'This violation was already removed.';
         }
 
         DB::transaction(function () use ($strike) {

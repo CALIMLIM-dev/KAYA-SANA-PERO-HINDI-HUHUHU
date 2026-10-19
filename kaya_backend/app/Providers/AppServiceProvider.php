@@ -24,6 +24,9 @@ class AppServiceProvider extends ServiceProvider
         $this->app->singleton(\App\Services\CreditLedger::class);
         // Reads the catalogue once and each title once, per request.
         $this->app->scoped(\App\Services\TitleTrades::class);
+        // One per request, so its memo of stored vectors is shared by every
+        // matcher in a list instead of being thrown away per worker.
+        $this->app->scoped(\App\Services\Embeddings::class);
     }
 
     /**

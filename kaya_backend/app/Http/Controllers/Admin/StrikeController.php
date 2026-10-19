@@ -51,8 +51,12 @@ class StrikeController extends Controller
     {
         $data = $request->validate([
             'decision' => ['required', 'in:upheld,overturned'],
-            'note'     => ['required', 'string', 'min:10', 'max:1000'],
-        ], ['note.required' => 'Write the reason for your decision; it is sent to them.']);
+            'note'     => ['nullable', 'string', 'max:1000'],
+        ]);
+
+        $data['note'] = \App\Support\ModerationReasons::noteOr($data['note'] ?? null, $data['decision'] === 'overturned'
+            ? \App\Support\ModerationReasons::REVIEW_ACCEPTED
+            : \App\Support\ModerationReasons::REVIEW_REFUSED);
 
         if ($error = $this->strikes->decideAppeal($strike, Auth::user(), $data['decision'] === 'overturned', $data['note'])) {
             return back()->withErrors(['note' => $error])->withInput();
@@ -60,13 +64,13 @@ class StrikeController extends Controller
 
         AdminAction::record(
             'strike.appeal.' . $data['decision'], 'user', $strike->user_id,
-            ($data['decision'] === 'overturned' ? 'Accepted' : 'Refused') . " the review request on offense #{$strike->id} ({$strike->user?->name})",
+            ($data['decision'] === 'overturned' ? 'Accepted' : 'Refused') . " the review request on violation #{$strike->id} ({$strike->user?->name})",
             ['strike_id' => $strike->id, 'note' => $data['note']],
         );
 
         return back()->with('success', $data['decision'] === 'overturned'
-            ? 'Accepted. The offense is removed and the account is no longer limited.'
-            : 'Refused. The offense stays.');
+            ? 'Accepted. The violation is removed and the account is no longer limited.'
+            : 'Refused. The violation stays.');
     }
 
     public function remove(Strike $strike)
@@ -76,8 +80,8 @@ class StrikeController extends Controller
         }
 
         AdminAction::record('strike.removed', 'user', $strike->user_id,
-            "Removed offense #{$strike->id} from {$strike->user?->name}", ['strike_id' => $strike->id]);
+            "Removed violation #{$strike->id} from {$strike->user?->name}", ['strike_id' => $strike->id]);
 
-        return back()->with('success', 'Offense removed.');
+        return back()->with('success', 'Violation removed.');
     }
 }

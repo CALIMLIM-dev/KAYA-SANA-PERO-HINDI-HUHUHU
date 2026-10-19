@@ -75,7 +75,7 @@ class ReportClosureTest extends TestCase
         $report->refresh();
 
         $this->assertSame('resolved', $report->status);
-        $this->assertStringStartsWith('Offense: Warning', (string) $report->resolution_note);
+        $this->assertStringStartsWith('Violation: Warning', (string) $report->resolution_note);
 
         $this->assertDatabaseHas('user_notifications', [
             'user_id' => $report->reported_id,
@@ -96,7 +96,7 @@ class ReportClosureTest extends TestCase
             ])
             ->assertRedirect(route('admin.reports.index'));
 
-        $this->assertStringStartsWith('No offense', (string) $report->fresh()->resolution_note);
+        $this->assertStringStartsWith('No violation', (string) $report->fresh()->resolution_note);
 
         // Not told "we took action" when nothing was done.
         $this->assertSame('We checked your report. Thank you for telling us.', \App\Models\UserNotification::where('user_id', $report->reporter_id)
@@ -114,29 +114,64 @@ class ReportClosureTest extends TestCase
     }
 
     #[Test]
-    public function dismissing_needs_no_action_but_does_need_a_finding(): void
+    public function nothing_has_to_be_typed_and_the_ready_made_words_are_kept(): void
     {
-        // A complaint that was not upheld needs no action by definition. It
-        // still needs a written finding: the panel asked for relevant
-        // details when a report is processed, and "dismissed" alone cannot
-        // be checked by anyone later.
-        $report = $this->report();
-
+        // Typing the same sentence on every decision was the admin's whole
+        // day. Left empty, the finding is still written - in ready-made words.
+        $dismissed = $this->report();
         $this->actingAs($this->admin())
-            ->post("/admin/reports/{$report->id}/resolve", ['status' => 'dismissed'])
-            ->assertSessionHasErrors('resolution_note');
+            ->post("/admin/reports/{$dismissed->id}/resolve", ['status' => 'dismissed'])
+            ->assertRedirect(route('admin.reports.index'));
 
+        $this->assertSame('dismissed', $dismissed->fresh()->status);
+        $this->assertSame(\App\Support\ModerationReasons::NO_VIOLATION, $dismissed->fresh()->resolution_note);
+        $this->assertDatabaseHas('user_notifications', [
+            'user_id' => $dismissed->reporter_id,
+            'type'    => 'report.decided',
+        ]);
+
+        $confirmed = $this->report();
         $this->actingAs($this->admin())
-            ->post("/admin/reports/{$report->id}/resolve", [
-                'status' => 'dismissed',
-                'resolution_note' => 'Both sides agree the job was finished as asked.',
+            ->post("/admin/reports/{$confirmed->id}/resolve", [
+                'status' => 'resolved', 'action' => 'strike', 'reason_code' => 'no_show',
             ])
             ->assertRedirect(route('admin.reports.index'));
 
-        $this->assertSame('dismissed', $report->fresh()->status);
-        $this->assertDatabaseHas('user_notifications', [
-            'user_id' => $report->reporter_id,
-            'type'    => 'report.decided',
+        $this->assertSame(\App\Support\ModerationReasons::message('no_show'), $confirmed->strike()->value('finding'));
+    }
+
+    #[Test]
+    public function a_confirmed_problem_report_ends_the_hire_and_counts_only_against_the_side_at_fault(): void
+    {
+        $category = \App\Models\Category::create(['name' => 'Plumbing', 'is_active' => true]);
+        $employer = User::factory()->create(['is_verified' => true]);
+        $worker = User::factory()->create(['is_verified' => true]);
+        $job = \App\Models\JobPost::create(['employer_id' => $employer->id, 'category_id' => $category->id,
+            'title' => 'Fix the sink', 'description' => 'x', 'location' => 'Urdaneta City', 'status' => 'in_progress']);
+        // The worker marked it done; the employer says nobody came.
+        $hire = \App\Models\Application::create(['job_id' => $job->id, 'worker_id' => $worker->id, 'status' => 'accepted']);
+        $hire->forceFill(['worker_completed_at' => now(), 'disputed_at' => now()])->save();
+
+        $report = Report::create([
+            'reporter_id' => $employer->id, 'reported_id' => $worker->id, 'reason' => 'Work was not done',
+            'reason_code' => 'work_not_done', 'reported_type' => 'application', 'subject_id' => $hire->id, 'status' => 'pending',
         ]);
+
+        $this->actingAs($this->admin())
+            ->post("/admin/reports/{$report->id}/resolve", [
+                'status' => 'resolved', 'action' => 'strike', 'reason_code' => 'false_completion',
+            ])
+            ->assertRedirect(route('admin.reports.index'));
+
+        $hire->refresh();
+        $this->assertSame('unsuccessful', $hire->status);
+        $this->assertSame('worker', $hire->fault);
+        $this->assertSame('closed', $job->fresh()->status, 'off the active list');
+        $this->assertFalse(app(\App\Services\HireCancellation::class)->actions($hire->load('job'), 'employer')['disputed'],
+            'no more "A problem was reported" once it is settled');
+
+        $records = app(\App\Services\WorkRecord::class);
+        $this->assertSame(1, $records->forWorker($worker)['jobs_unsuccessful']);
+        $this->assertSame(0, $records->forEmployer($employer)['jobs_unsuccessful'], 'the employer did nothing wrong');
     }
 }

@@ -34,14 +34,18 @@ class Skill extends Model
                 return;
             }
 
-            try {
-                app(\App\Services\Embeddings::class)->vectorFor($term);
-            } catch (\Throwable $e) {
-                // Saving the skill is the job. The vector is an extra.
-                \Illuminate\Support\Facades\Log::info(
-                    '[embeddings] on-save failed for "'.$term.'": '.$e->getMessage(),
-                );
-            }
+            // After the reply, like the link below: the call to Google took
+            // up to two seconds of the save itself.
+            \Illuminate\Support\defer(function () use ($term) {
+                try {
+                    app(\App\Services\Embeddings::class)->ensure($term);
+                } catch (\Throwable $e) {
+                    // Saving the skill is the job. The vector is an extra.
+                    \Illuminate\Support\Facades\Log::info(
+                        '[embeddings] on-save failed for "'.$term.'": '.$e->getMessage(),
+                    );
+                }
+            });
 
             // A skill a worker or employer typed: linked to what it means,
             // after the reply has gone out, so nobody waits on it.

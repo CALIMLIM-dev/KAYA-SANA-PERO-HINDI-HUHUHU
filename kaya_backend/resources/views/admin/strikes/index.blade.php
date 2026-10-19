@@ -1,5 +1,5 @@
 @extends('admin.layouts.app')
-@section('page-title', 'Offenses')
+@section('page-title', 'Violations')
 
 @section('content')
 
@@ -9,7 +9,7 @@
 --}}
 <div class="bg-white rounded-xl border border-slate-200">
     <div class="px-5 py-4 border-b border-slate-200 flex flex-wrap items-center gap-2">
-        @foreach (['appeals' => 'Review Requests', 'all' => 'All Offenses'] as $key => $label)
+        @foreach (['appeals' => 'Review Requests', 'all' => 'All Violations'] as $key => $label)
             <a href="{{ route('admin.strikes.index', ['tab' => $key, 'q' => $search ?: null]) }}"
                @if ($tab === $key) aria-current="page" @endif
                class="px-3 py-1.5 rounded-lg text-sm {{ $tab === $key ? 'bg-blue-50 text-blue-700 font-medium' : 'text-slate-500 hover:bg-slate-50 hover:text-slate-700' }}">
@@ -34,7 +34,7 @@
 
     @if ($strikes->isEmpty())
         <div class="px-5 py-14 text-center">
-            <p class="text-sm font-medium text-slate-700">{{ $tab === 'appeals' ? 'No Review Requests' : 'No Offenses' }}</p>
+            <p class="text-sm font-medium text-slate-700">{{ $tab === 'appeals' ? 'No Review Requests' : 'No Violations' }}</p>
         </div>
     @elseif ($tab === 'appeals')
         <ul class="divide-y divide-slate-200">
@@ -51,8 +51,8 @@
                     <form method="POST" action="{{ route('admin.strikes.appeal', $strike) }}" class="mt-3 flex flex-wrap items-start gap-2">
                         @csrf
                         <label for="note{{ $strike->id }}" class="sr-only">Reason for Your Decision</label>
-                        <input id="note{{ $strike->id }}" name="note" required minlength="10" maxlength="1000"
-                               placeholder="Reason for your decision (sent to them)"
+                        <input id="note{{ $strike->id }}" name="note" maxlength="1000"
+                               placeholder="Note (Optional)"
                                class="flex-1 min-w-[16rem] px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
                         <button type="submit" name="decision" value="overturned"
                                 class="px-3 py-2 bg-slate-800 text-white text-sm font-medium rounded-lg hover:bg-slate-900">Accept</button>
@@ -70,7 +70,7 @@
                     <tr class="text-left text-xs text-slate-500 border-b border-slate-200">
                         <th class="py-3 px-5 font-medium">Account</th>
                         <th class="py-3 px-5 font-medium">Violation</th>
-                        <th class="py-3 px-5 font-medium">Penalty</th>
+                        <th class="py-3 px-5 font-medium">Disciplinary Action</th>
                         <th class="py-3 px-5 font-medium">Given By</th>
                         <th class="py-3 px-5 font-medium">Date</th>
                         <th class="py-3 px-5 font-medium">Status</th>

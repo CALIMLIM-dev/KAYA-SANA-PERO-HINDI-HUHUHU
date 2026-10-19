@@ -335,7 +335,7 @@ class FairModerationTest extends TestCase
 
         $this->actingAs($issuer)->get("/admin/reports/{$report->id}")->assertOk()
             ->assertSee('Past Jobs Together')
-            ->assertSee('Offense History');
+            ->assertSee('Violation History');
 
         $this->actingAs($issuer)->get('/admin/reports')->assertOk()->assertSee('Juan Dela Cruz')
             ->assertDontSee('Made in Bad Faith');
@@ -344,8 +344,8 @@ class FairModerationTest extends TestCase
         $this->actingAs($issuer)->get('/admin/strikes?q=Juan')->assertOk()->assertSee('Juan Dela Cruz');
         $this->actingAs($issuer)->get('/admin/strikes?q=Nobody')->assertOk()->assertDontSee('Juan Dela Cruz');
         $this->actingAs($issuer)->get("/admin/strikes/{$strike->id}")->assertOk()
-            ->assertSee('Remove Offense')->assertSee('Lift Suspension')->assertSee('Message Juan Dela Cruz');
+            ->assertSee('Remove Violation')->assertSee('Lift Suspension')->assertSee('Message Juan Dela Cruz');
         $this->actingAs($issuer)->get("/admin/users/{$this->reported->id}")->assertOk()
-            ->assertSee('Offense History')->assertSee('Permanent ban');
+            ->assertSee('Violation History')->assertSee('Permanent ban');
     }
 }

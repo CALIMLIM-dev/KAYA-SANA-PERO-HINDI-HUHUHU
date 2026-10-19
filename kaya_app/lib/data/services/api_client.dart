@@ -68,7 +68,17 @@ class ApiClient {
   static const FlutterSecureStorage _storage = FlutterSecureStorage();
   static const String _tokenKey = 'auth_token';
 
-  late final Dio _dio;
+  /*
+      One Dio for the whole app, so one pool of connections.
+
+      Every `ApiClient()` built its own Dio, and every Dio its own
+      HttpClient - about forty of them across the providers and screens. A
+      request from any of them that was not already warm paid a fresh TCP
+      and TLS handshake first: about 90 ms to the live server measured on
+      18 Oct 2026, more than the 60 ms most endpoints take to answer. Shared,
+      they ride the connection the five-second notification poll keeps open.
+  */
+  static final Dio _dio = _build();
 
   
   
@@ -96,21 +106,25 @@ class ApiClient {
   @visibleForTesting
   static HttpClientAdapter? testAdapter;
 
-  ApiClient() {
-  _dio = Dio(BaseOptions(
-    baseUrl: _baseUrl,
-    connectTimeout: const Duration(seconds: 30),
-    receiveTimeout: const Duration(seconds: 30),
-    headers: {
-      'Accept': 'application/json',
-      'Content-Type': 'application/json',
-    },
-  ));
+  ApiClient();
 
-    if (testAdapter != null) _dio.httpClientAdapter = testAdapter!;
+  static Dio _build() {
+    final dio = Dio(BaseOptions(
+      baseUrl: _baseUrl,
+      connectTimeout: const Duration(seconds: 30),
+      receiveTimeout: const Duration(seconds: 30),
+      headers: {
+        'Accept': 'application/json',
+        'Content-Type': 'application/json',
+      },
+    ));
+
+    // Asks for testAdapter on every request, because it changes from one
+    // test to the next while this Dio lives for the whole run.
+    dio.httpClientAdapter = _CurrentAdapter();
 
     // Inject auth token on every request
-    _dio.interceptors.add(InterceptorsWrapper(
+    dio.interceptors.add(InterceptorsWrapper(
       onRequest: (options, handler) async {
         final token = sessionOverride ?? await _storage.read(key: _tokenKey);
         if (token != null) {
@@ -188,6 +202,8 @@ class ApiClient {
         return handler.next(error);
       },
     ));
+
+    return dio;
   }
 
   /// Whether [options] went out with the token this phone holds now.
@@ -621,3 +637,19 @@ class ApiException implements Exception {
 
 int? _intFrom(dynamic data, String key) =>
     data is Map ? (data[key] as num?)?.toInt() : null;
+
+/// The real adapter, or the test's when one is set.
+class _CurrentAdapter implements HttpClientAdapter {
+  final HttpClientAdapter _real = HttpClientAdapter();
+
+  @override
+  Future<ResponseBody> fetch(
+    RequestOptions options,
+    Stream<Uint8List>? requestStream,
+    Future<void>? cancelFuture,
+  ) =>
+      (ApiClient.testAdapter ?? _real).fetch(options, requestStream, cancelFuture);
+
+  @override
+  void close({bool force = false}) => _real.close(force: force);
+}

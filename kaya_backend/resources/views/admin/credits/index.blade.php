@@ -83,7 +83,7 @@
 
 <div class="bg-white rounded-xl border border-slate-200">
     <div class="p-5 border-b border-slate-100 flex items-center gap-3">
-        <h3 class="text-sm font-semibold text-slate-700">Ledger</h3>
+        <h3 class="text-sm font-semibold text-slate-700">Transactions</h3>
         @if ($focus)
             <span class="text-xs px-2 py-1 rounded-full bg-blue-50 text-blue-700">
                 {{ $focus->name }}, balance {{ app(\App\Services\CreditLedger::class)->balance($focus) }}
@@ -134,7 +134,7 @@
                     </td>
                 </tr>
             @empty
-                <tr><td colspan="6" class="py-8 text-center text-slate-400">No ledger lines match.</td></tr>
+                <tr><td colspan="6" class="py-8 text-center text-slate-400">No transactions found.</td></tr>
             @endforelse
         </tbody>
     </table>

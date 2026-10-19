@@ -93,7 +93,7 @@ void main() {
     expect(find.text('Misleading job postings'), findsOneWidget);
     expect(find.text('The post said 1500 a day and paid 800.'), findsOneWidget);
     expect(find.text('Paint a gate'), findsOneWidget);
-    expect(find.textContaining('2 strikes counting'), findsOneWidget);
+    expect(find.textContaining('2 violations on your account'), findsOneWidget);
 
     await tester.tap(find.text('Request a Review'));
     await tester.pumpAndSettle();

@@ -140,6 +140,8 @@ Route::prefix('v1')->group(function () {
         Route::post('/worker/profile/from-account',                 [WorkerProfileController::class, 'storeFromAccount'])->middleware('not.company');
         Route::delete('/worker/profile',                           [WorkerProfileController::class, 'deleteProfile']);
         Route::put('/worker/profile',                              [WorkerProfileController::class, 'updateBasicInfo'])->middleware('not.company');
+        // Work Status, the worker's own switch. See WorkerProfile::isTakingWork.
+        Route::put('/worker/availability',                         [WorkerProfileController::class, 'setAvailability']);
         Route::post('/worker/profile/photo',                       [WorkerProfileController::class, 'uploadPhoto'])->middleware('not.company');
         // The worker's own applicant card, as employers see it.
         Route::get('/worker/profile/resume-preview',               [WorkerProfileController::class, 'resumePreview']);

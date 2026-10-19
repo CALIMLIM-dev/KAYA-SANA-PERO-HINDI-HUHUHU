@@ -351,7 +351,7 @@ class JobController extends Controller
             return $this->ok($jobs);
         }
 
-        $scored = $ordered($query)->get()->map($decorate);
+        $live = $ordered($query)->get();
 
         if ($radius !== null) {
             /*
@@ -363,11 +363,20 @@ class JobController extends Controller
                 take applications and still never be seen. Now the feed
                 follows the same rule as applying, and the nearest-first sort
                 below puts these after everything that could be measured.
+
+                Measured before it is scored. The distance is arithmetic and
+                the score is the whole skill matcher, which this used to run
+                on every open job in the country and then throw away all but
+                the ones within reach.
             */
-            $scored = $scored->filter(
-                fn (JobPost $j) => $j->distance_km === null || $j->distance_km <= (float) $radius
-            );
+            $live = $live->filter(function (JobPost $j) use ($profile, $radius) {
+                $km = \App\Services\JobMatchService::distanceKm($j, $profile);
+
+                return $km === null || $km <= (float) $radius;
+            });
         }
+
+        $scored = $live->map($decorate);
 
         /*
             Paid boosts first, then the jobs this worker fits.
@@ -655,9 +664,27 @@ class JobController extends Controller
             ])
             // Never suggest the employer their own worker profile.
             ->where('user_id', '!=', $user->id)
+            /*
+                Only workers an invite can reach.
+
+                Each card ends in Invite, and the server refuses an invite to
+                a suspended account, to a worker who switched Work Status off,
+                and to anyone past WorkingDistance. All three were listed, so
+                the button failed for them every time - a worker 83 km away
+                ranked third on a live test.
+            */
+            ->where('availability_status', '!=', \App\Models\WorkerProfile::NOT_TAKING_WORK)
+            ->whereHas('user', fn ($q) => $q->where('is_suspended', false))
             ->get()
             // Listed workers; matching says what each one has not filled in.
-            ->filter(fn ($p) => $p->isListable());
+            ->filter(fn ($p) => $p->isListable())
+            // Measured before scoring: arithmetic, where a score is the
+            // whole matcher.
+            ->filter(function ($p) use ($job) {
+                $km = \App\Services\JobMatchService::distanceKm($job, $p);
+
+                return $km === null || $km <= \App\Services\WorkingDistance::LIMIT_KM;
+            });
 
         /*
             Who this employer has finished a job with before.

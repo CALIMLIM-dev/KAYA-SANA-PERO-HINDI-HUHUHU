@@ -137,8 +137,8 @@ class _AccountStatusScreenState extends State<AccountStatusScreen> {
         const SizedBox(height: 12),
         Text(
           counting == 0
-              ? 'No offenses.'
-              : '$counting ${counting == 1 ? 'strike' : 'strikes'} counting. Each stops counting ${s['strike_days']} days after it was given.',
+              ? 'No violations.'
+              : '$counting ${counting == 1 ? 'violation' : 'violations'} on your account. Each one stops counting after ${s['strike_days']} days.',
           style: const TextStyle(fontSize: 13, color: AppColors.neutral700),
         ),
         if (paused != null) ...[
@@ -167,7 +167,7 @@ class _AccountStatusScreenState extends State<AccountStatusScreen> {
         ],
         const SizedBox(height: 20),
         if (strikes.isNotEmpty)
-          const Text('Offenses', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: AppColors.neutral700)),
+          const Text('Violation History', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: AppColors.neutral700)),
         for (final strike in strikes) ...[
           const SizedBox(height: 8),
           _StrikeCard(strike: strike, onAppeal: () => _appeal(strike)),

@@ -14,6 +14,9 @@ class WorkerCard extends StatelessWidget {
   final String rating;
   final String reviews;
   final bool isAvailable;
+
+  /// Available, Busy or Not Available. From isAvailable when not given.
+  final String? availabilityLabel;
   final bool isVerified;
 
   /// Three states where the caller knows them; otherwise read from [isVerified].
@@ -42,6 +45,7 @@ class WorkerCard extends StatelessWidget {
     required this.rating,
     required this.reviews,
     required this.isAvailable,
+    this.availabilityLabel,
     this.isVerified = false,
     this.verification,
     this.skills = const [],
@@ -274,7 +278,7 @@ class WorkerCard extends StatelessWidget {
                       ),
                       const SizedBox(width: 6),
                       Text(
-                        isAvailable ? 'Available Now' : 'Currently Busy',
+                        availabilityLabel ?? (isAvailable ? 'Available' : 'Busy'),
                         style: TextStyle(
                           fontSize: 12,
                           fontWeight: FontWeight.w600,

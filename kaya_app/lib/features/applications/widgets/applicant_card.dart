@@ -5,6 +5,7 @@ import '../../../core/constants/app_colors.dart';
 import '../../../core/navigation/app_router.dart';
 import '../../../core/utils/json_parse.dart';
 import '../../../core/widgets/app_toast.dart';
+import '../../../core/widgets/profile_avatar.dart';
 import '../../../core/widgets/verification_badge_widget.dart';
 import '../../../data/models/job_model.dart';
 import '../../../providers/application_provider.dart';
@@ -433,6 +434,14 @@ class ApplicantCard extends StatelessWidget {
         color = AppColors.error;
         label = 'Rejected';
         break;
+      case 'completed':
+        color = AppColors.success;
+        label = 'Completed';
+        break;
+      case 'unsuccessful':
+        color = AppColors.neutral500;
+        label = 'Not Completed';
+        break;
       default:
         color = AppColors.warning;
         label = 'Pending';
@@ -589,7 +598,7 @@ class _FullCard extends StatelessWidget {
                 CircleAvatar(
                   radius: 26,
                   backgroundColor: AppColors.neutral100,
-                  backgroundImage: photoUrl.isNotEmpty ? NetworkImage(photoUrl) : null,
+                  backgroundImage: photoUrl.isNotEmpty ? avatarImage(context, photoUrl, 26) : null,
                   child: photoUrl.isNotEmpty
                       ? null
                       : Text(

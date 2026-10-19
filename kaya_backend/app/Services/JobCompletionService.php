@@ -221,10 +221,11 @@ class JobCompletionService
         An administrator closed the report behind "it didn't happen".
 
         Upheld: the work did not happen as the other side claimed - the hire
-        is unsuccessful. Not upheld: the claim stands - completed, as it
-        would have been had nobody objected.
+        is unsuccessful, and $faultSide ('worker' or 'employer') is the side
+        whose record it counts against. Not upheld: the claim stands -
+        completed, as it would have been had nobody objected.
     */
-    public function settleDispute(Application $application, bool $upheld): void
+    public function settleDispute(Application $application, bool $upheld, ?string $faultSide = null): void
     {
         if ($application->status !== 'accepted' || $application->disputed_at === null) {
             return;
@@ -238,8 +239,8 @@ class JobCompletionService
             return;
         }
 
-        DB::transaction(function () use ($application) {
-            $application->forceFill(['status' => 'unsuccessful'])->save();
+        DB::transaction(function () use ($application, $faultSide) {
+            $application->forceFill(['status' => 'unsuccessful', 'fault' => $faultSide])->save();
             $this->closeIfNothingLive($application->job);
         });
     }

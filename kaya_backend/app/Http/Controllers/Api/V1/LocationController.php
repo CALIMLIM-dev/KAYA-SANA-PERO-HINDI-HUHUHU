@@ -138,13 +138,16 @@ class LocationController extends Controller
                 continue;
             }
 
+            // A tie goes to the barangay: a town and its own barangay can
+            // share a centre, and MySQL and SQLite return them in different
+            // orders, so the answer depended on the database.
             $nearest = $candidates
-                ->sortBy(fn (Location $l) => Location::distanceKm(
+                ->sortBy(fn (Location $l) => [Location::distanceKm(
                     $lat,
                     $lng,
                     (float) $l->latitude,
                     (float) $l->longitude
-                ))
+                ), $l->type === 'barangay' ? 0 : 1])
                 ->first();
 
             return $this->ok([

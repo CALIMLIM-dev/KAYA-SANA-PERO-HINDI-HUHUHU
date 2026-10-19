@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/utils/format.dart';
+import '../../../core/widgets/profile_avatar.dart';
 import '../../../core/widgets/verification_badge_widget.dart';
 import '../../../data/models/worker_profile_model.dart';
 
@@ -49,7 +50,7 @@ class CompactWorkerCard extends StatelessWidget {
                     radius: 18, // Reduced from 20
                     backgroundColor: AppColors.primary.withValues(alpha: 0.1),
                     backgroundImage: worker.profileImageUrl != null 
-                        ? NetworkImage(worker.profileImageUrl!) 
+                        ? avatarImage(context, worker.profileImageUrl!, 18)
                         : null,
                     child: worker.profileImageUrl == null
                         ? Text(
@@ -114,7 +115,7 @@ class CompactWorkerCard extends StatelessWidget {
                       ),
                       const SizedBox(height: 2),
                       Text(
-                        worker.isAvailable ? 'Available' : 'Busy',
+                        worker.availabilityLabel,
                         style: Theme.of(context).textTheme.bodySmall?.copyWith(
                           color: Color(worker.availabilityColorValue),
                           fontSize: 8,
@@ -211,19 +212,19 @@ class CompactWorkerCard extends StatelessWidget {
                   
                   // Invite Button - smaller
                   OutlinedButton(
-                    onPressed: worker.isAvailable ? onInvite : null,
+                    onPressed: worker.canInvite ? onInvite : null,
                     style: OutlinedButton.styleFrom(
                       side: BorderSide(
-                        color: worker.isAvailable ? AppColors.primary : AppColors.neutral400,
+                        color: worker.canInvite ? AppColors.primary : AppColors.neutral400,
                       ),
                       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                       minimumSize: Size.zero,
                       tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                     ),
                     child: Text(
-                      worker.isAvailable ? 'Invite' : 'Busy',
+                      'Invite',
                       style: TextStyle(
-                        color: worker.isAvailable ? AppColors.primary : AppColors.neutral400,
+                        color: worker.canInvite ? AppColors.primary : AppColors.neutral400,
                         fontSize: 11,
                         fontWeight: FontWeight.w600,
                       ),

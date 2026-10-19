@@ -3,9 +3,11 @@
 namespace App\Services;
 
 use App\Models\Category;
+use App\Models\JobPost;
 use App\Models\Skill;
 use App\Models\SkillLink;
 use App\Models\SkillLinkLog;
+use App\Models\WorkerProfile;
 use App\Models\WorkerSkill;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
@@ -126,7 +128,54 @@ class SkillLinker
         SkillLink::record($term, $ids);
         $this->log($term, $outcome, $ids);
 
+        if ($ids !== []) {
+            $this->rematch($term);
+        }
+
         return true;
+    }
+
+    /*
+        The job alerts the word missed.
+
+        A job is matched to workers the moment it is posted, and a worker's
+        new skill the moment it is added - both before the word was read,
+        which happens after the reply or at night. So "Tubero" linked to the
+        open "Ayos ng tagas" job told nobody. Whoever the link now puts in
+        the top tier is told here, through the same two calls, so the three
+        a day and the once per job still hold.
+    */
+    private function rematch(string $term): void
+    {
+        try {
+            $notes = app(NotificationService::class);
+
+            // ponytail: scans every typed skill in PHP, because the match
+            // is on the normalised name; an indexed normalised column if
+            // this ever gets slow.
+            $workers = WorkerSkill::whereNull('skill_id')->get(['user_id', 'skill_name'])
+                ->filter(fn (WorkerSkill $row) => SkillMatcher::normalise((string) $row->skill_name) === $term)
+                ->pluck('user_id')
+                ->unique();
+
+            foreach (WorkerProfile::whereIn('user_id', $workers)->get() as $profile) {
+                $notes->workerMatched($profile);
+            }
+
+            $skillIds = Skill::get(['id', 'name'])
+                ->filter(fn (Skill $s) => SkillMatcher::normalise((string) $s->name) === $term)
+                ->pluck('id');
+
+            if ($skillIds->isNotEmpty()) {
+                JobPost::where('status', JobPost::STATUS_OPEN)
+                    ->whereHas('skills', fn ($q) => $q->whereIn('skills.id', $skillIds))
+                    ->get()
+                    ->each(fn (JobPost $job) => $notes->jobMatched($job));
+            }
+        } catch (\Throwable $e) {
+            // An alert is a courtesy; the link itself is saved.
+            Log::warning('[skill links] rematch failed for "' . $term . '": ' . $e->getMessage());
+        }
     }
 
     /** One line in the System log on the Categories & Skills page. Never breaks a save. */

@@ -548,4 +548,8 @@ enum ApplicationStatus {
   // fell back to pending and read as "Application Pending" on a job that
   // was over.
   cancelled,
+  // A hire that ended without the work: an administrator confirmed a
+  // problem report on it, or neither side confirmed it. Missing, it read
+  // as pending and stayed in the active list with "A problem was reported".
+  unsuccessful,
 }

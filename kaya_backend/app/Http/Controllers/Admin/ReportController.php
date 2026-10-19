@@ -124,10 +124,10 @@ class ReportController extends Controller
         StrikeService. A dismissal can be marked as a false report, which
         counts against the reporter.
 
-        The finding is required every time: the panel asked for relevant
-        details when processing a report, not only when filing one, and a
-        report closed with no written finding cannot be checked by anyone
-        later - not the next admin, not the two people it was about.
+        The finding is written every time - the panel asked for relevant
+        details when a report is processed - but not typed every time: left
+        empty, it is the violation's own words, or a plain line for no
+        violation. See ModerationReasons::noteOr.
     */
     public function resolve(Request $request, Report $report)
     {
@@ -136,12 +136,10 @@ class ReportController extends Controller
             'action'          => ['required_if:status,resolved', 'nullable', Rule::in(['strike', 'none'])],
             'reason_code'     => ['required_if:action,strike', 'nullable', Rule::in(ModerationReasons::suspensionCodes())],
             'baseless'        => ['nullable', 'boolean'],
-            'resolution_note' => ['required', 'string', 'min:10', 'max:1000'],
+            'resolution_note' => ['nullable', 'string', 'max:1000'],
         ], [
             'action.required_if'       => 'Say what happens to the account before closing the report.',
             'reason_code.required_if'  => 'Choose the violation.',
-            'resolution_note.required' => 'Write your finding before closing the report.',
-            'resolution_note.min'      => 'Write a little more about what you found.',
         ]);
 
         // A second submit would notify both people a second time.
@@ -151,6 +149,11 @@ class ReportController extends Controller
 
         $upheld = $data['status'] === 'resolved';
 
+        $data['resolution_note'] = ModerationReasons::noteOr($data['resolution_note'] ?? null, match (true) {
+            $upheld && ($data['action'] ?? null) === 'strike' => ModerationReasons::message($data['reason_code'] ?? null),
+            $upheld => ModerationReasons::CONFIRMED_NO_VIOLATION,
+            default => ModerationReasons::NO_VIOLATION,
+        });
 
         $strike = null;
 
@@ -159,15 +162,15 @@ class ReportController extends Controller
                 return back()->withErrors(['reason_code' => 'The reported account no longer exists.']);
             }
             if ($report->reported->isAdmin()) {
-                return back()->withErrors(['reason_code' => 'Administrator accounts cannot be given offenses.']);
+                return back()->withErrors(['reason_code' => 'Administrator accounts cannot be given violations.']);
             }
 
             $strike = $this->strikes->issue($report->reported, $data['reason_code'], $data['resolution_note'], Auth::user(), $report);
         }
 
         $note = match (true) {
-            $strike !== null => 'Offense: ' . $strike->actionLabel() . ' (' . $strike->ruleLabel() . ') - ' . $data['resolution_note'],
-            $upheld          => 'No offense - ' . $data['resolution_note'],
+            $strike !== null => 'Violation: ' . $strike->actionLabel() . ' (' . $strike->ruleLabel() . ') - ' . $data['resolution_note'],
+            $upheld          => 'No violation - ' . $data['resolution_note'],
             default          => $data['resolution_note'],
         };
         $baseless = ! $upheld && (bool) ($data['baseless'] ?? false);
@@ -185,7 +188,10 @@ class ReportController extends Controller
         // A report saying a hire "didn't happen" settles that hire too.
         if ($report->reported_type === 'application' && $report->subject_id) {
             if ($hire = \App\Models\Application::with('job')->find($report->subject_id)) {
-                app(\App\Services\JobCompletionService::class)->settleDispute($hire, $upheld);
+                $completion = app(\App\Services\JobCompletionService::class);
+                // The reported side claimed work that did not happen: theirs.
+                $fault = $report->reported ? $completion->sideFor($hire, $report->reported) : null;
+                $completion->settleDispute($hire, $upheld, $fault);
             }
         }
 
@@ -206,7 +212,7 @@ class ReportController extends Controller
             ->with('success', match (true) {
                 ! $upheld        => 'Report dismissed.',
                 $strike !== null => 'Report confirmed. ' . $report->reported->name . ': ' . $strike->actionLabel() . '.',
-                default          => 'Report confirmed. No offense given.',
+                default          => 'Report confirmed. No violation added.',
             });
     }
 
