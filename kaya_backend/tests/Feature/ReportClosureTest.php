@@ -174,4 +174,37 @@ class ReportClosureTest extends TestCase
         $this->assertSame(1, $records->forWorker($worker)['jobs_unsuccessful']);
         $this->assertSame(0, $records->forEmployer($employer)['jobs_unsuccessful'], 'the employer did nothing wrong');
     }
+
+    #[Test]
+    public function the_notes_are_written_already_and_dismiss_has_its_own(): void
+    {
+        // Asked for, many times: the ready-made words in the boxes, not behind them.
+        $report = $this->report();
+        $page = $this->actingAs($this->admin())->get("/admin/reports/{$report->id}")->assertOk();
+        $page->assertSee(\App\Support\ModerationReasons::NO_VIOLATION);
+
+        // The form sends both boxes and the action left on Add a Violation;
+        // Dismiss takes its own note and needs no violation.
+        $this->actingAs($this->admin())
+            ->post("/admin/reports/{$report->id}/resolve", [
+                'status' => 'dismissed', 'action' => 'strike',
+                'resolution_note' => 'Words for a confirmed report.', 'dismiss_note' => 'Checked the chat. Nothing wrong.',
+            ])
+            ->assertSessionHasNoErrors()
+            ->assertRedirect(route('admin.reports.index'));
+
+        $this->assertSame('Checked the chat. Nothing wrong.', $report->fresh()->resolution_note);
+    }
+
+    #[Test]
+    public function a_reason_box_starts_on_the_first_reason(): void
+    {
+        $owner = User::factory()->create();
+        $job = \App\Models\JobPost::create(['employer_id' => $owner->id, 'title' => 'Fix the sink', 'description' => 'x',
+            'location' => 'Urdaneta City', 'status' => 'open']);
+
+        $this->actingAs($this->admin())->get("/admin/jobs/{$job->id}")->assertOk()
+            ->assertSee('value="Not a real job"', false)
+            ->assertDontSee('Choose a reason...');
+    }
 }

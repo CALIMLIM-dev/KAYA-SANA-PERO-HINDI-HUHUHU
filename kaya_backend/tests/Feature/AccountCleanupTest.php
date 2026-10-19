@@ -47,19 +47,14 @@ class AccountCleanupTest extends TestCase
     }
 
     #[Test]
-    public function an_admin_deletes_a_junk_account_for_good(): void
+    public function the_panel_has_no_delete_account(): void
     {
-        $junk = User::factory()->create(['first_name' => 'didhdh', 'last_name' => 'djshdhd']);
-        WorkerProfile::create(['user_id' => $junk->id]);
-        $job = JobPost::create(['employer_id' => $junk->id, 'category_id' => Category::create(['name' => 'Plumbing'])->id,
-            'title' => 'dddddd', 'description' => 'x', 'location' => 'Urdaneta City', 'status' => 'open']);
+        // Asked for: an account is deleted by its owner, never from the panel.
+        $user = User::factory()->create();
 
-        $this->actingAs($this->admin())->post("/admin/users/{$junk->id}/delete")
-            ->assertRedirect(route('admin.users.index'));
-
-        $this->assertNull(User::find($junk->id), 'gone, not just renamed');
-        $this->assertNull(JobPost::find($job->id), 'their posts go with them');
-        $this->assertDatabaseHas('admin_actions', ['action' => 'user.delete', 'subject_id' => $junk->id]);
+        $this->actingAs($this->admin())->get("/admin/users/{$user->id}")->assertOk()->assertDontSee('Delete Account');
+        $this->actingAs($this->admin())->post("/admin/users/{$user->id}/delete")->assertNotFound();
+        $this->assertNotNull(User::find($user->id));
     }
 
     #[Test]
@@ -77,17 +72,14 @@ class AccountCleanupTest extends TestCase
     }
 
     #[Test]
-    public function only_the_owner_and_sub_admins_may_delete_and_admins_cannot_be(): void
+    public function only_the_owner_and_sub_admins_may_delete_a_post(): void
     {
-        $target = User::factory()->create();
+        $job = JobPost::create(['employer_id' => User::factory()->create()->id, 'category_id' => Category::create(['name' => 'Plumbing'])->id,
+            'title' => 'hehehe', 'description' => 'x', 'location' => 'Urdaneta City', 'status' => 'open']);
 
         // A missing key sends the admin away, as on every page.
-        $this->actingAs($this->admin('moderator'))->post("/admin/users/{$target->id}/delete")->assertRedirect();
-        $this->assertNotNull(User::find($target->id));
-
-        $other = $this->admin();
-        $this->actingAs($this->admin('sub_admin'))->post("/admin/users/{$other->id}/delete")->assertSessionHasErrors('delete');
-        $this->assertNotNull(User::find($other->id));
+        $this->actingAs($this->admin('moderator'))->post("/admin/jobs/{$job->id}/delete")->assertRedirect();
+        $this->assertNotNull(JobPost::find($job->id));
     }
 
     #[Test]

@@ -389,6 +389,43 @@ class User extends Authenticatable
         return null;
     }
 
+    /*
+        One picture for one person, whichever side it was changed on.
+
+        The worker upload wrote the worker profile and the employer upload
+        the employer profile, and each profile shows its own - so a hybrid
+        account changed its photo on one side and still saw the old face on
+        the other. Both uploads come here now and set all three places. A
+        company's logo is not a person's face: it stays on its own.
+
+        Old files no longer used anywhere are deleted. A Google photo is a
+        URL, not a file, and is left alone.
+    */
+    public function usePhoto(string $path, bool $fromEmployerSide = false): void
+    {
+        $worker = $this->workerProfile;
+        $employer = $this->employerProfile;
+        $company = $employer?->employer_type === \App\Enums\EmployerType::COMPANY;
+
+        $old = [$this->avatar, $worker?->profile_photo_path, $employer?->image_path, $employer?->logo_path];
+
+        $this->forceFill(['avatar' => $path])->save();
+        if ($worker && (! $fromEmployerSide || ! $company)) {
+            $worker->forceFill(['profile_photo_path' => $path])->save();
+        }
+        if ($employer && ($fromEmployerSide || ! $company)) {
+            $employer->forceFill(['image_path' => $path, 'logo_path' => $path])->save();
+        }
+
+        $kept = [$path, $worker?->profile_photo_path, $employer?->image_path, $employer?->logo_path];
+        $disk = \Illuminate\Support\Facades\Storage::disk(config('filesystems.media'));
+        foreach (array_unique(array_filter($old)) as $file) {
+            if (! str_starts_with($file, 'http') && ! in_array($file, $kept, true)) {
+                $disk->delete($file);
+            }
+        }
+    }
+
     /** A stored path becomes a URL; a Google URL passes through untouched. */
     public static function mediaUrl(?string $pathOrUrl): ?string
     {

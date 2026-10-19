@@ -9,6 +9,7 @@ import '../../../providers/employer_profile_provider.dart';
 import '../../../core/navigation/app_router.dart';
 import '../../../core/widgets/photo_viewer.dart';
 import '../../../core/widgets/verification_badge_widget.dart';
+import '../../../core/utils/json_parse.dart';
 
 /// Public Employer Profile View — shown to workers when they tap "Posted by"
 /// on a job listing. Reads {'employerId': int} from route arguments and
@@ -102,7 +103,7 @@ class _EmployerProfileScreenState extends State<EmployerProfileScreen> {
     final location = (e['location'] as String?) ?? '';
     final description = (e['description'] as String?) ?? '';
     final website = (e['website'] as String?) ?? '';
-    final ratingAvg = (e['rating_avg'] as num?)?.toDouble();
+    final ratingAvg = asDoubleOrNull(e['rating_avg']);
     final reviewCount = (e['rating_count'] as num?)?.toInt() ?? 0;
     // Logo if the employer set one, otherwise their account picture. Both
     // have always been sent; neither was ever drawn.

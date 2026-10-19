@@ -10,6 +10,7 @@ import '../../../data/services/api_client.dart';
 import '../../../core/navigation/app_router.dart';
 import '../../applications/widgets/completion_action.dart';
 import '../../applications/widgets/hire_controls.dart';
+import '../../../core/utils/json_parse.dart';
 
 /*
     Everyone hired on one job, on one screen.
@@ -356,7 +357,7 @@ class _RosterScreenState extends State<RosterScreen> with RealtimeRefresh {
     final done = hire['status'] == 'completed';
     final mine = completion['you_confirmed'] == true;
     final theirs = completion['they_confirmed'] == true;
-    final rating = (hire['rating_avg'] as num?)?.toDouble();
+    final rating = asDoubleOrNull(hire['rating_avg']);
     final ratingCount = (hire['rating_count'] as num?)?.toInt() ?? 0;
 
     /*

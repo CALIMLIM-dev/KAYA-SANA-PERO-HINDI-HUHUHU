@@ -7,6 +7,7 @@ import '../../../core/widgets/profile_avatar.dart';
 import '../../../core/widgets/verification_badge_widget.dart';
 import '../../applications/widgets/fit_facts.dart';
 import '../../jobs/widgets/fit_line.dart';
+import '../../../core/utils/json_parse.dart';
 
 /*
     One worker, judged against one job.
@@ -140,10 +141,10 @@ class MatchedWorkerCard extends StatelessWidget {
                         if ((row['category'] as String?)?.isNotEmpty == true)
                           row['category'] as String,
                         if (distanceText(row['distance_label'] as String?,
-                                (row['distance_km'] as num?)?.toDouble()) !=
+                                asDoubleOrNull(row['distance_km'])) !=
                             null)
                           distanceText(row['distance_label'] as String?,
-                              (row['distance_km'] as num?)?.toDouble())!,
+                              asDoubleOrNull(row['distance_km']))!,
                       ].join('  ·  '),
                       style: const TextStyle(
                           fontSize: 12.5, color: AppColors.neutral600),

@@ -134,12 +134,16 @@ class ReportController extends Controller
         $data = $request->validate([
             'status'          => ['required', Rule::in(['resolved', 'dismissed'])],
             'action'          => ['required_if:status,resolved', 'nullable', Rule::in(['strike', 'none'])],
-            'reason_code'     => ['required_if:action,strike', 'nullable', Rule::in(ModerationReasons::suspensionCodes())],
+            // Only for a confirmed report: Dismiss sits in the same form, under
+            // a choice that starts on Add a Violation.
+            'reason_code'     => [Rule::requiredIf(fn () => $request->input('status') === 'resolved' && $request->input('action') === 'strike'),
+                'nullable', Rule::in(ModerationReasons::suspensionCodes())],
             'baseless'        => ['nullable', 'boolean'],
             'resolution_note' => ['nullable', 'string', 'max:1000'],
+            'dismiss_note'    => ['nullable', 'string', 'max:1000'],
         ], [
             'action.required_if'       => 'Say what happens to the account before closing the report.',
-            'reason_code.required_if'  => 'Choose the violation.',
+            'reason_code.required'     => 'Choose the violation.',
         ]);
 
         // A second submit would notify both people a second time.
@@ -149,7 +153,12 @@ class ReportController extends Controller
 
         $upheld = $data['status'] === 'resolved';
 
-        $data['resolution_note'] = ModerationReasons::noteOr($data['resolution_note'] ?? null, match (true) {
+        // Dismiss has its own box, written for a dismissal.
+        $typed = $upheld || ! array_key_exists('dismiss_note', $data)
+            ? ($data['resolution_note'] ?? null)
+            : $data['dismiss_note'];
+
+        $data['resolution_note'] = ModerationReasons::noteOr($typed, match (true) {
             $upheld && ($data['action'] ?? null) === 'strike' => ModerationReasons::message($data['reason_code'] ?? null),
             $upheld => ModerationReasons::CONFIRMED_NO_VIOLATION,
             default => ModerationReasons::NO_VIOLATION,

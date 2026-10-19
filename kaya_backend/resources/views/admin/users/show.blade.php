@@ -14,13 +14,6 @@
                 <p class="text-sm text-slate-400">{{ $user->email }} · {{ $user->roleLabel() }}</p>
             </div>
             <div class="ml-auto flex items-center gap-3">
-                @if (! $user->isAdmin() && auth()->user()->adminCan('destroy'))
-                    <form method="POST" action="{{ route('admin.users.destroy', $user) }}"
-                          onsubmit="return confirm('Delete {{ addslashes($user->name) }} for good? Their jobs, applications, messages, reviews and reports go too. This cannot be undone.');">
-                        @csrf
-                        <button class="px-4 py-2 border border-slate-300 text-slate-700 text-sm rounded-lg hover:bg-slate-50">Delete Account</button>
-                    </form>
-                @endif
                 @if ($user->deleted_at)
                     <span class="text-xs px-3 py-1.5 rounded-full bg-slate-200 text-slate-600">Deleted by the owner on {{ $user->deleted_at->format('M j, Y') }}</span>
                 @elseif ($user->is_suspended)
@@ -465,15 +458,20 @@ function closeSuspendModal() {
     document.getElementById('suspendModal').classList.add('hidden');
     document.getElementById('reasonSelect').selectedIndex = 0;
     document.getElementById('suspendNote').value = '';
+    suspendWritten = '';
 }
 
 // A critical violation goes straight to a ban; say so instead of the count.
+let suspendWritten = '';
 document.getElementById('reasonSelect')?.addEventListener('change', function () {
     const critical = this.options[this.selectedIndex]?.dataset.critical === '1';
     document.getElementById('stepNormal').classList.toggle('hidden', critical);
     document.getElementById('stepCritical').classList.toggle('hidden', !critical);
-    // The words sent if the note is left empty.
-    document.getElementById('suspendNote').placeholder = this.options[this.selectedIndex]?.dataset.message || '';
+    // The note is written for the violation chosen; words the admin changed stay.
+    const note = document.getElementById('suspendNote');
+    const next = this.options[this.selectedIndex]?.dataset.message || '';
+    if (note.value === suspendWritten || note.value.trim() === '') note.value = next;
+    suspendWritten = next;
 });
 
 document.getElementById('suspendModal')?.addEventListener('click', function (e) {

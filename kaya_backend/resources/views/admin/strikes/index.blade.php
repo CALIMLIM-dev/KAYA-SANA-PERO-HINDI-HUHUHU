@@ -50,14 +50,21 @@
                     <p class="mt-2 text-sm text-slate-800 whitespace-pre-line max-w-prose">{{ $strike->appeal }}</p>
                     <form method="POST" action="{{ route('admin.strikes.appeal', $strike) }}" class="mt-3 flex flex-wrap items-start gap-2">
                         @csrf
-                        <label for="note{{ $strike->id }}" class="sr-only">Reason for Your Decision</label>
-                        <input id="note{{ $strike->id }}" name="note" maxlength="1000"
-                               placeholder="Note (Optional)"
+                        <label class="flex items-center gap-1.5 py-2 text-sm text-slate-700">
+                            <input type="radio" name="decision" value="overturned" required class="accent-blue-600"
+                                   data-note="{{ \App\Support\ModerationReasons::REVIEW_ACCEPTED }}">
+                            Accept
+                        </label>
+                        <label class="flex items-center gap-1.5 py-2 text-sm text-slate-700">
+                            <input type="radio" name="decision" value="upheld" required class="accent-blue-600"
+                                   data-note="{{ \App\Support\ModerationReasons::REVIEW_REFUSED }}">
+                            Refuse
+                        </label>
+                        <label for="note{{ $strike->id }}" class="sr-only">Note (Optional)</label>
+                        <input id="note{{ $strike->id }}" name="note" maxlength="1000" data-note-box
                                class="flex-1 min-w-[16rem] px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
-                        <button type="submit" name="decision" value="overturned"
-                                class="px-3 py-2 bg-slate-800 text-white text-sm font-medium rounded-lg hover:bg-slate-900">Accept</button>
-                        <button type="submit" name="decision" value="upheld"
-                                class="px-3 py-2 border border-slate-300 text-slate-700 text-sm font-medium rounded-lg hover:bg-slate-50">Refuse</button>
+                        <button type="submit"
+                                class="px-3 py-2 bg-slate-800 text-white text-sm font-medium rounded-lg hover:bg-slate-900">Save</button>
                         <a href="{{ route('admin.strikes.show', $strike) }}" class="px-3 py-2 text-sm text-blue-600 hover:text-blue-700">Open</a>
                     </form>
                 </li>

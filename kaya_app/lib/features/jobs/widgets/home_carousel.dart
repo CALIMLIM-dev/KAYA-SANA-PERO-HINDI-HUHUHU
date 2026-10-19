@@ -11,6 +11,7 @@ import '../../../core/widgets/motion.dart';
 import '../../../core/widgets/profile_avatar.dart';
 import '../../../data/services/api_client.dart';
 import '../../../providers/app_mode_provider.dart';
+import '../../../core/utils/json_parse.dart';
 
 /*
     The photo carousel under Active on home.
@@ -510,7 +511,7 @@ class _SlideView extends StatelessWidget {
       );
 
   Widget _workerAd(Map<String, dynamic> d) {
-    final rating = (d['rating_avg'] as num?)?.toDouble();
+    final rating = asDoubleOrNull(d['rating_avg']);
     final facts = [
       if ((d['category'] ?? '').toString().isNotEmpty) d['category'],
       if ((d['location'] ?? '').toString().isNotEmpty) d['location'],
@@ -570,8 +571,8 @@ class _SlideView extends StatelessWidget {
   }
 
   Widget _jobAd(Map<String, dynamic> d) {
-    final min = (d['budget_min'] as num?)?.toDouble();
-    final max = (d['budget_max'] as num?)?.toDouble();
+    final min = asDoubleOrNull(d['budget_min']);
+    final max = asDoubleOrNull(d['budget_max']);
     final unit = {'daily': '/day', 'hourly': '/hr', 'project': ' per contract'}[d['budget_period']] ?? '';
     final pay = min == null && max == null
         ? null

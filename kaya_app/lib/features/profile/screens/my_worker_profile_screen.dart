@@ -4,6 +4,7 @@ import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/credits.dart';
 import '../../../core/constants/job_boost.dart';
 import '../../../providers/auth_provider.dart';
+import '../../../providers/employer_profile_provider.dart';
 import '../../../providers/credits_provider.dart';
 import 'resume_preview_screen.dart';
 import '../widgets/credentials_section.dart';
@@ -27,6 +28,7 @@ import '../../../core/widgets/verify_gate.dart';
 import '../../../core/widgets/verification_badge_widget.dart';
 import '../widgets/profile_views_popup.dart';
 import '../../../core/navigation/app_router.dart';
+import '../../../core/utils/json_parse.dart';
 
 /// My Worker Profile - JobStreet-inspired card layout
 /// Shows filled data in cards, NOT empty clickable placeholders
@@ -234,6 +236,11 @@ class _MyWorkerProfileScreenState extends State<MyWorkerProfileScreen> with Sing
         the report.
     */
     if (mounted) await context.read<AuthProvider>().fetchMe();
+
+    // One photo for both sides: the hiring profile shows it too.
+    if (mounted && context.read<AuthProvider>().employerProfileExists) {
+      await context.read<EmployerProfileProvider>().fetchProfile();
+    }
   }
 
   /// The photo at the size other people see it, pinch to zoom.
@@ -926,8 +933,8 @@ class _MyWorkerProfileScreenState extends State<MyWorkerProfileScreen> with Sing
 
     if (result is! Map || !mounted) return;
 
-    final lat = (result['latitude'] as num?)?.toDouble();
-    final lng = (result['longitude'] as num?)?.toDouble();
+    final lat = asDoubleOrNull(result['latitude']);
+    final lng = asDoubleOrNull(result['longitude']);
     final resolved = result['resolved'] as LocationModel?;
     if (lat == null || lng == null) return;
 

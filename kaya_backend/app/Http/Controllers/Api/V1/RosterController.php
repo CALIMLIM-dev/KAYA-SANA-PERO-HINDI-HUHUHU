@@ -78,7 +78,9 @@ class RosterController extends Controller
                     'avatar'          => $hire->worker?->resolvedAvatarUrl(),
                     'is_verified'     => (bool) $hire->worker?->is_verified,
                     'verification_state' => $hire->worker?->verification_state ?? 'unverified',
-                    'rating_avg'      => $hire->worker?->workerProfile?->rating_avg,
+                    // A number: decimal:2 sends the string "4.50", which the app's
+                    // Hired Workers screen could not read, and it would not open.
+                    'rating_avg'      => (float) ($hire->worker?->workerProfile?->rating_avg ?? 0),
                     'rating_count'    => (int) ($hire->worker?->workerProfile?->rating_count ?? 0),
                     'status'          => $hire->status,
                     'completion'      => $completion->state($hire, JobCompletionService::SIDE_EMPLOYER),

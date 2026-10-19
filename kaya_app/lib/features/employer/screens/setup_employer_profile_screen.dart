@@ -16,6 +16,7 @@ import '../../../providers/employer_profile_provider.dart';
 import '../../../providers/verification_provider.dart';
 import '../../profile/screens/onboarding_verification_screen.dart';
 import '../../../core/widgets/app_toast.dart';
+import '../../../core/utils/json_parse.dart';
 
 /// Employer onboarding flow.
 ///
@@ -169,8 +170,8 @@ class _SetupEmployerProfileScreenState extends State<SetupEmployerProfileScreen>
         name: label,
         displayName: label,
         type: 'city',
-        latitude: (known['latitude'] as num?)?.toDouble(),
-        longitude: (known['longitude'] as num?)?.toDouble(),
+        latitude: asDoubleOrNull(known['latitude']),
+        longitude: asDoubleOrNull(known['longitude']),
       );
     }
   }
@@ -254,8 +255,8 @@ class _SetupEmployerProfileScreenState extends State<SetupEmployerProfileScreen>
           name: label,
           displayName: label,
           type: 'city',
-          latitude: (known['latitude'] as num?)?.toDouble(),
-          longitude: (known['longitude'] as num?)?.toDouble(),
+          latitude: asDoubleOrNull(known['latitude']),
+          longitude: asDoubleOrNull(known['longitude']),
         );
       }
 

@@ -84,5 +84,48 @@ class OnePictureTest extends TestCase
         $user->refresh();
         $this->assertStringStartsWith('employer_images/', $user->avatar);
         $this->assertSame($user->avatar, $user->employerProfile->image_path);
+        $this->assertSame($user->avatar, $user->workerProfile->profile_photo_path, 'the worker side changes too');
+    }
+
+    #[Test]
+    public function a_photo_changed_on_one_side_is_the_photo_on_both(): void
+    {
+        // Reported: changing the photo on one profile left the other showing the old one.
+        $disk = Storage::fake(config('filesystems.media'));
+        $disk->put('profile_photos/old.jpg', 'x');
+        $disk->put('employer_images/old.jpg', 'x');
+        $user = $this->hybrid('profile_photos/old.jpg', 'profile_photos/old.jpg', 'employer_images/old.jpg');
+
+        $disk->put('employer_images/new.jpg', 'x');
+        $user->usePhoto('employer_images/new.jpg', fromEmployerSide: true);
+
+        $user = $user->fresh(['workerProfile', 'employerProfile']);
+        $this->assertSame('employer_images/new.jpg', $user->avatar);
+        $this->assertSame('employer_images/new.jpg', $user->workerProfile->profile_photo_path);
+        $this->assertSame('employer_images/new.jpg', $user->employerProfile->image_path);
+        $disk->assertMissing('profile_photos/old.jpg');
+        $disk->assertMissing('employer_images/old.jpg');
+        $disk->assertExists('employer_images/new.jpg');
+
+        $disk->put('profile_photos/newer.jpg', 'x');
+        $user->usePhoto('profile_photos/newer.jpg');
+        $this->assertSame('profile_photos/newer.jpg', $user->fresh('employerProfile')->employerProfile->image_path);
+        $disk->assertMissing('employer_images/new.jpg');
+    }
+
+    #[Test]
+    public function a_company_logo_is_not_a_persons_face(): void
+    {
+        $disk = Storage::fake(config('filesystems.media'));
+        $user = User::factory()->create(['avatar' => 'profile_photos/face.jpg']);
+        // An account from before companies and workers were kept apart.
+        WorkerProfile::create(['user_id' => $user->id, 'profile_photo_path' => 'profile_photos/face.jpg']);
+        EmployerProfile::create(['user_id' => $user->id, 'employer_type' => 'company', 'image_path' => 'employer_images/logo.jpg', 'location' => 'x']);
+        $disk->put('profile_photos/face.jpg', 'x');
+
+        $user->fresh()->usePhoto('employer_images/logo2.jpg', fromEmployerSide: true);
+
+        $this->assertSame('profile_photos/face.jpg', WorkerProfile::where('user_id', $user->id)->value('profile_photo_path'));
+        $disk->assertExists('profile_photos/face.jpg');
     }
 }

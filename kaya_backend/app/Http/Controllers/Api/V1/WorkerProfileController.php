@@ -557,24 +557,20 @@ class WorkerProfileController extends Controller
         
         $user = $request->user();
         
-        // Delete old photo if exists
-        if ($user->avatar && \Storage::disk(config('filesystems.media'))->exists($user->avatar)) {
-            \Storage::disk(config('filesystems.media'))->delete($user->avatar);
-        }
-        
-        // Store new photo
         $path = $request->file('photo')->store('profile_photos', config('filesystems.media'));
-        $user->avatar = $path;
-        $user->save();
 
-        WorkerProfile::updateOrCreate(
+        /*
+            The defaults only for a new profile. This set them on every
+            upload, so changing a photo switched Work Status back on.
+        */
+        WorkerProfile::firstOrCreate(
             ['user_id' => $user->id],
-            [
-                'profile_photo_path' => $path,
-                'availability_status' => 'available',
-                'verification_status' => 'unverified',
-            ]
+            ['availability_status' => 'available', 'verification_status' => 'unverified']
         );
+        $user->unsetRelation('workerProfile');
+
+        // The account's picture and, for a person who also hires, that side's too.
+        $user->usePhoto($path);
         
         return response()->json([
             'success' => true,

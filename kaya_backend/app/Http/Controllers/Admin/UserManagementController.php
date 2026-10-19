@@ -129,33 +129,6 @@ class UserManagementController extends Controller
         of reasons, and it can be appealed. Permanent still needs a second
         administrator - see StrikeService.
     */
-    /*
-        Delete an account for good: a tester's junk account, or one already
-        deleted by its owner that still sits in the list.
-
-        The same clean-up as the app's Delete Account first - files, ID
-        documents, profile rows - run here, as the web server, because only
-        it can remove files the web server wrote. Then the row itself, and
-        everything that hangs off it goes with it (the foreign keys cascade):
-        their jobs, applications, messages, reviews and reports.
-    */
-    public function destroy(User $user, \App\Services\AccountDeletionService $deletion)
-    {
-        if ($user->isAdmin()) {
-            return back()->withErrors(['delete' => 'Administrator accounts are removed on the Administrators page.']);
-        }
-
-        $label = ($user->deleted_at ? 'a deleted account' : $user->name) . " (#{$user->id})";
-
-        if (! $user->deleted_at) {
-            $deletion->delete($user);
-        }
-        $user->delete();
-
-        AdminAction::record('user.delete', 'user', $user->id, "Deleted {$label} for good");
-
-        return redirect()->route('admin.users.index')->with('success', "Deleted {$label}.");
-    }
 
     public function suspend(Request $request, User $user, \App\Services\StrikeService $strikes)
     {

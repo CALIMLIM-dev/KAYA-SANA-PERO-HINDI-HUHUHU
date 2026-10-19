@@ -168,11 +168,10 @@
 <script>lucide.createIcons();</script>
 <script>
 /*
-    Choosing a reason fills the box the form actually submits.
+    Choosing a reason writes it into the box the form submits.
 
-    The select is not the field - it writes into a hidden input named
-    `reason`, so every controller keeps validating one string and none of
-    them had to learn about a dropdown. "Other" reveals the box instead.
+    The box starts on the first reason and can be edited; picking another
+    reason replaces the words.
 */
 (function () {
     document.querySelectorAll('[data-reason-picker]').forEach(function (picker) {
@@ -181,15 +180,26 @@
         if (!select || !input) return;
 
         select.addEventListener('change', function () {
-            if (select.value === '__other') {
-                input.value = '';
-                input.classList.remove('hidden');
-                input.focus();
-                return;
-            }
-
             input.value = select.value;
-            input.classList.add('hidden');
+        });
+    });
+})();
+
+/*
+    A note written for the choice made.
+
+    A choice carrying data-note (a radio, or a select's option) fills the
+    form's [data-note-box] with its words. Words the admin changed stay.
+*/
+(function () {
+    document.querySelectorAll('[data-note-box]').forEach(function (box) {
+        var written = box.value;
+        box.form.addEventListener('change', function (e) {
+            var el = e.target;
+            var words = el.tagName === 'SELECT' ? el.options[el.selectedIndex].dataset.note : el.dataset.note;
+            if (words === undefined || el === box) return;
+            if (box.value === written || box.value.trim() === '') box.value = words;
+            written = words;
         });
     });
 })();

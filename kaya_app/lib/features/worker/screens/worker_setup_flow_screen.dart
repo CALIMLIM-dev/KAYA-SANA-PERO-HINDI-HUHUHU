@@ -22,6 +22,7 @@ import '../../../core/navigation/app_router.dart';
 import '../../profile/screens/add_skills_screen.dart';
 import '../../profile/screens/onboarding_verification_screen.dart';
 import '../../../core/widgets/app_toast.dart';
+import '../../../core/utils/json_parse.dart';
 
 /// Worker Profile Setup Flow - 6 Step Onboarding
 /// 
@@ -200,8 +201,8 @@ class _WorkerSetupFlowScreenState extends State<WorkerSetupFlowScreen> {
         name: label,
         displayName: label,
         type: 'city',
-        latitude: (known['latitude'] as num?)?.toDouble(),
-        longitude: (known['longitude'] as num?)?.toDouble(),
+        latitude: asDoubleOrNull(known['latitude']),
+        longitude: asDoubleOrNull(known['longitude']),
       );
     }
   }
@@ -286,8 +287,8 @@ class _WorkerSetupFlowScreenState extends State<WorkerSetupFlowScreen> {
           known['location_id'] != null &&
           _locationController.text.isEmpty) {
         final label = (known['label'] ?? '').toString();
-        final lat = (known['latitude'] as num?)?.toDouble();
-        final lng = (known['longitude'] as num?)?.toDouble();
+        final lat = asDoubleOrNull(known['latitude']);
+        final lng = asDoubleOrNull(known['longitude']);
 
         _location = label;
         _locationController.text = label;
@@ -799,8 +800,8 @@ class _WorkerSetupFlowScreenState extends State<WorkerSetupFlowScreen> {
 
     if (result is! Map || !mounted) return;
 
-    final lat = (result['latitude'] as num?)?.toDouble();
-    final lng = (result['longitude'] as num?)?.toDouble();
+    final lat = asDoubleOrNull(result['latitude']);
+    final lng = asDoubleOrNull(result['longitude']);
     final resolved = result['resolved'] as LocationModel?;
 
     if (lat == null || lng == null) return;

@@ -426,29 +426,10 @@ class EmployerProfileController extends Controller
             'image' => ['required', 'image', 'mimes:jpg,jpeg,png', 'max:5120'],
         ]);
 
-        // Delete old image if exists
-        if ($profile->image_path) {
-            Storage::disk(config('filesystems.media'))->delete($profile->image_path);
-        }
-
-        // Store new image
         $path = $request->file('image')->store('employer_images', config('filesystems.media'));
 
-        // Update both image_path (new) and logo_path (legacy) during transition
-        $profile->update([
-            'image_path' => $path,
-            'logo_path' => $path, // Keep in sync during migration
-        ]);
-
-        /*
-            And the account's picture, so this is the face everywhere.
-
-            The worker upload has always written users.avatar; this one did
-            not, so a person who changed their employer picture kept their
-            old photo in chat, on job cards and on the account screen, all
-            of which read the account. One upload, one picture.
-        */
-        $user->forceFill(['avatar' => $path])->save();
+        // The account's picture and, for a person, the worker side's too.
+        $user->usePhoto($path, fromEmployerSide: true);
 
         // Refresh profile to get updated data
         $profile = $profile->fresh();

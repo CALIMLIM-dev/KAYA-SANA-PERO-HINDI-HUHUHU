@@ -22,6 +22,7 @@ import '../../../shared/widgets/location_picker_field.dart';
 import '../../../core/widgets/app_toast.dart';
 import '../../../core/widgets/verify_gate.dart';
 import '../../../core/navigation/app_router.dart';
+import '../../../core/utils/json_parse.dart';
 
 /// Post Job Screen - Clean, professional design following industry best practices
 class PostJobScreen extends StatefulWidget {
@@ -1784,8 +1785,8 @@ class _PostJobScreenState extends State<PostJobScreen> {
 
     if (result is! Map || !mounted) return;
 
-    final lat = (result['latitude'] as num?)?.toDouble();
-    final lng = (result['longitude'] as num?)?.toDouble();
+    final lat = asDoubleOrNull(result['latitude']);
+    final lng = asDoubleOrNull(result['longitude']);
     final resolved = result['resolved'] as LocationModel?;
 
     if (lat == null || lng == null) return;

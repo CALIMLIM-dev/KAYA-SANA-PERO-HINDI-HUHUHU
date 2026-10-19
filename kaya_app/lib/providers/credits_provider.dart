@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 
 import '../data/services/api_client.dart';
+import '../core/utils/json_parse.dart';
 
 /// One top-up option, priced by the server.
 class CreditPackage {
@@ -23,7 +24,7 @@ class CreditPackage {
         id: (json['id'] as num).toInt(),
         name: '${json['name'] ?? ''}',
         credits: (json['credits'] as num?)?.toInt() ?? 0,
-        amountPhp: (json['amount_php'] as num?)?.toDouble() ?? 0,
+        amountPhp: asDoubleOrNull(json['amount_php']) ?? 0,
       );
 }
 

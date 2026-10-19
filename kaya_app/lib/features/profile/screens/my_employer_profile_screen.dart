@@ -7,6 +7,7 @@ import '../../../core/widgets/profile_avatar.dart';
 import '../../../core/widgets/verification_badge_widget.dart';
 import '../../../data/models/employer_profile_model.dart';
 import '../../../providers/auth_provider.dart';
+import '../../../providers/worker_profile_provider.dart';
 import '../../../providers/employer_profile_provider.dart';
 import '../../../providers/verification_provider.dart';
 import '../widgets/inline_edit_row.dart';
@@ -450,6 +451,11 @@ class _MyEmployerProfileScreenState extends State<MyEmployerProfileScreen>
                       if (ok) {
                         await context.read<AuthProvider>().fetchMe();
                         if (!mounted) return;
+                        // One photo for both sides: the worker profile shows it too.
+                        if (context.read<AuthProvider>().workerProfileExists) {
+                          await context.read<WorkerProfileProvider>().fetchProfile();
+                          if (!mounted) return;
+                        }
                       }
 
                       if (!ok) {

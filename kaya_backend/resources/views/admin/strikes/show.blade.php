@@ -101,17 +101,26 @@
         @if ($strike->appeal_status === 'pending')
             <form method="POST" action="{{ route('admin.strikes.appeal', $strike) }}" class="px-6 py-5">
                 @csrf
-                <label for="appealNote" class="block font-medium text-slate-800">Decide the Review Request</label>
-                <textarea id="appealNote" name="note" rows="3" maxlength="1000"
-                          placeholder="Note (Optional)"
+                <p class="font-medium text-slate-800">Decide the Review Request</p>
+                {{-- Choosing fills the note with the ready-made words for it. --}}
+                <div class="mt-2 flex gap-5">
+                    <label class="flex items-center gap-2 text-slate-700">
+                        <input type="radio" name="decision" value="overturned" required class="accent-blue-600"
+                               data-note="{{ \App\Support\ModerationReasons::REVIEW_ACCEPTED }}" @checked(old('decision') === 'overturned')>
+                        Accept
+                    </label>
+                    <label class="flex items-center gap-2 text-slate-700">
+                        <input type="radio" name="decision" value="upheld" required class="accent-blue-600"
+                               data-note="{{ \App\Support\ModerationReasons::REVIEW_REFUSED }}" @checked(old('decision') === 'upheld')>
+                        Refuse
+                    </label>
+                </div>
+                <label for="appealNote" class="block mt-3 text-sm font-medium text-slate-800">Note (Optional)</label>
+                <textarea id="appealNote" name="note" rows="3" maxlength="1000" data-note-box
                           class="mt-2 w-full px-3 py-2 border border-slate-300 rounded-lg text-sm
                                  focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500">{{ old('note') }}</textarea>
-                <div class="mt-3 grid grid-cols-2 gap-2">
-                    <button type="submit" name="decision" value="overturned"
-                            class="px-3 py-2 bg-slate-800 text-white font-medium rounded-lg hover:bg-slate-900">Accept</button>
-                    <button type="submit" name="decision" value="upheld"
-                            class="px-3 py-2 border border-slate-300 text-slate-700 font-medium rounded-lg hover:bg-slate-50">Refuse</button>
-                </div>
+                <button type="submit"
+                        class="mt-3 w-full px-3 py-2 bg-slate-800 text-white font-medium rounded-lg hover:bg-slate-900">Save Decision</button>
             </form>
         @endif
 

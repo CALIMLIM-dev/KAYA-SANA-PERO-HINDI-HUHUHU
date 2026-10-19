@@ -277,10 +277,11 @@
 
                     <div>
                         <label for="finding" class="block text-sm font-medium text-slate-800">Note (Optional)</label>
+                        {{-- Written already, in the words for the violation chosen below. --}}
                         <textarea id="finding" name="resolution_note" rows="4" maxlength="1000"
                                   data-ready-made="{{ \App\Support\ModerationReasons::CONFIRMED_NO_VIOLATION }}"
                                   class="mt-2 w-full px-3 py-2 border border-slate-300 rounded-lg text-sm
-                                         focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500">{{ old('resolution_note') }}</textarea>
+                                         focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500">{{ old('resolution_note', $suggested ? \App\Support\ModerationReasons::message($suggested) : '') }}</textarea>
                     </div>
 
                     <fieldset>
@@ -332,6 +333,10 @@
                 </div>
 
                 <div class="px-6 py-5">
+                    <label for="dismissNote" class="block text-sm font-medium text-slate-800">Note (Optional)</label>
+                    <textarea id="dismissNote" name="dismiss_note" rows="2" maxlength="1000"
+                              class="mt-2 mb-3 w-full px-3 py-2 border border-slate-300 rounded-lg text-sm
+                                     focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500">{{ old('dismiss_note', \App\Support\ModerationReasons::NO_VIOLATION) }}</textarea>
                     <label class="flex items-center gap-2 text-sm text-slate-700">
                         <input type="checkbox" name="baseless" value="1" class="accent-blue-600">
                         Mark as False Report
@@ -353,22 +358,31 @@
     const select = document.getElementById('reasonSelect');
     const normal = document.getElementById('stepNormal');
     const critical = document.getElementById('stepCritical');
-    if (!select || !normal) return;
+    if (!select) return;
 
-    // The note box shows the words that will be sent if it is left empty.
+    /*
+        The note is written already, in the words for what was chosen.
+        Choosing something else rewrites it - unless the admin has changed
+        the words, which are then theirs and stay.
+    */
     const note = document.getElementById('finding');
     const strike = document.querySelector('input[name="action"][value="strike"]');
+    const readyMade = function () {
+        const option = select.options[select.selectedIndex];
+        if (!(strike && strike.checked)) return note.dataset.readyMade;
+        return option && option.dataset.message ? option.dataset.message : '';
+    };
+    let written = note ? readyMade() : '';
 
     const show = function () {
         const option = select.options[select.selectedIndex];
         const isCritical = option && option.dataset.critical === '1';
-        normal.classList.toggle('hidden', isCritical);
-        critical.classList.toggle('hidden', !isCritical);
-        if (note) {
-            note.placeholder = strike && strike.checked && option && option.dataset.message
-                ? option.dataset.message
-                : note.dataset.readyMade;
-        }
+        if (normal) normal.classList.toggle('hidden', isCritical);
+        if (critical) critical.classList.toggle('hidden', !isCritical);
+        if (!note) return;
+        const next = readyMade();
+        if (note.value === written || note.value.trim() === '') note.value = next;
+        written = next;
     };
     select.addEventListener('change', show);
     document.querySelectorAll('input[name="action"]').forEach(function (r) { r.addEventListener('change', show); });
