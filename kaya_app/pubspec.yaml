@@ -22,7 +22,7 @@ publish_to: 'none' # Remove this line if you wish to publish to pub.dev
 # over the previous one.
 #
 # Keep this in step with CHANGELOG.md and the git tag for the release.
-version: 1.19.2+103
+version: 1.19.3+104
 
 environment:
   sdk: ^3.12.0

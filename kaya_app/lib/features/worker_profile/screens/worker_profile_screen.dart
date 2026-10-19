@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../../../core/widgets/profile_avatar.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/widgets/badge_strip.dart';
 import '../../../core/widgets/work_record.dart';
@@ -201,7 +202,7 @@ class _WorkerProfileScreenState extends State<WorkerProfileScreen> {
                               child: CircleAvatar(
                                 backgroundColor: AppColors.primaryLight,
                                 backgroundImage: avatar.isNotEmpty
-                                    ? NetworkImage(avatar)
+                                    ? avatarImage(context, avatar, 46)
                                     : null,
                                 child: avatar.isNotEmpty
                                     ? null

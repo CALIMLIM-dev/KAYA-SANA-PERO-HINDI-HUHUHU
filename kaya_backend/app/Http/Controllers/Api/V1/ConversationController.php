@@ -236,6 +236,8 @@ class ConversationController extends Controller
 
         $message->setRelation('conversation', $conversation);
         $message->load(['sender:id,name,avatar', 'sender.workerProfile:id,user_id,profile_photo_path', 'sender.employerProfile:id,user_id,image_path']);
+        // The same resolved picture the thread and the poll send.
+        $this->resolveSenderAvatars(collect([$message]));
 
         // Straight to both devices on the thread, then the notification row for
         // whoever isn't looking at it.

@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -46,7 +47,7 @@ void main() {
 
     expect(image, isA<ResizeImage>());
     final resized = image as ResizeImage;
-    expect((resized.imageProvider as NetworkImage).url, '${ApiClient.storageUrl}/profile_photos/a.jpg');
+    expect((resized.imageProvider as CachedNetworkImageProvider).url, '${ApiClient.storageUrl}/profile_photos/a.jpg');
     expect(resized.width, lessThanOrEqualTo(200), reason: 'not the 1024 it was uploaded at');
   });
 

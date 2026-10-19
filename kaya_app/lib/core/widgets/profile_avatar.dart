@@ -1,3 +1,4 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 
 import '../../data/services/api_client.dart';
@@ -33,12 +34,18 @@ import '../constants/app_colors.dart';
     a URL, the image failed, and the circle fell back to a letter for
     somebody who had a photo - in reviews, in My Applications, wherever a
     user arrived embedded rather than through resolvedAvatarUrl.
+
+    And kept on the phone. A plain NetworkImage is held in memory per size,
+    so the same face at chat size, list size and profile size was three
+    downloads of a 150 KB photo - the circle showed a letter while each one
+    came in, and again after the app restarted. Cached to disk once by URL,
+    every size after the first is read from the phone.
 */
 ImageProvider avatarImage(BuildContext context, String url, double radius) =>
     ResizeImage.resizeIfNeeded(
       (radius * 2 * MediaQuery.devicePixelRatioOf(context)).round(),
       null,
-      NetworkImage(ApiClient.fileUrl(url.trim())),
+      CachedNetworkImageProvider(ApiClient.fileUrl(url.trim())),
     );
 
 class ProfileAvatar extends StatelessWidget {
