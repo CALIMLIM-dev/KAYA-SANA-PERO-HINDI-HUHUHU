@@ -10,11 +10,11 @@
     its counts of workers, employers and jobs. Towns and numbers only; never
     a person (see SupplyDemandController).
 
-    Two bases, both Esri and both free without a key (CARTO now wants one).
-    Map is Esri Topographic: place names, coast, rivers and relief, without
-    the route badges and point icons of the standard street map. Satellite
-    is Esri's imagery alone - its label layer draws heavy border lines - and
-    the town cards carry the names close up.
+    Four bases, all Esri and free without a key (CARTO now wants one):
+    Street, Terrain, Light (grey, so the circles stand out) and Satellite.
+    Satellite is the imagery alone - Esri's label layer draws heavy border
+    lines - and the town cards carry the names close up. The chosen style
+    is remembered in this browser.
 --}}
 
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.css">
@@ -59,6 +59,10 @@
     .viz .gap-short { color: var(--short); font-weight: 650; } .viz .gap-spare { color: #15803d; font-weight: 650; } .viz .gap-even { color: var(--ink-3); }
 
     #supplyMap { height: 560px; border-radius: 12px; z-index: 0; background: #f6f9fc; }
+    .viz .map-card.full { position: fixed; inset: 0; z-index: 60; border-radius: 0; display: flex; flex-direction: column; }
+    .viz .map-card.full #supplyMap { flex: 1; height: auto; }
+    .viz .tool { font-size: 12px; font-weight: 600; color: var(--ink-2); border: 1px solid var(--line); border-radius: 999px; padding: 5px 11px; background: #fff; }
+    .viz .tool:hover { background: #f8fafc; }
     .viz .base { display: inline-flex; background: #e9eef4; border-radius: 10px; padding: 3px; }
     .viz .base button { font-size: 12px; font-weight: 600; color: var(--ink-2); padding: 5px 12px; border-radius: 8px; }
     .viz .base button.on { background: var(--surface); color: var(--ink); box-shadow: 0 1px 2px rgba(15,23,42,.08); }
@@ -144,17 +148,22 @@
     </nav>
 
     {{-- The map. --}}
-    <section class="card" aria-label="Map">
+    <section class="card map-card" aria-label="Map">
         <div class="flex flex-wrap items-center justify-between gap-3 mb-3">
             <div class="flex flex-wrap gap-2">
                 <label class="toggle"><input type="checkbox" data-layer="towns" checked> Shortage</label>
                 <label class="toggle"><input type="checkbox" data-chip="workers" checked> <i class="dot" style="background: var(--worker)"></i> Workers</label>
                 <label class="toggle"><input type="checkbox" data-chip="employers" checked> <i class="dot" style="background: var(--employer)"></i> Employers</label>
                 <label class="toggle"><input type="checkbox" data-chip="jobs"> <i class="dot" style="background: var(--job)"></i> Jobs</label>
+                <label class="toggle"><input type="checkbox" data-short-only> Short Places Only</label>
                 <div class="base" role="group" aria-label="Map style">
-                    <button type="button" data-base="map" class="on">Map</button>
+                    <button type="button" data-base="street" class="on">Street</button>
+                    <button type="button" data-base="terrain">Terrain</button>
+                    <button type="button" data-base="light">Light</button>
                     <button type="button" data-base="satellite">Satellite</button>
                 </div>
+                <button type="button" class="tool" data-reset>Reset View</button>
+                <button type="button" class="tool" data-full>Full Screen</button>
             </div>
             <div class="legend">
                 <span><i class="dot" style="background: var(--short)"></i> Short</span>
@@ -338,19 +347,29 @@ document.querySelectorAll('[data-expand]').forEach((btn) => {
     const map = L.map(box, { maxBounds: ph.pad(0.05), maxBoundsViscosity: 1, minZoom: 5, maxZoom: 16, zoomSnap: 0.5 });
 
     const esri = 'https://server.arcgisonline.com/ArcGIS/rest/services/';
+    const tiles = (path) => L.tileLayer(esri + path + '/MapServer/tile/{z}/{y}/{x}', { maxZoom: 19, attribution: 'Tiles &copy; Esri' });
     const bases = {
-        map: L.tileLayer(esri + 'World_Topo_Map/MapServer/tile/{z}/{y}/{x}', { maxZoom: 19, attribution: 'Tiles &copy; Esri' }),
-        satellite: L.tileLayer(esri + 'World_Imagery/MapServer/tile/{z}/{y}/{x}', { maxZoom: 19, attribution: 'Imagery &copy; Esri' }),
+        street: tiles('World_Street_Map'),
+        terrain: tiles('World_Topo_Map'),
+        light: L.layerGroup([tiles('Canvas/World_Light_Gray_Base'), tiles('Canvas/World_Light_Gray_Reference')]),
+        satellite: tiles('World_Imagery'),
     };
-    bases.map.addTo(map);
-    document.querySelectorAll('[data-base]').forEach((btn) => btn.addEventListener('click', () => {
+    const useBase = (name) => {
+        if (!bases[name]) name = 'street';
         Object.values(bases).forEach((b) => map.removeLayer(b));
-        bases[btn.dataset.base].addTo(map);
-        document.querySelectorAll('[data-base]').forEach((b) => b.classList.toggle('on', b === btn));
-    }));
+        bases[name].addTo(map);
+        document.querySelectorAll('[data-base]').forEach((b) => b.classList.toggle('on', b.dataset.base === name));
+        try { localStorage.setItem('kaya.supplyMap.base', name); } catch (e) {}
+    };
+    let saved = null;
+    try { saved = localStorage.getItem('kaya.supplyMap.base'); } catch (e) {}
+    useBase(saved || 'street');
+    document.querySelectorAll('[data-base]').forEach((btn) => btn.addEventListener('click', () => useBase(btn.dataset.base)));
 
     const towns = L.layerGroup();
     const cards = L.layerGroup();
+    const shortTowns = L.layerGroup();
+    const shortCards = L.layerGroup();
     data.towns.forEach((t) => {
         const color = t.gap > 0 ? c('--short') : (t.workers > t.jobs ? c('--spare') : c('--even'));
         const popup = '<div style="min-width:180px"><b>' + esc(t.name) + '</b>' + (t.province ? '<br><span style="color:#94a3b8">' + esc(t.province) + '</span>' : '') +
@@ -366,35 +385,51 @@ document.querySelectorAll('[data-expand]').forEach((btn) => {
         L.circleMarker([t.lat, t.lng], { radius: 6 + Math.sqrt(t.jobs + t.residents) * 2.5, color, fillColor: color, fillOpacity: 0.35, weight: 2 })
             .bindTooltip(esc(t.name), { direction: 'top' })
             .bindPopup(popup)
-            .addTo(towns);
+            .addTo(t.gap > 0 ? shortTowns : towns);
 
         // Close up: the town's own counts, beside it. Numbers only.
         const chip = (cls, color, n) => '<span class="chip ' + cls + '"><i style="background:' + color + '"></i>' + n + '</span>';
         L.marker([t.lat, t.lng], {
             icon: L.divIcon({ className: '', iconSize: null, html: '<div class="town-card">' + esc(t.name) +
                 chip('w', c('--worker'), t.residents) + chip('e', c('--employer'), t.employers) + chip('j', c('--job'), t.jobs) + '</div>' }),
-        }).bindPopup(popup).addTo(cards);
+        }).bindPopup(popup).addTo(t.gap > 0 ? shortCards : cards);
     });
 
     const toggleTowns = document.querySelector('[data-layer="towns"]');
+    const shortOnly = document.querySelector('[data-short-only]');
     const chips = [...document.querySelectorAll('[data-chip]')];
+    const show = (layer, on) => on ? map.addLayer(layer) : map.removeLayer(layer);
 
     const refresh = () => {
         const close = map.getZoom() >= COUNTS_ZOOM;
         document.getElementById('zoomHint').style.display = close ? 'none' : '';
-        toggleTowns.checked ? map.addLayer(towns) : map.removeLayer(towns);
-        close ? map.addLayer(cards) : map.removeLayer(cards);
+        show(shortTowns, toggleTowns.checked);
+        show(towns, toggleTowns.checked && !shortOnly.checked);
+        show(shortCards, close);
+        show(cards, close && !shortOnly.checked);
         chips.forEach((el) => box.classList.toggle('hide-' + el.dataset.chip, !el.checked));
     };
-    [toggleTowns, ...chips].forEach((el) => el.addEventListener('change', refresh));
+    [toggleTowns, shortOnly, ...chips].forEach((el) => el.addEventListener('change', refresh));
     map.on('zoomend', refresh);
 
-    if (data.focus) {
-        map.setView([data.focus.lat, data.focus.lng], Math.min(data.focus.zoom, 13));
-    } else {
-        map.fitBounds(ph);
-    }
+    const home = () => data.focus
+        ? map.setView([data.focus.lat, data.focus.lng], Math.min(data.focus.zoom, 13))
+        : map.fitBounds(ph);
+    home();
     refresh();
+
+    document.querySelector('[data-reset]').addEventListener('click', home);
+
+    // Full screen: the map card fills the window; Esc or the button returns it.
+    const card = box.closest('.map-card');
+    const fullBtn = document.querySelector('[data-full]');
+    const setFull = (on) => {
+        card.classList.toggle('full', on);
+        fullBtn.textContent = on ? 'Exit Full Screen' : 'Full Screen';
+        map.invalidateSize();
+    };
+    fullBtn.addEventListener('click', () => setFull(!card.classList.contains('full')));
+    document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && card.classList.contains('full')) setFull(false); });
 })();
 
 (function () {

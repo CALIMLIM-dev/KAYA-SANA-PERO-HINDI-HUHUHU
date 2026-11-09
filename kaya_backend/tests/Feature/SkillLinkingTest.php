@@ -194,8 +194,12 @@ class SkillLinkingTest extends TestCase
         $made = Skill::where('source', 'system')->firstOrFail();
 
         $this->actingAs($admin)->get("/admin/categories?category={$this->cleaning->id}")->assertOk()
-            ->assertSee('Added by System')->assertSee('Linked Words')->assertSee('paglilinis ng aquarium')
-            ->assertSee('System Log')->assertSee('Requests Today')->assertSee('New Skill')->assertSee('Used by 1');
+            ->assertSee('Added by System')->assertSee('Linked Words')->assertSee('System Log');
+        // Each list is its own tab, so the category page stays short.
+        $this->actingAs($admin)->get('/admin/categories?tab=words')->assertOk()
+            ->assertSee('paglilinis ng aquarium')->assertSee('Used by 1')->assertDontSee('Add Category');
+        $this->actingAs($admin)->get('/admin/categories?tab=log')->assertOk()
+            ->assertSee('Requests Today')->assertSee('New Skill');
 
         $this->actingAs($admin)->post('/admin/skill-links/unlink', ['term' => 'paglilinis ng aquarium'])->assertRedirect();
         $this->assertTrue(SkillLink::known('paglilinis ng aquarium'));

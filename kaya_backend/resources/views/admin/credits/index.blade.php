@@ -53,13 +53,32 @@
         <form method="POST" action="{{ route('admin.credits.adjust') }}" class="grid grid-cols-6 gap-3 items-end">
             @csrf
             <div class="col-span-2">
-                <label class="text-xs text-slate-500">User</label>
-                <select name="user_id" required class="w-full mt-1 px-3 py-2 border border-slate-300 rounded-lg text-sm">
-                    <option value="">Choose</option>
+                {{-- Typed, not scrolled: the list of every account was too long to find anyone in. --}}
+                <label for="adjust-user" class="text-xs text-slate-500">User</label>
+                <input id="adjust-user" type="search" list="adjust-users" autocomplete="off" required
+                       placeholder="Type a name or email"
+                       value="{{ $focus ? $focus->name . ' (' . $focus->email . ')' : '' }}"
+                       class="w-full mt-1 px-3 py-2 border border-slate-300 rounded-lg text-sm">
+                <input type="hidden" name="user_id" id="adjust-user-id" value="{{ $focus?->id }}">
+                <datalist id="adjust-users">
                     @foreach ($users as $u)
-                        <option value="{{ $u->id }}" @selected($focus && $focus->id === $u->id)>{{ $u->name }} ({{ $u->email }})</option>
+                        <option value="{{ $u->name }} ({{ $u->email }})" data-id="{{ $u->id }}"></option>
                     @endforeach
-                </select>
+                </datalist>
+                <script>
+                (function () {
+                    var box = document.getElementById('adjust-user');
+                    var id = document.getElementById('adjust-user-id');
+                    var ids = {};
+                    document.querySelectorAll('#adjust-users option').forEach(function (o) { ids[o.value] = o.dataset.id; });
+                    var pick = function () {
+                        id.value = ids[box.value] || '';
+                        box.setCustomValidity(id.value ? '' : 'Choose a user from the list.');
+                    };
+                    box.addEventListener('input', pick);
+                    if (box.value) pick();
+                })();
+                </script>
             </div>
             <div>
                 <label class="text-xs text-slate-500">Amount</label>

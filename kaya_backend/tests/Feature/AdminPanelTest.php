@@ -199,8 +199,9 @@ class AdminPanelTest extends TestCase
         $this->actingAs($this->admin())->get('/admin/jobs')->assertOk()->assertSee('Paint a fence');
         $this->actingAs($this->admin())->get('/admin/jobs?status=closed')->assertOk()->assertDontSee('Paint a fence');
         $this->actingAs($this->admin())->get("/admin/jobs/{$job->id}")->assertOk()->assertSee('Close this post')
-            // The reason is the dropdown alone, not a dropdown and a box repeating it.
-            ->assertSee('<select name="reason"', false)->assertDontSee('<input type="text" name="reason"', false);
+            // The reason is the dropdown; Other opens a box, closed until then.
+            ->assertSee('<select name="reason"', false)->assertSee('<option value="">Other</option>', false)
+            ->assertSee('maxlength="255" disabled hidden data-reason-other', false);
     }
 
     // ── Barya ────────────────────────────────────────────────────────────────

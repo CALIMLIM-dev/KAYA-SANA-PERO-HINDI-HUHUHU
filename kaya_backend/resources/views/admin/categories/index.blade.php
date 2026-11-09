@@ -15,8 +15,9 @@
     is reversible and says what it does. Merging deletes a category, so it sits
     folded at the bottom, names both sides, and asks before it runs.
 
-    Synonyms are their own section below: they pair skill names across
-    categories, so they belong to no one category.
+    Synonyms, the System Log and Linked Words each have their own tab: they
+    belong to no one category, and stacked under the list they made the page
+    a long scroll to reach anything.
 --}}
 
 @section('content')
@@ -28,12 +29,26 @@
     // Sub-admin adds and renames. The routes enforce it; this only stops
     // offering what would be refused.
     $canDestroy = auth()->user()->adminCan('catalogue.destroy');
+    $tabs = ['categories' => 'Categories', 'synonyms' => 'Words That Mean the Same', 'log' => 'System Log', 'words' => 'Linked Words'];
+    $tab = array_key_exists(request('tab'), $tabs) ? request('tab') : 'categories';
+    $tabCount = ['categories' => $categories->count(), 'synonyms' => $aliases->count(), 'log' => $linkLog->count(), 'words' => $links->count()];
 @endphp
 
 @if ($errors->any())
     <div class="mb-4 px-4 py-3 rounded-lg bg-red-50 text-red-700 text-sm border border-red-200">{{ $errors->first() }}</div>
 @endif
 
+<nav class="flex flex-wrap gap-1 border-b border-slate-200 mb-4" aria-label="Sections">
+    @foreach ($tabs as $key => $label)
+        <a href="{{ route('admin.categories.index', $key === 'categories' ? [] : ['tab' => $key]) }}"
+           @if ($tab === $key) aria-current="page" @endif
+           class="px-4 py-2 -mb-px border-b-2 text-sm font-medium {{ $tab === $key ? 'border-blue-600 text-blue-700' : 'border-transparent text-slate-500 hover:text-slate-700' }}">
+            {{ $label }} <span class="ml-1 text-xs text-slate-400 tabular-nums">{{ $tabCount[$key] }}</span>
+        </a>
+    @endforeach
+</nav>
+
+@if ($tab === 'categories')
 {{-- Find, and add. --}}
 <div class="flex flex-wrap items-center gap-3 mb-4">
     <form method="GET" action="{{ route('admin.categories.index') }}" class="flex gap-2 flex-1 min-w-[16rem] max-w-md" role="search">
@@ -58,8 +73,8 @@
 <div class="grid grid-cols-1 lg:grid-cols-[19rem_minmax(0,1fr)] gap-4 items-start">
 
     {{-- The list. --}}
-    <nav class="bg-white rounded-xl border border-slate-200 overflow-hidden" aria-label="Categories">
-        <p class="px-4 py-2.5 border-b border-slate-100 text-xs text-slate-500">
+    <nav class="bg-white rounded-xl border border-slate-200 overflow-y-auto lg:sticky lg:top-4 max-h-[75vh]" aria-label="Categories">
+        <p class="sticky top-0 bg-white px-4 py-2.5 border-b border-slate-100 text-xs text-slate-500">
             @if ($q === '')
                 {{ $count($categories->count(), 'category', 'categories') }}
             @else
@@ -273,9 +288,11 @@
         </section>
     @endif
 </div>
+@endif
 
+@if ($tab === 'synonyms')
 {{-- Synonyms: they pair names across categories, so they belong to none. --}}
-<section class="mt-6 bg-white rounded-xl border border-slate-200" aria-labelledby="synonyms">
+<section class="bg-white rounded-xl border border-slate-200" aria-labelledby="synonyms">
     <div class="px-5 py-4 border-b border-slate-100">
         <h2 id="synonyms" class="text-sm font-semibold text-slate-700">Words That Mean the Same</h2>
         <p class="text-xs text-slate-500 mt-0.5">
@@ -318,9 +335,11 @@
         </ul>
     @endif
 </section>
+@endif
 
+@if ($tab === 'log')
 {{-- The System's Gemini checks: how many, and what each one did. --}}
-<section class="mt-6 bg-white rounded-xl border border-slate-200" aria-labelledby="system-log">
+<section class="bg-white rounded-xl border border-slate-200" aria-labelledby="system-log">
     <div class="px-5 py-4 border-b border-slate-200">
         <h2 id="system-log" class="text-sm font-semibold text-slate-700">System Log</h2>
     </div>
@@ -365,9 +384,11 @@
         </div>
     @endif
 </section>
+@endif
 
+@if ($tab === 'words')
 {{-- What people typed, and the skills the System linked it to. --}}
-<section class="mt-6 bg-white rounded-xl border border-slate-200" aria-labelledby="linked-words">
+<section class="bg-white rounded-xl border border-slate-200" aria-labelledby="linked-words">
     <div class="px-5 py-4 border-b border-slate-200">
         <h2 id="linked-words" class="text-sm font-semibold text-slate-700">Linked Words</h2>
     </div>
@@ -395,4 +416,5 @@
         </ul>
     @endif
 </section>
+@endif
 @endsection
