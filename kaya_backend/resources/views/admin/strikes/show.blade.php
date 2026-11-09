@@ -174,7 +174,7 @@
             @endif
             @if ($strike->user)
                 <a href="{{ route('admin.users.show', $strike->user_id) }}"
-                   class="block w-full px-3 py-2 text-center text-blue-600 font-medium hover:text-blue-700">Open Account</a>
+                   class="block w-full px-3 py-2 text-center text-blue-600 font-medium hover:text-blue-700">View User Details</a>
             @endif
         </div>
     </aside>

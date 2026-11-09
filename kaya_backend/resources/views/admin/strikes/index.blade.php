@@ -67,7 +67,7 @@
                         </label>
                         <button type="submit"
                                 class="px-3 py-1.5 bg-slate-800 text-white text-sm font-medium rounded-lg hover:bg-slate-900">Submit</button>
-                        <a href="{{ route('admin.strikes.show', $strike) }}" class="text-sm text-blue-600 hover:text-blue-700">Open</a>
+                        <a href="{{ route('admin.strikes.show', $strike) }}" class="text-sm text-blue-600 hover:text-blue-700">View</a>
                     </form>
                 </li>
             @endforeach

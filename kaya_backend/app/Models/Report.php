@@ -76,7 +76,7 @@ class Report extends Model
     */
     public const OUTCOMES = [
         'pending'      => 'Pending',
-        'violation'    => 'Violation Found',
+        'violation'    => 'Violation Given',
         'no_violation' => 'No Violation',
         'false'        => 'False Report',
     ];

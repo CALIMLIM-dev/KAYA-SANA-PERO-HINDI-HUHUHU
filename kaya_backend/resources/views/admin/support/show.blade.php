@@ -14,7 +14,7 @@
         </div>
         @if ($thread->user)
             <a href="{{ route('admin.users.show', $thread->user) }}"
-               class="px-3 py-2 border border-slate-300 text-slate-600 rounded-lg text-sm hover:bg-slate-50">Open Account</a>
+               class="px-3 py-2 border border-slate-300 text-slate-600 rounded-lg text-sm hover:bg-slate-50">View User Details</a>
         @endif
     </div>
 

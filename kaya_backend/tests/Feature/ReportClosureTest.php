@@ -14,7 +14,7 @@ use Tests\TestCase;
     "Handled" used to be a button on its own, so a complaint could be marked
     upheld with nothing having happened to anybody: the queue emptied, the
     record said it was upheld, and the account it was about never heard a
-    word. Violation Found, No Violation and False Report are three different
+    word. Violation Given, No Violation and False Report are three different
     answers, one has to be given, and the system words each one.
 */
 class ReportClosureTest extends TestCase
@@ -69,7 +69,7 @@ class ReportClosureTest extends TestCase
 
         $report->refresh();
         $this->assertSame('violation', $report->outcome());
-        $this->assertSame('Violation found: Inappropriate content. Warning.', $report->resolution_note);
+        $this->assertSame('Violation given: Inappropriate content. Warning.', $report->resolution_note);
 
         // A first minor violation is a warning, sent in the violation's own line.
         $notice = \App\Models\UserNotification::where('user_id', $report->reported_id)->where('type', 'moderation.warning')->firstOrFail();
@@ -168,7 +168,7 @@ class ReportClosureTest extends TestCase
         $report = $this->report();
 
         $this->actingAs($this->admin())->get("/admin/reports/{$report->id}")->assertOk()
-            ->assertSee('Violation Found')->assertSee('No Violation')->assertSee('False Report')
+            ->assertSee('Give a Violation')->assertSee('No Violation')->assertSee('False Report')
             // The dropdown shows the exact words that will be sent.
             ->assertSee('You sent abusive or threatening messages to another user.')
             ->assertDontSee('Note (Optional)')->assertDontSee('<textarea', false);

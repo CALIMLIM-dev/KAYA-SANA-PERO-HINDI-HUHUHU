@@ -11,7 +11,7 @@ use App\Support\ModerationReasons;
 /*
     One of three decisions on a report, and the system says the rest.
 
-    Violation Found takes a violation, and the violation decides the penalty
+    Give a Violation takes a violation, and the violation decides the penalty
     (see StrikeService) and the line the person receives. No Violation and
     False Report close it; a false report counts against the reporter.
     Nobody types anything.
@@ -56,7 +56,7 @@ class ReportDecisionService
         $report->update([
             'status'          => $violation ? 'resolved' : 'dismissed',
             'resolution_note' => match (true) {
-                $violation => 'Violation found: ' . $strike->ruleLabel() . '. ' . $strike->actionLabel() . '.',
+                $violation => 'Violation given: ' . $strike->ruleLabel() . '. ' . $strike->actionLabel() . '.',
                 $baseless  => 'False report.',
                 default    => 'No violation found.',
             },

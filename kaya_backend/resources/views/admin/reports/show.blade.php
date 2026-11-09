@@ -49,7 +49,7 @@
                 <span class="font-medium {{ $severityTone[$report->severity()] ?? 'text-slate-500' }}">{{ ucfirst($report->severity()) }}</span>
                 · Reported {{ $at($report->created_at) }}
                 @if ($subjectLink)
-                    · <a href="{{ $subjectLink }}" class="text-blue-600 hover:text-blue-700">Open {{ $report->typeLabel() }}</a>
+                    · <a href="{{ $subjectLink }}" class="text-blue-600 hover:text-blue-700">View {{ $report->typeLabel() }}</a>
                 @endif
             </p>
 
@@ -69,8 +69,9 @@
                         @endif
                     </dd>
                     <dd class="mt-1 text-xs text-slate-500 tabular-nums">
-                        {{ $history->count() }} previous {{ Str::plural('report', $history->count()) }}
-                        · {{ $strikesOnRecord->filter->isActive()->count() }} active {{ Str::plural('violation', $strikesOnRecord->filter->isActive()->count()) }}
+                        @php($activeCount = $strikesOnRecord->filter->isActive()->count())
+                        Reported {{ $history->count() }} {{ Str::plural('time', $history->count()) }} before
+                        · {{ $activeCount }} {{ Str::plural('violation', $activeCount) }} still counting
                     </dd>
                 </div>
                 <div class="rounded-lg border border-slate-200 px-4 py-3">
@@ -85,8 +86,8 @@
                         @endif
                     </dd>
                     <dd class="mt-1 text-xs text-slate-500 tabular-nums">
-                        {{ $reporterStats['filed'] }} {{ Str::plural('report', $reporterStats['filed']) }} filed
-                        · {{ $reporterStats['upheld'] }} with a violation
+                        Made {{ $reporterStats['filed'] }} {{ Str::plural('report', $reporterStats['filed']) }}
+                        · {{ $reporterStats['upheld'] }} ended in a violation
                         @if ($reporterStats['baseless']) · {{ $reporterStats['baseless'] }} false @endif
                     </dd>
                 </div>
@@ -174,9 +175,9 @@
                 <summary class="cursor-pointer select-none {{ $heading }}">
                     Account History
                     <span class="ml-2 text-xs font-normal text-slate-500">
-                        {{ $pastJobs->count() }} {{ Str::plural('job', $pastJobs->count()) }} between them
-                        · {{ $history->count() }} previous {{ Str::plural('report', $history->count()) }}
-                        · {{ $strikesOnRecord->count() }} {{ Str::plural('violation', $strikesOnRecord->count()) }}
+                        {{ $pastJobs->count() }} {{ Str::plural('job', $pastJobs->count()) }} together
+                        · reported {{ $history->count() }} {{ Str::plural('time', $history->count()) }} before
+                        · {{ $strikesOnRecord->count() }} {{ Str::plural('violation', $strikesOnRecord->count()) }} in total
                     </span>
                 </summary>
 
@@ -270,7 +271,7 @@
                             <div><dt class="text-xs text-slate-500">Suspended Until</dt><dd class="text-slate-900">{{ $at($report->strike->ends_at) }}</dd></div>
                         @endif
                     </dl>
-                    <a href="{{ route('admin.strikes.show', $report->strike) }}" class="inline-block text-blue-600 hover:text-blue-700">Open Violation</a>
+                    <a href="{{ route('admin.strikes.show', $report->strike) }}" class="inline-block text-blue-600 hover:text-blue-700">View Violation</a>
                 @elseif ($report->resolution_note)
                     <p class="text-slate-700">{{ $report->resolution_note }}</p>
                 @endif
@@ -287,12 +288,12 @@
                     <select name="decision" id="decision" required
                             class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500">
                         <option value="" disabled @selected(! old('decision'))>Choose a decision</option>
-                        <option value="violation" @selected(old('decision') === 'violation')>Violation Found</option>
+                        <option value="violation" @selected(old('decision') === 'violation')>Give a Violation</option>
                         <option value="no_violation" @selected(old('decision') === 'no_violation')>No Violation</option>
                         <option value="false_report" @selected(old('decision') === 'false_report')>False Report</option>
                     </select>
                     @if ($isJobProblem)
-                        <p class="mt-2 text-xs text-slate-500">Violation Found marks the job Not Completed. Otherwise the job is marked completed.</p>
+                        <p class="mt-2 text-xs text-slate-500">Give a Violation marks the job Not Completed. No Violation or False Report marks it Completed.</p>
                     @endif
                 </div>
 

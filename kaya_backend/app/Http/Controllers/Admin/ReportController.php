@@ -20,7 +20,7 @@ class ReportController extends Controller
     /*
         The queue, by how it ended, what was reported, and who.
 
-        Tabs: Pending, Violation Found, No Violation, False Report, All. A
+        Tabs: Pending, Violation Given, No Violation, False Report, All. A
         link from before the tabs were renamed (?status=resolved) still
         lands somewhere sensible.
     */
