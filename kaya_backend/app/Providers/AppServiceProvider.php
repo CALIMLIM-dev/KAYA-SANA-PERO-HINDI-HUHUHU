@@ -45,6 +45,8 @@ class AppServiceProvider extends ServiceProvider
 
         // Prices saved from the admin panel override the config defaults.
         \App\Support\Pricing::apply();
+        // KAYA Assistant and Safety Check settings saved in the admin.
+        \App\Support\AdminSettings::apply();
 
         // The panel's own pager. See the view for why the stock one would not do.
         \Illuminate\Pagination\Paginator::defaultView('admin.partials.pagination');

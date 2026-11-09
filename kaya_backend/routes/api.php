@@ -314,6 +314,12 @@ Route::prefix('v1')->group(function () {
             ->withoutMiddleware('not.suspended');
         Route::post('/support/quick', [SupportController::class, 'quick'])
             ->withoutMiddleware('not.suspended');
+        // Something's Broken.
+        Route::post('/support/bug', [SupportController::class, 'bug'])
+            ->withoutMiddleware('not.suspended')->middleware('throttle:10,60');
+        // A tap in the assistant's menu.
+        Route::post('/support/choose', [SupportController::class, 'choose'])
+            ->withoutMiddleware('not.suspended')->middleware('throttle:60,1');
         // The feedback button on an assistant answer.
         Route::post('/support/feedback', [SupportController::class, 'feedback'])
             ->withoutMiddleware('not.suspended')->middleware('throttle:20,1');

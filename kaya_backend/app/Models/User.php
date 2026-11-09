@@ -267,6 +267,7 @@ class User extends Authenticatable
         'is_verified'       => 'boolean',
         'is_suspended'      => 'boolean',
         'is_demo'           => 'boolean',
+        'support_available' => 'boolean',
         'must_change_password' => 'boolean',
         'deleted_at'        => 'datetime',
         'terms_accepted'    => 'boolean',

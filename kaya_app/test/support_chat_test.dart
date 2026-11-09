@@ -96,64 +96,86 @@ void main() {
     expect(find.text('What can we help with?'), findsOneWidget);
   });
 
-  testWidgets('KAYA Assistant is named and a person is one tap away', (tester) async {
-    await render(tester, width: 390, textScale: 1.0, assistant: {'on': true, 'with_person': false}, messages: [
+  const menu = [
+    {'key': 'topic:account', 'label': 'Account or Suspension'},
+    {'key': 'topic:barya', 'label': 'Barya and Top-up'},
+    {'key': 'topic:bug', 'label': "Something's Broken"},
+  ];
+
+  testWidgets('an empty chat opens on the greeting and its menu', (tester) async {
+    await render(tester, width: 390, textScale: 1.0, messages: const [], assistant: {
+      'on': true, 'with_person': false, 'greeting': 'Hi, I am KAYA Assistant.', 'menu': menu,
+    });
+
+    expect(find.text('Hi, I am KAYA Assistant.'), findsOneWidget);
+    expect(find.text('Barya and Top-up'), findsOneWidget);
+    expect(find.text("Something's Broken"), findsOneWidget);
+    expect(find.text('This chat clears when you leave it.'), findsOneWidget);
+    expect(find.text('KAYA Assistant'), findsWidgets);
+  });
+
+  testWidgets('an answer shows its fix buttons and the next choices', (tester) async {
+    await render(tester, width: 390, textScale: 1.0, assistant: {'on': true, 'with_person': false, 'menu': menu}, messages: [
       ...thread(),
       {
         'id': 3,
-        'body': 'Open your profile, go to Verification and upload the ID again.',
+        'body': 'Your balance is 50 Barya.\n\nTop-ups are added at once.',
         'from_admin': true,
         'from_assistant': true,
         'from': 'KAYA Assistant',
+        'payload': {
+          'actions': [{'key': 'wallet', 'label': 'Open My Wallet', 'route': '/wallet'}],
+          'options': [
+            {'key': 'helped', 'label': 'That Helped'},
+            {'key': 'agent', 'label': 'Talk to an Agent'},
+          ],
+        },
         'created_at': '2026-09-24T03:11:00Z',
       },
     ]);
 
-    expect(find.text('KAYA Assistant'), findsOneWidget);
+    expect(find.text('Open My Wallet'), findsOneWidget);
+    expect(find.text('That Helped'), findsOneWidget);
+    expect(find.text('Talk to an Agent'), findsOneWidget);
     // A small button to report the answer, on assistant answers only.
     expect(find.byTooltip('Report This Answer'), findsOneWidget);
-    expect(find.text('KAYA Assistant is answering'), findsOneWidget);
-    expect(find.text('Talk to a Person'), findsOneWidget);
+    expect(find.byTooltip('Menu'), findsOneWidget);
   });
 
-  testWidgets('with a person, the bar says the team will reply', (tester) async {
-    await render(tester, width: 390, textScale: 1.0, assistant: {'on': true, 'with_person': true});
+  testWidgets('in line, the header shows the place and the wait', (tester) async {
+    await render(tester, width: 390, textScale: 1.0, assistant: {
+      'on': true, 'with_person': true, 'team_online': true, 'line': {'position': 2, 'eta_minutes': 6},
+    });
 
-    expect(find.text('The KAYA team will reply'), findsOneWidget);
-    expect(find.text('Talk to a Person'), findsNothing);
+    expect(find.text('#2 in line · about 6 min'), findsOneWidget);
+    expect(find.text('Back to Assistant'), findsOneWidget);
+    expect(find.byTooltip('Menu'), findsNothing);
   });
 
-  testWidgets('with the assistant off, there is no bar', (tester) async {
+  testWidgets('with the team offline, the person is told', (tester) async {
+    await render(tester, width: 390, textScale: 1.0, assistant: {
+      'on': true, 'with_person': true, 'team_online': false, 'line': {'position': 1},
+    });
+
+    expect(find.textContaining('The team is offline'), findsOneWidget);
+  });
+
+  testWidgets('an agent joined: named in the header, and a divider in the chat', (tester) async {
+    await render(tester, width: 390, textScale: 1.0, assistant: {'on': true, 'with_person': true, 'agent': 'Ana'}, messages: [
+      ...thread(),
+      {'id': 3, 'body': 'Ana from KAYA joined the chat.', 'from_admin': true, 'kind': 'event', 'created_at': '2026-09-24T03:12:00Z'},
+    ]);
+
+    expect(find.text('Ana from KAYA'), findsOneWidget);
+    expect(find.text('Ana from KAYA joined the chat.'), findsOneWidget);
+    expect(find.text('Back to Assistant'), findsNothing);
+  });
+
+  testWidgets('with the assistant off, there is no menu', (tester) async {
     await render(tester, width: 390, textScale: 1.0, assistant: {'on': false, 'with_person': false});
 
-    expect(find.text('Talk to a Person'), findsNothing);
-    expect(find.text('KAYA Assistant is answering'), findsNothing);
-  });
-
-  testWidgets('an empty thread with the assistant says it answers first', (tester) async {
-    await render(tester, width: 390, textScale: 1.0, messages: const [], assistant: {'on': true, 'with_person': false});
-
-    expect(find.textContaining('KAYA Assistant answers right away'), findsOneWidget);
-    expect(find.textContaining('clears when you leave'), findsOneWidget);
-    expect(find.text('Talk to a Person'), findsOneWidget);
-  });
-
-  testWidgets('quick questions sit above the box', (tester) async {
-    await render(tester, width: 390, textScale: 1.0, assistant: {
-      'on': true,
-      'with_person': false,
-      'quick': [
-        {'key': 'verify', 'label': 'How do I get verified?'},
-        {'key': 'topup', 'label': 'How do I top up Barya?'},
-      ],
-    });
-    expect(find.text('How do I get verified?'), findsOneWidget);
-  });
-
-  testWidgets('with a person, the way back to the assistant is there', (tester) async {
-    await render(tester, width: 390, textScale: 1.0, assistant: {'on': true, 'with_person': true});
-    expect(find.text('Back to Assistant'), findsOneWidget);
-    expect(find.text('How do I get verified?'), findsNothing);
+    expect(find.byTooltip('Menu'), findsNothing);
+    expect(find.text('Back to Assistant'), findsNothing);
   });
 
   for (final width in <double>[412, 360, 320]) {
@@ -162,7 +184,7 @@ void main() {
         'support fits ${width.toInt()}px at text scale $scale',
         (tester) async {
           final complaints = await render(tester, width: width, textScale: scale,
-              assistant: {'on': true, 'with_person': false});
+              assistant: {'on': true, 'with_person': false, 'menu': menu});
 
           expect(find.text('Joed Garin'), findsOneWidget,
               reason: 'the thread never rendered, so nothing was checked');

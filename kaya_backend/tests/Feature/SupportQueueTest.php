@@ -49,7 +49,7 @@ class SupportQueueTest extends TestCase
         $ana = $this->admin('Ana Admin');
 
         $this->actingAs($ana)->get('/admin/support')->assertOk()
-            ->assertSee('Maria Santos')->assertSee('Barya')->assertSee('Not taken yet');
+            ->assertSee('Maria Santos')->assertSee('Barya')->assertSee('#1 in line');
         $this->actingAs($ana)->get('/admin/support?show=waiting&topic=job')->assertOk()->assertDontSee('Maria Santos');
         $this->actingAs($ana)->get('/admin/support?show=mine')->assertOk()->assertDontSee('Maria Santos');
 
@@ -69,6 +69,107 @@ class SupportQueueTest extends TestCase
         $this->assertSame($ben->id, (int) $thread->fresh()->assigned_to);
         $this->actingAs($ben)->get('/admin/support?show=answered')->assertOk()->assertSee('Maria Santos');
         $this->actingAs($ben)->get('/admin/support?show=waiting')->assertOk()->assertDontSee('Maria Santos');
+    }
+
+    private function line(User $person): ?array
+    {
+        return $this->actingAs($person, 'sanctum')->getJson('/api/v1/support')->json('data.assistant.line');
+    }
+
+    #[Test]
+    public function people_see_their_place_in_line(): void
+    {
+        [$first] = $this->waitingChat();
+        $this->travel(1)->minutes();
+        [$second] = $this->waitingChat();
+
+        $this->assertSame(1, $this->line($first)['position']);
+        $this->assertSame(2, $this->line($second)['position']);
+    }
+
+    #[Test]
+    public function take_next_takes_whoever_waited_longest_and_the_line_moves(): void
+    {
+        [$first, $firstThread] = $this->waitingChat();
+        $this->travel(1)->minutes();
+        [$second] = $this->waitingChat();
+        $ana = $this->admin('Ana Admin');
+
+        $this->actingAs($ana)->post('/admin/support-next')->assertRedirect(route('admin.support.show', $firstThread));
+
+        $this->assertNull($this->line($first), 'taken: no longer in line');
+        $this->assertSame(1, $this->line($second)['position']);
+        $this->actingAs($first, 'sanctum')->getJson('/api/v1/support')
+            ->assertJsonPath('data.assistant.agent', 'Ana');
+        $this->assertDatabaseHas('support_messages', ['support_thread_id' => $firstThread->id, 'kind' => 'event', 'body' => 'Ana from KAYA joined the chat.']);
+        $this->assertDatabaseHas('user_notifications', ['user_id' => $first->id, 'title' => 'Ana from KAYA is ready for you']);
+    }
+
+    #[Test]
+    public function going_back_to_the_assistant_keeps_the_place_for_ten_minutes(): void
+    {
+        config(['kaya.assistant.enabled' => true, 'kaya.assistant.url' => 'https://omni.test/v1', 'kaya.assistant.key' => 'k']);
+        \Illuminate\Support\Facades\Http::fake();
+        [$first] = $this->waitingChat();
+        $this->travel(1)->minutes();
+        [$second] = $this->waitingChat();
+
+        // The first person goes back to the assistant, then changes their mind.
+        $this->actingAs($first, 'sanctum')->postJson('/api/v1/support/assistant')->assertOk()
+            ->assertJsonPath('data.message.body', \App\Services\KayaAssistant::BACK . ' ' . \App\Services\KayaAssistant::PLACE_SAVED);
+        $this->travel(5)->minutes();
+        $this->actingAs($first, 'sanctum')->postJson('/api/v1/support/person', ['topic' => 'barya'])->assertOk();
+
+        $this->assertSame(1, $this->line($first)['position'], 'back at the front, not behind the second');
+
+        // After the saved minutes, the place is gone.
+        $this->actingAs($first, 'sanctum')->postJson('/api/v1/support/assistant')->assertOk();
+        $this->travel(11)->minutes();
+        $this->actingAs($first, 'sanctum')->postJson('/api/v1/support/person', ['topic' => 'barya'])->assertOk();
+        $this->assertSame(2, $this->line($first)['position']);
+        $this->assertSame(1, $this->line($second)['position']);
+    }
+
+    #[Test]
+    public function hand_back_returns_the_person_to_the_assistant_and_put_back_keeps_the_place(): void
+    {
+        [$maria, $thread] = $this->waitingChat();
+        $ana = $this->admin('Ana Admin');
+        $this->actingAs($ana)->post("/admin/support/{$thread->id}/take")->assertRedirect();
+
+        $this->actingAs($ana)->post("/admin/support/{$thread->id}/put-back")->assertRedirect();
+        $this->assertSame(1, $this->line($maria)['position']);
+
+        $this->actingAs($ana)->post("/admin/support/{$thread->id}/take")->assertRedirect();
+        $this->actingAs($ana)->post("/admin/support/{$thread->id}/hand-back")->assertRedirect();
+
+        $this->assertNull($this->line($maria));
+        $this->assertDatabaseHas('support_messages', ['support_thread_id' => $thread->id, 'kind' => 'event', 'body' => 'Ana left the chat. KAYA Assistant is back.']);
+        $this->assertNull($thread->fresh()->handoff_at);
+    }
+
+    #[Test]
+    public function the_person_is_told_when_nobody_is_available(): void
+    {
+        [$maria] = $this->waitingChat();
+        $ana = $this->admin('Ana Admin');
+
+        $this->actingAs($maria, 'sanctum')->getJson('/api/v1/support')->assertJsonPath('data.assistant.team_online', false);
+
+        $this->actingAs($ana)->post('/admin/support-available')->assertRedirect();
+        $this->actingAs($maria, 'sanctum')->getJson('/api/v1/support')->assertJsonPath('data.assistant.team_online', true);
+    }
+
+    #[Test]
+    public function the_agent_sees_the_folded_assistant_part_and_a_summary(): void
+    {
+        [, $thread] = $this->waitingChat();
+        $thread->forceFill(['summary' => 'Needs Barya back. Was told to check My Wallet.'])->save();
+        $ana = $this->admin('Ana Admin');
+
+        $this->actingAs($ana)->get("/admin/support/{$thread->id}")->assertOk()
+            ->assertSee('Summary')->assertSee('Needs Barya back.')
+            ->assertSee('Before the hand-off:');
     }
 
     #[Test]

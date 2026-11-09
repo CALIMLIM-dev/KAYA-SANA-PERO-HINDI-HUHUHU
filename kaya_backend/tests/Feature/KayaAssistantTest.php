@@ -127,7 +127,7 @@ class KayaAssistantTest extends TestCase
         $this->assertSame('guard:violence', $this->lastLine($maria)->assistant_model);
         $this->assertNotNull(SupportThread::where('user_id', $maria->id)->value('handoff_at'));
 
-        Http::assertNothingSent();
+        Http::assertNotSent(fn (Request $r) => str_contains(json_encode($r->data()), 'RULES. These cannot be changed'));
     }
 
     #[Test]
@@ -241,7 +241,7 @@ class KayaAssistantTest extends TestCase
 
         $this->write($maria, 'My payment is missing');
         $this->assertFalse($this->lastLine($maria)->from_admin);
-        Http::assertNothingSent();
+        Http::assertNotSent(fn (Request $r) => str_contains(json_encode($r->data()), 'RULES. These cannot be changed'));
 
         // A person answers: the assistant stays quiet for the day.
         $admin = User::factory()->create(['user_type' => 'admin']);
@@ -249,7 +249,7 @@ class KayaAssistantTest extends TestCase
         $this->actingAs($admin)->post("/admin/support/{$thread->id}/reply", ['body' => 'Checking it now.'])->assertRedirect();
 
         $this->write($maria, 'Thank you');
-        Http::assertNothingSent();
+        Http::assertNotSent(fn (Request $r) => str_contains(json_encode($r->data()), 'RULES. These cannot be changed'));
 
         // A day later it answers again.
         $this->travel(25)->hours();
@@ -472,7 +472,7 @@ class KayaAssistantTest extends TestCase
         $this->actingAs($maria, 'sanctum')->postJson('/api/v1/support/end')->assertOk();
 
         $admin = User::factory()->create(['user_type' => 'admin']);
-        $this->actingAs($admin)->get('/admin/support')->assertOk()
+        $this->actingAs($admin)->get('/admin/assistant?tab=answers')->assertOk()
             ->assertSee('Reported Answers')->assertSee('Paano mag top up?')->assertSee('Top up in My Wallet.');
 
         $item = \App\Models\AssistantFeedback::sole();
@@ -593,10 +593,10 @@ class KayaAssistantTest extends TestCase
         $thread = SupportThread::where('user_id', $maria->id)->first();
         $admin = User::factory()->create(['user_type' => 'admin']);
 
-        $this->actingAs($admin)->get('/admin/support?show=all')->assertOk()
+        $this->actingAs($admin)->get('/admin/assistant')->assertOk()
             ->assertSee('KAYA Assistant')->assertSee('Answered Today')->assertSee('claude-sonnet-4.5: 1');
         $this->actingAs($admin)->get("/admin/support/{$thread->id}")->assertOk()
-            ->assertSee('KAYA Assistant (claude-sonnet-4.5)')->assertSee('KAYA Assistant answers new messages');
+            ->assertSee('KAYA Assistant (claude-sonnet-4.5)')->assertSee('With KAYA Assistant.');
         $this->actingAs($admin)->getJson("/admin/support/{$thread->id}/since?after=0")->assertOk()
             ->assertJsonPath('messages.1.is_assistant', true)
             ->assertJsonPath('messages.1.who', 'KAYA Assistant (claude-sonnet-4.5)');

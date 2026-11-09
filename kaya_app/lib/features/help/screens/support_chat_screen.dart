@@ -1,6 +1,12 @@
 import 'dart:async';
 
+import 'dart:io';
+
+import 'package:dio/dio.dart' show FormData, MultipartFile;
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
+
+import '../../../core/constants/app_version.dart';
 
 import '../../../core/constants/app_colors.dart';
 import '../../../core/widgets/app_toast.dart';
@@ -19,10 +25,12 @@ import '../../../data/services/api_client.dart';
 
     Polled while it is open, the same way the rest of the app does realtime.
 
-    KAYA Assistant answers first, from KAYA's help and the person's own
-    account, a few seconds after a message is sent; its answer arrives on the
-    next poll like any other line. Talk to a Person hands the thread to the
-    team, and the bar above the box always says which of the two is answering.
+    KAYA Assistant answers first, like a shop's help chat: a menu of topics,
+    then the issue, then an answer that has already read the person's own
+    records, with buttons that open the screen to fix it - and That Helped,
+    Talk to an Agent or back to the menu. Typing goes to the AI. An agent
+    request joins a real line: the header shows the place and the wait, then
+    who joined. Lines between the two sides show as dividers.
 */
 class SupportChatScreen extends StatefulWidget {
   const SupportChatScreen({super.key, this.seed, this.seedAssistant});
@@ -63,13 +71,14 @@ class _SupportChatScreenState extends State<SupportChatScreen> {
   bool _assistantOn = false;
   bool _withPerson = false;
   bool _handingOff = false;
-  bool _asking = false;
+  bool _choosing = false;
 
-  /// The quick questions the server offers, as {key, label}.
-  List<Map<String, dynamic>> _quick = const [];
-
-  /// What a chat with the team can be about, as {key, label}.
-  List<Map<String, dynamic>> _topics = const [];
+  // The greeting and its menu, the line and the agent, as the server says.
+  String _greeting = '';
+  List<Map<String, dynamic>> _menu = const [];
+  Map<String, dynamic>? _line;
+  String? _agent;
+  bool _teamOnline = true;
 
   /*
       Answers from KAYA Assistant that arrived while the screen was open are
@@ -226,14 +235,14 @@ class _SupportChatScreenState extends State<SupportChatScreen> {
     if (state == null) return;
     _assistantOn = state['on'] == true;
     _withPerson = state['with_person'] == true;
-    _topics = ((state['topics'] as List?) ?? const [])
+    _greeting = '${state['greeting'] ?? ''}';
+    _menu = ((state['menu'] as List?) ?? const [])
         .whereType<Map>()
         .map((q) => q.cast<String, dynamic>())
         .toList();
-    _quick = ((state['quick'] as List?) ?? const [])
-        .whereType<Map>()
-        .map((q) => q.cast<String, dynamic>())
-        .toList();
+    _line = (state['line'] as Map?)?.cast<String, dynamic>();
+    _agent = state['agent'] as String?;
+    _teamOnline = state['team_online'] != false;
   }
 
   /// The typing line goes once KAYA has answered after the sent message.
@@ -254,57 +263,55 @@ class _SupportChatScreenState extends State<SupportChatScreen> {
 
   bool get _assistantTyping => _awaitingSince != null;
 
-  /// What it is about, so the right person on the team picks it up.
-  Future<String?> _pickTopic() {
-    return showDialog<String>(
-      context: context,
-      builder: (dialogContext) => SimpleDialog(
-        title: const Text('What Is It About?'),
-        children: [
-          for (final t in _topics)
-            SimpleDialogOption(
-              onPressed: () => Navigator.pop(dialogContext, '${t['key']}'),
-              child: Padding(
-                padding: const EdgeInsets.symmetric(vertical: 6),
-                child: Text('${t['label']}', style: const TextStyle(fontSize: 15)),
-              ),
-            ),
-        ],
-      ),
-    );
-  }
-
-  Future<void> _talkToPerson() async {
-    if (_handingOff) return;
-
-    String? topic;
-    if (_topics.isNotEmpty) {
-      topic = await _pickTopic();
-      if (topic == null || !mounted) return;
+  /*
+      A tap in the assistant's menu: a topic, an issue, That Helped, Talk to
+      an Agent. Something's Broken opens the report form instead.
+  */
+  Future<void> _choose(String key) async {
+    if (key == 'topic:bug') {
+      await _reportBug();
+      return;
     }
-
-    setState(() => _handingOff = true);
+    if (_choosing) return;
+    setState(() => _choosing = true);
 
     try {
-      final res = await _api.post('/support/person', data: {'topic': ?topic});
+      final res = await _api.post('/support/choose', data: {'key': key});
       final data = res.data['data'] as Map<String, dynamic>;
-      final message = data['message'] as Map<String, dynamic>?;
+      final incoming = ((data['messages'] as List?) ?? const []).cast<Map<String, dynamic>>();
 
       if (!mounted) return;
 
       setState(() {
-        if (message != null) _messages = _merged([message]);
+        _opened = true;
+        _typeOut(incoming);
+        _messages = _merged(incoming);
         _readAssistant(data['assistant'] as Map<String, dynamic>?);
-        _awaitingSince = null;
-        _handingOff = false;
+        _choosing = false;
       });
       _toBottom();
     } catch (e) {
       if (!mounted) return;
 
-      setState(() => _handingOff = false);
+      setState(() => _choosing = false);
       AppToast.error(context, e.toString().replaceFirst('Exception: ', ''));
     }
+  }
+
+  /// Something's Broken: where, what, a few words and a screenshot.
+  Future<void> _reportBug() async {
+    final sent = await showDialog<Map<String, dynamic>>(
+      context: context,
+      builder: (_) => const _BugReportDialog(),
+    );
+    if (sent == null || !mounted) return;
+
+    final message = (sent['message'] as Map?)?.cast<String, dynamic>();
+    setState(() {
+      _opened = true;
+      if (message != null) _messages = _merged([message]);
+    });
+    _toBottom();
   }
 
   /// Back to KAYA Assistant, from the team.
@@ -329,34 +336,6 @@ class _SupportChatScreenState extends State<SupportChatScreen> {
       if (!mounted) return;
 
       setState(() => _handingOff = false);
-      AppToast.error(context, e.toString().replaceFirst('Exception: ', ''));
-    }
-  }
-
-  /// A quick question: asked and answered at once, no waiting.
-  Future<void> _askQuick(String key) async {
-    if (_asking) return;
-    setState(() => _asking = true);
-
-    try {
-      final res = await _api.post('/support/quick', data: {'key': key});
-      final data = res.data['data'] as Map<String, dynamic>;
-      final pair = ((data['messages'] as List?) ?? const [])
-          .cast<Map<String, dynamic>>();
-
-      if (!mounted) return;
-
-      setState(() {
-        _typeOut(pair);
-        _messages = _merged(pair);
-        _readAssistant(data['assistant'] as Map<String, dynamic>?);
-        _asking = false;
-      });
-      _toBottom();
-    } catch (e) {
-      if (!mounted) return;
-
-      setState(() => _asking = false);
       AppToast.error(context, e.toString().replaceFirst('Exception: ', ''));
     }
   }
@@ -415,7 +394,7 @@ class _SupportChatScreenState extends State<SupportChatScreen> {
             const Text('Message KAYA', style: TextStyle(fontWeight: FontWeight.w600)),
             if (_assistantOn)
               Text(
-                _withPerson ? 'The KAYA team will reply' : 'KAYA Assistant is answering',
+                _status(),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: const TextStyle(
@@ -424,20 +403,17 @@ class _SupportChatScreenState extends State<SupportChatScreen> {
           ],
         ),
         actions: [
-          if (_assistantOn)
+          // While waiting, back to the assistant keeps the place in line.
+          if (_assistantOn && _withPerson && _agent == null)
             TextButton(
-              onPressed: _handingOff
-                  ? null
-                  : (_withPerson ? _backToAssistant : _talkToPerson),
-              child: Text(_withPerson ? 'Back to Assistant' : 'Talk to a Person'),
+              onPressed: _handingOff ? null : _backToAssistant,
+              child: const Text('Back to Assistant'),
             ),
         ],
       ),
       body: Column(
         children: [
           Expanded(child: _body()),
-          if (_assistantOn && !_withPerson && _quick.isNotEmpty && !_assistantTyping)
-            _quickRow(),
           SafeArea(
             top: false,
             child: Container(
@@ -449,6 +425,13 @@ class _SupportChatScreenState extends State<SupportChatScreen> {
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
+                  if (_assistantOn && !_withPerson && _menu.isNotEmpty)
+                    IconButton(
+                      onPressed: _choosing ? null : () => _choose('menu'),
+                      icon: const Icon(Icons.apps_rounded),
+                      color: AppColors.neutral500,
+                      tooltip: 'Menu',
+                    ),
                   Expanded(
                     child: TextField(
                       controller: _controller,
@@ -515,33 +498,41 @@ class _SupportChatScreenState extends State<SupportChatScreen> {
     }
 
     if (_messages.isEmpty) {
-      final assistant = _assistantOn && !_withPerson;
+      if (_assistantOn && !_withPerson && _menu.isNotEmpty) {
+        return ListView(
+          controller: _scroll,
+          padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+          children: [
+            _bubble({'from_admin': true, 'from': 'KAYA Assistant', 'body': _greeting}),
+            _options(_menu),
+            const SizedBox(height: 12),
+            const Text(
+              'This chat clears when you leave it.',
+              textAlign: TextAlign.center,
+              style: TextStyle(fontSize: 11.5, color: AppColors.neutral400),
+            ),
+          ],
+        );
+      }
 
-      return Center(
+      return const Center(
         child: Padding(
-          padding: const EdgeInsets.all(32),
+          padding: EdgeInsets.all(32),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Icon(Icons.support_agent_outlined,
-                  size: 48, color: AppColors.neutral300),
-              const SizedBox(height: 14),
-              const Text(
-                'Tell Us What Happened',
-                style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                    color: AppColors.neutral700),
-              ),
-              const SizedBox(height: 6),
+              Icon(Icons.support_agent_outlined, size: 48, color: AppColors.neutral300),
+              SizedBox(height: 14),
               Text(
-                assistant
-                    ? 'KAYA Assistant answers right away from the KAYA help. '
-                        'This chat clears when you leave it.'
-                    : 'Somebody at KAYA reads this and answers here. '
-                        'Say which account, job or payment it is about.',
+                'Tell Us What Happened',
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: AppColors.neutral700),
+              ),
+              SizedBox(height: 6),
+              Text(
+                'Somebody at KAYA reads this and answers here. '
+                'Say which account, job or payment it is about.',
                 textAlign: TextAlign.center,
-                style: const TextStyle(fontSize: 13.5, color: AppColors.neutral500),
+                style: TextStyle(fontSize: 13.5, color: AppColors.neutral500),
               ),
             ],
           ),
@@ -553,8 +544,108 @@ class _SupportChatScreenState extends State<SupportChatScreen> {
       controller: _scroll,
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
       itemCount: _messages.length + (_assistantTyping ? 1 : 0),
-      itemBuilder: (context, i) =>
-          i < _messages.length ? _bubble(_messages[i]) : _typing(),
+      itemBuilder: (context, i) {
+        if (i >= _messages.length) return _typing();
+        final m = _messages[i];
+        if (m['kind'] == 'event') return _divider('${m['body']}');
+
+        final payload = (m['payload'] as Map?)?.cast<String, dynamic>() ?? const {};
+        final options = ((payload['options'] as List?) ?? const []).whereType<Map>()
+            .map((o) => o.cast<String, dynamic>()).toList();
+        final actions = ((payload['actions'] as List?) ?? const []).whereType<Map>()
+            .map((o) => o.cast<String, dynamic>()).toList();
+        // Choices only on the newest line: older ones are history.
+        final newest = i == _messages.length - 1;
+
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _bubble(m),
+            if (actions.isNotEmpty) _actions(actions),
+            if (options.isNotEmpty && newest && !_withPerson) _options(options),
+          ],
+        );
+      },
+    );
+  }
+
+  /// Who is answering, in the header.
+  String _status() {
+    if (_agent != null) return '$_agent from KAYA';
+    if (_withPerson) {
+      if (!_teamOnline) return 'The team is offline. We will reply when we are back.';
+      final place = _line?['position'];
+      final eta = _line?['eta_minutes'];
+      if (place != null) return eta != null ? '#$place in line · about $eta min' : '#$place in line';
+      return 'Waiting for a KAYA agent';
+    }
+    return 'KAYA Assistant';
+  }
+
+  /// A line between the two sides: "Ana from KAYA joined the chat."
+  Widget _divider(String text) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 10),
+      child: Row(
+        children: [
+          const Expanded(child: Divider(color: AppColors.neutral200)),
+          Flexible(
+            flex: 4,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 10),
+              child: Text(text, textAlign: TextAlign.center,
+                  style: const TextStyle(fontSize: 12, color: AppColors.neutral500)),
+            ),
+          ),
+          const Expanded(child: Divider(color: AppColors.neutral200)),
+        ],
+      ),
+    );
+  }
+
+  /// Choices to tap, under the assistant's line.
+  Widget _options(List<Map<String, dynamic>> options) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Wrap(
+        spacing: 8,
+        runSpacing: 8,
+        children: [
+          for (final o in options)
+            OutlinedButton(
+              onPressed: _choosing ? null : () => _choose('${o['key']}'),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: AppColors.primary,
+                side: const BorderSide(color: AppColors.neutral300),
+                backgroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                minimumSize: const Size(0, 34),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+                textStyle: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
+              ),
+              child: Text('${o['label']}'),
+            ),
+        ],
+      ),
+    );
+  }
+
+  /// Screens to open, so the fix is one tap away.
+  Widget _actions(List<Map<String, dynamic>> actions) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: Wrap(
+        spacing: 8,
+        runSpacing: 6,
+        children: [
+          for (final a in actions)
+            TextButton.icon(
+              onPressed: () => Navigator.pushNamed(context, '${a['route']}'),
+              icon: const Icon(Icons.open_in_new_rounded, size: 16),
+              label: Text('${a['label']}'),
+            ),
+        ],
+      ),
     );
   }
 
@@ -621,40 +712,6 @@ class _SupportChatScreenState extends State<SupportChatScreen> {
       if (!mounted) return;
       AppToast.error(context, e.toString().replaceFirst('Exception: ', ''));
     }
-  }
-
-  /// The quick questions, one tap each, like a shop's help chat.
-  Widget _quickRow() {
-    return Container(
-      width: double.infinity,
-      color: AppColors.background,
-      padding: const EdgeInsets.symmetric(vertical: 6),
-      child: SingleChildScrollView(
-        scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.symmetric(horizontal: 12),
-        child: Row(
-          children: [
-            for (final q in _quick)
-              Padding(
-                padding: const EdgeInsets.only(right: 8),
-                child: OutlinedButton(
-                  onPressed: _asking ? null : () => _askQuick('${q['key']}'),
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: AppColors.primary,
-                    side: const BorderSide(color: AppColors.neutral300),
-                    backgroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                    minimumSize: const Size(0, 34),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
-                    textStyle: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w500),
-                  ),
-                  child: Text('${q['label']}'),
-                ),
-              ),
-          ],
-        ),
-      ),
-    );
   }
 
   Widget _bubble(Map<String, dynamic> message) {
@@ -768,5 +825,113 @@ class _TypedTextState extends State<_TypedText> {
   @override
   Widget build(BuildContext context) {
     return Text(_words.take(_shown).join(), style: widget.style);
+  }
+}
+
+/// Something's Broken: where it happened, what happened, a few words and an
+/// optional screenshot. The app version and the phone go with it.
+class _BugReportDialog extends StatefulWidget {
+  const _BugReportDialog();
+
+  @override
+  State<_BugReportDialog> createState() => _BugReportDialogState();
+}
+
+class _BugReportDialogState extends State<_BugReportDialog> {
+  static const _issues = {
+    'app_closed': 'The app closed by itself',
+    'button': 'A button does nothing',
+    'wrong_info': 'Wrong information is shown',
+    'cant_sign_in': 'I cannot sign in',
+    'something_else': 'Something else',
+  };
+  static const _screens = {
+    'home': 'Home', 'jobs': 'Jobs', 'chat': 'Chat',
+    'wallet': 'Wallet', 'profile': 'Profile', 'other': 'Other',
+  };
+
+  final _details = TextEditingController();
+  String _issue = 'button';
+  String _screen = 'home';
+  XFile? _shot;
+  bool _sending = false;
+
+  @override
+  void dispose() {
+    _details.dispose();
+    super.dispose();
+  }
+
+  Future<void> _pick() async {
+    final picked = await ImagePicker().pickImage(source: ImageSource.gallery, maxWidth: 1600, imageQuality: 80);
+    if (picked != null && mounted) setState(() => _shot = picked);
+  }
+
+  Future<void> _send() async {
+    setState(() => _sending = true);
+    try {
+      final form = FormData.fromMap({
+        'issue': _issue,
+        'screen': _screen,
+        'details': _details.text.trim(),
+        'app_version': AppVersion.current,
+        'device': '${Platform.operatingSystem} ${Platform.operatingSystemVersion}'.trim(),
+        if (_shot != null) 'screenshot': await MultipartFile.fromFile(_shot!.path, filename: 'screenshot.jpg'),
+      });
+      final res = await ApiClient().post('/support/bug', data: form);
+      if (!mounted) return;
+      Navigator.pop(context, (res.data['data'] as Map).cast<String, dynamic>());
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _sending = false);
+      AppToast.error(context, e.toString().replaceFirst('Exception: ', ''));
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    DropdownButtonFormField<String> pick(String label, String value, Map<String, String> items, ValueChanged<String> onChanged) {
+      return DropdownButtonFormField<String>(
+        initialValue: value,
+        isExpanded: true,
+        decoration: InputDecoration(labelText: label, isDense: true, border: const OutlineInputBorder()),
+        items: [for (final e in items.entries) DropdownMenuItem(value: e.key, child: Text(e.value))],
+        onChanged: (v) => v == null ? null : onChanged(v),
+      );
+    }
+
+    return AlertDialog(
+      title: const Text("Something's Broken"),
+      content: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            pick('What happened?', _issue, _issues, (v) => setState(() => _issue = v)),
+            const SizedBox(height: 12),
+            pick('Where?', _screen, _screens, (v) => setState(() => _screen = v)),
+            const SizedBox(height: 12),
+            TextField(
+              controller: _details,
+              maxLines: 3,
+              maxLength: 1000,
+              decoration: const InputDecoration(
+                labelText: 'Tell us more (optional)',
+                border: OutlineInputBorder(),
+              ),
+            ),
+            TextButton.icon(
+              onPressed: _sending ? null : _pick,
+              icon: Icon(_shot == null ? Icons.add_photo_alternate_outlined : Icons.check_circle_outline),
+              label: Text(_shot == null ? 'Add a Screenshot' : 'Screenshot Added'),
+            ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(onPressed: _sending ? null : () => Navigator.pop(context), child: const Text('Cancel')),
+        TextButton(onPressed: _sending ? null : _send, child: Text(_sending ? 'Sending...' : 'Send Report')),
+      ],
+    );
   }
 }

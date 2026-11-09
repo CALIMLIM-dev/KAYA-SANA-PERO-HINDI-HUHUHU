@@ -33,12 +33,7 @@
         </div>
     @endforeach
     @if (auth()->user()->adminCan('platform'))
-        <form method="POST" action="{{ route('admin.reports.safety') }}" class="px-5 py-3">
-            @csrf
-            <button class="px-3 py-2 rounded-lg text-sm font-medium border border-slate-300 text-slate-700 hover:bg-slate-50">
-                {{ \App\Services\SafetyCheck::enabled() ? 'Turn Off' : 'Turn On' }}
-            </button>
-        </form>
+        <a href="{{ route('admin.safety.index') }}" class="px-5 py-3 text-sm text-blue-600 hover:text-blue-700">Manage Safety Check</a>
     @endif
 </div>
 

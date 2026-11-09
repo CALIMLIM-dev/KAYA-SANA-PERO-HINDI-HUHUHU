@@ -828,6 +828,30 @@ class NotificationService
     }
 
     /** KAYA answered somebody who wrote to support. */
+    /** A problem they reported with Something's Broken is fixed. */
+    public function bugFixed(\App\Models\User $user, string $version): void
+    {
+        $this->push(
+            userId: $user->id,
+            audience: UserNotification::AUDIENCE_BOTH,
+            type: 'bug.fixed',
+            title: 'The problem you reported is fixed',
+            body: $version !== '' ? "It is fixed in version {$version}. Update KAYA if you have not yet." : 'Thank you for telling us.',
+        );
+    }
+
+    /** An agent took the chat: the person can come back to it. */
+    public function supportAgentJoined(\App\Models\User $user, string $agent): void
+    {
+        $this->push(
+            userId: $user->id,
+            audience: UserNotification::AUDIENCE_BOTH,
+            type: 'support.replied',
+            title: "{$agent} from KAYA is ready for you",
+            body: 'Open Help and support to continue.',
+        );
+    }
+
     public function supportReplied(\App\Models\User $user): void
     {
         $this->push(

@@ -120,8 +120,10 @@ class SupportChatTest extends TestCase
 
         $this->actingAs($user, 'sanctum')->getJson('/api/v1/support')
             ->assertOk()
-            ->assertJsonPath('data.messages.1.from_admin', true)
-            ->assertJsonPath('data.messages.1.from', 'KAYA Admin');
+            // "KAYA joined the chat", then the reply.
+            ->assertJsonPath('data.messages.1.kind', 'event')
+            ->assertJsonPath('data.messages.2.from_admin', true)
+            ->assertJsonPath('data.messages.2.from', 'KAYA Admin');
     }
 
     #[Test]

@@ -7,11 +7,18 @@ use Illuminate\Database\Eloquent\Model;
 /** One line in an account's conversation with KAYA. */
 class SupportMessage extends Model
 {
-    protected $fillable = ['support_thread_id', 'sender_id', 'from_admin', 'is_assistant', 'assistant_model', 'body', 'read_at'];
+    protected $fillable = ['support_thread_id', 'sender_id', 'from_admin', 'is_assistant', 'assistant_model', 'body', 'read_at', 'kind', 'payload'];
+
+    /** A line between the two sides ("Ana joined the chat"), not something anyone typed. */
+    public function isEvent(): bool
+    {
+        return $this->kind === 'event';
+    }
 
     protected $casts = [
         'from_admin' => 'boolean',
         'is_assistant' => 'boolean',
+        'payload' => 'array',
         'read_at'    => 'datetime',
     ];
 

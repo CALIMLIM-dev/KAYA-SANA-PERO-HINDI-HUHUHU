@@ -69,8 +69,14 @@
                     ],
                     'Communication' => [
                         ['route' => 'admin.support.index',       'label' => 'Support',             'icon' => 'life-buoy', 'can' => 'support', 'queue' => 'support'],
+                        ['route' => 'admin.bugs.index',          'label' => 'Bug Reports',         'icon' => 'bug',       'can' => 'support'],
                         ['route' => 'admin.announcements.index', 'label' => 'Announcements',       'icon' => 'megaphone', 'can' => 'platform'],
                         ['route' => 'admin.banners.index',       'label' => 'Home Banners',        'icon' => 'image',     'can' => 'platform'],
+                    ],
+                    // The two AI features, each configurable on its own page.
+                    'AI' => [
+                        ['route' => 'admin.assistant.index',     'label' => 'KAYA Assistant',      'icon' => 'bot',          'can' => 'platform'],
+                        ['route' => 'admin.safety.index',        'label' => 'Safety Check',        'icon' => 'shield-check', 'can' => 'platform'],
                     ],
                     'System' => [
                         ['route' => 'admin.admins.index',        'label' => 'Administrators',      'icon' => 'shield',       'can' => 'admins'],

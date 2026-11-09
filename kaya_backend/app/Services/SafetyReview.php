@@ -27,6 +27,24 @@ class SafetyReview
     {
     }
 
+    /** What this kind does, as set on the Safety Check page: off, hide or report. */
+    private static function action(?string $verdict): string
+    {
+        if ($verdict === null || $verdict === SafetyCheck::OK) {
+            return 'off';
+        }
+
+        return (string) config("moderation.ai.actions.{$verdict}", 'report');
+    }
+
+    /** Counted by kind and by sender, for the Safety Check page. */
+    private static function counted(string $verdict, int $senderId): void
+    {
+        SafetyCheck::count('hidden');
+        SafetyCheck::count('hidden:' . $verdict);
+        SafetyCheck::count('hidden_by:' . $senderId);
+    }
+
     /** Lines the same sender wrote just before, read with the new one. */
     private function earlierLines($query, int $beforeId, string $column): array
     {
@@ -57,13 +75,13 @@ class SafetyReview
             ))
             : SafetyCheck::OK;
 
-        if ($verdict !== null && $verdict !== SafetyCheck::OK) {
+        if (self::action($verdict) !== 'off') {
             $original = (string) $message->message_text;
             $message->forceFill([
                 'message_text'  => SafetyCheck::VERDICTS[$verdict],
                 'hidden_reason' => $verdict,
             ]);
-            SafetyCheck::count('hidden');
+            self::counted($verdict, (int) $message->sender_id);
             $this->reportIfNeeded($message->sender_id, 'message', $message->id, $verdict, $original, 'Message');
         }
 
@@ -97,13 +115,13 @@ class SafetyReview
             'body',
         ));
 
-        if ($verdict !== null && $verdict !== SafetyCheck::OK) {
+        if (self::action($verdict) !== 'off') {
             $original = (string) $comment->body;
             $comment->forceFill([
                 'status'         => CommunityComment::STATUS_REMOVED,
                 'removed_reason' => SafetyCheck::VERDICTS[$verdict],
             ]);
-            SafetyCheck::count('hidden');
+            self::counted($verdict, (int) $comment->user_id);
             $this->reportIfNeeded($comment->user_id, 'community_comment', $comment->id, $verdict, $original, 'Community Comment');
         }
 
@@ -120,7 +138,7 @@ class SafetyReview
         $text = trim($job->title . "\n" . $job->description);
         $verdict = $this->check->check($text);
 
-        if ($verdict !== null && $verdict !== SafetyCheck::OK && $job->employer) {
+        if (self::action($verdict) !== 'off' && $job->employer) {
             $this->check->report($job->employer, 'job', $job->id, $verdict, $text, 'Job Post');
         }
     }
@@ -135,7 +153,7 @@ class SafetyReview
         $verdict = $this->check->check((string) $review->comment);
         $author = User::find($review->reviewer_id);
 
-        if ($verdict !== null && $verdict !== SafetyCheck::OK && $author) {
+        if (self::action($verdict) !== 'off' && $author) {
             $this->check->report($author, 'review', $review->id, $verdict, (string) $review->comment, 'Review');
         }
     }
@@ -152,7 +170,7 @@ class SafetyReview
             return;
         }
 
-        if (in_array($verdict, SafetyCheck::SERIOUS, true)) {
+        if (self::action($verdict) === 'report') {
             $this->check->report($sender, $type, $subjectId, $verdict, $original, $kind);
 
             return;

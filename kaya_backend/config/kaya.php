@@ -343,6 +343,14 @@ return [
         'max_reply'      => 1200,
         // How long it stays quiet after a person from KAYA has answered.
         'quiet_hours'    => 24,
+        // The rest are set on the admin's KAYA Assistant page; these are the
+        // starting values. Null knowledge and menu read the files in
+        // resources/assistant.
+        'greeting'       => 'Hi, I am KAYA Assistant. What do you need help with? Pick one below or type your question.',
+        'knowledge'      => null,
+        'menu'           => null,
+        // The same issue picked by this many people in an hour suggests a known issue.
+        'alert_after'    => 5,
     ],
 
     /*

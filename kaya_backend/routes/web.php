@@ -122,10 +122,39 @@ Route::prefix('admin')->name('admin.')->group(function () {
         // KAYA Assistant on or off: a platform switch, not a support one.
         Route::post('/support-assistant', [AdminSupportController::class, 'toggleAssistant'])
             ->name('support.assistant')->middleware('admin.can:platform');
+
+        // KAYA Assistant and the Safety Check: one page each, platform admins.
+        Route::middleware('admin.can:platform')->group(function () {
+            $a = \App\Http\Controllers\Admin\AssistantController::class;
+            Route::get('/assistant', [$a, 'index'])->name('assistant.index');
+            Route::post('/assistant/toggle', [$a, 'toggle'])->name('assistant.toggle');
+            Route::post('/assistant/settings', [$a, 'saveSettings'])->name('assistant.settings');
+            Route::post('/assistant/knowledge', [$a, 'saveKnowledge'])->name('assistant.knowledge');
+            Route::post('/assistant/menu', [$a, 'saveMenu'])->name('assistant.menu');
+            Route::post('/assistant/issues', [$a, 'postIssue'])->name('assistant.issues.post');
+            Route::post('/assistant/issues/draft', [$a, 'draftIssue'])->name('assistant.issues.draft');
+            Route::post('/assistant/issues/{issue}/end', [$a, 'endIssue'])->name('assistant.issues.end');
+            Route::post('/assistant/answers/{feedback}/teach', [$a, 'teach'])->name('assistant.teach');
+            Route::post('/assistant/lessons/{lesson}/forget', [$a, 'forgetLesson'])->name('assistant.lessons.forget');
+
+            $s = \App\Http\Controllers\Admin\SafetyController::class;
+            Route::get('/safety', [$s, 'index'])->name('safety.index');
+            Route::post('/safety/settings', [$s, 'saveSettings'])->name('safety.settings');
+            Route::post('/safety/words', [$s, 'saveWords'])->name('safety.words');
+            Route::post('/safety/try', [$s, 'tryMessage'])->name('safety.try');
+        });
         Route::get('/support/{thread}', [AdminSupportController::class, 'show'])->name('support.show');
         Route::get('/support/{thread}/since', [AdminSupportController::class, 'since'])->name('support.since');
         Route::post('/support/{thread}/reply', [AdminSupportController::class, 'reply'])->name('support.reply');
         Route::post('/support/{thread}/take', [AdminSupportController::class, 'take'])->name('support.take');
+        Route::post('/support/{thread}/hand-back', [AdminSupportController::class, 'handBack'])->name('support.handback');
+        Route::post('/support/{thread}/put-back', [AdminSupportController::class, 'putBack'])->name('support.putback');
+        Route::post('/support-next', [AdminSupportController::class, 'takeNext'])->name('support.next');
+        // Something's Broken reports from the app.
+        Route::get('/bugs', [\App\Http\Controllers\Admin\BugReportController::class, 'index'])->name('bugs.index');
+        Route::get('/bugs/{bug}/screenshot', [\App\Http\Controllers\Admin\BugReportController::class, 'screenshot'])->name('bugs.screenshot');
+        Route::post('/bugs/{bug}/fix', [\App\Http\Controllers\Admin\BugReportController::class, 'fix'])->name('bugs.fix');
+        Route::post('/support-available', [AdminSupportController::class, 'toggleAvailable'])->name('support.available');
         Route::post('/support-feedback/{feedback}/dismiss', [AdminSupportController::class, 'dismissFeedback'])->name('support.feedback.dismiss');
         Route::post('/support/{thread}/close', [AdminSupportController::class, 'close'])->name('support.close');
         });

@@ -86,6 +86,7 @@ class SupportController extends Controller
             fn ($q) => $q->where('user_id', $request->user()->id),
         )
             ->where('from_admin', true)
+            ->whereNull('kind')
             ->whereNull('read_at')
             ->count();
 
@@ -191,6 +192,72 @@ class SupportController extends Controller
         return $this->ok(['cleared' => $cleared], $cleared ? 'Chat cleared' : 'Kept for the team');
     }
 
+    /*
+        A tap in KAYA Assistant's menu: a topic, an issue, That Helped, Talk to
+        an Agent. Answered at once, from the menu and the person's own records.
+    */
+    public function choose(Request $request, \App\Services\SupportFlow $flow, KayaAssistant $assistant)
+    {
+        $data = $request->validate(['key' => ['required', 'string', 'max:80']]);
+        $user = $request->user();
+        $thread = SupportThread::firstOrCreate(['user_id' => $user->id]);
+
+        if ($data['key'] === 'agent') {
+            $messages = [$assistant->handOff($thread)];
+        } else {
+            $pair = $flow->choose($thread, $user, $data['key']);
+            if ($pair === null) {
+                return response()->json(['success' => false, 'data' => null, 'message' => 'That choice is not available.'], 422);
+            }
+            $messages = $pair;
+        }
+
+        return $this->ok([
+            'messages'  => collect($messages)->filter()->map(fn ($m) => $this->present($m))->values(),
+            'assistant' => $this->assistantState($thread->fresh()),
+        ]);
+    }
+
+    /*
+        Something's Broken: what happened, where, a few words and an optional
+        screenshot. KAYA adds the server errors on this account from the last
+        ten minutes, so nobody has to describe anything technical.
+    */
+    public function bug(Request $request)
+    {
+        $data = $request->validate([
+            'issue'       => ['required', \Illuminate\Validation\Rule::in(array_keys(\App\Models\BugReport::ISSUES))],
+            'screen'      => ['required', \Illuminate\Validation\Rule::in(array_keys(\App\Models\BugReport::SCREENS))],
+            'details'     => ['nullable', 'string', 'max:1000'],
+            'app_version' => ['nullable', 'string', 'max:20'],
+            'device'      => ['nullable', 'string', 'max:120'],
+            'screenshot'  => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:5120'],
+        ]);
+        $user = $request->user();
+
+        $report = \App\Models\BugReport::create([
+            'user_id'          => $user->id,
+            'issue'            => $data['issue'],
+            'screen'           => $data['screen'],
+            'details'          => isset($data['details']) ? app(MessageFilter::class)->maskProfanity(trim($data['details'])) : null,
+            'app_version'      => $data['app_version'] ?? null,
+            'device'           => $data['device'] ?? null,
+            'screenshot_path'  => $request->file('screenshot')?->store('bug_reports', config('filesystems.documents')),
+            'server_error_ids' => \App\Models\ServerError::where('user_id', $user->id)
+                ->where('last_seen_at', '>=', now()->subMinutes(10))->pluck('id')->all(),
+        ]);
+
+        // Said in the chat, so the person sees it went through.
+        $thread = SupportThread::firstOrCreate(['user_id' => $user->id]);
+        $line = $thread->messages()->create([
+            'sender_id' => null, 'from_admin' => true, 'is_assistant' => true, 'assistant_model' => 'menu',
+            'body' => 'Thank you. Your report was sent to the KAYA team. We will tell you when it is fixed.',
+        ]);
+        $thread->forceFill(['last_message_at' => now()])->save();
+
+        return $this->ok(['id' => $report->id, 'message' => $this->present($line)], 'Report sent', 201);
+    }
+
     /** Back to KAYA Assistant, from the team. */
     public function assistant(Request $request, KayaAssistant $assistant)
     {
@@ -221,6 +288,21 @@ class SupportController extends Controller
         ]);
     }
 
+    private function lineState(?SupportThread $thread): ?array
+    {
+        $place = $thread?->placeInLine();
+        if ($place === null) {
+            return null;
+        }
+
+        $average = SupportThread::averageWaitSeconds();
+
+        return [
+            'position'    => $place,
+            'eta_minutes' => $average === null ? null : max(1, (int) ceil($average * $place / 60)),
+        ];
+    }
+
     /** What the screen shows about the assistant: on, or with a person. */
     private function assistantState(?SupportThread $thread): array
     {
@@ -230,6 +312,15 @@ class SupportController extends Controller
             'on'          => $on,
             'name'        => KayaAssistant::NAME,
             'with_person' => $on && $thread !== null && ! $thread->assistantActive(),
+            // The line: place, a rough wait, the agent once one joins.
+            'line'        => $this->lineState($thread),
+            'agent'       => $thread?->agent_joined_at && $thread->assignee
+                ? explode(' ', trim((string) $thread->assignee->name))[0]
+                : null,
+            'team_online' => SupportThread::teamOnline(),
+            // The menu the greeting offers, and the greeting itself.
+            'greeting'    => \App\Services\SupportFlow::greeting(),
+            'menu'        => \App\Services\SupportFlow::topicOptions(),
             // The topics for Talk to a Person, as [{key, label}].
             'topics'      => collect(SupportThread::TOPICS)->map(fn ($label, $key) => ['key' => $key, 'label' => $label])->values(),
             // The quick questions, as [{key, label}].
@@ -245,7 +336,11 @@ class SupportController extends Controller
             'id'         => $message->id,
             'body'       => $message->body,
             'from_admin' => $message->from_admin,
-            'from_assistant' => (bool) $message->is_assistant,
+            'from_assistant' => (bool) $message->is_assistant && ! $message->isEvent(),
+            // 'event': a line between the two sides, shown as a divider.
+            'kind'       => $message->kind,
+            // Buttons on an assistant line: options to tap, screens to open.
+            'payload'    => $message->payload,
             // The name of whoever answered, so a reply reads as a person
             // rather than as the platform. Their own name, not an alias:
             // an admin account is a real account and the audit says so.

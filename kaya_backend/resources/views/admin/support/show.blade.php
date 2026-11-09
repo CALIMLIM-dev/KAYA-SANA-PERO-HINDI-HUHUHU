@@ -7,28 +7,54 @@
 
 @section('content')
 <div class="max-w-3xl space-y-4">
-    <div class="bg-white rounded-xl border border-slate-200 p-5 flex items-center gap-3">
-        <div class="flex-1 min-w-0">
+    @php
+        $mine = (int) $thread->assigned_to === (int) auth()->id();
+        $place = $thread->placeInLine();
+        // What was said with the assistant before the hand-off: folded, so the
+        // agent sees the conversation that is theirs.
+        $handoffAt = $thread->queue_since ?? $thread->handoff_at;
+        $before = $handoffAt
+            ? $thread->messages->filter(fn ($m) => ! $m->isEvent() && $m->created_at->lte($handoffAt))
+            : collect();
+        $after = $thread->messages->reject(fn ($m) => $before->contains('id', $m->id));
+    @endphp
+
+    <div class="bg-white rounded-xl border border-slate-200 p-5 flex flex-wrap items-center gap-3">
+        <div class="flex-1 min-w-[14rem]">
             <p class="font-medium text-slate-800">{{ $thread->user?->name ?? 'Deleted account' }}</p>
             <p class="text-sm text-slate-500">{{ $thread->user?->email }}</p>
             <p class="text-xs text-slate-500 mt-1">
-                @if (! \App\Services\KayaAssistant::enabled())
+                @if ($thread->assignee && $thread->agent_joined_at)
+                    {{ $mine ? 'You are' : $thread->assignee->name . ' is' }} with this person since {{ $thread->agent_joined_at->timezone('Asia/Manila')->format('g:i A') }}.
+                @elseif ($place)
+                    #{{ $place }} in line · waiting {{ $thread->handoff_at->diffForHumans(null, true) }}.
+                @elseif (! \App\Services\KayaAssistant::enabled())
                     KAYA Assistant is off. The team answers everything.
                 @elseif ($thread->assistantActive())
-                    KAYA Assistant answers new messages. Your reply pauses it for {{ config('kaya.assistant.quiet_hours') }} hours.
+                    With KAYA Assistant.
                 @else
-                    Handled by the team. KAYA Assistant is not answering this thread.
+                    Handled by the team.
                 @endif
             </p>
         </div>
         <div class="text-right text-xs text-slate-500">
             @if ($thread->topicLabel())<p>Topic: {{ $thread->topicLabel() }}</p>@endif
-            <p>{{ $thread->assignee ? 'Handled by ' . $thread->assignee->name : 'Not taken yet' }}</p>
+            @if ($thread->issue)<p>Issue: {{ $thread->issue }}</p>@endif
         </div>
-        @if ((int) $thread->assigned_to !== (int) auth()->id())
+        @unless ($mine && $thread->agent_joined_at)
             <form method="POST" action="{{ route('admin.support.take', $thread) }}">
                 @csrf
-                <button class="px-3 py-2 border border-slate-300 text-slate-700 rounded-lg text-sm hover:bg-slate-50">Take</button>
+                <button class="px-3 py-2 bg-blue-600 text-white rounded-lg text-sm hover:bg-blue-700">Take</button>
+            </form>
+        @endunless
+        @if ($mine && $thread->agent_joined_at)
+            <form method="POST" action="{{ route('admin.support.handback', $thread) }}">
+                @csrf
+                <button class="px-3 py-2 border border-slate-300 text-slate-700 rounded-lg text-sm hover:bg-slate-50">Hand Back to Assistant</button>
+            </form>
+            <form method="POST" action="{{ route('admin.support.putback', $thread) }}">
+                @csrf
+                <button class="px-3 py-2 border border-slate-300 text-slate-700 rounded-lg text-sm hover:bg-slate-50">Put Back in Line</button>
             </form>
         @endif
         <form method="POST" action="{{ route('admin.support.close', $thread) }}"
@@ -42,26 +68,38 @@
         @endif
     </div>
 
+    @if ($thread->summary)
+        {{-- Two lines for whoever takes it: what they need, what was tried. --}}
+        <div class="bg-white rounded-xl border border-slate-200 px-5 py-4">
+            <p class="text-xs font-semibold text-slate-500">Summary</p>
+            <p class="text-sm text-slate-800 mt-1 whitespace-pre-line">{{ $thread->summary }}</p>
+        </div>
+    @endif
+
     <div id="thread" data-since="{{ $thread->messages->max('id') ?? 0 }}"
          data-ids="{{ $thread->messages->pluck('id')->implode(',') }}"
          data-url="{{ route('admin.support.since', $thread) }}"
          class="bg-white rounded-xl border border-slate-200 p-5 space-y-3">
-        @forelse ($thread->messages as $message)
-            @php $bot = (bool) $message->is_assistant; @endphp
-            <div class="flex {{ $message->from_admin ? 'justify-end' : 'justify-start' }}">
-                <div class="max-w-[75%] px-4 py-2.5 rounded-2xl {{ $bot ? 'bg-blue-50 text-slate-800 border border-blue-100' : ($message->from_admin ? 'bg-blue-600 text-white' : 'bg-slate-100 text-slate-800') }}">
-                    <p class="text-sm whitespace-pre-line">{{ $message->body }}</p>
-                    <p class="text-[11px] mt-1 {{ $bot ? 'text-slate-500' : ($message->from_admin ? 'text-blue-200' : 'text-slate-400') }}">
-                        {{ $message->panelName($thread->user?->name) }}
-                        &middot; {{ $message->created_at->format('M j, g:ia') }}
-                    </p>
+        @if ($before->isNotEmpty())
+            <details class="rounded-lg bg-slate-50 px-4 py-2">
+                <summary class="cursor-pointer text-xs text-slate-500 select-none">
+                    Before the hand-off: {{ $before->count() }} {{ Str::plural('message', $before->count()) }} with KAYA Assistant · Show
+                </summary>
+                <div class="mt-3 space-y-3">
+                    @foreach ($before as $message)
+                        @include('admin.support.partials.line', ['message' => $message, 'thread' => $thread])
+                    @endforeach
                 </div>
-            </div>
+            </details>
+        @endif
+        @forelse ($after as $message)
+            @include('admin.support.partials.line', ['message' => $message, 'thread' => $thread])
         @empty
-            <p class="text-sm text-slate-400 text-center py-4">Nothing said yet.</p>
+            @if ($before->isEmpty())
+                <p class="text-sm text-slate-400 text-center py-4">Nothing said yet.</p>
+            @endif
         @endforelse
     </div>
-
     {{-- Shown only when the poller has stopped getting answers. --}}
     <p id="thread-stale" style="display:none"
        class="px-4 py-3 rounded-lg bg-amber-50 text-amber-800 text-sm border border-amber-200">
@@ -120,6 +158,12 @@
     });
 
     function bubble(m) {
+        if (m.kind === 'event') {
+            var line = document.createElement('p');
+            line.className = 'text-center text-xs text-slate-400 py-1';
+            line.textContent = m.body;
+            return line;
+        }
         var row = document.createElement('div');
         row.className = 'flex ' + (m.from_admin ? 'justify-end' : 'justify-start');
 

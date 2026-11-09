@@ -217,5 +217,15 @@ return [
         'context_minutes' => 10,
         // Hidden for contact details this many times in a day: reported to the team.
         'report_after_hidden' => 3,
+        // What each kind does: off, hide, or report (hide and report).
+        // Contact sharing is hidden, and reported only when it keeps happening.
+        'actions' => [
+            'contact'      => 'hide',
+            'off_platform' => 'hide',
+            'scam'         => 'report',
+            'harassment'   => 'report',
+            'sexual'       => 'report',
+            'hate'         => 'report',
+        ],
     ],
 ];

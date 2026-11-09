@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\AdminAction;
 use App\Models\SupportThread;
+use App\Services\KayaAssistant;
 use App\Services\NotificationService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -68,9 +69,81 @@ class SupportController extends Controller
     /** Take: this chat is mine, so two people never answer the same person. */
     public function take(SupportThread $thread)
     {
-        $thread->forceFill(['assigned_to' => Auth::id()])->save();
+        $this->join($thread);
 
         return back()->with('success', 'You are handling this chat.');
+    }
+
+    /*
+        An agent joins: the chat is theirs, the person is told who joined
+        and gets a notification, and how long they waited is counted.
+    */
+    private function join(SupportThread $thread): void
+    {
+        $me = Auth::user();
+        if ((int) $thread->assigned_to === (int) $me->id && $thread->agent_joined_at) {
+            return;
+        }
+
+        if ($thread->handoff_at && ! $thread->agent_joined_at) {
+            KayaAssistant::bump('queue:taken');
+            KayaAssistant::bump('queue:wait_seconds', max(0, (int) $thread->handoff_at->diffInSeconds(now())));
+        }
+
+        $thread->forceFill(['assigned_to' => $me->id, 'agent_joined_at' => now()])->save();
+        KayaAssistant::event($thread, self::firstName($me) . ' from KAYA joined the chat.');
+
+        if ($thread->user) {
+            app(NotificationService::class)->supportAgentJoined($thread->user, self::firstName($me));
+        }
+    }
+
+    private static function firstName(\App\Models\User $user): string
+    {
+        return explode(' ', trim((string) $user->name))[0] ?: 'A team member';
+    }
+
+    /** Take Next: whoever has waited longest. */
+    public function takeNext()
+    {
+        $next = SupportThread::line()->orderBy('handoff_at')->first();
+        if (! $next) {
+            return back()->with('success', 'Nobody is waiting in line.');
+        }
+
+        $this->join($next);
+
+        return redirect()->route('admin.support.show', $next);
+    }
+
+    /** Solved: the person keeps chatting with the assistant. */
+    public function handBack(SupportThread $thread)
+    {
+        KayaAssistant::event($thread, self::firstName(Auth::user()) . ' left the chat. KAYA Assistant is back.');
+        $thread->forceFill([
+            'assigned_to' => null, 'agent_joined_at' => null, 'handoff_at' => null,
+            'queue_since' => null, 'queue_saved_until' => null, 'assistant_back_at' => now(),
+        ])->save();
+
+        return redirect()->route('admin.support.index')->with('success', 'Handed back to KAYA Assistant.');
+    }
+
+    /** Not answering: back in line at the same place, for the next agent. */
+    public function putBack(SupportThread $thread)
+    {
+        KayaAssistant::event($thread, 'A KAYA agent will be with you soon. You keep your place in line.');
+        $thread->forceFill(['assigned_to' => null, 'agent_joined_at' => null])->save();
+
+        return redirect()->route('admin.support.index')->with('success', 'Back in line, at the same place.');
+    }
+
+    /** Taking support chats right now, or not. With nobody taking them, people are told the team is offline. */
+    public function toggleAvailable()
+    {
+        $me = Auth::user();
+        $me->forceFill(['support_available' => ! $me->support_available])->save();
+
+        return back()->with('success', $me->support_available ? 'You are taking support chats.' : 'You are not taking support chats.');
     }
 
     /*
@@ -157,6 +230,7 @@ class SupportController extends Controller
                 'body'       => $m->body,
                 'from_admin' => (bool) $m->from_admin,
                 'is_assistant' => (bool) $m->is_assistant,
+                'kind'       => $m->kind,
                 'who'        => $m->panelName($thread->user?->name),
                 'at'         => $m->created_at->format('M j, g:ia'),
             ])->values(),
@@ -169,6 +243,11 @@ class SupportController extends Controller
             'body' => ['required', 'string', 'max:2000'],
         ]);
 
+        // Whoever answers first has joined: "Ana joined" comes before her first words.
+        if (! $thread->assigned_to || ! $thread->agent_joined_at) {
+            $this->join($thread);
+        }
+
         $thread->messages()->create([
             'sender_id'  => Auth::id(),
             'from_admin' => true,
@@ -176,9 +255,6 @@ class SupportController extends Controller
         ]);
 
         $thread->update(['last_message_at' => now()]);
-        if (! $thread->assigned_to) {
-            $thread->forceFill(['assigned_to' => Auth::id()])->save();
-        }
 
         // Somebody who wrote to support and heard nothing assumes nobody
         // read it. The notification is what makes the reply a reply.
