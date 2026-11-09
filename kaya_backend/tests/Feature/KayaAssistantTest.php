@@ -258,6 +258,141 @@ class KayaAssistantTest extends TestCase
     }
 
     #[Test]
+    public function back_to_kaya_assistant_after_the_team(): void
+    {
+        $this->omniSays('Assistant again.');
+        $maria = $this->person();
+        $this->actingAs($maria, 'sanctum')->postJson('/api/v1/support/person')->assertOk();
+
+        // The team answered today; she would rather ask the assistant.
+        $admin = User::factory()->create(['user_type' => 'admin']);
+        $thread = SupportThread::where('user_id', $maria->id)->first();
+        $this->actingAs($admin)->post("/admin/support/{$thread->id}/reply", ['body' => 'Looking into it.'])->assertRedirect();
+
+        $this->actingAs($maria, 'sanctum')->postJson('/api/v1/support/assistant')->assertOk()
+            ->assertJsonPath('data.message.body', KayaAssistant::BACK)
+            ->assertJsonPath('data.assistant.with_person', false);
+        $this->assertFalse($thread->fresh()->isWaitingOnUs());
+
+        $this->write($maria, 'How do I top up?');
+        $this->assertSame('Assistant again.', $this->lastLine($maria)->body);
+
+        // Already with the assistant: nothing to say twice.
+        $this->actingAs($maria, 'sanctum')->postJson('/api/v1/support/assistant')->assertOk()
+            ->assertJsonPath('data.message', null);
+    }
+
+    #[Test]
+    public function quick_questions_answer_at_once_without_a_model(): void
+    {
+        Http::fake();
+        $maria = $this->person();
+
+        $this->actingAs($maria, 'sanctum')->getJson('/api/v1/support')->assertOk()
+            ->assertJsonPath('data.assistant.quick.0.key', 'verify')
+            ->assertJsonPath('data.assistant.quick.0.label', 'How do I get verified?');
+
+        $this->actingAs($maria, 'sanctum')->postJson('/api/v1/support/quick', ['key' => 'appeal'])->assertOk()
+            ->assertJsonPath('data.messages.0.body', 'How do I appeal a violation?')
+            ->assertJsonPath('data.messages.0.from_admin', false)
+            ->assertJsonPath('data.messages.1.from', 'KAYA Assistant');
+        $this->assertStringContainsString('Account Status', $this->lastLine($maria)->body);
+        $this->assertSame('quick', $this->lastLine($maria)->assistant_model);
+
+        $this->actingAs($maria, 'sanctum')->postJson('/api/v1/support/quick', ['key' => 'nonsense'])->assertStatus(422);
+        Http::assertNothingSent();
+    }
+
+    #[Test]
+    public function phone_numbers_and_emails_never_reach_the_model(): void
+    {
+        $this->omniSays('Noted.');
+        $maria = $this->person();
+
+        $this->write($maria, 'Call me at 0917 123 4567 or maria.santos@gmail.com');
+
+        Http::assertSent(function (Request $request) {
+            $last = collect($request['messages'])->last()['content'];
+
+            return ! str_contains($last, '4567') && ! str_contains($last, 'maria.santos@gmail.com');
+        });
+        // Her own copy in the thread is untouched.
+        $first = SupportThread::where('user_id', $maria->id)->first()->messages()->oldest('id')->first();
+        $this->assertStringContainsString('0917 123 4567', $first->body);
+    }
+
+    #[Test]
+    public function leaving_erases_a_chat_with_the_assistant(): void
+    {
+        $this->omniSays('An answer.');
+        $maria = $this->person();
+        $this->write($maria, 'How do I top up?');
+
+        $this->actingAs($maria, 'sanctum')->postJson('/api/v1/support/end')->assertOk()
+            ->assertJsonPath('data.cleared', true);
+
+        $this->assertSame(0, SupportMessage::count());
+        $this->actingAs($maria, 'sanctum')->getJson('/api/v1/support')->assertOk()
+            ->assertJsonCount(0, 'data.messages');
+
+        // Today's numbers outlive the chat.
+        $this->assertSame(1, KayaAssistant::todayStats()['answered']);
+        $this->assertSame(['claude-sonnet-4.5' => 1], KayaAssistant::todayStats()['models']);
+    }
+
+    #[Test]
+    public function a_chat_waiting_for_the_team_is_kept_until_the_reply_is_read(): void
+    {
+        Http::fake();
+        $maria = $this->person();
+        $this->actingAs($maria, 'sanctum')->postJson('/api/v1/support/person')->assertOk();
+        $this->write($maria, 'My payment is missing');
+
+        // She leaves before anyone answered: her request stays for the team.
+        $this->actingAs($maria, 'sanctum')->postJson('/api/v1/support/end')->assertJsonPath('data.cleared', false);
+        $thread = SupportThread::where('user_id', $maria->id)->first();
+        $this->assertTrue($thread->isWaitingOnUs());
+
+        // The team answers; until she has read it, it stays.
+        $admin = User::factory()->create(['user_type' => 'admin']);
+        $this->actingAs($admin)->post("/admin/support/{$thread->id}/reply", ['body' => 'Found it, sending it back now.'])->assertRedirect();
+        $this->actingAs($maria, 'sanctum')->postJson('/api/v1/support/end')->assertJsonPath('data.cleared', false);
+
+        // She opens it and reads the answer; leaving now erases it.
+        $this->actingAs($maria, 'sanctum')->getJson('/api/v1/support')->assertOk();
+        $this->actingAs($maria, 'sanctum')->postJson('/api/v1/support/end')->assertJsonPath('data.cleared', true);
+        $this->assertSame(0, SupportMessage::count());
+    }
+
+    #[Test]
+    public function an_old_chat_left_behind_is_erased_when_opened_again(): void
+    {
+        $this->omniSays('An answer.');
+        $maria = $this->person();
+        $this->write($maria, 'Hello');
+
+        // The app was closed without saying it left.
+        $this->travel(31)->minutes();
+
+        $this->actingAs($maria, 'sanctum')->getJson('/api/v1/support')->assertOk()
+            ->assertJsonCount(0, 'data.messages');
+    }
+
+    #[Test]
+    public function leaving_does_not_reset_the_daily_limit(): void
+    {
+        config(['kaya.assistant.daily_limit' => 1]);
+        $this->omniSays('An answer.');
+        $maria = $this->person();
+
+        $this->write($maria, 'one');
+        $this->actingAs($maria, 'sanctum')->postJson('/api/v1/support/end')->assertOk();
+        $this->write($maria, 'two');
+
+        $this->assertSame(KayaAssistant::LIMIT, $this->lastLine($maria)->body);
+    }
+
+    #[Test]
     public function it_stops_at_the_daily_limit(): void
     {
         config(['kaya.assistant.daily_limit' => 2]);

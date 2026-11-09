@@ -52,19 +52,8 @@ class SupportController extends Controller
     */
     private function assistantToday(): array
     {
-        $since = now('Asia/Manila')->startOfDay()->utc();
-        $lines = \App\Models\SupportMessage::where('is_assistant', true)
-            ->where('created_at', '>=', $since)
-            ->pluck('assistant_model');
-
-        $answers = $lines->reject(fn ($m) => $m === null || str_starts_with($m, 'guard') || in_array($m, ['limit', 'none', 'handoff'], true));
-
-        return [
-            'answered' => $answers->count(),
-            'blocked'  => $lines->filter(fn ($m) => $m !== null && str_starts_with($m, 'guard'))->count(),
-            'handoffs' => SupportThread::where('handoff_at', '>=', $since)->count(),
-            'models'   => $answers->countBy()->sortDesc()->all(),
-        ];
+        // Counted as it happened: the chats themselves are erased on leaving.
+        return \App\Services\KayaAssistant::todayStats();
     }
 
     public function toggleAssistant()

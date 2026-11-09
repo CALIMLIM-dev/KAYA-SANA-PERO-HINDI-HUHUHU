@@ -64,4 +64,5 @@ VIOLATIONS, SUSPENSIONS AND APPEALS
 - A suspended or banned account can still open Account Status, appeal, and message KAYA Support.
 
 SUPPORT
-- This chat is KAYA Support. KAYA Assistant answers first. Tapping Talk to a Person, or asking for one, passes the chat to a KAYA team member, who answers in this same chat.
+- This chat is KAYA Support. KAYA Assistant answers first. Tapping Talk to a Person, or asking for one, passes the chat to a KAYA team member, who answers in this same chat. Back to KAYA Assistant returns to the assistant.
+- The chat is temporary: it is erased when the person leaves it. A chat waiting for the team is kept until the team replies and the reply has been read.

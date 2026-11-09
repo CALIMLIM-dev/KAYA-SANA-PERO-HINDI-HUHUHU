@@ -36,7 +36,7 @@
             <dt class="text-xs text-slate-500">Answered By</dt>
             <dd class="mt-0.5 text-xs text-slate-700">
                 @forelse ($assistantToday['models'] as $model => $n)
-                    <span class="block">{{ $model }}: {{ $n }}</span>
+                    <span class="block">{{ $model === 'quick' ? 'Quick Answers' : $model }}: {{ $n }}</span>
                 @empty
                     <span class="text-slate-400">None yet</span>
                 @endforelse

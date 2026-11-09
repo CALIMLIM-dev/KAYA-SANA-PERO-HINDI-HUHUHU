@@ -308,6 +308,14 @@ Route::prefix('v1')->group(function () {
         // Talk to a Person: KAYA Assistant steps aside for the team.
         Route::post('/support/person', [SupportController::class, 'person'])
             ->withoutMiddleware('not.suspended');
+        // Back to KAYA Assistant, and its quick questions.
+        Route::post('/support/assistant', [SupportController::class, 'assistant'])
+            ->withoutMiddleware('not.suspended');
+        Route::post('/support/quick', [SupportController::class, 'quick'])
+            ->withoutMiddleware('not.suspended');
+        // Leaving the chat erases it, unless it is still with the team.
+        Route::post('/support/end', [SupportController::class, 'end'])
+            ->withoutMiddleware('not.suspended');
 
         // Saved Jobs
         Route::get('/saved-jobs', [JobController::class, 'savedJobs']);

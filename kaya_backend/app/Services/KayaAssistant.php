@@ -44,6 +44,7 @@ class KayaAssistant
     public const UNAVAILABLE = 'KAYA Assistant cannot answer right now. ' . self::HANDOFF;
     public const LIMIT = 'You have reached today\'s limit for KAYA Assistant. ' . self::HANDOFF;
     public const OFF_TOPIC_SAFE = 'I can only help with using KAYA and your own account. What do you need help with in the app?';
+    public const BACK = 'Hi again, KAYA Assistant here. What can I help you with? You can also pick a question below.';
 
     private const SETTING = 'assistant.enabled';
 
@@ -91,6 +92,53 @@ class KayaAssistant
         }
 
         return $this->say($thread, self::ASKED_FOR_PERSON, 'handoff', true);
+    }
+
+    /*
+        Back to KAYA Assistant: the person would rather not wait for the
+        team. The thread leaves the team's waiting list, and the assistant
+        answers again, even if somebody from the team replied today.
+    */
+    public function resume(SupportThread $thread): ?SupportMessage
+    {
+        if (! self::enabled() || $thread->assistantActive()) {
+            return null;
+        }
+
+        $thread->forceFill(['handoff_at' => null, 'assistant_back_at' => now()])->save();
+
+        return $this->say($thread, self::BACK, 'resume', false);
+    }
+
+    /** The quick questions: [key => button text]. */
+    public static function quickQuestions(): array
+    {
+        return collect(require resource_path('assistant/quick.php'))
+            ->map(fn ($q) => $q[0])
+            ->all();
+    }
+
+    /*
+        A quick question: the button's words as the person's message, and the
+        written answer at once. No model is asked, so it is instant and works
+        even when OmniRoute and Gemini are both down.
+    */
+    public function quick(SupportThread $thread, User $user, string $key): ?array
+    {
+        $all = require resource_path('assistant/quick.php');
+        if (! isset($all[$key]) || ! self::enabled() || ! $thread->assistantActive()) {
+            return null;
+        }
+
+        [$question, $answer] = $all[$key];
+
+        $asked = $thread->messages()->create([
+            'sender_id'  => $user->id,
+            'from_admin' => false,
+            'body'       => $question,
+        ]);
+
+        return [$asked, $this->say($thread, $answer, 'quick', false)];
     }
 
     /*
@@ -164,16 +212,107 @@ class KayaAssistant
         return (int) $thread->messages()->max('id') === $messageId;
     }
 
+    /** Answers this thread had today: counted, so leaving does not reset it. */
     private function answeredToday(SupportThread $thread): int
     {
-        return $thread->messages()
-            ->where('is_assistant', true)
-            ->where('created_at', '>=', now('Asia/Manila')->startOfDay()->utc())
-            ->count();
+        return (int) \DB::table('assistant_stats')
+            ->where('day', self::today())
+            ->where('metric', 'thread:' . $thread->id)
+            ->value('count');
+    }
+
+    private static function today(): string
+    {
+        return now('Asia/Manila')->toDateString();
+    }
+
+    private static function bump(string $metric): void
+    {
+        $day = self::today();
+        $metric = mb_substr($metric, 0, 120);
+
+        $updated = \DB::table('assistant_stats')->where('day', $day)->where('metric', $metric)->increment('count');
+        if ($updated === 0) {
+            try {
+                \DB::table('assistant_stats')->insert(['day' => $day, 'metric' => $metric, 'count' => 1]);
+            } catch (\Illuminate\Database\QueryException) {
+                // Another request made the row first.
+                \DB::table('assistant_stats')->where('day', $day)->where('metric', $metric)->increment('count');
+            }
+        }
+    }
+
+    /** What the assistant did today, for the Support page. */
+    public static function todayStats(): array
+    {
+        $rows = \DB::table('assistant_stats')->where('day', self::today())->pluck('count', 'metric');
+
+        return [
+            'answered' => (int) ($rows['answered'] ?? 0),
+            'blocked'  => (int) ($rows['blocked'] ?? 0),
+            'handoffs' => (int) ($rows['handoffs'] ?? 0),
+            'models'   => $rows->filter(fn ($n, $m) => str_starts_with($m, 'model:'))
+                ->mapWithKeys(fn ($n, $m) => [substr($m, 6) => (int) $n])
+                ->sortDesc()
+                ->all(),
+        ];
+    }
+
+    /*
+        Support chats are temporary: leaving one erases it, for both sides.
+
+        Except while it is still with the team. Somebody who asked for a
+        person and walked away would otherwise erase their own request
+        before anyone read it, and somebody the team just answered would
+        lose the answer before reading it. Those wait: the first until the
+        team replies, the second until the reply has been read.
+    */
+    public function clear(SupportThread $thread): bool
+    {
+        $thread->unsetRelation('latestMessage');
+
+        if ($thread->isWaitingOnUs()) {
+            return false;
+        }
+
+        $unreadFromTeam = $thread->messages()
+            ->where('from_admin', true)
+            ->where('is_assistant', false)
+            ->whereNull('read_at')
+            ->exists();
+
+        if ($unreadFromTeam) {
+            return false;
+        }
+
+        $thread->messages()->delete();
+        $thread->forceFill(['handoff_at' => null, 'assistant_back_at' => null, 'last_message_at' => null])->save();
+
+        return true;
     }
 
     private function say(SupportThread $thread, string $body, string $model, bool $handoff): SupportMessage
     {
+        $kind = match (true) {
+            str_starts_with($model, 'guard')                       => 'blocked',
+            in_array($model, ['limit', 'none', 'handoff', 'resume'], true) => null,
+            default                                                => 'answered',
+        };
+
+        if ($kind) {
+            self::bump($kind);
+        }
+        if ($kind === 'answered') {
+            self::bump('model:' . $model);
+        }
+        if ($handoff) {
+            self::bump('handoffs');
+        }
+        // Toward the daily limit: everything that took an answer, quick ones aside.
+        if ($kind !== null && $model !== 'quick') {
+            self::bump('thread:' . $thread->id);
+        }
+
         $message = $thread->messages()->create([
             'sender_id'       => null,
             'from_admin'      => true,
@@ -208,6 +347,10 @@ class KayaAssistant
             $text = $line->from_admin && ! $line->is_assistant
                 ? '[A KAYA team member wrote:] ' . $line->body
                 : $line->body;
+
+            // Phone numbers and emails stay in KAYA: the model, and the
+            // router's logs, never see them.
+            $text = $this->filter->maskContact($text);
 
             // Two lines from the same side read as one turn.
             if ($out && end($out)['role'] === $role) {

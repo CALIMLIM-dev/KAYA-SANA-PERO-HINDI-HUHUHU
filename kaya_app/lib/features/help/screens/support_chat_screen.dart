@@ -63,6 +63,30 @@ class _SupportChatScreenState extends State<SupportChatScreen> {
   bool _assistantOn = false;
   bool _withPerson = false;
   bool _handingOff = false;
+  bool _asking = false;
+
+  /// The quick questions the server offers, as {key, label}.
+  List<Map<String, dynamic>> _quick = const [];
+
+  /*
+      Answers from KAYA Assistant that arrived while the screen was open are
+      written out word by word, the way a chat assistant types. What was
+      already there when the screen opened shows at once: nobody wants to
+      sit through yesterday's answers being typed again.
+  */
+  final Set<int> _typedIds = {};
+  bool _opened = false;
+
+  void _typeOut(Iterable<Map<String, dynamic>> incoming) {
+    if (!_opened) return;
+    final known = {for (final m in _messages) m['id']};
+    for (final m in incoming) {
+      final id = m['id'];
+      if (m['from_assistant'] == true && id is int && !known.contains(id)) {
+        _typedIds.add(id);
+      }
+    }
+  }
 
   /// Set after sending while the assistant is answering: shows the typing
   /// line until its answer arrives, or for a minute at most.
@@ -90,6 +114,15 @@ class _SupportChatScreenState extends State<SupportChatScreen> {
   @override
   void dispose() {
     _poll?.cancel();
+    /*
+        Leaving ends the chat: the server erases it, unless it is still
+        waiting for the team or holds a team reply not yet read. Nothing to
+        wait for here, and a failure only means it is erased on the next
+        open instead.
+    */
+    if (widget.seed == null && _opened) {
+      unawaited(_api.post('/support/end').then((_) {}, onError: (_) {}));
+    }
     _controller.dispose();
     _scroll.dispose();
     super.dispose();
@@ -166,9 +199,11 @@ class _SupportChatScreenState extends State<SupportChatScreen> {
       }
 
       setState(() {
+        _typeOut(incoming);
         _messages = incremental ? _merged(incoming) : incoming;
         _loading = false;
         _error = null;
+        _opened = true;
       });
 
       _toBottom();
@@ -188,6 +223,10 @@ class _SupportChatScreenState extends State<SupportChatScreen> {
     if (state == null) return;
     _assistantOn = state['on'] == true;
     _withPerson = state['with_person'] == true;
+    _quick = ((state['quick'] as List?) ?? const [])
+        .whereType<Map>()
+        .map((q) => q.cast<String, dynamic>())
+        .toList();
   }
 
   /// The typing line goes once KAYA has answered after the sent message.
@@ -230,6 +269,60 @@ class _SupportChatScreenState extends State<SupportChatScreen> {
       if (!mounted) return;
 
       setState(() => _handingOff = false);
+      AppToast.error(context, e.toString().replaceFirst('Exception: ', ''));
+    }
+  }
+
+  /// Back to KAYA Assistant, from the team.
+  Future<void> _backToAssistant() async {
+    if (_handingOff) return;
+    setState(() => _handingOff = true);
+
+    try {
+      final res = await _api.post('/support/assistant');
+      final data = res.data['data'] as Map<String, dynamic>;
+      final message = data['message'] as Map<String, dynamic>?;
+
+      if (!mounted) return;
+
+      setState(() {
+        if (message != null) _messages = _merged([message]);
+        _readAssistant(data['assistant'] as Map<String, dynamic>?);
+        _handingOff = false;
+      });
+      _toBottom();
+    } catch (e) {
+      if (!mounted) return;
+
+      setState(() => _handingOff = false);
+      AppToast.error(context, e.toString().replaceFirst('Exception: ', ''));
+    }
+  }
+
+  /// A quick question: asked and answered at once, no waiting.
+  Future<void> _askQuick(String key) async {
+    if (_asking) return;
+    setState(() => _asking = true);
+
+    try {
+      final res = await _api.post('/support/quick', data: {'key': key});
+      final data = res.data['data'] as Map<String, dynamic>;
+      final pair = ((data['messages'] as List?) ?? const [])
+          .cast<Map<String, dynamic>>();
+
+      if (!mounted) return;
+
+      setState(() {
+        _typeOut(pair);
+        _messages = _merged(pair);
+        _readAssistant(data['assistant'] as Map<String, dynamic>?);
+        _asking = false;
+      });
+      _toBottom();
+    } catch (e) {
+      if (!mounted) return;
+
+      setState(() => _asking = false);
       AppToast.error(context, e.toString().replaceFirst('Exception: ', ''));
     }
   }
@@ -287,6 +380,8 @@ class _SupportChatScreenState extends State<SupportChatScreen> {
       body: Column(
         children: [
           Expanded(child: _body()),
+          if (_assistantOn && !_withPerson && _quick.isNotEmpty && !_assistantTyping)
+            _quickRow(),
           if (_assistantOn) _assistantBar(),
           SafeArea(
             top: false,
@@ -387,8 +482,8 @@ class _SupportChatScreenState extends State<SupportChatScreen> {
               Text(
                 assistant
                     ? 'KAYA Assistant answers right away from the KAYA help. '
-                        'Tap Talk to a Person to reach the team. '
-                        'Say which account, job or payment it is about.'
+                        'Pick a question below or type your own, or tap Talk to a Person. '
+                        'This chat clears when you leave it.'
                     : 'Somebody at KAYA reads this and answers here. '
                         'Say which account, job or payment it is about.',
                 textAlign: TextAlign.center,
@@ -433,6 +528,40 @@ class _SupportChatScreenState extends State<SupportChatScreen> {
     );
   }
 
+  /// The quick questions, one tap each, like a shop's help chat.
+  Widget _quickRow() {
+    return Container(
+      width: double.infinity,
+      color: AppColors.background,
+      padding: const EdgeInsets.symmetric(vertical: 6),
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.symmetric(horizontal: 12),
+        child: Row(
+          children: [
+            for (final q in _quick)
+              Padding(
+                padding: const EdgeInsets.only(right: 8),
+                child: OutlinedButton(
+                  onPressed: _asking ? null : () => _askQuick('${q['key']}'),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: AppColors.primary,
+                    side: const BorderSide(color: AppColors.neutral300),
+                    backgroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    minimumSize: const Size(0, 34),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+                    textStyle: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w500),
+                  ),
+                  child: Text('${q['label']}'),
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
   /// Who is answering, and the way to reach a person.
   Widget _assistantBar() {
     return Container(
@@ -443,12 +572,19 @@ class _SupportChatScreenState extends State<SupportChatScreen> {
         border: Border(top: BorderSide(color: AppColors.neutral200)),
       ),
       child: _withPerson
-          ? const Padding(
-              padding: EdgeInsets.symmetric(vertical: 8),
-              child: Text(
-                'A KAYA team member will reply here.',
-                style: TextStyle(fontSize: 12.5, color: AppColors.neutral600),
-              ),
+          ? Row(
+              children: [
+                const Expanded(
+                  child: Text(
+                    'A KAYA team member will reply here.',
+                    style: TextStyle(fontSize: 12.5, color: AppColors.neutral600),
+                  ),
+                ),
+                TextButton(
+                  onPressed: _handingOff ? null : _backToAssistant,
+                  child: const Text('Back to KAYA Assistant'),
+                ),
+              ],
             )
           : Row(
               children: [
@@ -489,14 +625,23 @@ class _SupportChatScreenState extends State<SupportChatScreen> {
                   ? Border.all(color: AppColors.neutral200)
                   : null,
             ),
-            child: Text(
-              (message['body'] ?? '').toString(),
-              style: TextStyle(
-                fontSize: 14,
-                height: 1.4,
-                color: fromKaya ? AppColors.neutral800 : Colors.white,
-              ),
-            ),
+            child: _typedIds.contains(message['id'])
+                ? _TypedText(
+                    key: ValueKey('typed-${message['id']}'),
+                    text: (message['body'] ?? '').toString(),
+                    style: const TextStyle(
+                        fontSize: 14, height: 1.4, color: AppColors.neutral800),
+                    onTick: _toBottom,
+                    onDone: () => _typedIds.remove(message['id']),
+                  )
+                : Text(
+                    (message['body'] ?? '').toString(),
+                    style: TextStyle(
+                      fontSize: 14,
+                      height: 1.4,
+                      color: fromKaya ? AppColors.neutral800 : Colors.white,
+                    ),
+                  ),
           ),
           if (fromKaya) ...[
             const SizedBox(height: 3),
@@ -507,6 +652,63 @@ class _SupportChatScreenState extends State<SupportChatScreen> {
           ],
         ],
       ),
+    );
+  }
+}
+
+/// An answer written out word by word, with a cursor while it types.
+class _TypedText extends StatefulWidget {
+  const _TypedText({
+    super.key,
+    required this.text,
+    required this.style,
+    required this.onTick,
+    required this.onDone,
+  });
+
+  final String text;
+  final TextStyle style;
+  final VoidCallback onTick;
+  final VoidCallback onDone;
+
+  @override
+  State<_TypedText> createState() => _TypedTextState();
+}
+
+class _TypedTextState extends State<_TypedText> {
+  late final List<String> _words =
+      RegExp(r'\S+\s*').allMatches(widget.text).map((m) => m.group(0)!).toList();
+  Timer? _timer;
+  int _shown = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    // A long answer types a little faster, so none takes much over six seconds.
+    final step = (_words.length / 160).ceil().clamp(1, 4);
+    _timer = Timer.periodic(const Duration(milliseconds: 38), (t) {
+      if (!mounted) return;
+      setState(() => _shown = (_shown + step).clamp(0, _words.length));
+      widget.onTick();
+      if (_shown >= _words.length) {
+        t.cancel();
+        widget.onDone();
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final done = _shown >= _words.length;
+    return Text(
+      _words.take(_shown).join() + (done ? '' : ' \u258D'),
+      style: widget.style,
     );
   }
 }

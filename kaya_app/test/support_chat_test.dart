@@ -132,7 +132,26 @@ void main() {
     await render(tester, width: 390, textScale: 1.0, messages: const [], assistant: {'on': true, 'with_person': false});
 
     expect(find.textContaining('KAYA Assistant answers right away'), findsOneWidget);
+    expect(find.textContaining('clears when you leave'), findsOneWidget);
     expect(find.text('Talk to a Person'), findsOneWidget);
+  });
+
+  testWidgets('quick questions sit above the box', (tester) async {
+    await render(tester, width: 390, textScale: 1.0, assistant: {
+      'on': true,
+      'with_person': false,
+      'quick': [
+        {'key': 'verify', 'label': 'How do I get verified?'},
+        {'key': 'topup', 'label': 'How do I top up Barya?'},
+      ],
+    });
+    expect(find.text('How do I get verified?'), findsOneWidget);
+  });
+
+  testWidgets('with a person, the way back to the assistant is there', (tester) async {
+    await render(tester, width: 390, textScale: 1.0, assistant: {'on': true, 'with_person': true});
+    expect(find.text('Back to KAYA Assistant'), findsOneWidget);
+    expect(find.text('How do I get verified?'), findsNothing);
   });
 
   for (final width in <double>[412, 360, 320]) {

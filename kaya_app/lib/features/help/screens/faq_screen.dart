@@ -148,7 +148,8 @@ const _groups = <(String, List<_FAQ>)>[
             'being taken off KAYA and scammed. The message still sends.'),
     _FAQ('How do I reach KAYA?',
         'Settings, Help & Support, Message KAYA support, or the button below. KAYA Assistant '
-            'answers first, right away; tap Talk to a Person to reach the team in that same chat.'),
+            'answers first, right away; tap Talk to a Person to reach the team in that same chat. '
+            'The chat clears when you leave it, unless you are still waiting for the team.'),
   ]),
 ];
 

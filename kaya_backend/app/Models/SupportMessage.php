@@ -28,6 +28,8 @@ class SupportMessage extends Model
             $model === 'limit'               => 'Daily Limit',
             $model === 'none'                => 'No Model Answered',
             $model === 'handoff'             => 'Asked for a Person',
+            $model === 'resume'              => 'Back to Assistant',
+            $model === 'quick'               => 'Quick Answer',
             $model === ''                    => 'KAYA Assistant',
             default                          => $model,
         };

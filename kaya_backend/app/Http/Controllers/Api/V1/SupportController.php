@@ -48,6 +48,11 @@ class SupportController extends Controller
         */
         $after = (int) $request->query('after', 0);
 
+        if ($thread && $after === 0 && $thread->last_message_at
+            && $thread->last_message_at->lt(now()->subMinutes(30))) {
+            app(KayaAssistant::class)->clear($thread);
+        }
+
         $messages = $thread
             ? $thread->messages()
                 ->when($after > 0, fn ($q) => $q->where('id', '>', $after))
@@ -147,6 +152,45 @@ class SupportController extends Controller
         ], 'A person will answer');
     }
 
+    /** Left the chat: it is erased, unless it is still with the team. */
+    public function end(Request $request, KayaAssistant $assistant)
+    {
+        $thread = SupportThread::where('user_id', $request->user()->id)->first();
+        $cleared = $thread ? $assistant->clear($thread) : true;
+
+        return $this->ok(['cleared' => $cleared], $cleared ? 'Chat cleared' : 'Kept for the team');
+    }
+
+    /** Back to KAYA Assistant, from the team. */
+    public function assistant(Request $request, KayaAssistant $assistant)
+    {
+        $thread = SupportThread::firstOrCreate(['user_id' => $request->user()->id]);
+        $message = $assistant->resume($thread);
+
+        return $this->ok([
+            'message'   => $message ? $this->present($message) : null,
+            'assistant' => $this->assistantState($thread->fresh()),
+        ], 'KAYA Assistant is back');
+    }
+
+    /** A quick question, answered at once. */
+    public function quick(Request $request, KayaAssistant $assistant)
+    {
+        $data = $request->validate(['key' => ['required', 'string', 'max:40']]);
+        $user = $request->user();
+        $thread = SupportThread::firstOrCreate(['user_id' => $user->id]);
+
+        $pair = $assistant->quick($thread, $user, $data['key']);
+        if ($pair === null) {
+            return response()->json(['success' => false, 'data' => null, 'message' => 'That question is not available right now.'], 422);
+        }
+
+        return $this->ok([
+            'messages'  => array_map(fn ($m) => $this->present($m), $pair),
+            'assistant' => $this->assistantState($thread->fresh()),
+        ]);
+    }
+
     /** What the screen shows about the assistant: on, or with a person. */
     private function assistantState(?SupportThread $thread): array
     {
@@ -156,6 +200,10 @@ class SupportController extends Controller
             'on'          => $on,
             'name'        => KayaAssistant::NAME,
             'with_person' => $on && $thread !== null && ! $thread->assistantActive(),
+            // The quick questions, as [{key, label}].
+            'quick'       => $on
+                ? collect(KayaAssistant::quickQuestions())->map(fn ($label, $key) => ['key' => $key, 'label' => $label])->values()
+                : [],
         ];
     }
 

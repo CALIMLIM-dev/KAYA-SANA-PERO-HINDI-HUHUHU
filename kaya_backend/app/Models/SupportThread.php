@@ -7,9 +7,9 @@ use Illuminate\Database\Eloquent\Model;
 /** One account's conversation with KAYA. See the migration. */
 class SupportThread extends Model
 {
-    protected $fillable = ['user_id', 'last_message_at', 'handoff_at'];
+    protected $fillable = ['user_id', 'last_message_at', 'handoff_at', 'assistant_back_at'];
 
-    protected $casts = ['last_message_at' => 'datetime', 'handoff_at' => 'datetime'];
+    protected $casts = ['last_message_at' => 'datetime', 'handoff_at' => 'datetime', 'assistant_back_at' => 'datetime'];
 
     public function user()     { return $this->belongsTo(User::class); }
     public function messages() { return $this->hasMany(SupportMessage::class); }
@@ -55,6 +55,11 @@ class SupportThread extends Model
             ->where('is_assistant', false)
             ->max('created_at');
         $lastHuman = $lastHuman ? \Illuminate\Support\Carbon::parse($lastHuman) : null;
+
+        // Back to KAYA Assistant: a team reply before that no longer counts.
+        if ($lastHuman && $this->assistant_back_at && $lastHuman->lte($this->assistant_back_at)) {
+            $lastHuman = null;
+        }
 
         if ($this->handoff_at !== null && ($lastHuman === null || $lastHuman->lt($this->handoff_at))) {
             return false;
