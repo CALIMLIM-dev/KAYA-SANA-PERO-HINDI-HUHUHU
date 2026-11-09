@@ -168,26 +168,6 @@
 <script>lucide.createIcons();</script>
 <script>
 /*
-    Choosing a reason writes it into the box the form submits.
-
-    The box starts on the first reason and can be edited; picking another
-    reason replaces the words.
-*/
-(function () {
-    document.querySelectorAll('[data-reason-picker]').forEach(function (picker) {
-        var select = picker.querySelector('[data-reason-select]');
-        var input = picker.querySelector('[data-reason-input]');
-        if (!select || !input) return;
-
-        select.addEventListener('change', function () {
-            input.value = select.value;
-        });
-    });
-})();
-
-</script>
-<script>
-/*
     Keeps the page current without anyone pressing refresh.
 
     Every ten seconds it asks /admin/pulse for a stamp of the data the
