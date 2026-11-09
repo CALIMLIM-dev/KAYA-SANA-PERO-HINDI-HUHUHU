@@ -305,6 +305,9 @@ Route::prefix('v1')->group(function () {
             ->withoutMiddleware('not.suspended');
         Route::post('/support',        [SupportController::class, 'send'])
             ->withoutMiddleware('not.suspended');
+        // Talk to a Person: KAYA Assistant steps aside for the team.
+        Route::post('/support/person', [SupportController::class, 'person'])
+            ->withoutMiddleware('not.suspended');
 
         // Saved Jobs
         Route::get('/saved-jobs', [JobController::class, 'savedJobs']);

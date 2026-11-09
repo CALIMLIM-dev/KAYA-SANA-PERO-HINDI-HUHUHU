@@ -11,6 +11,15 @@
         <div class="flex-1 min-w-0">
             <p class="font-medium text-slate-800">{{ $thread->user?->name ?? 'Deleted account' }}</p>
             <p class="text-sm text-slate-500">{{ $thread->user?->email }}</p>
+            <p class="text-xs text-slate-500 mt-1">
+                @if (! \App\Services\KayaAssistant::enabled())
+                    KAYA Assistant is off. The team answers everything.
+                @elseif ($thread->assistantActive())
+                    KAYA Assistant answers new messages. Your reply pauses it for {{ config('kaya.assistant.quiet_hours') }} hours.
+                @else
+                    Handled by the team. KAYA Assistant is not answering this thread.
+                @endif
+            </p>
         </div>
         @if ($thread->user)
             <a href="{{ route('admin.users.show', $thread->user) }}"
@@ -23,11 +32,12 @@
          data-url="{{ route('admin.support.since', $thread) }}"
          class="bg-white rounded-xl border border-slate-200 p-5 space-y-3">
         @forelse ($thread->messages as $message)
+            @php $bot = (bool) $message->is_assistant; @endphp
             <div class="flex {{ $message->from_admin ? 'justify-end' : 'justify-start' }}">
-                <div class="max-w-[75%] px-4 py-2.5 rounded-2xl {{ $message->from_admin ? 'bg-blue-600 text-white' : 'bg-slate-100 text-slate-800' }}">
+                <div class="max-w-[75%] px-4 py-2.5 rounded-2xl {{ $bot ? 'bg-blue-50 text-slate-800 border border-blue-100' : ($message->from_admin ? 'bg-blue-600 text-white' : 'bg-slate-100 text-slate-800') }}">
                     <p class="text-sm whitespace-pre-line">{{ $message->body }}</p>
-                    <p class="text-[11px] mt-1 {{ $message->from_admin ? 'text-blue-200' : 'text-slate-400' }}">
-                        {{ $message->from_admin ? ($message->sender?->name ?? 'KAYA') : ($thread->user?->name ?? 'Them') }}
+                    <p class="text-[11px] mt-1 {{ $bot ? 'text-slate-500' : ($message->from_admin ? 'text-blue-200' : 'text-slate-400') }}">
+                        {{ $message->panelName($thread->user?->name) }}
                         &middot; {{ $message->created_at->format('M j, g:ia') }}
                     </p>
                 </div>
@@ -100,14 +110,15 @@
 
         var box = document.createElement('div');
         box.className = 'max-w-[75%] px-4 py-2.5 rounded-2xl '
-            + (m.from_admin ? 'bg-blue-600 text-white' : 'bg-slate-100 text-slate-800');
+            + (m.is_assistant ? 'bg-blue-50 text-slate-800 border border-blue-100'
+                : (m.from_admin ? 'bg-blue-600 text-white' : 'bg-slate-100 text-slate-800'));
 
         var body = document.createElement('p');
         body.className = 'text-sm whitespace-pre-line';
         body.textContent = m.body;
 
         var meta = document.createElement('p');
-        meta.className = 'text-[11px] mt-1 ' + (m.from_admin ? 'text-blue-200' : 'text-slate-400');
+        meta.className = 'text-[11px] mt-1 ' + (m.is_assistant ? 'text-slate-500' : (m.from_admin ? 'text-blue-200' : 'text-slate-400'));
         meta.textContent = m.who + ' · ' + m.at;
 
         box.appendChild(body);

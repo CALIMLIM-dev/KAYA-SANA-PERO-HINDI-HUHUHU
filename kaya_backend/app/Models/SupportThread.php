@@ -7,9 +7,9 @@ use Illuminate\Database\Eloquent\Model;
 /** One account's conversation with KAYA. See the migration. */
 class SupportThread extends Model
 {
-    protected $fillable = ['user_id', 'last_message_at'];
+    protected $fillable = ['user_id', 'last_message_at', 'handoff_at'];
 
-    protected $casts = ['last_message_at' => 'datetime'];
+    protected $casts = ['last_message_at' => 'datetime', 'handoff_at' => 'datetime'];
 
     public function user()     { return $this->belongsTo(User::class); }
     public function messages() { return $this->hasMany(SupportMessage::class); }
@@ -32,6 +32,35 @@ class SupportThread extends Model
             ? $this->latestMessage
             : $this->messages()->latest('id')->first();
 
-        return $last !== null && ! $last->from_admin;
+        if ($last === null) {
+            return false;
+        }
+
+        // KAYA Assistant answering is not KAYA answering when it passed the
+        // thread on: then a person still owes a reply.
+        return ! $last->from_admin || ($last->is_assistant && $this->handoff_at !== null);
+    }
+
+    /*
+        Whether KAYA Assistant answers the next message.
+
+        Not while a hand-off is waiting for a person, and not for a while
+        after a person from KAYA has answered: a conversation with a person
+        is not interrupted by the assistant.
+    */
+    public function assistantActive(): bool
+    {
+        $lastHuman = $this->messages()
+            ->where('from_admin', true)
+            ->where('is_assistant', false)
+            ->max('created_at');
+        $lastHuman = $lastHuman ? \Illuminate\Support\Carbon::parse($lastHuman) : null;
+
+        if ($this->handoff_at !== null && ($lastHuman === null || $lastHuman->lt($this->handoff_at))) {
+            return false;
+        }
+
+        return $lastHuman === null
+            || $lastHuman->lt(now()->subHours((int) config('kaya.assistant.quiet_hours')));
     }
 }

@@ -35,5 +35,9 @@
         <!-- No real AI calls from tests; the ones that need it set a fake key. -->
         <env name="EMBEDDINGS_ENABLED" value="false"/>
         <env name="SKILL_LINKING_ENABLED" value="false"/>
+        <!-- KAYA Assistant: never the real OmniRoute from a test. -->
+        <env name="OMNIROUTE_URL" value=""/>
+        <env name="OMNIROUTE_KEY" value=""/>
+        <env name="ASSISTANT_ENABLED" value="false"/>
     </php>
 </phpunit>

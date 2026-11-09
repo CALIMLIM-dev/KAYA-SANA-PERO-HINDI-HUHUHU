@@ -39,6 +39,7 @@ void main() {
     required double width,
     required double textScale,
     List<Map<String, dynamic>>? messages,
+    Map<String, dynamic>? assistant,
   }) async {
     final complaints = <String>[];
     final previous = FlutterError.onError;
@@ -65,7 +66,7 @@ void main() {
           data: MediaQueryData.fromView(tester.view)
               .copyWith(textScaler: TextScaler.linear(textScale)),
           child: MaterialApp(
-            home: SupportChatScreen(seed: messages ?? thread()),
+            home: SupportChatScreen(seed: messages ?? thread(), seedAssistant: assistant),
           ),
         ),
       );
@@ -95,12 +96,52 @@ void main() {
     expect(find.text('What can we help with?'), findsOneWidget);
   });
 
+  testWidgets('KAYA Assistant is named and a person is one tap away', (tester) async {
+    await render(tester, width: 390, textScale: 1.0, assistant: {'on': true, 'with_person': false}, messages: [
+      ...thread(),
+      {
+        'id': 3,
+        'body': 'Open your profile, go to Verification and upload the ID again.',
+        'from_admin': true,
+        'from_assistant': true,
+        'from': 'KAYA Assistant',
+        'created_at': '2026-09-24T03:11:00Z',
+      },
+    ]);
+
+    expect(find.text('KAYA Assistant'), findsOneWidget);
+    expect(find.text('KAYA Assistant answers first.'), findsOneWidget);
+    expect(find.text('Talk to a Person'), findsOneWidget);
+  });
+
+  testWidgets('with a person, the bar says the team will reply', (tester) async {
+    await render(tester, width: 390, textScale: 1.0, assistant: {'on': true, 'with_person': true});
+
+    expect(find.text('A KAYA team member will reply here.'), findsOneWidget);
+    expect(find.text('Talk to a Person'), findsNothing);
+  });
+
+  testWidgets('with the assistant off, there is no bar', (tester) async {
+    await render(tester, width: 390, textScale: 1.0, assistant: {'on': false, 'with_person': false});
+
+    expect(find.text('Talk to a Person'), findsNothing);
+    expect(find.text('KAYA Assistant answers first.'), findsNothing);
+  });
+
+  testWidgets('an empty thread with the assistant says it answers first', (tester) async {
+    await render(tester, width: 390, textScale: 1.0, messages: const [], assistant: {'on': true, 'with_person': false});
+
+    expect(find.textContaining('KAYA Assistant answers right away'), findsOneWidget);
+    expect(find.text('Talk to a Person'), findsOneWidget);
+  });
+
   for (final width in <double>[412, 360, 320]) {
     for (final scale in <double>[1.0, 1.3]) {
       testWidgets(
         'support fits ${width.toInt()}px at text scale $scale',
         (tester) async {
-          final complaints = await render(tester, width: width, textScale: scale);
+          final complaints = await render(tester, width: width, textScale: scale,
+              assistant: {'on': true, 'with_person': false});
 
           expect(find.text('Joed Garin'), findsOneWidget,
               reason: 'the thread never rendered, so nothing was checked');

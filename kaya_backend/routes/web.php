@@ -119,6 +119,9 @@ Route::prefix('admin')->name('admin.')->group(function () {
         Route::get('/support', [AdminSupportController::class, 'index'])->name('support.index');
         // Message someone from their account or offense page: their thread, opened if new.
         Route::get('/support/user/{user}', [AdminSupportController::class, 'forUser'])->name('support.user');
+        // KAYA Assistant on or off: a platform switch, not a support one.
+        Route::post('/support-assistant', [AdminSupportController::class, 'toggleAssistant'])
+            ->name('support.assistant')->middleware('admin.can:platform');
         Route::get('/support/{thread}', [AdminSupportController::class, 'show'])->name('support.show');
         Route::get('/support/{thread}/since', [AdminSupportController::class, 'since'])->name('support.since');
         Route::post('/support/{thread}/reply', [AdminSupportController::class, 'reply'])->name('support.reply');

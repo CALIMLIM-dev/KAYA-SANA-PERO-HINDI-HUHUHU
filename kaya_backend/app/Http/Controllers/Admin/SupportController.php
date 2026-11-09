@@ -39,7 +39,45 @@ class SupportController extends Controller
             ->filter(fn ($t) => $t->isWaitingOnUs())
             ->count();
 
-        return view('admin.support.index', compact('threads', 'show', 'waiting'));
+        return view('admin.support.index', compact('threads', 'show', 'waiting') + [
+            'assistantOn'    => \App\Services\KayaAssistant::enabled(),
+            'assistantToday' => $this->assistantToday(),
+        ]);
+    }
+
+    /*
+        What KAYA Assistant did today, for the card on the Support page:
+        answers by model, threads passed to the team, messages the safety
+        filter stopped before any model saw them.
+    */
+    private function assistantToday(): array
+    {
+        $since = now('Asia/Manila')->startOfDay()->utc();
+        $lines = \App\Models\SupportMessage::where('is_assistant', true)
+            ->where('created_at', '>=', $since)
+            ->pluck('assistant_model');
+
+        $answers = $lines->reject(fn ($m) => $m === null || str_starts_with($m, 'guard') || in_array($m, ['limit', 'none', 'handoff'], true));
+
+        return [
+            'answered' => $answers->count(),
+            'blocked'  => $lines->filter(fn ($m) => $m !== null && str_starts_with($m, 'guard'))->count(),
+            'handoffs' => SupportThread::where('handoff_at', '>=', $since)->count(),
+            'models'   => $answers->countBy()->sortDesc()->all(),
+        ];
+    }
+
+    public function toggleAssistant()
+    {
+        $on = ! \App\Services\KayaAssistant::enabled();
+        \App\Services\KayaAssistant::setEnabled($on);
+
+        \App\Models\AdminAction::record(
+            'assistant.toggled', 'setting', null,
+            'Turned KAYA Assistant ' . ($on ? 'on' : 'off'),
+        );
+
+        return back()->with('success', 'KAYA Assistant is ' . ($on ? 'on.' : 'off. The team answers everything.'));
     }
 
     /** Their one thread, opened if they have never written. */
@@ -89,9 +127,8 @@ class SupportController extends Controller
                 'id'         => $m->id,
                 'body'       => $m->body,
                 'from_admin' => (bool) $m->from_admin,
-                'who'        => $m->from_admin
-                    ? ($m->sender?->name ?? 'KAYA')
-                    : ($thread->user?->name ?? 'Them'),
+                'is_assistant' => (bool) $m->is_assistant,
+                'who'        => $m->panelName($thread->user?->name),
                 'at'         => $m->created_at->format('M j, g:ia'),
             ])->values(),
         ]);

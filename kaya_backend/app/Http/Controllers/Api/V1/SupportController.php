@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api\V1;
 use App\Http\Controllers\Controller;
 use App\Models\SupportMessage;
 use App\Models\SupportThread;
+use App\Services\KayaAssistant;
 use App\Services\MessageFilter;
 use Illuminate\Http\Request;
 
@@ -68,6 +69,7 @@ class SupportController extends Controller
             'unread'      => 0,
             // So the screen knows whether to append or replace.
             'incremental' => $after > 0,
+            'assistant'   => $this->assistantState($thread),
         ]);
     }
 
@@ -85,7 +87,7 @@ class SupportController extends Controller
         return $this->ok(['unread' => $count]);
     }
 
-    public function send(Request $request, MessageFilter $filter)
+    public function send(Request $request, MessageFilter $filter, KayaAssistant $assistant)
     {
         $user = $request->user();
 
@@ -114,7 +116,47 @@ class SupportController extends Controller
 
         $thread->update(['last_message_at' => now()]);
 
+        /*
+            KAYA Assistant answers after the response has gone: the person's
+            message is saved and shown at once, and the answer arrives on the
+            screen's next poll. Nobody waits on a model to send a message.
+        */
+        if ($assistant->shouldAnswer($thread)) {
+            $threadId = $thread->id;
+            $messageId = $message->id;
+
+            dispatch(function () use ($threadId, $messageId) {
+                if ($thread = SupportThread::find($threadId)) {
+                    app(KayaAssistant::class)->answer($thread, $messageId);
+                }
+            })->afterResponse();
+        }
+
         return $this->ok($this->present($message), 'Sent', 201);
+    }
+
+    /** Talk to a Person: the assistant steps aside until somebody from KAYA answers. */
+    public function person(Request $request, KayaAssistant $assistant)
+    {
+        $thread = SupportThread::firstOrCreate(['user_id' => $request->user()->id]);
+        $message = $assistant->handOff($thread);
+
+        return $this->ok([
+            'message'   => $message ? $this->present($message) : null,
+            'assistant' => $this->assistantState($thread->fresh()),
+        ], 'A person will answer');
+    }
+
+    /** What the screen shows about the assistant: on, or with a person. */
+    private function assistantState(?SupportThread $thread): array
+    {
+        $on = KayaAssistant::enabled();
+
+        return [
+            'on'          => $on,
+            'name'        => KayaAssistant::NAME,
+            'with_person' => $on && $thread !== null && ! $thread->assistantActive(),
+        ];
     }
 
     private function present(SupportMessage $message): array
@@ -123,12 +165,15 @@ class SupportController extends Controller
             'id'         => $message->id,
             'body'       => $message->body,
             'from_admin' => $message->from_admin,
+            'from_assistant' => (bool) $message->is_assistant,
             // The name of whoever answered, so a reply reads as a person
             // rather than as the platform. Their own name, not an alias:
             // an admin account is a real account and the audit says so.
-            'from'       => $message->from_admin
-                ? ($message->sender?->name ?? 'KAYA Support')
-                : null,
+            'from'       => match (true) {
+                (bool) $message->is_assistant => KayaAssistant::NAME,
+                $message->from_admin          => $message->sender?->name ?? 'KAYA Support',
+                default                       => null,
+            },
             'created_at' => $message->created_at->toIso8601String(),
         ];
     }

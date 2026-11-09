@@ -317,6 +317,35 @@ return [
     ],
 
     /*
+        KAYA Assistant: the first answer in a support thread.
+
+        It goes to OmniRoute (the owner's own AI router, reached through a
+        tunnel) and asks for the `kaya-chat` combo: Claude Sonnet 4.5 first,
+        Gemini behind it, chosen there. When OmniRoute cannot be reached it
+        asks Gemini directly with the matching key, and with neither it says
+        a person will answer. The rules it keeps are in KayaAssistant and
+        AssistantGuard; this is only where and how long.
+    */
+    'assistant' => [
+        // The switch on the admin Settings page overrides this.
+        'enabled'        => filter_var(env('ASSISTANT_ENABLED', true), FILTER_VALIDATE_BOOLEAN),
+        'url'            => env('OMNIROUTE_URL'),
+        'key'            => env('OMNIROUTE_KEY'),
+        'model'          => env('ASSISTANT_MODEL', 'kaya-chat'),
+        // Gemini, asked directly when OmniRoute is down. The same key and
+        // endpoint as matching.
+        'fallback_model' => env('ASSISTANT_FALLBACK_MODEL', 'gemini-3.5-flash-lite'),
+        'timeout'        => (int) env('ASSISTANT_TIMEOUT', 25),
+        // Answers per account per day, so one person cannot run it all day.
+        'daily_limit'    => (int) env('ASSISTANT_DAILY_LIMIT', 20),
+        // How much of the thread it reads back.
+        'history'        => 10,
+        'max_reply'      => 1200,
+        // How long it stays quiet after a person from KAYA has answered.
+        'quiet_hours'    => 24,
+    ],
+
+    /*
     |---------------------------------------------------------------------
     | Skill matching
     |---------------------------------------------------------------------
@@ -336,6 +365,7 @@ return [
     | the storage and four times the arithmetic, for no accuracy worth
     | having on a two word trade name.
     */
+
     'matching' => [
         /*
             No key, no semantic matching - and nothing breaks.

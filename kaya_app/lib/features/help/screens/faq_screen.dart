@@ -93,8 +93,10 @@ const _groups = <(String, List<_FAQ>)>[
   ('Finishing a Job', [
     _FAQ('How does a job get marked complete?',
         'When the work is done, you and the other person each tap Mark as Complete. It counts '
-            'as complete once both have. If one side has not confirmed seven days after the day '
-            'the work was due, the hire closes as not completed, which counts against both.'),
+            'as complete once both have. Seven days after the day the work was due, a job one side '
+            'confirmed and the other did not answer counts as complete; a job neither confirmed '
+            'closes as not completed. If it was marked complete but the work did not happen, tap '
+            'Report a Problem on the hire.'),
     _FAQ('Which day is the work due?',
         'The end date on the post, or the day agreed in the chat\'s schedule if there is one. '
             'An agreed schedule wins, so a job that finishes early can be completed early.'),
@@ -137,16 +139,16 @@ const _groups = <(String, List<_FAQ>)>[
   ]),
   ('Safety and Support', [
     _FAQ('How do I report someone?',
-        'In a chat, open the menu at the top right and choose Report User; on a community post, '
-            'use the menu on the post. You can add up to three photos as evidence. The person is '
-            'told the reason and can give their side, an admin decides, and you are told the outcome.'),
-    _FAQ('Why was my message refused?',
-        'Chats and comments are read by a filter. A phone number, an email address or asking to '
-            'move to another app is refused, to keep people from being taken off KAYA and '
-            'scammed. Offensive words are hidden and the message still sends.'),
+        'Use the flag on their profile or job post, Report User in a chat\'s menu, or the report '
+            'option on a community post or comment. You can add up to three photos as evidence. '
+            'Your name is not shown to them, an admin decides, and you are told the outcome.'),
+    _FAQ('Why is part of my message hidden?',
+        'Chats and comments are read by a filter. A phone number, an email address, asking to '
+            'move to another app and offensive words are hidden with asterisks, to keep people from '
+            'being taken off KAYA and scammed. The message still sends.'),
     _FAQ('How do I reach KAYA?',
-        'Settings, Help & Support, Message KAYA support, or the button below. Somebody answers '
-            'you in that same chat.'),
+        'Settings, Help & Support, Message KAYA support, or the button below. KAYA Assistant '
+            'answers first, right away; tap Talk to a Person to reach the team in that same chat.'),
   ]),
 ];
 

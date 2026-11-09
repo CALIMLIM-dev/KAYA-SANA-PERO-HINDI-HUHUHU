@@ -18,14 +18,20 @@ import '../../../data/services/api_client.dart';
     person using it - not a ticket with a subject and a reference number.
 
     Polled while it is open, the same way the rest of the app does realtime.
-    Ten seconds rather than the chat's eight: an answer here comes from a
-    person reading a queue, not from somebody typing back.
+
+    KAYA Assistant answers first, from KAYA's help and the person's own
+    account, a few seconds after a message is sent; its answer arrives on the
+    next poll like any other line. Talk to a Person hands the thread to the
+    team, and the bar above the box always says which of the two is answering.
 */
 class SupportChatScreen extends StatefulWidget {
-  const SupportChatScreen({super.key, this.seed});
+  const SupportChatScreen({super.key, this.seed, this.seedAssistant});
 
   /// Messages in place of the fetch, for a render test.
   final List<Map<String, dynamic>>? seed;
+
+  /// The assistant's state in place of the fetch, for a render test.
+  final Map<String, dynamic>? seedAssistant;
 
   @override
   State<SupportChatScreen> createState() => _SupportChatScreenState();
@@ -53,6 +59,16 @@ class _SupportChatScreenState extends State<SupportChatScreen> {
   String? _error;
   Timer? _poll;
 
+  // KAYA Assistant, as the server last described it.
+  bool _assistantOn = false;
+  bool _withPerson = false;
+  bool _handingOff = false;
+
+  /// Set after sending while the assistant is answering: shows the typing
+  /// line until its answer arrives, or for a minute at most.
+  DateTime? _awaitingSince;
+  int _awaitingAfter = 0;
+
   @override
   void initState() {
     super.initState();
@@ -62,6 +78,7 @@ class _SupportChatScreenState extends State<SupportChatScreen> {
     if (seed != null) {
       _messages = seed;
       _loading = false;
+      _readAssistant(widget.seedAssistant);
 
       return;
     }
@@ -130,10 +147,15 @@ class _SupportChatScreenState extends State<SupportChatScreen> {
           ((data['messages'] as List?) ?? []).cast<Map<String, dynamic>>();
       final incremental = data['incremental'] == true;
 
+      final before = (_assistantOn, _withPerson);
+      _readAssistant(data['assistant'] as Map<String, dynamic>?);
+      _settleAwaiting(incoming);
+      final assistantChanged = before != (_assistantOn, _withPerson);
+
       // Nothing new on a cursored poll: leave the list alone rather than
       // rebuilding it, which would fight the scroll position.
       if (incremental && incoming.isEmpty) {
-        if (_loading || _error != null) {
+        if (_loading || _error != null || assistantChanged || _awaitingExpired()) {
           setState(() {
             _loading = false;
             _error = null;
@@ -162,6 +184,56 @@ class _SupportChatScreenState extends State<SupportChatScreen> {
     }
   }
 
+  void _readAssistant(Map<String, dynamic>? state) {
+    if (state == null) return;
+    _assistantOn = state['on'] == true;
+    _withPerson = state['with_person'] == true;
+  }
+
+  /// The typing line goes once KAYA has answered after the sent message.
+  void _settleAwaiting(List<Map<String, dynamic>> incoming) {
+    if (_awaitingSince == null) return;
+    final answered = incoming.any((m) =>
+        m['from_admin'] == true && ((m['id'] as int?) ?? 0) > _awaitingAfter);
+    if (answered || _withPerson || !_assistantOn) _awaitingSince = null;
+  }
+
+  bool _awaitingExpired() {
+    final since = _awaitingSince;
+    if (since == null) return false;
+    if (DateTime.now().difference(since) < const Duration(seconds: 60)) return false;
+    _awaitingSince = null;
+    return true;
+  }
+
+  bool get _assistantTyping => _awaitingSince != null;
+
+  Future<void> _talkToPerson() async {
+    if (_handingOff) return;
+    setState(() => _handingOff = true);
+
+    try {
+      final res = await _api.post('/support/person');
+      final data = res.data['data'] as Map<String, dynamic>;
+      final message = data['message'] as Map<String, dynamic>?;
+
+      if (!mounted) return;
+
+      setState(() {
+        if (message != null) _messages = _merged([message]);
+        _readAssistant(data['assistant'] as Map<String, dynamic>?);
+        _awaitingSince = null;
+        _handingOff = false;
+      });
+      _toBottom();
+    } catch (e) {
+      if (!mounted) return;
+
+      setState(() => _handingOff = false);
+      AppToast.error(context, e.toString().replaceFirst('Exception: ', ''));
+    }
+  }
+
   void _toBottom() {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (_scroll.hasClients) {
@@ -185,6 +257,10 @@ class _SupportChatScreenState extends State<SupportChatScreen> {
       setState(() {
         _messages = _merged([message]);
         _sending = false;
+        if (_assistantOn && !_withPerson) {
+          _awaitingSince = DateTime.now();
+          _awaitingAfter = (message['id'] as int?) ?? 0;
+        }
       });
 
       _controller.clear();
@@ -211,6 +287,7 @@ class _SupportChatScreenState extends State<SupportChatScreen> {
       body: Column(
         children: [
           Expanded(child: _body()),
+          if (_assistantOn) _assistantBar(),
           SafeArea(
             top: false,
             child: Container(
@@ -288,28 +365,34 @@ class _SupportChatScreenState extends State<SupportChatScreen> {
     }
 
     if (_messages.isEmpty) {
-      return const Center(
+      final assistant = _assistantOn && !_withPerson;
+
+      return Center(
         child: Padding(
-          padding: EdgeInsets.all(32),
+          padding: const EdgeInsets.all(32),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(Icons.support_agent_outlined,
+              const Icon(Icons.support_agent_outlined,
                   size: 48, color: AppColors.neutral300),
-              SizedBox(height: 14),
-              Text(
+              const SizedBox(height: 14),
+              const Text(
                 'Tell Us What Happened',
                 style: TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.w600,
                     color: AppColors.neutral700),
               ),
-              SizedBox(height: 6),
+              const SizedBox(height: 6),
               Text(
-                'Somebody at KAYA reads this and answers here. '
-                'Say which account, job or payment it is about.',
+                assistant
+                    ? 'KAYA Assistant answers right away from the KAYA help. '
+                        'Tap Talk to a Person to reach the team. '
+                        'Say which account, job or payment it is about.'
+                    : 'Somebody at KAYA reads this and answers here. '
+                        'Say which account, job or payment it is about.',
                 textAlign: TextAlign.center,
-                style: TextStyle(fontSize: 13.5, color: AppColors.neutral500),
+                style: const TextStyle(fontSize: 13.5, color: AppColors.neutral500),
               ),
             ],
           ),
@@ -320,8 +403,67 @@ class _SupportChatScreenState extends State<SupportChatScreen> {
     return ListView.builder(
       controller: _scroll,
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-      itemCount: _messages.length,
-      itemBuilder: (context, i) => _bubble(_messages[i]),
+      itemCount: _messages.length + (_assistantTyping ? 1 : 0),
+      itemBuilder: (context, i) =>
+          i < _messages.length ? _bubble(_messages[i]) : _typing(),
+    );
+  }
+
+  Widget _typing() {
+    return const Padding(
+      padding: EdgeInsets.only(bottom: 10),
+      child: Align(
+        alignment: Alignment.centerLeft,
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            SizedBox(
+              width: 12,
+              height: 12,
+              child: CircularProgressIndicator(strokeWidth: 1.6),
+            ),
+            SizedBox(width: 8),
+            Text(
+              'KAYA Assistant is typing...',
+              style: TextStyle(fontSize: 12.5, color: AppColors.neutral500),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// Who is answering, and the way to reach a person.
+  Widget _assistantBar() {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.fromLTRB(16, 6, 8, 6),
+      decoration: const BoxDecoration(
+        color: AppColors.neutral50,
+        border: Border(top: BorderSide(color: AppColors.neutral200)),
+      ),
+      child: _withPerson
+          ? const Padding(
+              padding: EdgeInsets.symmetric(vertical: 8),
+              child: Text(
+                'A KAYA team member will reply here.',
+                style: TextStyle(fontSize: 12.5, color: AppColors.neutral600),
+              ),
+            )
+          : Row(
+              children: [
+                const Expanded(
+                  child: Text(
+                    'KAYA Assistant answers first.',
+                    style: TextStyle(fontSize: 12.5, color: AppColors.neutral600),
+                  ),
+                ),
+                TextButton(
+                  onPressed: _handingOff ? null : _talkToPerson,
+                  child: const Text('Talk to a Person'),
+                ),
+              ],
+            ),
     );
   }
 
