@@ -68,7 +68,8 @@ class AssistantGuard
             '/\bsex\s+(video|chat|story|stories|scene)\b/',
             '/\b(erotic|sexy)\s+(story|stories|roleplay|role play|chat)\b/',
             '/\b18\s*\+\s*(content|story|stories|video|chat)\b/',
-            '/\b(kantot|kantutan|jakol|chupa|tsupa|libog|malibog|iyot)\b/',
+            // Roots, so every spelling counts: kantot, kantotan, kantutan, jakolan...
+            '/\b(kant[ou]t|jakol|dyakol|chupa|tsupa|libog|malibog|iyot|ipapasok\s+ko)\w*/',
             '/\bhubad\b/',
             '/\bescort\s+service/',
         ],
@@ -93,7 +94,7 @@ class AssistantGuard
         '/\bporn/',
         '/\bnudes?\b/',
         '/\bhentai\b/',
-        '/\b(kantot|kantutan|jakol|chupa|tsupa|iyot)\b/',
+        '/\b(kant[ou]t|jakol|dyakol|chupa|tsupa|iyot)\w*/',
         '/\b(how\s+to\s+(make|build)\s+(a\s+)?(bomb|explosive))/',
     ];
 

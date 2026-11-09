@@ -110,14 +110,16 @@ void main() {
     ]);
 
     expect(find.text('KAYA Assistant'), findsOneWidget);
-    expect(find.text('KAYA Assistant answers first.'), findsOneWidget);
+    // A small button to report the answer, on assistant answers only.
+    expect(find.byTooltip('Report This Answer'), findsOneWidget);
+    expect(find.text('KAYA Assistant is answering'), findsOneWidget);
     expect(find.text('Talk to a Person'), findsOneWidget);
   });
 
   testWidgets('with a person, the bar says the team will reply', (tester) async {
     await render(tester, width: 390, textScale: 1.0, assistant: {'on': true, 'with_person': true});
 
-    expect(find.text('A KAYA team member will reply here.'), findsOneWidget);
+    expect(find.text('The KAYA team will reply'), findsOneWidget);
     expect(find.text('Talk to a Person'), findsNothing);
   });
 
@@ -125,7 +127,7 @@ void main() {
     await render(tester, width: 390, textScale: 1.0, assistant: {'on': false, 'with_person': false});
 
     expect(find.text('Talk to a Person'), findsNothing);
-    expect(find.text('KAYA Assistant answers first.'), findsNothing);
+    expect(find.text('KAYA Assistant is answering'), findsNothing);
   });
 
   testWidgets('an empty thread with the assistant says it answers first', (tester) async {
@@ -150,7 +152,7 @@ void main() {
 
   testWidgets('with a person, the way back to the assistant is there', (tester) async {
     await render(tester, width: 390, textScale: 1.0, assistant: {'on': true, 'with_person': true});
-    expect(find.text('Back to KAYA Assistant'), findsOneWidget);
+    expect(find.text('Back to Assistant'), findsOneWidget);
     expect(find.text('How do I get verified?'), findsNothing);
   });
 

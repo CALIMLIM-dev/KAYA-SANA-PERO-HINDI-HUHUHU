@@ -6,12 +6,42 @@ use Illuminate\Database\Eloquent\Model;
 
 class Category extends Model
 {
-    protected $fillable = ['name', 'icon', 'is_active', 'is_custom', 'created_by'];
+    protected $fillable = ['name', 'icon', 'is_active', 'is_custom', 'created_by', 'maps_to_id', 'removed_at'];
 
     protected $casts = [
-        'is_active' => 'boolean',
-        'is_custom' => 'boolean',
+        'is_active'  => 'boolean',
+        'is_custom'  => 'boolean',
+        'removed_at' => 'datetime',
     ];
+
+    /*
+        What a person can pick: the catalogue, and their own custom
+        categories. Somebody else's custom category is theirs alone.
+    */
+    public function scopePickableBy($query, ?User $user)
+    {
+        return $query->where('is_active', true)
+            ->whereNull('removed_at')
+            ->where(fn ($q) => $q->where('is_custom', false)
+                ->when($user, fn ($q2) => $q2->orWhere('created_by', $user->id)));
+    }
+
+    /** The catalogue trade a custom category means, when it is known. */
+    public function mapsTo()
+    {
+        return $this->belongsTo(Category::class, 'maps_to_id');
+    }
+
+    /*
+        Whether its creator can take it off their list: not while an open
+        post or anybody's profile still files work under it. Closed posts do
+        not count; they keep showing the name.
+    */
+    public function removableByOwner(): bool
+    {
+        return ! $this->jobs()->whereIn('status', ['open', 'in_progress'])->exists()
+            && ! WorkerProfile::where('category_id', $this->id)->exists();
+    }
 
     public function jobs()
     {

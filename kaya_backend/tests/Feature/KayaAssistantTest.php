@@ -392,6 +392,94 @@ class KayaAssistantTest extends TestCase
         $this->assertSame(KayaAssistant::LIMIT, $this->lastLine($maria)->body);
     }
 
+    private function omniWrites(string $content): void
+    {
+        Http::fake([
+            self::OMNI . '/*' => Http::response([
+                'model'   => 'claude-sonnet-4.5',
+                'choices' => [['message' => ['content' => $content]]],
+            ]),
+            'gemini.test/*' => Http::response([], 500),
+        ]);
+    }
+
+    #[Test]
+    public function a_plain_answer_hands_off_with_its_marker_line(): void
+    {
+        $this->omniWrites("Pasensya po sa nangyari.\n[[HANDOFF]]");
+        $maria = $this->person();
+
+        $this->write($maria, 'Hindi ako binayaran');
+
+        $line = $this->lastLine($maria);
+        $this->assertStringNotContainsString('[[HANDOFF]]', $line->body);
+        $this->assertStringContainsString('A KAYA team member will reply here', $line->body);
+        $this->assertTrue(SupportThread::where('user_id', $maria->id)->first()->isWaitingOnUs());
+    }
+
+    #[Test]
+    public function steps_written_inline_go_one_per_line(): void
+    {
+        $this->omniWrites("Here's how to get started: 1. Set up your profile. 2. Workers: search jobs and apply. 3. When hired, a chat opens. 4. After the work, both tap Mark as Complete.");
+        $maria = $this->person();
+
+        $this->write($maria, 'How to use the app');
+
+        $this->assertSame(
+            "Here's how to get started:\n1. Set up your profile.\n2. Workers: search jobs and apply.\n3. When hired, a chat opens.\n4. After the work, both tap Mark as Complete.",
+            $this->lastLine($maria)->body,
+        );
+    }
+
+    #[Test]
+    public function an_answer_still_wrapped_in_json_is_unwrapped(): void
+    {
+        $this->omniWrites('{"reply": "Open My Wallet.", "handoff": false}');
+        $maria = $this->person();
+
+        $this->write($maria, 'Where is my Barya?');
+
+        $this->assertSame('Open My Wallet.', $this->lastLine($maria)->body);
+    }
+
+    #[Test]
+    public function every_spelling_of_a_tagalog_word_is_caught(): void
+    {
+        $guard = new AssistantGuard();
+
+        foreach (['kantotan', 'kantutan tayo', 'jakolan', 'k4nt0tan'] as $word) {
+            $this->assertSame(AssistantGuard::SEXUAL, $guard->check($word), $word);
+        }
+    }
+
+    #[Test]
+    public function a_reported_answer_reaches_the_team_and_outlives_the_chat(): void
+    {
+        $this->omniSays('Top up in My Wallet.');
+        $maria = $this->person();
+        $this->write($maria, 'Paano mag top up?');
+        $answer = $this->lastLine($maria);
+
+        // Only her own thread's assistant answers can be reported.
+        $other = User::factory()->create();
+        $this->actingAs($other, 'sanctum')->postJson('/api/v1/support/feedback', ['message_id' => $answer->id])->assertNotFound();
+
+        $this->actingAs($maria, 'sanctum')->postJson('/api/v1/support/feedback', ['message_id' => $answer->id])->assertOk();
+        $this->actingAs($maria, 'sanctum')->postJson('/api/v1/support/feedback', ['message_id' => $answer->id])->assertOk();
+        $this->assertSame(1, \App\Models\AssistantFeedback::count());
+
+        // She leaves; the chat is erased, the report is not.
+        $this->actingAs($maria, 'sanctum')->postJson('/api/v1/support/end')->assertOk();
+
+        $admin = User::factory()->create(['user_type' => 'admin']);
+        $this->actingAs($admin)->get('/admin/support')->assertOk()
+            ->assertSee('Reported Answers')->assertSee('Paano mag top up?')->assertSee('Top up in My Wallet.');
+
+        $item = \App\Models\AssistantFeedback::sole();
+        $this->actingAs($admin)->post("/admin/support-feedback/{$item->id}/dismiss")->assertRedirect();
+        $this->assertSame(0, \App\Models\AssistantFeedback::count());
+    }
+
     #[Test]
     public function it_stops_at_the_daily_limit(): void
     {

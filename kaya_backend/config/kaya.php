@@ -390,6 +390,8 @@ return [
         'linking_enabled' => filter_var(env('SKILL_LINKING_ENABLED', true), FILTER_VALIDATE_BOOLEAN),
         // -lite: the free tier gives 3.5-flash only 20 requests a day per project.
         'link_model'      => env('SKILL_LINK_MODEL', 'gemini-3.5-flash-lite'),
+        // Asked first, through OmniRoute; link_model above is the direct fallback.
+        'link_combo'      => env('SKILL_LINK_COMBO', 'kaya-link'),
         'link_timeout'    => (int) env('SKILL_LINK_TIMEOUT', 15),
 
         // Pinned deliberately. A provider silently moving the model would
@@ -403,6 +405,19 @@ return [
         ),
 
         'dimensions' => (int) env('EMBEDDING_DIMENSIONS', 768),
+        /*
+            The backup model, through OmniRoute, stored beside Gemini's.
+
+            Gemini stays the main one. When Gemini has no vector for a word
+            (its limit was hit, or it was down when the word was saved) the
+            pair is compared on this model's vectors instead - never one
+            model against the other. Its scores sit on a different scale, so
+            backup_similarity_threshold is this model's own "close enough",
+            measured with kaya:embedding-test on KAYA's own pairs (0.62 on 10 Nov 2026:
+            the highest "must not match" pair was tubero / karpintero at 0.614).
+        */
+        'backup_model' => env('EMBEDDING_BACKUP_MODEL', 'jina-ai/jina-embeddings-v5-text-small'),
+        'backup_similarity_threshold' => (float) env('EMBEDDING_BACKUP_THRESHOLD', 0.62),
 
         /*
             Two seconds, on a save the user is already waiting through.

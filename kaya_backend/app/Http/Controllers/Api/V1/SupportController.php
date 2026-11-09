@@ -143,13 +143,43 @@ class SupportController extends Controller
     /** Talk to a Person: the assistant steps aside until somebody from KAYA answers. */
     public function person(Request $request, KayaAssistant $assistant)
     {
+        $data = $request->validate(['topic' => ['nullable', 'string', \Illuminate\Validation\Rule::in(array_keys(SupportThread::TOPICS))]]);
         $thread = SupportThread::firstOrCreate(['user_id' => $request->user()->id]);
+        if (! empty($data['topic'])) {
+            $thread->forceFill(['topic' => $data['topic']])->save();
+        }
         $message = $assistant->handOff($thread);
 
         return $this->ok([
             'message'   => $message ? $this->present($message) : null,
             'assistant' => $this->assistantState($thread->fresh()),
         ], 'A person will answer');
+    }
+
+    /*
+        The feedback button on a KAYA Assistant answer. A copy of the answer
+        and the question before it goes to the team, since the chat itself
+        is erased when the person leaves.
+    */
+    public function feedback(Request $request)
+    {
+        $data = $request->validate(['message_id' => ['required', 'integer']]);
+        $user = $request->user();
+        $thread = SupportThread::where('user_id', $user->id)->first();
+
+        $answer = $thread?->messages()->whereKey($data['message_id'])->where('is_assistant', true)->first();
+        if (! $answer) {
+            return response()->json(['success' => false, 'data' => null, 'message' => 'That answer is no longer here.'], 404);
+        }
+
+        $question = $thread->messages()->where('id', '<', $answer->id)->where('from_admin', false)->latest('id')->value('body');
+
+        \App\Models\AssistantFeedback::firstOrCreate(
+            ['user_id' => $user->id, 'message_id' => $answer->id],
+            ['question' => $question, 'answer' => $answer->body, 'model' => $answer->assistant_model],
+        );
+
+        return $this->ok(null, 'Thanks. The KAYA team will look at this answer.');
     }
 
     /** Left the chat: it is erased, unless it is still with the team. */
@@ -200,6 +230,8 @@ class SupportController extends Controller
             'on'          => $on,
             'name'        => KayaAssistant::NAME,
             'with_person' => $on && $thread !== null && ! $thread->assistantActive(),
+            // The topics for Talk to a Person, as [{key, label}].
+            'topics'      => collect(SupportThread::TOPICS)->map(fn ($label, $key) => ['key' => $key, 'label' => $label])->values(),
             // The quick questions, as [{key, label}].
             'quick'       => $on
                 ? collect(KayaAssistant::quickQuestions())->map(fn ($label, $key) => ['key' => $key, 'label' => $label])->values()

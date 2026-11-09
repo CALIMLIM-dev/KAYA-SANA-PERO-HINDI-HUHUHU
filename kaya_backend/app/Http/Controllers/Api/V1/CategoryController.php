@@ -9,9 +9,10 @@ use Illuminate\Support\Facades\Validator;
 
 class CategoryController extends Controller
 {
-    public function index()
+    /** The catalogue, and this person's own custom categories. Never anyone else's. */
+    public function index(Request $request)
     {
-        $categories = Category::where('is_active', true)->orderBy('name')->get();
+        $categories = Category::pickableBy($request->user())->orderBy('name')->get();
         return response()->json(['success' => true, 'data' => $categories, 'message' => 'Categories retrieved']);
     }
 
@@ -32,11 +33,9 @@ class CategoryController extends Controller
         /*
             A cap on custom categories per account.
 
-            Every row created here is `is_active => true` and appears
-            immediately in every user's picker, and there is no moderation
-            queue for them in the admin panel. Unbounded, one free account can
-            fill the category list for the whole platform — defacement that
-            costs nothing to perform and has to be cleaned up by hand.
+            A custom category is private: only its creator can pick it. The
+            cap still keeps one account from piling up names that show on its
+            posts and profile.
 
             Five is well past what an honest user needs: the seeded list of 17
             already covers the trades, and a custom entry is for the rare case
@@ -44,6 +43,7 @@ class CategoryController extends Controller
         */
         $ownCustom = Category::where('created_by', $request->user()->id)
             ->where('is_custom', true)
+            ->whereNull('removed_at')
             ->count();
 
         if ($ownCustom >= 5) {
@@ -54,8 +54,11 @@ class CategoryController extends Controller
             ], 429);
         }
 
-        // Check if category already exists (case-insensitive)
-        $existing = Category::whereRaw('LOWER(name) = ?', [strtolower($request->name)])->first();
+        // Already in the catalogue, or already one of theirs (case-insensitive).
+        // Somebody else's private category of the same name is no clash.
+        $existing = Category::pickableBy($request->user())
+            ->whereRaw('LOWER(name) = ?', [strtolower($request->name)])
+            ->first();
         
         if ($existing) {
             return response()->json([
@@ -73,11 +76,49 @@ class CategoryController extends Controller
             'created_by' => $request->user()->id,
         ]);
 
+        // Which real trade it means, so matching still finds its workers.
+        // After the response: the person does not wait on a model.
+        $categoryId = $category->id;
+        dispatch(function () use ($categoryId) {
+            $custom = Category::find($categoryId);
+            if ($custom && $custom->maps_to_id === null) {
+                $trade = app(\App\Services\SkillLinker::class)->tradeFor($custom->name);
+                if ($trade && $trade !== $custom->id) {
+                    $custom->forceFill(['maps_to_id' => $trade])->save();
+                }
+            }
+        })->afterResponse();
+
         return response()->json([
             'success' => true,
             'data' => $category,
             'message' => 'Custom job category created successfully'
         ], 201);
+    }
+
+    /*
+        The creator takes their own custom category off their list.
+
+        Not while an open post or a profile still uses it - those are
+        changed first. Closed posts keep showing the name, so the row stays.
+    */
+    public function destroy(Request $request, Category $category)
+    {
+        if (! $category->is_custom || (int) $category->created_by !== (int) $request->user()->id || $category->removed_at) {
+            return response()->json(['success' => false, 'data' => null, 'message' => 'You can only remove a category you added.'], 403);
+        }
+
+        if (! $category->removableByOwner()) {
+            return response()->json([
+                'success' => false,
+                'data'    => null,
+                'message' => 'This category is still used by an open job post or a profile. Change those first.',
+            ], 422);
+        }
+
+        $category->forceFill(['removed_at' => now()])->save();
+
+        return response()->json(['success' => true, 'data' => null, 'message' => 'Category removed']);
     }
 }
 

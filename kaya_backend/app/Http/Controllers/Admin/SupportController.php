@@ -20,27 +20,36 @@ class SupportController extends Controller
 {
     public function index(Request $request)
     {
-        $show = $request->get('show', 'waiting');
+        $show = in_array($request->get('show'), ['waiting', 'mine', 'answered', 'all'], true) ? $request->get('show') : 'waiting';
+        $topic = array_key_exists((string) $request->get('topic'), SupportThread::TOPICS) ? $request->get('topic') : null;
+        $me = Auth::id();
 
-        $threads = SupportThread::query()
-            ->with(['user:id,name,email,is_suspended', 'latestMessage'])
+        $all = SupportThread::query()
+            ->with(['user:id,name,email,is_suspended', 'latestMessage', 'assignee:id,name'])
             ->whereHas('messages')
-            ->get()
-            ->filter(fn ($t) => $show === 'all' || $t->isWaitingOnUs())
+            ->get();
+
+        $in = fn (string $tab) => $all->filter(fn ($t) => match ($tab) {
+            'waiting'  => $t->isWaitingOnUs(),
+            'mine'     => (int) $t->assigned_to === (int) $me,
+            'answered' => $t->isAnswered(),
+            default    => true,
+        });
+        $counts = collect(['waiting', 'mine', 'answered', 'all'])->mapWithKeys(fn ($tab) => [$tab => $in($tab)->count()]);
+
+        $threads = $in($show)
+            ->when($topic, fn ($c) => $c->where('topic', $topic))
             // Longest wait first among the unanswered; newest first otherwise.
             ->sortBy(fn ($t) => $t->isWaitingOnUs()
                 ? [0, $t->last_message_at?->timestamp ?? 0]
                 : [1, -($t->last_message_at?->timestamp ?? 0)])
             ->values();
 
-        $waiting = SupportThread::with('latestMessage')
-            ->whereHas('messages')
-            ->get()
-            ->filter(fn ($t) => $t->isWaitingOnUs())
-            ->count();
+        $waiting = $counts['waiting'];
 
-        return view('admin.support.index', compact('threads', 'show', 'waiting') + [
+        return view('admin.support.index', compact('threads', 'show', 'waiting', 'counts', 'topic') + [
             'assistantOn'    => \App\Services\KayaAssistant::enabled(),
+            'feedback'       => \App\Models\AssistantFeedback::with('user:id,name')->latest('id')->take(20)->get(),
             'assistantToday' => $this->assistantToday(),
         ]);
     }
@@ -54,6 +63,37 @@ class SupportController extends Controller
     {
         // Counted as it happened: the chats themselves are erased on leaving.
         return \App\Services\KayaAssistant::todayStats();
+    }
+
+    /** Take: this chat is mine, so two people never answer the same person. */
+    public function take(SupportThread $thread)
+    {
+        $thread->forceFill(['assigned_to' => Auth::id()])->save();
+
+        return back()->with('success', 'You are handling this chat.');
+    }
+
+    /*
+        Close: done. The chat is erased for both sides, as every support chat
+        is when it ends; nothing of it is kept.
+    */
+    public function close(SupportThread $thread)
+    {
+        $name = $thread->user?->name ?? 'a deleted account';
+        $thread->messages()->delete();
+        $thread->forceFill(['handoff_at' => null, 'assistant_back_at' => null, 'last_message_at' => null, 'assigned_to' => null, 'topic' => null])->save();
+
+        AdminAction::record('support.closed', 'support_thread', $thread->id, 'Closed the support chat with ' . $name, ['user_id' => $thread->user_id]);
+
+        return redirect()->route('admin.support.index')->with('success', 'Chat closed and erased.');
+    }
+
+    /** A reported answer, read and dealt with. */
+    public function dismissFeedback(\App\Models\AssistantFeedback $feedback)
+    {
+        $feedback->delete();
+
+        return back()->with('success', 'Removed from the list.');
     }
 
     public function toggleAssistant()
@@ -136,6 +176,9 @@ class SupportController extends Controller
         ]);
 
         $thread->update(['last_message_at' => now()]);
+        if (! $thread->assigned_to) {
+            $thread->forceFill(['assigned_to' => Auth::id()])->save();
+        }
 
         // Somebody who wrote to support and heard nothing assumes nobody
         // read it. The notification is what makes the reply a reply.

@@ -60,6 +60,16 @@ class ReportController extends Controller
         ]);
     }
 
+    public function toggleSafetyCheck()
+    {
+        $on = ! \App\Services\SafetyCheck::enabled();
+        \App\Services\SafetyCheck::setEnabled($on);
+
+        \App\Models\AdminAction::record('safety.toggled', 'setting', null, 'Turned the AI Safety Check ' . ($on ? 'on' : 'off'));
+
+        return back()->with('success', 'AI Safety Check is ' . ($on ? 'on.' : 'off. Only the word filter checks messages.'));
+    }
+
     /**
      * One report, with the context needed to judge it.
      *

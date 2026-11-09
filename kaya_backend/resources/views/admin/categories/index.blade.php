@@ -95,7 +95,7 @@
                         <span class="shrink-0 px-1.5 py-px rounded text-[11px] bg-slate-100 text-slate-500">Hidden</span>
                     @endunless
                     @if ($category->is_custom)
-                        <span class="shrink-0 px-1.5 py-px rounded text-[11px] border border-slate-200 text-slate-500">User-added</span>
+                        <span class="shrink-0 px-1.5 py-px rounded text-[11px] border border-slate-200 text-slate-500">{{ $category->removed_at ? 'Removed by Owner' : 'Private' }}</span>
                     @endif
                 </span>
                 <span class="block mt-0.5 text-xs text-slate-500 tabular-nums">

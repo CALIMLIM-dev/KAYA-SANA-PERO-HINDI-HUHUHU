@@ -7,7 +7,31 @@ use Illuminate\Database\Eloquent\Model;
 /** One account's conversation with KAYA. See the migration. */
 class SupportThread extends Model
 {
-    protected $fillable = ['user_id', 'last_message_at', 'handoff_at', 'assistant_back_at'];
+    protected $fillable = ['user_id', 'last_message_at', 'handoff_at', 'assistant_back_at', 'assigned_to', 'topic'];
+
+    /** What a chat is about, picked on Talk to a Person. */
+    public const TOPICS = [
+        'account'      => 'Account or Suspension',
+        'barya'        => 'Barya',
+        'job'          => 'Job Problem',
+        'verification' => 'Verification',
+        'other'        => 'Other',
+    ];
+
+    public function assignee() { return $this->belongsTo(User::class, 'assigned_to'); }
+
+    public function topicLabel(): ?string
+    {
+        return $this->topic ? (self::TOPICS[$this->topic] ?? null) : null;
+    }
+
+    /** The team answered last and nobody is waiting on us. */
+    public function isAnswered(): bool
+    {
+        $last = $this->relationLoaded('latestMessage') ? $this->latestMessage : $this->messages()->latest('id')->first();
+
+        return $last !== null && $last->from_admin && ! $last->is_assistant;
+    }
 
     protected $casts = ['last_message_at' => 'datetime', 'handoff_at' => 'datetime', 'assistant_back_at' => 'datetime'];
 

@@ -335,8 +335,16 @@ class JobMatchService
             return [0.0, null, false];
         }
 
-        // ── the same row ─────────────────────────────────────────────
-        if ($profile->category_id === $job->category_id) {
+        // ── the same row, or the same trade under a custom name ──────
+        // A private custom category counts as the catalogue trade it maps
+        // to ("Aircon Cleaning" as Aircon Repair). Only when loaded, so a
+        // feed never queries per row.
+        $tradeOf = fn ($model) => $model->relationLoaded('category') && $model->category?->maps_to_id
+            ? (int) $model->category->maps_to_id
+            : (int) $model->category_id;
+
+        if ($profile->category_id === $job->category_id
+            || ($profile->category_id && $tradeOf($job) === $tradeOf($profile))) {
             return [(float) self::WEIGHT_CATEGORY, 'Same work category', true];
         }
 

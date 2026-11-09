@@ -21,6 +21,21 @@
                 @endif
             </p>
         </div>
+        <div class="text-right text-xs text-slate-500">
+            @if ($thread->topicLabel())<p>Topic: {{ $thread->topicLabel() }}</p>@endif
+            <p>{{ $thread->assignee ? 'Handled by ' . $thread->assignee->name : 'Not taken yet' }}</p>
+        </div>
+        @if ((int) $thread->assigned_to !== (int) auth()->id())
+            <form method="POST" action="{{ route('admin.support.take', $thread) }}">
+                @csrf
+                <button class="px-3 py-2 border border-slate-300 text-slate-700 rounded-lg text-sm hover:bg-slate-50">Take</button>
+            </form>
+        @endif
+        <form method="POST" action="{{ route('admin.support.close', $thread) }}"
+              onsubmit="return confirm('Close this chat? It is erased for both sides.')">
+            @csrf
+            <button class="px-3 py-2 border border-slate-300 text-slate-700 rounded-lg text-sm hover:bg-slate-50">Close</button>
+        </form>
         @if ($thread->user)
             <a href="{{ route('admin.users.show', $thread->user) }}"
                class="px-3 py-2 border border-slate-300 text-slate-600 rounded-lg text-sm hover:bg-slate-50">View User Details</a>

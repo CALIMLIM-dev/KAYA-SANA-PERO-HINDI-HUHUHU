@@ -16,6 +16,32 @@
     $closed = $tab !== 'pending';
 @endphp
 
+{{-- The AI safety check behind the word filter: on or off, and today. --}}
+@php $safety = \App\Services\SafetyCheck::todayStats(); @endphp
+<div class="bg-white rounded-xl border border-slate-200 mb-4 flex flex-wrap items-center">
+    <div class="px-5 py-3 flex-1 min-w-[16rem]">
+        <p class="text-sm font-semibold text-slate-800">
+            AI Safety Check
+            <span class="ml-2 text-xs font-medium px-2 py-0.5 rounded-full {{ \App\Services\SafetyCheck::enabled() ? 'bg-green-50 text-green-700' : 'bg-slate-100 text-slate-500' }}">{{ \App\Services\SafetyCheck::enabled() ? 'On' : 'Off' }}</span>
+        </p>
+        <p class="text-xs text-slate-500 mt-1">Reads chats, comments, job posts and reviews in any language. It hides and reports; an admin decides.</p>
+    </div>
+    @foreach ([['Checked Today', $safety['checked']], ['Hidden', $safety['hidden']], ['Reported', $safety['reported']]] as [$label, $value])
+        <div class="px-5 py-3 border-l border-slate-100">
+            <p class="text-xs text-slate-500">{{ $label }}</p>
+            <p class="text-lg font-semibold text-slate-900 tabular-nums">{{ $value }}</p>
+        </div>
+    @endforeach
+    @if (auth()->user()->adminCan('platform'))
+        <form method="POST" action="{{ route('admin.reports.safety') }}" class="px-5 py-3">
+            @csrf
+            <button class="px-3 py-2 rounded-lg text-sm font-medium border border-slate-300 text-slate-700 hover:bg-slate-50">
+                {{ \App\Services\SafetyCheck::enabled() ? 'Turn Off' : 'Turn On' }}
+            </button>
+        </form>
+    @endif
+</div>
+
 <div class="bg-white rounded-xl border border-slate-200">
     <div class="px-5 py-4 border-b border-slate-100 flex flex-wrap items-center gap-1">
         @foreach ($tabs as $key => $label)
@@ -88,7 +114,7 @@
                             <td class="py-3 px-5 font-medium {{ $severityTone[$report->severity()] ?? 'text-slate-500' }}">
                                 {{ ucfirst($report->severity()) }}
                             </td>
-                            <td class="py-3 px-5 text-slate-500">{{ $report->reporter->name ?? 'Deleted account' }}</td>
+                            <td class="py-3 px-5 text-slate-500">{{ $report->is_automatic ? 'KAYA Safety Check' : ($report->reporter->name ?? 'Deleted account') }}</td>
                             @if ($closed)
                                 <td class="py-3 px-5 text-slate-700 whitespace-nowrap">
                                     {{ \App\Models\Report::OUTCOMES[$outcome] }}

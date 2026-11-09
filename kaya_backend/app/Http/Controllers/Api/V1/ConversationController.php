@@ -151,10 +151,23 @@ class ConversationController extends Controller
             old cursor should get a bounded response rather than the entire
             history in one go; it can simply ask again with the new highest id.
         */
+        /*
+            Held: the other side's message the safety check has not read yet,
+            for a few seconds at most. A delta stops short of the first held
+            one, so the cursor can never move past it and lose it.
+        */
+        $heldSince = now()->subSeconds((int) config('moderation.ai.hold_seconds'));
+        $firstHeld = $conversation->messages()
+            ->where('sender_id', '!=', $user->id)
+            ->whereNull('checked_at')
+            ->where('created_at', '>', $heldSince)
+            ->min('id');
+
         if ($request->filled('after_id')) {
             $messages = $conversation->messages()
                 ->with(['sender:id,name,avatar', 'sender.workerProfile:id,user_id,profile_photo_path', 'sender.employerProfile:id,user_id,image_path'])
                 ->where('id', '>', (int) $request->input('after_id'))
+                ->when($firstHeld, fn ($q) => $q->where('id', '<', $firstHeld))
                 ->orderBy('id')
                 ->limit(100)
                 ->get();
@@ -185,6 +198,7 @@ class ConversationController extends Controller
 
         $messages = $conversation->messages()
             ->with(['sender:id,name,avatar', 'sender.workerProfile:id,user_id,profile_photo_path', 'sender.employerProfile:id,user_id,image_path'])
+            ->when($firstHeld, fn ($q) => $q->where('id', '<', $firstHeld))
             ->orderBy('created_at')
             ->paginate(50);
 
@@ -239,11 +253,18 @@ class ConversationController extends Controller
         // The same resolved picture the thread and the poll send.
         $this->resolveSenderAvatars(collect([$message]));
 
-        // Straight to both devices on the thread, then the notification row for
-        // whoever isn't looking at it.
-        app(RealtimeBroadcaster::class)->push(new ChatMessagePushed($message));
-
-        MessageSent::dispatch($message);
+        /*
+            The AI safety check reads it first (SafetyReview): the push and
+            the notification go once it is checked, so a hidden number never
+            reaches a lock screen. Without the check it goes at once.
+        */
+        if (\App\Services\SafetyCheck::enabled()) {
+            $messageId = $message->id;
+            dispatch(fn () => app(\App\Services\SafetyReview::class)->message($messageId))->afterResponse();
+        } else {
+            $message->forceFill(['checked_at' => now()])->save();
+            \App\Services\SafetyReview::deliver($message);
+        }
 
         return $this->ok($message, 'Message sent successfully', 201);
     }

@@ -118,6 +118,7 @@ Route::prefix('v1')->group(function () {
         Route::post('/skills',    [SkillController::class, 'store'])->middleware('throttle:taxonomy');
         Route::get('/categories', [CategoryController::class, 'index']);
         Route::post('/categories', [CategoryController::class, 'store'])->middleware('throttle:taxonomy');
+        Route::delete('/categories/{category}', [CategoryController::class, 'destroy']);
 
         /*
             Worker Profile.
@@ -313,6 +314,9 @@ Route::prefix('v1')->group(function () {
             ->withoutMiddleware('not.suspended');
         Route::post('/support/quick', [SupportController::class, 'quick'])
             ->withoutMiddleware('not.suspended');
+        // The feedback button on an assistant answer.
+        Route::post('/support/feedback', [SupportController::class, 'feedback'])
+            ->withoutMiddleware('not.suspended')->middleware('throttle:20,1');
         // Leaving the chat erases it, unless it is still with the team.
         Route::post('/support/end', [SupportController::class, 'end'])
             ->withoutMiddleware('not.suspended');

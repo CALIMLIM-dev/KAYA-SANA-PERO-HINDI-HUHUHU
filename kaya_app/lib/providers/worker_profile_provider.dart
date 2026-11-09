@@ -620,6 +620,23 @@ class WorkerProfileProvider with ChangeNotifier {
     }
   }
 
+  /// Takes one of your own custom categories off your list. The message
+  /// says why when the server refuses (an open post or a profile uses it).
+  Future<String?> removeCustomCategory(CategoryModel category) async {
+    try {
+      final response = await _apiClient.delete('/categories/${category.id}');
+      final data = response.data as Map<String, dynamic>;
+      if (data['success'] == true) {
+        _categories.removeWhere((c) => c.id == category.id);
+        notifyListeners();
+        return null;
+      }
+      return _extractErrorMessage(data['message']);
+    } catch (e) {
+      return _extractErrorMessage(e.toString());
+    }
+  }
+
   Future<CategoryModel?> createCustomCategory(String categoryName) async {
     try {
       final response = await _apiClient.post('/categories', data: {'name': categoryName});
@@ -1297,6 +1314,9 @@ class WorkerProfileProvider with ChangeNotifier {
       sign-in is a slower first screen for no benefit.
   */
   void clear() {
+    // Custom categories are private now, so the list is this person's.
+    _categories = [];
+    _categoriesLoaded = false;
     _skills = [];
     _certifications = [];
     _licenses = [];

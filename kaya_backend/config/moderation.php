@@ -192,4 +192,30 @@ return [
     'false_window_days' => 30,
     'false_warn_at' => 3,
     'false_pause_days' => 30,
+
+    /*
+        The AI safety check, behind the word filter.
+
+        Word lists are beaten by writing in Ilocano or Bisaya, spelling a
+        number out, or sending it a few digits at a time. A model reads the
+        message with the sender's last few lines and names what it is. It
+        hides and reports; it never punishes - an admin decides. Free tiers
+        only: OmniRoute's `kaya-mod` combo, then Gemini directly.
+
+        hold_seconds: how long the other person waits for a message being
+        checked before it is delivered anyway, so a model that is down
+        never stops a chat.
+    */
+    'ai' => [
+        'enabled'        => filter_var(env('SAFETY_CHECK_ENABLED', true), FILTER_VALIDATE_BOOLEAN),
+        'model'          => env('SAFETY_CHECK_MODEL', 'kaya-mod'),
+        'fallback_model' => env('SAFETY_CHECK_FALLBACK_MODEL', 'gemini-3.5-flash-lite'),
+        'timeout'        => (int) env('SAFETY_CHECK_TIMEOUT', 10),
+        'hold_seconds'   => 15,
+        // The sender's earlier lines read with the new one: catches a number sent in pieces.
+        'context_lines'  => 5,
+        'context_minutes' => 10,
+        // Hidden for contact details this many times in a day: reported to the team.
+        'report_after_hidden' => 3,
+    ],
 ];

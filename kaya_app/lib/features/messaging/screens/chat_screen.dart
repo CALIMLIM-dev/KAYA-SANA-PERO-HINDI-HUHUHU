@@ -530,8 +530,15 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                 final messages = provider.messages;
                 if (messages.isEmpty) {
                   return const Center(
-                    child: Text('No messages yet. Start the conversation.',
-                        style: TextStyle(color: AppColors.neutral500)),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text('No messages yet. Start the conversation.',
+                            style: TextStyle(color: AppColors.neutral500)),
+                        SizedBox(height: 8),
+                        _SafetyNotice(),
+                      ],
+                    ),
                   );
                 }
 
@@ -591,8 +598,11 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                 return ListView.builder(
                   controller: _scrollController,
                   padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
-                  itemCount: messages.length + (card == null ? 0 : 1),
-                  itemBuilder: (context, i) {
+                  // One line first, saying messages are checked for safety.
+                  itemCount: 1 + messages.length + (card == null ? 0 : 1),
+                  itemBuilder: (context, row) {
+                    if (row == 0) return const _SafetyNotice();
+                    final i = row - 1;
                     if (card != null && i == messages.length) {
                       return ScheduleCard(
                         conversationId: _conversationId!,
@@ -1162,6 +1172,23 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       reportedId: otherUserId,
       reportedName: name,
       subjectType: 'message',
+    );
+  }
+}
+
+/// Told once, at the top of every chat: messages are checked for safety.
+class _SafetyNotice extends StatelessWidget {
+  const _SafetyNotice();
+
+  @override
+  Widget build(BuildContext context) {
+    return const Padding(
+      padding: EdgeInsets.only(bottom: 10),
+      child: Text(
+        'Messages are checked automatically for safety.',
+        textAlign: TextAlign.center,
+        style: TextStyle(fontSize: 11.5, color: AppColors.neutral400),
+      ),
     );
   }
 }

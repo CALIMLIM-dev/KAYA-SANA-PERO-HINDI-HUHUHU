@@ -164,6 +164,11 @@ class ReviewController extends Controller
         */
         app(NotificationService::class)->reviewReceived($review);
 
+        if (\App\Services\SafetyCheck::enabled()) {
+            $checkId = $review->id;
+            dispatch(fn () => app(\App\Services\SafetyReview::class)->review($checkId))->afterResponse();
+        }
+
         return $this->ok([
             'review' => $review->load('reviewer:id,name'),
             // So the app can say "waiting for them" rather than going quiet

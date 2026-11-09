@@ -128,8 +128,15 @@ class CommunityPostController extends Controller
             return $this->fail('This post is not on the board.', 404);
         }
 
+        // Somebody else's comment the safety check has not read yet waits a
+        // few seconds.
+        $heldSince = now()->subSeconds((int) config('moderation.ai.hold_seconds'));
+
         $comments = $post->comments()
             ->live()
+            ->where(fn ($q) => $q->where('user_id', $user->id)
+                ->orWhereNotNull('checked_at')
+                ->orWhere('created_at', '<=', $heldSince))
             ->with(['user:id,name,avatar', 'user.workerProfile:id,user_id,profile_photo_path',
                     'user.employerProfile:id,user_id,image_path'])
             ->orderBy('id')
@@ -168,7 +175,13 @@ class CommunityPostController extends Controller
             'user_id' => $user->id,
             'body'    => $read['text'],
             'status'  => \App\Models\CommunityComment::STATUS_LIVE,
+            // Read by the AI safety check before anyone else sees it.
+            'checked_at' => \App\Services\SafetyCheck::enabled() ? null : now(),
         ]);
+        if (\App\Services\SafetyCheck::enabled()) {
+            $checkId = $comment->id;
+            dispatch(fn () => app(\App\Services\SafetyReview::class)->comment($checkId))->afterResponse();
+        }
 
         // The poster hears about it. Nobody else does - a thread is not a
         // conversation everybody who ever commented is subscribed to.

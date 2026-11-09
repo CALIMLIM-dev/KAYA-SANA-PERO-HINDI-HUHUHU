@@ -263,7 +263,7 @@ class JobExpiryTest extends TestCase
         $ledger = app(CreditLedger::class);
         $ledger->credit($employer, 20, CreditTransaction::REASON_ADMIN_ADJUSTMENT);
 
-        $start = now()->addDay();
+        $start = now(); // a post counts from the day it is posted
         $this->postJob($employer, $start->toDateString(), $start->copy()->addDays(6)->toDateString())
             ->assertStatus(201);
 
@@ -277,7 +277,7 @@ class JobExpiryTest extends TestCase
         $ledger->credit($employer, 20, CreditTransaction::REASON_ADMIN_ADJUSTMENT);
 
         // 30 days: 23 past the free week, at 4 per barya = 6.
-        $start = now()->addDay();
+        $start = now();
         $this->postJob($employer, $start->toDateString(), $start->copy()->addDays(29)->toDateString())
             ->assertStatus(201);
 
@@ -320,7 +320,7 @@ class JobExpiryTest extends TestCase
         // 2 barya; a 30-day post costs 6.
         app(CreditLedger::class)->credit($employer, 2, CreditTransaction::REASON_ADMIN_ADJUSTMENT);
 
-        $start = now()->addDay();
+        $start = now();
         $this->postJob($employer, $start->toDateString(), $start->copy()->addDays(29)->toDateString())
             ->assertStatus(422);
 

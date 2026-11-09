@@ -68,6 +68,9 @@ class _SupportChatScreenState extends State<SupportChatScreen> {
   /// The quick questions the server offers, as {key, label}.
   List<Map<String, dynamic>> _quick = const [];
 
+  /// What a chat with the team can be about, as {key, label}.
+  List<Map<String, dynamic>> _topics = const [];
+
   /*
       Answers from KAYA Assistant that arrived while the screen was open are
       written out word by word, the way a chat assistant types. What was
@@ -223,6 +226,10 @@ class _SupportChatScreenState extends State<SupportChatScreen> {
     if (state == null) return;
     _assistantOn = state['on'] == true;
     _withPerson = state['with_person'] == true;
+    _topics = ((state['topics'] as List?) ?? const [])
+        .whereType<Map>()
+        .map((q) => q.cast<String, dynamic>())
+        .toList();
     _quick = ((state['quick'] as List?) ?? const [])
         .whereType<Map>()
         .map((q) => q.cast<String, dynamic>())
@@ -247,12 +254,39 @@ class _SupportChatScreenState extends State<SupportChatScreen> {
 
   bool get _assistantTyping => _awaitingSince != null;
 
+  /// What it is about, so the right person on the team picks it up.
+  Future<String?> _pickTopic() {
+    return showDialog<String>(
+      context: context,
+      builder: (dialogContext) => SimpleDialog(
+        title: const Text('What Is It About?'),
+        children: [
+          for (final t in _topics)
+            SimpleDialogOption(
+              onPressed: () => Navigator.pop(dialogContext, '${t['key']}'),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 6),
+                child: Text('${t['label']}', style: const TextStyle(fontSize: 15)),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
   Future<void> _talkToPerson() async {
     if (_handingOff) return;
+
+    String? topic;
+    if (_topics.isNotEmpty) {
+      topic = await _pickTopic();
+      if (topic == null || !mounted) return;
+    }
+
     setState(() => _handingOff = true);
 
     try {
-      final res = await _api.post('/support/person');
+      final res = await _api.post('/support/person', data: {'topic': ?topic});
       final data = res.data['data'] as Map<String, dynamic>;
       final message = data['message'] as Map<String, dynamic>?;
 
@@ -374,15 +408,36 @@ class _SupportChatScreenState extends State<SupportChatScreen> {
         backgroundColor: Colors.white,
         elevation: 0,
         foregroundColor: AppColors.neutral900,
-        title: const Text('Message KAYA',
-            style: TextStyle(fontWeight: FontWeight.w600)),
+        title: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text('Message KAYA', style: TextStyle(fontWeight: FontWeight.w600)),
+            if (_assistantOn)
+              Text(
+                _withPerson ? 'The KAYA team will reply' : 'KAYA Assistant is answering',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                    fontSize: 12, fontWeight: FontWeight.w400, color: AppColors.neutral500),
+              ),
+          ],
+        ),
+        actions: [
+          if (_assistantOn)
+            TextButton(
+              onPressed: _handingOff
+                  ? null
+                  : (_withPerson ? _backToAssistant : _talkToPerson),
+              child: Text(_withPerson ? 'Back to Assistant' : 'Talk to a Person'),
+            ),
+        ],
       ),
       body: Column(
         children: [
           Expanded(child: _body()),
           if (_assistantOn && !_withPerson && _quick.isNotEmpty && !_assistantTyping)
             _quickRow(),
-          if (_assistantOn) _assistantBar(),
           SafeArea(
             top: false,
             child: Container(
@@ -482,7 +537,6 @@ class _SupportChatScreenState extends State<SupportChatScreen> {
               Text(
                 assistant
                     ? 'KAYA Assistant answers right away from the KAYA help. '
-                        'Pick a question below or type your own, or tap Talk to a Person. '
                         'This chat clears when you leave it.'
                     : 'Somebody at KAYA reads this and answers here. '
                         'Say which account, job or payment it is about.',
@@ -528,6 +582,47 @@ class _SupportChatScreenState extends State<SupportChatScreen> {
     );
   }
 
+  /// Answers already reported from this screen.
+  final Set<int> _reported = {};
+
+  Widget _feedbackButton(int id) {
+    final done = _reported.contains(id);
+    return IconButton(
+      tooltip: done ? 'Reported' : 'Report This Answer',
+      visualDensity: VisualDensity.compact,
+      padding: EdgeInsets.zero,
+      constraints: const BoxConstraints(minWidth: 32, minHeight: 28),
+      iconSize: 15,
+      icon: Icon(done ? Icons.flag : Icons.flag_outlined, color: AppColors.neutral400),
+      onPressed: done ? null : () => _reportAnswer(id),
+    );
+  }
+
+  Future<void> _reportAnswer(int id) async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Report This Answer?'),
+        content: const Text('The KAYA team will read this answer and your question.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(dialogContext, false), child: const Text('Cancel')),
+          TextButton(onPressed: () => Navigator.pop(dialogContext, true), child: const Text('Report')),
+        ],
+      ),
+    );
+    if (ok != true || !mounted) return;
+
+    try {
+      final res = await _api.post('/support/feedback', data: {'message_id': id});
+      if (!mounted) return;
+      setState(() => _reported.add(id));
+      AppToast.success(context, '${res.data['message'] ?? 'Thanks.'}');
+    } catch (e) {
+      if (!mounted) return;
+      AppToast.error(context, e.toString().replaceFirst('Exception: ', ''));
+    }
+  }
+
   /// The quick questions, one tap each, like a shop's help chat.
   Widget _quickRow() {
     return Container(
@@ -559,47 +654,6 @@ class _SupportChatScreenState extends State<SupportChatScreen> {
           ],
         ),
       ),
-    );
-  }
-
-  /// Who is answering, and the way to reach a person.
-  Widget _assistantBar() {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.fromLTRB(16, 6, 8, 6),
-      decoration: const BoxDecoration(
-        color: AppColors.neutral50,
-        border: Border(top: BorderSide(color: AppColors.neutral200)),
-      ),
-      child: _withPerson
-          ? Row(
-              children: [
-                const Expanded(
-                  child: Text(
-                    'A KAYA team member will reply here.',
-                    style: TextStyle(fontSize: 12.5, color: AppColors.neutral600),
-                  ),
-                ),
-                TextButton(
-                  onPressed: _handingOff ? null : _backToAssistant,
-                  child: const Text('Back to KAYA Assistant'),
-                ),
-              ],
-            )
-          : Row(
-              children: [
-                const Expanded(
-                  child: Text(
-                    'KAYA Assistant answers first.',
-                    style: TextStyle(fontSize: 12.5, color: AppColors.neutral600),
-                  ),
-                ),
-                TextButton(
-                  onPressed: _handingOff ? null : _talkToPerson,
-                  child: const Text('Talk to a Person'),
-                ),
-              ],
-            ),
     );
   }
 
@@ -645,9 +699,17 @@ class _SupportChatScreenState extends State<SupportChatScreen> {
           ),
           if (fromKaya) ...[
             const SizedBox(height: 3),
-            Text(
-              who,
-              style: const TextStyle(fontSize: 11.5, color: AppColors.neutral500),
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  who,
+                  style: const TextStyle(fontSize: 11.5, color: AppColors.neutral500),
+                ),
+                // A wrong or odd answer goes to the team.
+                if (message['from_assistant'] == true && message['id'] is int)
+                  _feedbackButton(message['id'] as int),
+              ],
             ),
           ],
         ],
@@ -656,7 +718,7 @@ class _SupportChatScreenState extends State<SupportChatScreen> {
   }
 }
 
-/// An answer written out word by word, with a cursor while it types.
+/// An answer written out word by word.
 class _TypedText extends StatefulWidget {
   const _TypedText({
     super.key,
@@ -705,10 +767,6 @@ class _TypedTextState extends State<_TypedText> {
 
   @override
   Widget build(BuildContext context) {
-    final done = _shown >= _words.length;
-    return Text(
-      _words.take(_shown).join() + (done ? '' : ' \u258D'),
-      style: widget.style,
-    );
+    return Text(_words.take(_shown).join(), style: widget.style);
   }
 }

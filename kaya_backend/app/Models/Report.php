@@ -11,7 +11,7 @@ class Report extends Model
         'reporter_id', 'reported_id', 'reported_type', 'subject_id',
         'reason', 'reason_code', 'description',
         'status', 'resolution_note', 'resolved_at', 'reviewed_by',
-        'evidence', 'snapshot', 'response', 'responded_at', 'response_evidence', 'baseless',
+        'evidence', 'snapshot', 'response', 'responded_at', 'response_evidence', 'baseless', 'is_automatic',
     ];
 
     protected $casts = [
@@ -21,6 +21,7 @@ class Report extends Model
         'snapshot'     => 'array',
         'response_evidence' => 'array',
         'baseless'     => 'boolean',
+        'is_automatic' => 'boolean',
     ];
 
     public function reporter()

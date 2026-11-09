@@ -125,10 +125,16 @@ Route::prefix('admin')->name('admin.')->group(function () {
         Route::get('/support/{thread}', [AdminSupportController::class, 'show'])->name('support.show');
         Route::get('/support/{thread}/since', [AdminSupportController::class, 'since'])->name('support.since');
         Route::post('/support/{thread}/reply', [AdminSupportController::class, 'reply'])->name('support.reply');
+        Route::post('/support/{thread}/take', [AdminSupportController::class, 'take'])->name('support.take');
+        Route::post('/support-feedback/{feedback}/dismiss', [AdminSupportController::class, 'dismissFeedback'])->name('support.feedback.dismiss');
+        Route::post('/support/{thread}/close', [AdminSupportController::class, 'close'])->name('support.close');
         });
 
         Route::middleware('admin.can:content')->group(function () {
         Route::get('/reports', [ReportController::class, 'index'])->name('reports.index');
+        // The AI safety check on or off: a platform switch.
+        Route::post('/safety-check', [ReportController::class, 'toggleSafetyCheck'])
+            ->name('reports.safety')->middleware('admin.can:platform');
         Route::get('/reports/{report}', [ReportController::class, 'show'])->name('reports.show');
         Route::post('/reports/{report}/resolve', [ReportController::class, 'resolve'])->name('reports.resolve');
         Route::get('/reports/{report}/evidence/{index}', [ReportController::class, 'evidence'])

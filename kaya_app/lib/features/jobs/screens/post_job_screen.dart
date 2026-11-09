@@ -13,6 +13,7 @@ import '../../../core/constants/credits.dart';
 import '../../../core/widgets/hint_bubble.dart';
 import '../../../providers/credits_provider.dart';
 import '../../../core/utils/pin_location_match.dart';
+import '../../../data/models/category_model.dart';
 import '../../../data/models/location_model.dart';
 import '../../../providers/employer_profile_provider.dart';
 import '../../../providers/job_provider.dart';
@@ -46,6 +47,9 @@ class _PostJobScreenState extends State<PostJobScreen> {
   @override
   void initState() {
     super.initState();
+    // A new post counts its days from today; an edit, from its posting day.
+    final now = DateTime.now();
+    _startDate = DateTime(now.year, now.month, now.day);
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       if (!mounted) return;
 
@@ -182,7 +186,9 @@ class _PostJobScreenState extends State<PostJobScreen> {
           .key;
       _isUrgent = job['is_urgent'] == true;
       _workersNeeded = (job['workers_needed'] as num?)?.toInt() ?? 1;
-      _startDate = DateTime.tryParse('${job['start_date'] ?? ''}');
+      // The day it was posted: its days are counted from there.
+      final posted = DateTime.tryParse('${job['created_at'] ?? ''}')?.toLocal();
+      _startDate = posted == null ? null : DateTime(posted.year, posted.month, posted.day);
       _endDate = DateTime.tryParse('${job['end_date'] ?? ''}');
       _existingPhotoUrls = ((job['photo_urls'] as List?) ?? const [])
           .map((p) => '$p')
@@ -1161,10 +1167,10 @@ class _PostJobScreenState extends State<PostJobScreen> {
               */
               _buildSection(
                 title: 'Duration',
-                // Asked for: what the two dates do, in plain words. The
+                // Asked for: what the deadline does, in plain words. The
                 // price is shown under them, so it is not repeated here.
-                hint: 'When the work starts, and the day it should be done. '
-                    'Your post stays up until the deadline, then closes on its own.',
+                hint: 'Your post is up from today until the deadline, then closes on its own. '
+                    'The day of the work is agreed in the chat after hiring.',
                 anchor: _scheduleKey,
                 icon: Icons.event_outlined,
                 children: [_buildScheduleFields()],
@@ -1242,20 +1248,6 @@ class _PostJobScreenState extends State<PostJobScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _buildDateField(
-          label: 'Start Date *',
-          value: _startDate,
-          hint: 'Select date',
-          onTap: _pickStartDate,
-          isError: _showScheduleError,
-        ),
-        if (_showScheduleError) ...[
-          const SizedBox(height: 6),
-          const Text(
-            'Please choose a start date.',
-            style: TextStyle(fontSize: 12, color: AppColors.error),
-          ),
-        ],
         /*
             No toggle, just an optional second date.
 
@@ -1297,7 +1289,7 @@ class _PostJobScreenState extends State<PostJobScreen> {
           label: 'Deadline *',
           value: _endDate,
           hint: 'Pick a day',
-          onTap: _startDate == null ? null : _pickEndDate,
+          onTap: _pickEndDate,
           onClear: _endDate == null
               ? null
               : () => setState(() => _endDate = null),
@@ -1319,33 +1311,8 @@ class _PostJobScreenState extends State<PostJobScreen> {
             same rules as Job.scheduleLabel, so the form and the card cannot
             describe the same dates differently.
         */
-        if (_startDate != null) ...[
-          const SizedBox(height: 14),
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-            decoration: BoxDecoration(
-              color: AppColors.primary.withValues(alpha: 0.06),
-              borderRadius: BorderRadius.circular(10),
-            ),
-            child: Row(
-              children: [
-                const Icon(Icons.event_available_outlined,
-                    size: 16, color: AppColors.primary),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    'Workers will see: ${_schedulePreview()}',
-                    style: const TextStyle(
-                        fontSize: 12.5,
-                        fontWeight: FontWeight.w600,
-                        color: AppColors.primary),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 8),
+        if (_endDate != null) ...[
+          const SizedBox(height: 10),
           _postCostLine(),
         ],
       ],
@@ -1415,32 +1382,6 @@ class _PostJobScreenState extends State<PostJobScreen> {
         ),
       ],
     );
-  }
-
-  /// Mirrors Job.scheduleLabel — same collapsing of a same-month range, same
-  /// handling of an absent end date and time.
-  String _schedulePreview() {
-    final start = _startDate!;
-    final end = _endDate;
-
-    String short(DateTime d) {
-      const months = [
-        'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-        'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
-      ];
-      return '${months[d.month - 1]} ${d.day}';
-    }
-
-    if (end != null &&
-        !(end.year == start.year &&
-            end.month == start.month &&
-            end.day == start.day)) {
-      return end.year == start.year && end.month == start.month
-          ? '${short(start)} – ${end.day}'
-          : '${short(start)} – ${short(end)}';
-    }
-
-    return short(start);
   }
 
   /// One tappable row, used for all three fields so they read as a set.
@@ -1534,46 +1475,18 @@ class _PostJobScreenState extends State<PostJobScreen> {
   }
 
   Future<void> _pickEndDate() async {
-    final start = _startDate!;
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
 
     final picked = await showDatePicker(
       context: context,
-      initialDate: _endDate ?? start,
-      // Never before the start: an end date that cannot happen is a
-      // validation error waiting at the bottom of the form.
-      firstDate: start,
-      lastDate: start.add(const Duration(days: 365)),
+      initialDate: _endDate == null || _endDate!.isBefore(today) ? today : _endDate!,
+      // From today: the post is up from the moment it is posted.
+      firstDate: today,
+      lastDate: today.add(const Duration(days: 365)),
     );
 
     if (picked != null) setState(() => _endDate = picked);
-  }
-
-  Future<void> _pickStartDate() async {
-    final now = DateTime.now();
-    final picked = await showDatePicker(
-      context: context,
-      // A post being edited can start in the past; the picker cannot open
-      // before its own first date.
-      initialDate: _startDate == null || _startDate!.isBefore(DateTime(now.year, now.month, now.day))
-          ? now
-          : _startDate!,
-      // Today, not tomorrow. Same-day hiring is the normal case for this kind
-      // of work — a burst pipe does not wait until tomorrow — and the server
-      // uses after_or_equal:today for the same reason.
-      firstDate: DateTime(now.year, now.month, now.day),
-      lastDate: now.add(const Duration(days: 365)),
-    );
-    if (picked == null) return;
-
-    setState(() {
-      _startDate = picked;
-      _showScheduleError = false;
-
-      // An end date now sitting before the start would be refused by the
-      // server. Dropping it turns a validation error into a field the
-      // employer simply picks again.
-      if (_endDate != null && _endDate!.isBefore(picked)) _endDate = null;
-    });
   }
 
 
@@ -2059,6 +1972,43 @@ class _PostJobScreenState extends State<PostJobScreen> {
     );
   }
 
+  /// Your own custom category, off your list, after asking.
+  Future<void> _removeCustomCategory(CategoryModel category) async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Remove This Category?'),
+        content: Text('"${category.name}" will no longer be on your list. Closed job posts keep the name.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: const Text('Remove'),
+          ),
+        ],
+      ),
+    );
+    if (ok != true || !mounted) return;
+
+    final error = await context.read<WorkerProfileProvider>().removeCustomCategory(category);
+    if (!mounted) return;
+
+    if (error != null) {
+      AppToast.error(context, error);
+      return;
+    }
+    if (_selectedCategoryId == category.id) {
+      setState(() {
+        _selectedCategoryId = null;
+        _selectedCategory = null;
+      });
+    }
+    AppToast.success(context, 'Category removed');
+  }
+
   void _showCategoryPicker() {
     showKayaPopup(
       context,
@@ -2147,9 +2097,16 @@ class _PostJobScreenState extends State<PostJobScreen> {
                                 : AppColors.neutral900,
                           ),
                         ),
-                        trailing: isSelected
-                            ? const Icon(Icons.check, color: AppColors.primary)
-                            : null,
+                        trailing: category.isCustom
+                            ? IconButton(
+                                tooltip: 'Remove This Category',
+                                icon: const Icon(Icons.delete_outline,
+                                    color: AppColors.neutral500),
+                                onPressed: () => _removeCustomCategory(category),
+                              )
+                            : isSelected
+                                ? const Icon(Icons.check, color: AppColors.primary)
+                                : null,
                         onTap: () {
                           _updateSkillsForCategory(
                             category.name,
@@ -2543,14 +2500,6 @@ class _PostJobScreenState extends State<PostJobScreen> {
       return;
     }
 
-    // Caught here as well as server-side so the employer sees the field turn
-    // red rather than a toast about a form they have already scrolled past.
-    if (_startDate == null) {
-      setState(() => _showScheduleError = true);
-      await _pointAt(_scheduleKey, 'Please choose a start date');
-      return;
-    }
-
     /*
         Both dates, not one.
 
@@ -2560,7 +2509,7 @@ class _PostJobScreenState extends State<PostJobScreen> {
     */
     if (_endDate == null) {
       setState(() => _showScheduleError = true);
-      await _pointAt(_scheduleKey, 'Please choose an end date');
+      await _pointAt(_scheduleKey, 'Please choose a deadline');
       return;
     }
 
@@ -2705,7 +2654,6 @@ class _PostJobScreenState extends State<PostJobScreen> {
       'latitude': _pinnedLat ?? _selectedLocation?.latitude,
       'longitude': _pinnedLng ?? _selectedLocation?.longitude,
       'is_urgent': _isUrgent,
-      'start_date': JobProvider.ymd(_startDate!),
       'end_date': JobProvider.ymd(_endDate!),
       'workers_needed': _workersNeeded,
     }, photos: _selectedImages);

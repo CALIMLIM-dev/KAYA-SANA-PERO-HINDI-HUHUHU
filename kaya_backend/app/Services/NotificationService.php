@@ -976,6 +976,11 @@ class NotificationService
     */
     public function reportDecided(\App\Models\Report $report): void
     {
+        // Filed by the safety check: nobody to tell.
+        if (! $report->reporter_id) {
+            return;
+        }
+
         /*
             "Took action" only when something was done. A report confirmed
             with no strike used to tell the reporter action was taken while

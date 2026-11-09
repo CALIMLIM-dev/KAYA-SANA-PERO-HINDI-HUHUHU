@@ -35,10 +35,39 @@ class Embeddings
      */
     private array $memo = [];
 
+    /** Either model can be asked. */
     public function enabled(): bool
+    {
+        return $this->primaryEnabled() || $this->backupEnabled();
+    }
+
+    public function primaryEnabled(): bool
     {
         return (bool) config('kaya.matching.embeddings_enabled')
             && filled(config('kaya.matching.api_key'));
+    }
+
+    /** The backup goes through OmniRoute, with KAYA's key there. */
+    public function backupEnabled(): bool
+    {
+        return (bool) config('kaya.matching.embeddings_enabled')
+            && filled(config('kaya.matching.backup_model'))
+            && filled(config('kaya.assistant.url'))
+            && filled(config('kaya.assistant.key'));
+    }
+
+    public function backupModel(): string
+    {
+        return (string) config('kaya.matching.backup_model');
+    }
+
+    /** The models that can be asked right now, main first. */
+    public function activeModels(): array
+    {
+        return array_values(array_filter([
+            $this->primaryEnabled() ? $this->model() : null,
+            $this->backupEnabled() ? $this->backupModel() : null,
+        ]));
     }
 
     public function model(): string
@@ -59,8 +88,9 @@ class Embeddings
             return null;
         }
 
-        if (array_key_exists($term, $this->memo)) {
-            return $this->memo[$term];
+        $key = $this->model() . '|' . $term;
+        if (array_key_exists($key, $this->memo)) {
+            return $this->memo[$key];
         }
 
         $stored = SkillVector::where('term', $term)
@@ -68,10 +98,10 @@ class Embeddings
             ->first();
 
         if ($stored) {
-            return $this->memo[$term] = $stored->values;
+            return $this->memo[$key] = $stored->values;
         }
 
-        return $this->memo[$term] = $this->fetchAndStore($term);
+        return $this->memo[$key] = $this->fetchAndStore($term);
     }
 
     /**
@@ -84,8 +114,9 @@ class Embeddings
      * @param  list<string>  $terms
      * @return array<string, list<float>>
      */
-    public function vectorsFor(array $terms): array
+    public function vectorsFor(array $terms, ?string $model = null): array
     {
+        $model ??= $this->model();
         $wanted = [];
 
         foreach ($terms as $term) {
@@ -95,25 +126,28 @@ class Embeddings
             }
         }
 
-        $missing = array_keys(array_diff_key($wanted, $this->memo));
+        $missing = array_values(array_filter(
+            array_keys($wanted),
+            fn ($t) => ! array_key_exists($model . '|' . $t, $this->memo),
+        ));
 
         if ($missing !== []) {
             SkillVector::whereIn('term', $missing)
-                ->where('model', $this->model())
+                ->where('model', $model)
                 ->get()
-                ->each(fn (SkillVector $row) => $this->memo[$row->term] = $row->values);
+                ->each(fn (SkillVector $row) => $this->memo[$model . '|' . $row->term] = $row->values);
 
             // Remember the misses too, so a second pass does not re-query.
             foreach ($missing as $term) {
-                $this->memo[$term] ??= null;
+                $this->memo[$model . '|' . $term] ??= null;
             }
         }
 
         $out = [];
 
         foreach (array_keys($wanted) as $term) {
-            if (is_array($this->memo[$term] ?? null)) {
-                $out[$term] = $this->memo[$term];
+            if (is_array($this->memo[$model . '|' . $term] ?? null)) {
+                $out[$term] = $this->memo[$model . '|' . $term];
             }
         }
 
@@ -134,11 +168,12 @@ class Embeddings
             return;
         }
 
-        if (SkillVector::where('term', $term)->where('model', $this->model())->exists()) {
-            return;
+        // Each model that can be asked, so the backup is ready before it is needed.
+        foreach ($this->activeModels() as $model) {
+            if (! SkillVector::where('term', $term)->where('model', $model)->exists()) {
+                $this->memo[$model . '|' . $term] = $this->fetchAndStore($term, $model);
+            }
         }
-
-        $this->memo[$term] = $this->fetchAndStore($term);
     }
 
     /**
@@ -146,11 +181,20 @@ class Embeddings
      *
      * @return list<float>|null
      */
-    public function fetchAndStore(string $term): ?array
+    public function fetchAndStore(string $term, ?string $model = null, bool $store = true): ?array
     {
         $term = $this->normalise($term);
+        $model ??= $this->model();
 
-        if ($term === '' || ! $this->enabled()) {
+        if ($term === '') {
+            return null;
+        }
+
+        if ($model === $this->backupModel() && $model !== $this->model()) {
+            return $this->backupEnabled() ? $this->fetchBackup($term, $store) : null;
+        }
+
+        if (! $this->primaryEnabled()) {
             return null;
         }
 
@@ -203,10 +247,12 @@ class Embeddings
             incomparable with every old one. Recording what actually came back
             means a mismatch is visible instead.
         */
-        SkillVector::updateOrCreate(
-            ['term' => $term, 'model' => $this->model()],
-            ['dimensions' => count($values), 'values' => $values],
-        );
+        if ($store) {
+            SkillVector::updateOrCreate(
+                ['term' => $term, 'model' => $this->model()],
+                ['dimensions' => count($values), 'values' => $values],
+            );
+        }
 
         return $values;
     }
@@ -245,11 +291,69 @@ class Embeddings
         $va = $stored[$a] ?? null;
         $vb = $stored[$b] ?? null;
 
-        if ($va === null || $vb === null) {
+        if ($va !== null && $vb !== null) {
+            return SkillVector::cosine($va, $vb);
+        }
+
+        /*
+            Gemini has no vector for one of them: compare both on the
+            backup's vectors instead, never one model against the other.
+            Its scores run on another scale, so they are moved onto
+            Gemini's: at the backup's own threshold it reads as Gemini's.
+        */
+        if ($this->backupModel() === '' || $this->backupModel() === $this->model()) {
             return null;
         }
 
-        return SkillVector::cosine($va, $vb);
+        $backup = $this->vectorsFor([$a, $b], $this->backupModel());
+        if (! isset($backup[$a], $backup[$b])) {
+            return null;
+        }
+
+        return SkillVector::cosine($backup[$a], $backup[$b])
+            - (float) config('kaya.matching.backup_similarity_threshold')
+            + (float) config('kaya.matching.similarity_threshold');
+    }
+
+    /**
+     * The backup model's vector, through OmniRoute's embeddings endpoint.
+     *
+     * @return list<float>|null
+     */
+    private function fetchBackup(string $term, bool $store = true): ?array
+    {
+        try {
+            $response = Http::withToken((string) config('kaya.assistant.key'))
+                ->withHeaders(['ngrok-skip-browser-warning' => '1'])
+                ->timeout(max(5, (int) config('kaya.matching.timeout_seconds')))
+                ->asJson()
+                ->post(rtrim((string) config('kaya.assistant.url'), '/') . '/embeddings', [
+                    'model'      => $this->backupModel(),
+                    'input'      => [$term],
+                    'dimensions' => (int) config('kaya.matching.dimensions'),
+                ]);
+        } catch (\Throwable $e) {
+            Log::info('[embeddings] backup unreachable for "' . $term . '": ' . $e->getMessage());
+
+            return null;
+        }
+
+        $values = $response->successful() ? $response->json('data.0.embedding') : null;
+        if (! is_array($values) || $values === []) {
+            Log::warning('[embeddings] backup HTTP ' . $response->status() . ' for "' . $term . '"');
+
+            return null;
+        }
+
+        $values = array_values(array_map('floatval', $values));
+        if ($store) {
+            SkillVector::updateOrCreate(
+                ['term' => $term, 'model' => $this->backupModel()],
+                ['dimensions' => count($values), 'values' => $values],
+            );
+        }
+
+        return $values;
     }
 
     /**

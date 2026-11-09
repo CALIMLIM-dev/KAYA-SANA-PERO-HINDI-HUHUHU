@@ -17,7 +17,7 @@ LOOKING FOR WORK
 - Ranking: employers see first the workers who have the skills a job asks for, or who work in its trade. Within that, a fuller profile ranks higher: reviews, jobs done, experience, certificates and being verified. Topping up does not move anyone up the list. A boost puts a profile at the top of the feed for a few days.
 
 HIRING
-- Post a job: tap Post a Job on the home screen. The post stays up from its start date to its end date. The first days are free; keeping it up longer costs Barya and needs an account that has topped up. The price shows under the dates while picking them.
+- Post a job: tap Post a Job on the home screen. There is no start date: the post goes up when it is posted and stays up until the deadline you pick. The first days are free; keeping it up longer costs Barya and needs an account that has topped up. The price shows under the deadline while picking it. The day of the work is agreed in the chat after hiring.
 - Find workers: post a job and workers apply, or search workers by trade and distance and invite one. Inviting costs Barya; inviting someone hired before costs less. An account that has topped up also sees the list of matching workers for each job.
 - See applicants: Home, My Jobs, then Applicants on the job. Accept or reject from there.
 - A job can need from one to twenty workers; the post takes applicants until every spot is filled.

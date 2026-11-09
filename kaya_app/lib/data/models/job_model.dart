@@ -162,7 +162,11 @@ class Job {
   /// says nothing is worse than no chip.
   String? get scheduleLabel {
     final start = startDate;
-    if (start == null) return null;
+    // Posts no longer carry a start date: up until the deadline.
+    if (start == null) {
+        final until = deadline ?? endDate;
+        return until == null ? null : 'Until ${_short(until)}';
+    }
 
     /*
         The deadline closes the range when there is one.

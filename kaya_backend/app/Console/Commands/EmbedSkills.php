@@ -40,7 +40,17 @@ class EmbedSkills extends Command
             return self::FAILURE;
         }
 
-        $model = $embeddings->model();
+        // Gemini and the backup, each filled on its own.
+        $result = self::SUCCESS;
+        foreach ($embeddings->activeModels() as $model) {
+            $result = max($result, $this->fill($embeddings, $model));
+        }
+
+        return $result;
+    }
+
+    private function fill(Embeddings $embeddings, string $model): int
+    {
         $this->line("Model: {$model}");
 
         $terms = $this->distinctTerms();
@@ -78,7 +88,7 @@ class EmbedSkills extends Command
         $failed = 0;
 
         foreach ($terms as $term) {
-            $vector = $embeddings->fetchAndStore($term);
+            $vector = $embeddings->fetchAndStore($term, $model);
 
             if ($vector === null) {
                 $failed++;

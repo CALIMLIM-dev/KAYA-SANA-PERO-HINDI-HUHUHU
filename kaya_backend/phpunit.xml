@@ -39,5 +39,8 @@
         <env name="OMNIROUTE_URL" value=""/>
         <env name="OMNIROUTE_KEY" value=""/>
         <env name="ASSISTANT_ENABLED" value="false"/>
+        <!-- Nor the real Gemini: the safety check and linking ask it when a key is set. -->
+        <env name="SAFETY_CHECK_ENABLED" value="false"/>
+        <env name="EMBEDDING_API_KEY" value=""/>
     </php>
 </phpunit>

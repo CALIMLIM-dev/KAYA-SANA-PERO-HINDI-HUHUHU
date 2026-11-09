@@ -17,7 +17,7 @@
         default     => 'bg-slate-100 text-slate-600',
     };
     $reportedName = $report->reported->name ?? 'Deleted account';
-    $reporterName = $report->reporter->name ?? 'Deleted account';
+    $reporterName = $report->is_automatic ? 'KAYA Safety Check' : ($report->reporter->name ?? 'Deleted account');
     $at = fn ($d) => $d ? \Illuminate\Support\Carbon::parse($d)->timezone('Asia/Manila')->format('M j, Y g:i A') : null;
     $hireLabel = ['pending' => 'Applied', 'accepted' => 'Hired', 'completed' => 'Completed', 'rejected' => 'Rejected',
         'withdrawn' => 'Withdrawn', 'cancelled' => 'Cancelled', 'unsuccessful' => 'Not Completed'];

@@ -15,7 +15,7 @@ class CommunityComment extends Model
 
     protected $fillable = [
         'community_post_id', 'user_id', 'body', 'status',
-        'removed_reason', 'removed_by',
+        'removed_reason', 'removed_by', 'checked_at',
     ];
 
     protected $hidden = ['removed_by'];

@@ -141,123 +141,83 @@ class JobScheduleTest extends TestCase
 
         $this->assertSame(2, JobPost::count());
     }
-    public function test_a_job_records_its_start_date(): void
+    /*
+        A post has no start date any more: it goes up when it is posted and
+        stays up until its deadline, and the day of the work is agreed in the
+        chat. An older build still sending one is ignored, not refused.
+    */
+    public function test_a_start_date_sent_by_an_old_app_is_not_kept(): void
     {
         $employer = $this->employer();
-        $start = now()->addDays(3)->toDateString();
 
-        $response = $this->actingAs($employer, 'sanctum')
-            ->post('/api/v1/jobs', $this->payload(['start_date' => $start]));
+        $this->actingAs($employer, 'sanctum')
+            ->post('/api/v1/jobs', $this->payload(['start_date' => now()->addDays(3)->toDateString()]))
+            ->assertCreated();
 
-        $response->assertCreated();
-        $this->assertSame($start, JobPost::first()->start_date->toDateString());
+        $this->assertNull(JobPost::first()->start_date);
     }
 
-    public function test_a_job_without_a_start_date_is_rejected(): void
+    public function test_a_job_without_a_start_date_is_posted(): void
     {
         $employer = $this->employer();
         $payload = $this->payload();
         unset($payload['start_date']);
 
-        $this->actingAs($employer, 'sanctum')
-            ->postJson('/api/v1/jobs', $payload)
-            ->assertStatus(422)
-            ->assertJsonValidationErrors('start_date');
+        $this->actingAs($employer, 'sanctum')->postJson('/api/v1/jobs', $payload)->assertCreated();
     }
 
-    public function test_a_start_date_in_the_past_is_rejected(): void
-    {
-        // Posting work that began last week is either a mistake or an attempt to
-        // look urgent in the feed. Neither should be storable.
-        $employer = $this->employer();
-
-        $this->actingAs($employer, 'sanctum')
-            ->postJson('/api/v1/jobs', $this->payload([
-                'start_date' => now()->subDay()->toDateString(),
-            ]))
-            ->assertStatus(422)
-            ->assertJsonValidationErrors('start_date');
-    }
-
-    public function test_today_is_allowed(): void
-    {
-        // Same-day hiring is the normal case for this kind of work — a burst
-        // pipe does not wait until tomorrow. `after_or_equal` rather than
-        // `after` exists for exactly this.
-        $employer = $this->employer();
-
-        $this->actingAs($employer, 'sanctum')
-            ->post('/api/v1/jobs', $this->payload([
-                'start_date' => now()->toDateString(),
-            ]))
-            ->assertCreated();
-    }
-
-    public function test_an_end_date_before_the_start_is_rejected(): void
+    public function test_a_deadline_in_the_past_is_rejected(): void
     {
         $employer = $this->employer();
 
         $this->actingAs($employer, 'sanctum')
-            ->postJson('/api/v1/jobs', $this->payload([
-                'start_date' => now()->addDays(5)->toDateString(),
-                'end_date'   => now()->addDays(2)->toDateString(),
-            ]))
+            ->postJson('/api/v1/jobs', $this->payload(['end_date' => now()->subDay()->toDateString()]))
             ->assertStatus(422)
             ->assertJsonValidationErrors('end_date');
     }
 
-    /*
-        A one day job says so with two matching dates.
-
-        The end date used to be optional, and an empty one meant "same
-        day". A post now states when the work starts and when it ends,
-        both of them, because everything reading these dates - the
-        history, what a worker is shown as holding - has to know how
-        long the job runs without inferring it from a blank.
-    */
-    public function test_a_single_day_job_ends_the_day_it_starts(): void
+    public function test_a_post_without_a_deadline_is_rejected(): void
     {
         $employer = $this->employer();
-        $day = now()->addDays(3)->toDateString();
+        $payload = $this->payload();
+        unset($payload['end_date']);
 
-        $this->actingAs($employer, 'sanctum')
-            ->post('/api/v1/jobs', $this->payload([
-                'start_date' => $day,
-                'end_date'   => $day,
-            ]))
-            ->assertCreated();
-
-        $job = JobPost::first();
-
-        $this->assertSame($day, $job->start_date->toDateString());
-        $this->assertSame($day, $job->end_date->toDateString());
+        $this->actingAs($employer, 'sanctum')->postJson('/api/v1/jobs', $payload)
+            ->assertStatus(422)
+            ->assertJsonValidationErrors('end_date');
     }
 
-    public function test_a_multi_day_range_is_stored_intact(): void
+    public function test_today_is_allowed(): void
     {
+        // Same-day work is the normal case: a burst pipe does not wait.
         $employer = $this->employer();
-        $start = now()->addDays(2)->toDateString();
-        $end   = now()->addDays(9)->toDateString();
-
-        // Eight days is a day past the free week, so the post costs a barya.
-        app(\App\Services\CreditLedger::class)->credit(
-            $employer, 5, \App\Models\CreditTransaction::REASON_ADMIN_ADJUSTMENT
-        );
 
         $this->actingAs($employer, 'sanctum')
-            ->post('/api/v1/jobs', $this->payload([
-                'start_date' => $start,
-                'end_date'   => $end,
-            ]))
+            ->post('/api/v1/jobs', $this->payload(['end_date' => now()->toDateString()]))
+            ->assertCreated();
+    }
+
+    public function test_the_deadline_is_stored_and_sent_and_priced_from_today(): void
+    {
+        $employer = $this->employer();
+        $end = now()->addDays(9)->toDateString();
+
+        // Ten days from today is three past the free week: one barya.
+        $ledger = app(\App\Services\CreditLedger::class);
+        $ledger->credit($employer, 5, \App\Models\CreditTransaction::REASON_ADMIN_ADJUSTMENT);
+
+        $this->actingAs($employer, 'sanctum')
+            ->post('/api/v1/jobs', $this->payload(['end_date' => $end]))
             ->assertCreated();
 
         $job = JobPost::first();
-        $this->assertSame($start, $job->start_date->toDateString());
         $this->assertSame($end, $job->end_date->toDateString());
-    }
+        $this->assertSame(4, $ledger->balance($employer));
 
-    /*
-        The form asks how long the work takes, not when it ends.
+        $this->actingAs($employer, 'sanctum')->getJson('/api/v1/jobs/' . $job->id)->assertOk()
+            ->assertJsonPath('data.end_date', $end)
+            ->assertJsonPath('data.start_date', null);
+    }
 
     /*
         The time of day is not asked for any more.
@@ -275,31 +235,6 @@ class JobScheduleTest extends TestCase
             ->assertCreated();
 
         $this->assertNull(JobPost::first()->start_time);
-    }
-
-    public function test_the_schedule_reaches_the_client(): void
-    {
-        // The app cannot show a date it is not sent. Casting start_date to
-        // datetime instead of date would put a midnight on the wire here, which
-        // the UI would render as a start time nobody chose.
-        $employer = $this->employer();
-
-        $this->actingAs($employer, 'sanctum')
-            ->post('/api/v1/jobs', $this->payload([
-                'start_date' => now()->addDays(4)->toDateString(),
-                // Both, or the end date from the default payload sits before
-                // the start and the post is refused.
-                'end_date'   => now()->addDays(4)->toDateString(),
-            ]));
-
-        $response = $this->actingAs($employer, 'sanctum')
-            ->getJson('/api/v1/jobs/'.JobPost::first()->id);
-
-        $response->assertOk();
-        $this->assertSame(
-            now()->addDays(4)->toDateString(),
-            $response->json('data.start_date')
-        );
     }
 
     public function test_an_edit_is_not_blocked_by_the_start_date_having_arrived(): void

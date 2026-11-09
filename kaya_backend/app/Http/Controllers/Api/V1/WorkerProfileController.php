@@ -1725,16 +1725,32 @@ class WorkerProfileController extends Controller
         */
         $today = now()->toDateString();
 
-        return \App\Models\Application::whereIn('applications.worker_id', $userIds)
+        $byPostDates = \App\Models\Application::whereIn('applications.worker_id', $userIds)
             ->where('applications.status', 'accepted')
             ->join('jobs_posts', 'jobs_posts.id', '=', 'applications.job_id')
             ->whereNotNull('jobs_posts.start_date')
             ->whereDate('jobs_posts.start_date', '<=', $today)
             ->whereRaw('COALESCE(jobs_posts.end_date, jobs_posts.start_date) >= ?', [$today])
             ->distinct()
-            ->pluck('applications.worker_id')
-            ->map(fn ($id) => (int) $id)
-            ->all();
+            ->pluck('applications.worker_id');
+
+        /*
+            Posts no longer carry a start date: the day is agreed in the chat.
+            A hire whose accepted schedule covers today is busy today.
+        */
+        $bySchedule = \App\Models\ScheduleProposal::query()
+            ->where('schedule_proposals.status', 'accepted')
+            ->join('conversations', 'conversations.id', '=', 'schedule_proposals.conversation_id')
+            ->join('applications', fn ($j) => $j->on('applications.job_id', '=', 'schedule_proposals.job_id')
+                ->on('applications.worker_id', '=', 'conversations.worker_id'))
+            ->where('applications.status', 'accepted')
+            ->whereIn('conversations.worker_id', $userIds)
+            ->whereDate('schedule_proposals.scheduled_date', '<=', $today)
+            ->whereRaw('COALESCE(schedule_proposals.deadline, schedule_proposals.scheduled_date) >= ?', [$today])
+            ->distinct()
+            ->pluck('conversations.worker_id');
+
+        return $byPostDates->merge($bySchedule)->map(fn ($id) => (int) $id)->unique()->values()->all();
     }
 
     private function workerDistance(WorkerProfile $p, ?float $lat, ?float $lng): ?float

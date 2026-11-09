@@ -463,8 +463,13 @@ class JobController extends Controller
                 start_time is gone. The hour is settled between the two people
                 once somebody is hired, and it has its own place now.
             */
-            'start_date'         => ['required', 'date', 'after_or_equal:today'],
-            'end_date'           => ['required', 'date', 'after_or_equal:start_date'],
+            /*
+                No start date: the post goes up when it is posted, and the day
+                the work happens is agreed in the chat's schedule. An app still
+                sending one is not refused; it is ignored.
+            */
+            'start_date'         => ['nullable', 'date'],
+            'end_date'           => ['required', 'date', 'after_or_equal:today'],
             // One by default. Ten at most: past that it is a crew with a
             // payroll, which KAYA does not run.
             'workers_needed'     => ['nullable', 'integer', 'min:1', 'max:20'],
@@ -472,9 +477,7 @@ class JobController extends Controller
             'budget_max.gte' => 'The maximum budget must be greater than or equal to the minimum budget.',
             'photos.required' => 'Please add at least one photo of the job.',
             'location_id.required' => 'Please pick the job location from the suggestions.',
-            'start_date.required' => 'Please choose when the work starts.',
-            'start_date.after_or_equal' => 'The start date cannot be in the past.',
-            'end_date.after_or_equal' => 'The deadline cannot be before the start date.',
+            'end_date.after_or_equal' => 'The deadline cannot be in the past.',
             'end_date.required' => 'Please choose a deadline.',
         ]);
 
@@ -500,9 +503,11 @@ class JobController extends Controller
             the app shows success and the employer sees exactly one post -
             which is what they intended both times.
         */
+        unset($data['start_date']);
+
         $duplicate = $user->postedJobs()
             ->where('title', $data['title'])
-            ->where('start_date', $data['start_date'])
+            ->whereDate('end_date', $data['end_date'])
             ->where('created_at', '>=', now()->subMinutes(5))
             ->latest('id')
             ->first();
@@ -527,7 +532,8 @@ class JobController extends Controller
             when the employer said it would, not thirty days after posting.
         */
         $durations = app(\App\Services\JobDurationService::class);
-        $start = \Carbon\CarbonImmutable::parse($data['start_date']);
+        // From today: the post is up from the moment it is posted.
+        $start = \Carbon\CarbonImmutable::today();
         $end = \Carbon\CarbonImmutable::parse($data['end_date']);
         /*
             Read before it is posted, the same as chat and the board.
@@ -619,6 +625,11 @@ class JobController extends Controller
             jobMatched().
         */
         app(NotificationService::class)->jobMatched($job);
+
+        if (\App\Services\SafetyCheck::enabled()) {
+            $checkId = $job->id;
+            dispatch(fn () => app(\App\Services\SafetyReview::class)->jobPost($checkId))->afterResponse();
+        }
 
         return $this->ok($job->load(['category', 'skills']), 'Job created', 201);
     }
@@ -1218,11 +1229,10 @@ class JobController extends Controller
                 invent a date first.
             */
             'start_date'         => ['nullable', 'date'],
-            'end_date'           => ['nullable', 'date', 'after_or_equal:start_date'],
+            'end_date'           => ['nullable', 'date'],
             'workers_needed'     => ['nullable', 'integer', 'min:1', 'max:20'],
         ], [
             'budget_max.gte' => 'The maximum budget must be greater than or equal to the minimum budget.',
-            'end_date.after_or_equal' => 'The deadline cannot be before the start date.',
         ]);
 
         $skillIds = $data['required_skill_ids'] ?? null;
@@ -1283,20 +1293,21 @@ class JobController extends Controller
             follows the end date either way.
         */
         $durations = app(\App\Services\JobDurationService::class);
-        $start = \Carbon\CarbonImmutable::parse($data['start_date'] ?? $job->start_date);
-        $end = \Carbon\CarbonImmutable::parse($data['end_date'] ?? $job->end_date ?? $start);
-        // A start moved past the old end: the post is the one day.
-        if ($end->lt($start)) {
-            $end = $start;
+        // Counted from the day it was posted, both before and after: only
+        // the days added are paid for. The start date is no longer asked.
+        unset($data['start_date']);
+        $posted = \Carbon\CarbonImmutable::parse($job->created_at)->startOfDay();
+        $oldEnd = $job->end_date ? \Carbon\CarbonImmutable::parse($job->end_date) : $posted;
+        $end = isset($data['end_date']) ? \Carbon\CarbonImmutable::parse($data['end_date']) : $oldEnd;
+        if (isset($data['end_date']) && $end->lt(\Carbon\CarbonImmutable::today())) {
+            return $this->fail('The deadline cannot be in the past.', 422);
+        }
+        if ($end->lt($posted)) {
+            $end = $posted;
         }
 
-        $paid = $job->start_date
-            ? $durations->costFor(
-                \Carbon\CarbonImmutable::parse($job->start_date),
-                $job->end_date ? \Carbon\CarbonImmutable::parse($job->end_date) : null,
-            )
-            : 0;
-        $owed = max(0, $durations->costFor($start, $end) - $paid);
+        $paid = $durations->costFor($posted, $oldEnd->lt($posted) ? $posted : $oldEnd);
+        $owed = max(0, $durations->costFor($posted, $end) - $paid);
 
         $skillsBefore = $job->skills()->pluck('skills.id')->all();
 
@@ -1359,6 +1370,11 @@ class JobController extends Controller
             if ($fresh->filledCount() > 0 && $fresh->isFull()) {
                 $fresh->update(['status' => 'in_progress']);
             }
+        }
+
+        if (\App\Services\SafetyCheck::enabled()) {
+            $checkId = $job->id;
+            dispatch(fn () => app(\App\Services\SafetyReview::class)->jobPost($checkId))->afterResponse();
         }
 
         return $this->ok($job->fresh()->load(['category', 'skills']), 'Job updated');
