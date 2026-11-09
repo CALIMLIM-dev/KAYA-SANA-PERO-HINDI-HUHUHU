@@ -1337,7 +1337,9 @@ class WorkerProfileController extends Controller
             // table) supplies the town centroid for the distance figure.
             ->with(['user:id,name,avatar,is_verified,city', 'skills', 'category:id,name', 'psgcLocation.parent'])
             ->whereNotNull('category_id')
-            ->whereNotNull('location');
+            ->whereNotNull('location')
+            // A hybrid account hiring does not find itself among the workers.
+            ->when($request->user(), fn ($q, $me) => $q->where('user_id', '!=', $me->id));
 
         if (!empty($data['category_id'])) {
             $query->where('category_id', $data['category_id']);

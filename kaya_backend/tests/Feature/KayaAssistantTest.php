@@ -481,6 +481,31 @@ class KayaAssistantTest extends TestCase
     }
 
     #[Test]
+    public function a_message_with_masked_words_costs_no_ai_call(): void
+    {
+        Http::fake();
+        $maria = $this->person();
+
+        // The word filter masks it on the way in; the assistant asks nobody.
+        $this->actingAs($maria, 'sanctum')->postJson('/api/v1/support', ['body' => 'putang ina paano mag top up'])->assertCreated();
+
+        $this->assertSame(KayaAssistant::RESPECTFUL, $this->lastLine($maria)->body);
+        $this->assertSame('guard:masked', $this->lastLine($maria)->assistant_model);
+        Http::assertNothingSent();
+    }
+
+    #[Test]
+    public function a_normal_question_is_one_ai_call_not_two(): void
+    {
+        $this->omniSays('Open My Wallet.');
+        $maria = $this->person();
+
+        $this->write($maria, 'Where is my Barya?');
+
+        Http::assertSentCount(1);
+    }
+
+    #[Test]
     public function it_stops_at_the_daily_limit(): void
     {
         config(['kaya.assistant.daily_limit' => 2]);

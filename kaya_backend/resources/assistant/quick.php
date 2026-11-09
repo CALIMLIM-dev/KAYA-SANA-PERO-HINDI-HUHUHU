@@ -22,7 +22,7 @@ return [
     ],
     'post' => [
         'How do I post a job?',
-        "Tap Post a Job on the home screen, fill in the form and pick a deadline. The post is up from today until the deadline. The first days are free; keeping it up longer costs Barya, and the price shows under the deadline. You need a verified account. Applicants are in Home, My Jobs, Applicants. The day of the work is agreed in the chat after hiring.",
+        "Tap Post a Job on the home screen, fill in the form and pick the Open Until day under Job Duration. The post is open from today until that day. The first days are free; keeping it up longer costs Barya, and the price shows under the date. You need a verified account. Applicants are in Home, My Jobs, Applicants. The day of the work is agreed in the chat after hiring.",
     ],
     'complete' => [
         'How do I finish a job?',

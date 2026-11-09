@@ -91,11 +91,12 @@ class _ReportSheetState extends State<ReportSheet> {
 
   Future<void> _loadReasons() async {
     try {
-      final response = await _api.get('/report-reasons');
+      // Only the reasons that fit what is being reported: a review is never
+      // reported for not showing up.
+      final response = await _api.get('/report-reasons',
+          queryParameters: {'type': ?widget.subjectType});
       final list = (response.data['data']['reasons'] as List)
           .cast<Map<String, dynamic>>()
-          // "Work was not done" belongs to a hire, not to a profile or a post.
-          .where((r) => r['code'] != 'work_not_done' || widget.subjectType == 'application')
           .toList();
       if (!mounted) return;
       setState(() {

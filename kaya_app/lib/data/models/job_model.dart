@@ -165,7 +165,7 @@ class Job {
     // Posts no longer carry a start date: up until the deadline.
     if (start == null) {
         final until = deadline ?? endDate;
-        return until == null ? null : 'Until ${_short(until)}';
+        return until == null ? null : 'Open until ${_short(until)}';
     }
 
     /*

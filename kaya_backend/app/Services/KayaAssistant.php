@@ -44,7 +44,8 @@ class KayaAssistant
     public const UNAVAILABLE = 'KAYA Assistant cannot answer right now. ' . self::HANDOFF;
     public const LIMIT = 'You have reached today\'s limit for KAYA Assistant. ' . self::HANDOFF;
     public const OFF_TOPIC_SAFE = 'I can only help with using KAYA and your own account. What do you need help with in the app?';
-    public const BACK = 'Hi again, KAYA Assistant here. What can I help you with? You can also pick a question below.';
+    public const RESPECTFUL = 'Please keep it respectful so I can help. What do you need help with in the app?';
+    public const BACK ='Hi again, KAYA Assistant here. What can I help you with? You can also pick a question below.';
 
     private const SETTING = 'assistant.enabled';
 
@@ -170,14 +171,13 @@ class KayaAssistant
                 );
             }
 
-            // Any language the word list does not know. Contact details are
-            // fine in support; sexual, hateful or threatening messages are not.
-            $verdict = app(\App\Services\SafetyCheck::class)->check($trigger->body);
-            if (in_array($verdict, ['sexual', 'hate'], true)) {
-                return $this->say($thread, AssistantGuard::REFUSALS[AssistantGuard::SEXUAL], 'guard:ai', false);
-            }
-            if ($verdict === 'harassment') {
-                return $this->say($thread, AssistantGuard::REFUSALS[AssistantGuard::VIOLENCE], 'guard:ai', true);
+            /*
+                The word filter masked something: no model is asked for it.
+                Credits go on questions, not on insults; the answer model's
+                own rules handle what the word lists do not know.
+            */
+            if (preg_match('/\*{3,}/', (string) $trigger->body)) {
+                return $this->say($thread, self::RESPECTFUL, 'guard:masked', false);
             }
 
             if ($this->answeredToday($thread) >= (int) config('kaya.assistant.daily_limit')) {

@@ -74,12 +74,87 @@ class ModerationReasons
             'description' => 'Repeated unwanted messages or advertising.',
             'severity'    => 'low',
         ],
+        'not_real_job' => [
+            'label'       => 'Not a real job',
+            'description' => 'The post is fake, a test, or for work that does not exist.',
+            'severity'    => 'medium',
+        ],
+        'illegal_work' => [
+            'label'       => 'Illegal or unsafe work',
+            'description' => 'The work asked for is against the law or puts someone in danger.',
+            'severity'    => 'high',
+        ],
+        'contact_details' => [
+            'label'       => 'Contact details in the post',
+            'description' => 'A phone number, email or account to reach them outside KAYA.',
+            'severity'    => 'low',
+        ],
+        'sexual_content' => [
+            'label'       => 'Sexual content',
+            'description' => 'Sexual messages, photos or advances.',
+            'severity'    => 'high',
+        ],
+        'off_platform' => [
+            'label'       => 'Moving to another app',
+            'description' => 'Asked to talk or deal outside KAYA.',
+            'severity'    => 'low',
+        ],
+        'abusive_review' => [
+            'label'       => 'Abusive review',
+            'description' => 'Insults, threats or hateful words in the review.',
+            'severity'    => 'medium',
+        ],
+        'not_about_work' => [
+            'label'       => 'Not about the work',
+            'description' => 'The review is about something other than the job.',
+            'severity'    => 'low',
+        ],
+        'not_paid' => [
+            'label'       => 'Not paid',
+            'description' => 'The work was done but the agreed pay was not given.',
+            'severity'    => 'high',
+        ],
+        'unsafe_work' => [
+            'label'       => 'Damage or unsafe work',
+            'description' => 'Something was damaged, or the work was done in a dangerous way.',
+            'severity'    => 'high',
+        ],
+        'not_job_or_service' => [
+            'label'       => 'Not a job or service',
+            'description' => 'The post is not offering or looking for work.',
+            'severity'    => 'low',
+        ],
         'other' => [
             'label'       => 'Something else',
             'description' => 'Tell us what happened in your own words.',
             'severity'    => 'low',
         ],
     ];
+
+    /*
+        The reasons each report button offers, in order, with a label of its
+        own where the shared one reads wrong there. A review is never reported
+        for not showing up; a message is never a misleading job post.
+    */
+    public const REPORT_BY_TYPE = [
+        'user'              => ['fake_identity' => null, 'scam' => null, 'harassment' => null, 'inappropriate' => 'Inappropriate profile', 'other' => null],
+        'job'               => ['not_real_job' => null, 'misleading_job' => 'Misleading pay or place', 'scam' => 'Scam or asks for money', 'illegal_work' => null, 'contact_details' => null, 'other' => null],
+        'message'           => ['harassment' => null, 'scam' => null, 'sexual_content' => null, 'off_platform' => null, 'spam' => null, 'other' => null],
+        'community_post'    => ['spam' => 'Spam or ads', 'scam' => null, 'not_job_or_service' => null, 'inappropriate' => null, 'other' => null],
+        'community_comment' => ['spam' => null, 'harassment' => null, 'inappropriate' => null, 'other' => null],
+        'review'            => ['fake_review' => 'Fake review', 'abusive_review' => null, 'not_about_work' => null, 'other' => null],
+        'application'       => ['no_show' => null, 'work_not_done' => null, 'not_paid' => null, 'unsafe_work' => null, 'other' => null],
+    ];
+
+    /** The reasons one report button offers, as [code => label]. */
+    public static function reportReasonsFor(?string $type): array
+    {
+        $codes = self::REPORT_BY_TYPE[$type] ?? array_fill_keys(array_keys(self::REPORT), null);
+
+        return collect($codes)
+            ->mapWithKeys(fn ($label, $code) => [$code => $label ?? self::REPORT[$code]['label']])
+            ->all();
+    }
 
     /**
      * The violations an administrator can find.
@@ -186,6 +261,16 @@ class ModerationReasons
         'work_not_done'  => 'false_completion',
         'fake_review'    => 'fake_reviews',
         'spam'           => 'spam',
+        'not_real_job'   => 'misleading_postings',
+        'illegal_work'   => 'policy_violation',
+        'contact_details' => 'policy_violation',
+        'sexual_content' => 'inappropriate_content',
+        'off_platform'   => 'policy_violation',
+        'abusive_review' => 'harassment',
+        'not_about_work' => 'fake_reviews',
+        'not_paid'       => 'fraud',
+        'unsafe_work'    => 'policy_violation',
+        'not_job_or_service' => 'category_misuse',
         'other'          => 'policy_violation',
     ];
 

@@ -477,8 +477,8 @@ class JobController extends Controller
             'budget_max.gte' => 'The maximum budget must be greater than or equal to the minimum budget.',
             'photos.required' => 'Please add at least one photo of the job.',
             'location_id.required' => 'Please pick the job location from the suggestions.',
-            'end_date.after_or_equal' => 'The deadline cannot be in the past.',
-            'end_date.required' => 'Please choose a deadline.',
+            'end_date.after_or_equal' => 'The Open Until date cannot be in the past.',
+            'end_date.required' => 'Please choose the day the post closes.',
         ]);
 
         /*
@@ -1300,7 +1300,7 @@ class JobController extends Controller
         $oldEnd = $job->end_date ? \Carbon\CarbonImmutable::parse($job->end_date) : $posted;
         $end = isset($data['end_date']) ? \Carbon\CarbonImmutable::parse($data['end_date']) : $oldEnd;
         if (isset($data['end_date']) && $end->lt(\Carbon\CarbonImmutable::today())) {
-            return $this->fail('The deadline cannot be in the past.', 422);
+            return $this->fail('The Open Until date cannot be in the past.', 422);
         }
         if ($end->lt($posted)) {
             $end = $posted;

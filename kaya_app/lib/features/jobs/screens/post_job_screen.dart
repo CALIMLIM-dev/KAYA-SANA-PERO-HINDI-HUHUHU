@@ -1166,10 +1166,10 @@ class _PostJobScreenState extends State<PostJobScreen> {
                   it keeps its own name.
               */
               _buildSection(
-                title: 'Duration',
+                title: 'Job Duration',
                 // Asked for: what the deadline does, in plain words. The
                 // price is shown under them, so it is not repeated here.
-                hint: 'Your post is up from today until the deadline, then closes on its own. '
+                hint: 'Your post is open from today until this day, then closes on its own. '
                     'The day of the work is agreed in the chat after hiring.',
                 anchor: _scheduleKey,
                 icon: Icons.event_outlined,
@@ -1286,7 +1286,7 @@ class _PostJobScreenState extends State<PostJobScreen> {
         */
         const SizedBox(height: 12),
         _buildDateField(
-          label: 'Deadline *',
+          label: 'Open Until *',
           value: _endDate,
           hint: 'Pick a day',
           onTap: _pickEndDate,
@@ -1297,7 +1297,7 @@ class _PostJobScreenState extends State<PostJobScreen> {
         if (_showScheduleError && _endDate == null) ...[
           const SizedBox(height: 6),
           const Text(
-            'Please choose a deadline.',
+            'Please choose the day the post closes.',
             style: TextStyle(fontSize: 12, color: AppColors.error),
           ),
         ],
@@ -2509,7 +2509,7 @@ class _PostJobScreenState extends State<PostJobScreen> {
     */
     if (_endDate == null) {
       setState(() => _showScheduleError = true);
-      await _pointAt(_scheduleKey, 'Please choose a deadline');
+      await _pointAt(_scheduleKey, 'Please choose the day the post closes');
       return;
     }
 

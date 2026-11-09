@@ -32,13 +32,14 @@ class ReportController extends Controller
     }
 
     /** The reasons the app shows, straight from the catalogue the admin uses. */
-    public function reasons()
+    /** The reasons a report button offers: ?type=job and so on. Every reason without one. */
+    public function reasons(Request $request)
     {
-        $reasons = collect(ModerationReasons::REPORT)
-            ->map(fn ($r, $code) => [
+        $reasons = collect(ModerationReasons::reportReasonsFor($request->query('type')))
+            ->map(fn ($label, $code) => [
                 'code'        => $code,
-                'label'       => $r['label'],
-                'description' => $r['description'],
+                'label'       => $label,
+                'description' => ModerationReasons::REPORT[$code]['description'],
             ])
             ->values();
 

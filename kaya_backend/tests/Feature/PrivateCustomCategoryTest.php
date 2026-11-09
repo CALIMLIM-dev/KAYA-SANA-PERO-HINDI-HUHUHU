@@ -126,6 +126,24 @@ class PrivateCustomCategoryTest extends TestCase
     }
 
     #[Test]
+    public function a_hybrid_account_does_not_find_itself_among_the_workers(): void
+    {
+        $me = User::factory()->create(['name' => 'Hybrid Me']);
+        $other = User::factory()->create(['name' => 'Other Worker']);
+        WorkerProfile::create(['user_id' => $me->id, 'category_id' => $this->plumbing->id, 'location' => 'Urdaneta']);
+        WorkerProfile::create(['user_id' => $other->id, 'category_id' => $this->plumbing->id, 'location' => 'Urdaneta']);
+        foreach ([$me, $other] as $u) {
+            \App\Models\WorkerSkill::create(['user_id' => $u->id, 'skill_name' => 'Pipe Repair', 'category_id' => $this->plumbing->id]);
+        }
+
+        $ids = collect($this->actingAs($me, 'sanctum')->getJson('/api/v1/workers')->assertOk()->json('data.data'))
+            ->pluck('user_id')->all();
+
+        $this->assertContains($other->id, $ids);
+        $this->assertNotContains($me->id, $ids);
+    }
+
+    #[Test]
     public function matching_reads_it_as_that_trade(): void
     {
         $custom = Category::create(['name' => 'Ayos ng Tubo', 'is_active' => true, 'is_custom' => true, 'maps_to_id' => $this->plumbing->id]);
