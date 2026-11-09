@@ -41,7 +41,7 @@ class CategoryController extends Controller
                 'skills',
                 'jobs as open_jobs_count' => fn ($q) => $q->where('status', 'open'),
             ])
-            ->with(['creator:id,name', 'skills' => fn ($q) => $q->orderBy('name')])
+            ->with(['creator:id,name,user_type', 'skills' => fn ($q) => $q->orderBy('name')])
             ->orderByDesc('is_active')
             ->orderBy('name')
             ->get();

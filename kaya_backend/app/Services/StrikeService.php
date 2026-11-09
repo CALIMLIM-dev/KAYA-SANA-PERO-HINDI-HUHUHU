@@ -12,15 +12,14 @@ use Illuminate\Support\Facades\DB;
     Strikes: what an upheld finding does to an account, and how it is undone.
 
     The same finding used to cost somebody nothing or everything depending
-    on which administrator read it. Now it climbs a published ladder
-    (config/moderation.php): a warning, a short restriction, a week's
-    suspension, a month's, then a ban. Strikes expire, so one bad month
-    does not follow somebody for good. Scam, fake papers and threats skip
-    the ladder, and a ban is never one person's decision - it holds as a
-    long suspension until a second administrator confirms it.
+    on which administrator read it. Now the penalty comes from the
+    violation's severity and how many are still counting
+    (config/moderation.php): a minor one starts at a warning, a serious one
+    at a week's suspension, a critical one is a ban. Violations expire, so
+    one bad month does not follow somebody for good.
 
-    Every strike sends a statement of reasons, and every strike can be
-    appealed once, to an administrator who did not issue it.
+    Every violation sends its own fixed line, and every one can be appealed
+    once.
 */
 class StrikeService
 {
@@ -33,26 +32,26 @@ class StrikeService
     public function nextStep(User $user, string $reasonCode): array
     {
         $number = $user->strikes()->active()->count() + 1;
+        $ladder = config('moderation.ladders.' . ModerationReasons::severity($reasonCode));
 
-        if (ModerationReasons::isCritical($reasonCode)) {
-            return ['action' => 'ban', 'days' => null, 'number' => $number];
-        }
-
-        $ladder = config('moderation.ladder');
-
-        return $ladder[min($number, max(array_keys($ladder)))] + ['number' => $number];
+        return $ladder[min($number, count($ladder)) - 1] + ['number' => $number];
     }
 
-    /**
-     * @param  string|null  $duration  From the user page: days, or 'permanent'. Skips the ladder.
-     */
-    public function issue(User $user, string $reasonCode, string $finding, User $admin, ?Report $report = null, ?string $duration = null): Strike
+    /** The penalty a step means, in words: "a 7-day suspension". */
+    public static function stepText(array $step): string
     {
-        $step = match (true) {
-            $duration === null        => $this->nextStep($user, $reasonCode),
-            $duration === 'permanent' => ['action' => 'ban', 'days' => null],
-            default                   => ['action' => 'suspension', 'days' => (int) $duration],
+        return match ($step['action']) {
+            'warning'    => 'a warning',
+            'suspension' => "a {$step['days']}-day suspension",
+            default      => 'a permanent ban',
         };
+    }
+
+    /** Same penalty from Reports and from a user's page. The finding is the violation's own line. */
+    public function issue(User $user, string $reasonCode, User $admin, ?Report $report = null): Strike
+    {
+        $step = $this->nextStep($user, $reasonCode);
+        $finding = ModerationReasons::message($reasonCode);
 
         $strike = DB::transaction(function () use ($user, $reasonCode, $finding, $admin, $report, $step) {
             $ban = $step['action'] === 'ban';
@@ -135,16 +134,16 @@ class StrikeService
     }
 
     /** Returns an error, or null. */
-    public function decideAppeal(Strike $strike, User $admin, bool $overturn, string $note): ?string
+    public function decideAppeal(Strike $strike, User $admin, bool $overturn): ?string
     {
         if ($strike->appeal_status !== 'pending') {
-            return 'This request has already been decided.';
+            return 'This appeal has already been decided.';
         }
 
-        DB::transaction(function () use ($strike, $admin, $overturn, $note) {
+        DB::transaction(function () use ($strike, $admin, $overturn) {
             $strike->update([
                 'appeal_status'     => $overturn ? 'overturned' : 'upheld',
-                'appeal_note'       => $note,
+                'appeal_note'       => $overturn ? ModerationReasons::APPEAL_ACCEPTED : ModerationReasons::APPEAL_REFUSED,
                 'appeal_decided_by' => $admin->id,
                 'appeal_decided_at' => now(),
                 'removed_at'        => $overturn ? now() : null,

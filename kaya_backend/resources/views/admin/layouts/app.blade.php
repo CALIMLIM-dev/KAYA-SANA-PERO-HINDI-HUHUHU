@@ -185,24 +185,6 @@
     });
 })();
 
-/*
-    A note written for the choice made.
-
-    A choice carrying data-note (a radio, or a select's option) fills the
-    form's [data-note-box] with its words. Words the admin changed stay.
-*/
-(function () {
-    document.querySelectorAll('[data-note-box]').forEach(function (box) {
-        var written = box.value;
-        box.form.addEventListener('change', function (e) {
-            var el = e.target;
-            var words = el.tagName === 'SELECT' ? el.options[el.selectedIndex].dataset.note : el.dataset.note;
-            if (words === undefined || el === box) return;
-            if (box.value === written || box.value.trim() === '') box.value = words;
-            written = words;
-        });
-    });
-})();
 </script>
 <script>
 /*

@@ -7,7 +7,9 @@ import '../../../core/constants/app_colors.dart';
 import '../../../core/widgets/badge_strip.dart';
 import '../../../core/widgets/work_record.dart';
 import '../../../core/utils/json_parse.dart';
+import '../../../providers/auth_provider.dart';
 import '../../../providers/worker_browse_provider.dart';
+import '../../moderation/widgets/report_sheet.dart';
 import '../../../core/widgets/app_toast.dart';
 import '../../invitations/widgets/invite_to_job.dart';
 import '../../../core/widgets/photo_viewer.dart';
@@ -170,7 +172,24 @@ class _WorkerProfileScreenState extends State<WorkerProfileScreen> {
               icon: const Icon(Icons.arrow_back, color: Colors.white),
               onPressed: () => Navigator.pop(context),
             ),
+            actions: [
+              // Somebody else's profile only.
+              if (w['user_id'] is num &&
+                  w['user_id'] != context.read<AuthProvider>().user?['id'])
+                IconButton(
+                  icon: const Icon(Icons.flag_outlined, color: Colors.white),
+                  tooltip: 'Report',
+                  onPressed: () => ReportSheet.show(
+                    context,
+                    reportedId: (w['user_id'] as num).toInt(),
+                    reportedName: name,
+                    subjectType: 'user',
+                    subjectId: (w['user_id'] as num).toInt(),
+                  ),
+                ),
+            ],
           ),
+
 
           // ── Profile Header ──
           SliverToBoxAdapter(
@@ -664,6 +683,25 @@ class _WorkerProfileScreenState extends State<WorkerProfileScreen> {
                             .where((t) => t.isNotEmpty)
                             .toList(),
                       ),
+                      if (w['user_id'] == context.read<AuthProvider>().user?['id'] &&
+                          reviews[i]['id'] is num &&
+                          reviews[i]['reviewer_id'] is num)
+                        Align(
+                          alignment: Alignment.centerRight,
+                          child: TextButton.icon(
+                            onPressed: () => ReportSheet.show(
+                              context,
+                              reportedId: (reviews[i]['reviewer_id'] as num).toInt(),
+                              reportedName: (reviews[i]['reviewer'] ?? '').toString(),
+                              subjectType: 'review',
+                              subjectId: (reviews[i]['id'] as num).toInt(),
+                              initialReason: 'fake_review',
+                            ),
+                            icon: const Icon(Icons.flag_outlined, size: 16),
+                            label: const Text('Report'),
+                            style: TextButton.styleFrom(foregroundColor: AppColors.neutral600),
+                          ),
+                        ),
                       if (i < reviews.length - 1 &&
                           (_showAllReviews || i < 2))
                         const Divider(height: 24),

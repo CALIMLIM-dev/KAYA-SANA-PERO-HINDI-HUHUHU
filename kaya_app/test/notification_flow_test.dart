@@ -115,7 +115,7 @@ void main() {
       AppRouter.workerProfile, AppRouter.postJob, AppRouter.savedJobs,
       AppRouter.applications, AppRouter.active, AppRouter.messages,
       AppRouter.chat, AppRouter.notifications, AppRouter.wallet,
-      AppRouter.walletHistory, AppRouter.reportResponse, AppRouter.profile,
+      AppRouter.walletHistory, AppRouter.profile,
       AppRouter.myWorkerProfile, AppRouter.setupWorkerProfile,
       AppRouter.myEmployerProfile, AppRouter.addSkills, AppRouter.faq,
       AppRouter.support, AppRouter.setupEmployerProfile, AppRouter.manageJobs,

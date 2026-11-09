@@ -240,9 +240,7 @@ class HireCancellationTest extends TestCase
         $report = Report::firstOrFail();
         $report->forceFill(['created_at' => now()->subDays(3)])->save();
         $admin = User::factory()->create(['user_type' => 'admin']);
-        $this->actingAs($admin)->post("/admin/reports/{$report->id}/resolve", [
-            'status' => 'dismissed', 'resolution_note' => 'The chat shows the work was finished and paid.',
-        ])->assertRedirect();
+        $this->actingAs($admin)->post("/admin/reports/{$report->id}/resolve", ['decision' => 'no_violation'])->assertRedirect();
 
         $this->assertSame('completed', $hire->fresh()->status);
     }
@@ -292,7 +290,7 @@ class HireCancellationTest extends TestCase
         $admin = User::factory()->create(['user_type' => 'admin']);
         $admin->forceFill(['admin_role' => 'super'])->save();
 
-        $this->actingAs($admin)->get("/admin/reports/{$report->id}")->assertOk()->assertSee('Proof Photos');
+        $this->actingAs($admin)->get("/admin/reports/{$report->id}")->assertOk()->assertSee('Job Completion Photos');
         $this->actingAs($admin)->get("/admin/reports/{$report->id}/proof/worker/0")->assertOk();
         $this->actingAs($admin)->get("/admin/reports/{$report->id}/proof/employer/0")->assertNotFound();
     }

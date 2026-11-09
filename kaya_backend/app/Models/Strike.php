@@ -95,6 +95,36 @@ class Strike extends Model
         return $this->created_at->copy()->addDays((int) config('moderation.appeal_days'));
     }
 
+    public function severityLabel(): string
+    {
+        return ucfirst(ModerationReasons::severity($this->reason_code));
+    }
+
+    /*
+        When the penalty ends, for the Ends column: a date and how long is
+        left for a suspension, Permanent for a standing ban.
+    */
+    public function endsLabel(): string
+    {
+        return match (true) {
+            $this->removed_at !== null                       => 'Removed',
+            $this->action === 'ban'                          => 'Permanent',
+            $this->ends_at === null                          => '—',
+            $this->ends_at->isPast()                         => 'Ended ' . $this->ends_at->timezone('Asia/Manila')->format('M j, Y'),
+            default => $this->ends_at->timezone('Asia/Manila')->format('M j, Y g:i A') . ' · ' . $this->ends_at->diffForHumans(null, true) . ' left',
+        };
+    }
+
+    /** Which violation this was for the account: 1st, 2nd... of those still counting when it was given. */
+    public function stepNumber(): int
+    {
+        return Strike::where('user_id', $this->user_id)
+            ->where('id', '<=', $this->id)
+            ->where('created_at', '>', $this->created_at->copy()->subDays((int) config('moderation.strike_days')))
+            ->where(fn ($q) => $q->whereNull('removed_at')->orWhere('id', $this->id))
+            ->count();
+    }
+
     /** Once, within the window, while it still stands. */
     public function canAppeal(): bool
     {

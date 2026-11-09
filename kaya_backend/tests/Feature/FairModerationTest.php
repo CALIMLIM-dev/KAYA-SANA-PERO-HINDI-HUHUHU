@@ -14,9 +14,9 @@ use PHPUnit\Framework\Attributes\Test;
 use Tests\TestCase;
 
 /*
-    Moderation that can be checked and argued with: fair notice, a ladder of
-    strikes that expire, appeals to somebody else, two administrators for a
-    ban, limits on bad-faith reporting, and no signing straight back up.
+    Moderation that can be checked and argued with: reports the reported
+    person is not told about, penalties by severity that expire, appeals,
+    limits on bad-faith reporting, and no signing straight back up.
 */
 class FairModerationTest extends TestCase
 {
@@ -58,50 +58,24 @@ class FairModerationTest extends TestCase
         return $report;
     }
 
-    private function strike(string $rule = 'misleading_postings', ?User $admin = null): Strike
+    private function strike(string $rule = 'spam', ?User $admin = null): Strike
     {
-        return app(StrikeService::class)->issue($this->reported, $rule, 'The post did not match the work.', $admin ?? $this->admin());
+        return app(StrikeService::class)->issue($this->reported, $rule, $admin ?? $this->admin());
     }
 
-    // ── Fair notice ───────────────────────────────────────────────────────────
+    // ── Not told, as on most apps ─────────────────────────────────────────────
 
     #[Test]
-    public function the_accused_sees_the_rule_and_their_own_content_but_never_the_reporter(): void
+    public function the_reported_person_is_not_told_and_cannot_open_the_report(): void
     {
-        $report = $this->notice(['evidence' => ['report_evidence/1/a.jpg']], hoursAgo: 1);
+        $this->actingAs($this->reporter, 'sanctum')->postJson('/api/v1/reports', [
+            'reported_id' => $this->reported->id, 'reason_code' => 'harassment',
+            'description' => 'He kept sending threats after the job was cancelled.',
+        ])->assertCreated()->assertJsonPath('message', 'We received your report. Your name is not shown to them.');
 
-        $response = $this->actingAs($this->reported, 'sanctum')->getJson("/api/v1/reports/{$report->id}")->assertOk();
-
-        $response->assertJsonPath('data.reason', 'Misleading job post')
-            ->assertJsonPath('data.rule', 'The work, pay, or location was not what was advertised.')
-            ->assertJsonPath('data.content.title', 'Paint a gate')
-            ->assertJsonPath('data.can_respond', true)
-            ->assertJsonPath('data.has_strike', false);
-
-        $body = $response->getContent();
-        $this->assertStringNotContainsString('Maria Santos', $body);
-        $this->assertStringNotContainsString('half of what the post said', $body);
-        $this->assertStringNotContainsString('report_evidence', $body);
-    }
-
-    #[Test]
-    public function the_accused_can_reply_with_up_to_three_photos(): void
-    {
-        $report = $this->notice(hoursAgo: 1);
-        $photo = fn () => UploadedFile::fake()->createWithContent('a.jpg', base64_decode('/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAgGBgcGBQgHBwcJCQgKDBQNDAsLDBkSEw8UHRofHh0aHBwgJC4nICIsIxwcKDcpLDAxNDQ0Hyc5PTgyPC4zNDL/wAALCAABAAEBAREA/8QAFAABAAAAAAAAAAAAAAAAAAAACf/EABQQAQAAAAAAAAAAAAAAAAAAAAD/2gAIAQEAAD8AKp//2Q=='));
-
-        $this->actingAs($this->reported, 'sanctum')->post("/api/v1/reports/{$report->id}/respond", [
-            'response' => 'I paid what we agreed in the chat.',
-            'photos'   => [$photo(), $photo(), $photo(), $photo()],
-        ], ['Accept' => 'application/json'])->assertStatus(422);
-
-        $this->actingAs($this->reported, 'sanctum')->post("/api/v1/reports/{$report->id}/respond", [
-            'response' => 'I paid what we agreed in the chat.',
-            'photos'   => [$photo(), $photo()],
-        ], ['Accept' => 'application/json'])->assertOk();
-
-        $this->assertCount(2, $report->fresh()->response_evidence);
-        $this->actingAs($this->admin())->get("/admin/reports/{$report->id}/reply-evidence/0")->assertOk();
+        $report = Report::firstOrFail();
+        $this->assertSame(0, UserNotification::where('user_id', $this->reported->id)->count(), 'nothing until a violation');
+        $this->actingAs($this->reported, 'sanctum')->getJson("/api/v1/reports/{$report->id}")->assertNotFound();
     }
 
     #[Test]
@@ -110,50 +84,35 @@ class FairModerationTest extends TestCase
         // Filed an hour ago, no reply yet: an admin does not have to wait.
         $report = $this->notice(hoursAgo: 1);
         $admin = $this->admin();
-        $confirm = ['status' => 'resolved', 'action' => 'strike', 'reason_code' => 'misleading_postings',
-                    'resolution_note' => 'The post and the pay did not match.'];
-
-        $this->actingAs($admin)->post("/admin/reports/{$report->id}/resolve", $confirm)->assertRedirect(route('admin.reports.index'));
-        $this->assertSame('resolved', $report->fresh()->status);
+        $this->actingAs($admin)->post("/admin/reports/{$report->id}/resolve", ['decision' => 'violation', 'reason_code' => 'misleading_postings'])
+            ->assertRedirect(route('admin.reports.index'));
+        $this->assertSame('violation', $report->fresh()->outcome());
 
         $other = $this->notice(['reason_code' => 'spam'], hoursAgo: 1);
-        $this->actingAs($admin)->post("/admin/reports/{$other->id}/resolve", [
-            'status' => 'dismissed', 'resolution_note' => 'Nothing in the report holds up.',
-        ])->assertRedirect(route('admin.reports.index'));
-        $this->assertSame('dismissed', $other->fresh()->status);
+        $this->actingAs($admin)->post("/admin/reports/{$other->id}/resolve", ['decision' => 'no_violation'])
+            ->assertRedirect(route('admin.reports.index'));
+        $this->assertSame('no_violation', $other->fresh()->outcome());
     }
 
     // ── The ladder ────────────────────────────────────────────────────────────
 
     #[Test]
-    public function strikes_climb_the_ladder(): void
+    public function the_penalty_follows_how_severe_the_violation_is(): void
     {
-        $actions = collect(range(1, 5))->map(fn () => $this->strike()->only(['action', 'days']));
-
+        // Minor: a warning, then a week, then a ban.
+        $minor = collect(range(1, 4))->map(fn () => $this->strike('spam')->only(['action', 'days']));
         $this->assertSame([
             ['action' => 'warning', 'days' => null],
-            ['action' => 'restriction', 'days' => 3],
             ['action' => 'suspension', 'days' => 7],
-            ['action' => 'suspension', 'days' => 30],
             ['action' => 'ban', 'days' => null],
-        ], $actions->all());
-    }
+            ['action' => 'ban', 'days' => null],
+        ], $minor->all());
 
-    #[Test]
-    public function a_restriction_stops_new_things_and_says_why(): void
-    {
-        $this->strike();
-        $this->strike();
-
-        $this->assertNotNull($this->reported->restrictedUntil());
-
-        $this->actingAs($this->reported, 'sanctum')
-            ->postJson('/api/v1/community', ['title' => 'Gate painting', 'body' => 'Available this week.'])
-            ->assertStatus(403)
-            ->assertJsonPath('data.restricted', true);
-
-        // Still free to read and to answer.
-        $this->actingAs($this->reported, 'sanctum')->getJson('/api/v1/community')->assertOk();
+        // Serious starts at a week's suspension.
+        $other = User::factory()->create();
+        $issue = fn () => app(StrikeService::class)->issue($other, 'no_show', $this->admin())->only(['action', 'days']);
+        $this->assertSame(['action' => 'suspension', 'days' => 7], $issue());
+        $this->assertSame(['action' => 'ban', 'days' => null], $issue());
     }
 
     #[Test]
@@ -181,10 +140,11 @@ class FairModerationTest extends TestCase
     {
         $strike = $this->strike();
 
+        // The violation's own fixed line, and the way to appeal.
         $notice = UserNotification::where('user_id', $this->reported->id)->where('type', 'moderation.warning')->firstOrFail();
-        $this->assertStringContainsString('Misleading job postings', $notice->body);
-        $this->assertStringContainsString('Account Status', $notice->body);
-        $this->assertSame('The post did not match the work.', $strike->finding, 'the finding is on Account Status');
+        $this->assertStringContainsString('You sent repeated unwanted messages or advertising.', $notice->body);
+        $this->assertStringContainsString('You can appeal within 30 days', $notice->body);
+        $this->assertSame(\App\Support\ModerationReasons::message('spam'), $strike->finding, 'nobody typed it');
         $this->assertSame('strike', $notice->reference_type);
 
         // Muting account notices does not mute this.
@@ -200,7 +160,6 @@ class FairModerationTest extends TestCase
     {
         $issuer = $this->admin();
         $this->strike(admin: $issuer);
-        $this->strike(admin: $issuer);
         $suspending = $this->strike(admin: $issuer);
         $this->assertTrue($this->reported->fresh()->is_suspended);
 
@@ -212,13 +171,13 @@ class FairModerationTest extends TestCase
             ->assertStatus(422);
 
         // One admin decides, the one who gave it included.
-        $decision = ['decision' => 'overturned', 'note' => 'The receipt shows the work was done.'];
-        $this->actingAs($issuer)->post("/admin/strikes/{$suspending->id}/appeal", $decision)->assertRedirect();
+        $this->actingAs($issuer)->post("/admin/strikes/{$suspending->id}/appeal", ['decision' => 'overturned'])->assertRedirect();
 
         $this->assertNotNull($suspending->fresh()->removed_at);
         $this->assertFalse($this->reported->fresh()->is_suspended, 'the suspension it caused is lifted');
-        $this->assertSame(2, $this->reported->strikes()->active()->count());
-        $this->assertDatabaseHas('user_notifications', ['user_id' => $this->reported->id, 'type' => 'moderation.appeal']);
+        $this->assertSame(1, $this->reported->strikes()->active()->count());
+        $this->assertDatabaseHas('user_notifications', ['user_id' => $this->reported->id, 'type' => 'moderation.appeal',
+            'body' => 'Your appeal was accepted. The violation was removed.']);
     }
 
     #[Test]
@@ -246,7 +205,7 @@ class FairModerationTest extends TestCase
 
         $auth = ['Authorization' => "Bearer {$token}"];
         $this->getJson('/api/v1/account/standing', $auth)->assertOk()->assertJsonPath('data.standing', 'banned')
-            ->assertJsonPath('data.strikes.0.rule', 'Scam or fraudulent activity')
+            ->assertJsonPath('data.strikes.0.rule', 'Scam or fraud')
             ->assertJsonPath('data.strikes.0.can_appeal', true);
         $this->getJson('/api/v1/support', $auth)->assertOk();
         $this->getJson('/api/v1/jobs', $auth)->assertStatus(403);
@@ -306,9 +265,7 @@ class FairModerationTest extends TestCase
         $admin = $this->admin();
         foreach (range(1, 4) as $i) {
             $report = $this->notice(['reason_code' => 'spam', 'description' => "Bad faith report number {$i} with enough words."]);
-            $this->actingAs($admin)->post("/admin/reports/{$report->id}/resolve", [
-                'status' => 'dismissed', 'baseless' => '1', 'resolution_note' => 'Nothing happened; filed to annoy.',
-            ])->assertRedirect();
+            $this->actingAs($admin)->post("/admin/reports/{$report->id}/resolve", ['decision' => 'false_report'])->assertRedirect();
 
             if ($i === 3) {
                 $this->assertDatabaseHas('user_notifications', ['user_id' => $this->reporter->id, 'type' => 'moderation.false_report']);
@@ -334,8 +291,8 @@ class FairModerationTest extends TestCase
         $strike->update(['appeal' => 'I never took any money from anyone.', 'appealed_at' => now(), 'appeal_status' => 'pending']);
 
         $this->actingAs($issuer)->get("/admin/reports/{$report->id}")->assertOk()
-            ->assertSee('Past Jobs Together')
-            ->assertSee('Violation History');
+            ->assertSee('Report Details')->assertSee('Account History')->assertSee('Violation History')
+            ->assertDontSee('Note (Optional)');
 
         $this->actingAs($issuer)->get('/admin/reports')->assertOk()->assertSee('Juan Dela Cruz')
             ->assertDontSee('Made in Bad Faith');
@@ -344,8 +301,42 @@ class FairModerationTest extends TestCase
         $this->actingAs($issuer)->get('/admin/strikes?q=Juan')->assertOk()->assertSee('Juan Dela Cruz');
         $this->actingAs($issuer)->get('/admin/strikes?q=Nobody')->assertOk()->assertDontSee('Juan Dela Cruz');
         $this->actingAs($issuer)->get("/admin/strikes/{$strike->id}")->assertOk()
-            ->assertSee('Remove Violation')->assertSee('Lift Suspension')->assertSee('Message Juan Dela Cruz');
+            ->assertSee('Remove Violation')->assertSee('End Ban')->assertSee('Message Juan Dela Cruz')
+            ->assertSee('Can Appeal Until')->assertSee('Stops Counting On');
+        $this->actingAs($issuer)->get('/admin/strikes?tab=banned')->assertOk()->assertSee('Juan Dela Cruz')->assertSee('Permanent');
         $this->actingAs($issuer)->get("/admin/users/{$this->reported->id}")->assertOk()
             ->assertSee('Violation History')->assertSee('Permanent ban');
+    }
+
+    #[Test]
+    public function the_suspended_tab_says_when_they_get_back_in(): void
+    {
+        $admin = $this->admin();
+        $this->strike(admin: $admin);
+        $suspension = $this->strike(admin: $admin);
+
+        $this->actingAs($admin)->get('/admin/strikes?tab=suspended')->assertOk()
+            ->assertSee('Juan Dela Cruz')
+            ->assertSee($suspension->ends_at->timezone('Asia/Manila')->format('M j, Y'))
+            ->assertSee('left');
+        $this->actingAs($admin)->get("/admin/strikes/{$suspension->id}")->assertOk()
+            ->assertSee('Suspended Until')->assertSee('2nd violation counting')->assertSee('End Suspension Early');
+    }
+
+    #[Test]
+    public function a_joke_category_can_be_given_a_violation_from_the_categories_page(): void
+    {
+        $admin = $this->admin();
+        $category = \App\Models\Category::create(['name' => 'Mortician/Embalmer', 'is_active' => true, 'is_custom' => true, 'created_by' => $this->reported->id]);
+
+        $this->actingAs($admin)->get("/admin/categories?category={$category->id}")->assertOk()
+            ->assertSee('violation=category_misuse', false);
+        // The user page opens with the form up and the violation already picked.
+        $html = $this->actingAs($admin)->get("/admin/users/{$this->reported->id}?violation=category_misuse")->assertOk()->getContent();
+        $this->assertMatchesRegularExpression('/value="category_misuse"[^>]*selected/', $html);
+        $this->assertStringContainsString('openSuspendModal();', $html);
+
+        $this->actingAs($admin)->post("/admin/users/{$this->reported->id}/suspend", ['reason_code' => 'category_misuse'])->assertRedirect();
+        $this->assertSame('warning', $this->reported->strikes()->firstOrFail()->action);
     }
 }

@@ -55,9 +55,6 @@ enum NotificationDestination {
 
   verification,
 
-  /// A report about this account, to read and answer.
-  reportResponse,
-
   /// A strike, an appeal's outcome: where the account stands.
   accountStatus,
 
@@ -100,7 +97,6 @@ const informOnlyNotifications = {
   'verification.approved',
   'badge.earned',
   'report.decided',
-  'report.closed',
   'moderation.appeal',
   'moderation.false_report',
   'community.approved',
@@ -183,9 +179,9 @@ NotificationDestination notificationDestination({
         ? NotificationDestination.chat
         : NotificationDestination.messages,
     'verification' => NotificationDestination.verification,
-    'report' => referenceId != null
-        ? NotificationDestination.reportResponse
-        : NotificationDestination.fullText,
+    // The reported person is no longer told about a report; anything about
+    // their standing is on Account Status.
+    'report' => NotificationDestination.accountStatus,
     'strike' => NotificationDestination.accountStatus,
     'community_post' => referenceId != null
         ? NotificationDestination.communityPost

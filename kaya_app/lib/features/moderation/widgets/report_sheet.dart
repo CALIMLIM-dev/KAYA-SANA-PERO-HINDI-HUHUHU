@@ -149,7 +149,7 @@ class _ReportSheetState extends State<ReportSheet> {
 
       if (!mounted) return;
       Navigator.pop(context);
-      AppToast.success(context, 'Report sent. KAYA will review it.');
+      AppToast.success(context, 'We received your report. Your name is not shown to them.');
     } catch (e) {
       if (!mounted) return;
       setState(() {

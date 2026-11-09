@@ -17,6 +17,7 @@ import '../../../core/widgets/profile_avatar.dart';
 import '../../../core/widgets/verification_badge_widget.dart';
 import '../../applications/screens/view_applicants_screen.dart';
 import '../../applications/widgets/fit_facts.dart';
+import '../../moderation/widgets/report_sheet.dart';
 import '../../../providers/credits_provider.dart';
 
 /// Job Details — a single real job, fetched via GET /jobs/{id}.
@@ -443,6 +444,18 @@ class _JobDetailsScreenState extends State<JobDetailsScreen>
           icon: Icon(job.isSaved ? Icons.bookmark : Icons.bookmark_border),
           tooltip: job.isSaved ? 'Saved' : 'Save this job',
           onPressed: _isSaving ? null : () => _toggleSave(job),
+        ),
+      if (!job.isOwnJob && job.employerId != null)
+        IconButton(
+          icon: const Icon(Icons.flag_outlined),
+          tooltip: 'Report',
+          onPressed: () => ReportSheet.show(
+            context,
+            reportedId: job.employerId!,
+            reportedName: job.company,
+            subjectType: 'job',
+            subjectId: job.id,
+          ),
         ),
     ];
 

@@ -63,6 +63,46 @@ class Report extends Model
         return ModerationReasons::reportSeverity($this->reason_code);
     }
 
+    /** What was reported: Account, Job Post, Message, Community Post... */
+    public function typeLabel(): string
+    {
+        return ModerationReasons::typeLabel($this->reported_type);
+    }
+
+    /*
+        How it ended, as the panel's tabs name it. A report confirmed with
+        no violation, from before there were three decisions, reads as No
+        Violation.
+    */
+    public const OUTCOMES = [
+        'pending'      => 'Pending',
+        'violation'    => 'Violation Found',
+        'no_violation' => 'No Violation',
+        'false'        => 'False Report',
+    ];
+
+    public function outcome(): string
+    {
+        return match (true) {
+            in_array($this->status, ['pending', 'reviewed'], true) => 'pending',
+            (bool) $this->baseless                                 => 'false',
+            $this->strike !== null                                 => 'violation',
+            default                                                => 'no_violation',
+        };
+    }
+
+    public function scopeWithOutcome($query, string $outcome)
+    {
+        return match ($outcome) {
+            'pending'      => $query->whereIn('status', ['pending', 'reviewed']),
+            'false'        => $query->where('baseless', true),
+            'violation'    => $query->whereNotIn('status', ['pending', 'reviewed'])->whereHas('strike'),
+            'no_violation' => $query->whereNotIn('status', ['pending', 'reviewed'])
+                ->where(fn ($q) => $q->whereNull('baseless')->orWhere('baseless', false))->whereDoesntHave('strike'),
+            default        => $query,
+        };
+    }
+
     /**
      * Orders the queue by how much harm the reason implies, then by age.
      *

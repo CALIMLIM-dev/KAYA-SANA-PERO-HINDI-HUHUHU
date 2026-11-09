@@ -126,7 +126,6 @@ class ModerationTest extends TestCase
 
         $this->actingAs($admin)->post("/admin/users/{$user->id}/suspend", [
             'reason_code' => 'fake_documents',
-            'note'        => 'Barangay clearance was edited.',
         ])->assertRedirect();
 
         $user->refresh();
@@ -134,7 +133,8 @@ class ModerationTest extends TestCase
         $this->assertSame('fake_documents', $user->suspended_reason_code);
         $this->assertSame($admin->id, $user->suspended_by);
         $this->assertNotNull($user->suspended_at);
-        $this->assertSame('Barangay clearance was edited.', $user->suspension_note);
+        // Nobody types: the violation's own line is the reason.
+        $this->assertSame(\App\Support\ModerationReasons::message('fake_documents'), $user->suspension_note);
     }
 
     #[Test]
@@ -143,14 +143,13 @@ class ModerationTest extends TestCase
         $user = User::factory()->create();
         $admin = $this->admin();
         $give = fn () => $this->actingAs($admin)->post("/admin/users/{$user->id}/suspend", [
-            'reason_code' => 'spam', 'note' => 'Posted the same advert in every chat.',
+            'reason_code' => 'spam',
         ])->assertRedirect();
 
         $give();
-        $this->assertFalse($user->fresh()->is_suspended, 'the first offense is a warning');
+        $this->assertFalse($user->fresh()->is_suspended, 'the first minor violation is a warning');
         $give();
-        $give();
-        $this->assertTrue($user->fresh()->is_suspended, 'the third is a suspension');
+        $this->assertTrue($user->fresh()->is_suspended, 'the second is a week\'s suspension');
         $this->assertNotNull($user->fresh()->suspended_until);
     }
 
@@ -161,7 +160,6 @@ class ModerationTest extends TestCase
 
         $this->actingAs($this->admin())->post("/admin/users/{$user->id}/suspend", [
             'reason_code' => 'fraud',
-            'note'        => 'Took a deposit and never came.',
         ])->assertRedirect();
 
         $this->assertTrue($user->fresh()->is_suspended);
@@ -252,15 +250,10 @@ class ModerationTest extends TestCase
             'reason'      => 'Scam or fraud',
             'status'      => 'pending',
         ]);
-        // Past the time they had to answer.
-        $report->forceFill(['created_at' => now()->subDays(3)])->save();
-
-        // Fraud skips the ladder: a ban, held as a suspension until confirmed.
+        // Fraud is critical: a ban at once.
         $this->actingAs($admin)->post("/admin/reports/{$report->id}/resolve", [
-            'status'          => 'resolved',
-            'action'          => 'strike',
-            'reason_code'     => 'fraud',
-            'resolution_note' => 'Three separate complaints.',
+            'decision'    => 'violation',
+            'reason_code' => 'fraud',
         ])->assertRedirect();
 
         // Both halves, or the report is marked handled against an untouched account.

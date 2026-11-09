@@ -64,6 +64,11 @@ class ModerationReasons
             'description' => 'They marked the job complete, but the work was not done.',
             'severity'    => 'medium',
         ],
+        'fake_review' => [
+            'label'       => 'Fake or unfair review',
+            'description' => 'A review about a job that did not happen, or written to hurt a rating.',
+            'severity'    => 'medium',
+        ],
         'spam' => [
             'label'       => 'Spam',
             'description' => 'Repeated unwanted messages or advertising.',
@@ -77,94 +82,100 @@ class ModerationReasons
     ];
 
     /**
-     * What an administrator picks when suspending an account.
+     * The violations an administrator can find.
      *
-     * `default_days` is a starting point the dialog fills in, not a rule — it
-     * can be changed before confirming. `null` means the reason normally
-     * warrants a permanent ban, which is why those are the ones tied to fraud
-     * and safety rather than to sloppiness.
+     * `description` is the line the person receives, word for word: the
+     * administrator picks a violation and the system sends it. Nobody types.
+     *
+     * `severity` decides the penalty, through the ladders in
+     * config/moderation.php: minor starts at a warning, serious at a
+     * suspension, critical is a ban at once.
      */
     public const SUSPENSION = [
         'fraud' => [
-            'label'        => 'Scam or fraudulent activity',
-            'description'  => 'Took money, ran a fake job, or defrauded another user.',
-            'severity'     => 'critical',
-            'default_days' => null,
+            'label'       => 'Scam or fraud',
+            'description' => 'You took money, ran a fake job, or cheated another user.',
+            'severity'    => 'critical',
         ],
         'fake_documents' => [
-            'label'        => 'Fake documents or identity',
-            'description'  => 'Submitted a forged ID, licence, or certificate.',
-            'severity'     => 'critical',
-            'default_days' => null,
+            'label'       => 'Fake documents or identity',
+            'description' => 'You sent a fake ID, licence or certificate, or pretended to be someone else.',
+            'severity'    => 'critical',
         ],
         'harassment' => [
-            'label'        => 'Harassment or threats',
-            'description'  => 'Abused, threatened, or intimidated another user.',
-            'severity'     => 'critical',
-            'default_days' => null,
-        ],
-        /*
-            Getting back at somebody for reporting you - threats, abuse, or
-            a report filed in return - is its own violation, whatever the
-            original report turns out to be worth.
-        */
-        'retaliation' => [
-            'label'        => 'Retaliation against a reporter',
-            'description'  => 'Threatened, harassed or reported somebody back because they made a report.',
-            'severity'     => 'serious',
-            'default_days' => 30,
-        ],
-        'inappropriate_content' => [
-            'label'        => 'Inappropriate content',
-            'description'  => 'Offensive, sexual, or discriminatory material on the profile or in messages.',
-            'severity'     => 'serious',
-            'default_days' => 30,
+            'label'       => 'Harassment or threats',
+            'description' => 'You sent abusive or threatening messages to another user.',
+            'severity'    => 'critical',
         ],
         'no_show' => [
-            'label'        => 'Did not show up',
-            'description'  => 'Accepted a job and did not show up, with no notice.',
-            'severity'     => 'moderate',
-            'default_days' => 7,
+            'label'       => 'Did not show up',
+            'description' => 'You accepted a job and did not show up on the agreed day, without telling the other person.',
+            'severity'    => 'serious',
         ],
         'false_completion' => [
-            'label'        => 'Marked work done that was not done',
-            'description'  => 'Marked a job complete when the work was not done.',
-            'severity'     => 'moderate',
-            'default_days' => 7,
-        ],
-        'repeated_no_show' => [
-            'label'        => 'Repeatedly failed to show up',
-            'description'  => 'Accepted work and did not appear, more than once.',
-            'severity'     => 'serious',
-            'default_days' => 30,
+            'label'       => 'Work not done',
+            'description' => 'You marked a job complete when the work was not done.',
+            'severity'    => 'serious',
         ],
         'misleading_postings' => [
-            'label'        => 'Misleading job postings',
-            'description'  => 'Advertised work, pay, or conditions that did not match reality.',
-            'severity'     => 'serious',
-            'default_days' => 14,
+            'label'       => 'Misleading job post',
+            'description' => 'Your job post did not match the real work, pay or place.',
+            'severity'    => 'serious',
+        ],
+        'retaliation' => [
+            'label'       => 'Getting back at a reporter',
+            'description' => 'You threatened, harassed or reported someone back because they reported you.',
+            'severity'    => 'serious',
+        ],
+        'inappropriate_content' => [
+            'label'       => 'Inappropriate content',
+            'description' => 'You posted offensive, sexual or discriminatory content.',
+            'severity'    => 'minor',
         ],
         'fake_reviews' => [
-            'label'        => 'Fake reviews or rating abuse',
-            'description'  => 'Left or arranged reviews to manipulate a rating.',
-            'severity'     => 'moderate',
-            'default_days' => 14,
+            'label'       => 'Fake review',
+            'description' => 'You left or arranged a review that was not honest.',
+            'severity'    => 'minor',
         ],
         'spam' => [
-            'label'        => 'Spam',
-            'description'  => 'Repeated unsolicited messages or advertising.',
-            'severity'     => 'moderate',
-            'default_days' => 7,
+            'label'       => 'Spam',
+            'description' => 'You sent repeated unwanted messages or advertising.',
+            'severity'    => 'minor',
+        ],
+        'category_misuse' => [
+            'label'       => 'Misuse of custom categories',
+            'description' => 'You added fake, joke or offensive job categories.',
+            'severity'    => 'minor',
         ],
         'policy_violation' => [
-            'label'        => 'Other policy violation',
-            'description'  => 'Broke the KAYA rules.',
-            'severity'     => 'moderate',
-            'default_days' => 7,
+            'label'       => 'Other rule broken',
+            'description' => 'You broke the KAYA rules.',
+            'severity'    => 'minor',
         ],
     ];
 
-    /** Report reasons that most often lead to the same suspension reason. */
+    /** How the three severities read on the panel, worst first. */
+    public const SEVERITIES = [
+        'critical' => 'Critical (Ban at Once)',
+        'serious'  => 'Serious',
+        'minor'    => 'Minor',
+    ];
+
+    /*
+        What was reported. Each place in the app with a Report button
+        sends one of these.
+    */
+    public const REPORT_TYPES = [
+        'user'              => 'Account',
+        'job'               => 'Job Post',
+        'message'           => 'Message',
+        'community_post'    => 'Community Post',
+        'community_comment' => 'Community Comment',
+        'review'            => 'Review',
+        'application'       => 'Job Problem',
+    ];
+
+    /** Report reasons that most often lead to the same violation. */
     private const REPORT_TO_SUSPENSION = [
         'scam'           => 'fraud',
         'fake_identity'  => 'fake_documents',
@@ -173,9 +184,21 @@ class ModerationReasons
         'no_show'        => 'no_show',
         'misleading_job' => 'misleading_postings',
         'work_not_done'  => 'false_completion',
+        'fake_review'    => 'fake_reviews',
         'spam'           => 'spam',
         'other'          => 'policy_violation',
     ];
+
+    /*
+        The lines the system sends. Fixed: an administrator picks a decision
+        and these go out, so the same decision always says the same thing.
+    */
+    public const REPORT_RECEIVED = 'We received your report. Your name is not shown to them.';
+    public const REPORTER_ACTION = 'We reviewed your report and took action.';
+    public const REPORTER_NO_VIOLATION = 'We reviewed your report and found no violation.';
+    public const REPORTER_FALSE = 'Your report was found to be false. Repeated false reports lead to a warning.';
+    public const APPEAL_ACCEPTED = 'Your appeal was accepted. The violation was removed.';
+    public const APPEAL_REFUSED = 'Your appeal was refused. The violation stays.';
 
     /** @return string[] Valid report codes, for validation rules. */
     public static function reportCodes(): array
@@ -206,31 +229,20 @@ class ModerationReasons
         return self::SUSPENSION[$code]['label'] ?? ($code ? str_replace('_', ' ', ucfirst($code)) : 'Not given');
     }
 
-    /*
-        Ready-made words, so an administrator never has to type.
-
-        A note was required on every decision, which meant writing the same
-        sentence by hand all day. Left empty, a decision now says one of
-        these: the violation's own description, or a plain line for no
-        violation. A typed note still replaces it.
-    */
-    public const NO_VIOLATION = 'We checked and found no violation.';
-    public const CONFIRMED_NO_VIOLATION = 'The report was correct. No violation was added.';
-    public const REVIEW_ACCEPTED = 'We checked again and removed this violation.';
-    public const REVIEW_REFUSED = 'We checked again. The violation stays.';
-
-    /** What a violation says when no note was written. */
+    /** The line a violation sends. */
     public static function message(?string $suspensionCode): string
     {
-        return self::SUSPENSION[$suspensionCode]['description'] ?? 'Broke the KAYA rules.';
+        return self::SUSPENSION[$suspensionCode]['description'] ?? 'You broke the KAYA rules.';
     }
 
-    /** The note as typed, or the ready-made words when it was left empty. */
-    public static function noteOr(?string $typed, string $readyMade): string
+    public static function severity(?string $suspensionCode): string
     {
-        $typed = trim((string) $typed);
+        return self::SUSPENSION[$suspensionCode]['severity'] ?? 'minor';
+    }
 
-        return $typed === '' ? $readyMade : $typed;
+    public static function typeLabel(?string $type): string
+    {
+        return self::REPORT_TYPES[$type ?? 'user'] ?? 'Account';
     }
 
     /** Scam, fake papers, threats: these skip the strike ladder. */
@@ -256,6 +268,6 @@ class ModerationReasons
      */
     public static function severityRank(string $severity): int
     {
-        return ['critical' => 4, 'high' => 3, 'serious' => 3, 'medium' => 2, 'moderate' => 2, 'low' => 1][$severity] ?? 0;
+        return ['critical' => 4, 'high' => 3, 'serious' => 3, 'medium' => 2, 'moderate' => 2, 'minor' => 2, 'low' => 1][$severity] ?? 0;
     }
 }

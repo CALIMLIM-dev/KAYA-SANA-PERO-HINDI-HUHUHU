@@ -64,7 +64,7 @@ class ReportController extends Controller
             'photos.*'    => ['image', 'mimes:jpg,jpeg,png,webp', 'max:5120'],
             'subject_id'  => ['nullable', 'integer'],
             // 'application': "it didn't happen" - a hire the other side marked done.
-            'subject_type' => ['nullable', Rule::in(['user', 'job', 'message', 'community_post', 'application'])],
+            'subject_type' => ['nullable', Rule::in(array_keys(ModerationReasons::REPORT_TYPES))],
         ]);
 
         $reporter = $request->user();
@@ -132,8 +132,12 @@ class ReportController extends Controller
             ]);
         }
 
-        // The reported person may give their side before anyone decides.
-        app(\App\Services\NotificationService::class)->reportFiled($report);
+        /*
+            The reported person is not told. As on most apps, they hear
+            about a report only if it leads to a violation, and give their
+            side by appealing it. Telling them at once named the reporter
+            by its timing.
+        */
 
         /*
             "It didn't happen."
@@ -162,85 +166,7 @@ class ReportController extends Controller
             how many reports someone already has turns this endpoint into a way
             to probe another user's standing.
         */
-        return $this->ok(null, 'Thank you. KAYA will review this report.', 201);
-    }
-
-    /*
-        The report as the reported person may see it: fair notice.
-
-        The rule and what it covers, the day, and their own content that was
-        reported, as it was at that moment - enough to answer it. Never who
-        filed it, what they wrote, or the photos they sent: those would turn
-        a report into a conversation the reporter did not ask for, and a
-        screenshot can name them.
-    */
-    public function showForReported(Request $request, Report $report)
-    {
-        if ($report->reported_id !== $request->user()->id) {
-            return $this->fail('Not found.', 404);
-        }
-
-        $report->load('strike');
-
-        return $this->ok([
-            'id'           => $report->id,
-            'reason'       => $report->reasonLabel(),
-            'rule'         => ModerationReasons::REPORT[$report->reason_code]['description'] ?? null,
-            'about'        => $report->reported_type,
-            'content'      => $report->snapshot,
-            'filed_at'     => $report->created_at,
-            'status'       => $report->status,
-            'outcome'      => match (true) {
-                $report->strike !== null      => $report->strike->actionLabel(),
-                $report->status === 'resolved',
-                $report->status === 'dismissed' => 'No action was taken against you.',
-                default                       => null,
-            },
-            'has_strike'   => $report->strike !== null,
-            'can_respond'  => $this->canRespond($report),
-            'response'     => $report->response,
-            'photos_sent'  => count($report->response_evidence ?? []),
-        ]);
-    }
-
-    /** Their side, once, while the report is still open, with up to three photos. */
-    public function respond(Request $request, Report $report)
-    {
-        if ($report->reported_id !== $request->user()->id) {
-            return $this->fail('Not found.', 404);
-        }
-
-        if (! $this->canRespond($report)) {
-            return $this->fail($report->response !== null
-                ? 'You have already given your side of this report.'
-                : 'This report has already been decided.', 422);
-        }
-
-        $data = $request->validate([
-            'response' => ['required', 'string', 'min:10', 'max:1000'],
-            'photos'   => ['nullable', 'array', 'max:3'],
-            'photos.*' => ['image', 'mimes:jpg,jpeg,png,webp', 'max:5120'],
-        ]);
-
-        $disk = config('filesystems.documents');
-
-        $report->update([
-            'response'          => $data['response'],
-            'responded_at'      => now(),
-            'response_evidence' => $request->hasFile('photos')
-                ? collect($request->file('photos'))
-                    ->map(fn ($photo) => $photo->store("report_evidence/{$report->id}/reply", $disk))
-                    ->values()->all()
-                : null,
-        ]);
-
-        return $this->ok(null, 'Thank you. Your reply was sent.');
-    }
-
-    private function canRespond(Report $report): bool
-    {
-        return $report->response === null
-            && in_array($report->status, ['pending', 'reviewed'], true);
+        return $this->ok(null, ModerationReasons::REPORT_RECEIVED, 201);
     }
 
     /*
@@ -293,7 +219,24 @@ class ReportController extends Controller
                 $post = $id ? \App\Models\CommunityPost::find($id) : null;
 
                 return $post && $post->user_id === $reported->id
-                    ? ['kind' => 'Board post', 'title' => $post->title, 'text' => $post->body]
+                    ? ['kind' => 'Community post', 'title' => $post->title, 'text' => $post->body]
+                    : null;
+            })(),
+            'community_comment' => (function () use ($id, $reported) {
+                $comment = $id ? \App\Models\CommunityComment::with('post:id,title')->find($id) : null;
+
+                return $comment && $comment->user_id === $reported->id
+                    ? ['kind' => 'Community comment', 'title' => $comment->post?->title, 'text' => $comment->body,
+                       'sent_at' => $comment->created_at?->toIso8601String()]
+                    : null;
+            })(),
+            // Only a review written about the reporter, by the person reported.
+            'review' => (function () use ($id, $reported, $reporter) {
+                $review = $id ? \App\Models\Review::withoutGlobalScope('visible')->with('job:id,title')->find($id) : null;
+
+                return $review && $review->reviewer_id === $reported->id && $review->reviewee_id === $reporter->id
+                    ? ['kind' => 'Review', 'title' => $review->job?->title, 'text' => $review->comment,
+                       'status' => $review->rating . ' of 5 stars', 'sent_at' => $review->created_at?->toIso8601String()]
                     : null;
             })(),
             default => null,

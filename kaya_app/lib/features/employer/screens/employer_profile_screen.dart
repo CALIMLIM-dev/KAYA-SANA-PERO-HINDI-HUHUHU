@@ -5,7 +5,9 @@ import '../../../core/constants/app_colors.dart';
 import '../../../core/widgets/badge_strip.dart';
 import '../../../core/widgets/profile_avatar.dart';
 import '../../../core/widgets/work_record.dart';
+import '../../../providers/auth_provider.dart';
 import '../../../providers/employer_profile_provider.dart';
+import '../../moderation/widgets/report_sheet.dart';
 import '../../../core/navigation/app_router.dart';
 import '../../../core/widgets/photo_viewer.dart';
 import '../../../core/widgets/verification_badge_widget.dart';
@@ -126,7 +128,24 @@ class _EmployerProfileScreenState extends State<EmployerProfileScreen> {
               icon: const Icon(Icons.arrow_back, color: Colors.white),
               onPressed: () => Navigator.pop(context),
             ),
+            actions: [
+              // Somebody else's profile only.
+              if (e['user_id'] is num &&
+                  e['user_id'] != context.read<AuthProvider>().user?['id'])
+                IconButton(
+                  icon: const Icon(Icons.flag_outlined, color: Colors.white),
+                  tooltip: 'Report',
+                  onPressed: () => ReportSheet.show(
+                    context,
+                    reportedId: (e['user_id'] as num).toInt(),
+                    reportedName: name,
+                    subjectType: 'user',
+                    subjectId: (e['user_id'] as num).toInt(),
+                  ),
+                ),
+            ],
             flexibleSpace: FlexibleSpaceBar(
+
               background: Container(
                 decoration: const BoxDecoration(
                   gradient: LinearGradient(
@@ -384,6 +403,25 @@ class _EmployerProfileScreenState extends State<EmployerProfileScreen> {
                             comment: (reviews[i]['comment'] ?? '').toString(),
                             jobTitle: reviews[i]['job_title'] as String?,
                           ),
+                          if (e['user_id'] == context.read<AuthProvider>().user?['id'] &&
+                              reviews[i]['id'] is num &&
+                              reviews[i]['reviewer_id'] is num)
+                            Align(
+                              alignment: Alignment.centerRight,
+                              child: TextButton.icon(
+                                onPressed: () => ReportSheet.show(
+                                  context,
+                                  reportedId: (reviews[i]['reviewer_id'] as num).toInt(),
+                                  reportedName: (reviews[i]['reviewer'] ?? '').toString(),
+                                  subjectType: 'review',
+                                  subjectId: (reviews[i]['id'] as num).toInt(),
+                                  initialReason: 'fake_review',
+                                ),
+                                icon: const Icon(Icons.flag_outlined, size: 16),
+                                label: const Text('Report'),
+                                style: TextButton.styleFrom(foregroundColor: AppColors.neutral600),
+                              ),
+                            ),
                           if (i < reviews.length - 1) const Divider(height: 20),
                         ],
                       ],

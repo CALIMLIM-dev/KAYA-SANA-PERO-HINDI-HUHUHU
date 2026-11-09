@@ -37,7 +37,6 @@ import '../../features/messaging/screens/chat_screen.dart';
 import '../../features/credits/screens/wallet_screen.dart';
 import '../../features/credits/screens/wallet_history_screen.dart';
 import '../../features/moderation/screens/account_status_screen.dart';
-import '../../features/moderation/screens/report_response_screen.dart';
 import '../../features/notifications/screens/notifications_screen.dart';
 
 // Profile Screens
@@ -88,7 +87,6 @@ class AppRouter {
   static const String notifications = '/notifications';
   static const String wallet = '/wallet';
   static const String walletHistory = '/wallet/history';
-  static const String reportResponse = '/report-response';
   static const String accountStatus = '/account-status';
   static const String profile = '/profile';
   static const String myWorkerProfile = '/my-worker-profile';
@@ -287,14 +285,7 @@ class AppRouter {
         return MaterialPageRoute(settings: settings, builder: (_) => const WalletScreen());
       case walletHistory:
         return MaterialPageRoute(settings: settings, builder: (_) => const WalletHistoryScreen());
-      case reportResponse:
-        final reportId = (settings.arguments as Map?)?['reportId'] as int?;
-        return MaterialPageRoute(
-          settings: settings,
-          builder: (_) => reportId == null
-              ? const NotificationsScreen()
-              : ReportResponseScreen(reportId: reportId),
-        );
+
       case accountStatus:
         return MaterialPageRoute(settings: settings, builder: (_) => const AccountStatusScreen());
 

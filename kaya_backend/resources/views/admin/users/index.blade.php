@@ -43,7 +43,12 @@
                         <div class="flex items-center gap-3">
                             @include('admin.partials.avatar', ['user' => $user, 'class' => 'w-8 h-8 text-xs'])
                             <div>
-                                <p class="font-medium text-slate-700">{{ $user->name }}</p>
+                                <p class="font-medium text-slate-700">
+                                    {{ $user->name }}
+                                    @if ($user->is_demo)
+                                        <span class="ml-1 text-[11px] px-1.5 py-0.5 rounded bg-slate-100 text-slate-500 font-normal">Demo</span>
+                                    @endif
+                                </p>
                                 <p class="text-xs text-slate-400">{{ $user->email }}</p>
                             </div>
                         </div>

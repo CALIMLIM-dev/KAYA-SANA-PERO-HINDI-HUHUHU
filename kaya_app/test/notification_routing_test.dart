@@ -35,10 +35,11 @@ void main() {
         referenceId: referenceId,
       ).name;
 
-  test('a report about you opens the place to give your side', () {
+  // The reported person is not told about a report; an old notice opens Account Status.
+  test('an old report notice opens Account Status', () {
     expect(
       destinationFor(type: 'report.filed', audience: 'both', referenceType: 'report', referenceId: 9),
-      'reportResponse',
+      'accountStatus',
     );
   });
 
@@ -104,7 +105,6 @@ void main() {
     for (final type in const [
       'moderation.warning',
       'report.decided',
-      'report.closed',
       'announcement.sent',
     ]) {
       expect(

@@ -153,6 +153,19 @@ class _CommunityPostScreenState extends State<CommunityPostScreen> {
     );
   }
 
+  /// Somebody else's comment, reported on its own rather than as the post.
+  void _reportComment(Map<String, dynamic> comment, Map<String, dynamic> author) {
+    final authorId = (author['id'] as num?)?.toInt();
+    if (authorId == null) return;
+    ReportSheet.show(
+      context,
+      reportedId: authorId,
+      reportedName: (author['name'] ?? '').toString(),
+      subjectType: 'community_comment',
+      subjectId: comment['id'] as int?,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final isBusiness = _post['type'] == 'business';
@@ -453,6 +466,14 @@ class _CommunityPostScreenState extends State<CommunityPostScreen> {
               color: AppColors.neutral400,
               visualDensity: VisualDensity.compact,
               tooltip: 'Remove',
+            ),
+          if (comment['is_mine'] != true)
+            IconButton(
+              onPressed: () => _reportComment(comment, author),
+              icon: const Icon(Icons.flag_outlined, size: 16),
+              color: AppColors.neutral400,
+              visualDensity: VisualDensity.compact,
+              tooltip: 'Report',
             ),
         ],
       ),

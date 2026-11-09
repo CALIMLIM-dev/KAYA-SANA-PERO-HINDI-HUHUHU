@@ -163,9 +163,6 @@ void openNotification(
         MainNavigation.openTab(context, MainNavigation.profileTab);
       }
 
-    case NotificationDestination.reportResponse:
-      AppRouter.push(context, AppRouter.reportResponse,
-          arguments: {'reportId': referenceId});
 
     case NotificationDestination.accountStatus:
       AppRouter.push(context, AppRouter.accountStatus);

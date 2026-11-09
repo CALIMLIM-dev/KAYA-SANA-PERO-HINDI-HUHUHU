@@ -396,43 +396,8 @@
             </div>
 
             <div class="px-5 py-4 space-y-4">
-                {{-- The same list and the same count as Reports. --}}
-                <div>
-                    <label for="reasonSelect" class="block text-xs font-semibold text-slate-600 mb-1.5">Violation</label>
-                    <div class="mod-arrow">
-                        <select name="reason_code" id="reasonSelect" class="mod-select" required>
-                            <option value="" disabled selected>Choose a violation</option>
-                            @foreach (['critical' => 'Critical (Straight to Ban)', 'serious' => 'Serious', 'moderate' => 'Moderate'] as $sev => $groupLabel)
-                                @php $group = collect($suspensionReasons)->filter(fn ($r) => $r['severity'] === $sev); @endphp
-                                @if ($group->isNotEmpty())
-                                    <optgroup label="{{ $groupLabel }}">
-                                        @foreach ($group as $code => $reason)
-                                            <option value="{{ $code }}" data-critical="{{ $sev === 'critical' ? 1 : 0 }}" data-message="{{ $reason['description'] }}">{{ $reason['label'] }}</option>
-                                        @endforeach
-                                    </optgroup>
-                                @endif
-                            @endforeach
-                        </select>
-                    </div>
-                    @php
-                        $penalty = match ($nextStep['action']) {
-                            'warning'     => 'a warning',
-                            'restriction' => "no applying or posting for {$nextStep['days']} days",
-                            'suspension'  => "a {$nextStep['days']}-day suspension",
-                            default       => 'a permanent ban',
-                        };
-                    @endphp
-                    <p id="stepNormal" class="mt-2 text-xs text-slate-600">This will be violation {{ $nextStep['number'] }}: {{ $penalty }}.</p>
-                    <p id="stepCritical" class="hidden mt-2 text-xs text-slate-600">This will be a permanent ban.</p>
-                </div>
-
-                <div>
-                    <label for="suspendNote" class="block text-xs font-semibold text-slate-600 mb-1.5">Note (Optional)</label>
-                    <textarea name="note" id="suspendNote" rows="3" maxlength="1000"
-                              class="w-full px-3 py-2 border border-slate-300 rounded-lg text-[13px]
-                                     focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-red-500"></textarea>
-                </div>
-
+                {{-- The same list, penalties and lines as Reports. --}}
+                @include('admin.partials.violation-picker', ['penalties' => $penalties, 'selected' => request('violation')])
             </div>
 
             <div class="px-5 py-4 bg-slate-50 rounded-b-xl flex gap-3 border-t border-slate-200">
@@ -456,23 +421,12 @@ function openSuspendModal() {
 
 function closeSuspendModal() {
     document.getElementById('suspendModal').classList.add('hidden');
-    document.getElementById('reasonSelect').selectedIndex = 0;
-    document.getElementById('suspendNote').value = '';
-    suspendWritten = '';
 }
 
-// A critical violation goes straight to a ban; say so instead of the count.
-let suspendWritten = '';
-document.getElementById('reasonSelect')?.addEventListener('change', function () {
-    const critical = this.options[this.selectedIndex]?.dataset.critical === '1';
-    document.getElementById('stepNormal').classList.toggle('hidden', critical);
-    document.getElementById('stepCritical').classList.toggle('hidden', !critical);
-    // The note is written for the violation chosen; words the admin changed stay.
-    const note = document.getElementById('suspendNote');
-    const next = this.options[this.selectedIndex]?.dataset.message || '';
-    if (note.value === suspendWritten || note.value.trim() === '') note.value = next;
-    suspendWritten = next;
-});
+// Opened from the Categories page with a violation already chosen.
+@if (request('violation'))
+openSuspendModal();
+@endif
 
 document.getElementById('suspendModal')?.addEventListener('click', function (e) {
     if (e.target === this) closeSuspendModal();

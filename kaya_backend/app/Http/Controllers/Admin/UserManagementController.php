@@ -80,7 +80,9 @@ class UserManagementController extends Controller
             'balance'           => app(\App\Services\CreditLedger::class)->balance($user),
             'suspensionReasons' => ModerationReasons::SUSPENSION,
             'offenses'          => $user->strikes()->latest()->get(),
-            'nextStep'          => app(\App\Services\StrikeService::class)->nextStep($user, 'policy_violation'),
+            // The penalty each violation would mean for this account now, as on Reports.
+            'penalties'         => collect(ModerationReasons::SUSPENSION)->map(fn ($r, $code) => \App\Services\StrikeService::stepText(
+                app(\App\Services\StrikeService::class)->nextStep($user, $code))),
         ]);
     }
 
@@ -134,10 +136,7 @@ class UserManagementController extends Controller
     {
         $data = $request->validate([
             'reason_code' => ['required', Rule::in(ModerationReasons::suspensionCodes())],
-            'note'        => ['nullable', 'string', 'max:1000'],
-        ]);
-
-        $data['note'] = ModerationReasons::noteOr($data['note'] ?? null, ModerationReasons::message($data['reason_code']));
+        ], ['reason_code.required' => 'Choose the violation.']);
 
         // An administrator locking out another administrator is not moderation,
         // and there is no way back in through this panel.
@@ -147,7 +146,7 @@ class UserManagementController extends Controller
 
         // The same count Reports use: the same offense costs the same
         // whichever page it was given from.
-        $offense = $strikes->issue($user, $data['reason_code'], $data['note'], Auth::user());
+        $offense = $strikes->issue($user, $data['reason_code'], Auth::user());
 
         AdminAction::record(
             'user.offense', 'user', $user->id,

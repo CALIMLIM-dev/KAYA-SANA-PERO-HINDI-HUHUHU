@@ -14,8 +14,8 @@ use Tests\TestCase;
     "Handled" used to be a button on its own, so a complaint could be marked
     upheld with nothing having happened to anybody: the queue emptied, the
     record said it was upheld, and the account it was about never heard a
-    word. Suspending, warning and taking no action are now three different
-    answers and one of them has to be given.
+    word. Violation Found, No Violation and False Report are three different
+    answers, one has to be given, and the system words each one.
 */
 class ReportClosureTest extends TestCase
 {
@@ -46,102 +46,67 @@ class ReportClosureTest extends TestCase
     }
 
     #[Test]
-    public function a_report_cannot_be_closed_as_upheld_without_saying_what_happened(): void
+    public function a_report_cannot_be_closed_without_a_decision(): void
     {
         $report = $this->report();
 
-        $this->actingAs($this->admin())
-            ->post("/admin/reports/{$report->id}/resolve", ['status' => 'resolved'])
-            ->assertSessionHasErrors('action');
+        $this->actingAs($this->admin())->post("/admin/reports/{$report->id}/resolve", [])
+            ->assertSessionHasErrors('decision');
+        $this->actingAs($this->admin())->post("/admin/reports/{$report->id}/resolve", ['decision' => 'violation'])
+            ->assertSessionHasErrors('reason_code');
 
         $this->assertSame('pending', $report->fresh()->status, 'nothing may close without a decision');
     }
 
     #[Test]
-    public function warning_an_account_tells_them(): void
+    public function a_violation_tells_them_in_its_own_words(): void
     {
         $report = $this->report();
 
         $this->actingAs($this->admin())
-            ->post("/admin/reports/{$report->id}/resolve", [
-                'status'          => 'resolved',
-                'action'          => 'strike',
-                // A first strike for a ladder rule is a warning.
-                'reason_code'     => 'inappropriate_content',
-                'resolution_note' => 'Keep the language civil.',
-            ])
+            ->post("/admin/reports/{$report->id}/resolve", ['decision' => 'violation', 'reason_code' => 'inappropriate_content'])
             ->assertRedirect(route('admin.reports.index'));
 
         $report->refresh();
+        $this->assertSame('violation', $report->outcome());
+        $this->assertSame('Violation found: Inappropriate content. Warning.', $report->resolution_note);
 
-        $this->assertSame('resolved', $report->status);
-        $this->assertStringStartsWith('Violation: Warning', (string) $report->resolution_note);
-
-        $this->assertDatabaseHas('user_notifications', [
-            'user_id' => $report->reported_id,
-            'type'    => 'moderation.warning',
-        ]);
+        // A first minor violation is a warning, sent in the violation's own line.
+        $notice = \App\Models\UserNotification::where('user_id', $report->reported_id)->where('type', 'moderation.warning')->firstOrFail();
+        $this->assertStringContainsString('You posted offensive, sexual or discriminatory content.', $notice->body);
     }
 
     #[Test]
-    public function closing_with_no_action_records_that_and_sends_nothing(): void
+    public function no_violation_tells_only_the_reporter(): void
     {
         $report = $this->report();
 
-        $this->actingAs($this->admin())
-            ->post("/admin/reports/{$report->id}/resolve", [
-                'status' => 'resolved',
-                'action' => 'none',
-                'resolution_note' => 'Checked the job post, it follows the rules.',
-            ])
+        $this->actingAs($this->admin())->post("/admin/reports/{$report->id}/resolve", ['decision' => 'no_violation'])
             ->assertRedirect(route('admin.reports.index'));
 
-        $this->assertStringStartsWith('No violation', (string) $report->fresh()->resolution_note);
-
-        // Not told "we took action" when nothing was done.
-        $this->assertSame('We checked your report. Thank you for telling us.', \App\Models\UserNotification::where('user_id', $report->reporter_id)
+        $this->assertSame('no_violation', $report->fresh()->outcome());
+        $this->assertSame(\App\Support\ModerationReasons::REPORTER_NO_VIOLATION, \App\Models\UserNotification::where('user_id', $report->reporter_id)
             ->where('type', 'report.decided')->value('body'));
-
-        // No warning - only the plain notice that it was closed.
-        $this->assertDatabaseMissing('user_notifications', [
-            'user_id' => $report->reported_id,
-            'type'    => 'moderation.warning',
-        ]);
-        $this->assertDatabaseHas('user_notifications', [
-            'user_id' => $report->reported_id,
-            'type'    => 'report.closed',
-        ]);
+        // They were never told about the report, so nothing is sent to close it.
+        $this->assertSame(0, \App\Models\UserNotification::where('user_id', $report->reported_id)->count());
     }
 
     #[Test]
-    public function nothing_has_to_be_typed_and_the_ready_made_words_are_kept(): void
+    public function a_false_report_counts_against_the_reporter(): void
     {
-        // Typing the same sentence on every decision was the admin's whole
-        // day. Left empty, the finding is still written - in ready-made words.
-        $dismissed = $this->report();
-        $this->actingAs($this->admin())
-            ->post("/admin/reports/{$dismissed->id}/resolve", ['status' => 'dismissed'])
+        $report = $this->report();
+
+        $this->actingAs($this->admin())->post("/admin/reports/{$report->id}/resolve", ['decision' => 'false_report'])
             ->assertRedirect(route('admin.reports.index'));
 
-        $this->assertSame('dismissed', $dismissed->fresh()->status);
-        $this->assertSame(\App\Support\ModerationReasons::NO_VIOLATION, $dismissed->fresh()->resolution_note);
-        $this->assertDatabaseHas('user_notifications', [
-            'user_id' => $dismissed->reporter_id,
-            'type'    => 'report.decided',
-        ]);
-
-        $confirmed = $this->report();
-        $this->actingAs($this->admin())
-            ->post("/admin/reports/{$confirmed->id}/resolve", [
-                'status' => 'resolved', 'action' => 'strike', 'reason_code' => 'no_show',
-            ])
-            ->assertRedirect(route('admin.reports.index'));
-
-        $this->assertSame(\App\Support\ModerationReasons::message('no_show'), $confirmed->strike()->value('finding'));
+        $this->assertSame('false', $report->fresh()->outcome());
+        $this->assertTrue((bool) $report->fresh()->baseless);
+        $this->assertSame(\App\Support\ModerationReasons::REPORTER_FALSE, \App\Models\UserNotification::where('user_id', $report->reporter_id)
+            ->where('type', 'report.decided')->value('body'));
+        $this->assertSame(0, \App\Models\UserNotification::where('user_id', $report->reported_id)->count());
     }
 
-    #[Test]
-    public function a_confirmed_problem_report_ends_the_hire_and_counts_only_against_the_side_at_fault(): void
+    private function jobProblem(): array
     {
         $category = \App\Models\Category::create(['name' => 'Plumbing', 'is_active' => true]);
         $employer = User::factory()->create(['is_verified' => true]);
@@ -157,10 +122,16 @@ class ReportClosureTest extends TestCase
             'reason_code' => 'work_not_done', 'reported_type' => 'application', 'subject_id' => $hire->id, 'status' => 'pending',
         ]);
 
+        return [$employer, $worker, $job, $hire, $report];
+    }
+
+    #[Test]
+    public function a_confirmed_job_problem_ends_the_hire_and_counts_only_against_the_side_at_fault(): void
+    {
+        [$employer, $worker, $job, $hire, $report] = $this->jobProblem();
+
         $this->actingAs($this->admin())
-            ->post("/admin/reports/{$report->id}/resolve", [
-                'status' => 'resolved', 'action' => 'strike', 'reason_code' => 'false_completion',
-            ])
+            ->post("/admin/reports/{$report->id}/resolve", ['decision' => 'violation', 'reason_code' => 'false_completion'])
             ->assertRedirect(route('admin.reports.index'));
 
         $hire->refresh();
@@ -170,30 +141,37 @@ class ReportClosureTest extends TestCase
         $this->assertFalse(app(\App\Services\HireCancellation::class)->actions($hire->load('job'), 'employer')['disputed'],
             'no more "A problem was reported" once it is settled');
 
+        // Not doing the work is serious: a week's suspension at once.
+        $this->assertSame('suspension', $report->fresh()->strike->action);
+
         $records = app(\App\Services\WorkRecord::class);
         $this->assertSame(1, $records->forWorker($worker)['jobs_unsuccessful']);
         $this->assertSame(0, $records->forEmployer($employer)['jobs_unsuccessful'], 'the employer did nothing wrong');
     }
 
     #[Test]
-    public function the_notes_are_written_already_and_dismiss_has_its_own(): void
+    public function a_false_job_problem_means_the_work_was_done_and_the_job_completes(): void
     {
-        // Asked for, many times: the ready-made words in the boxes, not behind them.
-        $report = $this->report();
-        $page = $this->actingAs($this->admin())->get("/admin/reports/{$report->id}")->assertOk();
-        $page->assertSee(\App\Support\ModerationReasons::NO_VIOLATION);
+        [$employer, $worker, $job, $hire, $report] = $this->jobProblem();
 
-        // The form sends both boxes and the action left on Add a Violation;
-        // Dismiss takes its own note and needs no violation.
         $this->actingAs($this->admin())
-            ->post("/admin/reports/{$report->id}/resolve", [
-                'status' => 'dismissed', 'action' => 'strike',
-                'resolution_note' => 'Words for a confirmed report.', 'dismiss_note' => 'Checked the chat. Nothing wrong.',
-            ])
-            ->assertSessionHasNoErrors()
+            ->post("/admin/reports/{$report->id}/resolve", ['decision' => 'false_report'])
             ->assertRedirect(route('admin.reports.index'));
 
-        $this->assertSame('Checked the chat. Nothing wrong.', $report->fresh()->resolution_note);
+        $this->assertSame('completed', $hire->fresh()->status);
+        $this->assertTrue((bool) $report->fresh()->baseless);
+    }
+
+    #[Test]
+    public function the_decision_is_two_dropdowns_and_no_notes(): void
+    {
+        $report = $this->report();
+
+        $this->actingAs($this->admin())->get("/admin/reports/{$report->id}")->assertOk()
+            ->assertSee('Violation Found')->assertSee('No Violation')->assertSee('False Report')
+            // The dropdown shows the exact words that will be sent.
+            ->assertSee('You sent abusive or threatening messages to another user.')
+            ->assertDontSee('Note (Optional)')->assertDontSee('<textarea', false);
     }
 
     #[Test]

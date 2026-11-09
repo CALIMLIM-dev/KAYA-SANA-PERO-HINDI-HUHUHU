@@ -618,8 +618,7 @@ class NotificationService
             audience: $this->hireAudience($hire, $confirmerId),
             type: 'application.disputed',
             title: 'The other side says the work was not done',
-            body: '"' . $hire->job?->title . '" will not complete by itself. KAYA will check both sides '
-                . 'and may ask for yours.',
+            body: '"' . $hire->job?->title . '" will not complete by itself. KAYA will review it.',
             referenceType: 'application',
             referenceId: $hire->id,
         );
@@ -885,20 +884,20 @@ class NotificationService
         [$type, $title, $effect] = match ($strike->action) {
             'warning'     => ['moderation.warning', 'A warning from KAYA',
                 'This is a warning. Your account is not limited.'],
-            'restriction' => ['moderation.strike', "You can't apply or post for {$strike->days} days",
-                'Until ' . $date($strike->ends_at) . ' you cannot apply, post jobs, invite, or post on the board. You can still chat and finish the jobs you have.'],
             'suspension'  => ['moderation.strike', "Your account is suspended for {$strike->days} days",
                 'Until ' . $date($strike->ends_at) . ' you can only open Account Status and Support.'],
             default       => ['moderation.strike', 'Your account is permanently banned',
                 'You can no longer use this account. You can only open Account Status and Support.'],
         };
 
+        // The violation's own line, what it does, and the way back.
         $this->push(
             userId: $strike->user_id,
             audience: UserNotification::AUDIENCE_BOTH,
             type: $type,
             title: $title,
-            body: 'Violation: ' . $strike->ruleLabel() . '. ' . $effect . ' See Account Status for details.',
+            body: $strike->ruleDescription() . ' ' . $effect . ' You can appeal within '
+                . config('moderation.appeal_days') . ' days from Account Status.',
             referenceType: 'strike',
             referenceId: $strike->id,
         );
@@ -936,11 +935,8 @@ class NotificationService
             userId: $strike->user_id,
             audience: UserNotification::AUDIENCE_BOTH,
             type: 'moderation.appeal',
-            title: $won ? 'Your review request was accepted' : 'Your review request was not accepted',
-            body: ($won
-                    ? 'The violation was removed and your account is no longer limited. '
-                    : 'The violation stays on your account. ')
-                . $strike->appeal_note,
+            title: $won ? 'Your appeal was accepted' : 'Your appeal was refused',
+            body: $won ? \App\Support\ModerationReasons::APPEAL_ACCEPTED : \App\Support\ModerationReasons::APPEAL_REFUSED,
             referenceType: 'strike',
             referenceId: $strike->id,
         );
@@ -970,25 +966,6 @@ class NotificationService
         );
     }
 
-    /*
-        A report was filed about you, and you may answer it.
-
-        Who filed it and what they wrote stay private. The reason and the
-        chance to give your side do not: a decision made on one account of
-        what happened is not a fair one.
-    */
-    public function reportFiled(\App\Models\Report $report): void
-    {
-        $this->push(
-            userId: $report->reported_id,
-            audience: UserNotification::AUDIENCE_BOTH,
-            type: 'report.filed',
-            title: 'A report about your account',
-            body: 'Someone reported your account for: ' . $report->reasonLabel() . '. Tap to see it and reply.',
-            referenceType: 'report',
-            referenceId: $report->id,
-        );
-    }
 
     /*
         What came of a report, to the person who filed it.
@@ -1004,31 +981,22 @@ class NotificationService
             with no strike used to tell the reporter action was taken while
             the reported person was told none was.
         */
-        $struck = $report->strike()->exists();
-
+        /*
+            Only the reporter hears how it ended. The reported person was
+            never told a report existed, so a report that came to nothing
+            says nothing to them; a violation tells them itself.
+        */
         $this->push(
             userId: $report->reporter_id,
             audience: UserNotification::AUDIENCE_BOTH,
             type: 'report.decided',
             title: 'Your report was reviewed',
             body: match (true) {
-                $struck                        => 'We checked your report and took action. Thank you for telling us.',
-                $report->status === 'resolved' => 'We checked your report. Thank you for telling us.',
-                default                        => 'We checked your report and did not find any violation.',
+                $report->strike()->exists() => \App\Support\ModerationReasons::REPORTER_ACTION,
+                (bool) $report->baseless    => \App\Support\ModerationReasons::REPORTER_FALSE,
+                default                     => \App\Support\ModerationReasons::REPORTER_NO_VIOLATION,
             },
         );
-
-        // The reported person hears it was closed, unless a warning or a
-        // suspension already told them.
-        if (! $struck) {
-            $this->push(
-                userId: $report->reported_id,
-                audience: UserNotification::AUDIENCE_BOTH,
-                type: 'report.closed',
-                title: 'A report about your account was closed',
-                body: 'We checked the report. No action was taken against you.',
-            );
-        }
     }
     /** An administrator took a community post down; the poster hears why. */
     public function communityPostRemoved(\App\Models\CommunityPost $post, string $reason): void

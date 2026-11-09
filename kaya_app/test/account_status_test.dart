@@ -9,7 +9,6 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:kaya_app/data/services/api_client.dart';
 import 'package:kaya_app/features/moderation/screens/account_status_screen.dart';
-import 'package:kaya_app/features/moderation/screens/report_response_screen.dart';
 import 'package:kaya_app/features/notifications/notification_destination.dart';
 import 'package:kaya_app/providers/app_mode_provider.dart';
 import 'package:kaya_app/providers/auth_provider.dart';
@@ -95,10 +94,10 @@ void main() {
     expect(find.text('Paint a gate'), findsOneWidget);
     expect(find.textContaining('2 violations on your account'), findsOneWidget);
 
-    await tester.tap(find.text('Request a Review'));
+    await tester.tap(find.text('Appeal'));
     await tester.pumpAndSettle();
 
-    final send = find.widgetWithText(ElevatedButton, 'Send Request');
+    final send = find.widgetWithText(ElevatedButton, 'Send Appeal');
     expect(tester.widget<ElevatedButton>(send).onPressed, isNull, reason: 'too short to send');
 
     await tester.enterText(find.byType(TextField), 'The employer changed the price on the day, the chat shows it.');
@@ -133,8 +132,8 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Good Standing'), findsOneWidget);
-    expect(find.textContaining('Accepted. The chat shows the price was agreed.'), findsOneWidget);
-    expect(find.text('Request a Review'), findsNothing);
+    expect(find.textContaining('The chat shows the price was agreed.'), findsOneWidget);
+    expect(find.text('Appeal'), findsNothing);
   });
 
   testWidgets('a suspended sign-in reaches its status on the short session, with support and sign out',
@@ -158,41 +157,6 @@ void main() {
     expect(find.text('Sign Out'), findsOneWidget);
     // No way past it but signing out.
     expect(find.byType(BackButton), findsNothing);
-  });
-
-  testWidgets('a report about you shows the rule and your content, never the reporter', (tester) async {
-    RenderHarness.stubPlatformChannels(tester);
-    phone(tester);
-    server.report = {
-      'id': 9,
-      'reason': 'Misleading job post',
-      'rule': 'The work, pay, or location was not what was advertised.',
-      'content': {'kind': 'Job post', 'title': 'Paint a gate', 'text': '1500 for one day'},
-      'filed_at': '2026-10-14T01:00:00Z',
-      'status': 'pending',
-      'outcome': null,
-      'can_respond': true,
-      'response': null,
-      'photos_sent': 0,
-    };
-
-    await tester.pumpWidget(app(const ReportResponseScreen(reportId: 9)));
-    await tester.pumpAndSettle();
-
-    expect(find.text('Misleading job post'), findsOneWidget);
-    expect(find.text('The work, pay, or location was not what was advertised.'), findsOneWidget);
-    expect(find.text('Paint a gate'), findsOneWidget);
-    expect(find.textContaining('Being reviewed.'), findsOneWidget);
-    expect(find.textContaining('Photos (Optional)'), findsOneWidget);
-
-    await tester.enterText(find.byType(TextField), 'I paid exactly what the chat agreed.');
-    await tester.pump();
-    await tester.ensureVisible(find.text('Send Reply'));
-    await tester.tap(find.text('Send Reply'));
-    await tester.pumpAndSettle();
-
-    expect(server.calls, contains('POST /reports/9/respond'));
-    await tester.pump(const Duration(seconds: 4));
   });
 
   test('a strike notification opens Account status', () {

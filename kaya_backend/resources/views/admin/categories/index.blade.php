@@ -116,6 +116,11 @@
                         <span class="px-2 py-0.5 rounded-full text-xs bg-slate-100 text-slate-600">
                             Added by {{ $selected->creator?->name ?? 'a user' }}
                         </span>
+                        {{-- A joke or fake category is its own violation. --}}
+                        @if ($selected->creator && ! $selected->creator->isAdmin() && auth()->user()->adminCan('suspend'))
+                            <a href="{{ route('admin.users.show', ['user' => $selected->created_by, 'violation' => 'category_misuse']) }}"
+                               class="text-xs font-medium text-red-600 hover:text-red-700">Add a Violation</a>
+                        @endif
                     @endif
                 </div>
                 <p class="mt-1 text-sm text-slate-500 tabular-nums">

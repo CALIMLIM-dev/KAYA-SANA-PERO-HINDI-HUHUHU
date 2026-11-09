@@ -19,8 +19,8 @@ use Tests\TestCase;
     facilitate proper evaluation and resolution."
 
     Submitting: a written account, photos, and a saved copy of what was
-    reported. Processing: the reported person's side, all of it on the
-    admin page, and a written finding before anything is closed.
+    reported. Processing: all of it on the admin page, and a decision the
+    system words the same way every time.
 */
 class ReportEvidenceTest extends TestCase
 {
@@ -106,77 +106,56 @@ class ReportEvidenceTest extends TestCase
     }
 
     #[Test]
-    public function the_reported_person_is_told_and_may_answer_once(): void
+    public function the_new_report_types_keep_their_own_content(): void
     {
-        $this->file()->assertCreated();
-        $report = Report::firstOrFail();
+        $post = \App\Models\CommunityPost::create(['user_id' => $this->reporter->id, 'type' => 'employer', 'title' => 'Need a plumber', 'body' => 'Sink leaks.', 'status' => 'live', 'expires_at' => now()->addDays(3)]);
+        $comment = \App\Models\CommunityComment::create(['community_post_id' => $post->id, 'user_id' => $this->reported->id,
+            'body' => 'Message me on another app, I am cheaper.', 'status' => 'live']);
 
-        $this->assertDatabaseHas('user_notifications', [
-            'user_id' => $this->reported->id, 'type' => 'report.filed', 'reference_id' => $report->id,
-        ]);
+        $this->file(['subject_type' => 'community_comment', 'subject_id' => $comment->id])->assertCreated();
+        $report = Report::latest('id')->firstOrFail();
+        $this->assertSame('Community Comment', $report->typeLabel());
+        $this->assertSame('Message me on another app, I am cheaper.', $report->snapshot['text']);
 
-        $view = $this->actingAs($this->reported, 'sanctum')->getJson("/api/v1/reports/{$report->id}")->assertOk();
-        $view->assertJsonPath('data.can_respond', true);
-        // Never who filed it, nor what they wrote.
-        $this->assertStringNotContainsString('Rosa', $view->getContent());
-        $this->assertStringNotContainsString('deposit', $view->getContent());
-
-        $this->actingAs($this->reported, 'sanctum')
-            ->postJson("/api/v1/reports/{$report->id}/respond", ['response' => 'I only asked for materials money.'])
-            ->assertOk();
-        $this->actingAs($this->reported, 'sanctum')
-            ->postJson("/api/v1/reports/{$report->id}/respond", ['response' => 'And another thing, a second time.'])
-            ->assertStatus(422);
-
-        $this->assertSame('I only asked for materials money.', $report->fresh()->response);
+        // A review: only one written about the reporter, by the person reported.
+        $job = \App\Models\JobPost::create(['employer_id' => $this->reported->id, 'title' => 'Fix the sink', 'description' => 'x', 'status' => 'completed']);
+        $review = \App\Models\Review::create(['reviewer_id' => $this->reported->id, 'reviewee_id' => $this->reporter->id, 'job_id' => $job->id,
+            'reviewee_role' => 'worker', 'rating' => 1, 'comment' => 'Worst worker ever, never hire.']);
+        $this->file(['subject_type' => 'review', 'subject_id' => $review->id, 'reason_code' => 'fake_review'])->assertCreated();
+        $this->assertSame('Review', Report::latest('id')->firstOrFail()->snapshot['kind']);
     }
 
     #[Test]
-    public function nobody_else_can_read_or_answer_it(): void
+    public function the_admin_page_shows_the_evidence_and_the_type(): void
     {
         $this->file()->assertCreated();
         $report = Report::firstOrFail();
-
-        $this->actingAs($this->reporter, 'sanctum')->getJson("/api/v1/reports/{$report->id}")->assertNotFound();
-        $this->actingAs($this->reporter, 'sanctum')
-            ->postJson("/api/v1/reports/{$report->id}/respond", ['response' => 'Pretending to be them.'])
-            ->assertNotFound();
-    }
-
-    #[Test]
-    public function the_admin_page_shows_the_evidence_and_both_sides(): void
-    {
-        $this->file()->assertCreated();
-        $report = Report::firstOrFail();
-        $report->update(['response' => 'I only asked for materials money.', 'responded_at' => now()]);
 
         $admin = User::factory()->create(['user_type' => 'admin']);
 
         $this->actingAs($admin)->get("/admin/reports/{$report->id}")
             ->assertOk()
-            ->assertSee('What Was Reported')
-            ->assertSee('Juan Dela Cruz')
-            // Their side, under their own name.
-            ->assertSee('Reply from Juan Dela Cruz')
-            ->assertSee('I only asked for materials money.');
+            ->assertSee('Account')
+            ->assertSee('Reported Content')
+            ->assertSee('Juan Dela Cruz');
+        $this->actingAs($admin)->get('/admin/reports?type=user')->assertOk()->assertSee('Juan Dela Cruz');
+        $this->actingAs($admin)->get('/admin/reports?type=review')->assertOk()->assertDontSee('Juan Dela Cruz');
     }
 
     #[Test]
-    public function the_reporter_hears_the_outcome(): void
+    public function the_reporter_hears_the_outcome_in_fixed_words(): void
     {
         $this->file()->assertCreated();
         $report = Report::firstOrFail();
         $admin = User::factory()->create(['user_type' => 'admin']);
 
-        $report->update(['response' => 'It was for materials.', 'responded_at' => now()]);
-
         $this->actingAs($admin)->post("/admin/reports/{$report->id}/resolve", [
-            'status' => 'resolved', 'action' => 'strike', 'reason_code' => 'misleading_postings',
-            'resolution_note' => 'The messages show a deposit was demanded.',
+            'decision' => 'violation', 'reason_code' => 'spam',
         ])->assertRedirect();
 
         $this->assertDatabaseHas('user_notifications', [
             'user_id' => $this->reporter->id, 'type' => 'report.decided',
+            'body' => 'We reviewed your report and took action.',
         ]);
         $this->assertSame(1, UserNotification::where('user_id', $this->reported->id)->where('type', 'moderation.warning')->count());
     }

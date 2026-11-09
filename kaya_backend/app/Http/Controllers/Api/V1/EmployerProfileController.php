@@ -548,6 +548,9 @@ class EmployerProfileController extends Controller
                 'posted_at'  => $j->created_at?->diffForHumans(),
             ])->values(),
             'reviews'        => $reviews->map(fn ($r) => [
+                // So a review about you can be reported from it.
+                'id'          => $r->id,
+                'reviewer_id' => $r->reviewer_id,
                 'reviewer' => $r->reviewer?->name,
                 'rating'   => $r->rating,
                 'date'     => $r->created_at?->diffForHumans(),

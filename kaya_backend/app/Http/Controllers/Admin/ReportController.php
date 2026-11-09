@@ -17,25 +17,45 @@ class ReportController extends Controller
 {
     public function __construct(private StrikeService $strikes) {}
 
+    /*
+        The queue, by how it ended, what was reported, and who.
+
+        Tabs: Pending, Violation Found, No Violation, False Report, All. A
+        link from before the tabs were renamed (?status=resolved) still
+        lands somewhere sensible.
+    */
     public function index(Request $request)
     {
-        $status = $request->get('status', 'pending');
+        $tab = $request->get('tab', match ($request->get('status')) {
+            'resolved'  => 'violation',
+            'dismissed' => 'no_violation',
+            'all'       => 'all',
+            default     => 'pending',
+        });
+        $tab = array_key_exists($tab, Report::OUTCOMES) || $tab === 'all' ? $tab : 'pending';
+        $type = array_key_exists((string) $request->get('type'), ModerationReasons::REPORT_TYPES) ? $request->get('type') : null;
+        $search = trim((string) $request->get('q', ''));
 
-        $reports = Report::with(['reporter:id,name', 'reported:id,name,is_suspended'])
-            ->when($status !== 'all', fn ($q) => $q->where('status', $status))
+        $reports = Report::with(['reporter:id,name', 'reported:id,name,is_suspended', 'reviewer:id,name', 'strike'])
+            ->withOutcome($tab)
+            ->when($type, fn ($q) => $q->where('reported_type', $type))
+            ->when($search !== '', fn ($q) => $q->where(fn ($q) => $q
+                ->whereHas('reported', fn ($u) => $u->where('name', 'like', "%{$search}%"))
+                ->orWhereHas('reporter', fn ($u) => $u->where('name', 'like', "%{$search}%"))))
             // Pending is a work queue, so the most serious thing comes first.
             // Everything else is a record, so it reads newest first.
-            ->when($status === 'pending', fn ($q) => $q->mostSerious(), fn ($q) => $q->latest())
+            ->when($tab === 'pending', fn ($q) => $q->mostSerious(), fn ($q) => $q->latest('resolved_at')->latest())
             ->paginate(15)
             ->withQueryString();
 
-        $counts = Report::selectRaw('status, COUNT(*) as total')
-            ->groupBy('status')
-            ->pluck('total', 'status');
+        $counts = collect(array_keys(Report::OUTCOMES))
+            ->mapWithKeys(fn ($o) => [$o => Report::withOutcome($o)->count()]);
 
         return view('admin.reports.index', [
             'reports' => $reports,
-            'status'  => $status,
+            'tab'     => $tab,
+            'type'    => $type,
+            'search'  => $search,
             'counts'  => $counts,
         ]);
     }
@@ -92,11 +112,29 @@ class ReportController extends Controller
             'pastJobs'          => $this->pastJobs($report),
             'proof'             => $hire?->completion_photos ?? [],
             'strikesOnRecord'   => $reported ? $reported->strikes()->latest()->get() : collect(),
-            // What a strike would do now, on the ladder and for a critical rule.
-            'nextStep'          => $reported ? $this->strikes->nextStep($reported, 'policy_violation') : null,
+            // The penalty each violation would mean for this account now.
+            'penalties'         => $reported
+                ? collect(ModerationReasons::SUSPENSION)->map(fn ($r, $code) => StrikeService::stepText($this->strikes->nextStep($reported, $code)))
+                : collect(),
             'suspensionReasons' => ModerationReasons::SUSPENSION,
             'suggested'         => ModerationReasons::suggestedSuspension($report->reason_code),
+            'subjectLink'       => $this->subjectLink($report),
         ]);
+    }
+
+    /** Where the reported thing lives on the panel, when it has a page. */
+    private function subjectLink(Report $report): ?string
+    {
+        $id = $report->subject_id;
+
+        return match ($report->reported_type) {
+            'job'               => $id ? route('admin.jobs.show', $id) : null,
+            'application'       => $id && ($hire = Application::find($id)) ? route('admin.jobs.show', $hire->job_id) : null,
+            'community_post'    => route('admin.community.index'),
+            'community_comment' => route('admin.community.index'),
+            'review'            => route('admin.reviews.index'),
+            default             => $report->reported_id ? route('admin.users.show', $report->reported_id) : null,
+        };
     }
 
     /** The jobs the two share, newest first. Each links to its own page. */
@@ -115,114 +153,35 @@ class ReportController extends Controller
             ->latest()->take(10)->get();
     }
 
-    /*
-        Dismiss it, or confirm it - with a strike, or with no strike.
-
-        Decided whenever the admin is ready: the reported person's reply is
-        shown if it came, but nothing waits for it. A strike's effect comes
-        from the strike count, not from whoever is on shift - see
-        StrikeService. A dismissal can be marked as a false report, which
-        counts against the reporter.
-
-        The finding is written every time - the panel asked for relevant
-        details when a report is processed - but not typed every time: left
-        empty, it is the violation's own words, or a plain line for no
-        violation. See ModerationReasons::noteOr.
-    */
-    public function resolve(Request $request, Report $report)
+    /** One of three decisions; see ReportDecisionService for what each does. */
+    public function resolve(Request $request, Report $report, \App\Services\ReportDecisionService $decisions)
     {
         $data = $request->validate([
-            'status'          => ['required', Rule::in(['resolved', 'dismissed'])],
-            'action'          => ['required_if:status,resolved', 'nullable', Rule::in(['strike', 'none'])],
-            // Only for a confirmed report: Dismiss sits in the same form, under
-            // a choice that starts on Add a Violation.
-            'reason_code'     => [Rule::requiredIf(fn () => $request->input('status') === 'resolved' && $request->input('action') === 'strike'),
-                'nullable', Rule::in(ModerationReasons::suspensionCodes())],
-            'baseless'        => ['nullable', 'boolean'],
-            'resolution_note' => ['nullable', 'string', 'max:1000'],
-            'dismiss_note'    => ['nullable', 'string', 'max:1000'],
+            'decision'    => ['required', Rule::in(\App\Services\ReportDecisionService::DECISIONS)],
+            'reason_code' => ['required_if:decision,violation', 'nullable', Rule::in(ModerationReasons::suspensionCodes())],
         ], [
-            'action.required_if'       => 'Say what happens to the account before closing the report.',
-            'reason_code.required'     => 'Choose the violation.',
+            'decision.required'       => 'Choose a decision.',
+            'reason_code.required_if' => 'Choose the violation.',
         ]);
 
-        // A second submit would notify both people a second time.
-        if (in_array($report->status, ['resolved', 'dismissed'], true)) {
-            return back()->withErrors(['resolution_note' => 'This report has already been closed.']);
+        if ($error = $decisions->decide($report, $data['decision'], $data['reason_code'] ?? null, Auth::user(), $strike)) {
+            return back()->withErrors(['decision' => $error]);
         }
 
-        $upheld = $data['status'] === 'resolved';
-
-        // Dismiss has its own box, written for a dismissal.
-        $typed = $upheld || ! array_key_exists('dismiss_note', $data)
-            ? ($data['resolution_note'] ?? null)
-            : $data['dismiss_note'];
-
-        $data['resolution_note'] = ModerationReasons::noteOr($typed, match (true) {
-            $upheld && ($data['action'] ?? null) === 'strike' => ModerationReasons::message($data['reason_code'] ?? null),
-            $upheld => ModerationReasons::CONFIRMED_NO_VIOLATION,
-            default => ModerationReasons::NO_VIOLATION,
-        });
-
-        $strike = null;
-
-        if ($upheld && $data['action'] === 'strike') {
-            if ($report->reported === null) {
-                return back()->withErrors(['reason_code' => 'The reported account no longer exists.']);
-            }
-            if ($report->reported->isAdmin()) {
-                return back()->withErrors(['reason_code' => 'Administrator accounts cannot be given violations.']);
-            }
-
-            $strike = $this->strikes->issue($report->reported, $data['reason_code'], $data['resolution_note'], Auth::user(), $report);
-        }
-
-        $note = match (true) {
-            $strike !== null => 'Violation: ' . $strike->actionLabel() . ' (' . $strike->ruleLabel() . ') - ' . $data['resolution_note'],
-            $upheld          => 'No violation - ' . $data['resolution_note'],
-            default          => $data['resolution_note'],
-        };
-        $baseless = ! $upheld && (bool) ($data['baseless'] ?? false);
-
-        $report->update([
-            'status'          => $data['status'],
-            'resolution_note' => $note,
-            'baseless'        => $baseless,
-            'reviewed_by'     => Auth::id(),
-            'resolved_at'     => now(),
-        ]);
-
-        app(\App\Services\NotificationService::class)->reportDecided($report->fresh());
-
-        // A report saying a hire "didn't happen" settles that hire too.
-        if ($report->reported_type === 'application' && $report->subject_id) {
-            if ($hire = \App\Models\Application::with('job')->find($report->subject_id)) {
-                $completion = app(\App\Services\JobCompletionService::class);
-                // The reported side claimed work that did not happen: theirs.
-                $fault = $report->reported ? $completion->sideFor($hire, $report->reported) : null;
-                $completion->settleDispute($hire, $upheld, $fault);
-            }
-        }
-
-        if ($baseless && $report->reporter) {
-            $this->strikes->recordFalseReport($report->reporter);
-        }
+        $outcome = \App\Services\ReportDecisionService::outcomeOf($data['decision']);
 
         AdminAction::record(
-            'report.' . $data['status'], 'report', $report->id,
-            ucfirst($data['status']) . " report #{$report->id} against " . ($report->reported?->name ?? 'a deleted account')
-                . ($upheld ? ' (' . $note . ')' : ($baseless ? ' as a false report' : '')),
-            ['reported_id' => $report->reported_id, 'action' => $data['action'] ?? null, 'strike_id' => $strike?->id,
-             'baseless' => $baseless, 'note' => $data['resolution_note']],
+            'report.' . $data['decision'], 'report', $report->id,
+            "{$outcome}: report #{$report->id} against " . ($report->reported?->name ?? 'a deleted account')
+                . ($strike ? ' (' . $strike->ruleLabel() . ', ' . $strike->actionLabel() . ')' : ''),
+            ['reported_id' => $report->reported_id, 'decision' => $data['decision'], 'strike_id' => $strike?->id],
         );
 
         return redirect()
             ->route('admin.reports.index')
-            ->with('success', match (true) {
-                ! $upheld        => 'Report dismissed.',
-                $strike !== null => 'Report confirmed. ' . $report->reported->name . ': ' . $strike->actionLabel() . '.',
-                default          => 'Report confirmed. No violation added.',
-            });
+            ->with('success', $strike
+                ? "{$outcome}. " . $report->reported->name . ': ' . $strike->actionLabel() . '.'
+                : "Report closed: {$outcome}.");
     }
 
     /*

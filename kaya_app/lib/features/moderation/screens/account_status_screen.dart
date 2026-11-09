@@ -8,7 +8,8 @@ import '../../../core/widgets/kaya_popup.dart';
 import '../../../data/services/api_client.dart';
 import '../../../providers/app_mode_provider.dart';
 import '../../../providers/auth_provider.dart';
-import 'report_response_screen.dart';
+import '../moderation_date.dart';
+import '../widgets/reported_content.dart';
 
 /*
     Where your account stands, and the way to argue with it.
@@ -186,7 +187,7 @@ class _StandingCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final until = status['suspended_until'] ?? status['restricted_until'];
     final (title, line) = switch (status['standing']) {
-      'banned' => ('Banned', 'You can no longer use this account. You can still request a review or message Support.'),
+      'banned' => ('Banned', 'You can no longer use this account. You can still appeal or message Support.'),
       'suspended' => (
           until == null ? 'Suspended' : 'Suspended Until ${formatModerationDate(until, time: true)}',
           'You can only open this page and Support.',
@@ -268,7 +269,7 @@ class _StrikeCard extends StatelessWidget {
               child: Text('${strike['rule_description']}',
                   style: const TextStyle(fontSize: 12.5, height: 1.4, color: AppColors.neutral600)),
             ),
-          _line('What We Found', '${strike['finding']}'),
+          _line('Reason', '${strike['finding']}'),
           if (content != null) ...[
             const SizedBox(height: 4),
             ReportedContent(content: content),
@@ -280,10 +281,10 @@ class _StrikeCard extends StatelessWidget {
           if (appeal != null) ...[
             const Divider(height: 20),
             _line(
-              'Your Review Request',
+              'Your Appeal',
               switch (appeal['status']) {
-                'overturned' => 'Accepted. ${appeal['note'] ?? ''}',
-                'upheld' => 'Not accepted. ${appeal['note'] ?? ''}',
+                'overturned' => '${appeal['note'] ?? 'Your appeal was accepted. The violation was removed.'}',
+                'upheld' => '${appeal['note'] ?? 'Your appeal was refused. The violation stays.'}',
                 _ => 'Sent ${formatModerationDate(appeal['sent_at'])}. Waiting for a decision.',
               },
             ),
@@ -293,11 +294,11 @@ class _StrikeCard extends StatelessWidget {
               children: [
                 Expanded(
                   child: Text(
-                    'You can request a review until ${formatModerationDate(strike['appeal_by'])}.',
+                    'You can appeal until ${formatModerationDate(strike['appeal_by'])}.',
                     style: const TextStyle(fontSize: 12.5, color: AppColors.neutral600),
                   ),
                 ),
-                OutlinedButton(onPressed: onAppeal, child: const Text('Request a Review')),
+                OutlinedButton(onPressed: onAppeal, child: const Text('Appeal')),
               ],
             ),
           ],
@@ -362,7 +363,7 @@ class _AppealFormState extends State<_AppealForm> {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text('Request a Review', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700)),
+          const Text('Appeal', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700)),
           const SizedBox(height: 4),
           Text(widget.rule, style: const TextStyle(fontSize: 13, color: AppColors.neutral600)),
           const SizedBox(height: 14),
@@ -389,7 +390,7 @@ class _AppealFormState extends State<_AppealForm> {
                   foregroundColor: Colors.white,
                   elevation: 0,
                 ),
-                child: const Text('Send Request'),
+                child: const Text('Send Appeal'),
               ),
             ],
           ),

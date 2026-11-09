@@ -148,24 +148,28 @@ return [
     ],
 
     /*
-        Reports, strikes and appeals. See StrikeService.
+        Reports, violations and appeals. See StrikeService.
 
-        A strike counts for `strike_days`, then drops off. The ladder is what
-        the Nth strike still counting leads to; anything past the last rung
-        repeats it. Reasons marked critical in ModerationReasons skip the
-        ladder and go to a ban, which needs a second administrator before it
-        is permanent and holds as a `ban_hold_days` suspension until then.
+        A violation counts for `strike_days`, then drops off. The penalty
+        comes from the severity of the violation found and how many are
+        still counting, this one included: the Nth step of its ladder, the
+        last step for anything past the end.
     */
     'strike_days' => 180,
-    'ladder' => [
-        1 => ['action' => 'warning',     'days' => null],
-        2 => ['action' => 'restriction', 'days' => 3],
-        3 => ['action' => 'suspension',  'days' => 7],
-        4 => ['action' => 'suspension',  'days' => 30],
-        5 => ['action' => 'ban',         'days' => null],
+    'ladders' => [
+        'minor'    => [
+            ['action' => 'warning',    'days' => null],
+            ['action' => 'suspension', 'days' => 7],
+            ['action' => 'ban',        'days' => null],
+        ],
+        'serious'  => [
+            ['action' => 'suspension', 'days' => 7],
+            ['action' => 'ban',        'days' => null],
+        ],
+        'critical' => [
+            ['action' => 'ban',        'days' => null],
+        ],
     ],
-
-
 
     // How long after a strike it can be appealed.
     'appeal_days' => 30,

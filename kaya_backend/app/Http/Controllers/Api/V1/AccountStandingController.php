@@ -74,8 +74,8 @@ class AccountStandingController extends Controller
 
         if (! $strike->canAppeal()) {
             return response()->json(['success' => false, 'data' => null, 'message' => $strike->appealed_at
-                ? 'You already requested a review of this violation.'
-                : 'The time to request a review has passed.'], 422);
+                ? 'You already appealed this violation.'
+                : 'The time to appeal has passed.'], 422);
         }
 
         $data = $request->validate(['appeal' => ['required', 'string', 'min:20', 'max:2000']]);
@@ -83,6 +83,6 @@ class AccountStandingController extends Controller
         $strikes->appeal($strike, $data['appeal']);
 
         return response()->json(['success' => true, 'data' => null,
-            'message' => 'Request sent. A different admin will decide it.']);
+            'message' => 'Appeal sent. KAYA will review it.']);
     }
 }

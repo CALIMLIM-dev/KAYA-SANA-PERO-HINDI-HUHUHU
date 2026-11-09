@@ -19,19 +19,29 @@ class StrikeController extends Controller
 
     public function index(Request $request)
     {
-        $tab = $request->get('tab', 'appeals') === 'all' ? 'all' : 'appeals';
+        $tab = in_array($request->get('tab'), ['appeals', 'suspended', 'banned', 'all'], true) ? $request->get('tab') : 'appeals';
         $search = trim((string) $request->get('q', ''));
 
+        // Suspended now: a suspension still running. Banned: a ban still standing.
+        $scope = fn (string $t) => match ($t) {
+            'appeals'   => fn ($q) => $q->where('appeal_status', 'pending'),
+            'suspended' => fn ($q) => $q->whereNull('removed_at')->where('action', 'suspension')->where('ends_at', '>', now()),
+            'banned'    => fn ($q) => $q->whereNull('removed_at')->where('action', 'ban'),
+            default     => fn ($q) => $q,
+        };
+
         $query = Strike::with(['user:id,name,is_suspended', 'issuer:id,name'])
+            ->where($scope($tab))
             ->when($search !== '', fn ($q) => $q->whereHas('user', fn ($u) => $u->where('name', 'like', "%{$search}%")))
-            ->when($tab === 'appeals', fn ($q) => $q->where('appeal_status', 'pending')->orderBy('appealed_at'))
-            ->when($tab === 'all', fn ($q) => $q->latest());
+            ->when($tab === 'appeals', fn ($q) => $q->orderBy('appealed_at'))
+            ->when($tab === 'suspended', fn ($q) => $q->orderBy('ends_at'))
+            ->when(in_array($tab, ['banned', 'all'], true), fn ($q) => $q->latest());
 
         return view('admin.strikes.index', [
             'tab'     => $tab,
             'search'  => $search,
             'strikes' => $query->paginate(20)->withQueryString(),
-            'counts'  => ['appeals' => Strike::where('appeal_status', 'pending')->count()],
+            'counts'  => collect(['appeals', 'suspended', 'banned'])->mapWithKeys(fn ($t) => [$t => Strike::where($scope($t))->count()]),
         ]);
     }
 
@@ -51,21 +61,16 @@ class StrikeController extends Controller
     {
         $data = $request->validate([
             'decision' => ['required', 'in:upheld,overturned'],
-            'note'     => ['nullable', 'string', 'max:1000'],
-        ]);
+        ], ['decision.required' => 'Choose Accept or Refuse.']);
 
-        $data['note'] = \App\Support\ModerationReasons::noteOr($data['note'] ?? null, $data['decision'] === 'overturned'
-            ? \App\Support\ModerationReasons::REVIEW_ACCEPTED
-            : \App\Support\ModerationReasons::REVIEW_REFUSED);
-
-        if ($error = $this->strikes->decideAppeal($strike, Auth::user(), $data['decision'] === 'overturned', $data['note'])) {
-            return back()->withErrors(['note' => $error])->withInput();
+        if ($error = $this->strikes->decideAppeal($strike, Auth::user(), $data['decision'] === 'overturned')) {
+            return back()->withErrors(['decision' => $error]);
         }
 
         AdminAction::record(
             'strike.appeal.' . $data['decision'], 'user', $strike->user_id,
-            ($data['decision'] === 'overturned' ? 'Accepted' : 'Refused') . " the review request on violation #{$strike->id} ({$strike->user?->name})",
-            ['strike_id' => $strike->id, 'note' => $data['note']],
+            ($data['decision'] === 'overturned' ? 'Accepted' : 'Refused') . " the appeal on violation #{$strike->id} ({$strike->user?->name})",
+            ['strike_id' => $strike->id],
         );
 
         return back()->with('success', $data['decision'] === 'overturned'

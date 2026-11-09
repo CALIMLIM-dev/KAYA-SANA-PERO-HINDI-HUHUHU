@@ -266,6 +266,7 @@ class User extends Authenticatable
         'password'          => 'hashed',
         'is_verified'       => 'boolean',
         'is_suspended'      => 'boolean',
+        'is_demo'           => 'boolean',
         'must_change_password' => 'boolean',
         'deleted_at'        => 'datetime',
         'terms_accepted'    => 'boolean',
