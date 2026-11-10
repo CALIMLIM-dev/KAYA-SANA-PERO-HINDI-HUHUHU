@@ -125,7 +125,7 @@ class SupportController extends Controller
             'queue_since' => null, 'queue_saved_until' => null, 'assistant_back_at' => now(),
         ])->save();
 
-        return redirect()->route('admin.support.index')->with('success', 'Handed back to KAYA Assistant.');
+        return redirect()->route('admin.support.index')->with('success', 'You left the chat. KAYA Assistant is answering again.');
     }
 
     /** Not answering: back in line at the same place, for the next agent. */
@@ -134,7 +134,7 @@ class SupportController extends Controller
         KayaAssistant::event($thread, 'A KAYA agent will be with you soon. You keep your place in line.');
         $thread->forceFill(['assigned_to' => null, 'agent_joined_at' => null])->save();
 
-        return redirect()->route('admin.support.index')->with('success', 'Back in line, at the same place.');
+        return redirect()->route('admin.support.index')->with('success', 'The chat is back in Waiting for another agent.');
     }
 
     /** Taking support chats right now, or not. With nobody taking them, people are told the team is offline. */

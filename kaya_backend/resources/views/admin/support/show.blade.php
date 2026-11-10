@@ -50,11 +50,11 @@
         @if ($mine && $thread->agent_joined_at)
             <form method="POST" action="{{ route('admin.support.handback', $thread) }}">
                 @csrf
-                <button class="px-3 py-2 border border-slate-300 text-slate-700 rounded-lg text-sm hover:bg-slate-50">Hand Back to Assistant</button>
+                <button class="px-3 py-2 border border-slate-300 text-slate-700 rounded-lg text-sm hover:bg-slate-50" title="You leave the chat and KAYA Assistant answers again">Leave Chat</button>
             </form>
             <form method="POST" action="{{ route('admin.support.putback', $thread) }}">
                 @csrf
-                <button class="px-3 py-2 border border-slate-300 text-slate-700 rounded-lg text-sm hover:bg-slate-50">Put Back in Line</button>
+                <button class="px-3 py-2 border border-slate-300 text-slate-700 rounded-lg text-sm hover:bg-slate-50" title="The chat goes back to Waiting for another agent">Give to Another Agent</button>
             </form>
         @endif
         <form method="POST" action="{{ route('admin.support.close', $thread) }}"

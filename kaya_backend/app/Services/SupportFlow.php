@@ -60,6 +60,28 @@ class SupportFlow
     }
 
     /*
+        Whether a tap is on the buttons showing now.
+
+        Only the newest line carries buttons, but a slow phone, a double tap
+        or the Menu button pressed again sent the same choice over and over,
+        and every one wrote another pair of lines. A tap counts when its key
+        is on the newest assistant line; Main Menu counts unless the menu is
+        already the newest thing. An empty chat takes any first tap.
+    */
+    public function current(SupportThread $thread, string $key): bool
+    {
+        $latest = $thread->messages()->where(fn ($q) => $q->whereNull('kind')->orWhere('kind', '!=', 'event'))
+            ->latest('id')->first();
+        $options = $latest && $latest->from_admin ? array_column((array) ($latest->payload['options'] ?? []), 'key') : [];
+
+        if ($key === 'menu') {
+            return $options !== array_column(self::topicOptions(), 'key');
+        }
+
+        return $latest === null || in_array($key, $options, true);
+    }
+
+    /*
         One tap in the menu. Answers with [what they picked, what the
         assistant said], both saved in the thread. Null for a key that is
         not on the menu.
@@ -82,8 +104,8 @@ class SupportFlow
 
         if ($key === 'helped') {
             return [
-                $this->asked($thread, $user, 'That helped'),
-                $this->reply($thread, 'Glad to help. Anything else?', options: [['key' => 'menu', 'label' => 'Show the Menu']]),
+                $this->asked($thread, $user, 'Yes, solved'),
+                $this->reply($thread, 'Glad it is sorted. Anything else?', options: [['key' => 'menu', 'label' => 'Main Menu']]),
             ];
         }
 
@@ -124,15 +146,15 @@ class SupportFlow
             KayaAssistant::bump('issue:' . $topic . '.' . $issueKey . ':' . now('Asia/Manila')->format('H'));
 
             $read = isset($issue['read']) ? $this->read($user, $issue['read']) : null;
-            $body = trim(($read ? $read . "\n\n" : '') . $issue['answer']);
+            $body = trim(($read ? $read . "\n\n" : '') . $issue['answer']) . "\n\nDid this solve it?";
 
             return [
                 $this->asked($thread, $user, $issue['label']),
                 $this->reply($thread, $body,
                     options: [
-                        ['key' => 'helped', 'label' => 'That Helped'],
-                        ['key' => 'agent', 'label' => 'Talk to an Agent'],
-                        ['key' => 'menu', 'label' => 'Something Else'],
+                        ['key' => 'helped', 'label' => 'Yes, Solved'],
+                        ['key' => 'agent', 'label' => 'No, Talk to an Agent'],
+                        ['key' => 'menu', 'label' => 'Ask Something Else'],
                     ],
                     actions: $issue['actions'] ?? [],
                 ),

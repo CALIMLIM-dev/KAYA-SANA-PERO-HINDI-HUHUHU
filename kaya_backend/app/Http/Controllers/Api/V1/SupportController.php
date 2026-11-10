@@ -193,7 +193,7 @@ class SupportController extends Controller
     }
 
     /*
-        A tap in KAYA Assistant's menu: a topic, an issue, That Helped, Talk to
+        A tap in KAYA Assistant's menu: a topic, an issue, Yes Solved, Talk to
         an Agent. Answered at once, from the menu and the person's own records.
     */
     public function choose(Request $request, \App\Services\SupportFlow $flow, KayaAssistant $assistant)
@@ -201,6 +201,11 @@ class SupportController extends Controller
         $data = $request->validate(['key' => ['required', 'string', 'max:80']]);
         $user = $request->user();
         $thread = SupportThread::firstOrCreate(['user_id' => $user->id]);
+
+        // A button no longer showing, or tapped twice: nothing new is written.
+        if (! $flow->current($thread, $data['key'])) {
+            return $this->ok(['messages' => [], 'assistant' => $this->assistantState($thread)]);
+        }
 
         if ($data['key'] === 'agent') {
             $messages = [$assistant->handOff($thread)];

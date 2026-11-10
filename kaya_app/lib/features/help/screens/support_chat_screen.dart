@@ -10,6 +10,7 @@ import '../../../core/constants/app_version.dart';
 
 import '../../../core/constants/app_colors.dart';
 import '../../../core/widgets/app_toast.dart';
+import '../../../core/widgets/kaya_popup.dart';
 import '../../../data/services/api_client.dart';
 
 /*
@@ -27,7 +28,7 @@ import '../../../data/services/api_client.dart';
 
     KAYA Assistant answers first, like a shop's help chat: a menu of topics,
     then the issue, then an answer that has already read the person's own
-    records, with buttons that open the screen to fix it - and That Helped,
+    records, with buttons that open the screen to fix it - and Yes, Solved,
     Talk to an Agent or back to the menu. Typing goes to the AI. An agent
     request joins a real line: the header shows the place and the wait, then
     who joined. Lines between the two sides show as dividers.
@@ -264,7 +265,7 @@ class _SupportChatScreenState extends State<SupportChatScreen> {
   bool get _assistantTyping => _awaitingSince != null;
 
   /*
-      A tap in the assistant's menu: a topic, an issue, That Helped, Talk to
+      A tap in the assistant's menu: a topic, an issue, Yes Solved, Talk to
       an Agent. Something's Broken opens the report form instead.
   */
   Future<void> _choose(String key) async {
@@ -300,8 +301,8 @@ class _SupportChatScreenState extends State<SupportChatScreen> {
 
   /// Something's Broken: where, what, a few words and a screenshot.
   Future<void> _reportBug() async {
-    final sent = await showDialog<Map<String, dynamic>>(
-      context: context,
+    final sent = await showKayaPopup<Map<String, dynamic>>(
+      context,
       builder: (_) => const _BugReportDialog(),
     );
     if (sent == null || !mounted) return;
@@ -427,7 +428,7 @@ class _SupportChatScreenState extends State<SupportChatScreen> {
                 children: [
                   if (_assistantOn && !_withPerson && _menu.isNotEmpty)
                     IconButton(
-                      onPressed: _choosing ? null : () => _choose('menu'),
+                      onPressed: _choosing || _menuShowing ? null : () => _choose('menu'),
                       icon: const Icon(Icons.apps_rounded),
                       color: AppColors.neutral500,
                       tooltip: 'Menu',
@@ -557,8 +558,10 @@ class _SupportChatScreenState extends State<SupportChatScreen> {
         // Choices only on the newest line: older ones are history.
         final newest = i == _messages.length - 1;
 
+        // Stretched, so a bubble of the person's own sits on the right. Start
+        // shrank the row to the bubble and left every message on the left.
         return Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             _bubble(m),
             if (actions.isNotEmpty) _actions(actions),
@@ -603,31 +606,62 @@ class _SupportChatScreenState extends State<SupportChatScreen> {
     );
   }
 
-  /// Choices to tap, under the assistant's line.
+  /// Choices to tap, under the assistant's line: one card, a row each.
   Widget _options(List<Map<String, dynamic>> options) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 12),
-      child: Wrap(
-        spacing: 8,
-        runSpacing: 8,
-        children: [
-          for (final o in options)
-            OutlinedButton(
-              onPressed: _choosing ? null : () => _choose('${o['key']}'),
-              style: OutlinedButton.styleFrom(
-                foregroundColor: AppColors.primary,
-                side: const BorderSide(color: AppColors.neutral300),
-                backgroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                minimumSize: const Size(0, 34),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
-                textStyle: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
+    return Align(
+      alignment: Alignment.centerLeft,
+      child: Container(
+        constraints: BoxConstraints(maxWidth: MediaQuery.sizeOf(context).width * 0.78),
+        margin: const EdgeInsets.only(bottom: 12),
+        clipBehavior: Clip.antiAlias,
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: AppColors.neutral200),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            for (final (i, o) in options.indexed) ...[
+              if (i > 0) const Divider(height: 1, color: AppColors.neutral200),
+              InkWell(
+                onTap: _choosing ? null : () => _choose('${o['key']}'),
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(14, 12, 10, 12),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          '${o['label']}',
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w500,
+                            color: _choosing ? AppColors.neutral400 : AppColors.primary,
+                          ),
+                        ),
+                      ),
+                      const Icon(Icons.chevron_right_rounded, size: 20, color: AppColors.neutral400),
+                    ],
+                  ),
+                ),
               ),
-              child: Text('${o['label']}'),
-            ),
-        ],
+            ],
+          ],
+        ),
       ),
     );
+  }
+
+  /// Whether the topic menu is already the newest thing: Menu again would
+  /// only repeat it.
+  bool get _menuShowing {
+    final shown = _messages.where((m) => m['kind'] != 'event');
+    if (shown.isEmpty) return true;
+    final last = shown.last;
+    final options = ((last['payload'] as Map?)?['options'] as List?) ?? const [];
+    return last['from_admin'] == true &&
+        options.isNotEmpty &&
+        options.every((o) => o is Map && ('${o['key']}'.startsWith('topic:') || o['key'] == 'other'));
   }
 
   /// Screens to open, so the fix is one tap away.
@@ -888,49 +922,173 @@ class _BugReportDialogState extends State<_BugReportDialog> {
     }
   }
 
+  static const _label = TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppColors.neutral700);
+
   @override
   Widget build(BuildContext context) {
-    DropdownButtonFormField<String> pick(String label, String value, Map<String, String> items, ValueChanged<String> onChanged) {
-      return DropdownButtonFormField<String>(
-        initialValue: value,
-        isExpanded: true,
-        decoration: InputDecoration(labelText: label, isDense: true, border: const OutlineInputBorder()),
-        items: [for (final e in items.entries) DropdownMenuItem(value: e.key, child: Text(e.value))],
-        onChanged: (v) => v == null ? null : onChanged(v),
-      );
-    }
-
-    return AlertDialog(
-      title: const Text("Something's Broken"),
-      content: SingleChildScrollView(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            pick('What happened?', _issue, _issues, (v) => setState(() => _issue = v)),
-            const SizedBox(height: 12),
-            pick('Where?', _screen, _screens, (v) => setState(() => _screen = v)),
-            const SizedBox(height: 12),
-            TextField(
-              controller: _details,
-              maxLines: 3,
-              maxLength: 1000,
-              decoration: const InputDecoration(
-                labelText: 'Tell us more (optional)',
-                border: OutlineInputBorder(),
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(20, 16, 8, 4),
+          child: Row(
+            children: [
+              const Expanded(
+                child: Text("Something's Broken",
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: AppColors.neutral900)),
               ),
-            ),
-            TextButton.icon(
-              onPressed: _sending ? null : _pick,
-              icon: Icon(_shot == null ? Icons.add_photo_alternate_outlined : Icons.check_circle_outline),
-              label: Text(_shot == null ? 'Add a Screenshot' : 'Screenshot Added'),
-            ),
-          ],
+              IconButton(
+                onPressed: _sending ? null : () => Navigator.pop(context),
+                icon: const Icon(Icons.close),
+                tooltip: 'Close',
+              ),
+            ],
+          ),
         ),
-      ),
-      actions: [
-        TextButton(onPressed: _sending ? null : () => Navigator.pop(context), child: const Text('Cancel')),
-        TextButton(onPressed: _sending ? null : _send, child: Text(_sending ? 'Sending...' : 'Send Report')),
+        Flexible(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.fromLTRB(20, 4, 20, 8),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                const Text('What Happened?', style: _label),
+                const SizedBox(height: 8),
+                Container(
+                  clipBehavior: Clip.antiAlias,
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: AppColors.neutral200),
+                  ),
+                  child: Column(
+                    children: [
+                      for (final (i, e) in _issues.entries.indexed) ...[
+                        if (i > 0) const Divider(height: 1, color: AppColors.neutral200),
+                        InkWell(
+                          onTap: () => setState(() => _issue = e.key),
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                            child: Row(
+                              children: [
+                                Expanded(
+                                  child: Text(e.value,
+                                      style: TextStyle(
+                                        fontSize: 14,
+                                        fontWeight: _issue == e.key ? FontWeight.w600 : FontWeight.w400,
+                                        color: _issue == e.key ? AppColors.primary : AppColors.neutral800,
+                                      )),
+                                ),
+                                Icon(
+                                  _issue == e.key ? Icons.radio_button_checked : Icons.radio_button_unchecked,
+                                  size: 20,
+                                  color: _issue == e.key ? AppColors.primary : AppColors.neutral400,
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 18),
+                const Text('Where?', style: _label),
+                const SizedBox(height: 8),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    for (final e in _screens.entries)
+                      ChoiceChip(
+                        label: Text(e.value),
+                        selected: _screen == e.key,
+                        showCheckmark: false,
+                        onSelected: (_) => setState(() => _screen = e.key),
+                        selectedColor: AppColors.primary.withValues(alpha: 0.1),
+                        backgroundColor: Colors.white,
+                        side: BorderSide(color: _screen == e.key ? AppColors.primary : AppColors.neutral300),
+                        labelStyle: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w500,
+                          color: _screen == e.key ? AppColors.primary : AppColors.neutral700,
+                        ),
+                      ),
+                  ],
+                ),
+                const SizedBox(height: 18),
+                const Text('Tell Us More', style: _label),
+                const SizedBox(height: 8),
+                TextField(
+                  controller: _details,
+                  minLines: 3,
+                  maxLines: 5,
+                  maxLength: 1000,
+                  decoration: InputDecoration(
+                    hintText: 'What were you doing when it happened? (optional)',
+                    hintStyle: const TextStyle(fontSize: 13.5, color: AppColors.neutral400),
+                    contentPadding: const EdgeInsets.all(12),
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: const BorderSide(color: AppColors.neutral300),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 6),
+                const Text('Screenshot', style: _label),
+                const SizedBox(height: 8),
+                _shot == null
+                    ? OutlinedButton.icon(
+                        onPressed: _sending ? null : _pick,
+                        icon: const Icon(Icons.add_photo_alternate_outlined, size: 20),
+                        label: const Text('Add a Screenshot (optional)'),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: AppColors.neutral700,
+                          side: const BorderSide(color: AppColors.neutral300),
+                          minimumSize: const Size.fromHeight(46),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        ),
+                      )
+                    : Row(
+                        children: [
+                          ClipRRect(
+                            borderRadius: BorderRadius.circular(10),
+                            child: Image.file(File(_shot!.path), width: 64, height: 64, fit: BoxFit.cover),
+                          ),
+                          const SizedBox(width: 12),
+                          const Expanded(
+                            child: Text('Screenshot added',
+                                style: TextStyle(fontSize: 13.5, color: AppColors.neutral700)),
+                          ),
+                          TextButton(
+                            onPressed: _sending ? null : () => setState(() => _shot = null),
+                            child: const Text('Remove'),
+                          ),
+                        ],
+                      ),
+                const SizedBox(height: 10),
+                const Text(
+                  'Your app version and phone model are sent with this.',
+                  style: TextStyle(fontSize: 12, color: AppColors.neutral500),
+                ),
+              ],
+            ),
+          ),
+        ),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(20, 8, 20, 20),
+          child: ElevatedButton(
+            onPressed: _sending ? null : _send,
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.primary,
+              foregroundColor: Colors.white,
+              minimumSize: const Size.fromHeight(48),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            ),
+            child: Text(_sending ? 'Sending...' : 'Send Report',
+                style: const TextStyle(fontWeight: FontWeight.w600)),
+          ),
+        ),
       ],
     );
   }

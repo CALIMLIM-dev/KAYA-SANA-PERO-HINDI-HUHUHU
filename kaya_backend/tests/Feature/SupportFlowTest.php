@@ -124,4 +124,35 @@ class SupportFlowTest extends TestCase
         $this->assertSame('fixed', $bug->fresh()->status);
         $this->assertDatabaseHas('user_notifications', ['user_id' => $maria->id, 'type' => 'bug.fixed']);
     }
+
+    #[Test]
+    public function a_button_tapped_again_or_no_longer_showing_writes_nothing(): void
+    {
+        $maria = User::factory()->create();
+        $thread = fn () => SupportThread::where('user_id', $maria->id)->first();
+
+        $this->choose($maria, 'topic:barya')->assertOk();
+        $count = $thread()->messages()->count();
+
+        // The same topic again, and an old answer's button: ignored.
+        $this->choose($maria, 'topic:barya')->assertOk()->assertJsonCount(0, 'data.messages');
+        $this->choose($maria, 'helped')->assertOk()->assertJsonCount(0, 'data.messages');
+        $this->assertSame($count, $thread()->messages()->count());
+
+        // Main Menu once shows it; pressed again it does not repeat it.
+        $this->choose($maria, 'menu')->assertOk()->assertJsonCount(1, 'data.messages');
+        $this->choose($maria, 'menu')->assertOk()->assertJsonCount(0, 'data.messages');
+        $this->assertSame($count + 1, $thread()->messages()->count());
+    }
+
+    #[Test]
+    public function an_answer_asks_whether_it_solved_it(): void
+    {
+        $maria = User::factory()->create();
+        $this->choose($maria, 'topic:barya');
+        $answer = $this->choose($maria, 'issue:barya.topup_missing')->json('data.messages.1');
+
+        $this->assertStringEndsWith('Did this solve it?', $answer['body']);
+        $this->assertSame(['Yes, Solved', 'No, Talk to an Agent', 'Ask Something Else'], array_column($answer['payload']['options'], 'label'));
+    }
 }

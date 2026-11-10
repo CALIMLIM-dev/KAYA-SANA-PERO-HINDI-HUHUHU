@@ -126,7 +126,7 @@ void main() {
         'payload': {
           'actions': [{'key': 'wallet', 'label': 'Open My Wallet', 'route': '/wallet'}],
           'options': [
-            {'key': 'helped', 'label': 'That Helped'},
+            {'key': 'helped', 'label': 'Yes, Solved'},
             {'key': 'agent', 'label': 'Talk to an Agent'},
           ],
         },
@@ -135,7 +135,7 @@ void main() {
     ]);
 
     expect(find.text('Open My Wallet'), findsOneWidget);
-    expect(find.text('That Helped'), findsOneWidget);
+    expect(find.text('Yes, Solved'), findsOneWidget);
     expect(find.text('Talk to an Agent'), findsOneWidget);
     // A small button to report the answer, on assistant answers only.
     expect(find.byTooltip('Report This Answer'), findsOneWidget);
@@ -176,6 +176,51 @@ void main() {
 
     expect(find.byTooltip('Menu'), findsNothing);
     expect(find.text('Back to Assistant'), findsNothing);
+  });
+
+  testWidgets('your own message sits on the right, KAYA on the left', (tester) async {
+    await render(tester, width: 390, textScale: 1.0);
+
+    final mine = tester.getRect(find.textContaining('My verification was rejected'));
+    final theirs = tester.getRect(find.textContaining('The back of the ID was cut off'));
+    expect(mine.right, greaterThan(390 - 40), reason: 'the person\'s bubble hugs the right edge');
+    expect(mine.left, greaterThan(theirs.left + 40), reason: 'and is not stacked under the reply');
+    expect(theirs.left, lessThan(40));
+  });
+
+  testWidgets('Menu is off while the menu is already the newest line', (tester) async {
+    await render(tester, width: 390, textScale: 1.0, assistant: {'on': true, 'with_person': false, 'menu': menu}, messages: [
+      ...thread(),
+      {
+        'id': 3, 'body': 'What do you need help with?', 'from_admin': true, 'from_assistant': true,
+        'from': 'KAYA Assistant', 'payload': {'options': menu},
+      },
+    ]);
+
+    final button = tester.widget<IconButton>(find.widgetWithIcon(IconButton, Icons.apps_rounded));
+    expect(button.onPressed, isNull, reason: 'pressing it again only repeated the menu');
+    expect(find.text('Barya and Top-up'), findsOneWidget);
+  });
+
+  testWidgets("Something's Broken opens a pop-up that fits a small phone", (tester) async {
+    await render(tester, width: 320, textScale: 1.3, messages: const [], assistant: {
+      'on': true, 'with_person': false, 'greeting': 'Hi.', 'menu': menu,
+    });
+
+    await tester.tap(find.text("Something's Broken"));
+    await tester.pumpAndSettle();
+
+    expect(find.text('What Happened?'), findsOneWidget);
+    expect(find.text('A button does nothing'), findsOneWidget);
+    expect(find.text('Send Report'), findsOneWidget);
+
+    await tester.tap(find.text('The app closed by itself'));
+    await tester.pump();
+    final picked = tester.widget<Icon>(find.descendant(
+      of: find.ancestor(of: find.text('The app closed by itself'), matching: find.byType(Row)).first,
+      matching: find.byType(Icon),
+    ));
+    expect(picked.icon, Icons.radio_button_checked);
   });
 
   for (final width in <double>[412, 360, 320]) {
