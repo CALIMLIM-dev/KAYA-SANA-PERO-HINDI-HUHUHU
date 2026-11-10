@@ -12,6 +12,7 @@ import '../../../providers/credits_provider.dart';
 import '../../../providers/invitation_provider.dart';
 import '../../../providers/worker_browse_provider.dart';
 import '../widgets/matched_worker_card.dart';
+import '../../../core/utils/json_parse.dart';
 
 /*
     Workers who fit one job, best first.
@@ -284,7 +285,7 @@ class _MatchedWorkersListState extends State<MatchedWorkersList> {
               }
 
               final row = provider.matches[index - 1];
-              final workerId = (row['user_id'] as num?)?.toInt();
+              final workerId = asIntOrNull(row['user_id']);
 
               // Best first, arriving in that order.
               return EntranceIn(

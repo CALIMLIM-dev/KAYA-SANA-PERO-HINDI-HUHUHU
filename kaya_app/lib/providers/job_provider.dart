@@ -4,6 +4,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import '../data/models/job_model.dart';
 import '../data/services/api_client.dart';
+import '../core/utils/json_parse.dart';
 
 /// Manages employer-side job posting/management, and the public job feed
 /// (worker-mode home + search).
@@ -152,7 +153,7 @@ class JobProvider with ChangeNotifier {
           .toList();
       _publicJobs = page > 1 ? [..._publicJobs, ...rows] : rows;
       _publicPage = page;
-      _publicTotal = (data['total'] as num?)?.toInt() ?? _publicJobs.length;
+      _publicTotal = asIntOrNull(data['total']) ?? _publicJobs.length;
     } catch (e) {
       /*
           A failed refresh is not an empty feed.

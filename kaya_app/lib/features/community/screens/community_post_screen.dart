@@ -8,6 +8,7 @@ import '../../../core/widgets/profile_avatar.dart';
 import '../../../providers/community_provider.dart';
 import '../../moderation/widgets/report_sheet.dart';
 import '../widgets/community_post_card.dart';
+import '../../../core/utils/json_parse.dart';
 
 /*
     One notice, in full, and the thread under it.
@@ -142,7 +143,7 @@ class _CommunityPostScreenState extends State<CommunityPostScreen> {
   }
 
   void _report() {
-    final posterId = (_poster['id'] as num?)?.toInt();
+    final posterId = asIntOrNull(_poster['id']);
     if (posterId == null) return;
     ReportSheet.show(
       context,
@@ -155,7 +156,7 @@ class _CommunityPostScreenState extends State<CommunityPostScreen> {
 
   /// Somebody else's comment, reported on its own rather than as the post.
   void _reportComment(Map<String, dynamic> comment, Map<String, dynamic> author) {
-    final authorId = (author['id'] as num?)?.toInt();
+    final authorId = asIntOrNull(author['id']);
     if (authorId == null) return;
     ReportSheet.show(
       context,

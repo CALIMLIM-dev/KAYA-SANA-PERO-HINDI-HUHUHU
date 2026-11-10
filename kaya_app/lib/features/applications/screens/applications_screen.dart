@@ -17,6 +17,7 @@ import '../../../core/navigation/app_router.dart';
 import '../../employer/widgets/manage_job_sheet.dart';
 import '../../../core/widgets/kaya_popup.dart';
 import 'view_applicants_screen.dart';
+import '../../../core/utils/json_parse.dart';
 
 /*
     My Activity — one rule decides where everything goes.
@@ -838,7 +839,7 @@ class ApplicationCard extends StatelessWidget {
     // How many jobs this employer has open, so the card can say whether
     // asking them again leads anywhere.
     final employerOpenJobs =
-        (application['employer_open_jobs'] as num?)?.toInt() ?? 0;
+        asIntOrNull(application['employer_open_jobs']) ?? 0;
 
     /*
         The deadline no longer decides whether this exists.
@@ -1198,7 +1199,7 @@ class JobPostCard extends StatelessWidget {
     // Somebody is on this job, or it is under way.
     final hired = hire != null ||
         status == 'in_progress' ||
-        ((job['hire_count'] as num?)?.toInt() ?? 0) > 0;
+        (asIntOrNull(job['hire_count']) ?? 0) > 0;
 
     final tools = _EmployerTools.applies(job) ? _EmployerTools(job: job) : null;
 
@@ -1902,11 +1903,11 @@ class _EmployerTools extends StatelessWidget {
   static bool _taking(Map<String, dynamic> job) => job['status'] == 'open';
 
   static int _needed(Map<String, dynamic> job) =>
-      (job['workers_needed'] as num?)?.toInt() ?? 1;
+      asIntOrNull(job['workers_needed']) ?? 1;
 
   static int _filled(Map<String, dynamic> job) =>
-      (job['workers_filled'] as num?)?.toInt() ??
-      (job['hire_count'] as num?)?.toInt() ??
+      asIntOrNull(job['workers_filled']) ??
+      asIntOrNull(job['hire_count']) ??
       0;
 
   static bool _hasRoster(Map<String, dynamic> job) =>
@@ -1919,7 +1920,7 @@ class _EmployerTools extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final jobId = job['id'] as int;
-    final applicants = (job['application_count'] as num?)?.toInt() ?? 0;
+    final applicants = asIntOrNull(job['application_count']) ?? 0;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,

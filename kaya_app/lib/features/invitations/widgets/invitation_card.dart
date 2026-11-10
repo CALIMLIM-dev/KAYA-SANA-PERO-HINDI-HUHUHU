@@ -14,6 +14,7 @@ import '../../../core/widgets/verification_badge_widget.dart';
 import '../../../data/services/api_client.dart';
 import '../../../providers/application_provider.dart';
 import '../../../providers/invitation_provider.dart';
+import '../../../core/utils/json_parse.dart';
 
 /*
     One invitation, as the worker sees it.
@@ -68,7 +69,7 @@ class _InvitationCardState extends State<InvitationCard> {
     final budget = job == null ? null : formatBudget(job);
     final period = _period((job?['budget_period'] ?? '').toString());
     final schedule = _schedule(job);
-    final spots = (job?['workers_needed'] as num?)?.toInt() ?? 1;
+    final spots = asIntOrNull(job?['workers_needed']) ?? 1;
     final description = (job?['description'] ?? '').toString().trim();
     final sent = timeAgo(_inv['created_at']?.toString());
     final stillOpen = job?['is_open'] != false;
@@ -221,7 +222,7 @@ class _InvitationCardState extends State<InvitationCard> {
   }
 
   List<Widget> _actions(String status, bool stillOpen) {
-    final jobId = (_job?['id'] as num?)?.toInt();
+    final jobId = asIntOrNull(_job?['id']);
 
     final viewJob = OutlinedButton(
       onPressed: jobId == null
@@ -299,7 +300,7 @@ class _InvitationCardState extends State<InvitationCard> {
   /// Straight into the thread with this employer, or the inbox when the
   /// server has none to point at (the job finished and the thread closed).
   void _message() {
-    final conversationId = (_inv['conversation_id'] as num?)?.toInt();
+    final conversationId = asIntOrNull(_inv['conversation_id']);
     if (conversationId == null) {
       MainNavigation.openMessages(context);
       return;

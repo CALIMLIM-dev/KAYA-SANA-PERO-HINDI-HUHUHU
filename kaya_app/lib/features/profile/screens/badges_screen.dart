@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/widgets/badge_medallion.dart';
 import '../../../data/services/api_client.dart';
+import '../../../core/utils/json_parse.dart';
 
 /*
     Every badge, and what each one takes.
@@ -222,7 +223,7 @@ class _BadgesScreenState extends State<BadgesScreen> {
         labels is a list of things you cannot spend. Read from the server so
         the number on screen and the number the wallet takes are the same one.
     */
-    final reward = (badge['reward'] as num?)?.toInt() ?? 0;
+    final reward = asIntOrNull(badge['reward']) ?? 0;
     final rewardPaid = badge['reward_paid'] == true;
 
     return Container(

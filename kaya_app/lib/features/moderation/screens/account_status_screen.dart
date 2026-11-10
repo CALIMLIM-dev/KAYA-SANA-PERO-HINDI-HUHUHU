@@ -10,6 +10,7 @@ import '../../../providers/app_mode_provider.dart';
 import '../../../providers/auth_provider.dart';
 import '../moderation_date.dart';
 import '../widgets/reported_content.dart';
+import '../../../core/utils/json_parse.dart';
 
 /*
     Where your account stands, and the way to argue with it.
@@ -128,7 +129,7 @@ class _AccountStatusScreenState extends State<AccountStatusScreen> {
     final strikes = (s['strikes'] as List? ?? const [])
         .map((e) => Map<String, dynamic>.from(e as Map))
         .toList();
-    final counting = (s['strikes_counting'] as num?)?.toInt() ?? 0;
+    final counting = asIntOrNull(s['strikes_counting']) ?? 0;
     final paused = s['reports_paused_until'];
 
     return ListView(

@@ -122,7 +122,7 @@ class WorkerProfile {
       availability: (json['availability_status'] ?? 'available').toString(),
       bio: json['bio'] as String?,
       profileImageUrl: json['avatar'] as String?,
-      matchScore: (json['match_score'] as num?)?.toInt(),
+      matchScore: asIntOrNull(json['match_score']),
       // Decimal casts arrive as strings, same as rating_avg above.
       rateMin: asDoubleOrNull(json['rate_min']),
       rateMax: asDoubleOrNull(json['rate_max']),

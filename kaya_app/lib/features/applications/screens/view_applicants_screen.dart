@@ -11,6 +11,7 @@ import '../../../providers/worker_browse_provider.dart';
 import '../../employer/screens/matched_workers_screen.dart';
 import '../../employer/widgets/matched_worker_card.dart';
 import '../widgets/applicant_card.dart';
+import '../../../core/utils/json_parse.dart';
 
 /// View Applicants Screen — employer sees everyone who actually applied to a
 /// job, via GET /jobs/{job}/applicants.
@@ -269,9 +270,9 @@ class _ViewApplicantsScreenState extends State<ViewApplicantsScreen>
     }
 
     // Somebody who already applied is above, not here again.
-    final applied = applicants.map((a) => (a['worker_id'] as num?)?.toInt()).toSet();
+    final applied = applicants.map((a) => asIntOrNull(a['worker_id'])).toSet();
     final rows = browse.matches
-        .where((m) => !applied.contains((m['user_id'] as num?)?.toInt()))
+        .where((m) => !applied.contains(asIntOrNull(m['user_id'])))
         .toList();
     if (rows.isEmpty) return const SizedBox.shrink();
 
@@ -285,8 +286,8 @@ class _ViewApplicantsScreenState extends State<ViewApplicantsScreen>
             child: MatchedWorkerCard(
               row: row,
               onInvite: _invite,
-              inviting: _inviting != null && _inviting == (row['user_id'] as num?)?.toInt(),
-              alreadyInvited: _invited.contains((row['user_id'] as num?)?.toInt()),
+              inviting: _inviting != null && _inviting == asIntOrNull(row['user_id']),
+              alreadyInvited: _invited.contains(asIntOrNull(row['user_id'])),
             ),
           ),
       ],

@@ -9,6 +9,7 @@ import '../../../providers/app_mode_provider.dart';
 import '../../../providers/auth_provider.dart';
 import '../../../providers/messaging_provider.dart';
 import '../../../core/navigation/app_router.dart';
+import '../../../core/utils/json_parse.dart';
 
 /// Conversations List Screen — backed by GET /conversations.
 class MessagesListScreen extends StatefulWidget {
@@ -90,7 +91,7 @@ class _MessagesListScreenState extends State<MessagesListScreen>
       final other = _otherParty(c, myRole);
       final name = (other?['name'] ?? '').toString().toLowerCase();
       final jobTitle = ((c['job'] as Map?)?['title'] ?? '').toString().toLowerCase();
-      final unread = (c['unread_count'] as num?)?.toInt() ?? 0;
+      final unread = asIntOrNull(c['unread_count']) ?? 0;
 
       final matchesSearch =
           query.isEmpty || name.contains(query) || jobTitle.contains(query);
@@ -330,7 +331,7 @@ class _MessagesListScreenState extends State<MessagesListScreen>
     final myRole = _myRole(conv, myId);
     final other = _otherParty(conv, myRole);
     final job = conv['job'] as Map<String, dynamic>?;
-    final unread = (conv['unread_count'] as num?)?.toInt() ?? 0;
+    final unread = asIntOrNull(conv['unread_count']) ?? 0;
     final name = (other?['name'] ?? '').toString();
     // The other person's picture. The server resolves it from wherever
     // they actually uploaded one, so this only has to draw it.

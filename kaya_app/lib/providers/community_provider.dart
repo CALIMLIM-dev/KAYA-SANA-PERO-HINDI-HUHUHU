@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../data/services/api_client.dart';
+import '../core/utils/json_parse.dart';
 
 /*
     The community board: what is on it, what the caller has posted, and
@@ -105,9 +106,9 @@ class CommunityProvider with ChangeNotifier {
     try {
       final res = await _api.get('/community/costs');
       final data = res.data['data'] as Map<String, dynamic>;
-      _workerCost = (data['worker'] as num?)?.toInt();
-      _businessCost = (data['business'] as num?)?.toInt();
-      _days = (data['days'] as num?)?.toInt();
+      _workerCost = asIntOrNull(data['worker']);
+      _businessCost = asIntOrNull(data['business']);
+      _days = asIntOrNull(data['days']);
       notifyListeners();
     } catch (_) {
       // The compose screen says "the price shows here" until it does.
@@ -243,7 +244,7 @@ class CommunityProvider with ChangeNotifier {
   void _bumpCommentCount(int postId, int by) {
     List<Map<String, dynamic>> bump(List<Map<String, dynamic>> rows) => rows
         .map((p) => p['id'] == postId
-            ? {...p, 'comment_count': ((p['comment_count'] as num?)?.toInt() ?? 0) + by}
+            ? {...p, 'comment_count': (asIntOrNull(p['comment_count']) ?? 0) + by}
             : p)
         .toList();
 
@@ -266,7 +267,7 @@ class CommunityProvider with ChangeNotifier {
       _likes[post['id']] ??
       (
         liked: post['liked_by_me'] == true,
-        count: (post['like_count'] as num?)?.toInt() ?? 0,
+        count: asIntOrNull(post['like_count']) ?? 0,
       );
 
   /// Likes or unlikes at once, and puts it back and returns false with
@@ -288,7 +289,7 @@ class CommunityProvider with ChangeNotifier {
       final data = res.data['data'] as Map<String, dynamic>;
       _likes[id] = (
         liked: data['liked_by_me'] == true,
-        count: (data['like_count'] as num?)?.toInt() ?? 0,
+        count: asIntOrNull(data['like_count']) ?? 0,
       );
       return true;
     } catch (e) {

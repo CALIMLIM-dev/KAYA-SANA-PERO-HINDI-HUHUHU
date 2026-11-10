@@ -149,7 +149,7 @@ class WorkerProfileProvider with ChangeNotifier {
         */
         latitude = asDoubleOrNull(userData['latitude']);
         longitude = asDoubleOrNull(userData['longitude']);
-        locationId = (userData['location_id'] as num?)?.toInt();
+        locationId = asIntOrNull(userData['location_id']);
         profilePhotoPath = userData['avatar'] as String?;
         bio = userData['bio'] as String?;
         availableForWork = userData['availability_status'] != 'unavailable';

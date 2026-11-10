@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 
 import '../data/models/worker_profile_model.dart';
 import '../data/services/api_client.dart';
+import '../core/utils/json_parse.dart';
 
 /// The employer-facing worker directory — GET /workers.
 ///
@@ -294,7 +295,7 @@ class WorkerBrowseProvider with ChangeNotifier {
           .toList();
       _workers = page > 1 ? [..._workers, ...rows] : rows;
       _workersPage = page;
-      _workersTotal = (data['total'] as num?)?.toInt() ?? _workers.length;
+      _workersTotal = asIntOrNull(data['total']) ?? _workers.length;
     } catch (e) {
       // Same rule as the job feed: a failed refresh is not an empty
       // directory, and blanking it loses what the employer was reading.

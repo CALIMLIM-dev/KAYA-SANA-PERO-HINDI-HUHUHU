@@ -6,6 +6,7 @@ import '../../../core/widgets/kaya_popup.dart';
 import '../../../core/widgets/profile_avatar.dart';
 import '../../../core/widgets/verification_badge_widget.dart';
 import '../../../data/services/api_client.dart';
+import '../../../core/utils/json_parse.dart';
 
 /*
     Who viewed your profile, and how your weeks went.
@@ -72,8 +73,8 @@ class _ProfileViewsState extends State<_ProfileViews> {
 
   List<Widget> _body(Map<String, dynamic> data) {
     final week = Map<String, dynamic>.from(data['this_week'] as Map? ?? const {});
-    final views = (week['views'] as num?)?.toInt() ?? 0;
-    final people = (week['people'] as num?)?.toInt() ?? 0;
+    final views = asIntOrNull(week['views']) ?? 0;
+    final people = asIntOrNull(week['people']) ?? 0;
     final unlocked = data['unlocked'] == true;
 
     return [
@@ -117,7 +118,7 @@ class _ProfileViewsState extends State<_ProfileViews> {
 
   /// Eight bars, oldest first, each week's count above it.
   Widget _weeks(List<Map<String, dynamic>> weeks) {
-    final top = weeks.fold<int>(1, (m, w) => ((w['views'] as num?)?.toInt() ?? 0) > m ? (w['views'] as num).toInt() : m);
+    final top = weeks.fold<int>(1, (m, w) => (asIntOrNull(w['views']) ?? 0) > m ? (w['views'] as num).toInt() : m);
 
     return SizedBox(
       height: 120,
@@ -139,7 +140,7 @@ class _ProfileViewsState extends State<_ProfileViews> {
                       child: Align(
                         alignment: Alignment.bottomCenter,
                         child: FractionallySizedBox(
-                          heightFactor: (((w['views'] as num?)?.toInt() ?? 0) / top).clamp(0.03, 1.0),
+                          heightFactor: ((asIntOrNull(w['views']) ?? 0) / top).clamp(0.03, 1.0),
                           child: Container(
                             decoration: BoxDecoration(
                               color: AppColors.primary,

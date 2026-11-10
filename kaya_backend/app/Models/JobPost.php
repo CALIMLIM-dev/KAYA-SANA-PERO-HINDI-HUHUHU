@@ -30,6 +30,14 @@ class JobPost extends Model
         'longitude'     => 'decimal:7',
         'is_urgent'     => 'boolean',
         'min_experience_years' => 'integer',
+        // A new post is sent back as it was filled in, and a phone's form
+        // sends every field as text: "1" for workers_needed crashed the
+        // poster's own job card on Home. Numbers go out as numbers.
+        'workers_needed'    => 'integer',
+        'application_count' => 'integer',
+        'category_id'       => 'integer',
+        'location_id'       => 'integer',
+        'employer_id'       => 'integer',
         'photos'        => 'array',
         // date:, not datetime: — these are calendar days, and casting them to
         // datetime would attach a midnight that the app would then render as a

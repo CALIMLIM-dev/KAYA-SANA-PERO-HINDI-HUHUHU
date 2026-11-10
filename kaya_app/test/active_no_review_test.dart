@@ -104,6 +104,25 @@ void main() {
     expect(find.text('Review Employer'), findsOneWidget);
   });
 
+  // A post just made is shown from the server's reply, where a phone's form
+  // fields came back as text. Reading "1" as a number crashed the card.
+  testWidgets('a new post with numbers sent as text still shows', (tester) async {
+    await pump(tester, {
+      'id': 50,
+      'title': 'Pc gpu issue',
+      'status': 'open',
+      'is_live': true,
+      'budget_min': '1500',
+      'workers_needed': '1',
+      'application_count': '0',
+      'category_id': '4',
+      '_isJob': true,
+    });
+
+    expect(tester.takeException(), isNull);
+    expect(find.text('Pc gpu issue'), findsOneWidget);
+  });
+
   testWidgets('a closed window offers nothing to press', (tester) async {
     await pump(tester, {...finishedJob(closes: inDays(-30)), '_isJob': true});
     expect(find.textContaining('Review'), findsNothing);

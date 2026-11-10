@@ -8,6 +8,7 @@ import '../../providers/job_provider.dart';
 import '../../providers/worker_browse_provider.dart';
 import '../../providers/worker_profile_provider.dart';
 import 'widgets/home_carousel.dart';
+import '../../core/utils/json_parse.dart';
 
 /*
     Home, loaded while the icon builds.
@@ -37,7 +38,7 @@ class HomeWarmup {
     // The same town home bounds its worker list by (see _adoptKnownPlace).
     final known = context.read<AuthProvider>().user?['known_location'] as Map<String, dynamic>?;
     final city = (known?['city'] as Map<String, dynamic>?) ?? known;
-    final cityId = (city?['location_id'] as num?)?.toInt();
+    final cityId = asIntOrNull(city?['location_id']);
 
     final employerOnly = mode.hasEmployerProfile && !mode.hasWorkerProfile;
     final workerOnly = mode.hasWorkerProfile && !mode.hasEmployerProfile;

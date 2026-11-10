@@ -7,6 +7,7 @@ import '../../../core/widgets/app_toast.dart';
 import '../../../core/widgets/verification_badge_widget.dart';
 import '../../../core/widgets/profile_avatar.dart';
 import '../../../providers/community_provider.dart';
+import '../../../core/utils/json_parse.dart';
 
 /*
     The person behind a notice, opened from their name or picture.
@@ -19,7 +20,7 @@ import '../../../providers/community_provider.dart';
 */
 void openCommunityPoster(BuildContext context, Map<String, dynamic> post) {
   final poster = (post['poster'] as Map?)?.cast<String, dynamic>() ?? const {};
-  final id = (poster['id'] as num?)?.toInt();
+  final id = asIntOrNull(poster['id']);
   if (id == null) return;
 
   if (post['type'] == 'worker') {
@@ -68,7 +69,7 @@ class CommunityPostCard extends StatelessWidget {
       'removed' => 'Removed',
       _ => 'Ended',
     };
-    final comments = (post['comment_count'] as num?)?.toInt() ?? 0;
+    final comments = asIntOrNull(post['comment_count']) ?? 0;
     final live = status == 'live';
 
     return GestureDetector(

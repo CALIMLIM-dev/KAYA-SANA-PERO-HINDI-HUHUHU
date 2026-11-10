@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../core/constants/app_colors.dart';
+import '../../../core/utils/json_parse.dart';
 
 /*
     How an applicant fits a job, in the words an employer can check.
@@ -12,8 +13,8 @@ import '../../../core/constants/app_colors.dart';
     matches payload.
 */
 String? employerFitLine(Map<String, dynamic> row) {
-  final required = (row['required_count'] as num?)?.toInt() ?? 0;
-  final matched = (row['matched_count'] as num?)?.toInt() ?? 0;
+  final required = asIntOrNull(row['required_count']) ?? 0;
+  final matched = asIntOrNull(row['matched_count']) ?? 0;
   final names = ((row['matched_skills'] as List?) ?? const [])
       .map((s) => _title(s.toString()))
       .where((s) => s.isNotEmpty)
@@ -81,7 +82,7 @@ class MatchWordsLine extends StatelessWidget {
 
 /// Whether the row holds a required skill, or fits a job that names none.
 bool meetsRequirements(Map<String, dynamic> row) =>
-    ((row['match_tier'] as num?)?.toInt() ?? 0) >= 2;
+    (asIntOrNull(row['match_tier']) ?? 0) >= 2;
 
 /// "lcd replacement" as "Lcd Replacement" - the server sends normalised names.
 String _title(String s) => s

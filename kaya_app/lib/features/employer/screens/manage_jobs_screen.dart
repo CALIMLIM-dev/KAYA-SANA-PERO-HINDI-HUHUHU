@@ -11,6 +11,7 @@ import '../../../core/constants/credits.dart';
 import '../../invitations/widgets/invite_to_job.dart';
 import '../widgets/manage_job_sheet.dart';
 import '../../applications/screens/view_applicants_screen.dart';
+import '../../../core/utils/json_parse.dart';
 
 /*
     My Jobs: the employer's posts that are over.
@@ -266,12 +267,12 @@ class _ManageJobsScreenState extends State<ManageJobsScreen>
         hire['employer_completed_at'] == null;
     final category = (job['category'] as Map<String, dynamic>?)?['name']?.toString();
     final location = (job['city'] ?? job['location'] ?? '').toString();
-    final applicants = (job['application_count'] as num?)?.toInt() ?? 0;
+    final applicants = asIntOrNull(job['application_count']) ?? 0;
     // A job for more than one person is run from its roster, not from the
     // single-hire buttons below, which cannot say which person they mean.
-    final workersNeeded = (job['workers_needed'] as num?)?.toInt() ?? 1;
-    final workersFilled = (job['workers_filled'] as num?)?.toInt() ??
-        (job['hire_count'] as num?)?.toInt() ?? 0;
+    final workersNeeded = asIntOrNull(job['workers_needed']) ?? 1;
+    final workersFilled = asIntOrNull(job['workers_filled']) ??
+        asIntOrNull(job['hire_count']) ?? 0;
     final isCrew = workersNeeded > 1 || workersFilled > 1;
     final budget = formatBudget(job);
     final postedAgo = timeAgo(job['created_at'] as String?);

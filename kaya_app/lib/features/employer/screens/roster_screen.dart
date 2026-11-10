@@ -218,7 +218,7 @@ class _RosterScreenState extends State<RosterScreen> with RealtimeRefresh {
 
   @override
   Widget build(BuildContext context) {
-    final needed = (_job?['workers_needed'] as num?)?.toInt() ?? 1;
+    final needed = asIntOrNull(_job?['workers_needed']) ?? 1;
     final filled = _hires.length;
 
     return Scaffold(
@@ -358,7 +358,7 @@ class _RosterScreenState extends State<RosterScreen> with RealtimeRefresh {
     final mine = completion['you_confirmed'] == true;
     final theirs = completion['they_confirmed'] == true;
     final rating = asDoubleOrNull(hire['rating_avg']);
-    final ratingCount = (hire['rating_count'] as num?)?.toInt() ?? 0;
+    final ratingCount = asIntOrNull(hire['rating_count']) ?? 0;
 
     /*
         Each person, on their own row.

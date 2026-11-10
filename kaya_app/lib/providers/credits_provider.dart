@@ -23,7 +23,7 @@ class CreditPackage {
   factory CreditPackage.fromJson(Map<String, dynamic> json) => CreditPackage(
         id: (json['id'] as num).toInt(),
         name: '${json['name'] ?? ''}',
-        credits: (json['credits'] as num?)?.toInt() ?? 0,
+        credits: asIntOrNull(json['credits']) ?? 0,
         amountPhp: asDoubleOrNull(json['amount_php']) ?? 0,
       );
 }
@@ -52,8 +52,8 @@ class CreditEntry {
 
   factory CreditEntry.fromJson(Map<String, dynamic> json) => CreditEntry(
         id: (json['id'] as num).toInt(),
-        delta: (json['delta'] as num?)?.toInt() ?? 0,
-        balanceAfter: (json['balance_after'] as num?)?.toInt() ?? 0,
+        delta: asIntOrNull(json['delta']) ?? 0,
+        balanceAfter: asIntOrNull(json['balance_after']) ?? 0,
         reason: '${json['reason'] ?? ''}',
         isRefund: json['is_refund'] == true,
         note: json['note'] as String?,
@@ -226,8 +226,8 @@ class CreditsProvider with ChangeNotifier {
       final response = await _api.get('/credits/wallet');
       final data = response.data['data'] as Map<String, dynamic>;
 
-      _balance = (data['balance'] as num?)?.toInt() ?? 0;
-      _monthlyGrant = (data['monthly_grant'] as num?)?.toInt() ?? 0;
+      _balance = asIntOrNull(data['balance']) ?? 0;
+      _monthlyGrant = asIntOrNull(data['monthly_grant']) ?? 0;
       _claimNeedsVerification =
           data['claim_requires_verification'] == true;
 
@@ -337,7 +337,7 @@ class CreditsProvider with ChangeNotifier {
       final response = await _api.post('/credits/claim', data: {'type': type});
       final data = response.data['data'] as Map<String, dynamic>;
 
-      _balance = (data['balance'] as num?)?.toInt() ?? _balance;
+      _balance = asIntOrNull(data['balance']) ?? _balance;
 
       // What is still owed comes back with the answer, so the card can drop
       // the gift just taken without guessing which one that was.
@@ -354,8 +354,8 @@ class CreditsProvider with ChangeNotifier {
 
   void _adoptClaimable(dynamic raw) {
     final claimable = (raw as Map?) ?? const {};
-    _claimableWelcome = (claimable['welcome'] as num?)?.toInt() ?? 0;
-    _claimableMonthly = (claimable['monthly'] as num?)?.toInt() ?? 0;
+    _claimableWelcome = asIntOrNull(claimable['welcome']) ?? 0;
+    _claimableMonthly = asIntOrNull(claimable['monthly']) ?? 0;
   }
 
   /*

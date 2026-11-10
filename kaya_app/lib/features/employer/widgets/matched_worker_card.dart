@@ -51,7 +51,7 @@ class MatchedWorkerCard extends StatelessWidget {
   final bool alreadyInvited;
   @override
   Widget build(BuildContext context) {
-    final workerId = (row['user_id'] as num?)?.toInt();
+    final workerId = asIntOrNull(row['user_id']);
     final name = '${row['name'] ?? 'Worker'}';
 
     final skills = ((row['skills'] as List?) ?? const [])
@@ -71,8 +71,8 @@ class MatchedWorkerCard extends StatelessWidget {
         .map((s) => s.toString())
         .toList();
 
-    final hiredBefore = (row['times_hired_before'] as num?)?.toInt() ?? 0;
-    final jobsDone = (row['jobs_completed'] as num?)?.toInt() ?? 0;
+    final hiredBefore = asIntOrNull(row['times_hired_before']) ?? 0;
+    final jobsDone = asIntOrNull(row['jobs_completed']) ?? 0;
     final experience = row['experience_label'] as String?;
 
     final busy = inviting;

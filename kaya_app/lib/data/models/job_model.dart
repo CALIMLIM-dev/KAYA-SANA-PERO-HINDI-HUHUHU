@@ -387,13 +387,13 @@ class Job {
               .map((s) => (s as Map<String, dynamic>)['name']?.toString() ?? '')
               .where((s) => s.isNotEmpty)
               .toList(),
-      applicantCount: (json['application_count'] as num?)?.toInt() ?? 0,
-      workersNeeded: (json['workers_needed'] as num?)?.toInt() ?? 1,
-      workersFilled: (json['workers_filled'] as num?)?.toInt(),
-      matchScore: (json['match_score'] as num?)?.toInt(),
-      matchTier: (json['match_tier'] as num?)?.toInt(),
-      requiredCount: (json['required_count'] as num?)?.toInt() ?? 0,
-      matchedCount: (json['matched_count'] as num?)?.toInt() ?? 0,
+      applicantCount: asIntOrNull(json['application_count']) ?? 0,
+      workersNeeded: asIntOrNull(json['workers_needed']) ?? 1,
+      workersFilled: asIntOrNull(json['workers_filled']),
+      matchScore: asIntOrNull(json['match_score']),
+      matchTier: asIntOrNull(json['match_tier']),
+      requiredCount: asIntOrNull(json['required_count']) ?? 0,
+      matchedCount: asIntOrNull(json['matched_count']) ?? 0,
       matchedSkills: (json['matched_skills'] as List?)
               ?.map((s) => s.toString())
               .toList() ??

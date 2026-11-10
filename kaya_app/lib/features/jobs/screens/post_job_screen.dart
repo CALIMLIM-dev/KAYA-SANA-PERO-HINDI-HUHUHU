@@ -169,7 +169,7 @@ class _PostJobScreenState extends State<PostJobScreen> {
     final lat = number(job['latitude']);
     final lng = number(job['longitude']);
     final place = '${job['city'] ?? job['location'] ?? ''}';
-    final locationId = (job['location_id'] as num?)?.toInt();
+    final locationId = asIntOrNull(job['location_id']);
 
     setState(() {
       _titleController.text = '${job['title'] ?? ''}';
@@ -185,7 +185,7 @@ class _PostJobScreenState extends State<PostJobScreen> {
               orElse: () => const MapEntry('Daily', 'daily'))
           .key;
       _isUrgent = job['is_urgent'] == true;
-      _workersNeeded = (job['workers_needed'] as num?)?.toInt() ?? 1;
+      _workersNeeded = asIntOrNull(job['workers_needed']) ?? 1;
       // The day it was posted: its days are counted from there.
       final posted = DateTime.tryParse('${job['created_at'] ?? ''}')?.toLocal();
       _startDate = posted == null ? null : DateTime(posted.year, posted.month, posted.day);
@@ -209,7 +209,7 @@ class _PostJobScreenState extends State<PostJobScreen> {
     });
 
     final category = (job['category'] as Map?)?.cast<String, dynamic>();
-    final categoryId = (category?['id'] as num?)?.toInt();
+    final categoryId = asIntOrNull(category?['id']);
     if (categoryId != null) {
       await _updateSkillsForCategory('${category!['name'] ?? ''}', categoryId: categoryId);
       if (!mounted) return;

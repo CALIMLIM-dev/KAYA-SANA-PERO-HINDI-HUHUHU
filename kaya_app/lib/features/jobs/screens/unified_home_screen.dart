@@ -29,6 +29,7 @@ import '../../invitations/widgets/invite_to_job.dart';
 import '../../notifications/widgets/notification_bell.dart';
 import '../../../core/utils/realtime_refresh.dart';
 import '../../../data/services/realtime_service.dart';
+import '../../../core/utils/json_parse.dart';
 
 /// Home screen for both sides of the marketplace.
 ///
@@ -113,7 +114,7 @@ class _UnifiedHomeScreenState extends State<UnifiedHomeScreen>
   static int? _knownCityId(AuthProvider auth) {
     final known = auth.user?['known_location'] as Map<String, dynamic>?;
     final city = (known?['city'] as Map<String, dynamic>?) ?? known;
-    return (city?['location_id'] as num?)?.toInt();
+    return asIntOrNull(city?['location_id']);
   }
 
   /*

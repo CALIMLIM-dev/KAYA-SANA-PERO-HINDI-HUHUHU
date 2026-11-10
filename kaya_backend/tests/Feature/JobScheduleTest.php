@@ -287,4 +287,29 @@ class JobScheduleTest extends TestCase
             ->post('/api/v1/jobs', $payload)
             ->assertStatus(422);
     }
+
+    /*
+        A phone's form sends every field as text. The new post came back
+        with "1" for workers_needed, and the poster's own card on Home
+        crashed reading it as a number.
+    */
+    public function test_a_new_post_sends_its_numbers_as_numbers(): void
+    {
+        $payload = $this->payload();
+        unset($payload['start_date']);
+        foreach ($payload as $key => $value) {
+            if (is_int($value)) {
+                $payload[$key] = (string) $value;
+            }
+        }
+        $payload['workers_needed'] = '2';
+
+        $job = $this->actingAs($this->employer(), 'sanctum')
+            ->post('/api/v1/jobs', $payload, ['Accept' => 'application/json'])
+            ->assertCreated()->json('data');
+
+        $this->assertSame(2, $job['workers_needed']);
+        $this->assertIsInt($job['category_id']);
+        $this->assertIsInt($job['location_id']);
+    }
 }

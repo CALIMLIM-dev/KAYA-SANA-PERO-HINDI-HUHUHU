@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import '../data/services/api_client.dart';
+import '../core/utils/json_parse.dart';
 
 /// How many people looked at your profile recently.
 ///
@@ -47,7 +48,7 @@ class ProfileViewProvider with ChangeNotifier {
       );
 
       final data = res.data['data'] as Map<String, dynamic>;
-      _days = (data['days'] as num?)?.toInt() ?? days;
+      _days = asIntOrNull(data['days']) ?? days;
       _workerUniqueViewers =
           ((data['worker'] as Map?)?['unique_viewers'] as num?)?.toInt() ?? 0;
       _employerUniqueViewers =

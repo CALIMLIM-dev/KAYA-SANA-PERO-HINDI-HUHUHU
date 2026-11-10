@@ -106,7 +106,7 @@ class _EmployerProfileScreenState extends State<EmployerProfileScreen> {
     final description = (e['description'] as String?) ?? '';
     final website = (e['website'] as String?) ?? '';
     final ratingAvg = asDoubleOrNull(e['rating_avg']);
-    final reviewCount = (e['rating_count'] as num?)?.toInt() ?? 0;
+    final reviewCount = asIntOrNull(e['rating_count']) ?? 0;
     // Logo if the employer set one, otherwise their account picture. Both
     // have always been sent; neither was ever drawn.
     final employerImage = ((e['image_url'] ?? e['avatar']) ?? '').toString();
@@ -364,8 +364,8 @@ class _EmployerProfileScreenState extends State<EmployerProfileScreen> {
             child: _section(
               title: 'Completion Record',
               child: CompletionRecord(
-                completed: (e['jobs_completed'] as num?)?.toInt() ?? 0,
-                unsuccessful: (e['jobs_unsuccessful'] as num?)?.toInt() ?? 0,
+                completed: asIntOrNull(e['jobs_completed']) ?? 0,
+                unsuccessful: asIntOrNull(e['jobs_unsuccessful']) ?? 0,
                 successRate: e['success_rate'] as int?,
               ),
             ),
