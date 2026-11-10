@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../../core/constants/app_colors.dart';
@@ -19,8 +21,30 @@ class _VerifyResetCodeScreenState extends State<VerifyResetCodeScreen> {
   final TextEditingController _codeCtrl = TextEditingController();
   String? _errorMessage;
 
+  /// A code was just sent to reach this screen, so Resend waits a minute -
+  /// the same minute the server holds.
+  int _cooldown = 0;
+  Timer? _timer;
+
+  @override
+  void initState() {
+    super.initState();
+    _startCooldown(60);
+  }
+
+  void _startCooldown(int seconds) {
+    _timer?.cancel();
+    setState(() => _cooldown = seconds);
+    _timer = Timer.periodic(const Duration(seconds: 1), (t) {
+      if (!mounted) return;
+      setState(() => _cooldown--);
+      if (_cooldown <= 0) t.cancel();
+    });
+  }
+
   @override
   void dispose() {
+    _timer?.cancel();
     _codeCtrl.dispose();
     super.dispose();
   }
@@ -52,11 +76,14 @@ class _VerifyResetCodeScreenState extends State<VerifyResetCodeScreen> {
 
     if (!mounted) return;
     if (success) {
-      AppToast.info(context, 'New verification code sent to your email');
+      AppToast.info(context, 'A new code is on its way.');
       _codeCtrl.clear();
       setState(() => _errorMessage = null);
+      _startCooldown(60);
     } else {
       setState(() => _errorMessage = auth.errorMessage);
+      final wait = auth.resetRetryAfter;
+      if (wait != null) _startCooldown(wait);
     }
   }
 
@@ -98,7 +125,7 @@ class _VerifyResetCodeScreenState extends State<VerifyResetCodeScreen> {
                 text: TextSpan(
                   style: TextStyle(fontSize: 16, color: AppColors.neutral600),
                   children: [
-                    const TextSpan(text: 'We sent a 6-digit verification code to '),
+                    const TextSpan(text: 'We sent a 6-digit code to '),
                     TextSpan(
                       text: email,
                       style: TextStyle(
@@ -114,6 +141,8 @@ class _VerifyResetCodeScreenState extends State<VerifyResetCodeScreen> {
               OtpField(
                 controller: _codeCtrl,
                 autofocus: true,
+                // A phone number was typed, so the code comes by text.
+                smsAutofill: !email.contains('@'),
                 hasError: _errorMessage != null,
                 onCompleted: (_) =>
                     _handleVerify(email, context.read<AuthProvider>()),
@@ -192,13 +221,13 @@ class _VerifyResetCodeScreenState extends State<VerifyResetCodeScreen> {
                     ),
                     Consumer<AuthProvider>(
                       builder: (context, auth, _) => GestureDetector(
-                        onTap: auth.isLoading
+                        onTap: auth.isLoading || _cooldown > 0
                             ? null
                             : () => _handleResendCode(email, auth),
                         child: Text(
-                          'Resend',
+                          _cooldown > 0 ? 'Resend in ${_cooldown}s' : 'Resend',
                           style: TextStyle(
-                            color: auth.isLoading
+                            color: auth.isLoading || _cooldown > 0
                                 ? AppColors.neutral400
                                 : AppColors.primary,
                             fontSize: 15,

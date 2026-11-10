@@ -4,6 +4,7 @@ import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../../core/constants/app_colors.dart';
+import '../../../core/utils/json_parse.dart';
 import '../../../core/widgets/otp_field.dart';
 import '../../../core/constants/employer_type.dart';
 import '../../../providers/auth_provider.dart';
@@ -108,9 +109,11 @@ class _VerificationScreenState extends State<VerificationScreen> {
     }
   }
 
-  void _startCooldown() {
+  /// Counts the Resend button down: 60 seconds after a send, or however
+  /// long the server says when it refused one.
+  void _startCooldown([int seconds = 60]) {
     _cooldownTimer?.cancel();
-    setState(() => _cooldown = 60);
+    setState(() => _cooldown = seconds);
     _cooldownTimer = Timer.periodic(const Duration(seconds: 1), (t) {
       if (!mounted) return t.cancel();
       setState(() => _cooldown--);
@@ -188,8 +191,8 @@ class _VerificationScreenState extends State<VerificationScreen> {
             ),
             const SizedBox(height: 6),
             const Text(
-              'We text a 6-digit code to this number. Saving it here updates '
-              'your account.',
+              'We text a 6-digit code to this number. Once confirmed, it can '
+              'receive a code if you forget your password.',
               style: TextStyle(fontSize: 12, color: AppColors.neutral500),
             ),
             // Where "phone verification is not available yet" lands when no
@@ -935,34 +938,29 @@ class _VerificationScreenState extends State<VerificationScreen> {
       return;
     }
 
+    final user = context.read<AuthProvider>().user;
+    if (user?['phone_verified'] == true && phone == ((user?['phone'] as String?) ?? '').trim()) {
+      setState(() => _verifyError = 'This number is already confirmed. Type a new number to change it.');
+      return;
+    }
+
     setState(() {
       _isLoading = true;
       _verifyError = null;
     });
 
-    final auth = context.read<AuthProvider>();
-
-    if (phone != ((auth.user?['phone'] as String?) ?? '').trim()) {
-      final saved = await auth.updateMe(phone: phone);
-      if (!mounted) return;
-      if (!saved) {
-        setState(() {
-          _isLoading = false;
-          _verifyError = auth.errorMessage ?? 'Could not save that number.';
-        });
-        return;
-      }
-    }
-
+    // The number goes with the request. A new one waits on the server until
+    // its code comes back, so a confirmed recovery number is never swapped
+    // by somebody who does not hold the new phone.
     try {
-      final res = await _api.post('/contact-verification/phone/send');
+      final res = await _api.post('/contact-verification/phone/send', data: {'phone': phone});
       if (!mounted) return;
       setState(() {
         _isLoading = false;
         _otpSent = true;
         _otpCtrl.clear();
       });
-      _startCooldown();
+      _startCooldown(_resendIn(res.data));
       AppToast.success(context, res.data['message'] as String? ?? 'Code sent.');
     } catch (e) {
       if (!mounted) return;
@@ -972,6 +970,7 @@ class _VerificationScreenState extends State<VerificationScreen> {
         // beats a spinner that resolves into a lie.
         _verifyError = e.toString().replaceFirst('Exception: ', '');
       });
+      _waitIfRefused(e);
     }
   }
 
@@ -1022,7 +1021,7 @@ class _VerificationScreenState extends State<VerificationScreen> {
         _emailSent = true;
         _emailCodeCtrl.clear();
       });
-      _startCooldown();
+      _startCooldown(_resendIn(res.data));
       AppToast.success(context, res.data['message'] as String? ?? 'Code sent.');
     } catch (e) {
       if (!mounted) return;
@@ -1030,7 +1029,19 @@ class _VerificationScreenState extends State<VerificationScreen> {
         _isLoading = false;
         _verifyError = e.toString().replaceFirst('Exception: ', '');
       });
+      _waitIfRefused(e);
     }
+  }
+
+  /// The wait the server set after a send.
+  int _resendIn(dynamic body) {
+    final data = body is Map ? body['data'] : null;
+    return asIntOrNull(data is Map ? data['resend_in'] : null) ?? 60;
+  }
+
+  /// Too soon or too many: show the countdown the server asked for.
+  void _waitIfRefused(Object e) {
+    if (e is ApiException && e.retryAfter != null) _startCooldown(e.retryAfter!);
   }
 
   /// Replaces the "I've verified my email" button, which set a flag and told
@@ -1146,6 +1157,8 @@ class _VerificationScreenState extends State<VerificationScreen> {
       OtpField(
         controller: controller,
         autofocus: true,
+        // The phone code arrives by text, often on this same phone.
+        smsAutofill: identical(controller, _otpCtrl),
         enabled: !_isLoading,
         hasError: _verifyError != null,
         // Six digits in means there is nothing left to decide, so submit

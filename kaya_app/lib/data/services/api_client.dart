@@ -564,6 +564,12 @@ class ApiClient {
       case 500:
         return ApiException(status, code,
             fallback ?? 'Server error. Please try again later.');
+      // Too soon or too many: the wait comes with it, so a Resend button
+      // can count down the real time instead of guessing.
+      case 429:
+        return ApiException(status, code,
+            message ?? 'Too many tries. Please wait a moment.',
+            retryAfter: _intFrom(data is Map ? data['data'] : null, 'retry_after'));
       default:
         /*
             Say which failure it was.
@@ -599,7 +605,10 @@ class ApiClient {
 /// is what turned this from a sixteen file change into a one file change.
 class ApiException implements Exception {
   const ApiException(this.status, this.code, this.message,
-      {this.required, this.balance, this.standingToken});
+      {this.required, this.balance, this.standingToken, this.retryAfter});
+
+  /// Only on 429: seconds until the server takes this again.
+  final int? retryAfter;
 
   /// HTTP status, when there was a response at all.
   final int? status;

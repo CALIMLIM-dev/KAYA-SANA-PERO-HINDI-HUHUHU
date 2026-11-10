@@ -12,8 +12,6 @@ import '../../../providers/employer_profile_provider.dart';
 import '../../../providers/verification_provider.dart';
 import '../widgets/inline_edit_row.dart';
 import '../widgets/inline_location_row.dart';
-import '../widgets/contact_verify_row.dart';
-import '../../../core/navigation/app_router.dart';
 
 /// My Employer Profile - JobStreet-inspired layout
 /// Toggle (Company / Individual) is visible directly on the profile tab
@@ -76,50 +74,6 @@ class _MyEmployerProfileScreenState extends State<MyEmployerProfileScreen>
     final value = _profile?.location;
     return (value == null || value.isEmpty) ? null : value;
   }
-
-  /*
-      Phone and email, entered and confirmed in the same row.
-
-      Identical to the worker profile - same widget, same three callbacks -
-      because they are the same job and a difference between the two sides
-      would only read as one of them being unfinished.
-  */
-  Widget _contactRows() {
-    final auth = context.watch<AuthProvider>();
-
-    // The whole flow — save the number, send the code, check it — lives on
-    // the verification screen. These rows say what the account holds and open
-    // it; refreshing on return is what turns the row into 'Verified'.
-    Future<void> open(String channel, String title) async {
-      await AppRouter.push(context, '/verification', arguments: {
-        'type': channel,
-        'title': title,
-        'subtitle': channel == 'phone'
-            ? 'Confirm the number employers and workers will reach you on.'
-            : 'Confirm the address your account signs in with.',
-      });
-      if (!mounted) return;
-      await auth.fetchMe();
-    }
-
-    return Column(
-      children: [
-        ContactVerifyRow(
-          label: 'Phone Number',
-          value: auth.user?['phone'] as String?,
-          verified: auth.user?['phone_verified'] == true,
-          onTap: () => open('phone', 'Verify Phone'),
-        ),
-        ContactVerifyRow(
-          label: 'Email',
-          value: auth.user?['email'] as String?,
-          verified: auth.user?['email_verified'] == true,
-          onTap: () => open('email', 'Verify Email'),
-        ),
-      ],
-    );
-  }
-
 
   /// Same viewer the worker profile uses, so both sides behave alike.
   void _showPhotoPreview(String url) {
@@ -947,15 +901,6 @@ class _MyEmployerProfileScreenState extends State<MyEmployerProfileScreen>
               status: vp.statusFor('government_id'),
             ),
 
-          /*
-              Phone and email are done in the row, not on a screen.
-
-              A card that pushed the upload screen could not accept a number,
-              and the row that held the number could not verify it - so the
-              same value sat in two places and neither could finish. Both are
-              a field and a six digit code.
-          */
-          _contactRows(),
         ],
       ],
       ),

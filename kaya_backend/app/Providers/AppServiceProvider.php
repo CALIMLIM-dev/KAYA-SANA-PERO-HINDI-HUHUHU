@@ -74,8 +74,9 @@ class AppServiceProvider extends ServiceProvider
         // Credential guessing. Deliberately tight.
         RateLimiter::for('auth', fn (Request $r) => Limit::perMinute(10)->by($byUser($r)));
 
-        // Sends a real email or SMS, and SMS costs money.
-        RateLimiter::for('verification-send', fn (Request $r) => Limit::perMinutes(10, 5)->by($byUser($r)));
+        // Sends a real email or SMS. The real rule (a minute apart, five an
+        // hour, with the wait shown) is CodeLimiter; this only stops a burst.
+        RateLimiter::for('verification-send', fn (Request $r) => Limit::perMinutes(10, 12)->by($byUser($r)));
 
         // Guessing a six-digit code. Bounded per code as well, in the
         // controller; this stops someone cycling through fresh codes.

@@ -132,6 +132,27 @@ class _SettingsScreenState extends State<SettingsScreen> {
             ),
           ]),
 
+          // Email and phone are for getting back in: a confirmed one can
+          // receive a Forgot Password code. The ID check is on the profile.
+          _group('Recovery Contacts', [
+            _recoveryRow(
+              auth,
+              channel: 'phone',
+              icon: Icons.phone_android_outlined,
+              title: 'Phone Number',
+              value: auth.user?['phone'] as String?,
+              confirmed: auth.user?['phone_verified'] == true,
+            ),
+            _recoveryRow(
+              auth,
+              channel: 'email',
+              icon: Icons.email_outlined,
+              title: 'Email',
+              value: auth.user?['email'] as String?,
+              confirmed: auth.user?['email_verified'] == true,
+            ),
+          ]),
+
           _group('Notifications', _notificationRows()),
 
           _group('Help & Support', [
@@ -250,6 +271,49 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   /// A heading and one white card holding [rows], divided by hairlines.
+  /// One recovery contact: what it is, whether it is confirmed, and the
+  /// confirm screen behind it. A phone can be changed there too; a new
+  /// number only replaces the old one once its code comes back.
+  Widget _recoveryRow(
+    AuthProvider auth, {
+    required String channel,
+    required IconData icon,
+    required String title,
+    required String? value,
+    required bool confirmed,
+  }) {
+    final has = (value ?? '').trim().isNotEmpty;
+    final phone = channel == 'phone';
+
+    return _SettingsRow(
+      icon: icon,
+      title: title,
+      subtitle: !has
+          ? (phone ? 'Not added' : 'No email on this account')
+          : confirmed
+              ? '$value · Confirmed'
+              : '$value · Not confirmed',
+      trailing: confirmed && !phone
+          ? const Icon(Icons.check_circle, size: 20, color: AppColors.success)
+          : null,
+      // A confirmed email has nothing left to do; everything else opens
+      // the confirm screen.
+      onTap: (!phone && (confirmed || !has))
+          ? null
+          : () async {
+              await AppRouter.push(context, '/verification', arguments: {
+                'type': channel,
+                'title': phone ? (confirmed ? 'Change Phone Number' : 'Confirm Phone Number') : 'Confirm Email',
+                'subtitle': phone
+                    ? 'A confirmed number can receive a code if you forget your password.'
+                    : 'A confirmed email can receive a code if you forget your password.',
+              });
+              if (!mounted) return;
+              await auth.fetchMe();
+            },
+    );
+  }
+
   Widget _group(String title, List<Widget> rows) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 20),

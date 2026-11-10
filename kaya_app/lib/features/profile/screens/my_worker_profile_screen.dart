@@ -13,7 +13,6 @@ import '../widgets/inline_edit_row.dart';
 import '../widgets/inline_location_row.dart';
 import '../../../core/widgets/hint_bubble.dart';
 import '../../../core/widgets/kaya_popup.dart';
-import '../widgets/contact_verify_row.dart';
 import '../widgets/profile_section_card.dart';
 import '../../../data/services/api_client.dart';
 import '../../../data/models/location_model.dart';
@@ -1660,49 +1659,6 @@ class _MyWorkerProfileScreenState extends State<MyWorkerProfileScreen> with Sing
     );
   }
 
-  /*
-      Phone and email, entered and confirmed in the same row.
-
-      Both live as columns on the account rather than as verification rows, so
-      their status comes from /me. The three callbacks are the whole flow:
-      store the value, ask for a code, check the code.
-  */
-  Widget _contactRows() {
-    final auth = context.watch<AuthProvider>();
-
-    // The whole flow — save the number, send the code, check it — lives on
-    // the verification screen. These rows say what the account holds and open
-    // it; refreshing on return is what turns the row into 'Verified'.
-    Future<void> open(String channel, String title) async {
-      await AppRouter.push(context, '/verification', arguments: {
-        'type': channel,
-        'title': title,
-        'subtitle': channel == 'phone'
-            ? 'Confirm the number employers and workers will reach you on.'
-            : 'Confirm the address your account signs in with.',
-      });
-      if (!mounted) return;
-      await auth.fetchMe();
-    }
-
-    return Column(
-      children: [
-        ContactVerifyRow(
-          label: 'Phone Number',
-          value: auth.user?['phone'] as String?,
-          verified: auth.user?['phone_verified'] == true,
-          onTap: () => open('phone', 'Verify Phone'),
-        ),
-        ContactVerifyRow(
-          label: 'Email',
-          value: auth.user?['email'] as String?,
-          verified: auth.user?['email_verified'] == true,
-          onTap: () => open('email', 'Verify Email'),
-        ),
-      ],
-    );
-  }
-
   Widget _buildVerificationsTab() {
     return Consumer<VerificationProvider>(
       builder: (context, vp, _) => ListView(
@@ -1754,16 +1710,6 @@ class _MyWorkerProfileScreenState extends State<MyWorkerProfileScreen> with Sing
             status: vp.statusFor('government_id'),
           ),
 
-          /*
-              Phone and email are done here, in the row.
-
-              A card that pushed a screen could not accept a number, and the
-              row on the Profile tab that held the number could not verify it -
-              so the same value appeared in two places, neither of which could
-              finish the job. Both are a field and a six digit code, which is
-              not a screen's worth of anything.
-          */
-          _contactRows(),
         ],
       ),
     );

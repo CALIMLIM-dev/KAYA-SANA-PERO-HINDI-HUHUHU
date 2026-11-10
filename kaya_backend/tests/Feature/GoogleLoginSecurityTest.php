@@ -270,6 +270,8 @@ class GoogleLoginSecurityTest extends TestCase
         $this->assertNotNull($user);
         $this->assertTrue((bool) $user->terms_accepted);
         $this->assertNotNull($user->terms_accepted_at);
+        // Google confirmed the address, so KAYA does not ask again.
+        $this->assertNotNull($user->email_verified_at);
     }
 
     /*

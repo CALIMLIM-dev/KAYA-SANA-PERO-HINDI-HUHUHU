@@ -1,5 +1,7 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:smart_auth/smart_auth.dart';
 
 import '../constants/app_colors.dart';
 
@@ -27,7 +29,13 @@ class OtpField extends StatefulWidget {
     this.enabled = true,
     this.hasError = false,
     this.onCompleted,
+    this.smsAutofill = false,
   });
+
+  /// Where the code arrives by text on this same phone: Android asks once
+  /// ("Allow KAYA to read this code?") and the boxes fill themselves. No
+  /// SMS permission is ever granted to KAYA.
+  final bool smsAutofill;
 
   final TextEditingController controller;
   final int length;
@@ -46,21 +54,67 @@ class OtpField extends StatefulWidget {
   State<OtpField> createState() => _OtpFieldState();
 }
 
-class _OtpFieldState extends State<OtpField> {
+class _OtpFieldState extends State<OtpField> with WidgetsBindingObserver {
   final FocusNode _focus = FocusNode();
+
+  /// A code sitting on the clipboard, offered as "Paste 482917".
+  String? _clip;
 
   @override
   void initState() {
     super.initState();
     widget.controller.addListener(_onChanged);
     _focus.addListener(() => setState(() {}));
+    WidgetsBinding.instance.addObserver(this);
+    _checkClipboard();
+    if (widget.smsAutofill && !kIsWeb && defaultTargetPlatform == TargetPlatform.android) {
+      _listenForSms();
+    }
   }
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    if (widget.smsAutofill) {
+      SmartAuth.instance.removeUserConsentApiListener().ignore();
+    }
     widget.controller.removeListener(_onChanged);
     _focus.dispose();
     super.dispose();
+  }
+
+  // Back from Gmail with the code copied: offer it.
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) _checkClipboard();
+  }
+
+  Future<void> _checkClipboard() async {
+    try {
+      final text = (await Clipboard.getData(Clipboard.kTextPlain))?.text ?? '';
+      final match = RegExp('(?<!\\d)\\d{${widget.length}}(?!\\d)').firstMatch(text);
+      if (!mounted) return;
+      final code = match?.group(0);
+      setState(() => _clip = code != null && code != widget.controller.text ? code : null);
+    } catch (_) {
+      // No clipboard on this platform: nothing to offer.
+    }
+  }
+
+  Future<void> _listenForSms() async {
+    final res = await SmartAuth.instance.getSmsWithUserConsentApi(
+      matcher: '\\d{${widget.length}}',
+    );
+    final code = res.data?.code;
+    if (!mounted || code == null || code.length != widget.length) return;
+    widget.controller.text = code;
+  }
+
+  void _paste() {
+    final code = _clip;
+    if (code == null) return;
+    widget.controller.text = code;
+    setState(() => _clip = null);
   }
 
   void _onChanged() {
@@ -72,6 +126,33 @@ class _OtpFieldState extends State<OtpField> {
 
   @override
   Widget build(BuildContext context) {
+    final clip = _clip;
+    final offerPaste = widget.enabled && clip != null && widget.controller.text != clip;
+
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _boxes(context),
+        if (offerPaste)
+          Padding(
+            padding: const EdgeInsets.only(top: 8),
+            child: TextButton.icon(
+              onPressed: _paste,
+              icon: const Icon(Icons.content_paste_rounded, size: 18),
+              label: Text('Paste $clip'),
+              style: TextButton.styleFrom(
+                foregroundColor: AppColors.primary,
+                padding: const EdgeInsets.symmetric(horizontal: 8),
+                visualDensity: VisualDensity.compact,
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+
+  Widget _boxes(BuildContext context) {
     final code = widget.controller.text;
 
     return Semantics(

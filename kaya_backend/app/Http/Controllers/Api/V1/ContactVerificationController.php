@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api\V1;
 use App\Http\Controllers\Controller;
 use App\Mail\VerificationCodeMail;
 use App\Services\SmsSender;
+use App\Support\CodeLimiter;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Mail;
@@ -58,6 +59,10 @@ class ContactVerificationController extends Controller
             return $this->ok(null, 'Your email is already verified.');
         }
 
+        if ($wait = CodeLimiter::wait("email:{$user->id}")) {
+            return CodeLimiter::refuse($wait);
+        }
+
         $code = $this->issue($user, 'email');
 
         try {
@@ -69,8 +74,10 @@ class ContactVerificationController extends Controller
             return $this->fail('We could not send the code. Please try again shortly.', 503);
         }
 
+        CodeLimiter::hit("email:{$user->id}");
+
         return $this->ok(
-            ['expires_in_minutes' => self::TTL_MINUTES],
+            ['expires_in_minutes' => self::TTL_MINUTES, 'resend_in' => CodeLimiter::WAIT_SECONDS],
             'We sent a code to ' . $this->maskEmail($user->email) . '.'
         );
     }
@@ -91,15 +98,36 @@ class ContactVerificationController extends Controller
 
     // ── Phone ────────────────────────────────────────────────────────────────
 
+    /*
+        A code to the account's number, or to a new one.
+
+        With `phone` in the request and a confirmed number already on the
+        account, the new number waits in pending_phone and the code goes to
+        it: a recovery number is only ever swapped by someone holding the new
+        phone, and the old one stays until the code comes back. An
+        unconfirmed number protects nothing yet, so it is simply replaced.
+    */
     public function sendPhoneCode(Request $request, SmsSender $sms)
     {
+        $request->validate(['phone' => ['nullable', 'string', 'max:20']]);
         $user = $request->user();
+        $new = trim((string) $request->input('phone'));
+        $changing = $new !== '' && $new !== $user->phone;
 
-        if (blank($user->phone)) {
+        if ($changing) {
+            if (strlen(preg_replace('/\D/', '', $new)) < 10) {
+                return $this->fail('Enter a valid mobile number.', 422);
+            }
+            if (\App\Models\User::where('phone', $new)->whereKeyNot($user->id)->exists()) {
+                return $this->fail('This phone number is already used by another account.', 422);
+            }
+        }
+
+        if (! $changing && blank($user->phone)) {
             return $this->fail('Add a phone number to your account first.', 422);
         }
 
-        if ($user->phone_verified_at) {
+        if (! $changing && $user->phone_verified_at) {
             return $this->ok(null, 'Your number is already verified.');
         }
 
@@ -112,32 +140,63 @@ class ContactVerificationController extends Controller
             );
         }
 
+        if ($wait = CodeLimiter::wait("phone:{$user->id}")) {
+            return CodeLimiter::refuse($wait);
+        }
+
+        if ($changing && $user->phone_verified_at) {
+            $user->forceFill(['pending_phone' => $new])->save();
+        } elseif ($changing) {
+            $user->forceFill(['phone' => $new, 'pending_phone' => null])->save();
+        } else {
+            $user->forceFill(['pending_phone' => null])->save();
+        }
+        $to = $user->pending_phone ?: $user->phone;
+
         $code = $this->issue($user, 'phone');
 
         try {
-            $sms->send($user->phone, "Your KAYA verification code is {$code}. It expires in "
-                . self::TTL_MINUTES . ' minutes.');
+            $sms->send($to, "KAYA: {$code} is your code. It expires in "
+                . self::TTL_MINUTES . ' minutes. Never share this code.');
         } catch (RuntimeException $e) {
             return $this->fail($e->getMessage(), 503);
         }
 
+        CodeLimiter::hit("phone:{$user->id}");
+
         return $this->ok(
-            ['expires_in_minutes' => self::TTL_MINUTES],
-            'We sent a code to ' . $this->maskPhone($user->phone) . '.'
+            ['expires_in_minutes' => self::TTL_MINUTES, 'resend_in' => CodeLimiter::WAIT_SECONDS],
+            'We sent a code to ' . $this->maskPhone($to) . '.'
         );
     }
 
-    public function verifyPhoneCode(Request $request)
+    public function verifyPhoneCode(Request $request, \App\Services\NotificationService $notifications)
     {
         $request->validate(['code' => ['required', 'string']]);
 
-        return $this->check($request->user(), 'phone', $request->string('code'), function ($user) {
-            $user->forceFill([
+        return $this->check($request->user(), 'phone', $request->string('code'), function ($user) use ($notifications) {
+            $new = $user->pending_phone;
+
+            // Taken while the code was out: the number stays as it was.
+            if ($new && \App\Models\User::where('phone', $new)->whereKeyNot($user->id)->exists()) {
+                $user->forceFill(['pending_phone' => null])->save();
+
+                return;
+            }
+
+            $user->forceFill(array_filter([
+                'phone'                         => $new,
+                'pending_phone'                 => null,
                 'phone_verified_at'             => now(),
                 'phone_verification_code'       => null,
                 'phone_verification_expires_at' => null,
                 'phone_verification_attempts'   => 0,
-            ])->save();
+            ], fn ($v, $k) => $k !== 'phone' || $v !== null, ARRAY_FILTER_USE_BOTH))->save();
+
+            if ($new) {
+                $notifications->accountChanged($user, 'Your phone number was changed',
+                    'The phone number on your KAYA account is now ' . $this->maskPhone($new) . '.');
+            }
         }, 'Phone number verified.');
     }
 

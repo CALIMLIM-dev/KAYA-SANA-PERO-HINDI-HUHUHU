@@ -829,6 +829,43 @@ class NotificationService
 
     /** KAYA answered somebody who wrote to support. */
     /** A problem they reported with Something's Broken is fixed. */
+    /*
+        Something that could lock the owner out changed: the password, the
+        recovery number. Said in the app and, when the account has an email,
+        by email too - sent after the response, so nobody waits on Gmail. A
+        mail failure is logged and never fails the change itself.
+    */
+    public function accountChanged(\App\Models\User $user, string $title, string $body): void
+    {
+        $this->push(
+            userId: $user->id,
+            audience: UserNotification::AUDIENCE_BOTH,
+            type: 'account.changed',
+            title: $title,
+            body: $body . ' Not you? Reset your password and contact KAYA.',
+        );
+
+        if (blank($user->email)) {
+            return;
+        }
+
+        $mail = new \App\Mail\AccountNoticeMail(
+            $user->name ?: 'there',
+            $title,
+            $body,
+            now('Asia/Manila')->format('M j, Y g:i A'),
+        );
+        $to = $user->email;
+
+        dispatch(function () use ($to, $mail) {
+            try {
+                \Illuminate\Support\Facades\Mail::to($to)->send($mail);
+            } catch (\Throwable $e) {
+                \Illuminate\Support\Facades\Log::warning('Account notice email failed', ['error' => $e->getMessage()]);
+            }
+        })->afterResponse();
+    }
+
     public function bugFixed(\App\Models\User $user, string $version): void
     {
         $this->push(

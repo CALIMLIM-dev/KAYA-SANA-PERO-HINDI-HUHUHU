@@ -138,6 +138,8 @@ class ContactVerificationTest extends TestCase
         $this->actingAs($user)->postJson('/api/v1/contact-verification/email/send')->assertOk();
         $first = $user->fresh()->email_verification_code;
 
+        // A minute later: the Resend wait.
+        $this->travel(61)->seconds();
         $this->actingAs($user)->postJson('/api/v1/contact-verification/email/send')->assertOk();
         $second = $user->fresh()->email_verification_code;
 

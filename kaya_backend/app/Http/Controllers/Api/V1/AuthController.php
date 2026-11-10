@@ -503,6 +503,9 @@ class AuthController extends Controller
         $user->tokens()->delete();
         $token = $user->createToken('kaya_app')->plainTextToken;
 
+        app(\App\Services\NotificationService::class)->accountChanged($user, 'Your password was changed',
+            'The password on your KAYA account was changed in the app, and your other devices were signed out.');
+
         return $this->ok(['token' => $token], 'Password updated. Other devices have been signed out.');
     }
 
@@ -634,6 +637,16 @@ class AuthController extends Controller
                 return $this->fail('This phone number is already used by another account.', 422);
             }
 
+            /*
+                A confirmed number is a recovery contact: it changes only
+                through a code sent to the new number (Settings, Recovery
+                Contacts). With no SMS sender there is no code to send, so
+                it changes here as before.
+            */
+            if ($user->phone_verified_at && app(\App\Services\SmsSender::class)->isConfigured()) {
+                return $this->fail('Change a confirmed number in Settings, Recovery Contacts. We text a code to the new number.', 422);
+            }
+
             // The check was for the old number.
             $user->phone = $data['phone'];
             $user->phone_verified_at = null;
@@ -745,6 +758,7 @@ class AuthController extends Controller
 
             // Existing user - just log them in (LOGIN flow)
             $existingUser->google_id = $googleId;
+            $existingUser->email_verified_at ??= now();
 
             /*
                 Google's picture fills a gap, it does not overwrite a choice.
@@ -810,6 +824,9 @@ class AuthController extends Controller
             'terms_accepted_at' => now(),
         ]);
 
+        // Google confirmed the address before handing it over.
+        $user->forceFill(['email_verified_at' => now()])->save();
+
         $token = $user->createToken('kaya_app')->plainTextToken;
 
         return $this->ok(['user' => $this->accountPayload($user), 'token' => $token], 'Account created successfully', 201);
@@ -818,23 +835,65 @@ class AuthController extends Controller
     /**
      * Request password reset — sends email with 6-digit code
      */
-    public function forgotPassword(Request $request)
+    /*
+        The account a reset is for: an email address, or a phone number in
+        any of the shapes people type (0917..., 63917..., +63917...).
+    */
+    private function resetAccount(string $identifier): ?User
+    {
+        $identifier = trim($identifier);
+        if (str_contains($identifier, '@')) {
+            return User::where('email', $identifier)->first();
+        }
+
+        $digits = preg_replace('/\D/', '', $identifier);
+        if (strlen($digits) < 10) {
+            return null;
+        }
+        $last10 = substr($digits, -10);
+
+        return User::where('phone', 'like', "%{$last10}")->get()
+            ->first(fn (User $u) => substr(preg_replace('/\D/', '', (string) $u->phone), -10) === $last10);
+    }
+
+    public function forgotPassword(Request $request, \App\Services\SmsSender $sms)
     {
         $request->validate([
-            'email' => ['required', 'email'],
+            'email' => ['required', 'string', 'max:255'],
         ]);
 
-        $user = User::where('email', $request->email)->first();
+        $identifier = trim((string) $request->input('email'));
+        $byPhone = ! str_contains($identifier, '@');
+        if (! $byPhone && ! filter_var($identifier, FILTER_VALIDATE_EMAIL)) {
+            return $this->fail('Enter a valid email address or mobile number.', 422);
+        }
+
+        /*
+            One minute between codes, five an hour, for whatever was typed -
+            counted before the account is looked up, so the wait says
+            nothing about whether it exists.
+        */
+        $scope = 'reset:' . ($byPhone ? substr(preg_replace('/\D/', '', $identifier), -10) : strtolower($identifier));
+        if ($wait = \App\Support\CodeLimiter::wait($scope)) {
+            return \App\Support\CodeLimiter::refuse($wait);
+        }
+        \App\Support\CodeLimiter::hit($scope);
+
+        $user = $this->resetAccount($identifier);
 
         // Deliberately identical response whether or not the account exists.
         // Returning 404 here turned this endpoint into an account-existence
-        // oracle that anyone could enumerate.
+        // oracle that anyone could enumerate. A number must be confirmed to
+        // receive a code: an unconfirmed one may be a typo, and the code
+        // would land on a stranger's phone.
         $genericResponse = fn () => $this->ok(
-            null,
-            'If an account exists for that email, we have sent a reset code.'
+            ['resend_in' => \App\Support\CodeLimiter::WAIT_SECONDS],
+            $byPhone
+                ? 'If that number is confirmed on a KAYA account, we texted it a reset code.'
+                : 'If an account exists for that email, we have sent a reset code.'
         );
 
-        if (!$user) {
+        if (! $user || ($byPhone && (! $user->phone_verified_at || ! $sms->isConfigured()))) {
             return $genericResponse();
         }
 
@@ -845,6 +904,16 @@ class AuthController extends Controller
         $user->password_reset_token = Hash::make($resetCode);
         $user->password_reset_expires_at = now()->addMinutes(15);
         $user->save();
+
+        if ($byPhone) {
+            try {
+                $sms->send($user->phone, "KAYA: {$resetCode} is your password reset code. It expires in 15 minutes. Never share this code.");
+            } catch (\RuntimeException $e) {
+                return $this->fail('We could not text the code right now. Please try again shortly, or use your email.', 503);
+            }
+
+            return $genericResponse();
+        }
 
         try {
             Mail::to($user->email)->send(new PasswordResetMail($user->name ?? 'User', $resetCode));
@@ -868,11 +937,11 @@ class AuthController extends Controller
     public function verifyResetCode(Request $request)
     {
         $request->validate([
-            'email' => ['required', 'email'],
+            'email' => ['required', 'string', 'max:255'],
             'code'  => ['required', 'string', 'size:6'],
         ]);
 
-        $user = User::where('email', $request->email)->first();
+        $user = $this->resetAccount((string) $request->input('email'));
 
         // A missing account, a missing reset request, an expired window and a
         // wrong code all return the same message, so this cannot be used to
@@ -900,12 +969,12 @@ class AuthController extends Controller
     public function resetPassword(Request $request)
     {
         $request->validate([
-            'email'    => ['required', 'email'],
+            'email'    => ['required', 'string', 'max:255'],
             'code'     => ['required', 'string', 'size:6'],
             'password' => \App\Support\PasswordRules::for($request->input('email')),
         ]);
 
-        $user = User::where('email', $request->email)->first();
+        $user = $this->resetAccount((string) $request->input('email'));
 
         // A missing account, a missing reset request, an expired window and a
         // wrong code all return the same message, so this cannot be used to
@@ -932,6 +1001,9 @@ class AuthController extends Controller
 
         // Revoke all existing tokens for security
         $user->tokens()->delete();
+
+        app(\App\Services\NotificationService::class)->accountChanged($user, 'Your password was changed',
+            'The password on your KAYA account was reset with a code, and every device was signed out.');
 
         return $this->ok(null, 'Password reset successful. Please login with your new password.');
     }

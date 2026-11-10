@@ -103,6 +103,8 @@ const informOnlyNotifications = {
   'community.rejected',
   'community.removed',
   'announcement.sent',
+  // "Your password was changed" - the words are the whole point.
+  'account.changed',
 };
 
 /// Which screen a notification belongs on, from what the server sent with it.

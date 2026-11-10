@@ -611,9 +611,15 @@ class AuthProvider with ChangeNotifier {
 
   // ── Forgot Password ──────────────────────────────────────────────────────────
 
+  /// Seconds the server asked to wait after a refused reset code, so the
+  /// code screen can count it down.
+  int? get resetRetryAfter => _resetRetryAfter;
+  int? _resetRetryAfter;
+
   Future<bool> sendResetCode({required String email}) async {
     _isLoading = true;
     _errorMessage = null;
+    _resetRetryAfter = null;
     notifyListeners();
 
     try {
@@ -622,6 +628,7 @@ class AuthProvider with ChangeNotifier {
       notifyListeners();
       return true;
     } catch (e) {
+      _resetRetryAfter = e is ApiException ? e.retryAfter : null;
       _errorMessage = e.toString().replaceFirst('Exception: ', '');
       _isLoading = false;
       notifyListeners();
