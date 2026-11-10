@@ -63,6 +63,12 @@ return [
      | no sender-ID paperwork to begin. A registered sender name is required
      | for custom branding; without one they send as SEMAPHORE.
      */
+    // Free SMS from an Android phone (textbee.dev). Used before Semaphore.
+    'textbee' => [
+        'key'       => env('TEXTBEE_API_KEY'),
+        'device_id' => env('TEXTBEE_DEVICE_ID'),
+    ],
+
     'semaphore' => [
         'key'         => env('SEMAPHORE_API_KEY'),
         'sender_name' => env('SEMAPHORE_SENDER_NAME', 'SEMAPHORE'),

@@ -186,6 +186,63 @@ class ContactVerificationTest extends TestCase
         $this->assertNull($user->fresh()->phone_verified_at);
     }
 
+    /*
+        The defense sends codes from an Android phone through textbee: the
+        key in the header, the number in +63 form, and the code it then
+        accepts is the one that was texted.
+    */
+    #[Test]
+    public function a_phone_code_is_texted_through_textbee_and_verifies(): void
+    {
+        config(['services.textbee.key' => 'tb-key', 'services.textbee.device_id' => 'dev-1', 'services.semaphore.key' => null]);
+        \Illuminate\Support\Facades\Http::fake(['api.textbee.dev/*' => \Illuminate\Support\Facades\Http::response(['data' => ['success' => true]])]);
+        $user = $this->unverified();
+
+        $this->actingAs($user)->getJson('/api/v1/contact-verification')->assertJsonPath('data.phone_available', true);
+        $this->actingAs($user)->postJson('/api/v1/contact-verification/phone/send')->assertOk();
+
+        $code = null;
+        \Illuminate\Support\Facades\Http::assertSent(function ($request) use (&$code) {
+            preg_match('/\b(\d{6})\b/', $request['message'], $m);
+            $code = $m[1] ?? null;
+
+            return $request->url() === 'https://api.textbee.dev/api/v1/gateway/send-sms'
+                && $request->hasHeader('x-api-key', 'tb-key')
+                && $request['recipients'] === ['+639171234567']
+                && $request['deviceId'] === 'dev-1';
+        });
+
+        $this->actingAs($user)->postJson('/api/v1/contact-verification/phone/verify', ['code' => $code])->assertOk();
+        $this->assertNotNull($user->fresh()->phone_verified_at);
+    }
+
+    #[Test]
+    public function a_textbee_failure_is_said_and_nothing_is_verified(): void
+    {
+        config(['services.textbee.key' => 'tb-key', 'services.semaphore.key' => null]);
+        \Illuminate\Support\Facades\Http::fake(['api.textbee.dev/*' => \Illuminate\Support\Facades\Http::response(['error' => 'device offline'], 400)]);
+        $user = $this->unverified();
+
+        $this->actingAs($user)->postJson('/api/v1/contact-verification/phone/send')
+            ->assertStatus(503)->assertJsonPath('message', 'We could not send the code. Please try again shortly.');
+        $this->assertNull($user->fresh()->phone_verified_at);
+    }
+
+    #[Test]
+    public function the_test_command_sends_an_email_and_a_text(): void
+    {
+        Mail::fake();
+        config(['services.textbee.key' => 'tb-key']);
+        \Illuminate\Support\Facades\Http::fake(['api.textbee.dev/*' => \Illuminate\Support\Facades\Http::response(['data' => ['success' => true]])]);
+
+        $this->artisan('kaya:test-contact', ['email' => 'me@example.com', 'phone' => '09171234567'])
+            ->expectsOutputToContain('Text sent through textbee.')
+            ->assertSuccessful();
+
+        Mail::assertSent(VerificationCodeMail::class, fn ($mail) => $mail->hasTo('me@example.com'));
+        \Illuminate\Support\Facades\Http::assertSent(fn ($request) => $request['recipients'] === ['+639171234567']);
+    }
+
     #[Test]
     public function the_status_endpoint_tells_the_app_whether_phone_is_available(): void
     {

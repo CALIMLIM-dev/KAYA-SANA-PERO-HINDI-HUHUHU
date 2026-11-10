@@ -25,9 +25,17 @@ class SmsSender
 {
     private const ENDPOINT = 'https://api.semaphore.co/api/v4/messages';
 
+    private const TEXTBEE = 'https://api.textbee.dev/api/v1/gateway/send-sms';
+
+    /*
+        textbee first: a free, open-source gateway that sends from an Android
+        phone's own SIM, which is what the defense runs on. Semaphore, the
+        paid Philippine sender, is used when only its key is set. Neither set
+        means no SMS at all, said honestly.
+    */
     public function isConfigured(): bool
     {
-        return filled(config('services.semaphore.key'));
+        return filled(config('services.textbee.key')) || filled(config('services.semaphore.key'));
     }
 
     /**
@@ -42,7 +50,15 @@ class SmsSender
             );
         }
 
-        $response = Http::timeout(15)
+        $response = filled(config('services.textbee.key'))
+            ? Http::timeout(15)
+                ->withHeaders(['x-api-key' => config('services.textbee.key')])
+                ->post(self::TEXTBEE, array_filter([
+                    'recipients' => ['+' . $this->normalise($to)],
+                    'message'    => $message,
+                    'deviceId'   => config('services.textbee.device_id'),
+                ]))
+            : Http::timeout(15)
             ->asForm()
             ->post(self::ENDPOINT, [
                 'apikey'     => config('services.semaphore.key'),
