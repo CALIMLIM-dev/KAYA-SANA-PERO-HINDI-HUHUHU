@@ -49,6 +49,7 @@ class InvitationController extends Controller
         $request->validate(['worker_id' => ['required', 'exists:users,id']]);
 
         $worker = User::findOrFail($request->worker_id);
+        if (\App\Support\Blocks::between($user, $worker->id)) return $this->fail('You cannot invite this person.', 403);
         // Hybrid accounts are both worker and employer, so self-invitation is reachable.
         if ($worker->id === $user->id) return $this->fail('You cannot invite yourself to your own job', 422);
         if (!$worker->isWorker()) return $this->fail('User is not a worker', 422);
@@ -239,25 +240,6 @@ class InvitationController extends Controller
             ($employer->name ?? 'They') . ' has been told you are available.',
         );
     }
-    public function pastWorkers(Request $request)
-    {
-        $user = $request->user();
-
-        if (! $user->isEmployer()) {
-            return $this->fail('Forbidden', 403);
-        }
-
-        $rehire = app(\App\Services\RehireService::class);
-
-        return $this->ok([
-            'workers'      => $rehire->pastWorkers($user),
-            // Flat, because every worker on this list is by definition a
-            // rehire. Sent anyway so the app never hardcodes the number.
-            'invite_cost'  => (int) config('kaya.credits.rehire_invite'),
-            'normal_cost'  => (int) config('kaya.credits.invite'),
-        ]);
-    }
-
     public function myInvitations(Request $request)
     {
         $user = $request->user();

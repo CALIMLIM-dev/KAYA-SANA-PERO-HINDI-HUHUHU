@@ -8,6 +8,7 @@ import '../../help/screens/faq_screen.dart';
 import '../../legal/screens/legal_screen.dart';
 import '../widgets/change_password_sheet.dart';
 import '../widgets/delete_account_sheet.dart';
+import '../../moderation/widgets/block_user.dart';
 
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_version.dart';
@@ -129,6 +130,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
               title: 'Account Status',
               subtitle: 'Violations, limits and review requests',
               onTap: () => AppRouter.push(context, AppRouter.accountStatus),
+            ),
+            _SettingsRow(
+              icon: Icons.block,
+              title: 'Blocked Accounts',
+              subtitle: 'People you have blocked, and unblocking them',
+              onTap: () => showBlockedAccounts(context),
             ),
           ]),
 

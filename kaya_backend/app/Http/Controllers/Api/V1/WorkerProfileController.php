@@ -1384,6 +1384,9 @@ class WorkerProfileController extends Controller
 
         // isSetupCompleted() requires at least one skill row, so this eager-loads
         // the same relation the filter checks — no extra query per row.
+        // Nobody blocked, either way round.
+        $query->whereNotIn('user_id', \App\Support\Blocks::hiddenFor($request->user()));
+
         // Bounded: the most recently updated profiles, at most this many ranked.
         $profiles = $query->latest('updated_at')->limit((int) config('kaya.feed.max_candidates', 500))
             ->get()->filter(fn (WorkerProfile $p) => $p->isListable());
@@ -1783,6 +1786,11 @@ class WorkerProfileController extends Controller
      */
     public function show(Request $request, \App\Models\User $user)
     {
+        // Blocked either way round: the profile is not there for them.
+        if (\App\Support\Blocks::between($request->user(), $user->id)) {
+            return response()->json(['success' => false, 'message' => 'Worker profile not found', 'data' => null], 404);
+        }
+
         $profile = $user->workerProfile;
 
         /*

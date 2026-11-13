@@ -458,6 +458,10 @@ class EmployerProfileController extends Controller
      */
     public function show(Request $request, \App\Models\User $user)
     {
+        if (\App\Support\Blocks::between($request->user(), $user->id)) {
+            return $this->fail('Employer profile not found', 404);
+        }
+
         $profile = $user->employerProfile;
 
         if (!$profile || !$profile->isSetupCompleted()) {

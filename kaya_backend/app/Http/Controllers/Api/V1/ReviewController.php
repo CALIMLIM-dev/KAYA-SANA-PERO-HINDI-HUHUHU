@@ -179,33 +179,6 @@ class ReviewController extends Controller
     }
 
     /**
-     * Where both halves of a job's review stand, for either party.
-     *
-     * The app previously had no way to ask this, so a completed job showed the
-     * same "Leave a review" button whether you had already left one or not, and
-     * never showed that the other person had reviewed you.
-     */
-    public function status(Request $request, JobPost $job)
-    {
-        $user = $request->user();
-
-        $counterpartId = $this->counterpartId($job, $user->id);
-
-        if ($counterpartId === null) {
-            return $this->fail('You were not part of this job', 403);
-        }
-
-        return $this->ok([
-            'job_id'         => $job->id,
-            'job_status'     => $job->status,
-            'can_review'     => $job->status === 'completed' && ! $this->withinWindowExpired($job),
-            'counterpart'    => User::select('id', 'name', 'avatar', 'is_verified')->find($counterpartId),
-            'counterpart_role' => $this->roleOnJob($job, $counterpartId, $user->id),
-            'mutual'         => $this->mutualState($job, $user->id, $counterpartId),
-        ]);
-    }
-
-    /**
      * The role the reviewee was playing, or null if these two were not the two
      * parties on this job.
      *

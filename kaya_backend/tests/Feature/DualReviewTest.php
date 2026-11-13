@@ -149,33 +149,6 @@ class DualReviewTest extends TestCase
         $this->assertSame('1.00', (string) $hybrid->employerProfile->fresh()->rating_avg);
     }
 
-    public function test_the_status_route_reports_a_half_finished_pair(): void
-    {
-        $employer = $this->employer();
-        $worker   = $this->worker();
-        $job      = $this->completedJob($employer, $worker);
-
-        $this->review($employer, $worker, $job, 5)->assertCreated();
-
-        $mine = $this->actingAs($employer, 'sanctum')
-            ->getJson("/api/v1/jobs/{$job->id}/review-status")
-            ->assertOk()
-            ->json('data.mutual');
-
-        $this->assertTrue($mine['you_reviewed_them']);
-        $this->assertFalse($mine['they_reviewed_you']);
-        $this->assertFalse($mine['complete']);
-
-        // And from the other side, the mirror image.
-        $theirs = $this->actingAs($worker, 'sanctum')
-            ->getJson("/api/v1/jobs/{$job->id}/review-status")
-            ->assertOk()
-            ->json('data.mutual');
-
-        $this->assertFalse($theirs['you_reviewed_them']);
-        $this->assertTrue($theirs['they_reviewed_you']);
-    }
-
     public function test_their_review_is_withheld_until_you_write_yours(): void
     {
         /*
@@ -189,20 +162,7 @@ class DualReviewTest extends TestCase
 
         $this->review($employer, $worker, $job, 2, 'Turned up late.')->assertCreated();
 
-        $before = $this->actingAs($worker, 'sanctum')
-            ->getJson("/api/v1/jobs/{$job->id}/review-status")
-            ->assertOk()
-            ->json('data.mutual');
-
-        $this->assertTrue($before['they_reviewed_you']);
-        $this->assertNull($before['their_review'], 'their review leaked before this side wrote one');
-
-        $this->review($worker, $employer, $job, 4)->assertCreated();
-
-        $after = $this->actingAs($worker, 'sanctum')
-            ->getJson("/api/v1/jobs/{$job->id}/review-status")
-            ->assertOk()
-            ->json('data.mutual');
+        $after = $this->review($worker, $employer, $job, 4)->assertCreated()->json('data.mutual');
 
         $this->assertTrue($after['complete']);
         $this->assertSame('Turned up late.', $after['their_review']['comment']);
@@ -231,10 +191,6 @@ class DualReviewTest extends TestCase
 
         $this->review($stranger, $employer, $job, 1)->assertStatus(403);
         $this->review($employer, $stranger, $job, 1)->assertStatus(403);
-
-        $this->actingAs($stranger, 'sanctum')
-            ->getJson("/api/v1/jobs/{$job->id}/review-status")
-            ->assertStatus(403);
     }
 
     public function test_an_unfinished_hire_cannot_be_reviewed(): void

@@ -352,4 +352,57 @@ class SecurityFindingsTest extends TestCase
 
         $this->postJson('/api/v1/verify-reset-code', ['email' => 'maria@example.com', 'code' => $second])->assertOk();
     }
+
+    /** An employer and a worker with an open chat between them, the way hiring opens it. */
+    private function hiredPair(): array
+    {
+        $employer = User::factory()->create(['is_verified' => true, 'name' => 'Ana Reyes']);
+        \App\Models\EmployerProfile::create(['user_id' => $employer->id, 'employer_type' => 'individual', 'location' => 'x', 'setup_completed' => true]);
+        \App\Models\CreditWallet::updateOrCreate(['user_id' => $employer->id], ['balance' => 100]);
+        $worker = User::factory()->create(['is_verified' => true, 'name' => 'Ben Santos']);
+        \App\Models\WorkerProfile::create(['user_id' => $worker->id, 'location' => 'x']);
+        $job = \App\Models\JobPost::create([
+            'employer_id' => $employer->id, 'title' => 'Paint a fence', 'description' => 'x', 'status' => 'open',
+            'workers_needed' => 1, 'end_date' => now()->addDays(3)->toDateString(), 'expires_at' => now()->addDays(3)->endOfDay(),
+        ]);
+        $application = \App\Models\Application::create(['job_id' => $job->id, 'worker_id' => $worker->id, 'status' => 'pending']);
+        $this->actingAs($employer, 'sanctum')->patchJson("/api/v1/applications/{$application->id}/accept")->assertOk();
+        $thread = \App\Models\Conversation::where('pair_low', min($employer->id, $worker->id))->firstOrFail();
+
+        return [$employer, $worker, $thread];
+    }
+
+    /*
+        Chat on slow data. A send that timed out after reaching the server
+        was marked failed, and its Retry posted the message a second time.
+        The app now sends a key with each message and reuses it on retry;
+        the server stores one message per key.
+    */
+    #[Test]
+    public function chat_a_retried_send_with_the_same_key_is_stored_once(): void
+    {
+        [$employer, , $thread] = $this->hiredPair();
+        $send = fn () => $this->actingAs($employer, 'sanctum')->postJson("/api/v1/conversations/{$thread->id}/messages", [
+            'message_text' => 'Darating ako bukas ng 8.', 'client_id' => 'c-7f3a9e21',
+        ]);
+
+        $first = $send()->assertCreated()->json('data.id');
+        $second = $send()->assertSuccessful()->json('data.id');
+
+        $this->assertSame($first, $second, 'the retry returns the stored message');
+        $this->assertSame(1, \App\Models\Message::where('conversation_id', $thread->id)->where('message_text', 'Darating ako bukas ng 8.')->count());
+    }
+
+    #[Test]
+    public function chat_two_messages_with_the_same_words_but_different_keys_both_send(): void
+    {
+        [$employer, , $thread] = $this->hiredPair();
+        foreach (['c-1', 'c-2'] as $key) {
+            $this->actingAs($employer, 'sanctum')->postJson("/api/v1/conversations/{$thread->id}/messages", [
+                'message_text' => 'Okay', 'client_id' => $key,
+            ])->assertCreated();
+        }
+
+        $this->assertSame(2, \App\Models\Message::where('conversation_id', $thread->id)->where('message_text', 'Okay')->count());
+    }
 }

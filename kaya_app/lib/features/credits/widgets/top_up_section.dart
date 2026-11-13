@@ -24,6 +24,7 @@ class TopUpSection extends StatelessWidget {
     required this.hasToppedUp,
     required this.buying,
     required this.onBuy,
+    this.priceFor,
   });
 
   final List<CreditPackage> packages;
@@ -31,6 +32,9 @@ class TopUpSection extends StatelessWidget {
   final bool hasToppedUp;
   final bool buying;
   final void Function(CreditPackage package) onBuy;
+
+  /// Google Play's own price for a package, when buying through Play.
+  final String? Function(CreditPackage package)? priceFor;
 
   @override
   Widget build(BuildContext context) {
@@ -246,7 +250,8 @@ class TopUpSection extends StatelessWidget {
               ),
               child: FittedBox(
                 fit: BoxFit.scaleDown,
-                child: Text('₱${package.amountPhp.toStringAsFixed(0)}'),
+                // Google Play's own price when buying through Play.
+                child: Text(priceFor?.call(package) ?? '₱${package.amountPhp.toStringAsFixed(0)}'),
               ),
             ),
           ),

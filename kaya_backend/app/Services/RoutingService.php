@@ -58,6 +58,29 @@ class RoutingService
     */
     private const MAX_ROUTE_KM = 40.0;
 
+    /*
+        Closer than this, there is nothing to route: the two are within a
+        building or two of each other, and any road line between them is
+        noise. The map shows the two pins and the straight distance.
+    */
+    private const TOGETHER_KM = 0.1;
+
+    /*
+        Up to this far apart, the walking route is asked for as well.
+
+        Every route used to be a car route. Between two people a block apart
+        that is often the wrong answer: one-way streets and turn rules sent
+        the car router round a 1.3 km loop for a 166 m trip (measured in
+        Urdaneta, 2026-11-13). Short trips here are walked, or ridden on
+        streets a car router will not take, so the shorter of the two is
+        drawn when the car route is clearly longer.
+    */
+    private const COMPARE_WALK_KM = 3.0;
+
+    /** The car route is "clearly longer" past this ratio and margin. */
+    private const DETOUR_RATIO = 1.4;
+    private const DETOUR_MARGIN_KM = 0.15;
+
     /**
      * @return array{geometry: list<array{0: float, 1: float}>, distance_km: float, duration_min: int, provider: string}|null
      */
@@ -65,10 +88,22 @@ class RoutingService
     {
         // Absurdly far apart: a bad coordinate, not a journey. See
         // MAX_ROUTE_KM.
-        if (\App\Services\JobMatchService::distanceBetween($fromLat, $fromLng, $toLat, $toLng)
-            > self::MAX_ROUTE_KM) {
+        $straightKm = \App\Services\JobMatchService::distanceBetween($fromLat, $fromLng, $toLat, $toLng);
+        if ($straightKm > self::MAX_ROUTE_KM || $straightKm < self::TOGETHER_KM) {
             return null;
         }
+
+        /*
+            Four decimals, about 11 metres, for both ends - and the router
+            is asked with exactly these, so a cached route always starts
+            where it was computed from. Three decimals (110 m) handed a
+            worker another ping's route, which near the destination could
+            begin on a different street.
+        */
+        $fromLat = round($fromLat, 4);
+        $fromLng = round($fromLng, 4);
+        $toLat = round($toLat, 4);
+        $toLng = round($toLng, 4);
 
         /*
             Rounded to three decimals — about 110 metres.
@@ -80,7 +115,7 @@ class RoutingService
             zoom this map uses.
         */
         $key = sprintf(
-            'route:%s:%.3f,%.3f:%.4f,%.4f',
+            'route:v2:%s:%.4f,%.4f:%.4f,%.4f',
             $this->provider(),
             $fromLat, $fromLng, $toLat, $toLng,
         );
@@ -95,7 +130,7 @@ class RoutingService
             return $cached;
         }
 
-        $route = $this->fetch($fromLat, $fromLng, $toLat, $toLng);
+        $route = $this->fetch($fromLat, $fromLng, $toLat, $toLng, $straightKm);
 
         if ($route === null) {
             Cache::put($key, 'failed', now()->addSeconds(self::FAILURE_CACHE_SECONDS));
@@ -114,12 +149,34 @@ class RoutingService
     }
 
     /** @return array{geometry: list<array{0: float, 1: float}>, distance_km: float, duration_min: int, provider: string}|null */
-    private function fetch(float $fromLat, float $fromLng, float $toLat, float $toLng): ?array
+    private function fetch(float $fromLat, float $fromLng, float $toLat, float $toLng, float $straightKm): ?array
     {
         try {
-            return $this->provider() === 'ors'
+            $drive = $this->provider() === 'ors'
                 ? $this->viaOpenRouteService($fromLat, $fromLng, $toLat, $toLng)
                 : $this->viaOsrm($fromLat, $fromLng, $toLat, $toLng);
+            if ($drive !== null) {
+                $drive['mode'] = 'drive';
+            }
+
+            if ($straightKm > self::COMPARE_WALK_KM) {
+                return $drive;
+            }
+
+            $walk = $this->viaOsrmFoot($fromLat, $fromLng, $toLat, $toLng);
+            if ($walk === null) {
+                return $drive;
+            }
+            $walk['mode'] = 'walk';
+
+            if ($drive === null) {
+                return $walk;
+            }
+
+            $clearlyLonger = $drive['distance_km'] > $walk['distance_km'] * self::DETOUR_RATIO
+                && $drive['distance_km'] - $walk['distance_km'] > self::DETOUR_MARGIN_KM;
+
+            return $clearlyLonger ? $walk : $drive;
         } catch (\Throwable $e) {
             // Routing is decoration on a safety feature. Never let it throw.
             Log::warning('Routing lookup failed', [
@@ -166,6 +223,44 @@ class RoutingService
             'distance_km' => round(((float) $route['distance']) / 1000, 1),
             'duration_min' => (int) ceil(((float) $route['duration']) / 60),
             'provider' => 'osrm',
+        ];
+    }
+
+    /**
+     * Walking route, from the FOSSGIS OSRM servers (same API as the demo
+     * server). Their usage policy asks for an identifying User-Agent.
+     */
+    private function viaOsrmFoot(float $fromLat, float $fromLng, float $toLat, float $toLng): ?array
+    {
+        $base = rtrim(config('services.routing.osrm_foot_url', 'https://routing.openstreetmap.de/routed-foot'), '/');
+
+        $response = Http::timeout(self::TIMEOUT_SECONDS)
+            ->withHeaders(['User-Agent' => 'KAYA (' . config('app.url') . ')'])
+            ->get("{$base}/route/v1/foot/{$fromLng},{$fromLat};{$toLng},{$toLat}", [
+                'overview' => 'full',
+                'geometries' => 'geojson',
+            ]);
+
+        if (! $response->successful()) {
+            return null;
+        }
+
+        $body = $response->json();
+        if (($body['code'] ?? null) !== 'Ok' || empty($body['routes'][0])) {
+            return null;
+        }
+
+        $route = $body['routes'][0];
+        $coordinates = $route['geometry']['coordinates'] ?? [];
+        if (count($coordinates) < 2) {
+            return null;
+        }
+
+        return [
+            'geometry' => $this->toLatLngPairs($coordinates),
+            'distance_km' => round(((float) $route['distance']) / 1000, 1),
+            'duration_min' => (int) ceil(((float) $route['duration']) / 60),
+            'provider' => 'osrm-foot',
         ];
     }
 

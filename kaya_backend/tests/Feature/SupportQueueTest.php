@@ -26,9 +26,17 @@ class SupportQueueTest extends TestCase
     {
         $person = User::factory()->create(['name' => 'Maria Santos']);
         $this->actingAs($person, 'sanctum')->postJson('/api/v1/support', ['body' => 'Nawala ang Barya ko'])->assertCreated();
-        $this->actingAs($person, 'sanctum')->postJson('/api/v1/support/person', ['topic' => $topic])->assertOk();
+        $this->askForPerson($person, $topic);
 
         return [$person, SupportThread::where('user_id', $person->id)->first()];
+    }
+
+    /** Talk to a Person with a topic, as choosing an issue in the menu sets it. */
+    private function askForPerson(User $person, string $topic): void
+    {
+        $thread = SupportThread::firstOrCreate(['user_id' => $person->id]);
+        $thread->forceFill(['topic' => $topic])->save();
+        app(\App\Services\KayaAssistant::class)->handOff($thread);
     }
 
     #[Test]
@@ -37,7 +45,6 @@ class SupportQueueTest extends TestCase
         [$maria, $thread] = $this->waitingChat('verification');
         $this->assertSame('Verification', $thread->topicLabel());
 
-        $this->actingAs($maria, 'sanctum')->postJson('/api/v1/support/person', ['topic' => 'nonsense'])->assertStatus(422);
         $this->actingAs($maria, 'sanctum')->getJson('/api/v1/support')
             ->assertJsonPath('data.assistant.topics.0.label', 'Account or Suspension');
     }
@@ -118,14 +125,14 @@ class SupportQueueTest extends TestCase
         $this->actingAs($first, 'sanctum')->postJson('/api/v1/support/assistant')->assertOk()
             ->assertJsonPath('data.message.body', \App\Services\KayaAssistant::BACK . ' ' . \App\Services\KayaAssistant::PLACE_SAVED);
         $this->travel(5)->minutes();
-        $this->actingAs($first, 'sanctum')->postJson('/api/v1/support/person', ['topic' => 'barya'])->assertOk();
+        $this->askForPerson($first, 'barya');
 
         $this->assertSame(1, $this->line($first)['position'], 'back at the front, not behind the second');
 
         // After the saved minutes, the place is gone.
         $this->actingAs($first, 'sanctum')->postJson('/api/v1/support/assistant')->assertOk();
         $this->travel(11)->minutes();
-        $this->actingAs($first, 'sanctum')->postJson('/api/v1/support/person', ['topic' => 'barya'])->assertOk();
+        $this->askForPerson($first, 'barya');
         $this->assertSame(2, $this->line($first)['position']);
         $this->assertSame(1, $this->line($second)['position']);
     }

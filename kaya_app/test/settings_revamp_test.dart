@@ -54,6 +54,8 @@ void main() {
     expect(find.text('Help & Support'), findsOneWidget);
     expect(find.text('FAQs'), findsOneWidget);
     expect(find.text('Message KAYA Support'), findsOneWidget);
+    // Below Blocked Accounts, so further down the list.
+    await tester.scrollUntilVisible(find.text(AppVersion.current), 200);
     expect(find.text('About & Legal'), findsOneWidget);
     expect(find.text('Terms & Conditions'), findsOneWidget);
     expect(find.text('Privacy Policy'), findsOneWidget);

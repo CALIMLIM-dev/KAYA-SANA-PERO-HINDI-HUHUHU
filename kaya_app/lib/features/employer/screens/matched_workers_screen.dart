@@ -31,32 +31,9 @@ import '../../../core/utils/json_parse.dart';
     many match and how to see them, never shown an empty screen that reads as
     "nobody fits".
 
-    Shown two ways from one widget: this screen, from My Jobs, and a pop-up
-    over whatever screen asked for it (showMatchedWorkersPopup).
+    Shown as a pop-up over whatever screen asked for it
+    (showMatchedWorkersPopup).
 */
-class MatchedWorkersScreen extends StatelessWidget {
-  const MatchedWorkersScreen({
-    super.key,
-    required this.jobId,
-    this.jobTitle,
-  });
-
-  final int jobId;
-  final String? jobTitle;
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: AppColors.background,
-      appBar: AppBar(
-        backgroundColor: AppColors.primary,
-        foregroundColor: Colors.white,
-        title: const Text('Suggested Workers'),
-      ),
-      body: MatchedWorkersList(jobId: jobId, jobTitle: jobTitle),
-    );
-  }
-}
 
 /*
     The matched list as a pop-up over the screen that asked for it.

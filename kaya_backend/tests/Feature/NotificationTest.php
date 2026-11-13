@@ -183,9 +183,9 @@ class NotificationTest extends TestCase
                 ->assertJsonCount(1, 'data.data');
 
             $this->actingAs($hybrid, 'sanctum')
-                ->getJson("/api/v1/notifications/unread-count?audience={$mode}")
+                ->getJson("/api/v1/notifications?audience={$mode}&unread_only=1")
                 ->assertOk()
-                ->assertJsonPath('data.unread_count', 1);
+                ->assertJsonPath('data.total', 1);
         }
     }
 
@@ -263,9 +263,9 @@ class NotificationTest extends TestCase
             ->assertJsonPath('data.marked_read_count', 1);
 
         $this->actingAs($hybrid, 'sanctum')
-            ->getJson('/api/v1/notifications/unread-count?audience=employer')
+            ->getJson('/api/v1/notifications?audience=employer&unread_only=1')
             ->assertOk()
-            ->assertJsonPath('data.unread_count', 1);
+            ->assertJsonPath('data.total', 1);
     }
 
     /** @test */

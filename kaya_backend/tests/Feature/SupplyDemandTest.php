@@ -144,6 +144,17 @@ class SupplyDemandTest extends TestCase
     }
 
     #[Test]
+    public function the_map_is_satellite_only(): void
+    {
+        $this->actingAs($this->admin())->get('/admin/supply-demand')->assertOk()
+            ->assertSee('World_Imagery', false)
+            ->assertSee('Only Towns Needing Workers')
+            ->assertDontSee('World_Street_Map', false)
+            ->assertDontSee('data-base=', false)
+            ->assertDontSee('Short Places Only');
+    }
+
+    #[Test]
     public function places_can_be_searched_and_a_trade_narrows_everything(): void
     {
         $other = Category::create(['name' => 'Electrical']);

@@ -29,7 +29,9 @@ class EnsureNotSuspended
      * to show them why they were suspended and until when. Logout is permitted
      * so they can sign out of a device rather than being trapped in it.
      */
-    private const ALLOWED = ['me', 'logout'];
+    // check-status is the app's own suspension check. Blocked here it got the
+    // 403 instead and showed a generic message, never the admin's reason.
+    private const ALLOWED = ['me', 'logout', 'check-status'];
 
     public function handle(Request $request, Closure $next): Response
     {

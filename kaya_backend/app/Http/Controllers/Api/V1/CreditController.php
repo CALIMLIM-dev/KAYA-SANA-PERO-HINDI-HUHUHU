@@ -162,7 +162,11 @@ class CreditController extends Controller
                 // never divide by 100 itself and get a rounding argument.
                 'amount_centavos' => $p->amount_centavos,
                 'amount_php' => $p->amountPhp(),
+                // The product to buy in Google Play when billing is 'play'.
+                'play_product_id' => $p->play_product_id,
             ]),
+            // 'free' (testing: credited at once) or 'play' (Google Play Billing).
+            'billing' => config('kaya.credits.billing'),
         ]);
     }
 

@@ -251,62 +251,6 @@ class RehireTest extends TestCase
         );
     }
 
-    public function test_past_workers_lists_only_people_actually_worked_with(): void
-    {
-        $stranger = $this->makeWorker('Never Hired');
-        $this->completedJobTogether();
-
-        $names = collect(
-            $this->actingAs($this->employer, 'sanctum')
-                ->getJson('/api/v1/past-workers')->assertOk()->json('data.workers')
-        )->pluck('name');
-
-        $this->assertContains('Juan Dela Cruz', $names);
-        $this->assertNotContains($stranger->name, $names);
-    }
-
-    /*
-        One row per person, however many times they were hired.
-
-        The join produces a row per completed job, so without grouping a
-        worker hired three times appears three times in the list.
-    */
-    public function test_a_worker_hired_repeatedly_appears_once_with_a_count(): void
-    {
-        $this->completedJobTogether();
-        $this->completedJobTogether();
-        $this->completedJobTogether();
-
-        $rows = $this->actingAs($this->employer, 'sanctum')
-            ->getJson('/api/v1/past-workers')->assertOk()->json('data.workers');
-
-        $this->assertCount(1, $rows);
-        $this->assertSame(3, $rows[0]['times_hired']);
-    }
-
-    /*
-        A suspended worker is left off.
-
-        Offering a one-tap re-invite to an account that cannot accept it
-        spends barya on something nobody can act on.
-    */
-    public function test_a_suspended_past_worker_is_not_offered(): void
-    {
-        $this->completedJobTogether();
-        $this->worker->forceFill(['is_suspended' => true])->save();
-
-        $rows = $this->actingAs($this->employer, 'sanctum')
-            ->getJson('/api/v1/past-workers')->assertOk()->json('data.workers');
-
-        $this->assertCount(0, $rows);
-    }
-
-    public function test_a_worker_without_an_employer_profile_cannot_read_the_list(): void
-    {
-        $this->actingAs($this->worker, 'sanctum')
-            ->getJson('/api/v1/past-workers')
-            ->assertStatus(403);
-    }
     /*
         An invited worker is not charged to apply.
 

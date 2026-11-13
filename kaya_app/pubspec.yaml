@@ -22,7 +22,7 @@ publish_to: 'none' # Remove this line if you wish to publish to pub.dev
 # over the previous one.
 #
 # Keep this in step with CHANGELOG.md and the git tag for the release.
-version: 1.26.0+121
+version: 1.27.0+122
 
 environment:
   sdk: ^3.12.0
@@ -46,11 +46,6 @@ dependencies:
   # HTTP Client
   dio: ^5.4.0
 
-  # In-app update. Android forbids a silent install, so the most an app
-  # can do is fetch the APK itself and hand it to the system installer -
-  # which turns five taps and a browser detour into one Install prompt.
-  path_provider: ^2.1.0
-  open_filex: ^4.4.0
   
   # Secure Storage
   flutter_secure_storage: ^9.0.0
@@ -60,6 +55,11 @@ dependencies:
   # Fills a texted code after a one-tap consent pop-up (Android SMS User
   # Consent API). KAYA never gets permission to read texts.
   smart_auth: 3.2.0
+  # Google Play Billing for Barya (checked on the server before crediting).
+  in_app_purchase: 3.3.1
+  # Its Android part, used directly to consume a purchase only after the
+  # server has credited it (see PlayStore).
+  in_app_purchase_android: 0.5.5
   
   # Google Sign-In
   google_sign_in: ^6.2.1

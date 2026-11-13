@@ -26,7 +26,6 @@ use App\Http\Controllers\Api\V1\CategoryController;
 use App\Http\Controllers\Api\V1\LocationController;
 use App\Http\Controllers\Api\V1\ContactVerificationController;
 use App\Http\Controllers\Api\V1\VerificationController;
-use App\Http\Controllers\Api\V1\VerificationDocumentController;
 
 Route::prefix('v1')->group(function () {
 
@@ -37,9 +36,6 @@ Route::prefix('v1')->group(function () {
         out it is out of date before anybody signs in, which is exactly when
         somebody stuck on an old build is trying to.
     */
-    Route::get('/version/{version?}', [\App\Http\Controllers\Api\V1\AppVersionController::class, 'show']);
-    // The same check by query string, so a client can ask without putting a
-    // version in the path. Both hit one controller; there is one rule.
     Route::get('/app-version', [\App\Http\Controllers\Api\V1\AppVersionController::class, 'show']);
 
     // ── Auth (public) ─────────────────────────────────────────────────────────
@@ -304,17 +300,10 @@ Route::prefix('v1')->group(function () {
         */
         Route::get('/support',         [SupportController::class, 'show'])
             ->withoutMiddleware('not.suspended');
-        Route::get('/support/unread',  [SupportController::class, 'unread'])
-            ->withoutMiddleware('not.suspended');
         Route::post('/support',        [SupportController::class, 'send'])
             ->withoutMiddleware('not.suspended');
-        // Talk to a Person: KAYA Assistant steps aside for the team.
-        Route::post('/support/person', [SupportController::class, 'person'])
-            ->withoutMiddleware('not.suspended');
-        // Back to KAYA Assistant, and its quick questions.
+        // Back to KAYA Assistant.
         Route::post('/support/assistant', [SupportController::class, 'assistant'])
-            ->withoutMiddleware('not.suspended');
-        Route::post('/support/quick', [SupportController::class, 'quick'])
             ->withoutMiddleware('not.suspended');
         // Something's Broken.
         Route::post('/support/bug', [SupportController::class, 'bug'])
@@ -359,9 +348,6 @@ Route::prefix('v1')->group(function () {
 
         // Invitations
         Route::get('/my-invitations',                       [InvitationController::class, 'myInvitations']);
-        // Reading who you have worked with is not spending, so it is not
-        // gated - the invite itself already is.
-        Route::get('/past-workers',                         [InvitationController::class, 'pastWorkers']);
         /*
             The worker's side of a rehire.
 
@@ -423,11 +409,13 @@ Route::prefix('v1')->group(function () {
             ->middleware('verified:any');
         Route::post('/credits/checkout',    [CreditCheckoutController::class, 'checkout'])
             ->middleware(['throttle:credits-checkout', 'verified:any']);
+        // A Google Play purchase, checked with Google before anything is credited.
+        Route::post('/credits/play/verify', [CreditCheckoutController::class, 'playVerify'])
+            ->middleware(['throttle:credits-checkout', 'verified:any']);
 
         // Notifications. `audience` mirrors the app's worker/employer mode, so
         // a hybrid account doesn't see the other side's alerts.
         Route::get('/notifications',                    [NotificationController::class, 'index']);
-        Route::get('/notifications/unread-count',       [NotificationController::class, 'unreadCount']);
 
         // Who has been looking at you. Own account only — see the controller.
         Route::get('/profile-views/summary',            [ProfileViewController::class, 'summary']);
@@ -436,14 +424,17 @@ Route::prefix('v1')->group(function () {
         Route::post('/notifications/read-all',          [NotificationController::class, 'readAll']);
         Route::patch('/notifications/{notification}/read', [NotificationController::class, 'markRead']);
 
-        // Reviews. The status route is what makes the pair mutual rather than
-        // two unrelated submissions: it tells each side where the other is.
+        // Reviews.
         Route::post('/reviews', [ReviewController::class, 'store']);
-        Route::get('/jobs/{job}/review-status', [ReviewController::class, 'status']);
 
         // Reports. Throttled: filing is cheap and the queue is read by people,
         // so a loop here costs an administrator's afternoon, not a server.
         Route::get('/report-reasons', [ReportController::class, 'reasons']);
+        // Blocking: hides two people from each other both ways. See App\Support\Blocks.
+        Route::get('/blocked-users', [\App\Http\Controllers\Api\V1\BlockController::class, 'index']);
+        Route::post('/users/{user}/block', [\App\Http\Controllers\Api\V1\BlockController::class, 'block'])->middleware('throttle:reports');
+        Route::delete('/users/{user}/block', [\App\Http\Controllers\Api\V1\BlockController::class, 'unblock']);
+
         Route::post('/reports', [ReportController::class, 'store'])
             ->middleware('throttle:reports');
 
@@ -466,7 +457,6 @@ Route::prefix('v1')->group(function () {
             Throttled: these send real messages that cost money, and a code
             endpoint left open is a way to bill someone else's SMS credits.
         */
-        Route::get('/contact-verification', [ContactVerificationController::class, 'status']);
         Route::middleware('throttle:verification-send')->group(function () {
             Route::post('/contact-verification/email/send', [ContactVerificationController::class, 'sendEmailCode']);
             Route::post('/contact-verification/phone/send', [ContactVerificationController::class, 'sendPhoneCode']);
@@ -481,11 +471,5 @@ Route::prefix('v1')->group(function () {
         // Verifications
         Route::get('/verifications',  [VerificationController::class, 'index']);
         Route::post('/verifications', [VerificationController::class, 'store']);
-        // Government IDs and selfies live on the private disk and are streamed
-        // through here — owner or admin only. They used to sit on the public
-        // disk with a guessable-once-seen URL and no check at all.
-        Route::get('/verifications/{verification}/document/{side}',
-            [VerificationDocumentController::class, 'show'])
-            ->whereIn('side', ['front', 'back', 'selfie']);
     });
 });

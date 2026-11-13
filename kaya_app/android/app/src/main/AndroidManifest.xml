@@ -44,34 +44,13 @@
          notification poll under "location" would be both untrue and a
          Play rejection. -->
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC"/>
-    <uses-permission android:name="android.permission.ACCESS_BACKGROUND_LOCATION"/>
 
     <!-- Keeps the CPU and WiFi awake long enough for a position fix and a ping
          while the screen is off. Without them Doze can suspend the service
          between wakeups and the trail develops gaps that look like the worker
          stopped moving. -->
     <uses-permission android:name="android.permission.WAKE_LOCK"/>
-    <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS"/>
 
-    <!-- Lets the app hand a downloaded APK to the system installer.
-
-         KAYA is distributed as an APK rather than through a store, so nothing
-         updates anybody and testers sit on builds from several fixes ago.
-         Without this the update path is: open a browser, load a Drive page,
-         download, find the file, tap it, then approve. With it the app fetches
-         the APK itself and the user sees one Install prompt.
-
-         It does NOT allow a silent install - Android reserves that for the
-         store and for device-owner apps, and the user still confirms. This
-         only removes the detour.
-
-         BEFORE A PLAY STORE SUBMISSION: delete this permission line, and set
-         APP_UPDATE_CHECK=false on the server. Google rejects apps that
-         install their own updates - the store owns that job. The server flag
-         makes every build already in the wild stop prompting immediately;
-         removing the line here keeps the next build off the policy radar.
-         Nothing else has to change: VersionGate simply never fires. -->
-    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES"/>
 
     <application
         android:label="KAYA"

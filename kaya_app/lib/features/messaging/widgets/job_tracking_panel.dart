@@ -27,7 +27,12 @@ class JobTrackingPanel extends StatefulWidget {
     required this.isWorker,
     required this.otherPartyName,
     this.otherPartyAvatar,
+    this.keyboardOpen = false,
   });
+
+  /// Told by the chat screen. The panel cannot see the keyboard itself:
+  /// the Scaffold it sits in hides the keyboard's height from its body.
+  final bool keyboardOpen;
 
   final int applicationId;
   final bool isWorker;
@@ -41,6 +46,9 @@ class JobTrackingPanel extends StatefulWidget {
 }
 
 class _JobTrackingPanelState extends State<JobTrackingPanel> {
+  /// Hidden by hand with the header button; see the employer view.
+  bool _mapHidden = false;
+
   bool _busy = false;
 
   JobTrackingProvider? _tracking;
@@ -107,7 +115,9 @@ class _JobTrackingPanelState extends State<JobTrackingPanel> {
           builder: (context) => AlertDialog(
             title: const Text('Share Your Location?'),
             content: Text(
-              '${widget.otherPartyName} can see where you are until this job ends.',
+              '${widget.otherPartyName} can see where you are until this job ends.\n\n'
+              'If your phone opens battery settings, choose KAYA and turn off '
+              'battery saving for it, so sharing does not stop.',
             ),
             actions: [
               TextButton(
@@ -284,6 +294,18 @@ class _JobTrackingPanelState extends State<JobTrackingPanel> {
         ? LatLng(provider.destLatitude!, provider.destLongitude!)
         : null;
 
+    /*
+        The map folds away while typing.
+
+        The panel sits above the messages, and the map kept its 180 px when
+        the keyboard took half the screen - so the chat being typed into was
+        squeezed to a sliver. Typing, only the one-line distance and time
+        stay; the map comes back when the keyboard goes. It can also be
+        hidden by hand.
+    */
+    final typing = widget.keyboardOpen;
+    final showMap = !typing && !_mapHidden;
+
     return Container(
       color: Colors.white,
       padding: const EdgeInsets.fromLTRB(12, 10, 12, 12),
@@ -309,6 +331,14 @@ class _JobTrackingPanelState extends State<JobTrackingPanel> {
                     fontSize: 11, color: AppColors.neutral500),
               ),
               const SizedBox(width: 6),
+              if (!typing)
+                IconButton(
+                  icon: Icon(_mapHidden ? Icons.map_outlined : Icons.expand_less, size: 18),
+                  tooltip: _mapHidden ? 'Show Map' : 'Hide Map',
+                  color: AppColors.primary,
+                  visualDensity: VisualDensity.compact,
+                  onPressed: () => setState(() => _mapHidden = !_mapHidden),
+                ),
               IconButton(
                 icon: const Icon(Icons.refresh, size: 18),
                 color: AppColors.primary,
@@ -317,6 +347,7 @@ class _JobTrackingPanelState extends State<JobTrackingPanel> {
               ),
             ],
           ),
+          if (showMap) ...[
           const SizedBox(height: 8),
           ClipRRect(
             borderRadius: BorderRadius.circular(12),
@@ -479,6 +510,7 @@ class _JobTrackingPanelState extends State<JobTrackingPanel> {
               ),
             ),
           ),
+          ],
 
           /*
               How far, and how long.
@@ -494,15 +526,15 @@ class _JobTrackingPanelState extends State<JobTrackingPanel> {
             const SizedBox(height: 8),
             Row(
               children: [
-                const Icon(Icons.directions_car,
+                Icon(provider.routeIsWalk ? Icons.directions_walk : Icons.directions_car,
                     size: 14, color: AppColors.primary),
                 const SizedBox(width: 6),
                 Expanded(
                   child: Text(
                     provider.routeDurationMin == null
-                        ? '${provider.routeDistanceKm!.toStringAsFixed(1)} km by road'
+                        ? '${provider.routeDistanceKm!.toStringAsFixed(1)} km ${provider.routeIsWalk ? 'on foot' : 'by road'}'
                         : '${provider.routeDurationMin} min away '
-                            '· ${provider.routeDistanceKm!.toStringAsFixed(1)} km by road',
+                            '· ${provider.routeDistanceKm!.toStringAsFixed(1)} km ${provider.routeIsWalk ? 'on foot' : 'by road'}',
                     style: const TextStyle(
                       fontSize: 12,
                       color: AppColors.neutral700,

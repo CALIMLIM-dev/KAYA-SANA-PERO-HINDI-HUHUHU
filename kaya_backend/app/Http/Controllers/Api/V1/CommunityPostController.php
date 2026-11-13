@@ -49,6 +49,8 @@ class CommunityPostController extends Controller
 
         $posts = CommunityPost::query()
             ->live()
+            // Nobody blocked, either way round.
+            ->whereNotIn('user_id', \App\Support\Blocks::hiddenFor($request->user()))
             ->with(['user:id,name,avatar,is_verified', 'user.workerProfile:id,user_id,profile_photo_path',
                     'user.employerProfile:id,user_id,image_path,company_name'])
             ->when(in_array($type, CommunityPost::types(), true),
@@ -96,6 +98,9 @@ class CommunityPostController extends Controller
     public function show(Request $request, CommunityPost $post)
     {
         $user = $request->user();
+        if (\App\Support\Blocks::between($user, $post->user_id)) {
+            return $this->fail('This post is not on the board.', 404);
+        }
 
         // A post that is over is still readable by its owner and an admin;
         // to everyone else it is gone.
@@ -134,6 +139,7 @@ class CommunityPostController extends Controller
 
         $comments = $post->comments()
             ->live()
+            ->whereNotIn('user_id', \App\Support\Blocks::hiddenFor($user))
             ->where(fn ($q) => $q->where('user_id', $user->id)
                 ->orWhereNotNull('checked_at')
                 ->orWhere('created_at', '<=', $heldSince))

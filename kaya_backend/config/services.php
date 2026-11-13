@@ -94,6 +94,8 @@ return [
     'routing' => [
         'provider' => env('ROUTING_PROVIDER', 'osrm'),
         'osrm_url' => env('OSRM_URL', 'https://router.project-osrm.org'),
+        // Walking routes, compared with the car route for short trips.
+        'osrm_foot_url' => env('OSRM_FOOT_URL', 'https://routing.openstreetmap.de/routed-foot'),
         'ors_key'  => env('ORS_API_KEY'),
     ],
 

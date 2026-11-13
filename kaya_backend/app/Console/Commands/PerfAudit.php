@@ -191,7 +191,7 @@ class PerfAudit extends Command
             ['My invitations', 'GET', '/api/v1/my-invitations', $workerToken],
             ['Conversation list', 'GET', '/api/v1/conversations', $workerToken],
             ['Notification list', 'GET', '/api/v1/notifications', $workerToken],
-            ['Unread badge (polled)', 'GET', '/api/v1/notifications/unread-count', $workerToken],
+            ['Unread badge (polled)', 'GET', '/api/v1/notifications?unread_only=1&per_page=1', $workerToken],
             ['Categories (picker)', 'GET', '/api/v1/categories', $workerToken],
             ['Skills (picker)', 'GET', '/api/v1/skills', $workerToken],
             ['Location search (typeahead)', 'GET', '/api/v1/locations/search?q=Urda', $workerToken],
@@ -202,7 +202,6 @@ class PerfAudit extends Command
         if ($job) {
             $p[] = ['Job details', 'GET', '/api/v1/jobs/'.$job->id, $workerToken];
             $p[] = ['Applicant list', 'GET', '/api/v1/jobs/'.$job->id.'/applicants', $employerToken];
-            $p[] = ['Review status', 'GET', '/api/v1/jobs/'.$job->id.'/review-status', $workerToken];
         }
 
         if ($conversation) {

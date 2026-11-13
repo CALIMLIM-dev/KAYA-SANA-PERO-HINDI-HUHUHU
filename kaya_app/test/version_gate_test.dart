@@ -92,6 +92,63 @@ void main() {
     expect(find.text('Update Needed'), findsOneWidget);
   });
 
+  /*
+      Update Now opens the store or download page outside the app. The app
+      never downloads and installs an APK itself: Google Play rejects that.
+  */
+  testWidgets('Update Now opens the download page, it does not install',
+      (tester) async {
+    final opened = <Uri>[];
+    VersionGate.openUrl = (uri) async {
+      opened.add(uri);
+      return true;
+    };
+    addTearDown(() => VersionGate.openUrl = (uri) async => false);
+
+    adapter.latest = '9.9.9';
+    adapter.required = false;
+    final ctx = await pump(tester);
+
+    VersionGate.check(ctx);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Update Now'));
+    await tester.pumpAndSettle();
+
+    expect(opened, [Uri.parse('https://example.test/download')]);
+    expect(find.text('Update Available'), findsNothing,
+        reason: 'an optional update closes once the page is open');
+  });
+
+  testWidgets('a required update stays up after opening the page',
+      (tester) async {
+    VersionGate.openUrl = (uri) async => true;
+    adapter.latest = '9.9.9';
+    adapter.required = true;
+    final ctx = await pump(tester);
+
+    VersionGate.check(ctx);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Update Now'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Update Needed'), findsOneWidget);
+  });
+
+  testWidgets('a page that will not open says so', (tester) async {
+    VersionGate.openUrl = (uri) async => false;
+    adapter.latest = '9.9.9';
+    adapter.required = false;
+    final ctx = await pump(tester);
+
+    VersionGate.check(ctx);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Update Now'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Could not open the update page.'), findsOneWidget);
+    expect(find.text('Try Again'), findsOneWidget);
+  });
+
   testWidgets('a current build is left alone', (tester) async {
     adapter.latest = null;
     final ctx = await pump(tester);

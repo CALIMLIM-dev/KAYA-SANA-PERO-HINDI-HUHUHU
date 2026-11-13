@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter_foreground_task/flutter_foreground_task.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import 'api_client.dart';
 import 'background_service.dart';
@@ -16,6 +17,8 @@ class BackgroundController {
   BackgroundController._();
 
   static final BackgroundController instance = BackgroundController._();
+
+  static const _batteryAskedKey = 'battery_settings_opened';
 
   /// Declares the notification channel and how often the service wakes.
   ///
@@ -93,10 +96,21 @@ class BackgroundController {
       if (result != NotificationPermission.granted) return false;
     }
 
+    /*
+        The battery list, opened once, not the one-tap exemption dialog.
+
+        The dialog needs REQUEST_IGNORE_BATTERY_OPTIMIZATIONS, which Google
+        Play allows only for a few kinds of app. The settings list needs no
+        permission; the sharing pop-up has already said to choose KAYA there.
+        Skipping it is allowed - the service still runs, it is just more
+        likely to be stopped on an aggressive phone.
+    */
     if (!await FlutterForegroundTask.isIgnoringBatteryOptimizations) {
-      // Opens the system dialog. Declining is allowed — the service still runs,
-      // it is just more likely to be killed on an aggressive device.
-      await FlutterForegroundTask.requestIgnoreBatteryOptimization();
+      final prefs = await SharedPreferences.getInstance();
+      if (prefs.getBool(_batteryAskedKey) != true) {
+        await prefs.setBool(_batteryAskedKey, true);
+        await FlutterForegroundTask.openIgnoreBatteryOptimizationSettings();
+      }
     }
 
     return true;

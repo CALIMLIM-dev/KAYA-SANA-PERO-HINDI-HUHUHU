@@ -8,6 +8,7 @@ import '../../../core/widgets/work_record.dart';
 import '../../../providers/auth_provider.dart';
 import '../../../providers/employer_profile_provider.dart';
 import '../../moderation/widgets/report_sheet.dart';
+import '../../moderation/widgets/block_user.dart';
 import '../../../core/navigation/app_router.dart';
 import '../../../core/widgets/photo_viewer.dart';
 import '../../../core/widgets/verification_badge_widget.dart';
@@ -132,16 +133,24 @@ class _EmployerProfileScreenState extends State<EmployerProfileScreen> {
               // Somebody else's profile only.
               if (e['user_id'] is num &&
                   e['user_id'] != context.read<AuthProvider>().user?['id'])
-                IconButton(
-                  icon: const Icon(Icons.flag_outlined, color: Colors.white),
-                  tooltip: 'Report',
-                  onPressed: () => ReportSheet.show(
-                    context,
-                    reportedId: (e['user_id'] as num).toInt(),
-                    reportedName: name,
-                    subjectType: 'user',
-                    subjectId: (e['user_id'] as num).toInt(),
-                  ),
+                PopupMenuButton<String>(
+                  icon: const Icon(Icons.more_vert, color: Colors.white),
+                  tooltip: 'More',
+                  onSelected: (choice) async {
+                    final id = (e['user_id'] as num).toInt();
+                    if (choice == 'report') {
+                      ReportSheet.show(context, reportedId: id, reportedName: name, subjectType: 'user', subjectId: id);
+                    } else if (choice == 'block') {
+                      // Blocked: this profile is no longer there for them.
+                      if (await confirmBlock(context, userId: id, name: name) && context.mounted) {
+                        Navigator.pop(context);
+                      }
+                    }
+                  },
+                  itemBuilder: (_) => const [
+                    PopupMenuItem(value: 'report', child: Text('Report')),
+                    PopupMenuItem(value: 'block', child: Text('Block', style: TextStyle(color: AppColors.error))),
+                  ],
                 ),
             ],
             flexibleSpace: FlexibleSpaceBar(

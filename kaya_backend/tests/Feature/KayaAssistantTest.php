@@ -59,6 +59,12 @@ class KayaAssistantTest extends TestCase
         return $this->actingAs($user, 'sanctum')->postJson('/api/v1/support', ['body' => $text])->assertCreated();
     }
 
+    /** Talk to a Person, as the menu's button does it. */
+    private function askForPerson(User $user): ?SupportMessage
+    {
+        return app(KayaAssistant::class)->handOff(SupportThread::firstOrCreate(['user_id' => $user->id]));
+    }
+
     private function lastLine(User $user): SupportMessage
     {
         return SupportThread::where('user_id', $user->id)->firstOrFail()->messages()->latest('id')->firstOrFail();
@@ -231,13 +237,11 @@ class KayaAssistantTest extends TestCase
         $this->omniSays('Hello from the assistant.');
         $maria = $this->person();
 
-        $this->actingAs($maria, 'sanctum')->postJson('/api/v1/support/person')->assertOk()
-            ->assertJsonPath('data.message.body', KayaAssistant::ASKED_FOR_PERSON)
-            ->assertJsonPath('data.assistant.with_person', true);
+        $this->assertSame(KayaAssistant::ASKED_FOR_PERSON, $this->askForPerson($maria)?->body);
+        $this->assertFalse(SupportThread::where('user_id', $maria->id)->first()->assistantActive());
 
         // Asking twice does not say it twice.
-        $this->actingAs($maria, 'sanctum')->postJson('/api/v1/support/person')->assertOk()
-            ->assertJsonPath('data.message', null);
+        $this->assertNull($this->askForPerson($maria));
 
         $this->write($maria, 'My payment is missing');
         $this->assertFalse($this->lastLine($maria)->from_admin);
@@ -262,7 +266,7 @@ class KayaAssistantTest extends TestCase
     {
         $this->omniSays('Assistant again.');
         $maria = $this->person();
-        $this->actingAs($maria, 'sanctum')->postJson('/api/v1/support/person')->assertOk();
+        $this->askForPerson($maria);
 
         // The team answered today; she would rather ask the assistant.
         $admin = User::factory()->create(['user_type' => 'admin']);
@@ -280,27 +284,6 @@ class KayaAssistantTest extends TestCase
         // Already with the assistant: nothing to say twice.
         $this->actingAs($maria, 'sanctum')->postJson('/api/v1/support/assistant')->assertOk()
             ->assertJsonPath('data.message', null);
-    }
-
-    #[Test]
-    public function quick_questions_answer_at_once_without_a_model(): void
-    {
-        Http::fake();
-        $maria = $this->person();
-
-        $this->actingAs($maria, 'sanctum')->getJson('/api/v1/support')->assertOk()
-            ->assertJsonPath('data.assistant.quick.0.key', 'verify')
-            ->assertJsonPath('data.assistant.quick.0.label', 'How do I get verified?');
-
-        $this->actingAs($maria, 'sanctum')->postJson('/api/v1/support/quick', ['key' => 'appeal'])->assertOk()
-            ->assertJsonPath('data.messages.0.body', 'How do I appeal a violation?')
-            ->assertJsonPath('data.messages.0.from_admin', false)
-            ->assertJsonPath('data.messages.1.from', 'KAYA Assistant');
-        $this->assertStringContainsString('Account Status', $this->lastLine($maria)->body);
-        $this->assertSame('quick', $this->lastLine($maria)->assistant_model);
-
-        $this->actingAs($maria, 'sanctum')->postJson('/api/v1/support/quick', ['key' => 'nonsense'])->assertStatus(422);
-        Http::assertNothingSent();
     }
 
     #[Test]
@@ -345,7 +328,7 @@ class KayaAssistantTest extends TestCase
     {
         Http::fake();
         $maria = $this->person();
-        $this->actingAs($maria, 'sanctum')->postJson('/api/v1/support/person')->assertOk();
+        $this->askForPerson($maria);
         $this->write($maria, 'My payment is missing');
 
         // She leaves before anyone answered: her request stays for the team.

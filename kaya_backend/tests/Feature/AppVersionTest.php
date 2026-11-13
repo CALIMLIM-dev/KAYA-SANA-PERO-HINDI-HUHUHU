@@ -28,14 +28,14 @@ class AppVersionTest extends TestCase
 
     public function test_it_answers_without_a_login(): void
     {
-        $this->getJson('/api/v1/version/1.3.0')
+        $this->getJson('/api/v1/app-version?version=1.3.0')
             ->assertOk()
             ->assertJsonPath('data.update_required', false);
     }
 
     public function test_a_build_below_the_minimum_must_update(): void
     {
-        $this->getJson('/api/v1/version/1.1.9')
+        $this->getJson('/api/v1/app-version?version=1.1.9')
             ->assertOk()
             ->assertJsonPath('data.update_required', true)
             ->assertJsonPath('data.download_url', 'https://example.test/kaya.apk');
@@ -49,7 +49,7 @@ class AppVersionTest extends TestCase
     */
     public function test_a_build_between_minimum_and_latest_is_only_offered_an_update(): void
     {
-        $this->getJson('/api/v1/version/1.2.0')
+        $this->getJson('/api/v1/app-version?version=1.2.0')
             ->assertOk()
             ->assertJsonPath('data.update_required', false)
             ->assertJsonPath('data.update_available', true);
@@ -57,7 +57,7 @@ class AppVersionTest extends TestCase
 
     public function test_the_newest_build_is_told_nothing(): void
     {
-        $this->getJson('/api/v1/version/1.3.0')
+        $this->getJson('/api/v1/app-version?version=1.3.0')
             ->assertOk()
             ->assertJsonPath('data.update_required', false)
             ->assertJsonPath('data.update_available', false);
@@ -71,7 +71,7 @@ class AppVersionTest extends TestCase
     */
     public function test_a_flutter_build_suffix_is_ignored(): void
     {
-        $this->getJson('/api/v1/version/1.3.0+7')
+        $this->getJson('/api/v1/app-version?version=1.3.0%2B7')
             ->assertOk()
             ->assertJsonPath('data.update_required', false);
     }
@@ -104,7 +104,7 @@ class AppVersionTest extends TestCase
     {
         config(["kaya.app.update_check" => false]);
 
-        $this->getJson("/api/v1/version/0.0.1")
+        $this->getJson("/api/v1/app-version?version=0.0.1")
             ->assertOk()
             ->assertJsonPath("data.update_required", false)
             ->assertJsonPath("data.update_available", false);

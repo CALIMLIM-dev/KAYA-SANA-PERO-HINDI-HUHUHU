@@ -148,9 +148,11 @@ void main() {
               ChangeNotifierProvider(create: (_) => InvitationProvider()),
             ],
             child: const MaterialApp(
-              home: MatchedWorkersScreen(
-                jobId: 1,
-                jobTitle: 'Aircon cleaning and servicing for a two storey house',
+              home: Scaffold(
+                body: MatchedWorkersList(
+                  jobId: 1,
+                  jobTitle: 'Aircon cleaning and servicing for a two storey house',
+                ),
               ),
             ),
           ),
@@ -221,7 +223,7 @@ void main() {
           ChangeNotifierProvider(create: (_) => InvitationProvider()),
         ],
         child: const MaterialApp(
-          home: MatchedWorkersScreen(jobId: 1, jobTitle: 'A job'),
+          home: Scaffold(body: MatchedWorkersList(jobId: 1, jobTitle: 'A job')),
         ),
       ),
     );
@@ -255,7 +257,7 @@ void main() {
           ChangeNotifierProvider(create: (_) => InvitationProvider()),
         ],
         child: const MaterialApp(
-          home: MatchedWorkersScreen(jobId: 1, jobTitle: 'A job'),
+          home: Scaffold(body: MatchedWorkersList(jobId: 1, jobTitle: 'A job')),
         ),
       ),
     );

@@ -97,21 +97,6 @@ class NotificationController extends Controller
         return $this->ok($notifications);
     }
 
-    /** GET /notifications/unread-count — drives the bottom-nav badge. */
-    public function unreadCount(Request $request)
-    {
-        $data = $request->validate([
-            'audience' => ['nullable', 'in:worker,employer'],
-        ]);
-
-        $count = UserNotification::where('user_id', $request->user()->id)
-            ->forAudience($data['audience'] ?? null)
-            ->unread()
-            ->count();
-
-        return $this->ok(['unread_count' => $count]);
-    }
-
     /** PATCH /notifications/{notification}/read */
     public function markRead(Request $request, UserNotification $notification)
     {

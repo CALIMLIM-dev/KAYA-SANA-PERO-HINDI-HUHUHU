@@ -20,7 +20,7 @@ void main() {
           ChangeNotifierProvider<WorkerBrowseProvider>.value(value: browse),
           ChangeNotifierProvider(create: (_) => InvitationProvider()),
         ],
-        child: const MaterialApp(home: MatchedWorkersScreen(jobId: 7, jobTitle: 'Fix a phone screen')),
+        child: const MaterialApp(home: Scaffold(body: MatchedWorkersList(jobId: 7, jobTitle: 'Fix a phone screen'))),
       );
 
   testWidgets('locked: how many, and the way to see them', (tester) async {

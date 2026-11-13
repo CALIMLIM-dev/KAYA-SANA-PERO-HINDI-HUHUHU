@@ -80,7 +80,7 @@ export function browse(data) {
 export function poll(data) {
   const token = data.tokens[__VU % data.tokens.length];
   for (let s = 0; s < 30; s += 5) {
-    const n = http.get(`${BASE}/notifications/unread-count`, { ...auth(token), tags: { kind: 'read', name: 'unread' } });
+    const n = http.get(`${BASE}/notifications?unread_only=1&per_page=1`, { ...auth(token), tags: { kind: 'read', name: 'unread' } });
     check(n, { 'poll not refused': (r) => r.status !== 429 });
     sleep(5);
   }

@@ -167,30 +167,6 @@ class SecurityHardeningTest extends TestCase
     }
 
     #[Test]
-    public function only_the_owner_or_an_admin_can_read_a_verification_document(): void
-    {
-        Storage::fake('local');
-
-        $owner = User::factory()->create();
-        $this->actingAs($owner)->postJson('/api/v1/verifications', [
-            'type' => 'government_id', 'id_type' => 'UMID',
-            'id_photo' => UploadedFile::fake()->create('id.jpg', 64, 'image/jpeg'),
-            'selfie_photo' => UploadedFile::fake()->create('selfie.jpg', 64, 'image/jpeg'),
-        ])->assertStatus(201);
-
-        $v = Verification::first();
-
-        $this->actingAs($owner)->get("/api/v1/verifications/{$v->id}/document/front")->assertOk();
-        $this->actingAs(User::factory()->create(['user_type' => 'admin']))
-            ->get("/api/v1/verifications/{$v->id}/document/front")->assertOk();
-
-        // 404 not 403: a 403 confirms the record exists, which turns this into
-        // a way to test whether someone has submitted an ID at all.
-        $this->actingAs(User::factory()->create())
-            ->get("/api/v1/verifications/{$v->id}/document/front")->assertStatus(404);
-    }
-
-    #[Test]
     public function the_verification_type_is_restricted_to_known_values(): void
     {
         $user = User::factory()->create();

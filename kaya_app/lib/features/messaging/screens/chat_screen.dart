@@ -19,6 +19,7 @@ import '../widgets/chat_job_strip.dart';
 import '../widgets/system_message_card.dart';
 import '../widgets/job_tracking_panel.dart';
 import '../../moderation/widgets/report_sheet.dart';
+import '../../moderation/widgets/block_user.dart';
 import '../../invitations/widgets/invite_to_job.dart';
 import '../../../providers/app_mode_provider.dart';
 import '../../../core/navigation/app_router.dart';
@@ -494,6 +495,9 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
               isWorker: iAmWorker,
               otherPartyName: name.split(' ').first,
               otherPartyAvatar: args['avatar'] as String?,
+              // Read here, above this screen's Scaffold, which hides the
+              // keyboard's height from everything inside its body.
+              keyboardOpen: MediaQuery.viewInsetsOf(context).bottom > 0,
             ),
 
           Expanded(
@@ -750,6 +754,14 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
               case 'report':
                 _showReportDialog(context, otherUserId, name);
                 break;
+              case 'block':
+                if (otherUserId != null) {
+                  // Blocked: the chat is closed to both of them.
+                  confirmBlock(context, userId: otherUserId, name: name).then((done) {
+                    if (done && context.mounted) Navigator.pop(context);
+                  });
+                }
+                break;
               case 'invite':
                 if (otherUserId != null) {
                   showInviteToJobSheet(context,
@@ -801,6 +813,16 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                   Icon(Icons.flag_outlined, size: 18, color: AppColors.error),
                   SizedBox(width: 10),
                   Text('Report User', style: TextStyle(color: AppColors.error)),
+                ],
+              ),
+            ),
+            const PopupMenuItem(
+              value: 'block',
+              child: Row(
+                children: [
+                  Icon(Icons.block, size: 18, color: AppColors.error),
+                  SizedBox(width: 10),
+                  Text('Block User', style: TextStyle(color: AppColors.error)),
                 ],
               ),
             ),

@@ -49,6 +49,30 @@ class CreditPurchase
     }
 
     /**
+     * Credits a package Google Play has confirmed was bought.
+     *
+     * The key is the purchase token's hash; the column is unique, so one
+     * purchase can be credited once whatever happens on the phone. The
+     * price recorded is the package's, as the money really moved.
+     */
+    public function grantPlay(User $user, CreditPackage $package, string $key, ?string $orderId): CreditPayment
+    {
+        $payment = CreditPayment::create([
+            'user_id' => $user->id,
+            'reference' => $orderId ?: (string) Str::ulid(),
+            'credit_package_id' => $package->id,
+            'credits' => $package->credits,
+            'amount_centavos' => $package->amount_centavos,
+            'status' => CreditPayment::STATUS_PENDING,
+            'provider_session_id' => $key,
+        ]);
+
+        $this->markPaid($payment);
+
+        return $payment->refresh();
+    }
+
+    /**
      * Grants the credits for a payment, exactly once, however often it is called.
      *
      * The guarantee is the conditional UPDATE below, not a check beforehand.

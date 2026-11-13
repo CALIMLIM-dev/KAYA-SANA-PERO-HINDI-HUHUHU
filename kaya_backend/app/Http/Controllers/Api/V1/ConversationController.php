@@ -31,6 +31,9 @@ class ConversationController extends Controller
         $conversations = Conversation::where('status', 'unlocked')
             // Threads whose job is finished are out of both inboxes.
             ->visible()
+            // And threads with somebody blocked, either way round.
+            ->whereNotIn('employer_id', \App\Support\Blocks::hiddenFor($user))
+            ->whereNotIn('worker_id', \App\Support\Blocks::hiddenFor($user))
             ->where(fn ($q) => $q->where('employer_id', $user->id)->orWhere('worker_id', $user->id))
             // job.status drives whether the chat can offer location sharing —
             // it is only available on a hire in progress.
@@ -126,6 +129,10 @@ class ConversationController extends Controller
             return $this->fail('You do not have permission to view this conversation', 403);
         }
 
+        if (\App\Support\Blocks::between($user, $conversation->employer_id === $user->id ? $conversation->worker_id : $conversation->employer_id)) {
+            return $this->fail('This conversation is not available.', 403);
+        }
+
         // Hidden because the work it was for is over. Not deleted - it comes
         // back whole if these two work together again. See the migration.
         if ($conversation->isArchived()) {
@@ -215,6 +222,10 @@ class ConversationController extends Controller
             return $this->fail('You do not have permission to send messages in this conversation', 403);
         }
 
+        if (\App\Support\Blocks::between($user, $conversation->employer_id === $user->id ? $conversation->worker_id : $conversation->employer_id)) {
+            return $this->fail('You cannot message this person.', 403);
+        }
+
         // Hidden because the work it was for is over. Not deleted - it comes
         // back whole if these two work together again. See the migration.
         if ($conversation->isArchived()) {
@@ -227,7 +238,20 @@ class ConversationController extends Controller
 
         $request->validate([
             'message_text' => ['required', 'string', 'max:2000'],
+            // The phone's key for this message; the same on a retry.
+            'client_id'    => ['nullable', 'string', 'max:64', 'regex:/^[A-Za-z0-9_-]+$/'],
         ]);
+
+        /*
+            Sent already: a retry after a send that reached the server but
+            timed out on the phone. Handed back, not stored twice.
+        */
+        $clientId = $request->input('client_id');
+        $sent = fn () => $clientId === null ? null : $conversation->messages()
+            ->where('sender_id', $user->id)->where('client_id', $clientId)->first();
+        if ($existing = $sent()) {
+            return $this->ok($this->presentSent($existing, $conversation), 'Message already sent');
+        }
 
         /*
             Read before it is delivered, and masked rather than refused.
@@ -240,18 +264,21 @@ class ConversationController extends Controller
         */
         $read = app(\App\Services\MessageFilter::class)->inspect(trim($request->message_text));
 
-        $message = $conversation->messages()->create([
-            'sender_id'    => $user->id,
-            'message_text' => $read['text'],
-            'is_read'      => false,
-        ]);
+        try {
+            $message = $conversation->messages()->create([
+                'sender_id'    => $user->id,
+                'client_id'    => $clientId,
+                'message_text' => $read['text'],
+                'is_read'      => false,
+            ]);
+        } catch (\Illuminate\Database\UniqueConstraintViolationException) {
+            // Two copies of one send arrived together; the first one won.
+            return $this->ok($this->presentSent($sent(), $conversation), 'Message already sent');
+        }
 
         $conversation->touch();
 
-        $message->setRelation('conversation', $conversation);
-        $message->load(['sender:id,name,avatar', 'sender.workerProfile:id,user_id,profile_photo_path', 'sender.employerProfile:id,user_id,image_path']);
-        // The same resolved picture the thread and the poll send.
-        $this->resolveSenderAvatars(collect([$message]));
+        $this->presentSent($message, $conversation);
 
         /*
             The AI safety check reads it first (SafetyReview): the push and
@@ -267,6 +294,16 @@ class ConversationController extends Controller
         }
 
         return $this->ok($message, 'Message sent successfully', 201);
+    }
+
+    /** A sent message as the app reads it: sender, avatars, conversation. */
+    private function presentSent(\App\Models\Message $message, Conversation $conversation): \App\Models\Message
+    {
+        $message->setRelation('conversation', $conversation);
+        $message->load(['sender:id,name,avatar', 'sender.workerProfile:id,user_id,profile_photo_path', 'sender.employerProfile:id,user_id,image_path']);
+        $this->resolveSenderAvatars(collect([$message]));
+
+        return $message;
     }
 
     /*

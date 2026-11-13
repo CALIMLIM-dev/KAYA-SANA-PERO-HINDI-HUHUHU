@@ -179,6 +179,9 @@ class JobController extends Controller
             $query->where(fn ($q) => $q->whereNull('start_date')->orWhereDate('start_date', '<=', $by));
         }
 
+        // Nobody blocked, either way round: their jobs are not shown.
+        $query->whereNotIn('employer_id', \App\Support\Blocks::hiddenFor($request->user()));
+
         // Highest pay first, inside the boosted-first rule every order keeps.
         $payFirst = $request->get('sort') === 'pay';
         $ordered = fn ($q) => $payFirst
@@ -676,6 +679,8 @@ class JobController extends Controller
             ])
             // Never suggest the employer their own worker profile.
             ->where('user_id', '!=', $user->id)
+            // Nor anyone blocked, either way round.
+            ->whereNotIn('user_id', \App\Support\Blocks::hiddenFor($user))
             /*
                 Only workers an invite can reach.
 
@@ -1060,6 +1065,11 @@ class JobController extends Controller
 
     public function show(Request $request, JobPost $job)
     {
+        // Blocked either way round: the job is not there for them.
+        if (\App\Support\Blocks::between($request->user(), $job->employer_id)) {
+            return $this->fail('Job not found.', 404);
+        }
+
         /*
             index() scopes to open jobs; this did not.
 

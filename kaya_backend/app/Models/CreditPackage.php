@@ -12,7 +12,7 @@ use Illuminate\Database\Eloquent\Model;
  */
 class CreditPackage extends Model
 {
-    protected $fillable = ['name', 'credits', 'amount_centavos', 'audience', 'is_active', 'sort_order'];
+    protected $fillable = ['name', 'play_product_id', 'credits', 'amount_centavos', 'audience', 'is_active', 'sort_order'];
 
     public const AUDIENCE_ALL = 'all';
     public const AUDIENCE_INDIVIDUAL = 'individual';

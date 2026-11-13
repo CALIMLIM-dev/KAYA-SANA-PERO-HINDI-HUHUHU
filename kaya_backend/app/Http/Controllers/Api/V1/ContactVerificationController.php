@@ -200,22 +200,6 @@ class ContactVerificationController extends Controller
         }, 'Phone number verified.');
     }
 
-    /** What the app shows on the verification screen without guessing. */
-    public function status(Request $request, SmsSender $sms)
-    {
-        $user = $request->user();
-
-        return $this->ok([
-            'email'           => $user->email,
-            'email_verified'  => $user->email_verified_at !== null,
-            'phone'           => $user->phone,
-            'phone_verified'  => $user->phone_verified_at !== null,
-            // So the app can grey the phone card out honestly rather than
-            // offering a button that will always fail.
-            'phone_available' => $sms->isConfigured(),
-        ]);
-    }
-
     // ── shared ───────────────────────────────────────────────────────────────
 
     /**

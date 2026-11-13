@@ -1,6 +1,10 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
+import 'package:in_app_purchase/in_app_purchase.dart';
 
 import '../data/services/api_client.dart';
+import '../data/services/play_store.dart';
 import '../core/utils/json_parse.dart';
 
 /// One top-up option, priced by the server.
@@ -10,7 +14,11 @@ class CreditPackage {
     required this.name,
     required this.credits,
     required this.amountPhp,
+    this.playProductId,
   });
+
+  /// The product to buy in Google Play when billing is 'play'.
+  final String? playProductId;
 
   final int id;
   final String name;
@@ -25,6 +33,7 @@ class CreditPackage {
         name: '${json['name'] ?? ''}',
         credits: asIntOrNull(json['credits']) ?? 0,
         amountPhp: asDoubleOrNull(json['amount_php']) ?? 0,
+        playProductId: json['play_product_id'] as String?,
       );
 }
 
@@ -254,6 +263,7 @@ class CreditsProvider with ChangeNotifier {
           .whereType<Map>()
           .map((p) => CreditPackage.fromJson(Map<String, dynamic>.from(p)))
           .toList();
+      _billing = '${data['billing'] ?? 'free'}';
 
       _hasLoadedOnce = true;
     } catch (e) {
@@ -266,6 +276,115 @@ class CreditsProvider with ChangeNotifier {
   }
 
   Future<void> refresh() => load(force: true);
+
+  // ── Google Play Billing ────────────────────────────────────────────────
+
+  String _billing = 'free';
+
+  /// Whether Barya is bought through Google Play (the server says).
+  bool get usesPlay => _billing == 'play';
+
+  /// Swapped for a fake in tests.
+  @visibleForTesting
+  static PlayStore Function() storeFactory = GooglePlayStore.new;
+  PlayStore? _store;
+  StreamSubscription<List<PurchaseDetails>>? _purchaseSub;
+  Map<String, ProductDetails> _playProducts = const {};
+  String _account = '';
+
+  /// What Google Play charges for a package, in its own words ("₱100.00").
+  String? playPrice(CreditPackage package) => _playProducts[package.playProductId]?.price;
+
+  /// The last thing to tell the person about a Play purchase, once.
+  String? playMessage;
+  bool playMessageIsError = false;
+  int playMessageSeq = 0;
+
+  void _say(String message, {bool error = false}) {
+    playMessage = message;
+    playMessageIsError = error;
+    playMessageSeq++;
+    notifyListeners();
+  }
+
+  /*
+      Connects to Google Play once the wallet is open: loads the prices,
+      listens for purchases, and asks for any left unfinished - one paid
+      for while the phone lost signal is credited now.
+  */
+  Future<void> startPlay(int userId) async {
+    if (!usesPlay) return;
+    _account = 'u$userId';
+    final store = _store ??= storeFactory();
+    _purchaseSub ??= store.purchases.listen(_onPurchases);
+    if (!await store.isAvailable()) {
+      _say('Google Play is not available on this phone.', error: true);
+      return;
+    }
+    final ids = _packages.map((p) => p.playProductId).whereType<String>().toSet();
+    _playProducts = await store.products(ids);
+    notifyListeners();
+    await store.restore(_account);
+  }
+
+  /// Opens Google Play for a package. Null when the sheet opened; the
+  /// result arrives through the purchase stream.
+  Future<String?> buyWithPlay(CreditPackage package) async {
+    final product = _playProducts[package.playProductId];
+    if (product == null) return 'This package is not available in Google Play yet.';
+    try {
+      final opened = await (_store ??= storeFactory()).buy(product, _account);
+      return opened ? null : 'Google Play could not start the purchase.';
+    } catch (e) {
+      return e.toString().replaceFirst('Exception: ', '');
+    }
+  }
+
+  Future<void> _onPurchases(List<PurchaseDetails> purchases) async {
+    for (final purchase in purchases) {
+      switch (purchase.status) {
+        case PurchaseStatus.pending:
+          _say('Waiting for Google Play to confirm the payment.');
+        case PurchaseStatus.canceled:
+          _say('Payment cancelled.');
+        case PurchaseStatus.error:
+          _say(purchase.error?.message ?? 'Google Play could not complete the payment.', error: true);
+        case PurchaseStatus.purchased:
+        case PurchaseStatus.restored:
+          await _deliver(purchase);
+      }
+    }
+  }
+
+  /*
+      Credits a purchase: the server asks Google, then credits it once.
+      Only then is it consumed, so a failure here leaves it to come back.
+  */
+  Future<void> _deliver(PurchaseDetails purchase) async {
+    try {
+      final res = await _api.post('/credits/play/verify', data: {
+        'product_id': purchase.productID,
+        'purchase_token': purchase.verificationData.serverVerificationData,
+      });
+      await _store?.finish(purchase);
+      await refresh();
+      _say('${res.data['message'] ?? 'Barya added.'}');
+    } on ApiException catch (e) {
+      if (e.isOffline || e.status == null || e.status! >= 500) {
+        _say('Payment received. Your Barya will be added when you are back online.', error: true);
+        return;
+      }
+      _say(e.message, error: true);
+    } catch (e) {
+      _say('Payment received. Your Barya will be added when you open the wallet again.', error: true);
+    }
+  }
+
+  @override
+  void dispose() {
+    _purchaseSub?.cancel();
+    super.dispose();
+  }
 
   /// Lines fetched for the wallet history, the server's maximum page.
   static const int historyPageSize = 50;

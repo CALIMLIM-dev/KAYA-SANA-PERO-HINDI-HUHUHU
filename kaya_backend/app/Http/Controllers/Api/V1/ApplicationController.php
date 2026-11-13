@@ -33,6 +33,7 @@ class ApplicationController extends Controller
     {
         $user = $request->user();
         if (!$user->isWorker()) return $this->fail('Forbidden', 403);
+        if (\App\Support\Blocks::between($user, $job->employer_id)) return $this->fail('You cannot apply to this job.', 403);
 
         /*
             An applicant an employer can actually read.
@@ -538,6 +539,8 @@ class ApplicationController extends Controller
         $job->load(['skills', 'psgcLocation.parent', 'category']);
 
         $applications = $job->applications()
+            // Nobody blocked, either way round.
+            ->whereNotIn('worker_id', \App\Support\Blocks::hiddenFor($user))
             ->with(array_map(
                 fn ($relation) => 'worker.workerProfile.' . $relation,
                 \App\Support\ResumeBlock::RELATIONS,

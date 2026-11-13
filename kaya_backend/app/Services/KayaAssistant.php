@@ -122,36 +122,6 @@ class KayaAssistant
         return $this->say($thread, $waiting ? self::BACK . ' ' . self::PLACE_SAVED : self::BACK, 'resume', false);
     }
 
-    /** The quick questions: [key => button text]. */
-    public static function quickQuestions(): array
-    {
-        return collect(require resource_path('assistant/quick.php'))
-            ->map(fn ($q) => $q[0])
-            ->all();
-    }
-
-    /*
-        A quick question: the button's words as the person's message, and the
-        written answer at once. No model is asked, so it is instant and works
-        even when OmniRoute and Gemini are both down.
-    */
-    public function quick(SupportThread $thread, User $user, string $key): ?array
-    {
-        $all = require resource_path('assistant/quick.php');
-        if (! isset($all[$key]) || ! self::enabled() || ! $thread->assistantActive()) {
-            return null;
-        }
-
-        [$question, $answer] = $all[$key];
-
-        $asked = $thread->messages()->create([
-            'sender_id'  => $user->id,
-            'from_admin' => false,
-            'body'       => $question,
-        ]);
-
-        return [$asked, $this->say($thread, $answer, 'quick', false)];
-    }
 
     /*
         Answers the message with this id, if it is still the newest thing in

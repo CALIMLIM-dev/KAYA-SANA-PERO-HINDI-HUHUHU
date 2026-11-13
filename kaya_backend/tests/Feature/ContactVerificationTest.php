@@ -200,7 +200,6 @@ class ContactVerificationTest extends TestCase
         \Illuminate\Support\Facades\Http::fake(['api.textbee.dev/*' => \Illuminate\Support\Facades\Http::response(['data' => ['success' => true]])]);
         $user = $this->unverified();
 
-        $this->actingAs($user)->getJson('/api/v1/contact-verification')->assertJsonPath('data.phone_available', true);
         $this->actingAs($user)->postJson('/api/v1/contact-verification/phone/send')->assertOk();
 
         $code = null;
@@ -243,22 +242,6 @@ class ContactVerificationTest extends TestCase
 
         Mail::assertSent(VerificationCodeMail::class, fn ($mail) => $mail->hasTo('me@example.com'));
         \Illuminate\Support\Facades\Http::assertSent(fn ($request) => $request['recipients'] === ['+639171234567']);
-    }
-
-    #[Test]
-    public function the_status_endpoint_tells_the_app_whether_phone_is_available(): void
-    {
-        config(['services.semaphore.key' => null]);
-
-        $status = $this->actingAs($this->unverified())
-            ->getJson('/api/v1/contact-verification')
-            ->assertOk()
-            ->json('data');
-
-        // So the app can grey the card out rather than offering a button that
-        // is guaranteed to fail.
-        $this->assertFalse($status['phone_available']);
-        $this->assertFalse($status['email_verified']);
     }
 
     #[Test]

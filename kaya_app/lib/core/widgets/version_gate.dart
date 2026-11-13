@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../constants/app_colors.dart';
 import '../constants/app_version.dart';
 import '../../data/services/api_client.dart';
-import '../services/app_updater.dart';
 
 /*
     Asks the server whether this build is still allowed to run.
@@ -11,7 +11,7 @@ import '../services/app_updater.dart';
     Two outcomes, and they are deliberately different:
 
     - Out of date past the minimum: a barrier that cannot be dismissed, with a
-      button to the download. There is no point letting somebody carry on into
+      button to the store or download page. There is no point letting somebody carry on into
       endpoints their build no longer speaks to; they would just meet the
       failure later, somewhere less explicable.
 
@@ -34,6 +34,11 @@ class VersionGate {
   /// The optional update the user already said no to this session. Asked
   /// once; a required update is never remembered here.
   static String? _declined;
+
+  /// Opens the update page outside the app. Swapped in tests.
+  @visibleForTesting
+  static Future<bool> Function(Uri uri) openUrl =
+      (uri) => launchUrl(uri, mode: LaunchMode.externalApplication);
 
   @visibleForTesting
   static void reset() {
@@ -99,16 +104,15 @@ class VersionGate {
 }
 
 /*
-    The update prompt, with the download happening inside it.
+    The update prompt. Update Now opens the download address outside the
+    app - the Play Store page on a Play build, the download page for a
+    tester's APK - and the store or the browser installs it.
 
-    Stateful because the download has to report progress somewhere, and a
-    dialog that closes to a browser and hopes for the best is the flow this
-    replaces: open Drive, wait, find the file, tap it, approve. Here the bar
-    fills in place and Android's Install prompt comes up at the end.
-
-    The Install prompt itself is not optional and never will be - Android
-    reserves silent installs for the store and for device-owner apps. One
-    confirmation is the floor.
+    It used to download the APK itself and hand it to Android's installer,
+    which needs REQUEST_INSTALL_PACKAGES. Google Play rejects an app that
+    installs its own updates, so that permission and the downloader are
+    gone. A sideloaded build still updates the same way it was installed:
+    through the browser.
 */
 class _UpdateDialog extends StatefulWidget {
   const _UpdateDialog({
@@ -126,47 +130,34 @@ class _UpdateDialog extends StatefulWidget {
 }
 
 class _UpdateDialogState extends State<_UpdateDialog> {
-  bool _busy = false;
-  double _progress = 0;
   String? _error;
 
-  Future<void> _install() async {
-    setState(() {
-      _busy = true;
-      _error = null;
-      _progress = 0;
-    });
-
-    final failure = await AppUpdater.downloadAndInstall(
-      widget.url,
-      onProgress: (p) {
-        if (mounted) setState(() => _progress = p);
-      },
-    );
-
+  Future<void> _open() async {
+    final uri = Uri.tryParse(widget.url);
+    var opened = false;
+    if (uri != null) {
+      try {
+        opened = await VersionGate.openUrl(uri);
+      } catch (_) {
+        opened = false;
+      }
+    }
     if (!mounted) return;
 
-    setState(() {
-      _busy = false;
-      _error = failure;
-    });
-
-    /*
-        Left open on a required update, closed on an optional one.
-
-        Android's installer opens over this dialog and coming back to a
-        working app without having installed anything would defeat a required
-        update entirely - the user would simply carry on.
-    */
-    if (failure == null && !widget.required && mounted) {
-      Navigator.pop(context);
+    if (!opened) {
+      setState(() => _error = 'Could not open the update page.');
+      return;
     }
+
+    // A required update stays up: coming back without installing must not
+    // let somebody carry on with a build the server no longer supports.
+    if (!widget.required) Navigator.pop(context);
   }
 
   @override
   Widget build(BuildContext context) {
     return PopScope(
-      canPop: !widget.required && !_busy,
+      canPop: !widget.required,
       child: AlertDialog(
         title: Text(widget.required ? 'Update Needed' : 'Update Available'),
         content: Column(
@@ -178,23 +169,6 @@ class _UpdateDialogState extends State<_UpdateDialog> {
                   ? 'This version is too old to keep working.'
                   : 'Version ${widget.latest} is out.',
             ),
-            if (_busy) ...[
-              const SizedBox(height: 16),
-              LinearProgressIndicator(
-                // Indeterminate when the server sends no content-length,
-                // which Drive sometimes does - a bar stuck at zero reads as
-                // a hang.
-                value: _progress > 0 ? _progress : null,
-              ),
-              const SizedBox(height: 6),
-              Text(
-                _progress > 0
-                    ? 'Downloading ${(_progress * 100).round()}%'
-                    : 'Downloading...',
-                style: const TextStyle(
-                    fontSize: 12, color: AppColors.neutral600),
-              ),
-            ],
             if (_error != null) ...[
               const SizedBox(height: 12),
               Text(
@@ -205,7 +179,7 @@ class _UpdateDialogState extends State<_UpdateDialog> {
           ],
         ),
         actions: [
-          if (!widget.required && !_busy)
+          if (!widget.required)
             TextButton(
               onPressed: () => Navigator.pop(context),
               child: const Text('Later'),
@@ -215,8 +189,8 @@ class _UpdateDialogState extends State<_UpdateDialog> {
               backgroundColor: AppColors.primary,
               foregroundColor: Colors.white,
             ),
-            onPressed: (_busy || widget.url.isEmpty) ? null : _install,
-            child: Text(_error != null ? 'Try Again' : 'Update now'),
+            onPressed: widget.url.isEmpty ? null : _open,
+            child: Text(_error != null ? 'Try Again' : 'Update Now'),
           ),
         ],
       ),

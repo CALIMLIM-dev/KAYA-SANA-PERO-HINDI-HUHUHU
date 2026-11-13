@@ -41,24 +41,28 @@ class CreditPackageSeeder extends Seeder
             [
                 'name' => 'Load',
                 'credits' => 25,
+                'play_product_id' => 'barya_25',
                 'amount_centavos' => 5000,      // 50.00 -> 2.00 a credit
                 'sort_order' => 1,
             ],
             [
                 'name' => 'Regular',
                 'credits' => 60,
+                'play_product_id' => 'barya_60',
                 'amount_centavos' => 10000,     // 100.00 -> 1.67 a credit
                 'sort_order' => 2,
             ],
             [
                 'name' => 'Sulit',
                 'credits' => 175,
+                'play_product_id' => 'barya_175',
                 'amount_centavos' => 25000,     // 250.00 -> 1.43 a credit
                 'sort_order' => 3,
             ],
             [
                 'name' => 'Negosyo',
                 'credits' => 400,
+                'play_product_id' => 'barya_400',
                 'amount_centavos' => 50000,     // 500.00 -> 1.25 a credit
                 'sort_order' => 4,
             ],
@@ -74,6 +78,7 @@ class CreditPackageSeeder extends Seeder
             [
                 'name' => 'Business Starter',
                 'credits' => 600,
+                'play_product_id' => 'barya_600',
                 'amount_centavos' => 60000,     // 600.00 -> 1.00 a credit
                 'audience' => 'business',
                 'sort_order' => 5,
@@ -81,6 +86,7 @@ class CreditPackageSeeder extends Seeder
             [
                 'name' => 'Business Growth',
                 'credits' => 1500,
+                'play_product_id' => 'barya_1500',
                 'amount_centavos' => 135000,    // 1,350.00 -> 0.90 a credit
                 'audience' => 'business',
                 'sort_order' => 6,
@@ -88,6 +94,7 @@ class CreditPackageSeeder extends Seeder
             [
                 'name' => 'Business Scale',
                 'credits' => 3500,
+                'play_product_id' => 'barya_3500',
                 'amount_centavos' => 280000,    // 2,800.00 -> 0.80 a credit
                 'audience' => 'business',
                 'sort_order' => 7,

@@ -78,21 +78,6 @@ class SupportController extends Controller
         ]);
     }
 
-    /** How many replies are waiting, for the badge on the help screen. */
-    public function unread(Request $request)
-    {
-        $count = SupportMessage::whereHas(
-            'thread',
-            fn ($q) => $q->where('user_id', $request->user()->id),
-        )
-            ->where('from_admin', true)
-            ->whereNull('kind')
-            ->whereNull('read_at')
-            ->count();
-
-        return $this->ok(['unread' => $count]);
-    }
-
     public function send(Request $request, MessageFilter $filter, KayaAssistant $assistant)
     {
         $user = $request->user();
@@ -139,22 +124,6 @@ class SupportController extends Controller
         }
 
         return $this->ok($this->present($message), 'Sent', 201);
-    }
-
-    /** Talk to a Person: the assistant steps aside until somebody from KAYA answers. */
-    public function person(Request $request, KayaAssistant $assistant)
-    {
-        $data = $request->validate(['topic' => ['nullable', 'string', \Illuminate\Validation\Rule::in(array_keys(SupportThread::TOPICS))]]);
-        $thread = SupportThread::firstOrCreate(['user_id' => $request->user()->id]);
-        if (! empty($data['topic'])) {
-            $thread->forceFill(['topic' => $data['topic']])->save();
-        }
-        $message = $assistant->handOff($thread);
-
-        return $this->ok([
-            'message'   => $message ? $this->present($message) : null,
-            'assistant' => $this->assistantState($thread->fresh()),
-        ], 'A person will answer');
     }
 
     /*
@@ -275,24 +244,6 @@ class SupportController extends Controller
         ], 'KAYA Assistant is back');
     }
 
-    /** A quick question, answered at once. */
-    public function quick(Request $request, KayaAssistant $assistant)
-    {
-        $data = $request->validate(['key' => ['required', 'string', 'max:40']]);
-        $user = $request->user();
-        $thread = SupportThread::firstOrCreate(['user_id' => $user->id]);
-
-        $pair = $assistant->quick($thread, $user, $data['key']);
-        if ($pair === null) {
-            return response()->json(['success' => false, 'data' => null, 'message' => 'That question is not available right now.'], 422);
-        }
-
-        return $this->ok([
-            'messages'  => array_map(fn ($m) => $this->present($m), $pair),
-            'assistant' => $this->assistantState($thread->fresh()),
-        ]);
-    }
-
     private function lineState(?SupportThread $thread): ?array
     {
         $place = $thread?->placeInLine();
@@ -338,10 +289,7 @@ class SupportController extends Controller
             'menu'        => \App\Services\SupportFlow::topicOptions(),
             // The topics for Talk to a Person, as [{key, label}].
             'topics'      => collect(SupportThread::TOPICS)->map(fn ($label, $key) => ['key' => $key, 'label' => $label])->values(),
-            // The quick questions, as [{key, label}].
-            'quick'       => $on
-                ? collect(KayaAssistant::quickQuestions())->map(fn ($label, $key) => ['key' => $key, 'label' => $label])->values()
-                : [],
+
         ];
     }
 

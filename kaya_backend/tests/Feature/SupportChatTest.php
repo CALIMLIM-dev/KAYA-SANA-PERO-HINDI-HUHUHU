@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Models\SupportMessage;
 use App\Models\SupportThread;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -140,13 +141,12 @@ class SupportChatTest extends TestCase
         $this->actingAs($this->admin())
             ->post("/admin/support/{$thread->id}/reply", ['body' => 'Hello back.']);
 
-        $this->actingAs($user, 'sanctum')->getJson('/api/v1/support/unread')
-            ->assertOk()->assertJsonPath('data.unread', 1);
+        $waiting = fn () => SupportMessage::where('from_admin', true)->whereNull('kind')->whereNull('read_at')->count();
+        $this->assertSame(1, $waiting());
 
         $this->actingAs($user, 'sanctum')->getJson('/api/v1/support')->assertOk();
 
-        $this->actingAs($user, 'sanctum')->getJson('/api/v1/support/unread')
-            ->assertOk()->assertJsonPath('data.unread', 0);
+        $this->assertSame(0, $waiting());
     }
 
     #[Test]

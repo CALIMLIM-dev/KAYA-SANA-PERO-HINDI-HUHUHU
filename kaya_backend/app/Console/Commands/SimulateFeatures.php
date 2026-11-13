@@ -522,7 +522,7 @@ class SimulateFeatures extends Command
         $list = $this->api($token)->get("{$this->base}/api/v1/notifications");
         $this->check('list loads', $list->status() === 200, 'status ' . $list->status());
 
-        $unread = $this->api($token)->get("{$this->base}/api/v1/notifications/unread-count");
+        $unread = $this->api($token)->get("{$this->base}/api/v1/notifications?unread_only=1&per_page=1");
         $this->check('unread count loads', $unread->status() === 200, 'status ' . $unread->status());
 
         $dbUnread = UserNotification::where('user_id', $worker->id)->whereNull('read_at')->count();

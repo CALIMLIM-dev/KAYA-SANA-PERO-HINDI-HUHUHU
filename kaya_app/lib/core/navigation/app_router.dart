@@ -17,7 +17,6 @@ import 'main_navigation.dart';
 
 // Job Related Screens
 import '../../features/jobs/screens/job_details_screen.dart';
-import '../../features/employer/screens/matched_workers_screen.dart';
 import '../../features/jobs/screens/search_screen.dart';
 import '../../features/jobs/screens/post_job_screen.dart';
 import '../../features/jobs/screens/saved_jobs_screen.dart';
@@ -58,7 +57,6 @@ import '../../features/invitations/screens/my_invitations_screen.dart';
 import '../../features/employer/screens/edit_employer_profile_screen.dart';
 
 // Help Screens
-import '../../features/help/screens/faq_screen.dart';
 import '../../features/help/screens/support_chat_screen.dart';
 
 // Location
@@ -75,7 +73,6 @@ class AppRouter {
   static const String googlePassword = '/google-password';
   static const String home = '/home';
   static const String searchJobs = '/search';
-  static const String matchedWorkers = '/matched-workers';
   static const String jobDetails = '/job-details';
   static const String workerProfile = '/worker-profile';
   static const String postJob = '/post-job';
@@ -93,7 +90,6 @@ class AppRouter {
   static const String setupWorkerProfile = '/setup-worker-profile';
   static const String myEmployerProfile = '/my-employer-profile';
   static const String addSkills = '/add-skills';
-  static const String faq = '/faq';
   static const String support = '/support';
   static const String setupEmployerProfile = '/setup-employer-profile';
   static const String manageJobs = '/manage-jobs';
@@ -200,27 +196,6 @@ class AppRouter {
       case home:
         return MaterialPageRoute(settings: settings, builder: (_) => const MainNavigation());
 
-      /*
-          Workers ranked against one job.
-
-          GET /jobs/{job}/matches has scored and sorted since it
-          shipped and nothing could reach it. This is the way in.
-      */
-      case matchedWorkers:
-        final args = settings.arguments;
-        final jobId = args is Map ? args['jobId'] as int? : null;
-
-        if (jobId == null) {
-          return _errorRoute(settings, 'A job is needed to suggest workers for it.');
-        }
-
-        return MaterialPageRoute(
-          builder: (_) => MatchedWorkersScreen(
-            jobId: jobId,
-            jobTitle: args is Map ? args['jobTitle'] as String? : null,
-          ),
-          settings: settings,
-        );
 
       case searchJobs:
         /*
@@ -309,8 +284,6 @@ class AppRouter {
 
       case support:
         return MaterialPageRoute(settings: settings, builder: (_) => const SupportChatScreen());
-      case faq:
-        return MaterialPageRoute(settings: settings, builder: (_) => const FAQScreen());
       
       case setupEmployerProfile:
         return MaterialPageRoute(settings: settings, builder: (_) => const SetupEmployerProfileScreen());
@@ -508,11 +481,6 @@ class AppRouter {
   /// Navigate to my employer profile (NEW system - own profile management)
   static void toMyEmployerProfile(BuildContext context) {
     push(context, myEmployerProfile);
-  }
-
-  /// Navigate to FAQ screen
-  static void toFAQ(BuildContext context) {
-    push(context, faq);
   }
 
   /// Navigate to home screen and clear stack

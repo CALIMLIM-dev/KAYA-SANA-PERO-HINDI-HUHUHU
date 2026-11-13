@@ -11,8 +11,12 @@ class SkillController extends Controller
 {
     public function index(Request $request)
     {
-        $query = Skill::with('category')->orderBy('name');
-        
+        // Skills under somebody else's private category stay theirs, like
+        // the category itself (Category::pickableBy).
+        $query = Skill::with('category')
+            ->whereHas('category', fn ($q) => $q->pickableBy($request->user()))
+            ->orderBy('name');
+
         if ($request->filled('category_id')) {
             $query->where('category_id', $request->category_id);
         }
@@ -33,6 +37,16 @@ class SkillController extends Controller
                 'success' => false,
                 'message' => $validator->errors()->first(),
                 'data' => null
+            ], 422);
+        }
+
+        // Only into a category this person can pick: not another account's
+        // private one, not one an admin switched off or its owner removed.
+        if (! \App\Models\Category::pickableBy($request->user())->whereKey($request->category_id)->exists()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Choose a category from the list.',
+                'data' => null,
             ], 422);
         }
 

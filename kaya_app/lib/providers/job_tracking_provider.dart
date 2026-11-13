@@ -98,6 +98,11 @@ class JobTrackingProvider with ChangeNotifier {
   /// Driving time along that route, in whole minutes.
   int? get routeDurationMin => _routeDurationMin;
 
+  /// 'walk' when the server drew the walking route because the road route
+  /// was a long detour for a short trip; 'drive' otherwise.
+  String? _routeMode;
+  bool get routeIsWalk => _routeMode == 'walk';
+
   /// Reads the current state for an application. Safe for either party — the
   /// server decides what each is allowed to see.
   Future<void> load(int applicationId) async {
@@ -398,6 +403,7 @@ class JobTrackingProvider with ChangeNotifier {
         _routePoints = const [];
         _routeDistanceKm = null;
         _routeDurationMin = null;
+        _routeMode = null;
       } else {
         final geometry = route['geometry'];
         _routePoints = geometry is List
@@ -411,6 +417,7 @@ class JobTrackingProvider with ChangeNotifier {
             : const <LatLng>[];
         _routeDistanceKm = asDoubleOrNull(route['distance_km']);
         _routeDurationMin = asIntOrNull(route['duration_min']);
+        _routeMode = route['mode'] as String?;
       }
     }
   }

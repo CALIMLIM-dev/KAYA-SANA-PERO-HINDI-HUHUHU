@@ -10,11 +10,9 @@
     its counts of workers, employers and jobs. Towns and numbers only; never
     a person (see SupplyDemandController).
 
-    Four bases, all Esri and free without a key (CARTO now wants one):
-    Street, Terrain, Light (grey, so the circles stand out) and Satellite.
-    Satellite is the imagery alone - Esri's label layer draws heavy border
-    lines - and the town cards carry the names close up. The chosen style
-    is remembered in this browser.
+    Satellite only (Esri imagery, free without a key). The imagery has no
+    labels - Esri's label layer draws heavy border lines - so the town cards
+    carry the names close up.
 --}}
 
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.css">
@@ -63,9 +61,7 @@
     .viz .map-card.full #supplyMap { flex: 1; height: auto; }
     .viz .tool { font-size: 12px; font-weight: 600; color: var(--ink-2); border: 1px solid var(--line); border-radius: 999px; padding: 5px 11px; background: #fff; }
     .viz .tool:hover { background: #f8fafc; }
-    .viz .base { display: inline-flex; background: #e9eef4; border-radius: 10px; padding: 3px; }
-    .viz .base button { font-size: 12px; font-weight: 600; color: var(--ink-2); padding: 5px 12px; border-radius: 8px; }
-    .viz .base button.on { background: var(--surface); color: var(--ink); box-shadow: 0 1px 2px rgba(15,23,42,.08); }
+
     .town-card { background: #fff; border: 1px solid #e2e8f0; border-radius: 8px; padding: 4px 7px; box-shadow: 0 1px 3px rgba(15,23,42,.12);
         font: 600 11px Inter, sans-serif; color: #0f172a; white-space: nowrap; display: inline-flex; align-items: center; gap: 6px; transform: translate(-50%, -135%); }
     .town-card .chip { display: inline-flex; align-items: center; gap: 3px; font-weight: 650; }
@@ -155,13 +151,7 @@
                 <label class="toggle"><input type="checkbox" data-chip="workers" checked> <i class="dot" style="background: var(--worker)"></i> Workers</label>
                 <label class="toggle"><input type="checkbox" data-chip="employers" checked> <i class="dot" style="background: var(--employer)"></i> Employers</label>
                 <label class="toggle"><input type="checkbox" data-chip="jobs"> <i class="dot" style="background: var(--job)"></i> Jobs</label>
-                <label class="toggle"><input type="checkbox" data-short-only> Short Places Only</label>
-                <div class="base" role="group" aria-label="Map style">
-                    <button type="button" data-base="street" class="on">Street</button>
-                    <button type="button" data-base="terrain">Terrain</button>
-                    <button type="button" data-base="light">Light</button>
-                    <button type="button" data-base="satellite">Satellite</button>
-                </div>
+                <label class="toggle"><input type="checkbox" data-short-only> Only Towns Needing Workers</label>
                 <button type="button" class="tool" data-reset>Reset View</button>
                 <button type="button" class="tool" data-full>Full Screen</button>
             </div>
@@ -346,25 +336,8 @@ document.querySelectorAll('[data-expand]').forEach((btn) => {
     const ph = L.latLngBounds([4.2, 115.8], [21.4, 127.2]);
     const map = L.map(box, { maxBounds: ph.pad(0.05), maxBoundsViscosity: 1, minZoom: 5, maxZoom: 16, zoomSnap: 0.5 });
 
-    const esri = 'https://server.arcgisonline.com/ArcGIS/rest/services/';
-    const tiles = (path) => L.tileLayer(esri + path + '/MapServer/tile/{z}/{y}/{x}', { maxZoom: 19, attribution: 'Tiles &copy; Esri' });
-    const bases = {
-        street: tiles('World_Street_Map'),
-        terrain: tiles('World_Topo_Map'),
-        light: L.layerGroup([tiles('Canvas/World_Light_Gray_Base'), tiles('Canvas/World_Light_Gray_Reference')]),
-        satellite: tiles('World_Imagery'),
-    };
-    const useBase = (name) => {
-        if (!bases[name]) name = 'street';
-        Object.values(bases).forEach((b) => map.removeLayer(b));
-        bases[name].addTo(map);
-        document.querySelectorAll('[data-base]').forEach((b) => b.classList.toggle('on', b.dataset.base === name));
-        try { localStorage.setItem('kaya.supplyMap.base', name); } catch (e) {}
-    };
-    let saved = null;
-    try { saved = localStorage.getItem('kaya.supplyMap.base'); } catch (e) {}
-    useBase(saved || 'street');
-    document.querySelectorAll('[data-base]').forEach((btn) => btn.addEventListener('click', () => useBase(btn.dataset.base)));
+    L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+        { maxZoom: 19, attribution: 'Tiles &copy; Esri' }).addTo(map);
 
     const towns = L.layerGroup();
     const cards = L.layerGroup();

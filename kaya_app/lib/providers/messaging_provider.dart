@@ -1,6 +1,8 @@
+import 'dart:math';
 import 'dart:async';
 
 import 'package:flutter/foundation.dart';
+import 'package:dio/dio.dart' show Response;
 import '../core/utils/json_parse.dart';
 import '../data/services/api_client.dart';
 import '../data/services/message_cache.dart';
@@ -283,15 +285,20 @@ class MessagingProvider with ChangeNotifier {
       as still sending, and a failed one says so and offers a retry, rather
       than silently pretending to have arrived.
   */
-  Future<bool> sendMessage(int conversationId, String text) async {
+  Future<bool> sendMessage(int conversationId, String text, {String? clientId}) async {
 
     // A local id, above every real one, so it sorts last and cannot collide
     // with a server id.
     final pendingId = MessageCache.pendingIdBase +
         DateTime.now().millisecondsSinceEpoch % 100000000;
 
+    // This message's key, kept on a retry so the server can tell a resend
+    // from a new message. See _postWithRetry.
+    final key = clientId ?? _newClientId();
+
     final optimistic = <String, dynamic>{
       'id': pendingId,
+      'client_id': key,
       'sender_id': _selfId,
       'sender': {'name': null},
       'message_text': text,
@@ -308,8 +315,8 @@ class MessagingProvider with ChangeNotifier {
     await MessageCache.instance.save(conversationId, [optimistic]);
 
     try {
-      final res = await _api.post('/conversations/$conversationId/messages',
-          data: {'message_text': text});
+      final res = await _postWithRetry('/conversations/$conversationId/messages',
+          {'message_text': text, 'client_id': key});
 
       final real = Map<String, dynamic>.from(res.data['data'] as Map);
 
@@ -369,12 +376,61 @@ class MessagingProvider with ChangeNotifier {
     if (index == -1) return false;
 
     final text = '${_messages[index]['message_text'] ?? ''}';
+    // The same key: if the first send reached the server after all, this
+    // gets that message back instead of posting it twice.
+    final key = _messages[index]['client_id'] as String?;
 
     _messages = _messages.where((m) => m['id'] != pendingId).toList();
     notifyListeners();
     await MessageCache.instance.remove(conversationId, pendingId);
 
-    return sendMessage(conversationId, text);
+    return sendMessage(conversationId, text, clientId: key);
+  }
+
+  static final _random = Random();
+
+  /// A key unique to one message from this phone.
+  static String _newClientId() =>
+      'c${DateTime.now().microsecondsSinceEpoch}${_random.nextInt(1 << 32).toRadixString(36)}';
+
+  /// Waits between automatic retries of a send. Shortened in tests.
+  @visibleForTesting
+  static List<Duration> retryDelays = const [
+    Duration(seconds: 2),
+    Duration(seconds: 4),
+    Duration(seconds: 8),
+  ];
+
+  /*
+      A send that tries again on its own.
+
+      On PH mobile data a request often dies mid-way: no signal for a
+      moment, a timeout, the server restarting. Each of those used to mark
+      the message failed at once and leave it to the person to press Retry.
+      Now the same request goes again after 2, 4 and 8 seconds while the
+      message still shows as sending; only then is it marked failed. It is
+      safe to resend because the key makes a repeat the same message.
+
+      A refusal (a number in the text, a closed chat) is not retried: it
+      would be refused again. A 429 waits the time the server asks for.
+  */
+  Future<Response<dynamic>> _postWithRetry(String path, Map<String, dynamic> data) async {
+    for (var attempt = 0;; attempt++) {
+      try {
+        return await _api.post(path, data: data);
+      } catch (e) {
+        final transient = e is! ApiException ||
+            e.isOffline ||
+            e.status == null ||
+            e.status! >= 500 ||
+            e.status == 429;
+        if (!transient || attempt >= retryDelays.length) rethrow;
+        final wait = e is ApiException && e.retryAfter != null
+            ? Duration(seconds: e.retryAfter!)
+            : retryDelays[attempt];
+        await Future<void>.delayed(wait);
+      }
+    }
   }
 
   /// Takes a message that did not go back off the thread, and returns its

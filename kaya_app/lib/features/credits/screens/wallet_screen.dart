@@ -8,6 +8,7 @@ import '../../../core/widgets/app_toast.dart';
 import '../../../core/widgets/hint_bubble.dart';
 import '../../../core/widgets/kaya_popup.dart';
 import '../../../core/widgets/verify_gate.dart';
+import '../../../providers/auth_provider.dart';
 import '../../../providers/credits_provider.dart';
 import '../../legal/screens/legal_screen.dart';
 import '../widgets/top_up_section.dart';
@@ -31,15 +32,37 @@ class _WalletScreenState extends State<WalletScreen> with WidgetsBindingObserver
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
-    WidgetsBinding.instance.addPostFrameCallback((_) {
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
       if (!mounted) return;
-      context.read<CreditsProvider>().refresh();
-      context.read<CreditsProvider>().loadHistory();
+      final credits = context.read<CreditsProvider>();
+      final userId = context.read<AuthProvider>().user?['id'];
+      _credits = credits..addListener(_onPlayMessage);
+      _seenPlayMessage = credits.playMessageSeq;
+      await credits.refresh();
+      credits.loadHistory();
+      // On the Play Store: prices from Google Play, and any purchase left
+      // unfinished (paid while offline) is credited now.
+      if (userId is int) await credits.startPlay(userId);
     });
+  }
+
+  CreditsProvider? _credits;
+  int _seenPlayMessage = 0;
+
+  /// A Google Play purchase's outcome, said once.
+  void _onPlayMessage() {
+    final credits = _credits;
+    if (!mounted || credits == null || credits.playMessageSeq == _seenPlayMessage) return;
+    _seenPlayMessage = credits.playMessageSeq;
+    final message = credits.playMessage;
+    if (message == null) return;
+    credits.playMessageIsError ? AppToast.error(context, message) : AppToast.success(context, message);
+    if (!credits.playMessageIsError) credits.loadHistory();
   }
 
   @override
   void dispose() {
+    _credits?.removeListener(_onPlayMessage);
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
   }
@@ -83,6 +106,17 @@ class _WalletScreenState extends State<WalletScreen> with WidgetsBindingObserver
     setState(() => _buying = true);
 
     final credits = context.read<CreditsProvider>();
+
+    // On the Play Store, Google Play takes the payment; the outcome arrives
+    // through _onPlayMessage once the server has credited it.
+    if (credits.usesPlay) {
+      final problem = await credits.buyWithPlay(package);
+      if (!mounted) return;
+      setState(() => _buying = false);
+      if (problem != null) AppToast.error(context, problem);
+      return;
+    }
+
     final message = await credits.topUp(package.id);
 
     if (!mounted) return;
@@ -188,6 +222,7 @@ class _WalletScreenState extends State<WalletScreen> with WidgetsBindingObserver
                   hasToppedUp: credits.hasToppedUp,
                   buying: _buying,
                   onBuy: _buy,
+                  priceFor: credits.playPrice,
                 ),
                 const SizedBox(height: 26),
                 // The newest few only. The full history, with this month's

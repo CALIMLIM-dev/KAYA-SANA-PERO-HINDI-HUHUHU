@@ -123,6 +123,19 @@ return [
     'credits' => [
 
         /*
+            How Barya is bought: 'free' credits a package at once (testing,
+            and the APK outside the Play Store); 'play' sells it through
+            Google Play Billing, verified on the server with the Play
+            Console service account before anything is credited.
+        */
+        'billing' => env('BILLING_MODE', 'free'),
+        'play' => [
+            'package_name'    => env('PLAY_PACKAGE_NAME', 'com.alphatech.kaya_app'),
+            // Path to the service account's JSON key file. Never committed.
+            'service_account' => env('PLAY_SERVICE_ACCOUNT_JSON'),
+        ],
+
+        /*
             What the currency is called on screen. A placeholder.
 
             Every identifier in the code — tables, columns, classes, routes —
@@ -300,18 +313,14 @@ return [
         'download_file_url' => env('APP_DOWNLOAD_FILE_URL'),
 
         /*
-            The off switch, for the day this ships on Play.
+            The off switch for the update prompt.
 
-            Google forbids an app that downloads and installs its own updates -
-            the store owns that job, and REQUEST_INSTALL_PACKAGES on a listed
-            app is a policy rejection. Set APP_UPDATE_CHECK=false and the
-            endpoint reports every client as current, so no prompt is ever
-            shown and no download is ever attempted, without touching the app.
-
-            The permission still has to come out of the manifest before a Play
-            submission - see the note there - but this makes the behaviour
-            inert immediately, from the server, for every build already out
-            there.
+            From 1.27.0 the app no longer installs anything itself: Update Now
+            opens the download address outside the app (set APP_DOWNLOAD_FILE_URL
+            to the Play Store listing once KAYA is on Play). Builds before
+            1.27.0 still download the APK in the app, which Google Play forbids;
+            APP_UPDATE_CHECK=false reports every client as current, so no
+            prompt is shown at all.
         */
         'update_check' => filter_var(env('APP_UPDATE_CHECK', true), FILTER_VALIDATE_BOOLEAN),
     ],
