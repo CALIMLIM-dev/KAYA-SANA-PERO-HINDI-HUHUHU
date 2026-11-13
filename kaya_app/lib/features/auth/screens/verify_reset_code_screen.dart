@@ -51,13 +51,19 @@ class _VerifyResetCodeScreenState extends State<VerifyResetCodeScreen> {
 
   String get _code => _codeCtrl.text;
 
+  /// One check at a time: the box and the button can both ask.
+  bool _verifying = false;
+
   Future<void> _handleVerify(String email, AuthProvider auth) async {
+    if (_verifying) return;
     if (_code.length != 6) {
       setState(() => _errorMessage = 'Please enter the complete 6-digit code');
       return;
     }
 
+    _verifying = true;
     final success = await auth.verifyResetCode(email: email, code: _code);
+    _verifying = false;
 
     if (!mounted) return;
     if (success) {

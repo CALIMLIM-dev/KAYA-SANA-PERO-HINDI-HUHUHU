@@ -145,6 +145,39 @@ class SupportFlowTest extends TestCase
         $this->assertSame($count + 1, $thread()->messages()->count());
     }
 
+    /*
+        "Too Many Attempts" on Something's Broken. The three support limits
+        shared one counter per user, so a run of menu taps used up the bug
+        report's ten an hour.
+    */
+    #[Test]
+    public function menu_taps_do_not_use_up_the_bug_report_limit(): void
+    {
+        $maria = User::factory()->create();
+
+        foreach (range(1, 15) as $i) {
+            $this->choose($maria, $i % 2 ? 'menu' : 'topic:barya')->assertOk();
+        }
+
+        $this->actingAs($maria, 'sanctum')->postJson('/api/v1/support/bug', [
+            'issue' => 'button', 'screen' => 'wallet', 'details' => 'Still works after the menu',
+        ])->assertCreated();
+    }
+
+    #[Test]
+    public function the_bug_report_limit_says_so_in_plain_words(): void
+    {
+        $maria = User::factory()->create();
+
+        foreach (range(1, 10) as $i) {
+            $this->actingAs($maria, 'sanctum')->postJson('/api/v1/support/bug', ['issue' => 'button', 'screen' => 'home'])->assertCreated();
+        }
+
+        $this->actingAs($maria, 'sanctum')->postJson('/api/v1/support/bug', ['issue' => 'button', 'screen' => 'home'])
+            ->assertStatus(429)
+            ->assertJsonPath('message', 'You have sent a lot of reports this hour. Please try again later.');
+    }
+
     #[Test]
     public function an_answer_asks_whether_it_solved_it(): void
     {

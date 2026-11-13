@@ -835,7 +835,28 @@ class _JobDetailsScreenState extends State<JobDetailsScreen>
           );
   }
 
+  /// Set the moment Apply is pressed, before anything is awaited.
+  bool _applyInFlight = false;
+
+  /*
+      One application per press.
+
+      _isApplying, which greys the button, is only set after the
+      verification check has been awaited, and a second tap in that gap
+      ran the whole thing again - two requests, and an error after a
+      successful apply. This guard is taken before the first await.
+  */
   Future<void> _apply(Job job) async {
+    if (_applyInFlight) return;
+    _applyInFlight = true;
+    try {
+      await _applyOnce(job);
+    } finally {
+      _applyInFlight = false;
+    }
+  }
+
+  Future<void> _applyOnce(Job job) async {
     /*
         Verification before the charge, and before the request.
 

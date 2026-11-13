@@ -79,6 +79,26 @@ class AiAdminPagesTest extends TestCase
             ->assertJsonPath('data.messages.1.body', "Known issue: Top-ups are slow today.\n\nWhich one is it?");
     }
 
+    /*
+        A posted notice shows the moment the chat opens, not only after
+        somebody happens to tap its topic. Taken down, it is gone.
+    */
+    #[Test]
+    public function a_posted_known_issue_is_pinned_when_the_chat_opens(): void
+    {
+        $admin = $this->admin();
+        $this->actingAs($admin)->post('/admin/assistant/issues', ['text' => 'Top-ups are slow today.', 'topic' => 'barya'])->assertRedirect();
+
+        $maria = User::factory()->create();
+        $this->actingAs($maria, 'sanctum')->getJson('/api/v1/support')->assertOk()
+            ->assertJsonPath('data.assistant.notices.0.text', 'Top-ups are slow today.')
+            ->assertJsonPath('data.assistant.notices.0.topic', 'Barya and Top-up');
+
+        $issue = \App\Models\KnownIssue::sole();
+        $this->actingAs($admin)->post("/admin/assistant/issues/{$issue->id}/end")->assertRedirect();
+        $this->actingAs($maria, 'sanctum')->getJson('/api/v1/support')->assertJsonCount(0, 'data.assistant.notices');
+    }
+
     #[Test]
     public function an_edited_menu_is_the_menu_people_see(): void
     {

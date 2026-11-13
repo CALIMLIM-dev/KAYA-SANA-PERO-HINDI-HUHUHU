@@ -46,13 +46,15 @@ Route::prefix('v1')->group(function () {
     // Throttled per IP. Credential-guessing endpoints get the tighter limit;
     // verify-reset-code especially, since the code is only 6 digits and is valid
     // for 15 minutes (~1e6 space, trivially brute-forceable unthrottled).
-    Route::middleware('throttle:auth')->group(function () {
+    // One counter each, per address and per account - see AppServiceProvider.
+    Route::middleware('throttle:login')->group(function () {
         Route::post('/login',        [AuthController::class, 'login']);
         Route::post('/google-login', [AuthController::class, 'googleLogin']);
     });
 
-    Route::middleware('throttle:auth')->group(function () {
-        Route::post('/register',          [AuthController::class, 'register']);
+    Route::post('/register', [AuthController::class, 'register'])->middleware('throttle:signup');
+
+    Route::middleware('throttle:reset')->group(function () {
         Route::post('/forgot-password',   [AuthController::class, 'forgotPassword']);
         Route::post('/verify-reset-code', [AuthController::class, 'verifyResetCode']);
         Route::post('/reset-password',    [AuthController::class, 'resetPassword']);
@@ -316,13 +318,13 @@ Route::prefix('v1')->group(function () {
             ->withoutMiddleware('not.suspended');
         // Something's Broken.
         Route::post('/support/bug', [SupportController::class, 'bug'])
-            ->withoutMiddleware('not.suspended')->middleware('throttle:10,60');
+            ->withoutMiddleware('not.suspended')->middleware('throttle:support-bug');
         // A tap in the assistant's menu.
         Route::post('/support/choose', [SupportController::class, 'choose'])
-            ->withoutMiddleware('not.suspended')->middleware('throttle:60,1');
+            ->withoutMiddleware('not.suspended')->middleware('throttle:support-choose');
         // The feedback button on an assistant answer.
         Route::post('/support/feedback', [SupportController::class, 'feedback'])
-            ->withoutMiddleware('not.suspended')->middleware('throttle:20,1');
+            ->withoutMiddleware('not.suspended')->middleware('throttle:support-feedback');
         // Leaving the chat erases it, unless it is still with the team.
         Route::post('/support/end', [SupportController::class, 'end'])
             ->withoutMiddleware('not.suspended');

@@ -1384,7 +1384,9 @@ class WorkerProfileController extends Controller
 
         // isSetupCompleted() requires at least one skill row, so this eager-loads
         // the same relation the filter checks — no extra query per row.
-        $profiles = $query->get()->filter(fn (WorkerProfile $p) => $p->isListable());
+        // Bounded: the most recently updated profiles, at most this many ranked.
+        $profiles = $query->latest('updated_at')->limit((int) config('kaya.feed.max_candidates', 500))
+            ->get()->filter(fn (WorkerProfile $p) => $p->isListable());
 
         // Where the person browsing is, so each worker can carry a real
         // "x km away" instead of the employer guessing from a place name.

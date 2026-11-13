@@ -131,37 +131,6 @@ class WorkerProfile {
     );
   }
 
-  factory WorkerProfile.fromJson(Map<String, dynamic> json) {
-    return WorkerProfile(
-      id: json['id'],
-      name: json['name'],
-      primarySkill: json['primary_skill'],
-      skills: List<String>.from(json['skills'] ?? []),
-      location: json['location'],
-      rating: json['rating']?.toDouble() ?? 0.0,
-      reviewCount: json['review_count'] ?? 0,
-      isVerified: json['is_verified'] ?? false,
-      verificationState: json['verification_state'] as String?,
-      isBoosted: json['is_boosted'] == true || json['is_boosted'] == 1,
-      isAvailable: json['is_available'] ?? true,
-      availability: (json['availability_status'] ??
-              ((json['is_available'] ?? true) == true ? 'available' : 'busy'))
-          .toString(),
-      distance: json['distance_km']?.toDouble(),
-      distanceLabel: json['distance_label'] as String?,
-      bio: json['bio'],
-      yearsOfExperience: json['years_of_experience'] ?? 0,
-      hourlyRate: json['hourly_rate']?.toDouble(),
-      profileImageUrl: json['profile_image_url'],
-      certifications: List<String>.from(json['certifications'] ?? []),
-      lastActive: json['last_active'] != null ? DateTime.parse(json['last_active']) : null,
-      // The directory sends jobs_completed, the profile sends
-      // completed_jobs. Reading only one of them left every card in
-      // the directory claiming nobody had finished anything.
-      completedJobs: json['jobs_completed'] ?? json['completed_jobs'] ?? 0,
-    );
-  }
-
   VerificationState get verification => VerificationState.of({
         'verification_state': verificationState,
         'is_verified': isVerified,

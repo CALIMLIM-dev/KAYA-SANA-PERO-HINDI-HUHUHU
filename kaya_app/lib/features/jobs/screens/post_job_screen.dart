@@ -2454,7 +2454,26 @@ class _PostJobScreenState extends State<PostJobScreen> {
     );
   }
 
+  /// Set the moment Post is pressed, before the checks are awaited.
+  bool _submitInFlight = false;
+
+  /*
+      One post per press. _isLoading is set only after the form's checks,
+      some of which await (scrolling to a field, weighing the photos), so a
+      second tap in between started a second submission. The server drops
+      the duplicate post, but the employer saw the work done twice.
+  */
   Future<void> _submitJob() async {
+    if (_submitInFlight) return;
+    _submitInFlight = true;
+    try {
+      await _submitJobOnce();
+    } finally {
+      _submitInFlight = false;
+    }
+  }
+
+  Future<void> _submitJobOnce() async {
     /*
         A refusal now arrives with the field it is refusing.
 

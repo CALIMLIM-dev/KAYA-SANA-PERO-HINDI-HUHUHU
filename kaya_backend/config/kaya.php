@@ -374,6 +374,22 @@ return [
     | having on a two word trade name.
     */
 
+    /*
+        How many rows the job feed and worker browse score per request.
+
+        Both read every live row and ranked them in PHP on every request,
+        which grows with the whole country's listings. They now take the
+        boosted and newest jobs, and the most recently updated workers, up
+        to this many, and rank only those.
+    */
+    'feed' => [
+        'max_candidates' => (int) env('FEED_MAX_CANDIDATES', 500),
+
+        // The newest this many rows of a post's comments, a worker's
+        // applications and saved jobs: none of them came back bounded.
+        'list_limit' => (int) env('LIST_LIMIT', 200),
+    ],
+
     'matching' => [
         /*
             No key, no semantic matching - and nothing breaks.

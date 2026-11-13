@@ -35,7 +35,10 @@ class CommunityController extends Controller
                 ->orWhereHas('user', fn ($u) => $u->where('name', 'like', "%{$search}%"))))
             // The thread under each notice, so an administrator judging a
             // post can see what it attracted without a second screen.
-            ->with(['comments' => fn ($q) => $q->live()->with('user:id,name')->orderBy('id')])
+            // The newest 50 only, with the real count: a flooded post must
+            // not load thousands of rows into one page.
+            ->with(['comments' => fn ($q) => $q->live()->with('user:id,name')->latest('id')->limit(50)])
+            ->withCount(['comments as live_comments_count' => fn ($q) => $q->live()])
             ->latest('id')
             ->paginate(20)
             ->withQueryString();

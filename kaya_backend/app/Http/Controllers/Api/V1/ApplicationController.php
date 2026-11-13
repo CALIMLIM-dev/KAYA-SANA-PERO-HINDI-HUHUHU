@@ -241,6 +241,7 @@ class ApplicationController extends Controller
         $applications = $user->applications()
             ->with(['job.employer:id,name,avatar,is_verified', 'job.category'])
             ->latest()
+            ->limit((int) config('kaya.feed.list_limit', 200))
             ->get();
 
         /*

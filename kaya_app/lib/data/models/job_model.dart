@@ -430,35 +430,6 @@ class Job {
     );
   }
 
-  factory Job.fromJson(Map<String, dynamic> json) {
-    return Job(
-      id: json['id'],
-      title: json['title'],
-      company: json['company'],
-      description: json['description'],
-      location: json['location'],
-      salaryMin: json['salary_min']?.toDouble(),
-      salaryMax: json['salary_max']?.toDouble(),
-      salaryPeriod: json['salary_period'] ?? 'day',
-      isUrgent: json['is_urgent'] ?? false,
-      requiresVerification: json['requires_verification'] ?? false,
-      employerVerificationState: json['employer_verification_state'] as String?,
-      distance: json['distance_km']?.toDouble(),
-      distanceLabel: json['distance_label'] as String?,
-      postedAt: json['posted_at'] != null ? DateTime.parse(json['posted_at']) : null,
-      isActive: json['is_active'] ?? true,
-      applicationStatus: json['application_status'] != null
-          ? ApplicationStatus.values.firstWhere(
-              (e) => e.name == json['application_status'],
-              orElse: () => ApplicationStatus.pending,
-            )
-          : null,
-      category: json['category'],
-      requiredSkills: List<String>.from(json['required_skills'] ?? []),
-      applicantCount: json['applicant_count'] ?? 0,
-    );
-  }
-
   VerificationState get employerVerification => VerificationState.of({
         'verification_state': employerVerificationState,
         'is_verified': requiresVerification,

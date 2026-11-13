@@ -1,123 +1,139 @@
 {
-  "updated": "September 2026",
-  "terms": [
-    {
-      "title": "Who Can Use KAYA",
-      "body": "KAYA is open to anyone who is at least 18 years old and lives in the Philippines. You must be the person you say you are. Creating an account for someone else, or signing up with false information, is not allowed and the account will be removed.\n\nOne person, one account. If we find duplicate accounts belonging to the same person, we may merge or deactivate them."
-    },
-    {
-      "title": "What KAYA Is",
-      "body": "KAYA is a marketplace. It connects skilled workers in the trades with the people and businesses that need them. KAYA is the bridge, not the employer and not the client. What happens between a worker and an employer after they connect is between those two people.\n\nKAYA does not guarantee that you will find work or find a worker, does not guarantee the quality of any work done, and does not handle the payment for a job. Pay for work is agreed and settled directly between the employer and the worker."
-    },
-    {
-      "title": "Worker, Individual and Business Accounts",
-      "body": "One account can hold a worker profile, an employer profile, or both. An employer profile is either an individual or a registered business.\n\nA business account must submit its registration documents: a DTI certificate for a sole proprietorship or an SEC registration for a corporation or partnership, plus a Mayor's permit. The TIN it gives is checked against the BIR's public registry. A business cannot post jobs until an admin has approved these, and a business account cannot also be a worker account."
-    },
-    {
-      "title": "Verification",
-      "body": "Posting a job, applying to one, inviting a worker, accepting an invitation and buying barya all require a verified account. To verify, you submit a Philippine government ID and a selfie holding it, and an admin checks them. Browsing jobs and profiles does not require verification.\n\nThe verified badge means an admin confirmed that the ID matches the person on the account. It is not a guarantee of anyone's skill, honesty or reliability. Once verified, the name on your account can no longer be changed."
-    },
-    {
-      "title": "Your Profile",
-      "body": "Everything you put on your profile must be true and about you. Skills, work history, certificates and licences you add are shown to other users. KAYA does not check that a certificate or licence is genuine beyond confirming that a file was uploaded.\n\nA resume you upload can be opened only by an employer you have a pending or accepted application with, and only while that application is open."
-    },
-    {
-      "title": "Barya",
-      "body": "Barya is KAYA's credit. Every account receives some barya on sign-up and some each month, and can buy more. Barya has no cash value, cannot be withdrawn or transferred, and cannot be exchanged for money. It is spent on: applying to a job, inviting a worker, extending a job post past its first free week, boosting a job post or a worker profile, and posting on the community board.\n\nPrices are shown in the app before you confirm any spend and may change. Barya left in an account when it is deleted is forfeited. Purchased barya is not refundable except as described under Refunds."
-    },
-    {
-      "title": "Refunds",
-      "body": "Barya spent is returned to you in these cases only: you withdraw an application within the grace period shown when you applied; the employer removes the job while your application is still pending; your application is cancelled because the job clashed with a hire you had already accepted; a boost or extension could not be applied because of a fault on our side.\n\nBarya is not returned when an application is rejected, when a job post or boost has run its time, or when you delete your account. Money paid for a barya package is not refunded once the barya has been credited."
-    },
-    {
-      "title": "Employer Responsibilities",
-      "body": "Post only real work that you intend to hire for, with an honest description, location, dates and pay. Reply to applicants within a reasonable time. Pay the worker the amount and in the way you agreed. Treat the people you hire with respect. Do not ask a worker to do anything unsafe or illegal. Do not use KAYA to collect personal information for any purpose other than the job."
-    },
-    {
-      "title": "Worker Responsibilities",
-      "body": "Apply only to jobs you can actually do and intend to do. Show up when you agreed to, or say so in the chat as early as you can. Do the work to the standard you described. Do not claim skills, experience, certificates or licences you do not have. Do not share another person's details or location with anyone."
-    },
-    {
-      "title": "Scheduling and Location Sharing",
-      "body": "Inside a chat, either side can propose a day and time and the other can accept or decline. A day a worker has already agreed to with someone else is shown as unavailable to other employers without saying whose work it is.\n\nDuring a job in progress, a worker can choose to share their live location with the employer, and can stop at any time. Location is shared only with that employer, only while sharing is on, and the trail is deleted after the job."
-    },
-    {
-      "title": "Chats and the Community Board",
-      "body": "Chats open between two people once one has hired the other, or when one answers the other's community post. Be honest and civil. The community board is public to every signed-in user: post only that you are looking for work or, as a verified business, that you are hiring. Posts run for a week and cost barya.\n\nIf someone reports a chat or a post, a KAYA admin may read the recent messages in that chat to decide the report."
-    },
-    {
-      "title": "What Is Not Allowed",
-      "body": "Fake accounts or fake documents. Applying to or posting jobs you do not intend to act on. Harassment, threats, discrimination or abuse. Scams, fraud, or asking for money in advance for work not done. Offering or asking for work that is illegal. Collecting other users' contact details for spam. Attempting to get around barya charges, the verification rules, or the app's limits. Any of these can end your account."
-    },
-    {
-      "title": "Reviews and Ratings",
-      "body": "After a job both sides have marked complete, each may review the other once. A review must be about the job and cannot be edited after it is sent. Reviews that break these terms can be hidden by an admin, and the rating is recalculated without them."
-    },
-    {
-      "title": "Account Suspension and Deletion",
-      "body": "We may suspend or remove an account that breaks these terms, for a fixed period or permanently, and we will say why. Verification documents of a suspended account are kept for the period stated in the Privacy Policy.\n\nYou may delete your account at any time from Settings. Deletion cannot be undone. You cannot delete while you are on a job that is not finished; finish or cancel it first. What is removed and what is kept is described in the Privacy Policy."
-    },
-    {
-      "title": "Limitation of Liability",
-      "body": "KAYA is provided as is. To the extent the law allows, KAYA and the people who built it are not liable for any loss arising from work arranged through the app, from another user's conduct, from unpaid work, from damage to property, or from the app being unavailable. Disputes between a worker and an employer are between them. These terms are governed by the laws of the Republic of the Philippines."
-    },
-    {
-      "title": "Changes to These Terms",
-      "body": "We may update these terms as the app changes. For a significant change we will tell you in the app before it takes effect. Continuing to use KAYA after that means you accept the updated terms. The date at the top of this page is when the terms last changed."
-    }
-  ],
-  "privacy": [
-    {
-      "title": "Information We Collect",
-      "body": "Account: your name, email address or phone number, password, and if you sign in with Google, the name, email and picture Google provides.\n\nProfile: your location, profile photo, bio, availability, and for workers your trade, skills, work history, certificates, licences, resume. For employers, the business name, type, address, TIN and business registration documents.\n\nVerification: a government-issued ID and a selfie holding it.\n\nActivity: jobs you post or apply to, invitations, hires, schedules, reviews, community posts, barya balance and transactions, reports you make or receive, notifications, and the messages you send in chats.\n\nLocation: the place you set on your profile or a job; a map pin if you drop one; and, only during a job where you have turned on location sharing, your live position.\n\nDevice: the app version, and a token that lets us show you notifications."
-    },
-    {
-      "title": "Why We Collect It",
-      "body": "To create and run your account, to show workers and employers to each other, to match jobs by trade, skill and distance, to confirm identities and business registrations, to take and record barya payments, to send notifications, to decide reports of misconduct, and to keep the service working and secure. We do not collect information we do not need for these purposes."
-    },
-    {
-      "title": "Who Can See What",
-      "body": "Other users see your public profile: your name, photo, bio, location at the city or barangay level, skills, work history, certificates, licences, rating, badges, and whether you are verified. Employers you apply to can also open your resume while your application is open. Nobody sees your ID, selfie, exact address, email, phone number, TIN or business documents except KAYA admins.\n\nYour live location, when you share it, is seen only by the employer on that job, only while sharing is on. A day you have agreed to work is shown as unavailable to other employers without saying for whom.\n\nCommunity posts are visible to every signed-in user. Chats are private to the two people in them; an admin may read the recent messages of a chat that has been reported."
-    },
-    {
-      "title": "Who We Share Your Data With",
-      "body": "We do not sell your personal information and we do not share it with advertisers.\n\nWe use these providers to run the service, each receiving only what its job needs: Google verifies Google sign-ins and, once paid top-ups open, Google Play will process barya purchases; an email service sends verification and password reset codes; an SMS service sends phone verification codes; maps are drawn from OpenStreetMap tiles, which receive the map area you look at but not your identity; place names come from the Philippine Standard Geographic Code and the GeoNames dataset. The TIN of a business account is checked against the BIR's public ORUS registry.\n\nWe will disclose information when required by law or a lawful order, and to investigate fraud or a threat to someone's safety."
-    },
-    {
-      "title": "Verification Documents",
-      "body": "Your ID and selfie, and a business's registration documents, are stored separately from the rest of your data with restricted access, are read only by KAYA admins reviewing verification or a report, and are never shown to other users. They are kept while your account exists so that a verification can be checked again if a dispute arises, and are deleted when you delete your account."
-    },
-    {
-      "title": "Payments",
-      "body": "Topping up barya is free while KAYA is in testing. When paid top-ups open, the payment will be taken by Google Play and KAYA will never see your card or e-wallet number. We keep a record of each top-up: the package, the amount, the date and the reference, because it is a financial record. KAYA does not handle the pay for a job; that is between the worker and the employer."
-    },
-    {
-      "title": "How We Store and Protect Your Data",
-      "body": "Data is stored on a server in a secured environment. Passwords are hashed and never stored in plain text. Access to the admin panel is limited to KAYA administrators, is logged, and every admin action is recorded in an audit log. Connections use HTTPS.\n\nNo system is completely immune to risk. If you believe your account has been compromised, change your password from Settings and contact us."
-    },
-    {
-      "title": "Data Retention",
-      "body": "We keep your data while your account is active. Live location pings are deleted within a day of being recorded. A chat stays for as long as either person in it has an account.\n\nWhen you delete your account, the following are removed at once: your name, email, phone, photos, bio, profile, skills, work history, certificates, licences, resume, ID and business documents, saved jobs and notifications. Open job posts are closed and pending applications ended. The following are kept because they are records other people rely on, but no longer identify you: your barya transaction history, the reviews you gave other people, reports, and the admin audit log. Messages you sent stay in the other person's chat under the name Deleted account."
-    },
-    {
-      "title": "Your Rights Under RA 10173",
-      "body": "Under the Data Privacy Act of 2012 you have the right to be informed of what we collect and why, to access the personal information we hold about you, to correct it, to object to its processing, to ask for it to be deleted or blocked, to a copy of it in a usable format, and to complain to the National Privacy Commission.\n\nYou can see and edit most of your information in the app. To delete everything, use Delete account in Settings. For anything else, contact us using the details below and we will act within a reasonable time."
-    },
-    {
-      "title": "App Permissions",
-      "body": "Camera and photos: to upload your profile photo, ID, selfie, job photos and documents. Files: to upload a resume. Location: to set your place on the map and, if you choose, to share your live position with an employer during a job. That sharing can run in the background so it continues when the screen is off, and a notification shows while it is on. Notifications: to tell you about applicants, hires, messages and schedules. Each permission is asked for when it is first needed and can be withdrawn in your phone's settings."
-    },
-    {
-      "title": "Children",
-      "body": "KAYA is not for anyone under 18. We do not knowingly collect information from minors. If we learn that a minor has created an account, we will deactivate it and delete its information."
-    },
-    {
-      "title": "Changes to This Policy",
-      "body": "We may update this policy as the app changes. For a significant change we will tell you in the app before it takes effect. The date at the top of this page is when the policy last changed."
-    },
-    {
-      "title": "Contact Us",
-      "body": "For questions about this policy, to exercise your rights, or to report a concern, contact the KAYA team at the support email shown in the Help Center in the app. To report another user, use Report in the chat or on the post."
-    }
-  ]
+    "updated": "November 2026",
+    "terms": [
+        {
+            "title": "Who Can Use KAYA",
+            "body": "KAYA is open to anyone who is at least 18 years old and lives in the Philippines. You must be the person you say you are. Creating an account for someone else, or signing up with false information, is not allowed and the account will be removed.\n\nOne person, one account. If we find duplicate accounts belonging to the same person, we may merge or deactivate them."
+        },
+        {
+            "title": "What KAYA Is, and What It Is Not",
+            "body": "KAYA is a marketplace. It connects skilled workers in the trades with the people and businesses that need them. KAYA is the bridge, not the employer and not the client. What happens between a worker and an employer after they connect is between those two people.\n\nKAYA does not:\n- hold, receive or pass on the pay for a job; pay is agreed and settled directly between the employer and the worker;\n- guarantee that you will find work or find a worker;\n- guarantee the quality, safety or result of any work;\n- employ the workers listed in the app."
+        },
+        {
+            "title": "Worker, Individual and Business Accounts",
+            "body": "One account can hold a worker profile, an employer profile, or both. An employer profile is either an individual or a registered business.\n\nA business is verified by its papers rather than by a person's ID: it submits a business registration document (a DTI certificate, an SEC registration or a Mayor's permit), and the TIN it gives is checked against the BIR's public registry. A business cannot post jobs until an admin has approved its documents, and a business account cannot also be a worker account.\n\nYou can remove one profile and keep the other from Settings. An employer profile cannot be removed while it has open job posts."
+        },
+        {
+            "title": "Verification",
+            "body": "Browsing jobs, profiles and the community board does not require verification. These do: posting a job, applying to one, inviting a worker, accepting an invitation, posting or commenting on the community board, claiming free Barya and topping up. To verify, you submit a Philippine government ID and a selfie holding it, and an admin checks them.\n\nThe verified badge means an admin confirmed that the ID matches the person on the account. It is not a guarantee of anyone's skill, honesty or reliability. Once verified, the name on your account can no longer be changed."
+        },
+        {
+            "title": "Your Account and Recovery",
+            "body": "Keep your password to yourself. The email address and phone number on your account are its recovery contacts: once you confirm them in Settings, Recovery Contacts, either one can receive a code to reset your password. A phone number has to be confirmed before it can receive one.\n\nA code works once and only for a short time. Never share it with anyone; KAYA will never ask you for a code. Codes can be requested once a minute and up to five times an hour.\n\nA confirmed phone number can only be changed by entering a code sent to the new number. When your password or phone number changes, we tell you in the app and by email, so a change you did not make does not go unnoticed."
+        },
+        {
+            "title": "Your Profile",
+            "body": "Everything you put on your profile must be true and about you. Skills, work history, certificates and licenses you add are shown to other users. KAYA does not check that a certificate or license is genuine beyond confirming that a file was uploaded."
+        },
+        {
+            "title": "Barya",
+            "body": "Barya is KAYA's credit. Every account can claim free Barya when it starts and again each month, earns some when it earns a badge, and can top up for more. Barya has no cash value, cannot be withdrawn or transferred, and cannot be exchanged for money.\n\nIt is spent on: applying to a job, inviting a worker, keeping a job post up past its free first week, boosting a job post or a worker profile, and posting on the community board. The price is shown in the app before you confirm any spend, and prices may change. Barya left in an account when it is deleted is forfeited.\n\nWhen Barya is returned, and what happens to a purchase, is set out in the Refund Policy."
+        },
+        {
+            "title": "Employer Responsibilities",
+            "body": "Post only real work that you intend to hire for, with an honest description, location, dates and pay. Reply to applicants within a reasonable time. Pay the worker the amount and in the way you agreed. Treat the people you hire with respect. Do not ask a worker to do anything unsafe or illegal. Do not use KAYA to collect personal information for any purpose other than the job."
+        },
+        {
+            "title": "Worker Responsibilities",
+            "body": "Apply only to jobs you can actually do and intend to do. Show up when you agreed to, or say so in the chat as early as you can. Do the work to the standard you described. Do not claim skills, experience, certificates or licenses you do not have. Do not share another person's details or location with anyone."
+        },
+        {
+            "title": "Scheduling and Location Sharing",
+            "body": "Inside a chat, either side can propose a day and time and the other can accept or decline. An accepted schedule sets the day the work is due. A day a worker has already agreed to with someone else is shown as busy to other employers without saying whose work it is.\n\nDuring a job in progress, a worker can choose to share their live location with the employer, and can stop at any time. Location is shared only with that employer and only while sharing is on. Once sharing ends, the trail is deleted at the next daily clean-up, and no position is kept longer than seven days."
+        },
+        {
+            "title": "Completing a Job",
+            "body": "When the work is done, the worker and the employer each mark it complete. A job counts as complete only once both have. If one side has not confirmed seven days after the day the work was due, the hire is closed as not completed, and that counts on the record of both people.\n\nReviews can be left only on a completed job."
+        },
+        {
+            "title": "Chats and the Community Board",
+            "body": "A chat opens between an employer and a worker once the worker is hired. When a job is complete, its chat is archived for both people; it comes back if they work together again. Be honest and civil. Chats, comments, job posts and reviews are checked automatically, first by a word filter and then by an AI safety check that reads any language. Offensive words, contact details and moving to another app are hidden; harassment, threats, scams and sexual content are hidden and sent to the KAYA team as a report. The safety check never gives a violation by itself; a person decides.\n\nThe community board is public to every signed-in user. Workers post that they are available; employers and verified businesses post that they are hiring. Every post is read by KAYA before it goes up, runs for a set number of days paid in Barya, and is answered in the open, in comments under the post, through the same filter as the chat."
+        },
+        {
+            "title": "KAYA Support",
+            "body": "Help and Support is answered first by KAYA Assistant, an automated helper. It can read your own account details, such as your verification, any suspension and your Barya balance, to answer you, but it never changes anything on your account. You can ask for a person from the KAYA team at any time, and you can report an answer that is wrong.\n\nSomething's Broken sends a bug report to the team. Posted notices about known problems are shown at the top of the support chat."
+        },
+        {
+            "title": "What Is Not Allowed",
+            "body": "Fake accounts or fake documents. Applying to or posting jobs you do not intend to act on. Harassment, threats, discrimination or abuse. Scams, fraud, or asking for money in advance for work not done. Offering or asking for work that is illegal. Collecting other users' contact details for spam. Attempting to get around Barya charges, the verification rules, the chat filter, or the app's limits. Any of these can end your account."
+        },
+        {
+            "title": "Reports and Suspensions",
+            "body": "You can report someone from their profile, a job post, a chat, a community post or comment, or a review about you, with up to three photos as evidence. The report keeps a copy of the message, post or profile it is about, so deleting it afterwards does not erase it. It does not copy the rest of the conversation.\n\nThe person reported is not told who reported them. An admin decides; the outcome may be no violation, a warning, or a suspension for a set time or for good. The person who reported is told the outcome; the person reported hears of it only if a violation is given, and can appeal it within 30 days from Account Status. A suspended account can still open Account Status, appeal and write to KAYA support."
+        },
+        {
+            "title": "Disputes Between Users",
+            "body": "A disagreement about pay, quality or attendance is between the worker and the employer, because KAYA is not a party to the job and does not hold any money. KAYA can act on a report when someone breaks these terms, but it cannot make anyone pay or redo work. Settle it directly, or through the barangay or the proper authorities."
+        },
+        {
+            "title": "Reviews and Ratings",
+            "body": "After a job both sides have marked complete, each may review the other once, for a limited time. A review must be about the job and cannot be edited after it is sent. Reviews that break these terms can be hidden by an admin, and the rating is recalculated without them."
+        },
+        {
+            "title": "Account Suspension and Deletion",
+            "body": "We may suspend or remove an account that breaks these terms, for a fixed period or permanently, and we will say why. Verification documents of a suspended account are kept for the period stated in the Privacy Policy.\n\nYou may delete your account at any time from Settings. Deletion cannot be undone. It is refused while you are hired on a job in progress, or have a worker on one; finish it first. What is removed and what is kept is described in the Privacy Policy."
+        },
+        {
+            "title": "Limitation of Liability",
+            "body": "KAYA is provided as is. To the extent the law allows, KAYA and the people who built it are not liable for any loss arising from work arranged through the app, from another user's conduct, from unpaid work, from damage to property, or from the app being unavailable. These terms are governed by the laws of the Republic of the Philippines."
+        },
+        {
+            "title": "Changes to These Terms",
+            "body": "We may update these terms as the app changes. For a significant change we will tell you in the app before it takes effect. Continuing to use KAYA after that means you accept the updated terms. The date at the top of this page is when the terms last changed."
+        }
+    ],
+    "privacy": [
+        {
+            "title": "Information We Collect",
+            "body": "Account: your name, email address or phone number, password, whether your email and phone number are confirmed, and if you sign in with Google, the name, email and picture Google provides. Passwords and codes are stored scrambled, never as typed.\n\nProfile: your location, profile photo, bio, availability, and for workers your trade, skills, work history, certificates and licenses. For employers, the business name, type, address, TIN and business registration documents.\n\nVerification: a government-issued ID and a selfie holding it.\n\nActivity: jobs you post or apply to, invitations, hires, schedules, reviews, community posts, comments and likes, Barya balance and transactions, reports you make or receive, notifications, and the messages you send in chats.\n\nSupport: your messages to KAYA support, answers from KAYA Assistant that you report, and bug reports you send from Something's Broken: what happened, where, your note, any screenshot you attach, the app version, your phone's model and Android version, and the errors the server recorded on your account in the ten minutes before.\n\nLocation: the place you set on your profile or a job; a map pin if you drop one; and, only during a job where you have turned on location sharing, your live position.\n\nDevice: the app version, which the app sends so it can tell you about updates, and the sign-in token stored on your phone. Notifications are fetched by the app; we do not collect a push token."
+        },
+        {
+            "title": "Why We Collect It",
+            "body": "To create and run your account, to send codes that confirm your email or phone number and reset your password, to tell you when your password or phone number changes, to show workers and employers to each other, to match jobs by trade, skill and distance, to confirm identities and business registrations, to record Barya, to send notifications, to decide reports of misconduct, to check chats, comments, job posts and reviews for contact sharing, scams, harassment and sexual content, to answer you when you write to support, to find and fix problems you report, and to keep the service working and secure. We do not collect information we do not need for these purposes."
+        },
+        {
+            "title": "Who Can See What",
+            "body": "Other users see your public profile: your name, photo, bio, location at the city or barangay level, skills, work history, certificates, licenses, rating, badges, and whether you are verified. Nobody sees your ID, selfie, exact address, email, phone number, TIN or business documents except KAYA admins.\n\nYour live location, when you share it, is seen only by the employer on that job, only while sharing is on. A day you have agreed to work is shown as busy to other employers without saying for whom.\n\nCommunity posts and their comments are visible to every signed-in user. Chats are private to the two people in them. When a message is reported, the report keeps a copy of that one message for the admin deciding it; admins do not read the rest of your chats. Messages are also read by the automated safety check described below."
+        },
+        {
+            "title": "Who We Share Your Data With",
+            "body": "We do not sell your personal information and we do not share it with advertisers.\n\nWe use these providers to run the service, each receiving only what its job needs: Google verifies Google sign-ins and, once paid top-ups open, Google Play will process Barya purchases; Google's Gmail sends codes and account notices by email; text messages with codes are sent through textbee, an SMS gateway, from a phone KAYA controls, so textbee and the mobile network see your number and the message; maps are drawn from OpenStreetMap tiles, which receive the map area you look at but not your identity; place names come from the Philippine Standard Geographic Code and the GeoNames dataset. The TIN of a business account is checked against the BIR's public registry.\n\nAI services (Google Gemini and Anthropic Claude, reached through KAYA's own routing service) are used for the safety check on chats, comments, job posts and reviews, for KAYA Assistant in support, and to match the skills people type. For a safety check they receive only the text being checked and the same sender's last few lines, never your name, profile or photos, and KAYA keeps only the result. KAYA Assistant also reads your own account details (verification, suspension, violations, Barya balance) to answer you. Phone numbers and email addresses are hidden before a support message reaches an AI service.\n\nWe will disclose information when required by law or a lawful order, and to investigate fraud or a threat to someone's safety."
+        },
+        {
+            "title": "Verification Documents",
+            "body": "Your ID and selfie, and a business's registration documents, are stored separately from the rest of your data with restricted access, are read only by KAYA admins reviewing verification or a report, and are never shown to other users. They are kept while your account exists so that a verification can be checked again if a dispute arises, and are deleted when you delete your account."
+        },
+        {
+            "title": "Payments",
+            "body": "Topping up Barya is free while KAYA is in testing. When paid top-ups open, the payment will be taken by Google Play and KAYA will never see your card or e-wallet number. We keep a record of each top-up: the package, the amount, the date and the reference, because it is a financial record. KAYA does not handle the pay for a job; that is between the worker and the employer."
+        },
+        {
+            "title": "How We Store and Protect Your Data",
+            "body": "Data is stored on a server in a secured environment. Passwords are hashed and never stored in plain text. The admin panel is open only to KAYA administrators, each limited to the parts their role needs, and admin actions are recorded in an audit log. Connections use HTTPS.\n\nNo system is completely immune to risk. If you believe your account has been compromised, change your password from Settings and write to KAYA support."
+        },
+        {
+            "title": "Data Retention",
+            "body": "We keep your data while your account is active. Live location: once sharing ends, the trail is deleted at the next daily clean-up, and no position is kept longer than seven days. A chat stays for as long as either person in it has an account; a finished job's chat is archived, not deleted. A chat with KAYA support is erased when you leave it, unless it is still waiting for the team. A code expires within fifteen minutes and is cleared once it is used.\n\nWhen you delete your account, the following are removed at once: your name, email, phone, photos, bio, profiles, skills, work history, certificates, licenses, ID and business documents, saved jobs and notifications. Open job posts are closed and the people who applied get their Barya back; your own pending applications are withdrawn; your community posts end. The following are kept because they are records other people rely on, but no longer identify you: your Barya transaction history, the reviews you gave other people, reports, bug reports you sent (with any screenshot), and the admin audit log. Messages you sent stay in the other person's chat under the name Deleted account.\n\nRemoving only a worker or employer profile removes what that profile holds. Reviews belong to the account and stay."
+        },
+        {
+            "title": "Your Rights Under RA 10173",
+            "body": "Under the Data Privacy Act of 2012 you have the right to be informed of what we collect and why, to access the personal information we hold about you, to correct it, to object to its processing, to ask for it to be deleted or blocked, to a copy of it in a usable format, and to complain to the National Privacy Commission.\n\nHow to use them: most of your information can be seen and corrected in the app, on your profiles. To delete everything, use Delete account in Settings. For anything else, including a copy of your data or an objection, write to KAYA support from Settings, Help & Support, and we will answer there within a reasonable time."
+        },
+        {
+            "title": "App Permissions",
+            "body": "Camera and photos: to upload your profile photo, ID, selfie, job photos, community post photos, report evidence and documents. Location: to set your place on the map and, if you choose, to share your live position with an employer during a job. That sharing can run in the background so it continues when the screen is off, and a notification shows while it is on. Notifications: to tell you about applicants, hires, messages and schedules. Text messages: KAYA never asks for permission to read your texts. When a code is texted to the phone you are using, Android may ask whether KAYA can read that one message, and the code is filled in only if you tap Allow. Clipboard: on a code screen, the app looks for a six-digit code you copied, such as from an email, and offers to paste it; nothing on your clipboard is sent anywhere. Each permission is asked for when it is first needed and can be withdrawn in your phone's settings."
+        },
+        {
+            "title": "Children",
+            "body": "KAYA is not for anyone under 18. We do not knowingly collect information from minors. If we learn that a minor has created an account, we will deactivate it and delete its information."
+        },
+        {
+            "title": "Changes to This Policy",
+            "body": "We may update this policy as the app changes. For a significant change we will tell you in the app before it takes effect. The date at the top of this page is when the policy last changed."
+        },
+        {
+            "title": "Contact Us",
+            "body": "For questions about this policy, to exercise your rights, or to report a concern, write to KAYA support from Settings, Help & Support. To report another user, use Report in the chat or on the post."
+        }
+    ]
 }

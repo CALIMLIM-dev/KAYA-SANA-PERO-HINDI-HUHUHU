@@ -71,8 +71,33 @@ class AppServiceProvider extends ServiceProvider
     {
         $byUser = fn (Request $request) => $request->user()?->id ?: $request->ip();
 
-        // Credential guessing. Deliberately tight.
+        // Credential guessing. Deliberately tight. Now only changing a
+        // password while signed in uses it.
         RateLimiter::for('auth', fn (Request $r) => Limit::perMinute(10)->by($byUser($r)));
+
+        /*
+            Signing in, signing up and resetting, each with its own counter.
+
+            All six used to share one 'auth' counter of 10 a minute per IP.
+            A password reset (request, code, new password - and the code box
+            could send the code more than once) used it up, and the next
+            sign-in failed on its first try. Everybody behind one public
+            address - school Wi-Fi, a mobile network - shared it as well.
+
+            Each is now its own counter, a little wider per address, and
+            capped per account too: changing address cannot buy unlimited
+            guesses at one account.
+        */
+        $account = fn (Request $r) => strtolower(trim((string) $r->input('email')));
+        RateLimiter::for('login', fn (Request $r) => array_values(array_filter([
+            Limit::perMinute(20)->by('ip:' . $r->ip()),
+            $account($r) !== '' ? Limit::perMinute(10)->by('account:' . $account($r)) : null,
+        ])));
+        RateLimiter::for('signup', fn (Request $r) => Limit::perMinute(10)->by('ip:' . $r->ip()));
+        RateLimiter::for('reset', fn (Request $r) => array_values(array_filter([
+            Limit::perMinute(20)->by('ip:' . $r->ip()),
+            $account($r) !== '' ? Limit::perMinute(10)->by('account:' . $account($r)) : null,
+        ])));
 
         // Sends a real email or SMS. The real rule (a minute apart, five an
         // hour, with the wait shown) is CodeLimiter; this only stops a burst.
@@ -91,6 +116,22 @@ class AppServiceProvider extends ServiceProvider
 
         // Filing is cheap; the queue is read by people.
         RateLimiter::for('reports', fn (Request $r) => Limit::perHour(10)->by($byUser($r)));
+
+        /*
+            The support chat's own limits, one counter each.
+
+            These were bare throttle:10,60 / 60,1 / 20,1 on the routes, and
+            Laravel keys a bare throttle by the user alone - so all three
+            shared one counter, and ten taps in the assistant's menu used up
+            Something's Broken for the hour ("Too Many Attempts").
+        */
+        RateLimiter::for('support-bug', fn (Request $r) => Limit::perHour(10)->by($byUser($r))
+            ->response(fn () => response()->json([
+                'success' => false, 'data' => null,
+                'message' => 'You have sent a lot of reports this hour. Please try again later.',
+            ], 429)));
+        RateLimiter::for('support-choose', fn (Request $r) => Limit::perMinute(60)->by($byUser($r)));
+        RateLimiter::for('support-feedback', fn (Request $r) => Limit::perMinute(20)->by($byUser($r)));
     }
 
     /**

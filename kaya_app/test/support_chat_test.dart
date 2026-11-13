@@ -223,6 +223,18 @@ void main() {
     expect(picked.icon, Icons.radio_button_checked);
   });
 
+  testWidgets('a known issue the team posted is pinned when the chat opens', (tester) async {
+    await render(tester, width: 360, textScale: 1.3, messages: const [], assistant: {
+      'on': true, 'with_person': false, 'greeting': 'Hi.', 'menu': menu,
+      'notices': [
+        {'text': 'Top-ups are slow today. They will show by 3 PM.', 'topic': 'Barya and Top-up'},
+      ],
+    });
+
+    expect(find.textContaining('Known Issue (Barya and Top-up): ', findRichText: true), findsOneWidget);
+    expect(find.textContaining('Top-ups are slow today', findRichText: true), findsOneWidget);
+  });
+
   for (final width in <double>[412, 360, 320]) {
     for (final scale in <double>[1.0, 1.3]) {
       testWidgets(

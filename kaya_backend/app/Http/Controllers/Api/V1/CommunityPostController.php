@@ -139,8 +139,13 @@ class CommunityPostController extends Controller
                 ->orWhere('created_at', '<=', $heldSince))
             ->with(['user:id,name,avatar', 'user.workerProfile:id,user_id,profile_photo_path',
                     'user.employerProfile:id,user_id,image_path'])
-            ->orderBy('id')
+            // The newest, still read oldest first: a flooded post sends a page
+            // of its latest comments, not all of them.
+            ->orderByDesc('id')
+            ->limit((int) config('kaya.feed.list_limit', 200))
             ->get()
+            ->reverse()
+            ->values()
             ->map(fn ($c) => $this->presentComment($c, $user));
 
         return $this->ok($comments);

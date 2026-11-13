@@ -58,8 +58,18 @@ class AuthController extends Controller
             'terms_accepted' => ['required', 'boolean', 'accepted'],
         ]);
 
-        $input = $request->input('email');
-        $isPhone = str_starts_with($input, '+') || ctype_digit(ltrim($input, '+'));
+        $input = trim((string) $request->input('email'));
+        $isPhone = \App\Support\PhPhone::looksLikePhone($input);
+
+        // A phone is checked here, not only in the app: any digits used to
+        // make an account. Stored as +639XXXXXXXXX, the form the app signs
+        // in with, so one number cannot become two accounts by its spacing.
+        if ($isPhone) {
+            $input = \App\Support\PhPhone::normalize($input);
+            if ($input === null) {
+                return $this->fail('Enter a valid Philippine mobile number (e.g. 09171234567).', 422);
+            }
+        }
 
         // A banned person cannot sign straight back up. See StrikeService.
         if (\App\Services\StrikeService::isBanned(
@@ -126,9 +136,12 @@ class AuthController extends Controller
 
         $input = $request->input('email'); // could be email or phone (+63XXXXXXXXXX)
 
-        // Detect if it's a phone number (starts with + or is all digits)
-        if (str_starts_with($input, '+') || ctype_digit($input)) {
-            $user = User::where('phone', $input)->first();
+        // A phone number in any shape people type it. Stored ones are
+        // +639XXXXXXXXX; older rows may be saved as typed, so that is tried too.
+        if (\App\Support\PhPhone::looksLikePhone($input)) {
+            $normal = \App\Support\PhPhone::normalize($input);
+            $user = ($normal ? User::where('phone', $normal)->first() : null)
+                ?? User::where('phone', $input)->first();
         } else {
             $user = User::where('email', $input)->first();
         }
@@ -903,6 +916,7 @@ class AuthController extends Controller
         // Store hashed token and expiration (15 minutes)
         $user->password_reset_token = Hash::make($resetCode);
         $user->password_reset_expires_at = now()->addMinutes(15);
+        $user->password_reset_attempts = 0;
         $user->save();
 
         if ($byPhone) {
@@ -931,6 +945,46 @@ class AuthController extends Controller
         return $genericResponse();
     }
 
+    /** Wrong guesses before a reset code is destroyed. */
+    private const RESET_MAX_ATTEMPTS = 5;
+
+    /*
+        Whether a reset code holds, counting the wrong ones.
+
+        Counted on the account, not the IP: an IP is cheap to change, and the
+        per-IP limit was the only thing between a 6-digit code and the
+        million guesses it takes. Five wrong tries destroy the code; an
+        expired one is destroyed too. The caller says only "invalid" either
+        way, so nothing here tells a guesser which it was.
+    */
+    private function resetCodeHolds(?User $user, string $code): bool
+    {
+        if (! $user || ! $user->password_reset_token || ! $user->password_reset_expires_at) {
+            return false;
+        }
+
+        $burn = fn () => $user->forceFill([
+            'password_reset_token' => null, 'password_reset_expires_at' => null, 'password_reset_attempts' => 0,
+        ])->save();
+
+        if (now()->isAfter($user->password_reset_expires_at) || $user->password_reset_attempts >= self::RESET_MAX_ATTEMPTS) {
+            $burn();
+
+            return false;
+        }
+
+        if (! Hash::check($code, $user->password_reset_token)) {
+            $tries = $user->password_reset_attempts + 1;
+            $tries >= self::RESET_MAX_ATTEMPTS
+                ? $burn()
+                : $user->forceFill(['password_reset_attempts' => $tries])->save();
+
+            return false;
+        }
+
+        return true;
+    }
+
     /**
      * Verify reset code
      */
@@ -948,15 +1002,7 @@ class AuthController extends Controller
         // probe which email addresses exist.
         $invalid = fn () => $this->fail('Invalid or expired reset code. Please request a new one.', 422);
 
-        if (!$user || !$user->password_reset_token || !$user->password_reset_expires_at) {
-            return $invalid();
-        }
-
-        if (now()->isAfter($user->password_reset_expires_at)) {
-            return $invalid();
-        }
-
-        if (!Hash::check($request->code, $user->password_reset_token)) {
+        if (! $this->resetCodeHolds($user, (string) $request->code)) {
             return $invalid();
         }
 
@@ -981,15 +1027,7 @@ class AuthController extends Controller
         // probe which email addresses exist.
         $invalid = fn () => $this->fail('Invalid or expired reset code. Please request a new one.', 422);
 
-        if (!$user || !$user->password_reset_token || !$user->password_reset_expires_at) {
-            return $invalid();
-        }
-
-        if (now()->isAfter($user->password_reset_expires_at)) {
-            return $invalid();
-        }
-
-        if (!Hash::check($request->code, $user->password_reset_token)) {
+        if (! $this->resetCodeHolds($user, (string) $request->code)) {
             return $invalid();
         }
 
@@ -997,6 +1035,7 @@ class AuthController extends Controller
         $user->password = Hash::make($request->password);
         $user->password_reset_token = null;
         $user->password_reset_expires_at = null;
+        $user->password_reset_attempts = 0;
         $user->save();
 
         // Revoke all existing tokens for security

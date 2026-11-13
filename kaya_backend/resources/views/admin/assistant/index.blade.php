@@ -151,7 +151,7 @@
     <form method="POST" action="{{ route('admin.assistant.issues.post') }}" class="{{ $card }} p-5 mb-4 max-w-3xl space-y-3">
         @csrf
         <p class="text-sm font-semibold text-slate-800">Post a Notice</p>
-        <textarea name="text" rows="2" maxlength="300" required placeholder="Top-ups are slow today. They will show by 3 PM." class="{{ $input }}">{{ session('draft') }}</textarea>
+        <textarea name="text" rows="3" maxlength="300" required placeholder="Top-ups are slow today. They will show by 3 PM." class="{{ $input }} leading-relaxed" data-grow oninput="this.style.height='auto';this.style.height=this.scrollHeight+'px'" style="min-height:5.5rem;overflow:hidden;resize:none">{{ session('draft') }}</textarea>
         <div class="flex flex-wrap items-center gap-3">
             <select name="topic" class="px-3 py-2 border border-slate-300 rounded-lg text-sm bg-white">
                 <option value="">Every topic</option>
@@ -188,7 +188,7 @@
                 <p class="text-xs text-slate-400">{{ $item->user?->name ?? 'Deleted account' }} · {{ $item->model ?? 'KAYA Assistant' }} · {{ $item->created_at->timezone('Asia/Manila')->format('M j, g:i A') }}</p>
                 <form method="POST" action="{{ route('admin.assistant.teach', $item) }}" class="flex gap-2">
                     @csrf
-                    <textarea name="answer" rows="2" maxlength="2000" required placeholder="Add a better answer: KAYA Assistant uses it next time" class="{{ $input }}"></textarea>
+                    <textarea name="answer" rows="3" maxlength="2000" required placeholder="Add a better answer: KAYA Assistant uses it next time" class="{{ $input }} leading-relaxed" data-grow oninput="this.style.height='auto';this.style.height=this.scrollHeight+'px'" style="min-height:5.5rem;overflow:hidden;resize:none"></textarea>
                     <button class="px-3 py-2 bg-blue-600 text-white rounded-lg text-sm self-start">Save</button>
                 </form>
                 <form method="POST" action="{{ route('admin.support.feedback.dismiss', $item) }}">@csrf<button class="text-xs text-slate-500 hover:text-slate-700">Dismiss</button></form>
@@ -212,4 +212,8 @@
         @endforelse
     </div>
 @endif
+{{-- A drafted notice arrives already filled: size it to its text on load. --}}
+<script>
+    document.querySelectorAll('textarea[data-grow]').forEach((t) => { t.style.height = 'auto'; t.style.height = t.scrollHeight + 'px'; });
+</script>
 @endsection

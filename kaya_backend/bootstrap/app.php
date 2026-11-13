@@ -57,22 +57,34 @@ return Application::configure(basePath: dirname(__DIR__))
             people talking normally crossed 60 and were answered with "Too
             many attempts" - the app rate-limiting its own conversation.
 
-            120/minute per token (per IP when unauthenticated) leaves room
+            240/minute per token (per IP when unauthenticated) leaves room
             for that and still makes a scripted sweep useless: harvesting
             profiles by walking ids is bounded either way. The tighter
             limits on login, password reset and checkout stay where they
             are and still win, being more specific.
 
+            It was 120. An open chat alone polls about 34 times a minute
+            (messages every 3s, notifications every 5s, the suspension
+            check every 30s) before any screen loads, and the hire service
+            and a second phone share this count - so a busy person could be
+            refused. 240 still stops a runaway script. See
+            SecurityFindingsTest::finding_10.
+
             The real fix is turning Reverb on - see CLAUDE.md - after
             which the polling this accommodates mostly stops.
         */
-        $middleware->throttleApi('120,1');
+        $middleware->throttleApi('240,1');
 
-        // Trust all proxies. This closure runs before the config service is
-        // bound, so it cannot be driven from config/env here — and '*' is the
-        // documented setting when the app sits behind a single load balancer you
-        // control (Railway/Render/ELB), which is the deployment target.
-        $middleware->trustProxies(at: '*');
+        /*
+            Proxy trust is NOT set here any more.
+
+            This was trustProxies(at: '*'), which believed an X-Forwarded-For
+            header from anyone - so every rate limit keyed by IP (login, codes,
+            sign-up) could be reset by sending a made-up address with each
+            request. TrustProxies now reads config/trustedproxy.php at request
+            time: the local machine (nginx on the same server) by default, or
+            TRUSTED_PROXIES in .env when a CDN sits in front.
+        */
 
         // Origins are governed by config/cors.php (CORS_ALLOWED_ORIGINS).
         $middleware->append(\Illuminate\Http\Middleware\HandleCors::class);
@@ -110,6 +122,28 @@ return Application::configure(basePath: dirname(__DIR__))
         $exceptions->shouldRenderJsonWhen(
             fn ($request, Throwable $e) => $request->is('api/*') || $request->expectsJson()
         );
+
+        /*
+            Too many requests, with the wait.
+
+            Laravel's own answer is a bare "Too Many Attempts." and the wait
+            only in a header the app never read, so a refused sign-in looked
+            like a wrong password with no way of knowing when to try again.
+            Same shape as every other API answer, plus data.retry_after,
+            which the app counts down.
+        */
+        $exceptions->render(function (\Illuminate\Http\Exceptions\ThrottleRequestsException $e, $request) {
+            if (! ($request->is('api/*') || $request->expectsJson())) {
+                return null;
+            }
+            $wait = max(1, (int) ($e->getHeaders()['Retry-After'] ?? 60));
+
+            return response()->json([
+                'success' => false,
+                'data'    => ['retry_after' => $wait],
+                'message' => "Too many tries. Please wait {$wait} " . ($wait === 1 ? 'second' : 'seconds') . ' and try again.',
+            ], 429, $e->getHeaders());
+        });
 
         // Every reported error, on the admin panel's Server Errors page.
         // Validation, 404s and sign-in failures are not reported, so not here.

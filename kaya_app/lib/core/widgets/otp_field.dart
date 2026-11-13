@@ -117,10 +117,27 @@ class _OtpFieldState extends State<OtpField> with WidgetsBindingObserver {
     setState(() => _clip = null);
   }
 
+  /// The code last handed to onCompleted, so the same one is not sent again.
+  String? _completed;
+
+  /*
+      Once per finished code.
+
+      The controller also notifies when only the cursor or the keyboard's
+      composing range changes, and this used to call onCompleted on every
+      one of those while six digits sat in the box - so one code went to
+      the server two or three times, each counted against the sign-in
+      limit. Now only a new complete code is sent; editing it back below
+      six digits allows the corrected one through.
+  */
   void _onChanged() {
     setState(() {});
-    if (widget.controller.text.length == widget.length) {
-      widget.onCompleted?.call(widget.controller.text);
+    final text = widget.controller.text;
+    if (text.length < widget.length) {
+      _completed = null;
+    } else if (text.length == widget.length && text != _completed) {
+      _completed = text;
+      widget.onCompleted?.call(text);
     }
   }
 

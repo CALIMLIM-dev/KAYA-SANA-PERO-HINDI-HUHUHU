@@ -64,8 +64,11 @@
                     @endif
 
                     {{-- The thread, so a post is judged with what it attracted rather than on its own. --}}
+                    {{-- Folded: a busy thread stays one line until opened, so a flood of comments cannot bury the posts. --}}
                     @if ($post->comments->isNotEmpty())
-                        <div class="mt-3 border-l-2 border-slate-100 pl-3 space-y-2">
+                        <details class="mt-3 group">
+                        <summary class="cursor-pointer select-none text-xs font-medium text-slate-600 hover:text-slate-800">Comments ({{ $post->live_comments_count }})@if ($post->live_comments_count > $post->comments->count()) <span class="font-normal text-slate-400">· newest {{ $post->comments->count() }} shown</span>@endif</summary>
+                        <div class="mt-2 border-l-2 border-slate-100 pl-3 space-y-2 max-h-96 overflow-y-auto">
                             @foreach ($post->comments as $comment)
                                 <div class="flex items-start gap-2">
                                     <p class="text-xs text-slate-600 flex-1">
@@ -81,6 +84,7 @@
                                 </div>
                             @endforeach
                         </div>
+                        </details>
                     @endif
                 </div>
 

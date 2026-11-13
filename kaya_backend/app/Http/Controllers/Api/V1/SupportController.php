@@ -323,6 +323,16 @@ class SupportController extends Controller
                 ? explode(' ', trim((string) $thread->assignee->name))[0]
                 : null,
             'team_online' => SupportThread::teamOnline(),
+            /*
+                Known issues the team posted, pinned at the top of the chat.
+                They used to appear only after somebody tapped the matching
+                topic, so a posted notice looked like it did nothing.
+            */
+            'notices'     => \App\Models\KnownIssue::where('active', true)->latest('id')->take(3)->get()
+                ->map(fn ($issue) => [
+                    'text'  => $issue->text,
+                    'topic' => $issue->topic ? (\App\Services\SupportFlow::menu()[$issue->topic]['label'] ?? null) : null,
+                ])->values(),
             // The menu the greeting offers, and the greeting itself.
             'greeting'    => \App\Services\SupportFlow::greeting(),
             'menu'        => \App\Services\SupportFlow::topicOptions(),

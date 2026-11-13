@@ -81,6 +81,9 @@ class _SupportChatScreenState extends State<SupportChatScreen> {
   String? _agent;
   bool _teamOnline = true;
 
+  /// Known issues the team posted, pinned under the header.
+  List<Map<String, dynamic>> _notices = const [];
+
   /*
       Answers from KAYA Assistant that arrived while the screen was open are
       written out word by word, the way a chat assistant types. What was
@@ -244,6 +247,10 @@ class _SupportChatScreenState extends State<SupportChatScreen> {
     _line = (state['line'] as Map?)?.cast<String, dynamic>();
     _agent = state['agent'] as String?;
     _teamOnline = state['team_online'] != false;
+    _notices = ((state['notices'] as List?) ?? const [])
+        .whereType<Map>()
+        .map((n) => n.cast<String, dynamic>())
+        .toList();
   }
 
   /// The typing line goes once KAYA has answered after the sent message.
@@ -414,6 +421,7 @@ class _SupportChatScreenState extends State<SupportChatScreen> {
       ),
       body: Column(
         children: [
+          if (_notices.isNotEmpty) _noticeBar(),
           Expanded(child: _body()),
           SafeArea(
             top: false,
@@ -475,6 +483,52 @@ class _SupportChatScreenState extends State<SupportChatScreen> {
               ),
             ),
           ),
+        ],
+      ),
+    );
+  }
+
+  /*
+      What the team already knows is broken, before anybody explains it
+      again. Pinned, so it is the first thing read on opening the chat.
+  */
+  Widget _noticeBar() {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.fromLTRB(16, 10, 16, 10),
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        border: Border(bottom: BorderSide(color: AppColors.neutral200)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          for (final n in _notices)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 3),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Padding(
+                    padding: EdgeInsets.only(top: 1),
+                    child: Icon(Icons.info_outline, size: 18, color: AppColors.primary),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text.rich(
+                      TextSpan(children: [
+                        TextSpan(
+                          text: n['topic'] == null ? 'Known Issue: ' : 'Known Issue (${n['topic']}): ',
+                          style: const TextStyle(fontWeight: FontWeight.w600),
+                        ),
+                        TextSpan(text: '${n['text']}'),
+                      ]),
+                      style: const TextStyle(fontSize: 13, height: 1.4, color: AppColors.neutral800),
+                    ),
+                  ),
+                ],
+              ),
+            ),
         ],
       ),
     );

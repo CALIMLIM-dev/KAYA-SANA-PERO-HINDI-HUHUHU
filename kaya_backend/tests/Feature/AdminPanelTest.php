@@ -200,7 +200,8 @@ class AdminPanelTest extends TestCase
         $this->actingAs($this->admin())->get('/admin/jobs?status=closed')->assertOk()->assertDontSee('Paint a fence');
         $this->actingAs($this->admin())->get("/admin/jobs/{$job->id}")->assertOk()->assertSee('Close this post')
             // The reason is the dropdown; Other opens a box, closed until then.
-            ->assertSee('<select name="reason"', false)->assertSee('<option value="">Other</option>', false)
+            ->assertSee('<select name="reason"', false)->assertSee('<option value="__other">Other</option>', false)
+            ->assertSee('<option value="" disabled selected>Choose a reason</option>', false)
             ->assertSee('maxlength="255" disabled hidden data-reason-other', false);
     }
 

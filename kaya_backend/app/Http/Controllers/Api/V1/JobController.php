@@ -351,7 +351,8 @@ class JobController extends Controller
             return $this->ok($jobs);
         }
 
-        $live = $ordered($query)->get();
+        // Bounded: the boosted and newest first, at most this many scored.
+        $live = $ordered($query)->limit((int) config('kaya.feed.max_candidates', 500))->get();
 
         if ($radius !== null) {
             /*
@@ -1385,9 +1386,20 @@ class JobController extends Controller
         $user = $request->user();
         if ($job->employer_id !== $user->id) return $this->fail('Forbidden', 403);
 
-        $request->validate(['status' => ['required', 'in:open,in_progress,completed,closed']]);
+        /*
+            Only the two moves the app makes: confirming completion, and
+            closing. This took open and in_progress as well and wrote them
+            straight in, so a completed job could be set back to open and
+            reappear in the feed, and an open one could be marked in
+            progress with nobody hired. Hiring moves a job forward on its
+            own; a finished job stays finished.
+        */
+        $request->validate(['status' => ['required', 'in:completed,closed']]);
 
         $wasCompleted = $job->status === 'completed';
+        if ($wasCompleted) {
+            return $this->fail('This job is finished and cannot be changed.', 422);
+        }
 
         /*
             Completion is no longer the employer's alone.
@@ -1589,6 +1601,7 @@ class JobController extends Controller
             ->live()
             ->with(['employer:id,name,avatar,is_verified', 'category', 'skills'])
             ->latest()
+            ->limit((int) config('kaya.feed.list_limit', 200))
             ->get();
         return $this->ok($jobs);
     }
