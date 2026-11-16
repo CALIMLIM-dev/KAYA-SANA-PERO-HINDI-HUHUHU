@@ -58,6 +58,16 @@ class SafetyCheck
 
     private const SETTING = 'moderation.ai';
 
+    /*
+        Room for the model to think before its one word.
+
+        It was 5. The kaya-mod models think first (about 300 tokens for a
+        Tagalog threat), so a cap of 5 ran out before the answer: the reply
+        came back empty, counted as "no model", and threats, scams and
+        insults were delivered unchecked in every language.
+    */
+    public const MAX_TOKENS = 1024;
+
     public static function enabled(): bool
     {
         $saved = SystemSetting::get(self::SETTING);
@@ -170,7 +180,7 @@ TXT;
                     'model'       => config('moderation.ai.model'),
                     'messages'    => [['role' => 'user', 'content' => $prompt]],
                     'temperature' => 0,
-                    'max_tokens'  => 5,
+                    'max_tokens'  => self::MAX_TOKENS,
                 ]);
         } catch (\Throwable $e) {
             Log::info('[safety] OmniRoute unreachable: ' . $e->getMessage());
@@ -198,7 +208,7 @@ TXT;
                 ->asJson()
                 ->post($endpoint, [
                     'contents'         => [['role' => 'user', 'parts' => [['text' => $prompt]]]],
-                    'generationConfig' => ['temperature' => 0, 'maxOutputTokens' => 5],
+                    'generationConfig' => ['temperature' => 0, 'maxOutputTokens' => self::MAX_TOKENS],
                 ]);
         } catch (\Throwable $e) {
             Log::info('[safety] Gemini unreachable: ' . $e->getMessage());

@@ -75,7 +75,8 @@ class SkillLinker
                         . "\n\nAnswer with only this JSON object and nothing else: "
                         . '{"is_skill": true or false, "skill_ids": [ids], "trade": "a trade from the list or empty"}']],
                     'temperature' => 0,
-                    'max_tokens'  => 200,
+                    // Room to think before the JSON; 200 could run out first (see SafetyCheck::MAX_TOKENS).
+                    'max_tokens'  => 1024,
                 ]);
         } catch (\Throwable $e) {
             Log::info('[skill links] kaya-link unreachable: ' . $e->getMessage());

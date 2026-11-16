@@ -44,6 +44,19 @@ class SafetyCheckTest extends TestCase
         Http::fake([self::OMNI . '/*' => Http::response(['choices' => [['message' => ['content' => $word]]]])]);
     }
 
+    /*
+        Found on live: the cap was 5 tokens, the models think first, and the
+        empty reply let a Tagalog threat through. The request must leave room.
+    */
+    #[Test]
+    public function the_model_is_given_room_to_think_before_answering(): void
+    {
+        $this->modelSays('harassment');
+
+        $this->assertSame('harassment', app(\App\Services\SafetyCheck::class)->check('mag-ingat ka pag-uwi mo, alam ko kung saan ka nakatira'));
+        Http::assertSent(fn ($r) => ($r['max_tokens'] ?? 0) >= 256);
+    }
+
     /** Two people in a live chat about a hire. */
     private function chat(): array
     {
