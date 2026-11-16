@@ -128,6 +128,9 @@ class CreditController extends Controller
             ['amount' => $amount, 'note' => $data['note'], 'balance_after' => $ledger->balance($user)],
         );
 
+        // The person hears it too: their money moved.
+        app(\App\Services\NotificationService::class)->walletAdjusted($user, $amount, rtrim($data['note'], '. '), $ledger->balance($user));
+
         return back()->with('success', "{$user->name} now has {$ledger->balance($user)} Barya.");
     }
 }

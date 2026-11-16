@@ -835,6 +835,22 @@ class NotificationService
         by email too - sent after the response, so nobody waits on Gmail. A
         mail failure is logged and never fails the change itself.
     */
+    /*
+        An admin changed somebody's Barya. Their money moved, so they hear
+        it: how much, why (the admin's note) and what is left. Shown as an
+        account notice, which the app displays where it is.
+    */
+    public function walletAdjusted(\App\Models\User $user, int $amount, string $note, int $balance): void
+    {
+        $this->push(
+            userId: $user->id,
+            audience: UserNotification::AUDIENCE_BOTH,
+            type: 'account.changed',
+            title: $amount > 0 ? 'KAYA added ' . $amount . ' Barya to your wallet' : 'KAYA took ' . abs($amount) . ' Barya from your wallet',
+            body: 'Reason: ' . $note . '. Your balance is now ' . $balance . ' Barya.',
+        );
+    }
+
     public function accountChanged(\App\Models\User $user, string $title, string $body): void
     {
         $this->push(

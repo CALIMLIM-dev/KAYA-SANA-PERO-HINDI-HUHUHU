@@ -232,6 +232,12 @@ class AdminPanelTest extends TestCase
         $this->assertSame($admin->id, $line->actor_id);
 
         $this->assertSame(2, AdminAction::where('action', 'credits.adjusted')->count());
+
+        // The person is told both times: how much, why, and what is left.
+        $this->assertDatabaseHas('user_notifications', ['user_id' => $user->id, 'title' => 'KAYA added 15 Barya to your wallet',
+            'body' => 'Reason: Goodwill after the outage. Your balance is now 15 Barya.']);
+        $this->assertDatabaseHas('user_notifications', ['user_id' => $user->id, 'title' => 'KAYA took 5 Barya from your wallet',
+            'body' => 'Reason: Refund reversed. Your balance is now 10 Barya.']);
     }
 
     #[Test]
