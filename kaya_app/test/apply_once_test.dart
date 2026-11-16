@@ -81,7 +81,9 @@ void main() {
 
 class _Server implements HttpClientAdapter {
   int applyCalls = 0;
-  final _job = File('test/fixtures/job_worker_view.json').readAsStringSync();
+  // The recorded job ended 2026-11-13; moved a month ahead so it stays open.
+  final _job = File('test/fixtures/job_worker_view.json').readAsStringSync().replaceAll(
+      '2026-11-13', DateTime.now().add(const Duration(days: 30)).toIso8601String().substring(0, 10));
 
   @override
   Future<ResponseBody> fetch(RequestOptions o, Stream<Uint8List>? s, Future<void>? c) async {

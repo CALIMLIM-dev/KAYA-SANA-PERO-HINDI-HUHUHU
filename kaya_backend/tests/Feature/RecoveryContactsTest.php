@@ -27,8 +27,8 @@ class RecoveryContactsTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
-        config(['services.textbee.key' => 'tb-key', 'services.semaphore.key' => null]);
-        Http::fake(['api.textbee.dev/*' => Http::response(['data' => ['success' => true]])]);
+        config(['services.semaphore.key' => 'sem-key']);
+        Http::fake(['api.semaphore.co/*' => Http::response([['message_id' => 1]])]);
     }
 
     private function maria(array $attributes = []): User
@@ -44,7 +44,7 @@ class RecoveryContactsTest extends TestCase
     {
         $code = null;
         foreach (Http::recorded() as [$request]) {
-            if (($request['recipients'] ?? null) === [$number] && preg_match('/\b(\d{6})\b/', $request['message'], $m)) {
+            if (($request['number'] ?? null) === ltrim($number, '+') && preg_match('/\b(\d{6})\b/', $request['message'], $m)) {
                 $code = $m[1];
             }
         }
@@ -117,37 +117,11 @@ class RecoveryContactsTest extends TestCase
     }
 
     #[Test]
-    public function forgot_password_by_a_confirmed_number(): void
+    public function forgot_password_takes_an_email_only(): void
     {
-        Mail::fake();
-        $maria = $this->maria(['phone_verified_at' => now()]);
+        $this->maria(['phone_verified_at' => now()]);
 
-        $this->postJson('/api/v1/forgot-password', ['email' => '+63 917 123 4567'])->assertOk()
-            ->assertJsonPath('data.resend_in', 60);
-        $code = $this->textedCode('+639171234567');
-        $this->assertNotNull($code);
-
-        $this->postJson('/api/v1/verify-reset-code', ['email' => '0917 123 4567', 'code' => $code])->assertOk();
-        $this->postJson('/api/v1/reset-password', [
-            'email' => '09171234567', 'code' => $code,
-            'password' => 'New!Passw0rd9', 'password_confirmation' => 'New!Passw0rd9',
-        ])->assertOk();
-
-        $this->assertTrue(Hash::check('New!Passw0rd9', $maria->fresh()->password));
-        $this->assertDatabaseHas('user_notifications', ['user_id' => $maria->id, 'title' => 'Your password was changed']);
-        Mail::assertSent(AccountNoticeMail::class);
-    }
-
-    #[Test]
-    public function an_unconfirmed_number_gets_no_reset_code_and_the_answer_says_nothing(): void
-    {
-        $this->maria();
-
-        $this->postJson('/api/v1/forgot-password', ['email' => '09171234567'])->assertOk()
-            ->assertJsonPath('message', 'If that number is confirmed on a KAYA account, we texted it a reset code.');
-        $this->postJson('/api/v1/forgot-password', ['email' => '09990000000'])->assertOk()
-            ->assertJsonPath('message', 'If that number is confirmed on a KAYA account, we texted it a reset code.');
-
+        $this->postJson('/api/v1/forgot-password', ['email' => '09171234567'])->assertStatus(422);
         Http::assertNothingSent();
     }
 

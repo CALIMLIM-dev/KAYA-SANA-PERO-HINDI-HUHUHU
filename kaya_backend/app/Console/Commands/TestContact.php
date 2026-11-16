@@ -45,14 +45,14 @@ class TestContact extends Command
         }
 
         if (! $sms->isConfigured()) {
-            $this->error('SMS is off: set TEXTBEE_API_KEY in .env, then php artisan config:clear.');
+            $this->error('SMS is off: set SEMAPHORE_API_KEY in .env, then php artisan config:clear.');
 
             return self::FAILURE;
         }
 
         try {
             $sms->send($phone, 'KAYA test message. Your SMS codes are working.');
-            $this->info('Text sent through ' . (filled(config('services.textbee.key')) ? 'textbee' : 'Semaphore') . '.');
+            $this->info('Text sent through Semaphore.');
         } catch (Throwable $e) {
             $ok = false;
             $this->error('Text failed: ' . $e->getMessage());

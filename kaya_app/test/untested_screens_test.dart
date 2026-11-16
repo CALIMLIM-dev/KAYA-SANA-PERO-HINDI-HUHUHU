@@ -157,6 +157,20 @@ void main() {
       expect(find.text('Find Workers Near You'), findsOneWidget);
       expect(tester.takeException(), isNull);
     });
+
+    // Found on MuMu: sideways, the page is about 200 points tall and the
+    // introduction overflowed by 48. It scrolls now.
+    testWidgets('fits a phone turned sideways', (tester) async {
+      await open(tester, const WelcomeScreen(), signedIn: false, providers: [
+        ChangeNotifierProvider<AuthProvider>(create: (_) => AuthProvider()),
+      ]);
+      tester.view.physicalSize = const Size(1600, 900);
+      tester.view.devicePixelRatio = 2;
+      await tester.pump(const Duration(milliseconds: 300));
+
+      expect(find.text('Find Workers Near You'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    });
   });
 }
 

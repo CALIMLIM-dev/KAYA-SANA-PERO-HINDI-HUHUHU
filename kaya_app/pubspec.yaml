@@ -1,4 +1,4 @@
-name: kaya_app
+﻿name: kaya_app
 description: "A new Flutter project."
 # The following line prevents the package from being accidentally published to
 # pub.dev using `flutter pub publish`. This is preferred for private packages.
@@ -22,7 +22,7 @@ publish_to: 'none' # Remove this line if you wish to publish to pub.dev
 # over the previous one.
 #
 # Keep this in step with CHANGELOG.md and the git tag for the release.
-version: 1.27.0+122
+version: 1.27.1+123
 
 environment:
   sdk: ^3.12.0
@@ -67,12 +67,12 @@ dependencies:
   # File picker (for cert/license/verification docs)
   file_picker: ^8.1.2
 
-  # Opening credential documents (PDF certificates/licenses) externally —
+  # Opening credential documents (PDF certificates/licenses) externally â€”
   # images render in-app, PDFs need the system viewer.
   url_launcher: ^6.3.0
 
   # Map + pin drop. flutter_map renders OpenStreetMap tiles, which need no API
-  # key and cost nothing — deliberately not Google Maps, which would require a
+  # key and cost nothing â€” deliberately not Google Maps, which would require a
   # billed key for the same job.
   flutter_map: ^7.0.2
   latlong2: ^0.9.1
@@ -109,6 +109,9 @@ dependencies:
   collection: ^1.19.1
 dev_dependencies:
   flutter_test:
+    sdk: flutter
+  # The on-device end-to-end test (integration_test/).
+  integration_test:
     sdk: flutter
 
   # The "flutter_lints" package below contains a set of recommended lints to

@@ -189,15 +189,14 @@ class ContactVerificationTest extends TestCase
     }
 
     /*
-        The defense sends codes from an Android phone through textbee: the
-        key in the header, the number in +63 form, and the code it then
-        accepts is the one that was texted.
+        Codes go through Semaphore: the key, the number in 63 form, and the
+        code it then accepts is the one that was texted.
     */
     #[Test]
-    public function a_phone_code_is_texted_through_textbee_and_verifies(): void
+    public function a_phone_code_is_texted_through_semaphore_and_verifies(): void
     {
-        config(['services.textbee.key' => 'tb-key', 'services.textbee.device_id' => 'dev-1', 'services.semaphore.key' => null]);
-        \Illuminate\Support\Facades\Http::fake(['api.textbee.dev/*' => \Illuminate\Support\Facades\Http::response(['data' => ['success' => true]])]);
+        config(['services.semaphore.key' => 'sem-key']);
+        \Illuminate\Support\Facades\Http::fake(['api.semaphore.co/*' => \Illuminate\Support\Facades\Http::response([['message_id' => 1]])]);
         $user = $this->unverified();
 
         $this->actingAs($user)->postJson('/api/v1/contact-verification/phone/send')->assertOk();
@@ -207,10 +206,9 @@ class ContactVerificationTest extends TestCase
             preg_match('/\b(\d{6})\b/', $request['message'], $m);
             $code = $m[1] ?? null;
 
-            return $request->url() === 'https://api.textbee.dev/api/v1/gateway/send-sms'
-                && $request->hasHeader('x-api-key', 'tb-key')
-                && $request['recipients'] === ['+639171234567']
-                && $request['deviceId'] === 'dev-1';
+            return $request->url() === 'https://api.semaphore.co/api/v4/messages'
+                && $request['apikey'] === 'sem-key'
+                && $request['number'] === '639171234567';
         });
 
         $this->actingAs($user)->postJson('/api/v1/contact-verification/phone/verify', ['code' => $code])->assertOk();
@@ -218,10 +216,10 @@ class ContactVerificationTest extends TestCase
     }
 
     #[Test]
-    public function a_textbee_failure_is_said_and_nothing_is_verified(): void
+    public function a_provider_failure_is_said_and_nothing_is_verified(): void
     {
-        config(['services.textbee.key' => 'tb-key', 'services.semaphore.key' => null]);
-        \Illuminate\Support\Facades\Http::fake(['api.textbee.dev/*' => \Illuminate\Support\Facades\Http::response(['error' => 'device offline'], 400)]);
+        config(['services.semaphore.key' => 'sem-key']);
+        \Illuminate\Support\Facades\Http::fake(['api.semaphore.co/*' => \Illuminate\Support\Facades\Http::response(['error' => 'no credits'], 400)]);
         $user = $this->unverified();
 
         $this->actingAs($user)->postJson('/api/v1/contact-verification/phone/send')
@@ -233,15 +231,15 @@ class ContactVerificationTest extends TestCase
     public function the_test_command_sends_an_email_and_a_text(): void
     {
         Mail::fake();
-        config(['services.textbee.key' => 'tb-key']);
-        \Illuminate\Support\Facades\Http::fake(['api.textbee.dev/*' => \Illuminate\Support\Facades\Http::response(['data' => ['success' => true]])]);
+        config(['services.semaphore.key' => 'sem-key']);
+        \Illuminate\Support\Facades\Http::fake(['api.semaphore.co/*' => \Illuminate\Support\Facades\Http::response([['message_id' => 1]])]);
 
         $this->artisan('kaya:test-contact', ['email' => 'me@example.com', 'phone' => '09171234567'])
-            ->expectsOutputToContain('Text sent through textbee.')
+            ->expectsOutputToContain('Text sent through Semaphore.')
             ->assertSuccessful();
 
         Mail::assertSent(VerificationCodeMail::class, fn ($mail) => $mail->hasTo('me@example.com'));
-        \Illuminate\Support\Facades\Http::assertSent(fn ($request) => $request['recipients'] === ['+639171234567']);
+        \Illuminate\Support\Facades\Http::assertSent(fn ($request) => $request['number'] === '639171234567');
     }
 
     #[Test]

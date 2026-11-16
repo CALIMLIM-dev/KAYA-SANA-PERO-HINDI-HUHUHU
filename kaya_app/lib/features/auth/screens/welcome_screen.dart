@@ -314,11 +314,29 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
     );
   }
 
+  /*
+      Centred when it fits, scrollable when it does not.
+
+      A phone turned sideways leaves this page about 200 points tall, and the
+      icon, title and text need about 250: it overflowed by 48 on the MuMu
+      end-to-end run.
+  */
   Widget _buildOnboardingPage(OnboardingPage page) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 32),
+    return LayoutBuilder(
+      builder: (context, box) => SingleChildScrollView(
+        padding: const EdgeInsets.symmetric(horizontal: 32),
+        child: ConstrainedBox(
+          constraints: BoxConstraints(minHeight: box.maxHeight),
+          child: _onboardingContent(page),
+        ),
+      ),
+    );
+  }
+
+  Widget _onboardingContent(OnboardingPage page) {
+    return Center(
       child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
+        mainAxisSize: MainAxisSize.min,
         children: [
           // Icon
           Container(

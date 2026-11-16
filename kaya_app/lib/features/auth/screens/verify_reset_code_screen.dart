@@ -147,8 +147,6 @@ class _VerifyResetCodeScreenState extends State<VerifyResetCodeScreen> {
               OtpField(
                 controller: _codeCtrl,
                 autofocus: true,
-                // A phone number was typed, so the code comes by text.
-                smsAutofill: !email.contains('@'),
                 hasError: _errorMessage != null,
                 onCompleted: (_) =>
                     _handleVerify(email, context.read<AuthProvider>()),

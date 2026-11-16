@@ -59,19 +59,19 @@ void main() {
     await settle(tester);
   });
 
-  testWidgets('Forgot Password takes a phone number as well as an email', (tester) async {
+  testWidgets('Forgot Password takes an email only', (tester) async {
     RenderHarness.stubPlatformChannels(tester);
     await tester.pumpWidget(ChangeNotifierProvider(
       create: (_) => AuthProvider(),
       child: const MaterialApp(home: ForgotPasswordScreen()),
     ));
 
-    expect(find.text('Email or Phone Number'), findsOneWidget);
+    expect(find.text('Email'), findsOneWidget);
 
-    await tester.enterText(find.byType(TextField), '0917');
+    await tester.enterText(find.byType(TextField), '09171234567');
     await tester.tap(find.text('Send Reset Code'));
     await tester.pump();
-    expect(find.text('Enter a valid mobile number'), findsOneWidget);
+    expect(find.text('Enter a valid email address'), findsOneWidget);
 
     await tester.enterText(find.byType(TextField), 'ana@');
     await tester.tap(find.text('Send Reset Code'));

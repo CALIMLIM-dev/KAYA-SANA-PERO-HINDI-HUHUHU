@@ -25,13 +25,10 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
     final email = _emailController.text.trim();
     String? emailErr;
 
-    // An email, or a phone number in any shape people type it.
     if (email.isEmpty) {
-      emailErr = 'Enter your email or phone number';
-    } else if (email.contains('@')
-        ? !RegExp(r'^[^@]+@[^@]+\.[^@]+').hasMatch(email)
-        : email.replaceAll(RegExp(r'[^0-9]'), '').length < 10) {
-      emailErr = email.contains('@') ? 'Enter a valid email address' : 'Enter a valid mobile number';
+      emailErr = 'Enter your email';
+    } else if (!RegExp(r'^[^@]+@[^@]+\.[^@]+').hasMatch(email)) {
+      emailErr = 'Enter a valid email address';
     }
 
     setState(() => _emailError = emailErr);
@@ -87,14 +84,14 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
               ),
               const SizedBox(height: 8),
               Text(
-                'Enter your email or your confirmed phone number. We will send a code to reset your password.',
+                'Enter your email. We will send a code to reset your password.',
                 style: TextStyle(fontSize: 16, color: AppColors.neutral600),
               ),
               const SizedBox(height: 48),
 
               // Email field
               Text(
-                'Email or Phone Number',
+                'Email',
                 style: TextStyle(
                   fontSize: 14,
                   fontWeight: FontWeight.w600,
@@ -107,7 +104,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                 keyboardType: TextInputType.emailAddress,
                 onChanged: (_) => setState(() => _emailError = null),
                 decoration: InputDecoration(
-                  hintText: 'you@email.com or 09XX XXX XXXX',
+                  hintText: 'you@email.com',
                   hintStyle: TextStyle(color: AppColors.neutral400),
                   prefixIcon: Icon(Icons.person_outline, color: AppColors.neutral500),
                   errorText: _emailError,

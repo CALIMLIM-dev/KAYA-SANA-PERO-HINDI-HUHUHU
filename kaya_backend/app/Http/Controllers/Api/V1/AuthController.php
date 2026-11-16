@@ -869,16 +869,17 @@ class AuthController extends Controller
             ->first(fn (User $u) => substr(preg_replace('/\D/', '', (string) $u->phone), -10) === $last10);
     }
 
-    public function forgotPassword(Request $request, \App\Services\SmsSender $sms)
+    public function forgotPassword(Request $request)
     {
         $request->validate([
             'email' => ['required', 'string', 'max:255'],
         ]);
 
         $identifier = trim((string) $request->input('email'));
-        $byPhone = ! str_contains($identifier, '@');
-        if (! $byPhone && ! filter_var($identifier, FILTER_VALIDATE_EMAIL)) {
-            return $this->fail('Enter a valid email address or mobile number.', 422);
+        // Email only. Codes by text came from an unknown number, which reads
+        // as a scam, so the phone way in was removed.
+        if (! filter_var($identifier, FILTER_VALIDATE_EMAIL)) {
+            return $this->fail('Enter a valid email address.', 422);
         }
 
         /*
@@ -886,7 +887,7 @@ class AuthController extends Controller
             counted before the account is looked up, so the wait says
             nothing about whether it exists.
         */
-        $scope = 'reset:' . ($byPhone ? substr(preg_replace('/\D/', '', $identifier), -10) : strtolower($identifier));
+        $scope = 'reset:' . strtolower($identifier);
         if ($wait = \App\Support\CodeLimiter::wait($scope)) {
             return \App\Support\CodeLimiter::refuse($wait);
         }
@@ -901,12 +902,10 @@ class AuthController extends Controller
         // would land on a stranger's phone.
         $genericResponse = fn () => $this->ok(
             ['resend_in' => \App\Support\CodeLimiter::WAIT_SECONDS],
-            $byPhone
-                ? 'If that number is confirmed on a KAYA account, we texted it a reset code.'
-                : 'If an account exists for that email, we have sent a reset code.'
+            'If an account exists for that email, we have sent a reset code.'
         );
 
-        if (! $user || ($byPhone && (! $user->phone_verified_at || ! $sms->isConfigured()))) {
+        if (! $user) {
             return $genericResponse();
         }
 
@@ -918,16 +917,6 @@ class AuthController extends Controller
         $user->password_reset_expires_at = now()->addMinutes(15);
         $user->password_reset_attempts = 0;
         $user->save();
-
-        if ($byPhone) {
-            try {
-                $sms->send($user->phone, "KAYA: {$resetCode} is your password reset code. It expires in 15 minutes. Never share this code.");
-            } catch (\RuntimeException $e) {
-                return $this->fail('We could not text the code right now. Please try again shortly, or use your email.', 503);
-            }
-
-            return $genericResponse();
-        }
 
         try {
             Mail::to($user->email)->send(new PasswordResetMail($user->name ?? 'User', $resetCode));

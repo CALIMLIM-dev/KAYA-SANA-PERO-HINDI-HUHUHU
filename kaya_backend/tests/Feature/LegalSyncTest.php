@@ -27,6 +27,6 @@ class LegalSyncTest extends TestCase
     public function the_pages_show_the_new_sections(): void
     {
         $this->get('/terms')->assertOk()->assertSee('Your Account and Recovery')->assertSee('KAYA Support');
-        $this->get('/privacy')->assertOk()->assertSee('textbee')->assertSee('Clipboard');
+        $this->get('/privacy')->assertOk()->assertSee('Semaphore')->assertSee('Clipboard');
     }
 }
