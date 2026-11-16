@@ -24,7 +24,8 @@
 @php
     // "1 worker", "2 workers" - the old rows said "1 workers".
     $count = fn (int $n, string $one, ?string $many = null) => $n . ' ' . ($n === 1 ? $one : ($many ?? $one . 's'));
-    $keep = fn (array $params) => array_filter($params + ['q' => $q !== '' ? $q : null], fn ($v) => $v !== null);
+    $kind = request('kind') === 'private' || (! request()->has('kind') && $selected?->is_custom) ? 'private' : 'kaya';
+    $keep = fn (array $params) => array_filter($params + ['q' => $q !== '' ? $q : null, 'kind' => $kind], fn ($v) => $v !== null);
     // Hiding, merging and deleting are the owner's (decision D3); a
     // Sub-admin adds and renames. The routes enforce it; this only stops
     // offering what would be refused.
@@ -83,19 +84,23 @@
         </p>
 
         @php
-            // KAYA's own categories first, then the private ones people made.
-            $groups = [
-                'KAYA Categories' => $listed->where('is_custom', false)->values(),
-                'Private Categories' => $listed->where('is_custom', true)->values(),
-            ];
+            // Two separate lists, one shown at a time.
+            $kayaList = $listed->where('is_custom', false)->values();
+            $privateList = $listed->where('is_custom', true)->values();
+            $group = $kind === 'private' ? $privateList : $kayaList;
         @endphp
-        @foreach ($groups as $heading => $group)
-            <p class="px-4 py-2 bg-slate-50 border-b border-slate-100 text-[11px] font-semibold uppercase tracking-wide text-slate-500">
-                {{ $heading }} <span class="ml-1 font-normal tabular-nums">{{ $group->count() }}</span>
-            </p>
-            @if ($heading === 'Private Categories')
-                <p class="px-4 py-2 border-b border-slate-100 text-xs text-slate-500">Made by workers and employers. Only the person who made one can pick it.</p>
-            @endif
+        <div class="flex border-b border-slate-200" role="tablist" aria-label="Which categories">
+            @foreach (['kaya' => ['KAYA Categories', $kayaList->count()], 'private' => ['Private Categories', $privateList->count()]] as $key => [$label, $total])
+                <a href="{{ route('admin.categories.index', array_filter(['q' => $q !== '' ? $q : null, 'kind' => $key])) }}"
+                   role="tab" @if ($kind === $key) aria-selected="true" @endif
+                   class="flex-1 px-3 py-2.5 text-center text-sm font-medium border-b-2 -mb-px {{ $kind === $key ? 'border-blue-600 text-blue-700 bg-white' : 'border-transparent text-slate-500 hover:text-slate-700 bg-slate-50' }}">
+                    {{ $label }} <span class="ml-1 text-xs text-slate-400 tabular-nums">{{ $total }}</span>
+                </a>
+            @endforeach
+        </div>
+        @if ($kind === 'private')
+            <p class="px-4 py-2 border-b border-slate-100 text-xs text-slate-500">Made by workers and employers. Only the person who made one can pick it.</p>
+        @endif
         @forelse ($group as $category)
             @php $open = $selected && $selected->id === $category->id; @endphp
             <a href="{{ route('admin.categories.index', $keep(['category' => $category->id])) }}"
@@ -123,7 +128,6 @@
                 @if ($q === '') None yet. @else None match &ldquo;{{ $q }}&rdquo;. @endif
             </p>
         @endforelse
-        @endforeach
     </nav>
 
     {{-- The open category. --}}

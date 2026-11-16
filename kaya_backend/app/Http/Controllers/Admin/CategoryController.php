@@ -87,7 +87,10 @@ class CategoryController extends Controller
         ];
         $linkLog = SkillLinkLog::latest('id')->take(50)->get();
 
-        $selected = $categories->firstWhere('id', (int) $request->query('category')) ?? $listed->first();
+        // Two separate lists: KAYA's own, and the private ones people made.
+        $selected = $categories->firstWhere('id', (int) $request->query('category'));
+        $kind = $request->query('kind') === 'private' || (! $request->has('kind') && $selected?->is_custom) ? 'private' : 'kaya';
+        $selected ??= $listed->where('is_custom', $kind === 'private')->first();
         $selectedInUse = $selected?->isInUse() ?? false;
 
         return view('admin.categories.index', compact(

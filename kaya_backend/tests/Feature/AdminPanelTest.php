@@ -339,7 +339,11 @@ class AdminPanelTest extends TestCase
         \App\Models\WorkerSkill::create(['user_id' => $worker->id, 'skill_name' => 'Embalming', 'category_id' => $used->id]);
         $this->actingAs($admin)->get("/admin/categories?category={$used->id}")->assertOk()
             ->assertSee('Move To...')->assertSee('Delete Without Moving')
-            ->assertSee('KAYA Categories')->assertSee('Private Categories');
+            ->assertSee('KAYA Categories')->assertSee('Private Categories')->assertSee('Mortician/Embalmer');
+        $plumbing = Category::create(['name' => 'Plumbing Works', 'is_active' => true]);
+        // Each list on its own: KAYA's does not show the private one.
+        $this->actingAs($admin)->get('/admin/categories?kind=kaya')->assertOk()->assertSee('Plumbing Works')->assertDontSee('Mortician/Embalmer');
+        $this->actingAs($admin)->get('/admin/categories?kind=private')->assertOk()->assertSee('Mortician/Embalmer')->assertSee('Made by workers and employers');
 
         // Deleted straight: the category goes, the worker keeps the words they typed.
         $this->actingAs($admin)->post("/admin/categories/{$used->id}/delete")->assertRedirect(route('admin.categories.index'));
