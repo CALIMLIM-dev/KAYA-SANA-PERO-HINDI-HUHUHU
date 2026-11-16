@@ -82,7 +82,21 @@
             @endif
         </p>
 
-        @forelse ($listed as $category)
+        @php
+            // KAYA's own categories first, then the private ones people made.
+            $groups = [
+                'KAYA Categories' => $listed->where('is_custom', false)->values(),
+                'Private Categories' => $listed->where('is_custom', true)->values(),
+            ];
+        @endphp
+        @foreach ($groups as $heading => $group)
+            <p class="px-4 py-2 bg-slate-50 border-b border-slate-100 text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+                {{ $heading }} <span class="ml-1 font-normal tabular-nums">{{ $group->count() }}</span>
+            </p>
+            @if ($heading === 'Private Categories')
+                <p class="px-4 py-2 border-b border-slate-100 text-xs text-slate-500">Made by workers and employers. Only the person who made one can pick it.</p>
+            @endif
+        @forelse ($group as $category)
             @php $open = $selected && $selected->id === $category->id; @endphp
             <a href="{{ route('admin.categories.index', $keep(['category' => $category->id])) }}"
                @if ($open) aria-current="true" @endif
@@ -105,10 +119,11 @@
                 </span>
             </a>
         @empty
-            <p class="px-4 py-10 text-sm text-slate-500 text-center">
-                No category or skill matches &ldquo;{{ $q }}&rdquo;.
+            <p class="px-4 py-4 text-sm text-slate-500 text-center">
+                @if ($q === '') None yet. @else None match &ldquo;{{ $q }}&rdquo;. @endif
             </p>
         @endforelse
+        @endforeach
     </nav>
 
     {{-- The open category. --}}
@@ -262,6 +277,15 @@
                                 Delete Category
                             </button>
                         </div>
+                    </form>
+                    @php $affectedWorkers = $workersByCategory[$selected->id] ?? 0; @endphp
+                    <form method="POST" action="{{ route('admin.categories.destroy', $selected) }}" class="mt-3"
+                          onsubmit="return confirm('Delete {{ addslashes($selected->name) }} without moving anything? {{ $selected->jobs_count }} {{ $selected->jobs_count === 1 ? 'job' : 'jobs' }} and {{ $affectedWorkers }} {{ $affectedWorkers === 1 ? 'worker' : 'workers' }} will have no category. Workers keep their skill words. This cannot be undone.')">
+                        @csrf
+                        <p class="text-xs text-slate-500">Or delete it straight. Its jobs and workers stay, without a category.</p>
+                        <button class="mt-2 px-3 py-2 border border-red-300 text-red-600 rounded-lg text-sm font-medium hover:bg-red-50">
+                            Delete Without Moving
+                        </button>
                     </form>
                 @else
                     <form method="POST" action="{{ route('admin.categories.destroy', $selected) }}" class="mt-2"

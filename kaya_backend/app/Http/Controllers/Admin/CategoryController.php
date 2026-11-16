@@ -181,19 +181,37 @@ class CategoryController extends Controller
     }
 
     /** A category nothing uses. One in use is moved into another first - see merge. */
+    /*
+        Deletes a category outright, in use or not.
+
+        Jobs and worker profiles keep everything but the category (the
+        database sets it to none). A worker's skills would go with the
+        category's own skills, so they are unhooked first and stay on the
+        profile as the words the worker typed. Custom categories that
+        pointed at this one stop pointing. To keep the people under a
+        category, Move and Delete (merge) is still there.
+    */
     public function destroy(Category $category)
     {
-        if ($category->isInUse()) {
-            return back()->with('error', "{$category->name} is still used. Choose where its jobs and workers go, then delete it.");
-        }
-
         $name = $category->name;
-        // Its skills go with it; nobody uses them either.
-        $category->delete();
+        $jobs = $category->jobs()->count();
+        $workers = WorkerSkill::where('category_id', $category->id)->distinct()->count('user_id');
 
-        AdminAction::record('category.deleted', 'category', null, "Deleted category {$name}");
+        DB::transaction(function () use ($category) {
+            $skillIds = $category->skills()->pluck('id');
+            WorkerSkill::where('category_id', $category->id)->update(['category_id' => null]);
+            WorkerSkill::whereIn('skill_id', $skillIds)->update(['skill_id' => null]);
+            Category::where('maps_to_id', $category->id)->update(['maps_to_id' => null]);
+            $category->delete();
+        });
 
-        return redirect()->route('admin.categories.index')->with('success', "{$name} deleted.");
+        AdminAction::record('category.deleted', 'category', null, "Deleted category {$name} ({$jobs} jobs, {$workers} workers)");
+
+        $left = $jobs + $workers > 0
+            ? " {$jobs} " . ($jobs === 1 ? 'job' : 'jobs') . " and {$workers} " . ($workers === 1 ? 'worker' : 'workers') . ' no longer have a category.'
+            : '';
+
+        return redirect()->route('admin.categories.index')->with('success', "{$name} deleted.{$left}");
     }
 
     public function storeSkill(Request $request, Category $category)

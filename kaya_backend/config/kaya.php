@@ -425,7 +425,8 @@ return [
         'link_model'      => env('SKILL_LINK_MODEL', 'gemini-3.5-flash-lite'),
         // Asked first, through OmniRoute; link_model above is the direct fallback.
         'link_combo'      => env('SKILL_LINK_COMBO', 'kaya-link'),
-        'link_timeout'    => (int) env('SKILL_LINK_TIMEOUT', 15),
+        // The prompt lists every skill, so a thinking model needs a while.
+        'link_timeout'    => (int) env('SKILL_LINK_TIMEOUT', 40),
 
         // Pinned deliberately. A provider silently moving the model would
         // make every stored vector incomparable with every new one, and

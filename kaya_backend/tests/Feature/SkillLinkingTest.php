@@ -72,6 +72,36 @@ class SkillLinkingTest extends TestCase
         return $job->fresh();
     }
 
+    /*
+        Found on live during the population: Gemini's free quota ran out and
+        every word kaya-link could not answer failed with a 429. The stored
+        vectors (Gemini's, or the Jina backup's) still know what a word
+        means, so the link is made from them.
+    */
+    #[Test]
+    public function with_gemini_out_of_quota_the_vectors_make_the_link(): void
+    {
+        config(['kaya.matching.embeddings_enabled' => true, 'kaya.matching.similarity_threshold' => 0.8]);
+        $model = (string) config('kaya.matching.model');
+        \App\Models\SkillVector::create(['term' => 'pipe leak repair', 'model' => $model, 'dimensions' => 3, 'values' => [0.9, 0.1, 0.0]]);
+        \App\Models\SkillVector::create(['term' => 'ayos ng tagas sa lababo', 'model' => $model, 'dimensions' => 3, 'values' => [0.88, 0.14, 0.02]]);
+        $this->queue[] = Http::response(['error' => ['message' => 'You exceeded your current quota']], 429);
+        $worker = $this->worker('Ayos ng tagas sa lababo');
+
+        $this->assertTrue(app(SkillLinker::class)->linkWorkerSkill($worker->skills->first()));
+        $this->assertSame([$this->pipe->id], SkillLink::meaningOf('ayos ng tagas sa lababo'));
+    }
+
+    #[Test]
+    public function with_no_model_and_no_vectors_the_word_waits_to_be_tried_again(): void
+    {
+        $this->queue[] = Http::response(['error' => ['message' => 'You exceeded your current quota']], 429);
+        $worker = $this->worker('Ayos ng tagas sa lababo');
+
+        $this->assertFalse(app(SkillLinker::class)->linkWorkerSkill($worker->skills->first()));
+        $this->assertDatabaseHas('skill_link_logs', ['term' => 'ayos ng tagas sa lababo', 'outcome' => 'failed']);
+    }
+
     #[Test]
     public function a_tagalog_word_is_linked_and_matches_the_english_skill(): void
     {

@@ -318,20 +318,29 @@ class SkillLinker
                     ],
                 ]);
         } catch (\Throwable $e) {
-            $this->lastMs = (int) ((microtime(true) - $started) * 1000);
-            Log::warning('[skill links] request failed for "' . $typed . '": ' . $e->getMessage());
-            $this->log(SkillMatcher::normalise($typed), 'failed', [], $e->getMessage());
-            return null;
+            $response = null;
+            $why = $e->getMessage();
         }
 
         $this->lastMs = (int) ((microtime(true) - $started) * 1000);
-        $answer = json_decode((string) data_get($response->json(), 'candidates.0.content.parts.0.text'), true);
+        $answer = $response ? json_decode((string) data_get($response->json(), 'candidates.0.content.parts.0.text'), true) : null;
 
-        if (! $response->successful() || ! is_array($answer)) {
-            Log::warning('[skill links] HTTP ' . $response->status() . ' for "' . $typed . '": ' . mb_substr($response->body(), 0, 300));
-            $this->log(SkillMatcher::normalise($typed), 'failed', [], 'HTTP ' . $response->status() . ': '
-                . (data_get($response->json(), 'error.message') ?? mb_substr($response->body(), 0, 150)));
-            return null;
+        if (! $response?->successful() || ! is_array($answer)) {
+            $why ??= 'HTTP ' . $response->status() . ': ' . (data_get($response->json(), 'error.message') ?? mb_substr($response->body(), 0, 150));
+            Log::warning('[skill links] Gemini failed for "' . $typed . '": ' . mb_substr($why, 0, 300));
+
+            /*
+                Both models out (a Gemini quota runs dry on a busy day): the
+                stored vectors still know what words mean. Gemini's, or the
+                Jina backup's when Gemini has none - the same comparison
+                matching uses. Nothing near enough is no answer, and the word
+                is tried again later.
+            */
+            $answer = $this->byVectors($typed, $skills, $trades);
+            if ($answer === null) {
+                $this->log(SkillMatcher::normalise($typed), 'failed', [], 'kaya-link gave no answer; Gemini ' . mb_substr($why, 0, 140));
+                return null;
+            }
         }
         } else {
             $this->lastMs = (int) ((microtime(true) - $started) * 1000);
@@ -352,6 +361,45 @@ class SkillLinker
             'is_skill'    => (bool) ($answer['is_skill'] ?? false),
             'skill_ids'   => $ids,
             'category_id' => $categoryId === false ? null : (int) $categoryId,
+        ];
+    }
+
+    /**
+     * The catalogue skills nearest in meaning, by stored vectors (Gemini's,
+     * else the Jina backup's). Null when no vector could be had at all.
+     */
+    private function byVectors(string $typed, $skills, $trades): ?array
+    {
+        $embeddings = app(Embeddings::class);
+        if (! $embeddings->enabled()) {
+            return null;
+        }
+        $embeddings->ensure($typed);
+
+        $threshold = (float) config('kaya.matching.similarity_threshold');
+        $scored = [];
+        $any = false;
+        foreach ($skills as $skill) {
+            $similarity = $embeddings->similarity($typed, $skill->name);
+            if ($similarity === null) {
+                continue;
+            }
+            $any = true;
+            if ($similarity >= $threshold) {
+                $scored[$skill->id] = $similarity;
+            }
+        }
+        if (! $any) {
+            return null;
+        }
+        arsort($scored);
+        $ids = array_slice(array_keys($scored), 0, self::MAX_LINKS);
+        $top = $ids ? $skills->firstWhere('id', $ids[0]) : null;
+
+        return [
+            'is_skill'  => true,
+            'skill_ids' => $ids,
+            'trade'     => $top && $top->category && $trades->contains($top->category->name) ? $top->category->name : '',
         ];
     }
 

@@ -333,15 +333,18 @@ class AdminPanelTest extends TestCase
         $this->assertDatabaseMissing('categories', ['id' => $junk->id]);
         $this->assertDatabaseMissing('skills', ['name' => 'qwerty']);
 
-        // In use: deleting outright would cascade the worker's skills away.
+        // In use: offered both ways - move first, or delete straight.
         $used = Category::create(['name' => 'Mortician/Embalmer', 'is_active' => true, 'is_custom' => true]);
         $worker = User::factory()->create();
         \App\Models\WorkerSkill::create(['user_id' => $worker->id, 'skill_name' => 'Embalming', 'category_id' => $used->id]);
+        $this->actingAs($admin)->get("/admin/categories?category={$used->id}")->assertOk()
+            ->assertSee('Move To...')->assertSee('Delete Without Moving')
+            ->assertSee('KAYA Categories')->assertSee('Private Categories');
 
-        $this->actingAs($admin)->post("/admin/categories/{$used->id}/delete")->assertSessionHas('error');
-        $this->assertDatabaseHas('categories', ['id' => $used->id]);
-        $this->assertDatabaseHas('worker_skills_new', ['user_id' => $worker->id, 'skill_name' => 'Embalming']);
-        $this->actingAs($admin)->get("/admin/categories?category={$used->id}")->assertOk()->assertSee('Move To...');
+        // Deleted straight: the category goes, the worker keeps the words they typed.
+        $this->actingAs($admin)->post("/admin/categories/{$used->id}/delete")->assertRedirect(route('admin.categories.index'));
+        $this->assertDatabaseMissing('categories', ['id' => $used->id]);
+        $this->assertDatabaseHas('worker_skills_new', ['user_id' => $worker->id, 'skill_name' => 'Embalming', 'category_id' => null]);
     }
 
     #[Test]
