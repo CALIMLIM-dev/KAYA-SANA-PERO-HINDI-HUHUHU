@@ -258,6 +258,8 @@ class JobProvider with ChangeNotifier {
     // silently skip exactly the jobs that omitted it.
     required DateTime startDate,
     DateTime? endDate,
+    // Optional: when the work should start, shown on the job.
+    DateTime? workStartsOn,
     String? startTime,
     // How many people the job is for. One unless the employer says more.
     int workersNeeded = 1,
@@ -291,6 +293,7 @@ class JobProvider with ChangeNotifier {
         // being in the past.
         'start_date': ymd(startDate),
         if (endDate != null) 'end_date': ymd(endDate),
+        if (workStartsOn != null) 'work_starts_on': ymd(workStartsOn),
         'start_time': ?startTime,
         'photos': await Future.wait(photos.map(
           (f) => MultipartFile.fromFile(f.path, filename: f.path.split(Platform.pathSeparator).last),

@@ -197,6 +197,29 @@ class JobScheduleTest extends TestCase
             ->assertCreated();
     }
 
+    public function test_an_estimated_start_is_kept_apart_from_the_post_dates(): void
+    {
+        $employer = $this->employer();
+        $starts = now()->addDays(12)->toDateString();
+
+        // Later than the post closes is fine: they are different things.
+        $this->actingAs($employer, 'sanctum')
+            ->post('/api/v1/jobs', $this->payload(['end_date' => now()->addDays(3)->toDateString(), 'work_starts_on' => $starts]))
+            ->assertCreated()
+            ->assertJsonPath('data.work_starts_on', $starts);
+
+        $job = JobPost::first();
+        $this->assertSame($starts, $job->work_starts_on->toDateString());
+        $this->assertNull($job->start_date, 'the old start date stays unused');
+
+        // Cleared on edit, and never in the past. The edit form sends every field.
+        $form = ['title' => $job->title, 'description' => $job->description, 'category_id' => $job->category_id, 'location' => $job->location];
+        $this->actingAs($employer, 'sanctum')->putJson("/api/v1/jobs/{$job->id}", $form + ['work_starts_on' => null])->assertOk();
+        $this->assertNull($job->fresh()->work_starts_on);
+        $this->actingAs($employer, 'sanctum')->putJson("/api/v1/jobs/{$job->id}", $form + ['work_starts_on' => now()->subDay()->toDateString()])
+            ->assertStatus(422);
+    }
+
     public function test_the_deadline_is_stored_and_sent_and_priced_from_today(): void
     {
         $employer = $this->employer();

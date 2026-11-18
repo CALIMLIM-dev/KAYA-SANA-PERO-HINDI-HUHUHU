@@ -36,6 +36,53 @@ class WorkRecord
     }
 
     /**
+     * The worker's numbers for a whole list at once (Applicants, Suggested
+     * Workers): jobs completed, jobs not completed against them, success
+     * rate, and every review they got as a worker. Same rules as
+     * forWorker, in three queries for any number of people.
+     *
+     * The lists read `jobs_completed` off the profile, which nothing ever
+     * set, so every résumé said 0 Jobs Done.
+     *
+     * @param  list<int>  $ids
+     * @return array<int, array{jobs_completed: int, jobs_unsuccessful: int, success_rate: ?int, reviews_total: int}>
+     */
+    public function forWorkers(array $ids): array
+    {
+        if ($ids === []) {
+            return [];
+        }
+
+        $rows = Application::whereIn('worker_id', $ids)
+            ->where(fn ($q) => $q->where('status', 'completed')
+                ->orWhere(fn ($q) => $q->where('status', 'unsuccessful')
+                    ->where(fn ($q) => $q->whereNull('fault')->orWhere('fault', 'worker'))))
+            ->selectRaw('worker_id, status, COUNT(*) as total')
+            ->groupBy('worker_id', 'status')
+            ->get();
+
+        $reviews = \App\Models\Review::whereIn('reviewee_id', $ids)
+            ->where('reviewee_role', 'worker')
+            ->selectRaw('reviewee_id, COUNT(*) as total')
+            ->groupBy('reviewee_id')
+            ->pluck('total', 'reviewee_id');
+
+        $out = [];
+        foreach ($ids as $id) {
+            $done = (int) ($rows->first(fn ($r) => $r->worker_id == $id && $r->status === 'completed')?->total ?? 0);
+            $failed = (int) ($rows->first(fn ($r) => $r->worker_id == $id && $r->status === 'unsuccessful')?->total ?? 0);
+            $out[$id] = [
+                'jobs_completed'    => $done,
+                'jobs_unsuccessful' => $failed,
+                'success_rate'      => $done + $failed === 0 ? null : (int) round($done / ($done + $failed) * 100),
+                'reviews_total'     => (int) ($reviews[$id] ?? 0),
+            ];
+        }
+
+        return $out;
+    }
+
+    /**
      * The employer's side: hires on jobs they posted.
      */
     public function forEmployer(User $user): array

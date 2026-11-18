@@ -12,12 +12,12 @@ class Job {
   final double? salaryMax;
   final String salaryPeriod; // 'daily', 'hourly' or 'project' (shown as Contract)
 
-  /// The word after the pay: "₱800/day", "₱120/hr", "₱800 per contract".
+  /// The word after the pay: "₱800/day", "₱120/hr", "₱800/contract".
   /// The stored value is never shown; "/project" and "/daily" were.
   String get payUnit => switch (salaryPeriod) {
         'daily' || 'day' => '/day',
         'hourly' || 'hour' => '/hr',
-        'project' || 'contract' => ' per contract',
+        'project' || 'contract' => '/contract',
         _ => '',
       };
   final bool isUrgent;
@@ -148,6 +148,19 @@ class Job {
   final DateTime? startDate;
   final DateTime? endDate;
   final String? startTime;
+
+  /// When the employer expects the work to start, if they said. Only shown
+  /// ("Starts Nov 25") so a worker busy that day can skip it; the post's
+  /// life is [endDate] and the work day is agreed in the chat.
+  final DateTime? workStartsOn;
+
+  /// "Starts Nov 25", or null when no day was given.
+  String? get startsLabel {
+    final d = workStartsOn;
+    if (d == null) return null;
+    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    return 'Starts ${months[d.month - 1]} ${d.day}';
+  }
 
   /*
       The day the work is due, as the server settled it.
@@ -322,6 +335,7 @@ class Job {
     this.isOwnJob = false,
     this.photoUrls = const [],
     this.startDate,
+    this.workStartsOn,
     this.endDate,
     this.startTime,
     this.deadline,
@@ -365,6 +379,7 @@ class Job {
       // posted before scheduling existed have null and render without a date
       // rather than with a made-up one.
       startDate: DateTime.tryParse((json['start_date'] ?? '').toString()),
+      workStartsOn: DateTime.tryParse((json['work_starts_on'] ?? '').toString()),
       endDate: DateTime.tryParse((json['end_date'] ?? '').toString()),
       deadline: DateTime.tryParse((json['deadline'] ?? '').toString()),
       // MySQL TIME arrives as "08:30:00"; the seconds are never meaningful
@@ -514,6 +529,7 @@ class Job {
       applicantCount: applicantCount ?? this.applicantCount,
       workersNeeded: workersNeeded ?? this.workersNeeded,
       workersFilled: workersFilled ?? this.workersFilled,
+      workStartsOn: workStartsOn,
     );
   }
 }

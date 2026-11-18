@@ -244,7 +244,7 @@ class CompactJobCard extends StatelessWidget {
                 It goes in the gap the Spacer was already holding open, so the
                 card does not grow.
             */
-            if (job.scheduleLabel != null) ...[
+            if (job.scheduleLabel != null || job.startsLabel != null) ...[
               const SizedBox(height: 2),
               SizedBox(
                 height: 14,
@@ -255,7 +255,7 @@ class CompactJobCard extends StatelessWidget {
                     const SizedBox(width: 3),
                     Expanded(
                       child: Text(
-                        job.scheduleLabel!,
+                        [job.scheduleLabel, job.startsLabel].whereType<String>().join('  ·  '),
                         style: Theme.of(context).textTheme.bodySmall?.copyWith(
                           color: AppColors.neutral600,
                           fontSize: 10,

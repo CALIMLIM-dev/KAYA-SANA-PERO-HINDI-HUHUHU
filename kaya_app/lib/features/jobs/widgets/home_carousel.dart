@@ -573,7 +573,7 @@ class _SlideView extends StatelessWidget {
   Widget _jobAd(Map<String, dynamic> d) {
     final min = asDoubleOrNull(d['budget_min']);
     final max = asDoubleOrNull(d['budget_max']);
-    final unit = {'daily': '/day', 'hourly': '/hr', 'project': ' per contract'}[d['budget_period']] ?? '';
+    final unit = {'daily': '/day', 'hourly': '/hr', 'project': '/contract'}[d['budget_period']] ?? '';
     final pay = min == null && max == null
         ? null
         : '${_peso(min ?? max!)}${max != null && min != null && max != min ? ' - ${_peso(max)}' : ''}$unit';

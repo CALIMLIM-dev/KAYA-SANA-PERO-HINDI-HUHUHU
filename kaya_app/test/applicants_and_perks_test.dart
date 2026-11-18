@@ -56,7 +56,7 @@ void main() {
         'skills': ['Plumbing Repair', 'Leak Detection'],
         'category': 'Plumbing',
         'location': 'Nancayasan, Urdaneta City',
-        'experience_label': premium ? '6 years' : null,
+        'success_rate': premium ? 90 : null,
         'jobs_completed': premium ? 14 : 0,
         'is_premium': premium,
         'required_count': 2,
@@ -106,8 +106,8 @@ void main() {
 
     // The topped-up applicant is laid out in full; the free one is a name.
     expect(find.text('Ramon Villanueva'), findsOneWidget);
-    expect(find.text('6 years'), findsOneWidget);
-    expect(find.text('Experience'), findsOneWidget);
+    expect(find.text('90%'), findsOneWidget);
+    expect(find.text('Completion Rate'), findsOneWidget);
     expect(find.text('Carlo Dela Cruz'), findsOneWidget);
     expect(find.textContaining('Required skills'), findsOneWidget, reason: 'only on the full card');
 

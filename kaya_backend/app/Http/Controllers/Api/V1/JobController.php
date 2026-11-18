@@ -474,6 +474,9 @@ class JobController extends Controller
             */
             'start_date'         => ['nullable', 'date'],
             'end_date'           => ['required', 'date', 'after_or_equal:today'],
+            // Optional: when the work should start, so a worker busy that day can
+            // skip it. Not the post's life (end_date) and not the agreed work day.
+            'work_starts_on'     => ['nullable', 'date', 'after_or_equal:today', 'before_or_equal:+180 days'],
             // One by default. Ten at most: past that it is a crew with a
             // payroll, which KAYA does not run.
             'workers_needed'     => ['nullable', 'integer', 'min:1', 'max:20'],
@@ -721,7 +724,15 @@ class JobController extends Controller
 
         $experience = app(\App\Services\ExperienceTotal::class);
 
-        $scored = $candidates->map(function ($profile) use ($job, $hiredBefore, $experience) {
+        // Real jobs done, success rate and reviews, in one go; and who is
+        // already booked on the job's Estimated Start.
+        $records = app(\App\Services\WorkRecord::class)->forWorkers($candidates->pluck('user_id')->all());
+        $busy = \App\Models\ScheduleProposal::busyOn($job->work_starts_on, $candidates->pluck('user_id'));
+
+        $scored = $candidates->map(function ($profile) use ($job, $hiredBefore, $experience, $records, $busy) {
+            $record = $records[$profile->user_id];
+            // Read by the score and "New on KAYA"; nothing set it before.
+            $profile->setAttribute('jobs_completed', $record['jobs_completed']);
             $match = \App\Services\JobMatchService::score($job, $profile);
 
             return [
@@ -766,7 +777,12 @@ class JobController extends Controller
                 // two years, not four. See ExperienceTotal.
                 'experience_label' => $experience->label($profile->experiences),
 
-                'jobs_completed' => (int) $profile->jobs_completed,
+                'jobs_completed' => $record['jobs_completed'],
+                'success_rate'   => $record['success_rate'],
+                'reviews_total'  => $record['reviews_total'],
+                // Their barangay and town, as the Applicants list shows it.
+                'location'       => $profile->location,
+                'busy_that_day'  => isset($busy[$profile->user_id]),
                 'times_hired_before' => (int) ($hiredBefore[$profile->user_id] ?? 0),
                 /*
                     Banded, the same as browsing workers.
@@ -788,7 +804,9 @@ class JobController extends Controller
         // A same-category worker always clears this, even with no exact skill
         // overlap — they can still do the job.
         ->filter(fn ($m) => $m['match_score'] >= \App\Services\JobMatchService::MIN_VISIBLE_SCORE)
-        ->sortByDesc('rank_score')
+        // Best match first; someone already booked on the start day goes after
+        // everyone who is free, still in their own order.
+        ->sortBy([['busy_that_day', 'asc'], ['rank_score', 'desc']])
         ->values();
 
         /*
@@ -1241,6 +1259,9 @@ class JobController extends Controller
             */
             'start_date'         => ['nullable', 'date'],
             'end_date'           => ['nullable', 'date'],
+            // Optional: when the work should start, so a worker busy that day can
+            // skip it. Not the post's life (end_date) and not the agreed work day.
+            'work_starts_on'     => ['nullable', 'date', 'after_or_equal:today', 'before_or_equal:+180 days'],
             'workers_needed'     => ['nullable', 'integer', 'min:1', 'max:20'],
         ], [
             'budget_max.gte' => 'The maximum budget must be greater than or equal to the minimum budget.',

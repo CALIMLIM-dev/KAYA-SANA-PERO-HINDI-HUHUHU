@@ -23,6 +23,8 @@ class JobPost extends Model
         'min_experience_years',
         // When the work happens. end_date null means a single day.
         'start_date', 'end_date', 'start_time',
+        // The day the work is expected to start, shown on the job. Optional.
+        'work_starts_on',
     ];
 
     protected $casts = [
@@ -44,6 +46,7 @@ class JobPost extends Model
         // start time nobody chose.
         'start_date'    => 'date:Y-m-d',
         'end_date'      => 'date:Y-m-d',
+        'work_starts_on' => 'date:Y-m-d',
         // datetime, unlike the two above: this is a moment the sweep
         // compares against now(), not a calendar day anybody picked.
         'expires_at'       => 'datetime',

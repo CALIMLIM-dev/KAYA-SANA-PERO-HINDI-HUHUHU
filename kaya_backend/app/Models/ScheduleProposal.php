@@ -133,4 +133,29 @@ class ScheduleProposal extends Model
     {
         return '₱' . number_format($centavos / 100, $centavos % 100 === 0 ? 0 : 2);
     }
+
+    /**
+     * Which of these workers already agreed to work on $date: an accepted
+     * schedule in one of their chats. For a job's Estimated Start, so the
+     * lists can say "Busy on Nov 25" and put them lower.
+     *
+     * @param  iterable<int>  $workerIds
+     * @return array<int, true>
+     */
+    public static function busyOn(?\DateTimeInterface $date, iterable $workerIds): array
+    {
+        $ids = collect($workerIds)->filter()->unique()->values();
+        if ($date === null || $ids->isEmpty()) {
+            return [];
+        }
+
+        return static::query()
+            ->join('conversations', 'conversations.id', '=', 'schedule_proposals.conversation_id')
+            ->where('schedule_proposals.status', 'accepted')
+            ->whereDate('schedule_proposals.scheduled_date', $date->format('Y-m-d'))
+            ->whereIn('conversations.worker_id', $ids)
+            ->pluck('conversations.worker_id')
+            ->mapWithKeys(fn ($id) => [(int) $id => true])
+            ->all();
+    }
 }

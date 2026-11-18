@@ -73,7 +73,10 @@ class MatchedWorkerCard extends StatelessWidget {
 
     final hiredBefore = asIntOrNull(row['times_hired_before']) ?? 0;
     final jobsDone = asIntOrNull(row['jobs_completed']) ?? 0;
-    final experience = row['experience_label'] as String?;
+    // Finished hires out of all that ended, in place of Experience; null before any ended.
+    final successRate = asIntOrNull(row['success_rate']);
+    final experience = successRate == null ? null : '$successRate% completed';
+    final busyThatDay = row['busy_that_day'] == true;
 
     final busy = inviting;
     final invited = alreadyInvited;
@@ -140,6 +143,9 @@ class MatchedWorkerCard extends StatelessWidget {
                       [
                         if ((row['category'] as String?)?.isNotEmpty == true)
                           row['category'] as String,
+                        // Their area; the distance follows, once.
+                        if ((row['location'] as String?)?.isNotEmpty == true)
+                          row['location'] as String,
                         if (distanceText(row['distance_label'] as String?,
                                 asDoubleOrNull(row['distance_km'])) !=
                             null)
@@ -159,7 +165,8 @@ class MatchedWorkerCard extends StatelessWidget {
                           const SizedBox(width: 3),
                           Text(
                             '${double.tryParse('${row['rating_avg']}')?.toStringAsFixed(1) ?? '-'}'
-                            '  (${row['rating_count']})',
+                            // Every review, not the count of people (one vote each).
+                            '  ·  ${row['reviews_total'] ?? row['rating_count']} Reviews',
                             style: const TextStyle(
                                 fontSize: 12.5, color: AppColors.neutral600),
                           ),
@@ -208,6 +215,17 @@ class MatchedWorkerCard extends StatelessWidget {
                 height: 1.35,
                 color: AppColors.neutral600,
               ),
+            ),
+          ],
+
+          if (busyThatDay) ...[
+            const SizedBox(height: 8),
+            const Row(
+              children: [
+                Icon(Icons.event_busy_outlined, size: 14, color: AppColors.neutral500),
+                SizedBox(width: 6),
+                Text('Busy on the start day', style: TextStyle(fontSize: 12.5, color: AppColors.neutral600)),
+              ],
             ),
           ],
 

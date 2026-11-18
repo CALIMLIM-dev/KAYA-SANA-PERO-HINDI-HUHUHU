@@ -430,12 +430,14 @@ class JobMatchService
             return [0.0, null];
         }
 
+        /*
+            Scored, but not worded. "About 3.2 km away" repeated the card's
+            own banded "Under 5 km" and gave away the closer figure the band
+            exists to hide. The distance shows once, as distance_label.
+        */
         foreach (self::DISTANCE_BANDS as [$limit, $share]) {
             if ($km <= $limit) {
-                return [
-                    self::WEIGHT_LOCATION * $share,
-                    sprintf('About %s km away', $km < 10 ? round($km, 1) : round($km)),
-                ];
+                return [self::WEIGHT_LOCATION * $share, null];
             }
         }
 

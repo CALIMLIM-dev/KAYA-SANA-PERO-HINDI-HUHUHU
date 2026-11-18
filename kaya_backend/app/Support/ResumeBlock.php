@@ -20,8 +20,11 @@ use App\Services\ExperienceTotal;
 */
 final class ResumeBlock
 {
-    public static function fields(User $worker, ?WorkerProfile $profile, ExperienceTotal $experience): array
+    /** @param array|null $record this worker's WorkRecord::forWorkers row; looked up when not given */
+    public static function fields(User $worker, ?WorkerProfile $profile, ExperienceTotal $experience, ?array $record = null): array
     {
+        $record ??= app(\App\Services\WorkRecord::class)->forWorkers([$worker->id])[$worker->id];
+
         return [
             'worker_id'           => $worker->id,
             'worker_name'         => $worker->name,
@@ -38,7 +41,12 @@ final class ResumeBlock
             'licenses'            => $profile?->licenses->pluck('license_name')->filter()->values() ?? [],
             'certifications'      => $profile?->certifications->pluck('certification_name')->filter()->values() ?? [],
             'experience_label'    => $profile ? $experience->label($profile->experiences) : null,
-            'jobs_completed'      => (int) ($profile?->jobs_completed ?? 0),
+            // From finished hires (WorkRecord), not a profile field nothing set.
+            'jobs_completed'      => $record['jobs_completed'],
+            // Finished hires out of all that ended; null before any ended.
+            'success_rate'        => $record['success_rate'],
+            // Every review as a worker. worker_rating_count counts people (one vote each).
+            'reviews_total'       => $record['reviews_total'],
             'is_new'              => $profile ? \App\Services\JobMatchService::isNew($profile) : true,
         ];
     }

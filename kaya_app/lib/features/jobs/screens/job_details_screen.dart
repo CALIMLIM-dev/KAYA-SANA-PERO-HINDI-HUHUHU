@@ -279,6 +279,9 @@ class _JobDetailsScreenState extends State<JobDetailsScreen>
                             ? job.scheduleLabel!
                             : '${job.scheduleLabel!}, ${job.phaseLabel!}',
                       ),
+                    // The day the employer expects the work to start, if given.
+                    if (job.startsLabel != null)
+                      _detailRow('Estimated Start', job.startsLabel!.replaceFirst('Starts ', '')),
                     if (job.category != null)
                       _detailRow('Category', job.category!),
                     // A job for several people says so, and how many spots

@@ -559,10 +559,15 @@ class ApplicationController extends Controller
         $premium = CreditTransaction::toppedUpAmong($applications->pluck('worker_id'))
             ->flip();
 
+        // Jobs done, success rate and reviews for the whole list at once.
+        $records = app(\App\Services\WorkRecord::class)->forWorkers($applications->pluck('worker_id')->unique()->values()->all());
+        // Already booked on the job's Estimated Start: marked, and listed after the free ones.
+        $busy = \App\Models\ScheduleProposal::busyOn($job->work_starts_on, $applications->pluck('worker_id'));
+
         $experience = app(\App\Services\ExperienceTotal::class);
 
         $applicants = $applications
-            ->map(function ($app) use ($conversations, $reviewedByMe, $reviewedMe, $previousHires, $job, $premium, $experience) {
+            ->map(function ($app) use ($conversations, $reviewedByMe, $reviewedMe, $previousHires, $job, $premium, $experience, $records, $busy) {
                 $worker  = $app->worker;
                 $profile = $worker->workerProfile;
 
@@ -579,6 +584,8 @@ class ApplicationController extends Controller
                     of them without a second trip to the database.
                 */
                 $profile?->setRelation('user', $worker);
+                // Read by the score and "New on KAYA"; nothing set it before.
+                $profile?->setAttribute('jobs_completed', $records[$worker->id]['jobs_completed'] ?? 0);
 
                 $match = $profile
                     ? \App\Services\JobMatchService::score($job, $profile)
@@ -615,7 +622,7 @@ class ApplicationController extends Controller
                         ->actions($app->setRelation('job', $job), 'employer'),
                     // Who they are, and the resume block. Shared with the
                     // worker's own preview of this card - see ResumeBlock.
-                    ...\App\Support\ResumeBlock::fields($worker, $profile, $experience),
+                    ...\App\Support\ResumeBlock::fields($worker, $profile, $experience, $records[$worker->id] ?? null),
 
                     // For the order only. The card shows no percentage.
                     'match_score'           => (int) $match['score'],
@@ -643,6 +650,9 @@ class ApplicationController extends Controller
                     'matched_pairs'         => $match['matched_pairs'] ?? [],
                     'same_trade'            => (bool) ($match['same_trade'] ?? false),
                     'distance_label'        => \App\Support\DistanceBand::label($match['distance_km'] ?? null),
+                    // Banded like the label, for the Nearest sort.
+                    'distance_km'           => \App\Support\DistanceBand::bucket($match['distance_km'] ?? null),
+                    'busy_that_day'         => isset($busy[$worker->id]),
                 ];
             })
             /*
@@ -650,7 +660,7 @@ class ApplicationController extends Controller
                 applicants equal on both keep the newest-first order they
                 arrived in.
             */
-            ->sortByDesc('rank_score')
+            ->sortBy([['busy_that_day', 'asc'], ['rank_score', 'desc']])
             ->values();
 
         return $this->ok($applicants);

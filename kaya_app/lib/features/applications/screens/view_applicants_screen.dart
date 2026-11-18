@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../../core/utils/realtime_refresh.dart';
+import '../../../core/widgets/resume_sort.dart';
 
 import '../../../core/constants/app_colors.dart';
 import '../../../core/navigation/app_router.dart';
@@ -54,6 +55,7 @@ class _ViewApplicantsScreenState extends State<ViewApplicantsScreen>
   int? _jobId;
   bool _initialized = false;
   bool _showDeclined = false;
+  ResumeSort _sort = ResumeSort.best;
 
   /// Matched workers invited from this list, and the one being invited now.
   final Set<int> _invited = {};
@@ -131,7 +133,7 @@ class _ViewApplicantsScreenState extends State<ViewApplicantsScreen>
     return Consumer<ApplicationProvider>(
       builder: (context, provider, _) {
         final all = provider.applicants;
-        final pending = all.where((a) => _isStatus(a, const {'pending'})).toList();
+        final pending = _sort.apply(all.where((a) => _isStatus(a, const {'pending'})).toList());
         // Hired, finished or not: a finished hire on a crew job has to stay
         // reachable, or it could not be reviewed.
         final hired = all.where((a) => _isStatus(a, const {'accepted', 'completed'})).toList();
@@ -185,13 +187,19 @@ class _ViewApplicantsScreenState extends State<ViewApplicantsScreen>
                         padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
                         children: [
                           if (spots > 1) _spots(spots, hired.length, full),
-                          _title('Applicants', pending.length, note: pending.length > 1 ? 'Best match first' : null),
+                          _title('Applicants', pending.length),
+                          if (pending.length > 1) ...[
+                            ResumeSortChips(value: _sort, onChanged: (s) => setState(() => _sort = s)),
+                            const SizedBox(height: 10),
+                          ],
                           if (pending.isEmpty)
                             _quiet(all.isEmpty
                                 ? 'Nobody has applied yet.'
                                 : 'No applicants waiting.')
                           else
-                            for (final (i, a) in pending.indexed) card(a, rank: i + 1, actions: true),
+                            // Rank numbers are the best-match order, so only under Best Match.
+                            for (final (i, a) in pending.indexed)
+                              card(a, rank: _sort == ResumeSort.best ? i + 1 : null, actions: true),
                           if (hired.isNotEmpty) ...[
                             _title('Hired', hired.length),
                             for (final a in hired) card(a),

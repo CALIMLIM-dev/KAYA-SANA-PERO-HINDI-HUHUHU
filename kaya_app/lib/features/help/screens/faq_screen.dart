@@ -142,7 +142,7 @@ const _groups = <(String, List<_FAQ>)>[
     _FAQ('How do I report someone?',
         'Use the flag on their profile or job post, Report User in a chat\'s menu, or the report '
             'option on a community post or comment. You can add up to three photos as evidence. '
-            'Your name is not shown to them, an admin decides, and you are told the outcome.'),
+            'An admin reviews it and you are told the outcome.'),
     _FAQ('Why is part of my message hidden?',
         'Chats and comments are read by a filter. A phone number, an email address, asking to '
             'move to another app and offensive words are hidden with asterisks, to keep people from '

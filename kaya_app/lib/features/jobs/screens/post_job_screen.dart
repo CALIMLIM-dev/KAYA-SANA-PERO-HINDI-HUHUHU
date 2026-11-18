@@ -190,6 +190,7 @@ class _PostJobScreenState extends State<PostJobScreen> {
       final posted = DateTime.tryParse('${job['created_at'] ?? ''}')?.toLocal();
       _startDate = posted == null ? null : DateTime(posted.year, posted.month, posted.day);
       _endDate = DateTime.tryParse('${job['end_date'] ?? ''}');
+      _workStartsOn = DateTime.tryParse('${job['work_starts_on'] ?? ''}');
       _existingPhotoUrls = ((job['photo_urls'] as List?) ?? const [])
           .map((p) => '$p')
           .where((p) => p.isNotEmpty)
@@ -431,6 +432,9 @@ class _PostJobScreenState extends State<PostJobScreen> {
   // equal to _startDate, so the two states remain distinguishable server-side.
   DateTime? _startDate;
   DateTime? _endDate;
+  // Optional: when the work should start, shown on the job so a worker busy
+  // that day can skip it. Separate from the post's own dates above.
+  DateTime? _workStartsOn;
   bool _showScheduleError = false;
   bool _isLoadingSkills = false;
   bool _showPinError = false;
@@ -1301,6 +1305,26 @@ class _PostJobScreenState extends State<PostJobScreen> {
             style: TextStyle(fontSize: 12, color: AppColors.error),
           ),
         ],
+        const SizedBox(height: 6),
+        const Text(
+          'How long your post stays up. You pay for these days.',
+          style: TextStyle(fontSize: 12, color: AppColors.neutral500),
+        ),
+        const SizedBox(height: 14),
+        _buildDateField(
+          label: 'Estimated Start Date',
+          value: _workStartsOn,
+          hint: 'Optional',
+          onTap: _pickWorkStartsOn,
+          onClear: _workStartsOn == null
+              ? null
+              : () => setState(() => _workStartsOn = null),
+        ),
+        const SizedBox(height: 6),
+        const Text(
+          'When the work should start, so workers who are busy that day can skip it.',
+          style: TextStyle(fontSize: 12, color: AppColors.neutral500),
+        ),
 
         /*
             What the worker will actually see.
@@ -1487,6 +1511,21 @@ class _PostJobScreenState extends State<PostJobScreen> {
     );
 
     if (picked != null) setState(() => _endDate = picked);
+  }
+
+  Future<void> _pickWorkStartsOn() async {
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: _workStartsOn == null || _workStartsOn!.isBefore(today) ? today : _workStartsOn!,
+      firstDate: today,
+      // The server takes up to 180 days ahead.
+      lastDate: today.add(const Duration(days: 180)),
+    );
+
+    if (picked != null) setState(() => _workStartsOn = picked);
   }
 
 
@@ -2611,6 +2650,7 @@ class _PostJobScreenState extends State<PostJobScreen> {
         // Computed from the length the employer chose, so a one day job
         // ends the day it starts rather than carrying no end at all.
         endDate:     _endDate,
+        workStartsOn: _workStartsOn,
         workersNeeded: _workersNeeded,
       );
 
@@ -2674,6 +2714,8 @@ class _PostJobScreenState extends State<PostJobScreen> {
       'longitude': _pinnedLng ?? _selectedLocation?.longitude,
       'is_urgent': _isUrgent,
       'end_date': JobProvider.ymd(_endDate!),
+      // Sent as null when cleared, so an edit can take the date off.
+      'work_starts_on': _workStartsOn == null ? null : JobProvider.ymd(_workStartsOn!),
       'workers_needed': _workersNeeded,
     }, photos: _selectedImages);
 

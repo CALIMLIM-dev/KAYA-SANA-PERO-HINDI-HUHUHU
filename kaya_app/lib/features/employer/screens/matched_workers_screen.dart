@@ -8,6 +8,7 @@ import '../../../core/widgets/app_toast.dart';
 import '../../../core/widgets/kaya_popup.dart';
 import '../../../core/widgets/motion.dart';
 import '../../../core/widgets/offline_notice.dart';
+import '../../../core/widgets/resume_sort.dart';
 import '../../../providers/credits_provider.dart';
 import '../../../providers/invitation_provider.dart';
 import '../../../providers/worker_browse_provider.dart';
@@ -177,6 +178,7 @@ class _MatchedWorkersListState extends State<MatchedWorkersList> {
   /// than inviting twice while the list is still on screen.
   final Set<int> _invited = {};
   int? _inviting;
+  ResumeSort _sort = ResumeSort.best;
 
   @override
   void initState() {
@@ -249,19 +251,30 @@ class _MatchedWorkersListState extends State<MatchedWorkersList> {
           );
         }
 
+        final rows = _sort.apply(provider.matches);
+
         return RefreshIndicator(
           onRefresh: () => provider.fetchMatches(widget.jobId),
           child: ListView.separated(
             controller: widget.controller,
             padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
-            itemCount: provider.matches.length + 1,
+            itemCount: rows.length + 1,
             separatorBuilder: (_, _) => const SizedBox(height: 10),
             itemBuilder: (context, index) {
               if (index == 0) {
-                return widget.showHeader ? _header(provider.matches.length) : const SizedBox.shrink();
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    if (widget.showHeader) _header(rows.length),
+                    if (rows.length > 1) ...[
+                      if (widget.showHeader) const SizedBox(height: 8),
+                      ResumeSortChips(value: _sort, onChanged: (s) => setState(() => _sort = s)),
+                    ],
+                  ],
+                );
               }
 
-              final row = provider.matches[index - 1];
+              final row = rows[index - 1];
               final workerId = asIntOrNull(row['user_id']);
 
               // Best first, arriving in that order.

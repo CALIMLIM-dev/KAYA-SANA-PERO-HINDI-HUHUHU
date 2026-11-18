@@ -71,7 +71,9 @@ class ApplicantCard extends StatelessWidget {
     // cast — it arrives as the string "0.00", so a plain `as num?` threw and
     // took the whole applicants list down.
     final rating = asDouble(applicant['worker_rating']);
-    final reviewCount = asInt(applicant['worker_rating_count']);
+    // Every review they got as a worker. worker_rating_count counts people
+    // (one vote each, for the average), which read as "1 Review" for many.
+    final reviewCount = asInt(applicant['reviews_total'] ?? applicant['worker_rating_count']);
     final isVerified = applicant['is_verified'] as bool? ?? false;
     final skills = (applicant['skills'] as List?)
             ?.map((s) => s.toString())
@@ -566,7 +568,9 @@ class _FullCard extends StatelessWidget {
       (applicant['location'] ?? '').toString(),
     ].where((s) => s.isNotEmpty).join(' · ');
     final applied = timeAgo(applicant['applied_at']?.toString());
-    final experience = (applicant['experience_label'] ?? '').toString();
+    // Finished hires out of all that ended, in place of Experience.
+    final successRate = asIntOrNull(applicant['success_rate']);
+    final busyThatDay = applicant['busy_that_day'] == true;
     final jobsDone = asInt(applicant['jobs_completed']);
     final licenses = _names('licenses');
     final certifications = _names('certifications');
@@ -655,9 +659,19 @@ class _FullCard extends StatelessWidget {
               const SizedBox(width: 8),
               _stat('$jobsDone', 'Jobs Done'),
               const SizedBox(width: 8),
-              _stat(experience.isNotEmpty ? experience : '–', 'Experience'),
+              _stat(successRate == null ? '–' : '$successRate%', 'Completion Rate'),
             ],
           ),
+          if (busyThatDay) ...[
+            const SizedBox(height: 8),
+            const Row(
+              children: [
+                Icon(Icons.event_busy_outlined, size: 14, color: AppColors.neutral500),
+                SizedBox(width: 6),
+                Text('Busy on the start day', style: TextStyle(fontSize: 12.5, color: AppColors.neutral600)),
+              ],
+            ),
+          ],
           if (skills.isNotEmpty) ...[
             _heading('Skills'),
             Wrap(

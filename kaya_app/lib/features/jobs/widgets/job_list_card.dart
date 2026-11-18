@@ -204,7 +204,7 @@ class JobListCard extends StatelessWidget {
                 ),
               ],
 
-              if (job.scheduleLabel != null) ...[
+              if (job.scheduleLabel != null || job.startsLabel != null) ...[
                 const SizedBox(height: 5),
                 Row(
                   children: [
@@ -213,7 +213,7 @@ class JobListCard extends StatelessWidget {
                     const SizedBox(width: 5),
                     Expanded(
                       child: Text(
-                        job.scheduleLabel!,
+                        [job.scheduleLabel, job.startsLabel].whereType<String>().join('  ·  '),
                         style: const TextStyle(
                           fontSize: 12.5,
                           fontWeight: FontWeight.w600,
