@@ -69,8 +69,10 @@ void main() {
     final send = find.widgetWithText(ElevatedButton, 'Cancel Job');
     expect(tester.widget<ElevatedButton>(send).onPressed, isNull, reason: 'a reason first');
 
-    await tester.tap(find.text('Could Not Agree on Pay'));
-    await tester.pump();
+    await tester.tap(find.text('Choose a reason'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Could Not Agree on Pay').last);
+    await tester.pumpAndSettle();
     await tester.tap(send);
     await tester.pumpAndSettle();
     await tester.pump(const Duration(seconds: 4));

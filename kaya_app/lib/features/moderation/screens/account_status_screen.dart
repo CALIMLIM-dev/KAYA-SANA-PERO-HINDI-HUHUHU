@@ -5,6 +5,7 @@ import '../../../core/constants/app_colors.dart';
 import '../../../core/navigation/app_router.dart';
 import '../../../core/widgets/app_toast.dart';
 import '../../../core/widgets/kaya_popup.dart';
+import '../../../core/widgets/popup_form.dart';
 import '../../../data/services/api_client.dart';
 import '../../../providers/app_mode_provider.dart';
 import '../../../providers/auth_provider.dart';
@@ -358,45 +359,22 @@ class _AppealFormState extends State<_AppealForm> {
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.all(20),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text('Appeal', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700)),
-          const SizedBox(height: 4),
-          Text(widget.rule, style: const TextStyle(fontSize: 13, color: AppColors.neutral600)),
-          const SizedBox(height: 14),
-          TextField(
-            controller: _text,
-            maxLines: 5,
-            maxLength: 2000,
-            onChanged: (_) => setState(() {}),
-            decoration: InputDecoration(
-              hintText: 'Why is this wrong?',
-              border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-            ),
-          ),
-          const SizedBox(height: 12),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.end,
-            children: [
-              TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
-              const SizedBox(width: 8),
-              ElevatedButton(
-                onPressed: _sending || _text.text.trim().length < _min ? null : _send,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.primary,
-                  foregroundColor: Colors.white,
-                  elevation: 0,
-                ),
-                child: const Text('Send Appeal'),
-              ),
-            ],
-          ),
-        ],
-      ),
+    return PopupForm(
+      title: 'Appeal',
+      subtitle: widget.rule,
+      actionLabel: 'Send Appeal',
+      busy: _sending,
+      onAction: _text.text.trim().length < _min ? null : _send,
+      children: [
+        const FieldLabel('Why Is This Wrong?'),
+        TextField(
+          controller: _text,
+          maxLines: 5,
+          maxLength: 2000,
+          onChanged: (_) => setState(() {}),
+          decoration: fieldDecoration(hint: 'Tell us what really happened'),
+        ),
+      ],
     );
   }
 }

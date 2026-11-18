@@ -118,8 +118,15 @@ class _WalletScreenState extends State<WalletScreen> with WidgetsBindingObserver
             'Your top-up ${waiting['receipt_no']} is still being checked. You can top up again once it is confirmed.');
         return;
       }
-      await Navigator.of(context).push(MaterialPageRoute(builder: (_) => GcashPayScreen(package: package)));
-      if (mounted) await credits.loadHistory();
+      final receipt = await showKayaPopup<Map<String, dynamic>>(
+        context,
+        builder: (_) => GcashPayForm(package: package),
+      );
+      if (!mounted) return;
+      if (receipt != null) {
+        await showReceipt(context, receipt, justPaid: true);
+        if (mounted) await credits.loadHistory();
+      }
       return;
     }
 
@@ -160,7 +167,7 @@ class _WalletScreenState extends State<WalletScreen> with WidgetsBindingObserver
           IconButton(
             tooltip: 'Receipts',
             icon: const Icon(Icons.receipt_outlined),
-            onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const ReceiptsScreen())),
+            onPressed: () => showReceipts(context),
           ),
           IconButton(
             tooltip: 'History',

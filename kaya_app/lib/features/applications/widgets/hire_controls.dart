@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/widgets/app_toast.dart';
 import '../../../core/widgets/kaya_popup.dart';
+import '../../../core/widgets/popup_form.dart';
 import '../../../data/services/api_client.dart';
 import '../../moderation/widgets/report_sheet.dart';
 import 'completion_action.dart';
@@ -237,61 +238,34 @@ class _CancelHireFormState extends State<_CancelHireForm> {
 
   @override
   Widget build(BuildContext context) {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(20),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text('Cancel Job', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700)),
-          const SizedBox(height: 12),
-          const Text('Reason', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppColors.neutral700)),
-          RadioGroup<String>(
-            groupValue: _reason,
-            onChanged: (v) {
-              if (!_sending) setState(() => _reason = v);
-            },
-            child: Column(
-              children: [
-                for (final entry in _reasons.entries)
-                  RadioListTile<String>(
-                    value: entry.key,
-                    title: Text(entry.value, style: const TextStyle(fontSize: 14)),
-                    contentPadding: EdgeInsets.zero,
-                    dense: true,
-                  ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 8),
-          TextField(
-            controller: _note,
-            maxLength: 280,
-            maxLines: 3,
-            decoration: InputDecoration(
-              hintText: 'Note (optional)',
-              border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-            ),
-          ),
-          const SizedBox(height: 8),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.end,
-            children: [
-              TextButton(onPressed: () => Navigator.pop(context), child: const Text('Not Now')),
-              const SizedBox(width: 8),
-              ElevatedButton(
-                onPressed: _sending || _reason == null ? null : _send,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.primary,
-                  foregroundColor: Colors.white,
-                  elevation: 0,
-                ),
-                child: const Text('Cancel Job'),
-              ),
-            ],
-          ),
-        ],
-      ),
+    return PopupForm(
+      title: 'Cancel Job',
+      actionLabel: 'Cancel Job',
+      cancelLabel: 'Not Now',
+      danger: true,
+      busy: _sending,
+      onAction: _reason == null ? null : _send,
+      children: [
+        const FieldLabel('Reason'),
+        DropdownButtonFormField<String>(
+          initialValue: _reason,
+          isExpanded: true,
+          hint: const Text('Choose a reason', style: TextStyle(fontSize: 14, color: AppColors.neutral400)),
+          items: [
+            for (final entry in _reasons.entries)
+              DropdownMenuItem(value: entry.key, child: Text(entry.value, style: const TextStyle(fontSize: 14))),
+          ],
+          onChanged: _sending ? null : (v) => setState(() => _reason = v),
+          decoration: fieldDecoration(),
+        ),
+        const FieldLabel('Note (Optional)', top: 16),
+        TextField(
+          controller: _note,
+          maxLength: 280,
+          maxLines: 3,
+          decoration: fieldDecoration(hint: 'What happened?'),
+        ),
+      ],
     );
   }
 }
