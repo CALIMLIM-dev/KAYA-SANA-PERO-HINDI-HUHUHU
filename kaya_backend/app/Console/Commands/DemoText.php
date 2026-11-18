@@ -61,6 +61,8 @@ class DemoText extends Command
                     continue;
                 }
                 $hired = DB::table('applications')->where('job_id', $id)->whereNotIn('status', ['pending', 'rejected', 'withdrawn'])->exists();
+                // Only the periods Post Job offers; anything else keeps the job's own.
+                $t['budget_period'] = in_array($t['budget_period'] ?? null, ['daily', 'hourly', 'project'], true) ? $t['budget_period'] : $job->budget_period;
                 DB::table('jobs_posts')->where('id', $id)->update([
                     'title' => $t['title'], 'description' => $t['description'],
                     'budget_period' => $t['budget_period'], 'budget_min' => $t['budget'], 'budget_max' => null,

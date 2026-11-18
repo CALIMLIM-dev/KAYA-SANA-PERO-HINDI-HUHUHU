@@ -4699,7 +4699,7 @@
         "105": {
             "title": "Labada kada semana, planchado ng damit",
             "description": "Kailangan ng tulong sa weekly laundry para sa pamilya. May washing machine naman pero kulang ang oras ko kasi busy sa negosyo. Kailangan din ng maayos na plantsado lalo na yung uniform ng mga bata.",
-            "budget_period": "weekly",
+            "budget_period": "project",
             "budget": 800,
             "workers_needed": 1,
             "chat": [
@@ -5205,7 +5205,7 @@
         "193": {
             "title": "Linabhan weekly para ti amin nga damit ti pamilya",
             "description": "Kada semana masapul da ti labhan, mga 3-4 basket. Plantsahin met ti pormal nga damit ti asawa ko. Dakayo gamitin ti washing machine ko.",
-            "budget_period": "weekly",
+            "budget_period": "project",
             "budget": 800,
             "workers_needed": 1,
             "chat": [
@@ -5711,7 +5711,7 @@
         "281": {
             "title": "Labada every week plus plantsa sa bahay",
             "description": "Kinahanglan nako og reliable person para sa weekly laundry sa among pamilya. Daghan kaayog white shirts ug school uniform nga kinahanglan plantsa maayo. Dala lang kaugalingon mong sabon kung gusto, naa pud mi diri.",
-            "budget_period": "weekly",
+            "budget_period": "project",
             "budget": 800,
             "workers_needed": 1,
             "chat": [
@@ -5964,7 +5964,7 @@
         "325": {
             "title": "Weekly Laundry ug Plantsahan",
             "description": "Kinahanglan ko weekly laundry service kay busy kaayo ko sa trabaho. Mga 3-4 baskets kada semana, mostly damit sa pamilya ug mga bedsheet. May sarili ba mo nga sabon o kami ang mag provide? Prefer nako diri sa balay ninyo labhon.",
-            "budget_period": "weekly",
+            "budget_period": "project",
             "budget": 450,
             "workers_needed": 1,
             "chat": [
@@ -6217,7 +6217,7 @@
         "369": {
             "title": "Laba ng damit kada linggo plus plantsa",
             "description": "May weekly laundry kami ng pamilya, mga dalawang labasera puno. Kailangan din iplantsa lahat ng damit at damit pambahay. Dala ng sariling sabon at panlaba.",
-            "budget_period": "weekly",
+            "budget_period": "project",
             "budget": 650,
             "workers_needed": 1,
             "chat": [
