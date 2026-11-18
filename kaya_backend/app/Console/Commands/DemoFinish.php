@@ -47,6 +47,24 @@ class DemoFinish extends Command
         }
         DB::table('users')->whereIn('id', $ids)->update(['is_demo' => true]);
 
+        /*
+            Only what the app itself collects.
+
+            The sample accounts were made through the API, which still takes
+            fields no screen asks for any more: a pay range on a job (Post
+            Job sends one amount), a worker's rate, days and travel distance,
+            a level and years on each skill, and work experience entries.
+            They showed on profiles as if the person had typed them. They go
+            back to what a real sign-up leaves.
+        */
+        DB::table('jobs_posts')->whereIn('employer_id', $ids)->update(['budget_max' => null]);
+        DB::table('worker_profiles')->whereIn('user_id', $ids)->update([
+            'rate_min' => null, 'rate_max' => null, 'rate_unit' => 'day', 'rate_by_agreement' => false,
+            'available_days' => null, 'travel_km' => null,
+        ]);
+        DB::table('worker_skills_new')->whereIn('user_id', $ids)->update(['proficiency_level' => null, 'years_of_experience' => null]);
+        DB::table('worker_experiences')->whereIn('user_id', $ids)->delete();
+
         $max = max(1, (int) $this->option('max-days'));
         $jobs = DB::table('jobs_posts')->whereIn('employer_id', $ids)->get(['id', 'status']);
         foreach ($jobs as $job) {

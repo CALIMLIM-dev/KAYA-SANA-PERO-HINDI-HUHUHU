@@ -30,6 +30,12 @@ class DemoFinishTest extends TestCase
         $hire->forceFill(['completed_at' => now()])->save();
         $openEnd = (string) $open->fresh()->end_date;
 
+        // Fields no app screen collects, set through the API.
+        $open->forceFill(['budget_min' => 700, 'budget_max' => 900])->save();
+        \App\Models\WorkerProfile::create(['user_id' => $worker->id, 'location' => 'x', 'rate_min' => 500, 'rate_max' => 700, 'travel_km' => 25, 'available_days' => [1, 2]]);
+        \App\Models\WorkerSkill::create(['user_id' => $worker->id, 'skill_name' => 'Pipe Repair', 'proficiency_level' => 'advanced', 'years_of_experience' => 7]);
+        DB::table('worker_experiences')->insert(['user_id' => $worker->id, 'job_title' => 'Tubero', 'company_name' => 'X', 'start_date' => '2015-01-01', 'created_at' => now(), 'updated_at' => now()]);
+
         $this->artisan('kaya:demo-finish', ['domain' => 'sample.kaya.test'])->assertSuccessful();
 
         $this->assertTrue((bool) $employer->fresh()->is_demo);
@@ -41,6 +47,17 @@ class DemoFinishTest extends TestCase
         $this->assertGreaterThanOrEqual(2, $jobMoved);
         $this->assertEqualsWithDelta($jobMoved, $hireMoved, 1, 'the hire moves with its job');
         $this->assertSame($openEnd, (string) $open->fresh()->end_date, 'an open job keeps its deadline');
+
+        // One pay amount, and nothing on the worker that the app never asked for.
+        $this->assertNull($open->fresh()->budget_max);
+        $this->assertSame(700.0, (float) $open->fresh()->budget_min);
+        $profile = \App\Models\WorkerProfile::where('user_id', $worker->id)->first();
+        $this->assertNull($profile->rate_min);
+        $this->assertNull($profile->travel_km);
+        $skill = \App\Models\WorkerSkill::where('user_id', $worker->id)->first();
+        $this->assertNull($skill->proficiency_level);
+        $this->assertNull($skill->years_of_experience);
+        $this->assertSame(0, DB::table('worker_experiences')->where('user_id', $worker->id)->count());
 
         $before = (string) $done->fresh()->created_at;
         $this->artisan('kaya:demo-finish', ['domain' => 'sample.kaya.test'])->assertSuccessful();
