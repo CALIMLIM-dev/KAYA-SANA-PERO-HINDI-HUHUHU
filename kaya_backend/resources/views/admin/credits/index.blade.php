@@ -7,7 +7,7 @@
     $reasonLabel = fn ($r) => ['topup' => 'Top-up', 'monthly_grant' => 'Monthly Grant', 'launch_grant' => 'Welcome Grant',
         'application' => 'Application', 'invitation' => 'Invitation', 'unlock' => 'Contact Unlock', 'boost' => 'Boost',
         'job_duration' => 'Post Days', 'thread_ad' => 'Board Post', 'rehire_invite' => 'Rehire Invite',
-        'refund' => 'Refund', 'admin_adjustment' => 'Admin Adjustment'][$r] ?? str_replace('_', ' ', ucfirst($r));
+        'refund' => 'Refund', 'admin_adjustment' => 'Admin Adjustment', 'topup_reversed' => 'Top-up Not Received'][$r] ?? str_replace('_', ' ', ucfirst($r));
 @endphp
 
 <div class="grid grid-cols-4 gap-4 mb-6">

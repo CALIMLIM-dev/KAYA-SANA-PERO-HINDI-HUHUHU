@@ -126,6 +126,13 @@ class CreditController extends Controller
 
             // Any top-up, ever. What the Top-up column of the checklist means.
             'has_topped_up' => $user->hasToppedUp(),
+            // Paying by GCash QR: the code to scan, whose name is on it, and
+            // the top-up still being checked, if any (one at a time).
+            'gcash' => \App\Services\GcashTopUp::open() ? [
+                'qr_url' => \App\Services\GcashTopUp::qrUrl(),
+                'name'   => \App\Services\GcashTopUp::receiverName(),
+                'waiting' => ($w = \App\Services\GcashTopUp::waiting($user)) ? self::receipt($w) : null,
+            ] : null,
             'comparison'    => $this->comparison(),
             /*
                 What is sitting there waiting to be collected.
@@ -230,5 +237,34 @@ class CreditController extends Controller
         ]);
 
         return $this->ok($rows);
+    }
+    /** GET /credits/payments - the person's top-ups, as receipts. */
+    public function payments(Request $request)
+    {
+        $rows = \App\Models\CreditPayment::where('user_id', $request->user()->id)
+            ->where('status', \App\Models\CreditPayment::STATUS_PAID)
+            ->with('package:id,name')
+            ->orderByDesc('id')
+            ->limit(50)
+            ->get();
+
+        return $this->ok($rows->map(fn ($p) => self::receipt($p))->values());
+    }
+
+    /** One top-up as the receipt shows it. */
+    public static function receipt(\App\Models\CreditPayment $p): array
+    {
+        return [
+            'id'           => $p->id,
+            'receipt_no'   => $p->receiptNo(),
+            'package'      => $p->package?->name,
+            'credits'      => $p->credits,
+            'amount_php'   => $p->amountPhp(),
+            'method'       => $p->method,
+            'gcash_ref'    => $p->gcash_ref,
+            // unchecked | received | not_received, or null for a free top-up.
+            'check_status' => $p->check_status,
+            'paid_at'      => $p->paid_at,
+        ];
     }
 }

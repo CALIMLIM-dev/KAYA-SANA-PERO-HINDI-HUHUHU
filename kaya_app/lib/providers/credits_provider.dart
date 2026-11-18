@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:in_app_purchase/in_app_purchase.dart';
 
@@ -264,6 +265,8 @@ class CreditsProvider with ChangeNotifier {
           .map((p) => CreditPackage.fromJson(Map<String, dynamic>.from(p)))
           .toList();
       _billing = '${data['billing'] ?? 'free'}';
+      final gcash = data['gcash'];
+      _gcash = gcash is Map ? Map<String, dynamic>.from(gcash) : null;
 
       _hasLoadedOnce = true;
     } catch (e) {
@@ -283,6 +286,61 @@ class CreditsProvider with ChangeNotifier {
 
   /// Whether Barya is bought through Google Play (the server says).
   bool get usesPlay => _billing == 'play';
+
+  // ── GCash QR ───────────────────────────────────────────────────────────
+
+  /// The QR, the name on it, and the top-up still being checked. Null when
+  /// GCash top-ups are not open.
+  Map<String, dynamic>? _gcash;
+
+  bool get usesGcash => _gcash != null;
+  String get gcashQrUrl => '${_gcash?['qr_url'] ?? ''}';
+  String get gcashName => '${_gcash?['name'] ?? 'KAYA'}';
+
+  /// The receipt of a top-up an admin has not checked yet. One at a time.
+  Map<String, dynamic>? get gcashWaiting {
+    final w = _gcash?['waiting'];
+    return w is Map ? Map<String, dynamic>.from(w) : null;
+  }
+
+  @visibleForTesting
+  void seedGcash(Map<String, dynamic>? gcash) {
+    _gcash = gcash;
+    notifyListeners();
+  }
+
+  /// Sends the GCash reference number and the receipt screenshot. Returns
+  /// the receipt, or null with [error] set to the server's reason.
+  Future<Map<String, dynamic>?> payWithGcash(int packageId, String ref, String proofPath) async {
+    _error = null;
+    try {
+      final form = FormData.fromMap({
+        'package_id': packageId,
+        'gcash_ref': ref,
+        'proof': await MultipartFile.fromFile(proofPath, filename: 'receipt.jpg'),
+      });
+      final res = await _api.postMultipart('/credits/gcash', form);
+      await load(force: true);
+      return Map<String, dynamic>.from(res.data['data'] as Map);
+    } catch (e) {
+      _error = e.toString().replaceFirst('Exception: ', '');
+      notifyListeners();
+      return null;
+    }
+  }
+
+  /// Every top-up, newest first, as receipts.
+  Future<List<Map<String, dynamic>>?> receipts() async {
+    try {
+      final res = await _api.get('/credits/payments');
+      return ((res.data['data'] as List?) ?? const [])
+          .whereType<Map>()
+          .map((r) => Map<String, dynamic>.from(r))
+          .toList();
+    } catch (_) {
+      return null;
+    }
+  }
 
   /// Swapped for a fake in tests.
   @visibleForTesting

@@ -147,7 +147,7 @@ class LegalDocuments {
       ),
       LegalSection(
         'Payments',
-        'Topping up Barya is free while KAYA is in testing. When paid top-ups open, the payment will be taken by Google Play and KAYA will never see your card or e-wallet number. We keep a record of each top-up: the package, the amount, the date and the reference, because it is a financial record. KAYA does not handle the pay for a job; that is between the worker and the employer.',
+        'Top-ups are paid with GCash to KAYA\'s GCash account. You send us the GCash reference number and a screenshot of your GCash receipt, and we use them only to check the payment against our GCash history. The screenshot is stored with restricted access and is read only by KAYA admins. We keep a record of each top-up: the package, the amount, the date, the reference number and whether it was confirmed, because it is a financial record. KAYA never sees your GCash PIN or balance. KAYA does not handle the pay for a job; that is between the worker and the employer.',
       ),
       LegalSection(
         'How We Store and Protect Your Data',
@@ -195,12 +195,12 @@ class LegalDocuments {
         'Barya is credit for use inside KAYA. It has no cash value, cannot be withdrawn, transferred to someone else, or exchanged for money, and a refund of Barya is always made in Barya.',
       ),
       LegalSection(
-        'Top-ups While KAYA Is in Testing',
-        'Topping up is free while KAYA is in testing. Choosing a package adds the Barya to your wallet at once and no money changes hands, so there is no payment to refund.',
+        'Paying for a Top-up',
+        'You pay for a top-up by scanning KAYA\'s GCash QR and paying the exact price of the package, then sending the GCash reference number and a screenshot of the receipt. The Barya is added at once and KAYA checks the payment against its GCash history. If the payment is not found, the Barya is taken back. Sending a reference number you did not pay is fraud and leads to a permanent ban. Only a verified account can top up, and a new top-up waits until the last one is checked.',
       ),
       LegalSection(
-        'When Paid Top-ups Open',
-        'Paid top-ups will be bought through Google Play. A request to refund a purchase is handled through Google Play under its refund policy. Barya from a purchase that has already been spent cannot be returned as money.',
+        'Refunds of a Top-up',
+        'If you paid twice or paid the wrong amount, write to Support with the GCash reference number. A payment KAYA received but did not credit is credited or sent back to your GCash. Barya that has already been spent cannot be returned as money.',
       ),
       LegalSection(
         'What KAYA Returns Automatically',

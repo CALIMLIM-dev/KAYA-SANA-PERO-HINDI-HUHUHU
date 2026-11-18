@@ -851,6 +851,19 @@ class NotificationService
         );
     }
 
+    /** A GCash top-up the admin could not find in the GCash history. */
+    public function topUpNotReceived(\App\Models\User $user, \App\Models\CreditPayment $payment, int $balance): void
+    {
+        $this->push(
+            userId: $user->id,
+            audience: UserNotification::AUDIENCE_BOTH,
+            type: 'account.changed',
+            title: 'Your top-up was not received',
+            body: 'We could not find GCash Ref No. ' . $payment->gcash_ref . ' in our GCash, so the '
+                . $payment->credits . ' Barya were taken back. Your balance is now ' . $balance . ' Barya.',
+        );
+    }
+
     public function accountChanged(\App\Models\User $user, string $title, string $body): void
     {
         $this->push(

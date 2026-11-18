@@ -65,6 +65,7 @@
                     */
                     'Finance' => [
                         ['route' => 'admin.credits.index',       'label' => 'Barya',               'icon' => 'coins',    'can' => 'finance'],
+                        ['route' => 'admin.payments.index',      'label' => 'Payments',            'icon' => 'receipt',  'can' => 'finance', 'queue' => 'payments'],
                         ['route' => 'admin.settings.index',      'label' => 'Pricing',             'icon' => 'tag',      'can' => 'platform'],
                     ],
                     'Communication' => [

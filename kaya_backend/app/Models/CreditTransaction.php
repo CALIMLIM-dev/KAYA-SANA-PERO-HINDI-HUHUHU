@@ -36,6 +36,9 @@ class CreditTransaction extends Model
     public const REASON_REFUND = 'refund';
     public const REASON_ADMIN_ADJUSTMENT = 'admin_adjustment';
 
+    /** A GCash top-up the admin did not find in the GCash history, taken back. */
+    public const REASON_TOPUP_REVERSED = 'topup_reversed';
+
     /*
         Earning a badge pays Barya, once.
 
@@ -97,6 +100,7 @@ class CreditTransaction extends Model
 
     public function isRefund(): bool
     {
-        return $this->refunds_transaction_id !== null;
+        // A taken-back top-up points at its top-up too, but it is not a refund.
+        return $this->refunds_transaction_id !== null && $this->reason !== self::REASON_TOPUP_REVERSED;
     }
 }

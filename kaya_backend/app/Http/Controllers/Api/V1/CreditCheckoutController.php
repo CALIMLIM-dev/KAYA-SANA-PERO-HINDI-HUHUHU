@@ -37,6 +37,9 @@ class CreditCheckoutController extends Controller
         if (config('kaya.credits.billing') === 'play') {
             return $this->fail('Top-ups go through Google Play. Update KAYA from the Play Store.', 422);
         }
+        if (\App\Services\GcashTopUp::enabled()) {
+            return $this->fail('Top-ups are paid with GCash. Update KAYA to top up.', 422);
+        }
 
         $data = $request->validate([
             'package_id' => ['required', 'integer', 'exists:credit_packages,id'],
@@ -116,5 +119,45 @@ class CreditCheckoutController extends Controller
         $google->acknowledge($data['product_id'], $data['purchase_token']);
 
         return $done($payment, 201);
+    }
+    /*
+        POST /credits/gcash - a top-up paid to KAYA's GCash QR.
+
+        The package price is what was paid; the person sends the GCash
+        reference number and a screenshot of the receipt. The Barya is added
+        at once and an admin checks it later. See GcashTopUp.
+    */
+    public function gcash(Request $request, \App\Services\GcashTopUp $gcash)
+    {
+        if (! \App\Services\GcashTopUp::open()) {
+            return $this->fail('GCash top-ups are not open right now.', 422);
+        }
+
+        $request->merge(['gcash_ref' => \App\Services\GcashTopUp::normaliseRef((string) $request->input('gcash_ref'))]);
+        $data = $request->validate([
+            'package_id' => ['required', 'integer', 'exists:credit_packages,id'],
+            // Digits only. Not pinned to 13: GCash has used other lengths, and
+            // turning away a real receipt is worse than a long number.
+            'gcash_ref'  => ['required', 'digits_between:10,20', 'unique:credit_payments,gcash_ref'],
+            'proof'      => ['required', 'image', 'mimes:jpg,jpeg,png,webp', 'max:5120'],
+        ], [
+            'gcash_ref.required' => 'Enter the reference number from your GCash receipt.',
+            'gcash_ref.digits_between' => 'The reference number is the long number on your GCash receipt.',
+            'gcash_ref.unique' => 'This reference number has already been used.',
+            'proof.required' => 'Add a screenshot of your GCash receipt.',
+        ]);
+
+        $package = CreditPackage::where('id', $data['package_id'])->where('is_active', true)->first();
+        if ($package === null) {
+            return $this->fail('That package is no longer available.', 422);
+        }
+
+        $result = $gcash->claim($request->user(), $package, $data['gcash_ref'], $request->file('proof'));
+        if (is_string($result)) {
+            return $this->fail($result, 409);
+        }
+
+        return $this->ok(\App\Http\Controllers\Api\V1\CreditController::receipt($result),
+            'Added ' . $result->credits . ' Barya. Thank you!', 201);
     }
 }

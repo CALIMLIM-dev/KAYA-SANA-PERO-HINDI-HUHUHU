@@ -126,7 +126,9 @@ return [
             How Barya is bought: 'free' credits a package at once (testing,
             and the APK outside the Play Store); 'play' sells it through
             Google Play Billing, verified on the server with the Play
-            Console service account before anything is credited.
+            Console service account before anything is credited; 'gcash'
+            is paid to KAYA's GCash QR with the receipt's reference number,
+            added at once and checked by an admin (GcashTopUp).
         */
         'billing' => env('BILLING_MODE', 'free'),
         'play' => [

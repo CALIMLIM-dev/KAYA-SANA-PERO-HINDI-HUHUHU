@@ -67,6 +67,8 @@ class PulseController extends Controller
                     ->count(),
                 // Posts nobody outside KAYA can see until somebody looks.
                 'community'     => \App\Models\CommunityPost::where('status', \App\Models\CommunityPost::STATUS_PENDING)->count(),
+                // GCash top-ups not yet compared with the GCash history.
+                'payments'      => \App\Models\CreditPayment::where('check_status', 'unchecked')->count(),
                 // People who wrote in and have not been answered.
                 'support'       => \App\Models\SupportMessage::whereNull('read_at')
                     ->where('from_admin', false)

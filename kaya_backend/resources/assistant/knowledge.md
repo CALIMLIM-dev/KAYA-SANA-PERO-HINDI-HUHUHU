@@ -35,7 +35,7 @@ FINISHING A JOB
 BARYA AND PAYMENT
 - Barya is KAYA's credit. It has no cash value. Claim free Barya in My Wallet when starting and again each month, and earn some with badges.
 - Costs Barya: applying, inviting, boosting, keeping a job post up past its free days, and posting on the community board. Messaging and commenting are free.
-- Top up: Profile, My Wallet, then choose a package. While KAYA is in testing, top-ups are free and the Barya is added at once. Topping up needs a verified account.
+- Top up: Profile, My Wallet, then choose a package. Scan the GCash QR, pay the exact price, then enter the GCash reference number and add a screenshot of the receipt. The Barya is added at once and KAYA checks the payment against its GCash history; if it is not found, the Barya is taken back. Topping up needs a verified account.
 - A top-up of any size unlocks: boosting, keeping job posts up past the free days, the list of matching workers for your jobs, up to three community posts at a time instead of one, and your card opening as a resume on an employer's Applicants list.
 - Refunds of Barya happen automatically in set cases; the Refund Policy is in Settings, About & Legal, and linked at the bottom of My Wallet.
 - Paying a worker: directly, as agreed in the chat. KAYA does not hold job payments.

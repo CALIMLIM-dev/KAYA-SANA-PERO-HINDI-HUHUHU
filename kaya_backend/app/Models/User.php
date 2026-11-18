@@ -555,9 +555,14 @@ class User extends Authenticatable
     /** Bought barya at least once. See CreditTransaction::toppedUpAmong. */
     public function hasToppedUp(): bool
     {
+        // A top-up taken back because the money never arrived does not count.
         return CreditTransaction::query()
             ->where('user_id', $this->id)
             ->where('reason', CreditTransaction::REASON_TOPUP)
+            ->whereNotIn('id', CreditTransaction::query()
+                ->where('user_id', $this->id)
+                ->where('reason', CreditTransaction::REASON_TOPUP_REVERSED)
+                ->select('refunds_transaction_id'))
             ->exists();
     }
 

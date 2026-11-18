@@ -412,6 +412,10 @@ Route::prefix('v1')->group(function () {
         // A Google Play purchase, checked with Google before anything is credited.
         Route::post('/credits/play/verify', [CreditCheckoutController::class, 'playVerify'])
             ->middleware(['throttle:credits-checkout', 'verified:any']);
+        // Paid to KAYA's GCash QR; added at once, checked by an admin after.
+        Route::post('/credits/gcash',       [CreditCheckoutController::class, 'gcash'])
+            ->middleware(['throttle:credits-checkout', 'verified:any']);
+        Route::get('/credits/payments',     [CreditController::class, 'payments']);
 
         // Notifications. `audience` mirrors the app's worker/employer mode, so
         // a hybrid account doesn't see the other side's alerts.

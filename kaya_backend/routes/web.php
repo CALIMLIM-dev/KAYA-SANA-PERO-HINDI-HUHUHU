@@ -189,6 +189,18 @@ Route::prefix('admin')->name('admin.')->group(function () {
         Route::post('/credits/adjust', [AdminCreditController::class, 'adjust'])->name('credits.adjust')
             ->middleware('admin.can:finance.adjust');
 
+        // Top-ups: the GCash ones to check against the GCash history.
+        Route::middleware('admin.can:finance')->group(function () {
+            Route::get('/payments', [\App\Http\Controllers\Admin\PaymentController::class, 'index'])->name('payments.index');
+            Route::get('/payments/export', [\App\Http\Controllers\Admin\PaymentController::class, 'export'])->name('payments.export');
+            Route::get('/payments/{payment}', [\App\Http\Controllers\Admin\PaymentController::class, 'show'])->name('payments.show');
+            Route::get('/payments/{payment}/proof', [\App\Http\Controllers\Admin\PaymentController::class, 'proof'])->name('payments.proof');
+            // Not Received moves Barya, so the controller also asks for finance.adjust.
+            Route::post('/payments/{payment}/check', [\App\Http\Controllers\Admin\PaymentController::class, 'check'])->name('payments.check');
+        });
+        Route::post('/payments-settings', [\App\Http\Controllers\Admin\PaymentController::class, 'settings'])->name('payments.settings')
+            ->middleware('admin.can:finance.adjust');
+
         // Adding and renaming. What removes or hides something is below.
         Route::middleware('admin.can:catalogue')->group(function () {
         Route::get('/categories', [AdminCategoryController::class, 'index'])->name('categories.index');

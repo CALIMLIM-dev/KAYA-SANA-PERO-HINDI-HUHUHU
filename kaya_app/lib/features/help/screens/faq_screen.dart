@@ -115,8 +115,9 @@ const _groups = <(String, List<_FAQ>)>[
         'Directly. KAYA does not hold or move job payments. Agree the amount and how you will '
             'pay in the chat.'),
     _FAQ('How do I top up?',
-        'Profile, My Wallet, then choose a package. While KAYA is in testing, top-ups are free '
-            'and the Barya is added at once. You need a verified account.'),
+        'Profile, My Wallet, then choose a package. Scan the GCash QR, pay the exact price, then '
+            'send the GCash reference number and a screenshot of the receipt. The Barya is added at '
+            'once. You need a verified account.'),
     _FAQ('What does topping up unlock?',
         'A top-up of any size unlocks boosting, keeping job posts up past the free week, the '
             'list of matching workers for your jobs, up to three community posts at a time '

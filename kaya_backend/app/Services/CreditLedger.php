@@ -200,6 +200,46 @@ class CreditLedger
         }
     }
 
+    /**
+     * Take back a top-up whose money never arrived.
+     *
+     * Takes what is left, never more: the balance cannot go below zero, and
+     * the account is banned for it anyway. The row points at the top-up it
+     * reverses (unique, so it happens once), which is also what stops the
+     * top-up counting as premium.
+     */
+    public function reverseTopup(CreditTransaction $topup, string $note, ?int $actorId = null): ?CreditTransaction
+    {
+        $user = User::find($topup->user_id);
+        if (! $user || $topup->reason !== CreditTransaction::REASON_TOPUP) {
+            return null;
+        }
+
+        try {
+            return DB::transaction(function () use ($topup, $user, $note, $actorId) {
+                $this->walletFor($user);
+                $take = min($topup->delta, $this->balance($user));
+                if ($take > 0) {
+                    CreditWallet::where('user_id', $user->id)->where('balance', '>=', $take)->decrement('balance', $take);
+                }
+
+                return CreditTransaction::create([
+                    'user_id' => $user->id,
+                    'delta' => -$take,
+                    'balance_after' => $this->balance($user),
+                    'reason' => CreditTransaction::REASON_TOPUP_REVERSED,
+                    'reference_type' => $topup->reference_type,
+                    'reference_id' => $topup->reference_id,
+                    'refunds_transaction_id' => $topup->id,
+                    'note' => $take < $topup->delta ? $note . ' (' . ($topup->delta - $take) . ' already spent)' : $note,
+                    'actor_id' => $actorId,
+                ]);
+            }, 3);
+        } catch (UniqueConstraintViolationException) {
+            return null;
+        }
+    }
+
     public function balance(User $user): int
     {
         return (int) (CreditWallet::where('user_id', $user->id)->value('balance') ?? 0);

@@ -12,6 +12,8 @@ import '../../../providers/auth_provider.dart';
 import '../../../providers/credits_provider.dart';
 import '../../legal/screens/legal_screen.dart';
 import '../widgets/top_up_section.dart';
+import 'gcash_pay_screen.dart';
+import 'receipt_screen.dart';
 import '../widgets/wallet_history.dart';
 
 /// The wallet: what you have, what it costs, and how to get more.
@@ -107,6 +109,20 @@ class _WalletScreenState extends State<WalletScreen> with WidgetsBindingObserver
 
     final credits = context.read<CreditsProvider>();
 
+    // Paid to KAYA's GCash QR. One top-up waits to be checked at a time.
+    if (credits.usesGcash) {
+      setState(() => _buying = false);
+      final waiting = credits.gcashWaiting;
+      if (waiting != null) {
+        AppToast.info(context,
+            'Your top-up ${waiting['receipt_no']} is still being checked. You can top up again once it is confirmed.');
+        return;
+      }
+      await Navigator.of(context).push(MaterialPageRoute(builder: (_) => GcashPayScreen(package: package)));
+      if (mounted) await credits.loadHistory();
+      return;
+    }
+
     // On the Play Store, Google Play takes the payment; the outcome arrives
     // through _onPlayMessage once the server has credited it.
     if (credits.usesPlay) {
@@ -141,6 +157,11 @@ class _WalletScreenState extends State<WalletScreen> with WidgetsBindingObserver
         elevation: 0,
         title: const Text('My Wallet', style: TextStyle(fontWeight: FontWeight.w600)),
         actions: [
+          IconButton(
+            tooltip: 'Receipts',
+            icon: const Icon(Icons.receipt_outlined),
+            onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const ReceiptsScreen())),
+          ),
           IconButton(
             tooltip: 'History',
             icon: const Icon(Icons.receipt_long_outlined),
@@ -223,6 +244,9 @@ class _WalletScreenState extends State<WalletScreen> with WidgetsBindingObserver
                   buying: _buying,
                   onBuy: _buy,
                   priceFor: credits.playPrice,
+                  note: credits.usesGcash
+                      ? 'Paid with GCash. Send your receipt and the Barya is added at once.'
+                      : 'Top-ups are free while KAYA is in testing. No payment is taken.',
                 ),
                 const SizedBox(height: 26),
                 // The newest few only. The full history, with this month's

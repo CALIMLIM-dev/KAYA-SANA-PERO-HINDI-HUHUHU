@@ -105,7 +105,7 @@
         },
         {
             "title": "Payments",
-            "body": "Topping up Barya is free while KAYA is in testing. When paid top-ups open, the payment will be taken by Google Play and KAYA will never see your card or e-wallet number. We keep a record of each top-up: the package, the amount, the date and the reference, because it is a financial record. KAYA does not handle the pay for a job; that is between the worker and the employer."
+            "body": "Top-ups are paid with GCash to KAYA's GCash account. You send us the GCash reference number and a screenshot of your GCash receipt, and we use them only to check the payment against our GCash history. The screenshot is stored with restricted access and is read only by KAYA admins. We keep a record of each top-up: the package, the amount, the date, the reference number and whether it was confirmed, because it is a financial record. KAYA never sees your GCash PIN or balance. KAYA does not handle the pay for a job; that is between the worker and the employer."
         },
         {
             "title": "How We Store and Protect Your Data",

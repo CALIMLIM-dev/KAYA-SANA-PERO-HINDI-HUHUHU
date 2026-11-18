@@ -63,7 +63,7 @@ return [
             ],
             'how_topup' => [
                 'label'   => 'How do I top up?',
-                'answer'  => "1. Open Profile, then My Wallet.\n2. Choose a package.\nWhile KAYA is in testing, top-ups are free and added at once. You need a verified account.",
+                'answer'  => "1. Open Profile, then My Wallet.\n2. Choose a package.\n3. Scan the GCash QR and pay the exact price.\n4. Enter the GCash reference number and add a screenshot of the receipt.\nThe Barya is added at once. You need a verified account.",
                 'actions' => ['wallet'],
             ],
         ],

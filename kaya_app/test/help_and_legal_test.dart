@@ -21,7 +21,7 @@ void main() {
     expect(find.text('How do I create an account?'), findsNothing);
     expect(find.text('How do I top up?'), findsOneWidget);
     // Opened without a tap.
-    expect(find.textContaining('top-ups are free'), findsOneWidget);
+    expect(find.textContaining('Scan the GCash QR'), findsOneWidget);
   });
 
   testWidgets('a search with no match says what to do', (tester) async {

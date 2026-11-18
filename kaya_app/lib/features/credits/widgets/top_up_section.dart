@@ -25,7 +25,11 @@ class TopUpSection extends StatelessWidget {
     required this.buying,
     required this.onBuy,
     this.priceFor,
+    this.note = 'Top-ups are free while KAYA is in testing. No payment is taken.',
   });
+
+  /// The line under the packages: how a top-up is paid.
+  final String note;
 
   final List<CreditPackage> packages;
   final List<ComparisonRow> rows;
@@ -76,17 +80,17 @@ class TopUpSection extends StatelessWidget {
             padding: const EdgeInsets.fromLTRB(16, 4, 16, 0),
             child: packages.isEmpty ? _noPackages() : _grid(),
           ),
-          const Padding(
-            padding: EdgeInsets.fromLTRB(16, 12, 16, 16),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Icon(Icons.info_outline, size: 15, color: AppColors.neutral500),
-                SizedBox(width: 6),
+                const Icon(Icons.info_outline, size: 15, color: AppColors.neutral500),
+                const SizedBox(width: 6),
                 Expanded(
                   child: Text(
-                    'Top-ups are free while KAYA is in testing. No payment is taken.',
-                    style: TextStyle(fontSize: 12, color: AppColors.neutral500),
+                    note,
+                    style: const TextStyle(fontSize: 12, color: AppColors.neutral500),
                   ),
                 ),
               ],
