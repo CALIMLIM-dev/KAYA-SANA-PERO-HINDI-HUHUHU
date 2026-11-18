@@ -181,6 +181,27 @@ class FairModerationTest extends TestCase
     }
 
     #[Test]
+    public function an_appeal_can_carry_photos_that_admin_opens(): void
+    {
+        \Illuminate\Support\Facades\Storage::fake(config('filesystems.documents'));
+        $issuer = $this->admin();
+        $strike = $this->strike(admin: $issuer);
+
+        $this->actingAs($this->reported, 'sanctum')->post("/api/v1/account/strikes/{$strike->id}/appeal", [
+            'appeal' => 'Here is the receipt and the chat where they agreed.',
+            'photos' => [\Illuminate\Http\UploadedFile::fake()->create('receipt.png', 40, 'image/png')],
+        ], ['Accept' => 'application/json'])->assertOk();
+
+        $paths = $strike->fresh()->appeal_evidence;
+        $this->assertCount(1, $paths);
+        \Illuminate\Support\Facades\Storage::disk(config('filesystems.documents'))->assertExists($paths[0]);
+
+        $this->actingAs($issuer)->get("/admin/strikes/{$strike->id}")->assertOk()->assertSee('Appeal photo 1');
+        $this->actingAs($issuer)->get("/admin/strikes/{$strike->id}/appeal-evidence/0")->assertOk();
+        $this->actingAs($issuer)->get("/admin/strikes/{$strike->id}/appeal-evidence/5")->assertNotFound();
+    }
+
+    #[Test]
     public function the_appeal_window_closes(): void
     {
         $strike = $this->strike();

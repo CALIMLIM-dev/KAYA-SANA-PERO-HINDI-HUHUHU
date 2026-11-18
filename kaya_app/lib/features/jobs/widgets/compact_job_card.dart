@@ -364,11 +364,11 @@ class CompactJobCard extends StatelessWidget {
 
   String _formatSalary() {
     if (job.salaryMin != null && job.salaryMax != null) {
-      return '₱${job.salaryMin!.toStringAsFixed(0)}-${job.salaryMax!.toStringAsFixed(0)}/${job.salaryPeriod}';
+      return '₱${job.salaryMin!.toStringAsFixed(0)}-${job.salaryMax!.toStringAsFixed(0)}${job.payUnit}';
     } else if (job.salaryMin != null) {
-      return '₱${job.salaryMin!.toStringAsFixed(0)}/${job.salaryPeriod}';
+      return '₱${job.salaryMin!.toStringAsFixed(0)}${job.payUnit}';
     } else if (job.salaryMax != null) {
-      return '₱${job.salaryMax!.toStringAsFixed(0)}/${job.salaryPeriod}';
+      return '₱${job.salaryMax!.toStringAsFixed(0)}${job.payUnit}';
     }
     return 'To be discussed';
   }

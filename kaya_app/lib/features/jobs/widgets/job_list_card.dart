@@ -338,10 +338,10 @@ class JobListCard extends StatelessWidget {
     final min = job.salaryMin;
     final max = job.salaryMax;
     if (min != null && max != null && max != min) {
-      return '₱${min.toStringAsFixed(0)}-${max.toStringAsFixed(0)}/${job.salaryPeriod}';
+      return '₱${min.toStringAsFixed(0)}-${max.toStringAsFixed(0)}${job.payUnit}';
     }
     final one = min ?? max;
-    if (one != null) return '₱${one.toStringAsFixed(0)}/${job.salaryPeriod}';
+    if (one != null) return '₱${one.toStringAsFixed(0)}${job.payUnit}';
     return 'Payment terms: to be discussed';
   }
 

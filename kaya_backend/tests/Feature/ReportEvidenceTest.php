@@ -91,6 +91,38 @@ class ReportEvidenceTest extends TestCase
     }
 
     #[Test]
+    public function a_report_from_the_chat_keeps_what_they_said_there(): void
+    {
+        $thread = Conversation::create([
+            'pair_low' => min($this->reporter->id, $this->reported->id),
+            'pair_high' => max($this->reporter->id, $this->reported->id),
+            'employer_id' => $this->reporter->id, 'worker_id' => $this->reported->id, 'status' => 'unlocked',
+        ]);
+        foreach (['Bayaran mo muna ako', 'Pupuntahan kita sa bahay mo', 'Hindi ka makakaalis'] as $line) {
+            Message::create(['conversation_id' => $thread->id, 'sender_id' => $this->reported->id, 'message_text' => $line]);
+        }
+        Message::create(['conversation_id' => $thread->id, 'sender_id' => $this->reporter->id, 'message_text' => 'Tama na po']);
+
+        // The chat's own Report button names no single message.
+        $this->file(['reason_code' => 'harassment', 'subject_type' => 'message'])->assertCreated();
+
+        $report = Report::firstOrFail();
+        $this->assertSame('harassment', $report->reason_code);
+        $this->assertSame('Messages', $report->snapshot['kind']);
+        $this->assertStringContainsString('Hindi ka makakaalis', $report->snapshot['text']);
+        $this->assertStringNotContainsString('Tama na po', $report->snapshot['text'], 'only what the reported person sent');
+    }
+
+    #[Test]
+    public function every_reason_is_kept_as_picked(): void
+    {
+        foreach (array_keys(\App\Support\ModerationReasons::reportReasonsFor('message')) as $code) {
+            $this->file(['reason_code' => $code, 'subject_type' => 'message'])->assertCreated();
+            $this->assertSame($code, Report::latest('id')->value('reason_code'), "picked $code");
+        }
+    }
+
+    #[Test]
     public function photos_are_kept_on_the_private_disk(): void
     {
         Storage::fake(config('filesystems.documents'));

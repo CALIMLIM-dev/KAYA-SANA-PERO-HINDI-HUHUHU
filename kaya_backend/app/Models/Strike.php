@@ -18,7 +18,7 @@ class Strike extends Model
     protected $fillable = [
         'user_id', 'report_id', 'reason_code', 'action', 'days', 'finding', 'issued_by',
         'ends_at', 'expires_at', 'confirmed_by', 'confirmed_at',
-        'appeal', 'appealed_at', 'appeal_status', 'appeal_note', 'appeal_decided_by', 'appeal_decided_at',
+        'appeal', 'appeal_evidence', 'appealed_at', 'appeal_status', 'appeal_note', 'appeal_decided_by', 'appeal_decided_at',
         'removed_at',
     ];
 
@@ -27,6 +27,7 @@ class Strike extends Model
         'expires_at'        => 'datetime',
         'confirmed_at'      => 'datetime',
         'appealed_at'       => 'datetime',
+        'appeal_evidence'   => 'array',
         'appeal_decided_at' => 'datetime',
         'removed_at'        => 'datetime',
     ];

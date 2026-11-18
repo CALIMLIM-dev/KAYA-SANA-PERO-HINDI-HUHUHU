@@ -128,9 +128,9 @@ class _ChatJobStripState extends State<ChatJobStrip> {
     final min = job.salaryMin;
     final max = job.salaryMax;
     if (min != null && max != null && max != min) {
-      parts.add('₱${min.toStringAsFixed(0)}-${max.toStringAsFixed(0)}/${job.salaryPeriod}');
+      parts.add('₱${min.toStringAsFixed(0)}-${max.toStringAsFixed(0)}${job.payUnit}');
     } else if (min != null || max != null) {
-      parts.add('₱${(min ?? max)!.toStringAsFixed(0)}/${job.salaryPeriod}');
+      parts.add('₱${(min ?? max)!.toStringAsFixed(0)}${job.payUnit}');
     }
 
     if (job.scheduleLabel != null) parts.add(job.scheduleLabel!);

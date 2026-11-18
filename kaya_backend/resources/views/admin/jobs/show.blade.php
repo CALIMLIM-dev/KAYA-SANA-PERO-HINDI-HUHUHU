@@ -48,7 +48,7 @@
                 <div><dt class="text-slate-400">Budget</dt><dd class="text-slate-700">
                     @if ($job->budget_min || $job->budget_max)
                         P{{ number_format($job->budget_min) }}@if ($job->budget_max && $job->budget_max != $job->budget_min) to P{{ number_format($job->budget_max) }}@endif
-                        @if ($job->budget_period) per {{ $job->budget_period }} @endif
+                        @if ($job->budget_period) {{ ['hourly' => 'per hour', 'daily' => 'per day', 'project' => 'per contract'][$job->budget_period] ?? '' }} @endif
                     @else Not given @endif
                 </dd></div>
                 <div><dt class="text-slate-400">Work Dates</dt><dd class="text-slate-700">

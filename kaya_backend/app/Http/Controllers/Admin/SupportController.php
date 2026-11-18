@@ -147,18 +147,18 @@ class SupportController extends Controller
     }
 
     /*
-        Close: done. The chat is erased for both sides, as every support chat
-        is when it ends; nothing of it is kept.
+        Close: done. The chat leaves the person's screen and the waiting
+        list; the team keeps it, as with a chat the person left.
     */
     public function close(SupportThread $thread)
     {
         $name = $thread->user?->name ?? 'a deleted account';
-        $thread->messages()->delete();
+        $thread->messages()->update(['hidden_at' => now()]);
         $thread->forceFill(['handoff_at' => null, 'assistant_back_at' => null, 'last_message_at' => null, 'assigned_to' => null, 'topic' => null])->save();
 
         AdminAction::record('support.closed', 'support_thread', $thread->id, 'Closed the support chat with ' . $name, ['user_id' => $thread->user_id]);
 
-        return redirect()->route('admin.support.index')->with('success', 'Chat closed and erased.');
+        return redirect()->route('admin.support.index')->with('success', 'Chat closed.');
     }
 
     /** A reported answer, read and dealt with. */
@@ -190,7 +190,9 @@ class SupportController extends Controller
 
     public function show(SupportThread $thread)
     {
-        $thread->load(['user', 'messages.sender:id,name']);
+        // Everything said, including what the person cleared by leaving.
+        $thread->load('user');
+        $thread->setRelation('messages', $thread->allMessages()->with('sender:id,name')->orderBy('id')->get());
 
         // Reading it is reading it. Only their side.
         $thread->messages()
@@ -212,7 +214,7 @@ class SupportController extends Controller
     {
         $after = (int) $request->query('after', 0);
 
-        $messages = $thread->messages()
+        $messages = $thread->allMessages()
             ->where('id', '>', $after)
             ->with('sender:id,name')
             ->orderBy('id')

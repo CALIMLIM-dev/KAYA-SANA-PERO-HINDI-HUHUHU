@@ -456,6 +456,24 @@ return [
         'backup_similarity_threshold' => (float) env('EMBEDDING_BACKUP_THRESHOLD', 0.62),
 
         /*
+            The second backup, tried when Jina has no vector: Voyage, a
+            different company, so one provider's outage does not take both.
+            It refuses a dimensions setting and answers 1024 numbers, which
+            is fine: pairs are only ever compared within one model.
+            Threshold measured on kaya:embedding-test's pairs on 19 Nov 2026:
+            0.44, the highest "must not match" pair being Plumbing / Carpentry
+            and Welding / Cooking at 0.429; 8 of 12 "should match" pairs clear
+            it. Without a payment method on the Voyage account it allows only
+            3 requests a minute, and a 429 rests it like any other model.
+        */
+        'backup2_model' => env('EMBEDDING_BACKUP2_MODEL', 'voyage-ai/voyage-multilingual-2'),
+        'backup2_similarity_threshold' => (float) env('EMBEDDING_BACKUP2_THRESHOLD', 0.44),
+
+        // A model that failed is skipped for this long: quota, then anything else.
+        'rest_minutes_quota' => (int) env('EMBEDDING_REST_QUOTA_MINUTES', 60),
+        'rest_minutes_error' => (int) env('EMBEDDING_REST_ERROR_MINUTES', 5),
+
+        /*
             Two seconds, on a save the user is already waiting through.
 
             Short on purpose. A new skill has to match immediately or the

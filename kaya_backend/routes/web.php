@@ -176,6 +176,8 @@ Route::prefix('admin')->name('admin.')->group(function () {
         // Offenses and review requests ("strikes" in the code).
         Route::get('/strikes', [\App\Http\Controllers\Admin\StrikeController::class, 'index'])->name('strikes.index');
         Route::get('/strikes/{strike}', [\App\Http\Controllers\Admin\StrikeController::class, 'show'])->name('strikes.show');
+        Route::get('/strikes/{strike}/appeal-evidence/{index}', [\App\Http\Controllers\Admin\StrikeController::class, 'appealEvidence'])
+            ->whereNumber('index')->name('strikes.appeal-evidence');
         Route::post('/strikes/{strike}/appeal', [\App\Http\Controllers\Admin\StrikeController::class, 'decideAppeal'])->name('strikes.appeal');
         Route::post('/strikes/{strike}/remove', [\App\Http\Controllers\Admin\StrikeController::class, 'remove'])->name('strikes.remove');
 

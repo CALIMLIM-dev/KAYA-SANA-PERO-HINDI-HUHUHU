@@ -21,6 +21,7 @@ class EmbeddingsBackupTest extends TestCase
     use RefreshDatabase;
 
     private const JINA = 'jina-ai/jina-embeddings-v5-text-small';
+    private const VOYAGE = 'voyage-ai/voyage-multilingual-2';
 
     protected function setUp(): void
     {
@@ -33,6 +34,8 @@ class EmbeddingsBackupTest extends TestCase
             'kaya.matching.backup_model'                => self::JINA,
             'kaya.matching.similarity_threshold'        => 0.80,
             'kaya.matching.backup_similarity_threshold' => 0.62,
+            'kaya.matching.backup2_model'                => self::VOYAGE,
+            'kaya.matching.backup2_similarity_threshold' => 0.44,
             'kaya.assistant.url'                        => 'https://omni.test/v1',
             'kaya.assistant.key'                        => 'k',
         ]);
@@ -108,6 +111,44 @@ class EmbeddingsBackupTest extends TestCase
         $this->store('a word', self::JINA, [1.0, 0.0]);
         $this->store('b word', self::JINA, [cos($angle), sin($angle)]);
 
+        $this->assertEqualsWithDelta(0.80, app(Embeddings::class)->similarity('a word', 'b word'), 0.0001);
+    }
+
+    #[Test]
+    public function after_a_quota_error_the_model_rests_and_is_not_asked_again(): void
+    {
+        Http::fake([
+            'gemini.test/*' => Http::response(['error' => ['message' => 'quota']], 429),
+            'omni.test/*'   => Http::response(['data' => [['embedding' => [0.3, 0.2, 0.1]]]]),
+        ]);
+
+        app(Embeddings::class)->ensure('hinang');
+        app(Embeddings::class)->ensure('tubero');
+
+        $this->assertTrue(app(Embeddings::class)->resting('gemini-embedding-001'));
+        Http::assertSentCount(1 + 2 + 2); // Gemini once, then Jina and Voyage for each word
+        $this->assertTrue(SkillVector::where('term', 'tubero')->where('model', self::JINA)->exists());
+    }
+
+    #[Test]
+    public function voyage_is_asked_without_a_size_and_decides_when_jina_cannot(): void
+    {
+        Http::fake([
+            'gemini.test/*' => Http::response([], 429),
+            'omni.test/*'   => fn (Request $r) => $r['model'] === self::JINA
+                ? Http::response([], 503)
+                : Http::response(['data' => [['embedding' => [0.5, 0.5]]]]),
+        ]);
+
+        app(Embeddings::class)->ensure('karpintero');
+
+        Http::assertSent(fn (Request $r) => ($r->data()['model'] ?? null) === self::VOYAGE && ! isset($r->data()['dimensions']));
+        $this->assertTrue(SkillVector::where('term', 'karpintero')->where('model', self::VOYAGE)->exists());
+
+        // Only Voyage has both words: its 0.44 reads as Gemini's 0.80.
+        $angle = acos(0.44);
+        $this->store('a word', self::VOYAGE, [1.0, 0.0]);
+        $this->store('b word', self::VOYAGE, [cos($angle), sin($angle)]);
         $this->assertEqualsWithDelta(0.80, app(Embeddings::class)->similarity('a word', 'b word'), 0.0001);
     }
 

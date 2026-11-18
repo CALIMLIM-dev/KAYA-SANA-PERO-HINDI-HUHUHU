@@ -128,9 +128,10 @@ class StrikeService
         $this->notify->suspensionLifted($user);
     }
 
-    public function appeal(Strike $strike, string $text): void
+    /** @param list<string> $evidence paths on the private disk */
+    public function appeal(Strike $strike, string $text, array $evidence = []): void
     {
-        $strike->update(['appeal' => $text, 'appealed_at' => now(), 'appeal_status' => 'pending']);
+        $strike->update(['appeal' => $text, 'appeal_evidence' => $evidence ?: null, 'appealed_at' => now(), 'appeal_status' => 'pending']);
     }
 
     /** Returns an error, or null. */

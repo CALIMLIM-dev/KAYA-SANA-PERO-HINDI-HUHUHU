@@ -76,6 +76,9 @@ class SupportThread extends Model
     public function user()     { return $this->belongsTo(User::class); }
     public function messages() { return $this->hasMany(SupportMessage::class); }
 
+    /** Every message, including the ones the person cleared by leaving. Admin only. */
+    public function allMessages() { return $this->hasMany(SupportMessage::class)->withoutGlobalScope('visible'); }
+
     public function latestMessage()
     {
         return $this->hasOne(SupportMessage::class)->latestOfMany();

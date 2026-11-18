@@ -250,9 +250,12 @@ class KayaAssistant
     }
 
     /*
-        Support chats are temporary: leaving one erases it, for both sides.
+        Leaving a support chat clears it from the person's screen. The team
+        keeps it (hidden_at, see SupportMessage), so an appeal or a ban can
+        be read with what was said, the assistant's menu answers included.
+        A suspended or banned account's chat is not cleared at all.
 
-        Except while it is still with the team. Somebody who asked for a
+        And not while it is still with the team. Somebody who asked for a
         person and walked away would otherwise erase their own request
         before anyone read it, and somebody the team just answered would
         lose the answer before reading it. Those wait: the first until the
@@ -262,7 +265,7 @@ class KayaAssistant
     {
         $thread->unsetRelation('latestMessage');
 
-        if ($thread->isWaitingOnUs()) {
+        if ($thread->isWaitingOnUs() || $thread->user?->is_suspended) {
             return false;
         }
 
@@ -276,7 +279,7 @@ class KayaAssistant
             return false;
         }
 
-        $thread->messages()->delete();
+        $thread->messages()->update(['hidden_at' => now()]);
         $thread->forceFill([
             'handoff_at' => null, 'assistant_back_at' => null, 'last_message_at' => null, 'assigned_to' => null, 'topic' => null,
             'queue_since' => null, 'queue_saved_until' => null, 'agent_joined_at' => null, 'summary' => null, 'issue' => null,

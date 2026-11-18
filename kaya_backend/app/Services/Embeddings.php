@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\SkillVector;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 
@@ -47,27 +48,67 @@ class Embeddings
             && filled(config('kaya.matching.api_key'));
     }
 
-    /** The backup goes through OmniRoute, with KAYA's key there. */
+    /** The backups go through OmniRoute, with KAYA's key there. */
     public function backupEnabled(): bool
     {
-        return (bool) config('kaya.matching.embeddings_enabled')
-            && filled(config('kaya.matching.backup_model'))
-            && filled(config('kaya.assistant.url'))
-            && filled(config('kaya.assistant.key'));
+        return $this->backups() !== [];
     }
 
+    /**
+     * The backups, in the order they are tried: Jina, then Voyage.
+     *
+     * Each with its own "close enough", measured by kaya:embedding-test, and
+     * whether it takes a dimensions setting (Voyage refuses one).
+     *
+     * @return list<array{model: string, threshold: float, dimensions: bool}>
+     */
+    public function backups(): array
+    {
+        if (! config('kaya.matching.embeddings_enabled') || blank(config('kaya.assistant.url')) || blank(config('kaya.assistant.key'))) {
+            return [];
+        }
+
+        return array_values(array_filter([
+            ['model' => (string) config('kaya.matching.backup_model'), 'threshold' => (float) config('kaya.matching.backup_similarity_threshold'), 'dimensions' => true],
+            ['model' => (string) config('kaya.matching.backup2_model'), 'threshold' => (float) config('kaya.matching.backup2_similarity_threshold'), 'dimensions' => false],
+        ], fn ($b) => $b['model'] !== '' && $b['model'] !== $this->model()));
+    }
+
+    /** The first backup, the one most words already have vectors for. */
     public function backupModel(): string
     {
-        return (string) config('kaya.matching.backup_model');
+        return $this->backups()[0]['model'] ?? '';
     }
 
-    /** The models that can be asked right now, main first. */
+    /** The models that can be asked, main first. */
     public function activeModels(): array
     {
         return array_values(array_filter([
             $this->primaryEnabled() ? $this->model() : null,
-            $this->backupEnabled() ? $this->backupModel() : null,
+            ...array_column($this->backups(), 'model'),
         ]));
+    }
+
+    /*
+        A model that just said "quota exceeded" or was unreachable is left
+        alone for a while, so every new word does not wait on a call that
+        will fail again. The next model in line answers meanwhile.
+    */
+    public function resting(string $model): bool
+    {
+        return Cache::has('embeddings.rest.' . md5($model));
+    }
+
+    private function rest(string $model, int $minutes, string $why): void
+    {
+        Cache::put('embeddings.rest.' . md5($model), $why, now()->addMinutes($minutes));
+        Log::info("[embeddings] {$model} resting {$minutes} min: {$why}");
+    }
+
+    /** How long a failure rests the model: a quota for an hour, anything else a few minutes. */
+    private function restFor(int $status): int
+    {
+        return $status === 429 ? (int) config('kaya.matching.rest_minutes_quota', 60) : (int) config('kaya.matching.rest_minutes_error', 5);
     }
 
     public function model(): string
@@ -190,8 +231,14 @@ class Embeddings
             return null;
         }
 
-        if ($model === $this->backupModel() && $model !== $this->model()) {
-            return $this->backupEnabled() ? $this->fetchBackup($term, $store) : null;
+        if ($this->resting($model)) {
+            return null;
+        }
+
+        if ($model !== $this->model()) {
+            $backup = collect($this->backups())->firstWhere('model', $model);
+
+            return $backup ? $this->fetchBackup($term, $store, $backup) : null;
         }
 
         if (! $this->primaryEnabled()) {
@@ -225,6 +272,10 @@ class Embeddings
                 '[embeddings] HTTP '.$response->status().' for "'.$term.'": '
                 . mb_substr($response->body(), 0, 200),
             );
+            // Out of quota or down: rest it. A one-off timeout above is not.
+            if ($response->status() === 429 || $response->serverError()) {
+                $this->rest($model, $this->restFor($response->status()), 'HTTP ' . $response->status());
+            }
 
             return null;
         }
@@ -296,51 +347,58 @@ class Embeddings
         }
 
         /*
-            Gemini has no vector for one of them: compare both on the
-            backup's vectors instead, never one model against the other.
-            Its scores run on another scale, so they are moved onto
-            Gemini's: at the backup's own threshold it reads as Gemini's.
+            Gemini has no vector for one of them: compare both on a backup's
+            vectors instead, the first backup that has both, never one model
+            against another. Each backup's scores run on its own scale, so
+            they are moved onto Gemini's: at the backup's own threshold it
+            reads as Gemini's.
         */
-        if ($this->backupModel() === '' || $this->backupModel() === $this->model()) {
-            return null;
+        foreach ($this->backups() as $backup) {
+            $v = $this->vectorsFor([$a, $b], $backup['model']);
+            if (isset($v[$a], $v[$b])) {
+                return SkillVector::cosine($v[$a], $v[$b])
+                    - $backup['threshold']
+                    + (float) config('kaya.matching.similarity_threshold');
+            }
         }
 
-        $backup = $this->vectorsFor([$a, $b], $this->backupModel());
-        if (! isset($backup[$a], $backup[$b])) {
-            return null;
-        }
-
-        return SkillVector::cosine($backup[$a], $backup[$b])
-            - (float) config('kaya.matching.backup_similarity_threshold')
-            + (float) config('kaya.matching.similarity_threshold');
+        return null;
     }
 
     /**
-     * The backup model's vector, through OmniRoute's embeddings endpoint.
+     * A backup model's vector, through OmniRoute's embeddings endpoint.
      *
+     * @param  array{model: string, threshold: float, dimensions: bool}  $backup
      * @return list<float>|null
      */
-    private function fetchBackup(string $term, bool $store = true): ?array
+    private function fetchBackup(string $term, bool $store, array $backup): ?array
     {
+        $model = $backup['model'];
+
         try {
             $response = Http::withToken((string) config('kaya.assistant.key'))
                 ->withHeaders(['ngrok-skip-browser-warning' => '1'])
                 ->timeout(max(5, (int) config('kaya.matching.timeout_seconds')))
                 ->asJson()
-                ->post(rtrim((string) config('kaya.assistant.url'), '/') . '/embeddings', [
-                    'model'      => $this->backupModel(),
+                ->post(rtrim((string) config('kaya.assistant.url'), '/') . '/embeddings', array_filter([
+                    'model'      => $model,
                     'input'      => [$term],
-                    'dimensions' => (int) config('kaya.matching.dimensions'),
-                ]);
+                    // Voyage refuses this setting and answers in its own size.
+                    'dimensions' => $backup['dimensions'] ? (int) config('kaya.matching.dimensions') : null,
+                ]));
         } catch (\Throwable $e) {
-            Log::info('[embeddings] backup unreachable for "' . $term . '": ' . $e->getMessage());
+            // OmniRoute runs on the owner's PC: unreachable usually means it is off.
+            $this->rest($model, $this->restFor(0), 'unreachable');
 
             return null;
         }
 
         $values = $response->successful() ? $response->json('data.0.embedding') : null;
         if (! is_array($values) || $values === []) {
-            Log::warning('[embeddings] backup HTTP ' . $response->status() . ' for "' . $term . '"');
+            Log::warning('[embeddings] ' . $model . ' HTTP ' . $response->status() . ' for "' . $term . '"');
+            if ($response->status() === 429 || $response->serverError()) {
+                $this->rest($model, $this->restFor($response->status()), 'HTTP ' . $response->status());
+            }
 
             return null;
         }
@@ -348,7 +406,7 @@ class Embeddings
         $values = array_values(array_map('floatval', $values));
         if ($store) {
             SkillVector::updateOrCreate(
-                ['term' => $term, 'model' => $this->backupModel()],
+                ['term' => $term, 'model' => $model],
                 ['dimensions' => count($values), 'values' => $values],
             );
         }

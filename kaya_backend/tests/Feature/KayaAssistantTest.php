@@ -305,7 +305,7 @@ class KayaAssistantTest extends TestCase
     }
 
     #[Test]
-    public function leaving_erases_a_chat_with_the_assistant(): void
+    public function leaving_clears_the_chat_for_the_person_but_the_team_keeps_it(): void
     {
         $this->omniSays('An answer.');
         $maria = $this->person();
@@ -314,13 +314,32 @@ class KayaAssistantTest extends TestCase
         $this->actingAs($maria, 'sanctum')->postJson('/api/v1/support/end')->assertOk()
             ->assertJsonPath('data.cleared', true);
 
-        $this->assertSame(0, SupportMessage::count());
+        $this->assertSame(0, SupportMessage::count(), 'gone from her side');
         $this->actingAs($maria, 'sanctum')->getJson('/api/v1/support')->assertOk()
             ->assertJsonCount(0, 'data.messages');
+
+        // Kept for the team: admin's chat page still shows what was said.
+        $thread = SupportThread::where('user_id', $maria->id)->first();
+        $this->assertGreaterThanOrEqual(2, $thread->allMessages()->count());
+        $admin = \App\Models\User::factory()->create(['user_type' => 'admin']);
+        $this->actingAs($admin)->get(route('admin.support.show', $thread))->assertOk()->assertSee('How do I top up?');
 
         // Today's numbers outlive the chat.
         $this->assertSame(1, KayaAssistant::todayStats()['answered']);
         $this->assertSame(['claude-sonnet-4.5' => 1], KayaAssistant::todayStats()['models']);
+    }
+
+    #[Test]
+    public function a_suspended_persons_chat_is_not_cleared_when_they_leave(): void
+    {
+        $this->omniSays('An answer.');
+        $maria = $this->person();
+        $this->write($maria, 'Why was I banned?');
+        $maria->forceFill(['is_suspended' => true])->save();
+
+        $thread = SupportThread::where('user_id', $maria->id)->first();
+        $this->assertFalse(app(KayaAssistant::class)->clear($thread->fresh()));
+        $this->assertGreaterThanOrEqual(1, SupportMessage::count(), 'still on her screen');
     }
 
     #[Test]

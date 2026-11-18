@@ -78,9 +78,18 @@ class AccountStandingController extends Controller
                 : 'The time to appeal has passed.'], 422);
         }
 
-        $data = $request->validate(['appeal' => ['required', 'string', 'min:20', 'max:2000']]);
+        $data = $request->validate([
+            'appeal'   => ['required', 'string', 'min:20', 'max:2000'],
+            // Screenshots or photos that back the appeal, like a report's.
+            'photos'   => ['nullable', 'array', 'max:3'],
+            'photos.*' => ['image', 'mimes:jpg,jpeg,png,webp', 'max:5120'],
+        ]);
 
-        $strikes->appeal($strike, $data['appeal']);
+        $evidence = collect($request->file('photos', []))
+            ->map(fn ($photo) => $photo->store("appeal_evidence/{$strike->id}", config('filesystems.documents')))
+            ->values()->all();
+
+        $strikes->appeal($strike, $data['appeal'], $evidence);
 
         return response()->json(['success' => true, 'data' => null,
             'message' => 'Appeal sent. KAYA will review it.']);

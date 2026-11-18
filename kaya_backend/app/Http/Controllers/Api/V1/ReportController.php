@@ -190,9 +190,30 @@ class ReportController extends Controller
                     (int) $conversation->pair_low, (int) $conversation->pair_high,
                 ], true);
 
-                return $message && $message->sender_id === $reported->id && $inThread
-                    ? ['kind' => 'Message', 'text' => $message->message_text, 'sent_at' => $message->created_at?->toIso8601String()]
-                    : null;
+                if ($message && $message->sender_id === $reported->id && $inThread) {
+                    return ['kind' => 'Message', 'text' => $message->message_text, 'sent_at' => $message->created_at?->toIso8601String()];
+                }
+
+                /*
+                    Reported from the chat itself, not from one message: the
+                    reported person's last ten messages in chats the two of
+                    them share. Without it the report kept only a name and a
+                    town, and admin could not see what was said.
+                */
+                $shared = \App\Models\Conversation::query()
+                    ->where(fn ($q) => $q->where(fn ($q) => $q->where('employer_id', $reporter->id)->where('worker_id', $reported->id))
+                        ->orWhere(fn ($q) => $q->where('employer_id', $reported->id)->where('worker_id', $reporter->id))
+                        ->orWhere(fn ($q) => $q->whereIn('pair_low', [$reporter->id, $reported->id])->whereIn('pair_high', [$reporter->id, $reported->id])))
+                    ->pluck('id');
+                $recent = \App\Models\Message::whereIn('conversation_id', $shared)
+                    ->where('sender_id', $reported->id)
+                    ->where(fn ($q) => $q->whereNull('type')->orWhere('type', '!=', 'system'))
+                    ->latest('id')->limit(10)->get(['message_text', 'created_at'])->reverse();
+
+                return $recent->isEmpty() ? null : [
+                    'kind' => 'Messages',
+                    'text' => $recent->map(fn ($m) => $m->created_at?->timezone('Asia/Manila')->format('M j, g:i A') . ': ' . $m->message_text)->implode("\n"),
+                ];
             })(),
             'job' => (function () use ($id, $reported) {
                 $job = $id ? \App\Models\JobPost::find($id) : null;

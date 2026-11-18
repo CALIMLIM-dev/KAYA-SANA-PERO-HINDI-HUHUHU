@@ -1,4 +1,6 @@
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 
 import '../../../core/constants/app_colors.dart';
@@ -10,6 +12,7 @@ import '../../../data/services/api_client.dart';
 import '../../../providers/app_mode_provider.dart';
 import '../../../providers/auth_provider.dart';
 import '../moderation_date.dart';
+import '../widgets/evidence_photos.dart';
 import '../widgets/reported_content.dart';
 import '../../../core/utils/json_parse.dart';
 
@@ -333,6 +336,8 @@ class _AppealForm extends StatefulWidget {
 
 class _AppealFormState extends State<_AppealForm> {
   final TextEditingController _text = TextEditingController();
+  // Screenshots or photos that back the appeal, as a report can carry.
+  final List<XFile> _photos = [];
   bool _sending = false;
 
   static const _min = 20;
@@ -346,7 +351,13 @@ class _AppealFormState extends State<_AppealForm> {
   Future<void> _send() async {
     setState(() => _sending = true);
     try {
-      await ApiClient().post('/account/strikes/${widget.strikeId}/appeal', data: {'appeal': _text.text.trim()});
+      final fields = {'appeal': _text.text.trim()};
+      await ApiClient().post(
+        '/account/strikes/${widget.strikeId}/appeal',
+        data: _photos.isEmpty
+            ? fields
+            : FormData.fromMap({...fields, 'photos': await EvidencePhotos.files(_photos)}, ListFormat.multiCompatible),
+      );
       if (!mounted) return;
       Navigator.pop(context, true);
       AppToast.success(context, 'Request sent.');
@@ -373,6 +384,14 @@ class _AppealFormState extends State<_AppealForm> {
           maxLength: 2000,
           onChanged: (_) => setState(() {}),
           decoration: fieldDecoration(hint: 'Tell us what really happened'),
+        ),
+        const SizedBox(height: 8),
+        EvidencePhotos(
+          photos: _photos,
+          label: 'Photos (Optional)',
+          onChanged: (photos) => setState(() => _photos
+            ..clear()
+            ..addAll(photos)),
         ),
       ],
     );

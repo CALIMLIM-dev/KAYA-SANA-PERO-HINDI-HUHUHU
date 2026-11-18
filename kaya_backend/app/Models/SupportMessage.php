@@ -7,7 +7,17 @@ use Illuminate\Database\Eloquent\Model;
 /** One line in an account's conversation with KAYA. */
 class SupportMessage extends Model
 {
-    protected $fillable = ['support_thread_id', 'sender_id', 'from_admin', 'is_assistant', 'assistant_model', 'body', 'read_at', 'kind', 'payload'];
+    protected $fillable = ['support_thread_id', 'sender_id', 'from_admin', 'is_assistant', 'assistant_model', 'body', 'read_at', 'kind', 'payload', 'hidden_at'];
+
+    /*
+        A chat the person left is hidden from them and from KAYA Assistant,
+        not deleted. Only the admin support page reads past this
+        (SupportThread::allMessages).
+    */
+    protected static function booted(): void
+    {
+        static::addGlobalScope('visible', fn (\Illuminate\Database\Eloquent\Builder $q) => $q->whereNull('support_messages.hidden_at'));
+    }
 
     /** A line between the two sides ("Ana joined the chat"), not something anyone typed. */
     public function isEvent(): bool

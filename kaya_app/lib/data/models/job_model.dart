@@ -10,7 +10,16 @@ class Job {
   final String? location;
   final double? salaryMin;
   final double? salaryMax;
-  final String salaryPeriod; // 'hour', 'day', 'month'
+  final String salaryPeriod; // 'daily', 'hourly' or 'project' (shown as Contract)
+
+  /// The word after the pay: "₱800/day", "₱120/hr", "₱800 per contract".
+  /// The stored value is never shown; "/project" and "/daily" were.
+  String get payUnit => switch (salaryPeriod) {
+        'daily' || 'day' => '/day',
+        'hourly' || 'hour' => '/hr',
+        'project' || 'contract' => ' per contract',
+        _ => '',
+      };
   final bool isUrgent;
   /// Whether the hirer is verified. Misnamed long ago; it says nothing about
   /// what the job requires.

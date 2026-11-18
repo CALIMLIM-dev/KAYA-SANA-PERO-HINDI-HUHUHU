@@ -43,7 +43,7 @@ class ReportExportController extends Controller
         // Verifications
         'verified' => 'Approved', 'government_id' => 'Government ID', 'business_reg' => 'Business registration',
         // Pay
-        'hourly' => 'per hour', 'daily' => 'per day', 'project' => 'per job',
+        'hourly' => 'per hour', 'daily' => 'per day', 'project' => 'per contract',
     ];
 
     public function __construct(private XlsxExporter $xlsx) {}

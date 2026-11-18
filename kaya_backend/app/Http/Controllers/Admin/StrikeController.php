@@ -45,6 +45,16 @@ class StrikeController extends Controller
         ]);
     }
 
+    /** One appeal photo, from the private disk, as report evidence is served. */
+    public function appealEvidence(Strike $strike, int $index)
+    {
+        $path = ($strike->appeal_evidence ?? [])[$index] ?? null;
+        $disk = \Illuminate\Support\Facades\Storage::disk(config('filesystems.documents'));
+        abort_if(blank($path) || ! $disk->exists($path), 404);
+
+        return $disk->response($path);
+    }
+
     public function show(Strike $strike)
     {
         $strike->load(['user', 'issuer:id,name', 'appealDecider:id,name', 'report']);

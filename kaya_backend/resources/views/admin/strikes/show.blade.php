@@ -92,6 +92,16 @@
             <h3 class="{{ $heading }}">Appeal</h3>
             @if ($strike->appealed_at)
                 <p class="mt-2 text-sm text-slate-800 leading-relaxed whitespace-pre-line max-w-prose">{{ $strike->appeal }}</p>
+                @if (! empty($strike->appeal_evidence))
+                    <div class="mt-3 flex flex-wrap gap-2">
+                        @foreach ($strike->appeal_evidence as $i => $path)
+                            <a href="{{ route('admin.strikes.appeal-evidence', [$strike, $i]) }}" target="_blank" rel="noopener"
+                               class="block w-24 h-24 rounded-lg overflow-hidden border border-slate-200">
+                                <img src="{{ route('admin.strikes.appeal-evidence', [$strike, $i]) }}" alt="Appeal photo {{ $i + 1 }}" class="w-full h-full object-cover">
+                            </a>
+                        @endforeach
+                    </div>
+                @endif
                 <p class="mt-1.5 text-xs text-slate-500">
                     Sent {{ $at($strike->appealed_at) }}
                     @if ($strike->appeal_status === 'pending') · waiting {{ $strike->appealed_at->diffForHumans(null, true) }} @endif
