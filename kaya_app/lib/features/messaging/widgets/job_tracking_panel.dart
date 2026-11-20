@@ -1,4 +1,5 @@
 import 'dart:ui' as ui;
+import '../../../core/widgets/loading.dart';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
@@ -190,11 +191,7 @@ class _JobTrackingPanelState extends State<JobTrackingPanel> {
             ),
           ),
           if (_busy)
-            const SizedBox(
-              width: 20,
-              height: 20,
-              child: CircularProgressIndicator(strokeWidth: 2),
-            )
+            const SmallSpinner()
           else
             Switch(
               value: sharing,
@@ -268,11 +265,7 @@ class _JobTrackingPanelState extends State<JobTrackingPanel> {
         background: AppColors.primary.withValues(alpha: 0.04),
         child: Row(
           children: [
-            const SizedBox(
-              width: 16,
-              height: 16,
-              child: CircularProgressIndicator(strokeWidth: 2),
-            ),
+            const SmallSpinner(),
             const SizedBox(width: 12),
             Expanded(
               child: Text(

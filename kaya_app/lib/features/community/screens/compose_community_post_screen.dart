@@ -1,4 +1,5 @@
 import 'dart:io';
+import '../../../core/widgets/loading.dart';
 
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
@@ -331,7 +332,7 @@ class _ComposeCommunityPostScreenState extends State<ComposeCommunityPostScreen>
                       textStyle: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
                     ),
                     child: _posting
-                        ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                        ? const SmallSpinner.white()
                         : Text(cost == null ? 'Post' : 'Post for $cost ${Credits.plural}'),
                   ),
                 ],

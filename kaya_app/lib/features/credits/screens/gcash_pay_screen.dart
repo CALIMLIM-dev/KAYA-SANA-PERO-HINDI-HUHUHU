@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
+import '../../../core/widgets/loading.dart';
 
 import '../../../core/constants/app_colors.dart';
 import '../../../core/widgets/app_toast.dart';
@@ -89,7 +90,7 @@ class _GcashPayFormState extends State<GcashPayForm> {
                   width: 220,
                   height: 220,
                   fit: BoxFit.contain,
-                  placeholder: (_, _) => const SizedBox(width: 220, height: 220, child: Center(child: CircularProgressIndicator(strokeWidth: 2))),
+                  placeholder: (_, _) => const ImageLoading(width: 220, height: 220),
                   errorWidget: (_, _, _) => const SizedBox(
                     width: 220,
                     height: 220,

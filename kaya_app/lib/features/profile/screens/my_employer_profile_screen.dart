@@ -12,6 +12,7 @@ import '../../../providers/employer_profile_provider.dart';
 import '../../../providers/verification_provider.dart';
 import '../widgets/inline_edit_row.dart';
 import '../widgets/inline_location_row.dart';
+import '../../../core/widgets/loading.dart';
 
 /// My Employer Profile - JobStreet-inspired layout
 /// Toggle (Company / Individual) is visible directly on the profile tab
@@ -97,7 +98,7 @@ class _MyEmployerProfileScreenState extends State<MyEmployerProfileScreen>
                       ? child
                       : const Padding(
                           padding: EdgeInsets.all(48),
-                          child: Center(child: CircularProgressIndicator()),
+                          child: Loading(),
                         ),
                   // A broken image with no explanation reads as the photo
                   // having been lost, which it has not.
@@ -228,7 +229,7 @@ class _MyEmployerProfileScreenState extends State<MyEmployerProfileScreen>
     if (employer.isLoading && employer.profile == null) {
       return const Scaffold(
         backgroundColor: AppColors.background,
-        body: Center(child: CircularProgressIndicator(strokeWidth: 2)),
+        body: Loading(),
       );
     }
 

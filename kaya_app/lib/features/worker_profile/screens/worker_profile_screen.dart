@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
+import '../../../core/widgets/loading.dart';
 
 import '../../../core/widgets/profile_avatar.dart';
 import '../../../core/constants/app_colors.dart';
@@ -76,7 +77,7 @@ class _WorkerProfileScreenState extends State<WorkerProfileScreen> {
     return Consumer<WorkerBrowseProvider>(
       builder: (context, provider, _) {
         if (provider.isDetailLoading) {
-          return const Scaffold(body: Center(child: CircularProgressIndicator()));
+          return const Scaffold(body: Loading());
         }
         if (provider.detailErrorMessage != null || provider.selectedWorker == null) {
           return _errorState(context, provider.detailErrorMessage ?? 'Worker not found.');
@@ -1058,8 +1059,7 @@ class _WorkerProfileScreenState extends State<WorkerProfileScreen> {
                         ? child
                         : const Padding(
                             padding: EdgeInsets.all(40),
-                            child: CircularProgressIndicator(
-                                color: Colors.white),
+                            child: SmallSpinner.white(),
                           ),
                   ),
                 ),

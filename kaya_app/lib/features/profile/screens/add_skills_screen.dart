@@ -5,6 +5,7 @@ import '../../../providers/worker_profile_provider.dart';
 import '../../../data/models/category_model.dart';
 import '../../../data/models/skill_model.dart';
 import '../../../core/widgets/app_toast.dart';
+import '../../../core/widgets/loading.dart';
 
 /*
     Picking skills, during setup and afterwards alike.
@@ -365,7 +366,7 @@ class _AddSkillsScreenState extends State<AddSkillsScreen> {
                   const SizedBox(height: 8),
                   
                   if (_isLoadingCategories)
-                    const Center(child: CircularProgressIndicator())
+                    const Loading()
                   else if (provider.categories.isEmpty)
                     const Text('No categories available', style: TextStyle(color: AppColors.neutral400))
                   else
@@ -415,7 +416,7 @@ class _AddSkillsScreenState extends State<AddSkillsScreen> {
                     const SizedBox(height: 8),
                     
                     if (_isLoadingSkills)
-                      const Center(child: CircularProgressIndicator())
+                      const Loading()
                     else if (provider.availableSkills.isEmpty)
                       const Text('No predefined skills. Add a custom skill below.',
                           style: TextStyle(color: AppColors.neutral400))

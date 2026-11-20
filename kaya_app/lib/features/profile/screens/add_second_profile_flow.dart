@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import '../../../core/widgets/loading.dart';
 
 import '../../../core/constants/app_colors.dart';
 import '../../../core/navigation/app_router.dart';
@@ -324,11 +325,7 @@ class SecondProfilePreparingScreen extends StatelessWidget {
                 style: TextStyle(fontSize: 13.5, color: AppColors.neutral600),
               ),
               const SizedBox(height: 28),
-              const SizedBox(
-                width: 24,
-                height: 24,
-                child: CircularProgressIndicator(strokeWidth: 2.5),
-              ),
+              const SmallSpinner(),
             ],
           ),
         ),

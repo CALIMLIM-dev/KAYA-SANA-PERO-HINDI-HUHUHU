@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import '../../../core/widgets/loading.dart';
 
 import '../../../core/constants/app_colors.dart';
 import '../../../providers/community_provider.dart';
@@ -50,7 +51,7 @@ class _MyCommunityPostsScreenState extends State<MyCommunityPostsScreen> {
       body: RefreshIndicator(
         onRefresh: _load,
         child: !_loaded && mine.isEmpty
-            ? const Center(child: CircularProgressIndicator())
+            ? const LoadingList()
             : mine.isEmpty
                 ? ListView(
                     padding: const EdgeInsets.all(32),

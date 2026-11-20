@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../../core/utils/realtime_refresh.dart';
 import '../../../core/widgets/resume_sort.dart';
+import '../../../core/widgets/loading.dart';
 
 import '../../../core/constants/app_colors.dart';
 import '../../../core/navigation/app_router.dart';
@@ -177,7 +178,7 @@ class _ViewApplicantsScreenState extends State<ViewApplicantsScreen>
                 style: const TextStyle(fontWeight: FontWeight.w600)),
           ),
           body: provider.isApplicantsLoading && all.isEmpty
-              ? const Center(child: CircularProgressIndicator())
+              ? const LoadingList()
               : provider.applicantsErrorMessage != null && all.isEmpty
                   ? _errorState(provider.applicantsErrorMessage!)
                   : RefreshIndicator(

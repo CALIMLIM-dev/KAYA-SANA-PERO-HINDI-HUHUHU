@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:math' as math;
+import '../../../core/widgets/loading.dart';
 
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
@@ -414,7 +415,7 @@ class _SlideView extends StatelessWidget {
       _Kind.banner => CachedNetworkImage(
           imageUrl: '${d['image_url']}',
           fit: BoxFit.cover,
-          placeholder: (_, _) => const ColoredBox(color: AppColors.neutral200),
+          placeholder: (_, _) => const ImageLoading(),
           errorWidget: (_, _, _) => Image.asset(tradePhoto(null), fit: BoxFit.cover),
         ),
       _Kind.worker || _Kind.job => Image.asset(tradePhoto(d['category'] as String?), fit: BoxFit.cover),
@@ -436,7 +437,7 @@ class _SlideView extends StatelessWidget {
             child: CachedNetworkImage(
               imageUrl: slide.photoOnlyUrl!,
               fit: BoxFit.contain,
-              placeholder: (_, _) => const ColoredBox(color: AppColors.neutral200),
+              placeholder: (_, _) => const ImageLoading(),
               errorWidget: (_, _, _) => Image.asset(tradePhoto(null), fit: BoxFit.cover),
             ),
           ),

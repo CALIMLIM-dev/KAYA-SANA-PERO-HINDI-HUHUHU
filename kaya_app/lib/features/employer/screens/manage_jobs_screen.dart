@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../../core/utils/realtime_refresh.dart';
+import '../../../core/widgets/loading.dart';
 
 import '../../../core/navigation/app_router.dart';
 import '../../../core/constants/app_colors.dart';
@@ -91,7 +92,7 @@ class _ManageJobsScreenState extends State<ManageJobsScreen>
             */
           ),
           body: jobProvider.isLoading && jobs.isEmpty
-              ? const Center(child: CircularProgressIndicator())
+              ? const LoadingList()
               : jobProvider.errorMessage != null && jobs.isEmpty
                   ? _errorState(jobProvider.errorMessage!)
                   : _buildList(history),
@@ -754,7 +755,7 @@ class _ManageJobsScreenState extends State<ManageJobsScreen>
             onPressed: () async {
               Navigator.pop(context);
               final provider = context.read<JobProvider>();
-              final ok = await provider.changeStatus(jobId, 'completed');
+              final ok = await withPleaseWait(context, () => provider.changeStatus(jobId, 'completed'));
 
               /*
                   Refetched, or the button stays.

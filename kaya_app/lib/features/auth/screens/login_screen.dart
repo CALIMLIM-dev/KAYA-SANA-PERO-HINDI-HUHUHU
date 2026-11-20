@@ -6,6 +6,7 @@ import '../../../shared/widgets/ph_phone_field.dart';
 import '../../../shared/widgets/suspension_dialog.dart';
 import '../../../core/navigation/app_router.dart';
 import '../../moderation/screens/account_status_screen.dart';
+import '../../../core/widgets/loading.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -230,8 +231,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       elevation: 0,
                     ),
                     child: _emailBusy
-                        ? const SizedBox(height: 22, width: 22,
-                            child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                        ? const SmallSpinner.white()
                         : const Text('Sign In',
                             style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
                   ),
@@ -405,11 +405,7 @@ class _LoginScreenState extends State<LoginScreen> {
           side: BorderSide(color: AppColors.neutral300),
         ),
         child: busy
-            ? const SizedBox(
-                height: 22,
-                width: 22,
-                child: CircularProgressIndicator(strokeWidth: 2),
-              )
+            ? const SmallSpinner()
             : Row(mainAxisAlignment: MainAxisAlignment.center, children: [
                 Icon(icon, color: AppColors.neutral700, size: 22),
                 const SizedBox(width: 8),

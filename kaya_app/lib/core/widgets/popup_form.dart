@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../core/widgets/loading.dart';
 
 import '../constants/app_colors.dart';
 
@@ -114,11 +115,7 @@ class PopupForm extends StatelessWidget {
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                     ),
                     child: busy
-                        ? const SizedBox(
-                            width: 18,
-                            height: 18,
-                            child: CircularProgressIndicator(strokeWidth: 2, valueColor: AlwaysStoppedAnimation(Colors.white)),
-                          )
+                        ? const SmallSpinner.white()
                         : Text(actionLabel),
                   ),
                 ),

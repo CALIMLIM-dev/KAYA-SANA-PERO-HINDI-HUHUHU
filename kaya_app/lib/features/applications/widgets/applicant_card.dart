@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import '../../../core/widgets/loading.dart';
 
 import '../../../core/constants/app_colors.dart';
 import '../../../core/navigation/app_router.dart';
@@ -486,8 +487,8 @@ required bool accept,
           onPressed: () async {
             Navigator.pop(dialogContext);
             final provider = context.read<ApplicationProvider>();
-            final ok = await provider.respondToApplicant(applicationId,
-                accept: accept);
+            final ok = await withPleaseWait(context, () => provider.respondToApplicant(applicationId,
+                accept: accept));
             if (!context.mounted) return;
 
             // The job's state just changed - a hire puts it in progress -

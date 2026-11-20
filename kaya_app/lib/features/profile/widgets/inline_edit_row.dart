@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import '../../../core/widgets/loading.dart';
 
 import '../../../core/constants/app_colors.dart';
 
@@ -277,11 +278,7 @@ class _InlineEditRowState extends State<InlineEditRow> {
     if (_saving) {
       return const Padding(
         padding: EdgeInsets.all(10),
-        child: SizedBox(
-          width: 18,
-          height: 18,
-          child: CircularProgressIndicator(strokeWidth: 2),
-        ),
+        child: SmallSpinner(),
       );
     }
 

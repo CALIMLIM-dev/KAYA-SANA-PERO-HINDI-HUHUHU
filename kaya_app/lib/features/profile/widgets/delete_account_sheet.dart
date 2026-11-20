@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../../core/widgets/kaya_popup.dart';
+import '../../../core/widgets/loading.dart';
 
 import '../../../core/constants/app_colors.dart';
 import '../../../core/utils/end_session.dart';
@@ -174,11 +175,7 @@ class _DeleteAccountSheetState extends State<DeleteAccountSheet> {
                     foregroundColor: Colors.white,
                   ),
                   child: _submitting
-                      ? const SizedBox(
-                          width: 18,
-                          height: 18,
-                          child: CircularProgressIndicator(
-                              strokeWidth: 2, color: Colors.white))
+                      ? const SmallSpinner.white()
                       : const Text('Delete Account'),
                 ),
               ),

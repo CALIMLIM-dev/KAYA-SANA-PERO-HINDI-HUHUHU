@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../core/widgets/loading.dart';
 
 import '../../../core/constants/app_colors.dart';
 import '../../../core/widgets/app_toast.dart';
@@ -134,7 +135,7 @@ class _BlockedAccountsState extends State<BlockedAccounts> {
                   ]),
                 )
               : people == null
-                  ? const Padding(padding: EdgeInsets.all(24), child: Center(child: CircularProgressIndicator()))
+                  ? const Padding(padding: EdgeInsets.all(24), child: Loading())
                   : people.isEmpty
                       ? const Padding(
                           padding: EdgeInsets.fromLTRB(20, 8, 20, 28),

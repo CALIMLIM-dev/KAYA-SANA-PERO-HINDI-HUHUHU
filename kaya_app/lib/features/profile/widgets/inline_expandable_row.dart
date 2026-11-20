@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../core/widgets/loading.dart';
 
 import '../../../core/constants/app_colors.dart';
 
@@ -164,14 +165,7 @@ class InlineExpandableRow extends StatelessWidget {
                               visualDensity: VisualDensity.compact,
                             ),
                             child: saving
-                                ? const SizedBox(
-                                    height: 16,
-                                    width: 16,
-                                    child: CircularProgressIndicator(
-                                      strokeWidth: 2,
-                                      color: Colors.white,
-                                    ),
-                                  )
+                                ? const SmallSpinner.white()
                                 : Text(saveLabel),
                           ),
                         ],

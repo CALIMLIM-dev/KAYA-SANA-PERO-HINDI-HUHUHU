@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import '../../../core/widgets/loading.dart';
 
 import '../../../core/constants/app_colors.dart';
 import '../../../core/navigation/app_router.dart';
@@ -218,6 +219,8 @@ class CommunityPostCard extends StatelessWidget {
                     cacheWidth: (MediaQuery.sizeOf(context).width *
                             MediaQuery.devicePixelRatioOf(context))
                         .round(),
+                    loadingBuilder: (_, child, progress) =>
+                        progress == null ? child : const ImageLoading(),
                     errorBuilder: (_, _, _) => Container(
                       color: AppColors.neutral100,
                       alignment: Alignment.center,

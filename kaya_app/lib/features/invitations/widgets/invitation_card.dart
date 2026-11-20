@@ -1,4 +1,5 @@
 import 'dart:async';
+import '../../../core/widgets/loading.dart';
 
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -207,11 +208,7 @@ class _InvitationCardState extends State<InvitationCard> {
             const SizedBox(height: 12),
             if (_busy)
               const Center(
-                child: SizedBox(
-                  height: 22,
-                  width: 22,
-                  child: CircularProgressIndicator(strokeWidth: 2),
-                ),
+                child: SmallSpinner(),
               )
             else
               ..._actions(status, stillOpen),

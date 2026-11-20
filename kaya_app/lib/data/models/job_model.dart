@@ -154,6 +154,10 @@ class Job {
   /// life is [endDate] and the work day is agreed in the chat.
   final DateTime? workStartsOn;
 
+  /// Roughly where the job is, never the exact spot: the barangay's centre,
+  /// or the town's when the barangay has none. Null when neither is known.
+  final JobArea? area;
+
   /// "Starts Nov 25", or null when no day was given.
   String? get startsLabel {
     final d = workStartsOn;
@@ -336,6 +340,7 @@ class Job {
     this.photoUrls = const [],
     this.startDate,
     this.workStartsOn,
+    this.area,
     this.endDate,
     this.startTime,
     this.deadline,
@@ -380,6 +385,7 @@ class Job {
       // rather than with a made-up one.
       startDate: DateTime.tryParse((json['start_date'] ?? '').toString()),
       workStartsOn: DateTime.tryParse((json['work_starts_on'] ?? '').toString()),
+      area: JobArea.fromPlace(json['psgc_location']),
       endDate: DateTime.tryParse((json['end_date'] ?? '').toString()),
       deadline: DateTime.tryParse((json['deadline'] ?? '').toString()),
       // MySQL TIME arrives as "08:30:00"; the seconds are never meaningful
@@ -530,7 +536,35 @@ class Job {
       workersNeeded: workersNeeded ?? this.workersNeeded,
       workersFilled: workersFilled ?? this.workersFilled,
       workStartsOn: workStartsOn,
+      area: area,
     );
+  }
+}
+
+/// A circle over the area a job is in, as a marketplace shows a seller's
+/// area: wide enough that the house cannot be picked out of it.
+class JobArea {
+  const JobArea(this.lat, this.lng, this.radiusMeters);
+
+  final double lat;
+  final double lng;
+  final double radiusMeters;
+
+  /// From the job's place: a barangay is drawn 1 km wide, a town 3 km.
+  static JobArea? fromPlace(Object? place) {
+    if (place is! Map) return null;
+    final lat = asDoubleOrNull(place['latitude']);
+    final lng = asDoubleOrNull(place['longitude']);
+    if (lat != null && lng != null) {
+      return JobArea(lat, lng, place['type'] == 'barangay' ? 1000 : 3000);
+    }
+    final parent = place['parent'];
+    if (parent is Map) {
+      final plat = asDoubleOrNull(parent['latitude']);
+      final plng = asDoubleOrNull(parent['longitude']);
+      if (plat != null && plng != null) return JobArea(plat, plng, 3000);
+    }
+    return null;
   }
 }
 

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../core/widgets/loading.dart';
 
 import 'package:provider/provider.dart';
 
@@ -74,7 +75,7 @@ class SystemMessageCard extends StatelessWidget {
     if (yes != true || !context.mounted) return;
 
     final provider = context.read<ApplicationProvider>();
-    final ok = await provider.markComplete(applicationId);
+    final ok = await withPleaseWait(context, () => provider.markComplete(applicationId));
     if (!context.mounted) return;
 
     if (!ok) {

@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../providers/auth_provider.dart';
 import '../../../core/widgets/app_toast.dart';
+import '../../../core/widgets/loading.dart';
 
 class ResetPasswordScreen extends StatefulWidget {
   const ResetPasswordScreen({super.key});
@@ -269,14 +270,7 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
                       elevation: 0,
                     ),
                     child: auth.isLoading
-                        ? const SizedBox(
-                            height: 22,
-                            width: 22,
-                            child: CircularProgressIndicator(
-                              color: Colors.white,
-                              strokeWidth: 2,
-                            ),
-                          )
+                        ? const SmallSpinner.white()
                         : const Text(
                             'Reset Password',
                             style: TextStyle(

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import '../../../core/widgets/loading.dart';
 
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/credits.dart';
@@ -180,7 +181,7 @@ class _WalletScreenState extends State<WalletScreen> with WidgetsBindingObserver
       body: Consumer<CreditsProvider>(
         builder: (context, credits, _) {
           if (credits.isLoading && !credits.hasLoadedOnce) {
-            return const Center(child: CircularProgressIndicator());
+            return const Loading();
           }
 
           // A wallet that never loaded is not an empty one. Showing 0 Barya
@@ -455,11 +456,7 @@ class _WalletScreenState extends State<WalletScreen> with WidgetsBindingObserver
               padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 11),
             ),
             child: _claiming == type
-                ? const SizedBox(
-                    width: 16,
-                    height: 16,
-                    child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
-                  )
+                ? const SmallSpinner.white()
                 : Text(
                     needsVerification ? 'Verify' : 'Claim',
                     style: const TextStyle(fontWeight: FontWeight.w700),

@@ -28,6 +28,7 @@ import '../../../core/widgets/verification_badge_widget.dart';
 import '../widgets/profile_views_popup.dart';
 import '../../../core/navigation/app_router.dart';
 import '../../../core/utils/json_parse.dart';
+import '../../../core/widgets/loading.dart';
 
 /// My Worker Profile - JobStreet-inspired card layout
 /// Shows filled data in cards, NOT empty clickable placeholders
@@ -264,7 +265,7 @@ class _MyWorkerProfileScreenState extends State<MyWorkerProfileScreen> with Sing
                       ? child
                       : const Padding(
                           padding: EdgeInsets.all(48),
-                          child: Center(child: CircularProgressIndicator()),
+                          child: Loading(),
                         ),
                   // A broken image with no explanation reads as the photo
                   // having been lost, which it has not.
@@ -337,7 +338,7 @@ class _MyWorkerProfileScreenState extends State<MyWorkerProfileScreen> with Sing
     if (profile.isLoading && profile.name == null) {
       return const Scaffold(
         backgroundColor: AppColors.background,
-        body: Center(child: CircularProgressIndicator(strokeWidth: 2)),
+        body: Loading(),
       );
     }
 
@@ -493,6 +494,8 @@ class _MyWorkerProfileScreenState extends State<MyWorkerProfileScreen> with Sing
                                             ? Image.network(
                                                 _photoUrl(context)!,
                                                 fit: BoxFit.cover,
+                                                loadingBuilder: (_, child, progress) =>
+                                                    progress == null ? child : const ImageLoading(),
                                                 errorBuilder: (_, _, _) =>
                                                     const Icon(Icons.person, color: Colors.white54, size: 32),
                                               )
@@ -1515,7 +1518,7 @@ class _MyWorkerProfileScreenState extends State<MyWorkerProfileScreen> with Sing
                                           if (confirmed == true && context.mounted && skill.id != null) {
                                             // Delete the specific skill by ID
                                             final provider = context.read<WorkerProfileProvider>();
-                                            final ok = await provider.deleteSkill(skill.id!);
+                                            final ok = await withPleaseWait(context, () => provider.deleteSkill(skill.id!));
                                             if (!ok && context.mounted) {
                                               AppToast.error(context, provider.errorMessage ?? 'That skill could not be removed.');
                                             }

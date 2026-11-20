@@ -24,6 +24,7 @@ import '../../../core/widgets/app_toast.dart';
 import '../../../core/widgets/verify_gate.dart';
 import '../../../core/navigation/app_router.dart';
 import '../../../core/utils/json_parse.dart';
+import '../../../core/widgets/loading.dart';
 
 /// Post Job Screen - Clean, professional design following industry best practices
 class PostJobScreen extends StatefulWidget {
@@ -978,11 +979,7 @@ class _PostJobScreenState extends State<PostJobScreen> {
                     const SizedBox(height: 12),
                     const Row(
                       children: [
-                        SizedBox(
-                          width: 16,
-                          height: 16,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        ),
+                        SmallSpinner(),
                         SizedBox(width: 10),
                         Text('Loading skills…',
                             style: TextStyle(
@@ -2032,7 +2029,8 @@ class _PostJobScreenState extends State<PostJobScreen> {
     );
     if (ok != true || !mounted) return;
 
-    final error = await context.read<WorkerProfileProvider>().removeCustomCategory(category);
+    final provider = context.read<WorkerProfileProvider>();
+    final error = await withPleaseWait(context, () => provider.removeCustomCategory(category));
     if (!mounted) return;
 
     if (error != null) {
@@ -2076,7 +2074,7 @@ class _PostJobScreenState extends State<PostJobScreen> {
                   if (categories.isEmpty) {
                     return Center(
                       child: taxonomy.isLoading
-                          ? const CircularProgressIndicator()
+                          ? const Loading()
                           : const Text('No categories available'),
                     );
                   }
@@ -2284,6 +2282,9 @@ class _PostJobScreenState extends State<PostJobScreen> {
                     width: 100,
                     height: 100,
                     fit: BoxFit.cover,
+                    loadingBuilder: (_, child, progress) => progress == null
+                        ? child
+                        : const ImageLoading(width: 100, height: 100),
                     errorBuilder: (_, _, _) => Container(
                         width: 100, height: 100, color: AppColors.neutral100),
                   ),
@@ -2452,14 +2453,7 @@ class _PostJobScreenState extends State<PostJobScreen> {
               elevation: 0,
             ),
             child: _isLoading
-                ? const SizedBox(
-                    height: 20,
-                    width: 20,
-                    child: CircularProgressIndicator(
-                      color: Colors.white,
-                      strokeWidth: 2,
-                    ),
-                  )
+                ? const SmallSpinner.white()
                 : Builder(builder: (context) {
                     /*
                         The whole cost on the button, where it is decided.
@@ -2617,7 +2611,7 @@ class _PostJobScreenState extends State<PostJobScreen> {
         return;
       }
 
-      final success = await jobProvider.createJob(
+      final success = await withPleaseWait(context, () => jobProvider.createJob(
         title:       _titleController.text.trim(),
         description: _descriptionController.text.trim(),
         categoryId:  categoryId,
@@ -2652,7 +2646,7 @@ class _PostJobScreenState extends State<PostJobScreen> {
         endDate:     _endDate,
         workStartsOn: _workStartsOn,
         workersNeeded: _workersNeeded,
-      );
+      ));
 
       if (!mounted) return;
       setState(() => _isLoading = false);
@@ -2698,7 +2692,7 @@ class _PostJobScreenState extends State<PostJobScreen> {
 
   /// The edit's end of _submitJob: every check above has passed, so save.
   Future<void> _saveEdit(JobProvider jobProvider, int categoryId, List<int> skillIds) async {
-    final ok = await jobProvider.updateJob(widget.editing!['id'] as int, {
+    final ok = await withPleaseWait(context, () => jobProvider.updateJob(widget.editing!['id'] as int, {
       'title': _titleController.text.trim(),
       'description': _descriptionController.text.trim(),
       'category_id': categoryId,
@@ -2717,7 +2711,7 @@ class _PostJobScreenState extends State<PostJobScreen> {
       // Sent as null when cleared, so an edit can take the date off.
       'work_starts_on': _workStartsOn == null ? null : JobProvider.ymd(_workStartsOn!),
       'workers_needed': _workersNeeded,
-    }, photos: _selectedImages);
+    }, photos: _selectedImages));
 
     if (!mounted) return;
     setState(() => _isLoading = false);

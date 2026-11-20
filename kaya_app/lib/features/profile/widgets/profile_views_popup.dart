@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../core/widgets/loading.dart';
 
 import '../../../core/constants/app_colors.dart';
 import '../../../core/navigation/app_router.dart';
@@ -63,7 +64,7 @@ class _ProfileViewsState extends State<_ProfileViews> {
           const SizedBox(height: 12),
           if (data == null)
             _error == null
-                ? const Center(child: Padding(padding: EdgeInsets.all(24), child: CircularProgressIndicator()))
+                ? const Loading(padding: EdgeInsets.all(24))
                 : Text(_error!, style: const TextStyle(color: AppColors.neutral600))
           else ..._body(data),
         ],

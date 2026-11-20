@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import '../../../core/widgets/loading.dart';
 
 import '../../../core/constants/app_colors.dart';
 import '../../../core/widgets/badge_strip.dart';
@@ -59,7 +60,7 @@ class _EmployerProfileScreenState extends State<EmployerProfileScreen> {
     return Consumer<EmployerProfileProvider>(
       builder: (context, provider, _) {
         if (provider.isPublicDetailLoading) {
-          return const Scaffold(body: Center(child: CircularProgressIndicator()));
+          return const Scaffold(body: Loading());
         }
         if (provider.publicDetailErrorMessage != null || provider.publicEmployer == null) {
           return _errorState(context, provider.publicDetailErrorMessage ?? 'Employer not found.');

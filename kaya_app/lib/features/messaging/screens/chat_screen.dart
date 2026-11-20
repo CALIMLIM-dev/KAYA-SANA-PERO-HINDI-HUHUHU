@@ -1,4 +1,5 @@
 import 'dart:async';
+import '../../../core/widgets/loading.dart';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -504,7 +505,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
             child: Consumer<MessagingProvider>(
               builder: (context, provider, _) {
                 if (provider.isMessagesLoading && provider.messages.isEmpty) {
-                  return const Center(child: CircularProgressIndicator());
+                  return const Loading();
                 }
                 if (provider.messagesErrorMessage != null && provider.messages.isEmpty) {
                   return Center(

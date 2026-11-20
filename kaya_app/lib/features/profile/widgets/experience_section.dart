@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../../core/widgets/kaya_popup.dart';
 import 'package:provider/provider.dart';
+import '../../../core/widgets/loading.dart';
 
 import '../../../core/constants/app_colors.dart';
 import '../../../core/widgets/app_toast.dart';
@@ -363,11 +364,7 @@ class _ExperienceSectionState extends State<ExperienceSection> {
                                 borderRadius: BorderRadius.circular(12)),
                           ),
                           child: busy
-                              ? const SizedBox(
-                                  height: 20,
-                                  width: 20,
-                                  child: CircularProgressIndicator(
-                                      strokeWidth: 2, color: Colors.white))
+                              ? const SmallSpinner.white()
                               : Text(id == null ? 'Add' : 'Save',
                                   style: const TextStyle(
                                       fontSize: 15,

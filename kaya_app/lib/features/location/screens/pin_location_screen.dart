@@ -1,4 +1,5 @@
 import 'dart:async';
+import '../../../core/widgets/loading.dart';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
@@ -368,11 +369,7 @@ class _PinLocationScreenState extends State<PinLocationScreen> {
                     foregroundColor: AppColors.primary,
                     onPressed: _locating ? null : _useMyLocation,
                     child: _locating
-                        ? const SizedBox(
-                            width: 18,
-                            height: 18,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          )
+                        ? const SmallSpinner()
                         : const Icon(Icons.my_location),
                   ),
                 ),
@@ -439,12 +436,7 @@ class _PinLocationScreenState extends State<PinLocationScreen> {
                             fontSize: 15, fontWeight: FontWeight.w600),
                       ),
                       child: _resolving
-                          ? const SizedBox(
-                              height: 20,
-                              width: 20,
-                              child: CircularProgressIndicator(
-                                  strokeWidth: 2, color: Colors.white),
-                            )
+                          ? const SmallSpinner.white()
                           : const Text('Set This Location'),
                     ),
                   ),

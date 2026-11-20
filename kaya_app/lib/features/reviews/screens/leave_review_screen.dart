@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../providers/review_provider.dart';
 import '../../../core/widgets/app_toast.dart';
+import '../../../core/widgets/loading.dart';
 
 /// Leave Review Screen — post-job completion, either party leaves a review
 /// Arguments: { revieweeName, revieweeRole ('worker' | 'employer'), jobTitle }
@@ -333,11 +334,7 @@ class _LeaveReviewScreenState extends State<LeaveReviewScreen> {
                     elevation: 0,
                   ),
                   child: _isSubmitting
-                      ? const SizedBox(
-                          height: 20,
-                          width: 20,
-                          child: CircularProgressIndicator(
-                              color: Colors.white, strokeWidth: 2))
+                      ? const SmallSpinner.white()
                       : const Text('Submit Review',
                           style: TextStyle(
                               fontSize: 16, fontWeight: FontWeight.w600)),

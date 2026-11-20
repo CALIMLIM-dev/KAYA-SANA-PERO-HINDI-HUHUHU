@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import '../widgets/fit_line.dart';
 import 'package:provider/provider.dart';
+import '../../../core/widgets/loading.dart';
+import '../widgets/job_area_map.dart';
 
 import '../../../core/constants/app_colors.dart';
 import '../../../core/utils/format.dart';
@@ -105,7 +107,7 @@ class _JobDetailsScreenState extends State<JobDetailsScreen>
               elevation: 0,
             ),
             body: provider.isDetailLoading
-                ? const Center(child: CircularProgressIndicator())
+                ? const Loading()
                 : provider.detailErrorMessage != null
                     ? _errorState(provider.detailErrorMessage!)
                     : const SizedBox.shrink(),
@@ -358,6 +360,27 @@ class _JobDetailsScreenState extends State<JobDetailsScreen>
                       fontSize: 14, height: 1.6, color: AppColors.neutral700)),
             ),
 
+          // ── Area ──
+          // A circle over the barangay, never a pin: the exact place goes to
+          // the employer and the worker they hire.
+          if (job.area != null)
+            _section(
+              title: 'Area',
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  JobAreaMap(area: job.area!),
+                  const SizedBox(height: 10),
+                  Text(
+                    job.isOwnJob
+                        ? 'Workers see this area, not your exact place.'
+                        : 'The exact place is shared once you are hired.',
+                    style: const TextStyle(fontSize: 13, color: AppColors.neutral600),
+                  ),
+                ],
+              ),
+            ),
+
           // ── Required skills ──
           // Said even when there are none: an absent section read as the
           // skills having failed to load.
@@ -502,7 +525,7 @@ class _JobDetailsScreenState extends State<JobDetailsScreen>
                     : Container(
                         color: AppColors.neutral100,
                         child: const Center(
-                            child: CircularProgressIndicator(strokeWidth: 2)),
+                            child: Loading.small()),
                       ),
               ),
             ),
@@ -716,12 +739,7 @@ class _JobDetailsScreenState extends State<JobDetailsScreen>
         onPressed: _isApplying ? null : () => _apply(job),
         style: _actionStyle(backgroundColor: AppColors.success),
         child: _isApplying
-            ? const SizedBox(
-                height: 20,
-                width: 20,
-                child:
-                    CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
-              )
+            ? const SmallSpinner.white()
             : const Text(
                 'Accept invitation  ·  Free',
                 style: TextStyle(fontWeight: FontWeight.w700),
@@ -763,11 +781,7 @@ class _JobDetailsScreenState extends State<JobDetailsScreen>
         onPressed: _isApplying ? null : () => _apply(job),
         style: _actionStyle(),
         child: _isApplying
-            ? const SizedBox(
-                height: 20,
-                width: 20,
-                child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
-              )
+            ? const SmallSpinner.white()
             : Builder(
                 builder: (context) {
                   /*

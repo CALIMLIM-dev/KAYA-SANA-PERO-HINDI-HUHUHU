@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import '../../../core/widgets/loading.dart';
 
 import '../../../core/constants/app_colors.dart';
 import '../../../core/widgets/verification_badge_widget.dart';
@@ -298,6 +299,8 @@ class _CommunityPostScreenState extends State<CommunityPostScreen> {
               child: Image.network(
                 photo,
                 fit: BoxFit.cover,
+                loadingBuilder: (_, child, progress) =>
+                    progress == null ? child : const ImageLoading(height: 200),
                 errorBuilder: (_, _, _) => const SizedBox.shrink(),
               ),
             ),
@@ -367,10 +370,7 @@ class _CommunityPostScreenState extends State<CommunityPostScreen> {
           const Padding(
             padding: EdgeInsets.symmetric(vertical: 12),
             child: Center(
-              child: SizedBox(
-                width: 20, height: 20,
-                child: CircularProgressIndicator(strokeWidth: 2),
-              ),
+              child: SmallSpinner(),
             ),
           ),
 
@@ -409,9 +409,7 @@ class _CommunityPostScreenState extends State<CommunityPostScreen> {
             IconButton(
               onPressed: _posting ? null : _sendComment,
               icon: _posting
-                  ? const SizedBox(
-                      width: 18, height: 18,
-                      child: CircularProgressIndicator(strokeWidth: 2))
+                  ? const SmallSpinner()
                   : const Icon(Icons.send_rounded),
               color: AppColors.primary,
               tooltip: 'Post Comment',

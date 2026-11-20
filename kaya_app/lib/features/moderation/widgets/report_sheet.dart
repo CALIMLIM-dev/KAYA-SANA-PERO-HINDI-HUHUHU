@@ -2,6 +2,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import '../../../core/widgets/kaya_popup.dart';
 import 'package:image_picker/image_picker.dart';
+import '../../../core/widgets/loading.dart';
 
 import '../../../core/constants/app_colors.dart';
 import '../../../core/widgets/app_toast.dart';
@@ -205,7 +206,7 @@ class _ReportSheetState extends State<ReportSheet> {
     if (_loading) {
       return const Padding(
         padding: EdgeInsets.symmetric(vertical: 48),
-        child: Center(child: CircularProgressIndicator(strokeWidth: 2)),
+        child: Loading(),
       );
     }
 
@@ -350,14 +351,7 @@ class _ReportSheetState extends State<ReportSheet> {
                   ),
                 ),
                 child: _submitting
-                    ? const SizedBox(
-                        width: 18,
-                        height: 18,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          valueColor: AlwaysStoppedAnimation(Colors.white),
-                        ),
-                      )
+                    ? const SmallSpinner.white()
                     : const Text('Send Report'),
               ),
             ),

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import '../../../core/widgets/loading.dart';
 
 import '../../../core/constants/app_colors.dart';
 import '../../../providers/auth_provider.dart';
@@ -62,14 +63,14 @@ class _EmployerProfileRouterState extends State<EmployerProfileRouter> {
     if (!auth.hasFetchedMe) {
       return const Scaffold(
         backgroundColor: AppColors.background,
-        body: Center(child: CircularProgressIndicator()),
+        body: Loading(),
       );
     }
 
     if (!provider.hasFetchedOnce && !auth.employerProfileExists) {
       return const Scaffold(
         backgroundColor: AppColors.background,
-        body: Center(child: CircularProgressIndicator()),
+        body: Loading(),
       );
     }
 

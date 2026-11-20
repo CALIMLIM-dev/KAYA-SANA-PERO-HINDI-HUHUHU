@@ -5,6 +5,7 @@ import '../../../providers/worker_profile_provider.dart';
 import '../../../core/constants/app_colors.dart';
 import 'my_worker_profile_screen.dart';
 import '../../worker/screens/worker_setup_flow_screen.dart';
+import '../../../core/widgets/loading.dart';
 
 /// Decides whether to show the worker profile or the flow that creates one.
 ///
@@ -39,7 +40,7 @@ class WorkerProfileRouter extends StatelessWidget {
         if (!authProvider.hasFetchedMe) {
           return const Scaffold(
             backgroundColor: AppColors.background,
-            body: Center(child: CircularProgressIndicator()),
+            body: Loading(),
           );
         }
 
@@ -74,7 +75,7 @@ class WorkerProfileRouter extends StatelessWidget {
             workerProvider.location == null) {
           return const Scaffold(
             backgroundColor: AppColors.background,
-            body: Center(child: CircularProgressIndicator()),
+            body: Loading(),
           );
         }
 

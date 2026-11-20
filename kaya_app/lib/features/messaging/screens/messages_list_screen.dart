@@ -10,6 +10,7 @@ import '../../../providers/auth_provider.dart';
 import '../../../providers/messaging_provider.dart';
 import '../../../core/navigation/app_router.dart';
 import '../../../core/utils/json_parse.dart';
+import '../../../core/widgets/loading.dart';
 
 /// Conversations List Screen — backed by GET /conversations.
 class MessagesListScreen extends StatefulWidget {
@@ -217,7 +218,7 @@ class _MessagesListScreenState extends State<MessagesListScreen>
 
               Expanded(
                 child: provider.isLoading && conversations.isEmpty
-                    ? const Center(child: CircularProgressIndicator())
+                    ? const LoadingList()
                     : provider.errorMessage != null
                         ? _errorState(provider)
                         : filtered.isEmpty

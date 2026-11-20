@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../core/widgets/loading.dart';
 
 import '../../../core/constants/app_colors.dart';
 import '../../../core/widgets/badge_medallion.dart';
@@ -118,7 +119,7 @@ class _BadgesScreenState extends State<BadgesScreen> {
 
   Widget _buildBody() {
     if (_loading) {
-      return const Center(child: CircularProgressIndicator());
+      return const Loading();
     }
 
     if (_error != null) {

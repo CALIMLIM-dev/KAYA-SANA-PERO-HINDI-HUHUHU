@@ -1,4 +1,5 @@
 import 'dart:async';
+import '../../../core/widgets/loading.dart';
 
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -194,14 +195,7 @@ class _VerifyResetCodeScreenState extends State<VerifyResetCodeScreen> {
                       elevation: 0,
                     ),
                     child: auth.isLoading
-                        ? const SizedBox(
-                            height: 22,
-                            width: 22,
-                            child: CircularProgressIndicator(
-                              color: Colors.white,
-                              strokeWidth: 2,
-                            ),
-                          )
+                        ? const SmallSpinner.white()
                         : const Text(
                             'Verify Code',
                             style: TextStyle(

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../../core/widgets/kaya_popup.dart';
 import 'package:provider/provider.dart';
+import '../../../core/widgets/loading.dart';
 
 import '../../../core/constants/app_colors.dart';
 import '../../../core/navigation/app_router.dart';
@@ -95,7 +96,7 @@ void _confirmClose(BuildContext context, int jobId, String title) {
           onPressed: () async {
             Navigator.pop(dialogContext);
             final provider = context.read<JobProvider>();
-            final ok = await provider.changeStatus(jobId, 'closed');
+            final ok = await withPleaseWait(context, () => provider.changeStatus(jobId, 'closed'));
             if (!context.mounted) return;
             AppToast.info(
                 context,

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../core/widgets/loading.dart';
 
 import '../../../core/constants/app_colors.dart';
 import '../../../core/navigation/app_router.dart';
@@ -259,12 +260,7 @@ class MatchedWorkerCard extends StatelessWidget {
                         fontSize: 13.5, fontWeight: FontWeight.w600),
                   ),
                   child: busy
-                      ? const SizedBox(
-                          width: 16,
-                          height: 16,
-                          child: CircularProgressIndicator(
-                              strokeWidth: 2, color: Colors.white),
-                        )
+                      ? const SmallSpinner.white()
                       : Text(invited ? 'Invited' : 'Invite'),
                 ),
               ),

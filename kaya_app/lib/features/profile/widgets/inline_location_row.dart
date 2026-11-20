@@ -1,4 +1,5 @@
 import 'dart:async';
+import '../../../core/widgets/loading.dart';
 
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -229,11 +230,7 @@ class _InlineLocationRowState extends State<InlineLocationRow> {
     if (_saving) {
       return const Padding(
         padding: EdgeInsets.all(10),
-        child: SizedBox(
-          width: 18,
-          height: 18,
-          child: CircularProgressIndicator(strokeWidth: 2),
-        ),
+        child: SmallSpinner(),
       );
     }
 
@@ -278,11 +275,7 @@ class _InlineLocationRowState extends State<InlineLocationRow> {
         if (locations.isSearching) {
           return const Padding(
             padding: EdgeInsets.symmetric(vertical: 12),
-            child: SizedBox(
-              height: 18,
-              width: 18,
-              child: CircularProgressIndicator(strokeWidth: 2),
-            ),
+            child: SmallSpinner(),
           );
         }
 

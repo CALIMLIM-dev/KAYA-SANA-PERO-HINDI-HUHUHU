@@ -1,4 +1,5 @@
 import 'package:dio/dio.dart';
+import '../../../core/widgets/loading.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
@@ -111,7 +112,7 @@ class _AccountStatusScreenState extends State<AccountStatusScreen> {
         body: _status == null
             ? Center(
                 child: _error == null
-                    ? const CircularProgressIndicator()
+                    ? const Loading()
                     : Padding(
                         padding: const EdgeInsets.all(24),
                         child: Column(

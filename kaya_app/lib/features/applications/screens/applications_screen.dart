@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../../core/utils/realtime_refresh.dart';
+import '../../../core/widgets/loading.dart';
 
 import '../../../core/constants/app_colors.dart';
 import '../../../core/utils/job_summary.dart';
@@ -703,7 +704,7 @@ class _TabBody extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (isLoading && tab.items.isEmpty) {
-      return const Center(child: CircularProgressIndicator());
+      return const LoadingList();
     }
 
     if (error != null && tab.items.isEmpty) {

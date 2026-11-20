@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../../core/widgets/kaya_popup.dart';
+import '../../../core/widgets/loading.dart';
 
 import '../../../core/constants/app_colors.dart';
 import '../../../core/utils/realtime_refresh.dart';
@@ -230,7 +231,7 @@ class _RosterScreenState extends State<RosterScreen> with RealtimeRefresh {
         title: const Text('Hired Workers', style: TextStyle(fontWeight: FontWeight.w600)),
       ),
       body: _loading
-          ? const Center(child: CircularProgressIndicator())
+          ? const LoadingList()
           : _error != null
               ? Center(
                   child: Padding(

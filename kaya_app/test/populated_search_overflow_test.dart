@@ -128,12 +128,19 @@ void main() {
       await tester.pump(const Duration(milliseconds: 300));
 
       expect(
-        find.text('Tile setter'),
+        find.text('Experienced mason needed for a two storey residential build'),
         findsOneWidget,
         reason: 'The job list never rendered, so nothing was checked.',
       );
       expect(find.byIcon(Icons.bookmark), findsOneWidget);
-      // The third card can sit below the fold on a short screen.
+
+      // A card is half photo now, so the next ones sit below the fold.
+      // Scrolled to, so they are laid out and checked rather than skipped.
+      for (final title in ['Tile setter', 'Concrete pouring crew needed this weekend in Sta. Barbara']) {
+        await tester.scrollUntilVisible(find.text(title), 200, scrollable: find.byWidgetPredicate((w) => w is Scrollable && w.axisDirection == AxisDirection.down).first);
+        await tester.pump();
+        expect(find.text(title), findsOneWidget);
+      }
       expect(find.byIcon(Icons.bookmark_border), findsAtLeastNWidgets(1));
     } finally {
       FlutterError.onError = previous;

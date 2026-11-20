@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import '../../../core/widgets/loading.dart';
 
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/credits.dart';
@@ -221,7 +222,7 @@ class _MatchedWorkersListState extends State<MatchedWorkersList> {
         final forThisJob = provider.matchesJobId == widget.jobId;
 
         if (!forThisJob || (provider.matchesLoading && provider.matches.isEmpty && !provider.matchesLocked)) {
-          return const Center(child: CircularProgressIndicator());
+          return const LoadingList();
         }
 
         if (provider.matchesLocked) {

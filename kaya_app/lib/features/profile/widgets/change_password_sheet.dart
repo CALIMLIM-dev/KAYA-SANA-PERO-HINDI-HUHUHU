@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../../core/widgets/kaya_popup.dart';
 import '../../../core/utils/password_check.dart';
+import '../../../core/widgets/loading.dart';
 
 import '../../../core/constants/app_colors.dart';
 import '../../../core/widgets/app_toast.dart';
@@ -144,14 +145,7 @@ class ChangePasswordSheetState extends State<ChangePasswordSheet> {
                   elevation: 0,
                 ),
                 child: _submitting
-                    ? const SizedBox(
-                        width: 18,
-                        height: 18,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          valueColor: AlwaysStoppedAnimation(Colors.white),
-                        ),
-                      )
+                    ? const SmallSpinner.white()
                     : const Text('Update Password',
                         style: TextStyle(fontWeight: FontWeight.w600)),
               ),

@@ -23,6 +23,7 @@ import '../../profile/screens/add_skills_screen.dart';
 import '../../profile/screens/onboarding_verification_screen.dart';
 import '../../../core/widgets/app_toast.dart';
 import '../../../core/utils/json_parse.dart';
+import '../../../core/widgets/loading.dart';
 
 /// Worker Profile Setup Flow - 6 Step Onboarding
 /// 
@@ -1914,14 +1915,7 @@ class _WorkerSetupFlowScreenState extends State<WorkerSetupFlowScreen> {
                   ),
                   // Spins only when *this* button started the save.
                   child: _isSaving && isLastStep && !_finishPressed
-                      ? const SizedBox(
-                          height: 20,
-                          width: 20,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            valueColor: AlwaysStoppedAnimation<Color>(AppColors.neutral600),
-                          ),
-                        )
+                      ? const SmallSpinner()
                       : Text(isLastStep ? 'Skip & Finish' : 'Skip'),
                 ),
               ),
@@ -1970,14 +1964,7 @@ class _WorkerSetupFlowScreenState extends State<WorkerSetupFlowScreen> {
                 ),
                 // Spins only when *this* button started the save.
                 child: _isSaving && _finishPressed
-                    ? const SizedBox(
-                        height: 20,
-                        width: 20,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                        ),
-                      )
+                    ? const SmallSpinner.white()
                     : Text(
                         isLastStep ? 'Finish' : 'Next',
                         style: const TextStyle(

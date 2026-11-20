@@ -1,4 +1,5 @@
 import 'dart:async';
+import '../../../core/widgets/loading.dart';
 
 import 'dart:io';
 
@@ -472,9 +473,7 @@ class _SupportChatScreenState extends State<SupportChatScreen> {
                   IconButton(
                     onPressed: _sending ? null : _send,
                     icon: _sending
-                        ? const SizedBox(
-                            width: 18, height: 18,
-                            child: CircularProgressIndicator(strokeWidth: 2))
+                        ? const SmallSpinner()
                         : const Icon(Icons.send_rounded),
                     color: AppColors.primary,
                     tooltip: 'Send',
@@ -536,7 +535,7 @@ class _SupportChatScreenState extends State<SupportChatScreen> {
 
   Widget _body() {
     if (_loading) {
-      return const Center(child: CircularProgressIndicator());
+      return const Loading();
     }
 
     if (_error != null && _messages.isEmpty) {
@@ -745,11 +744,7 @@ class _SupportChatScreenState extends State<SupportChatScreen> {
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            SizedBox(
-              width: 12,
-              height: 12,
-              child: CircularProgressIndicator(strokeWidth: 1.6),
-            ),
+            SmallSpinner(),
             SizedBox(width: 8),
             Text(
               'KAYA Assistant is typing...',

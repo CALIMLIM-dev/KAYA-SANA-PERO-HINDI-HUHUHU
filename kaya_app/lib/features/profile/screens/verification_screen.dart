@@ -12,6 +12,7 @@ import '../../../providers/employer_profile_provider.dart';
 import '../../../providers/verification_provider.dart';
 import '../../../core/widgets/app_toast.dart';
 import '../../../data/services/api_client.dart';
+import '../../../core/widgets/loading.dart';
 
 /// Verification Screen
 /// Arguments: { type: 'government_id' | 'phone' | 'email' | 'business_reg', title, subtitle }
@@ -877,11 +878,11 @@ class _VerificationScreenState extends State<VerificationScreen> {
           ? _customIdCtrl.text.trim() 
           : _selectedIdType ?? '';
       
-      success = await vp.submitGovernmentID(
+      success = await withPleaseWait(context, () => vp.submitGovernmentID(
         idType: idType,
         idPhotoPath: _docPath!,
         selfiePhotoPath: _selfiePath!,
-      );
+      ));
     } else {
       // Other document types
       if (type == 'business_reg' && _isCompanyAccount(context) && _tinCtrl.text.trim().isEmpty) {
@@ -889,13 +890,13 @@ class _VerificationScreenState extends State<VerificationScreen> {
         return;
       }
 
-      success = await vp.submitDocument(
+      success = await withPleaseWait(context, () => vp.submitDocument(
         type: type,
         fileName: _docName!,
         filePath: _docPath,
         fileBytes: _docBytes,
         tin: _isCompanyAccount(context) ? _tinCtrl.text : null,
-      );
+      ));
     }
     
     if (!mounted) return;
@@ -1246,8 +1247,7 @@ class _VerificationScreenState extends State<VerificationScreen> {
           elevation: 0,
         ),
         child: isLoading
-            ? const SizedBox(height: 20, width: 20,
-                child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+            ? const SmallSpinner.white()
             : Text(label, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
       ),
     );

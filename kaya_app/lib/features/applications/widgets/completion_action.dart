@@ -1,4 +1,5 @@
 import 'dart:typed_data';
+import '../../../core/widgets/loading.dart';
 
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart' show XFile;
@@ -84,7 +85,7 @@ Future<void> confirmCompletion(
   if (confirmed != true || !context.mounted) return;
 
   final provider = context.read<ApplicationProvider>();
-  final ok = await provider.markComplete(applicationId, photos: photos);
+  final ok = await withPleaseWait(context, () => provider.markComplete(applicationId, photos: photos));
 
   if (!context.mounted) return;
 

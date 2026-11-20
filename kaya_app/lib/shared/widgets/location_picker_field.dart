@@ -1,4 +1,5 @@
 import 'dart:async';
+import '../../core/widgets/loading.dart';
 
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
@@ -415,11 +416,7 @@ class _LocationPickerFieldState extends State<LocationPickerField> {
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            SizedBox(
-              width: 16,
-              height: 16,
-              child: CircularProgressIndicator(strokeWidth: 2),
-            ),
+            SmallSpinner(),
             SizedBox(width: 12),
             Text('Searching…', style: TextStyle(color: AppColors.neutral600)),
           ],
@@ -526,11 +523,7 @@ class _LocationPickerFieldState extends State<LocationPickerField> {
                       ),
               IconButton(
                 icon: _locating
-                    ? const SizedBox(
-                        width: 16,
-                        height: 16,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
+                    ? const SmallSpinner()
                     : const Icon(Icons.my_location, size: 18),
                 color: AppColors.primary,
                 tooltip: 'Use My Location',

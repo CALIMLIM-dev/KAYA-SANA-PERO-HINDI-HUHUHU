@@ -2,6 +2,7 @@ import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import '../../../core/widgets/kaya_popup.dart';
 import 'package:provider/provider.dart';
+import '../../../core/widgets/loading.dart';
 
 import '../../../core/constants/app_colors.dart';
 import '../../../core/utils/upload_limit.dart';
@@ -354,11 +355,7 @@ class _CredentialsSectionState extends State<CredentialsSection> {
                                 borderRadius: BorderRadius.circular(12)),
                           ),
                           child: busy
-                              ? const SizedBox(
-                                  height: 20,
-                                  width: 20,
-                                  child: CircularProgressIndicator(
-                                      strokeWidth: 2, color: Colors.white))
+                              ? const SmallSpinner.white()
                               : Text(id == null ? 'Add' : 'Save',
                                   style: const TextStyle(
                                       fontSize: 15,

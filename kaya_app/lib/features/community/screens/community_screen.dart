@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import '../../../core/widgets/loading.dart';
 
 import '../../../core/constants/app_colors.dart';
 import '../../../core/widgets/hint_bubble.dart';
@@ -146,7 +147,7 @@ class _CommunityScreenState extends State<CommunityScreen> {
 
   Widget _body(CommunityProvider board) {
     if (board.isLoading && !board.hasLoaded) {
-      return const Center(child: CircularProgressIndicator());
+      return const LoadingList();
     }
 
     if (board.error != null && board.posts.isEmpty) {

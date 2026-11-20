@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../core/widgets/loading.dart';
 
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/credits.dart';
@@ -58,10 +59,7 @@ class _WalletHistoryState extends State<WalletHistory> {
     final entries = widget.entries;
 
     if (widget.loading && entries.isEmpty) {
-      return const Padding(
-        padding: EdgeInsets.symmetric(vertical: 24),
-        child: Center(child: CircularProgressIndicator()),
-      );
+      return const LoadingList(count: 3, shrinkWrap: true, padding: EdgeInsets.zero);
     }
 
     if (entries.isEmpty) {

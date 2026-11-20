@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import '../../../core/widgets/loading.dart';
 
 import '../../../providers/auth_provider.dart';
 import '../../../providers/employer_profile_provider.dart';
@@ -254,7 +255,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       return [
         const Padding(
           padding: EdgeInsets.symmetric(vertical: 24),
-          child: Center(child: CircularProgressIndicator(strokeWidth: 2)),
+          child: Loading(),
         ),
       ];
     }
@@ -419,10 +420,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
     final String? error;
     if (worker) {
       final provider = context.read<WorkerProfileProvider>();
-      error = await provider.deleteProfile() ? null : (provider.errorMessage ?? 'Could not remove it.');
+      error = await withPleaseWait(context, () => provider.deleteProfile()) ? null : (provider.errorMessage ?? 'Could not remove it.');
     } else {
       final provider = context.read<EmployerProfileProvider>();
-      error = await provider.deleteProfile() ? null : (provider.errorMessage ?? 'Could not remove it.');
+      error = await withPleaseWait(context, () => provider.deleteProfile()) ? null : (provider.errorMessage ?? 'Could not remove it.');
     }
 
     if (!mounted) return;

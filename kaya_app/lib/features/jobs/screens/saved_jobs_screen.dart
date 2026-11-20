@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import '../../../core/widgets/loading.dart';
 
 import '../../../core/constants/app_colors.dart';
 import '../../../core/utils/realtime_refresh.dart';
@@ -82,7 +83,7 @@ class _SavedJobsScreenState extends State<SavedJobsScreen>
 
   Widget _buildBody(JobProvider jobs, List<Job> saved) {
     if (jobs.isSavedLoading && saved.isEmpty) {
-      return const Center(child: CircularProgressIndicator(strokeWidth: 2));
+      return const LoadingList();
     }
 
     if (jobs.savedErrorMessage != null && saved.isEmpty) {

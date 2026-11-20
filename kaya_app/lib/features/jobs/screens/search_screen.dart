@@ -1,4 +1,5 @@
 import 'dart:async';
+import '../../../core/widgets/loading.dart';
 
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -476,10 +477,7 @@ class _SearchScreenState extends State<SearchScreen> {
               ),
 
               if (isLoading && shown == 0)
-                const SliverFillRemaining(
-                  hasScrollBody: false,
-                  child: Center(child: CircularProgressIndicator()),
-                )
+                const SliverToBoxAdapter(child: LoadingList(shrinkWrap: true))
               else if (error != null && shown == 0)
                 SliverFillRemaining(hasScrollBody: false, child: _errorState(error))
               else if (shown == 0)
@@ -506,7 +504,7 @@ class _SearchScreenState extends State<SearchScreen> {
                       child: _loadingMore
                           ? const Padding(
                               padding: EdgeInsets.all(12),
-                              child: SizedBox(width: 22, height: 22, child: CircularProgressIndicator(strokeWidth: 2)),
+                              child: SmallSpinner(),
                             )
                           : OutlinedButton(onPressed: _loadMore, child: const Text('Show More')),
                     ),

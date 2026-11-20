@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import '../../../core/widgets/loading.dart';
 
 import '../../../core/constants/app_colors.dart';
 import '../../../core/widgets/kaya_popup.dart';
@@ -122,7 +123,7 @@ class _ReceiptsListState extends State<ReceiptsList> {
               future: _rows,
               builder: (context, snap) {
                 if (snap.connectionState != ConnectionState.done) {
-                  return const Center(child: CircularProgressIndicator(strokeWidth: 2));
+                  return const Loading();
                 }
                 final rows = snap.data;
                 if (rows == null) {

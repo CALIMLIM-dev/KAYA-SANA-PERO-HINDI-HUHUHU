@@ -8,6 +8,7 @@ import '../../../providers/auth_provider.dart';
 import '../../../shared/widgets/ph_phone_field.dart';
 import '../widgets/terms_modal.dart';
 import '../../../core/navigation/app_router.dart';
+import '../../../core/widgets/loading.dart';
 
 class SignupScreen extends StatefulWidget {
   const SignupScreen({super.key});
@@ -395,8 +396,7 @@ class _SignupScreenState extends State<SignupScreen> {
                       elevation: 0,
                     ),
                     child: _emailBusy
-                        ? const SizedBox(height: 22, width: 22,
-                            child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                        ? const SmallSpinner.white()
                         : const Text('Sign Up',
                             style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
                   ),
@@ -543,11 +543,7 @@ class _SignupScreenState extends State<SignupScreen> {
           side: BorderSide(color: AppColors.neutral300),
         ),
         child: busy
-            ? const SizedBox(
-                height: 22,
-                width: 22,
-                child: CircularProgressIndicator(strokeWidth: 2),
-              )
+            ? const SmallSpinner()
             : Row(mainAxisAlignment: MainAxisAlignment.center, children: [
                 Icon(icon, color: AppColors.neutral700, size: 22),
                 const SizedBox(width: 8),

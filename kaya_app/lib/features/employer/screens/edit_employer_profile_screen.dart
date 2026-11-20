@@ -8,6 +8,7 @@ import '../../../providers/employer_profile_provider.dart';
 import '../../../shared/widgets/location_picker_field.dart';
 import '../../../core/widgets/app_toast.dart';
 import '../../../core/navigation/app_router.dart';
+import '../../../core/widgets/loading.dart';
 
 /// Edit Employer Profile Screen
 /// Pre-filled with existing data, each field is editable
@@ -275,11 +276,7 @@ class _EditEmployerProfileScreenState
                     elevation: 0,
                   ),
                   child: _isLoading
-                      ? const SizedBox(
-                          height: 20,
-                          width: 20,
-                          child: CircularProgressIndicator(
-                              color: Colors.white, strokeWidth: 2))
+                      ? const SmallSpinner.white()
                       : const Text('Save Changes',
                           style: TextStyle(
                               fontSize: 16,

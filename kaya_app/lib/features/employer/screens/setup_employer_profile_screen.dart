@@ -17,6 +17,7 @@ import '../../../providers/verification_provider.dart';
 import '../../profile/screens/onboarding_verification_screen.dart';
 import '../../../core/widgets/app_toast.dart';
 import '../../../core/utils/json_parse.dart';
+import '../../../core/widgets/loading.dart';
 
 /// Employer onboarding flow.
 ///
@@ -1307,14 +1308,7 @@ class _SetupEmployerProfileScreenState extends State<SetupEmployerProfileScreen>
                   elevation: 0,
                 ),
                 child: _isSaving
-                    ? const SizedBox(
-                        width: 20,
-                        height: 20,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                        ),
-                      )
+                    ? const SmallSpinner.white()
                     : Text(
                         _primaryLabel,
                         style: const TextStyle(

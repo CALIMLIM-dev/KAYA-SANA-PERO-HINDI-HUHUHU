@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import '../../../core/widgets/loading.dart';
 
 import '../../../core/constants/app_colors.dart';
 import '../../../providers/app_mode_provider.dart';
@@ -70,7 +71,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
 
   Widget _body(NotificationProvider provider, List<AppNotification> items) {
     if (provider.isLoading && !provider.hasLoadedOnce) {
-      return const Center(child: CircularProgressIndicator());
+      return const LoadingList();
     }
 
     if (items.isEmpty) {

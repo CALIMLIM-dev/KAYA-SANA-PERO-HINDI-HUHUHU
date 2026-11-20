@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'loading.dart';
 
 /*
     A picture, full screen, pinch to zoom.
@@ -29,7 +30,7 @@ Future<void> showPhotoViewer(BuildContext context, String url) {
                       ? child
                       : const Padding(
                           padding: EdgeInsets.all(48),
-                          child: CircularProgressIndicator(strokeWidth: 2),
+                          child: SmallSpinner.white(),
                         ),
                   // A broken image with no words reads as the photo having
                   // been lost, which it has not.

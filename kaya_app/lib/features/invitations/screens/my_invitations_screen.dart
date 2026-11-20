@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../../core/utils/realtime_refresh.dart';
+import '../../../core/widgets/loading.dart';
 
 import '../../../core/constants/app_colors.dart';
 import '../../../providers/invitation_provider.dart';
@@ -52,7 +53,7 @@ class _MyInvitationsScreenState extends State<MyInvitationsScreen>
           final invitations = provider.invitations;
 
           if (provider.isLoading && invitations.isEmpty) {
-            return const Center(child: CircularProgressIndicator());
+            return const LoadingList();
           }
 
           // Only when there is nothing to show. A list already on screen

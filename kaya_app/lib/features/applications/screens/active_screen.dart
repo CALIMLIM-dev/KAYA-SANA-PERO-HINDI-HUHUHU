@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import '../../../core/widgets/loading.dart';
 
 import '../../../core/constants/app_colors.dart';
 import '../../../core/utils/realtime_refresh.dart';
@@ -79,7 +80,7 @@ class _ActiveScreenState extends State<ActiveScreen> with RealtimeRefresh {
                 children: [
                   SizedBox(height: MediaQuery.of(context).size.height * 0.25),
                   if (loading)
-                    const Center(child: CircularProgressIndicator())
+                    const Loading()
                   else
                     const Center(
                       child: Text(
