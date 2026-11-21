@@ -2,22 +2,6 @@
 @section('page-title', 'Dashboard')
 
 @section('content')
-{{-- What needs doing --}}
-<div class="grid grid-cols-4 gap-4 mb-6">
-    @foreach ($queues as $queue)
-        <a href="{{ $queue['route'] }}"
-           class="bg-white rounded-xl border p-5 block hover:border-blue-300 {{ $queue['count'] > 0 ? 'border-amber-300' : 'border-slate-200' }}">
-            <div class="flex items-start justify-between">
-                <p class="text-xs text-slate-400 font-medium">{{ $queue['label'] }}</p>
-                @if ($queue['count'] > 0)
-                    <span class="badge-pending text-xs px-2 py-0.5 rounded-full">Needs you</span>
-                @endif
-            </div>
-            <p class="text-2xl font-bold mt-1 {{ $queue['count'] > 0 ? 'text-amber-700' : 'text-slate-800' }}">{{ $queue['count'] }}</p>
-        </a>
-    @endforeach
-</div>
-
 {{-- Today against yesterday --}}
 <div class="bg-white rounded-xl border border-slate-200 p-5 mb-6">
     <div class="flex items-center justify-between mb-4">

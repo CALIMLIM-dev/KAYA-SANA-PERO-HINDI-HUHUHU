@@ -1657,16 +1657,12 @@ class _MyWorkerProfileScreenState extends State<MyWorkerProfileScreen> with Sing
                   style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppColors.neutral900)),
               SizedBox(width: 6),
               HintBubble(
-                text: 'Your ID is checked once. Then you can apply and post.',
+                text: 'Required before you can apply for work or post. Your ID is checked once.',
               ),
             ],
           ),
-          const SizedBox(height: 8),
-          // What it unlocks, not what it might get you. The old line sold a
-          // benefit nobody promised; this one states the rule.
-          const Text('Required before you can apply for work.',
-              style: TextStyle(fontSize: 14, color: AppColors.neutral600)),
-          const SizedBox(height: 20),
+          // The rule is in the ? hint; a caption repeating it is gone.
+          const SizedBox(height: 16),
 
           /*
               Identity first, then the two contact checks.

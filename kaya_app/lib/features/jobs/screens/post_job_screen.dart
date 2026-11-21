@@ -1170,11 +1170,32 @@ class _PostJobScreenState extends State<PostJobScreen> {
                 title: 'Job Duration',
                 // Asked for: what the deadline does, in plain words. The
                 // price is shown under them, so it is not repeated here.
-                hint: 'Your post is open from today until this day, then closes on its own. '
-                    'The day of the work is agreed in the chat after hiring.',
+                hint: 'Your post takes applicants from today until this day, then closes on its own. '
+                    'You pay for these days.',
                 anchor: _scheduleKey,
                 icon: Icons.event_outlined,
                 children: [_buildScheduleFields()],
+              ),
+              const SizedBox(height: 16),
+
+              // The start of the work is not the life of the post, so it has
+              // its own section. Its explanation is the ? hint, not a caption.
+              _buildSection(
+                title: 'Start Date',
+                hint: 'Optional. When the work should start, so workers who are busy that day '
+                    'can skip it. The exact day is agreed in the chat after hiring.',
+                icon: Icons.play_circle_outline,
+                children: [
+                  _buildDateField(
+                    label: 'Estimated Start Date',
+                    value: _workStartsOn,
+                    hint: 'Optional',
+                    onTap: _pickWorkStartsOn,
+                    onClear: _workStartsOn == null
+                        ? null
+                        : () => setState(() => _workStartsOn = null),
+                  ),
+                ],
               ),
               const SizedBox(height: 16),
 
@@ -1302,26 +1323,6 @@ class _PostJobScreenState extends State<PostJobScreen> {
             style: TextStyle(fontSize: 12, color: AppColors.error),
           ),
         ],
-        const SizedBox(height: 6),
-        const Text(
-          'How long your post stays up. You pay for these days.',
-          style: TextStyle(fontSize: 12, color: AppColors.neutral500),
-        ),
-        const SizedBox(height: 14),
-        _buildDateField(
-          label: 'Estimated Start Date',
-          value: _workStartsOn,
-          hint: 'Optional',
-          onTap: _pickWorkStartsOn,
-          onClear: _workStartsOn == null
-              ? null
-              : () => setState(() => _workStartsOn = null),
-        ),
-        const SizedBox(height: 6),
-        const Text(
-          'When the work should start, so workers who are busy that day can skip it.',
-          style: TextStyle(fontSize: 12, color: AppColors.neutral500),
-        ),
 
         /*
             What the worker will actually see.

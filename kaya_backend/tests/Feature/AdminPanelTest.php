@@ -443,14 +443,15 @@ class AdminPanelTest extends TestCase
     // ── Dashboard ────────────────────────────────────────────────────────────
 
     #[Test]
-    public function the_dashboard_renders_with_its_queues(): void
+    public function the_dashboard_renders_without_repeating_the_sidebar_queues(): void
     {
         $this->businessDoc($this->company());
 
         $this->actingAs($this->admin())->get('/admin')
             ->assertOk()
-            ->assertSee('Verifications waiting')
-            ->assertSee('TINs not checked')
+            // The queues are sidebar badges; the dashboard does not repeat them.
+            ->assertDontSee('Verifications waiting')
+            ->assertDontSee('Needs you')
             // "On the platform" named no list. It is the recent activity feed.
             ->assertSee('Recent Activity')
             ->assertSee('Admin Actions');

@@ -84,6 +84,22 @@ class HomeBannerTest extends TestCase
     }
 
     #[Test]
+    public function the_verify_banner_is_only_for_someone_with_verifying_left_to_do(): void
+    {
+        Banner::create(['title' => 'Get verified', 'image_path' => 'banners/v.jpg', 'is_active' => true, 'action' => 'verify']);
+        Banner::create(['title' => 'Post a job', 'image_path' => 'banners/p.jpg', 'is_active' => true, 'action' => 'post_job']);
+
+        $titles = fn (User $u) => array_column($this->featured($u, 'worker')['banners'], 'title');
+
+        $new = User::factory()->create(['is_verified' => false]);
+        $this->assertEqualsCanonicalizing(['Get verified', 'Post a job'], $titles($new));
+
+        // Already verified: tapping it would only reopen the upload form.
+        $done = User::factory()->create(['is_verified' => true]);
+        $this->assertSame(['Post a job'], $titles($done));
+    }
+
+    #[Test]
     public function only_an_admin_with_settings_runs_banners(): void
     {
         $this->actingAs($this->admin('analyst'))->get('/admin/banners')->assertRedirect(route('admin.dashboard'));

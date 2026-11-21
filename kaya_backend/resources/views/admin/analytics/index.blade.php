@@ -94,13 +94,14 @@
         . '<path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>';
     $peso = fn ($n) => '₱' . number_format((int) $n);
 
-    // A count changes by a percentage; a rate by points (40% to 50% is ten
-    // points, not 25%). The header names the comparison period.
+    // A count changes by a percentage. A rate shows its own difference in
+    // percent (71% to 57% reads "14%"), not "points", which is jargon.
+    // The header names the comparison period.
     $change = function ($now, $before, bool $rate = false) {
         if ($now === null || $before === null) return ['flat', '–'];
         if ($rate) {
             $d = $now - $before;
-            return $d == 0 ? ['flat', '0 pts'] : [$d > 0 ? 'up' : 'down', ($d > 0 ? '▲ ' : '▼ ') . abs($d) . (abs($d) == 1 ? ' pt' : ' pts')];
+            return $d == 0 ? ['flat', '0%'] : [$d > 0 ? 'up' : 'down', ($d > 0 ? '▲ ' : '▼ ') . abs($d) . '%'];
         }
         if ($before == 0) return $now > 0 ? ['up', '▲ new'] : ['flat', '0%'];
         $d = (int) round(($now - $before) / $before * 100);

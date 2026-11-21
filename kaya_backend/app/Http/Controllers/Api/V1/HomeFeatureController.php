@@ -30,7 +30,18 @@ class HomeFeatureController extends Controller
         $side = $data['side'];
         $viewer = $request->user();
 
-        $banners = Banner::shownTo($side)->take(6)->get()->map(fn (Banner $b) => [
+        /*
+            A Verify ID banner only for someone with verifying left to do.
+
+            It went to everyone, so a verified account, or one waiting for
+            review, tapped it into the upload form again: a step already
+            done, and a duplicate submission in the queue.
+        */
+        $doneVerifying = $viewer->verification_state !== \App\Models\User::UNVERIFIED;
+
+        $banners = Banner::shownTo($side)->get()
+            ->reject(fn (Banner $b) => $b->action === 'verify' && $doneVerifying)
+            ->take(6)->values()->map(fn (Banner $b) => [
             'kind'      => 'banner',
             'id'        => $b->id,
             'title'     => $b->title,
