@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../../core/widgets/kaya_popup.dart';
 import 'package:provider/provider.dart';
 import '../../../core/widgets/loading.dart';
+import '../../../core/widgets/consent_check.dart';
 
 import '../../../core/constants/app_colors.dart';
 import '../../../core/utils/upload_limit.dart';
@@ -286,6 +287,9 @@ class _CredentialsSectionState extends State<CredentialsSection> {
       builder: (sheetContext) {
         var busy = false;
         String? error;
+        // Asked every time the sheet opens, editing included: it is the
+        // person saying this document is theirs and true.
+        var agreed = false;
 
         return StatefulBuilder(
           builder: (sheetContext, setSheet) {
@@ -327,12 +331,14 @@ class _CredentialsSectionState extends State<CredentialsSection> {
                             style: const TextStyle(
                                 fontSize: 13, color: AppColors.error)),
                       ],
-                      const SizedBox(height: 18),
+                      const SizedBox(height: 12),
+                      ConsentCheck(value: agreed, onChanged: (v) => setSheet(() => agreed = v)),
+                      const SizedBox(height: 14),
                       SizedBox(
                         width: double.infinity,
                         height: 48,
                         child: ElevatedButton(
-                          onPressed: busy
+                          onPressed: busy || !agreed
                               ? null
                               : () async {
                                   setSheet(() => busy = true);

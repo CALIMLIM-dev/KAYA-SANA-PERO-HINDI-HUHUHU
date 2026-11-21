@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:kaya_app/core/widgets/consent_check.dart';
 
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
@@ -257,7 +258,8 @@ void main() {
       await tester.ensureVisible(done());
       expect(tester.widget<ElevatedButton>(done()).onPressed, isNull);
 
-      await tester.tap(find.textContaining('I confirm these documents are genuine'));
+      // On the box itself: the words hold the Terms and Privacy links.
+      await tester.tapAt(tester.getTopLeft(find.byType(ConsentCheck)) + const Offset(11, 18));
       await tester.pump();
       expect(tester.widget<ElevatedButton>(done()).onPressed, isNotNull);
     });

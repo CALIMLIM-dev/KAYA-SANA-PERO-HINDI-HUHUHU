@@ -27,6 +27,8 @@ class LegalSyncTest extends TestCase
     public function the_pages_show_the_new_sections(): void
     {
         $this->get('/terms')->assertOk()->assertSee('Your Account and Recovery')->assertSee('KAYA Support');
-        $this->get('/privacy')->assertOk()->assertSee('Semaphore')->assertSee('Clipboard');
+        $this->get('/privacy')->assertOk()->assertSee('Data Protection Officer')->assertSee('72 hours')->assertDontSee('Gemini');
+        // The refund rules are part of the Terms, so the website has them too.
+        $this->get('/terms')->assertOk()->assertSee('Refunds')->assertSee('Paying for a Top-up');
     }
 }

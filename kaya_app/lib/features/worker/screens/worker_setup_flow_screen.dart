@@ -24,6 +24,7 @@ import '../../profile/screens/onboarding_verification_screen.dart';
 import '../../../core/widgets/app_toast.dart';
 import '../../../core/utils/json_parse.dart';
 import '../../../core/widgets/loading.dart';
+import '../../../core/widgets/consent_check.dart';
 
 /// Worker Profile Setup Flow - 6 Step Onboarding
 /// 
@@ -2594,34 +2595,7 @@ class _CertificationFormScreenState extends State<_CertificationFormScreen> {
   }
 
   Widget _confirmCheck() {
-    return GestureDetector(
-      onTap: () => setState(() => _confirmed = !_confirmed),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            width: 22,
-            height: 22,
-            margin: const EdgeInsets.only(top: 1),
-            decoration: BoxDecoration(
-              color: _confirmed ? AppColors.primary : Colors.white,
-              borderRadius: BorderRadius.circular(5),
-              border: Border.all(color: _confirmed ? AppColors.primary : AppColors.neutral400),
-            ),
-            child: _confirmed
-                ? const Icon(Icons.check, size: 14, color: Colors.white)
-                : null,
-          ),
-          const SizedBox(width: 12),
-          const Expanded(
-            child: Text(
-              'I confirm this document is genuine. Submitting fake documents will result in permanent account ban and may be reported to authorities.',
-              style: TextStyle(fontSize: 13.5, color: AppColors.neutral700, height: 1.5),
-            ),
-          ),
-        ],
-      ),
-    );
+    return ConsentCheck(value: _confirmed, onChanged: (v) => setState(() => _confirmed = v));
   }
 
   InputDecoration _deco(String label, String hint) => InputDecoration(
@@ -2918,34 +2892,7 @@ class _LicenseFormScreenState extends State<_LicenseFormScreen> {
   }
 
   Widget _confirmCheck() {
-    return GestureDetector(
-      onTap: () => setState(() => _confirmed = !_confirmed),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            width: 22,
-            height: 22,
-            margin: const EdgeInsets.only(top: 1),
-            decoration: BoxDecoration(
-              color: _confirmed ? AppColors.primary : Colors.white,
-              borderRadius: BorderRadius.circular(5),
-              border: Border.all(color: _confirmed ? AppColors.primary : AppColors.neutral400),
-            ),
-            child: _confirmed
-                ? const Icon(Icons.check, size: 14, color: Colors.white)
-                : null,
-          ),
-          const SizedBox(width: 12),
-          const Expanded(
-            child: Text(
-              'I confirm this document is genuine. Submitting fake documents will result in permanent account ban and may be reported to authorities.',
-              style: TextStyle(fontSize: 13.5, color: AppColors.neutral700, height: 1.5),
-            ),
-          ),
-        ],
-      ),
-    );
+    return ConsentCheck(value: _confirmed, onChanged: (v) => setState(() => _confirmed = v));
   }
 
   InputDecoration _deco(String label, String hint) => InputDecoration(

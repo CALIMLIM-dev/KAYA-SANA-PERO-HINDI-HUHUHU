@@ -11,6 +11,7 @@ import '../../../core/widgets/kaya_popup.dart';
 import '../../../core/widgets/verify_gate.dart';
 import '../../../providers/auth_provider.dart';
 import '../../../providers/credits_provider.dart';
+import '../../legal/data/legal_documents.dart';
 import '../../legal/screens/legal_screen.dart';
 import '../widgets/top_up_section.dart';
 import 'gcash_pay_screen.dart';
@@ -292,7 +293,7 @@ class _WalletScreenState extends State<WalletScreen> with WidgetsBindingObserver
                     onPressed: () => showKayaPopup(
                       context,
                       tall: true,
-                      builder: (_) => const LegalScreen(initialTab: 2),
+                      builder: (_) => const LegalScreen(openSection: LegalDocuments.refundsSection),
                     ),
                     style: TextButton.styleFrom(
                       foregroundColor: AppColors.neutral600,

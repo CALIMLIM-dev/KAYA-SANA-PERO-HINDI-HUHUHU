@@ -51,12 +51,12 @@ void main() {
   testWidgets('help, legal and the real version are in Settings', (tester) async {
     await render(tester, worker: true, employer: false);
 
-    expect(find.text('Help & Support'), findsOneWidget);
+    expect(find.text('Help'), findsOneWidget);
     expect(find.text('FAQs'), findsOneWidget);
     expect(find.text('Message KAYA Support'), findsOneWidget);
     // Below Blocked Accounts, so further down the list.
     await tester.scrollUntilVisible(find.text(AppVersion.current), 200);
-    expect(find.text('About & Legal'), findsOneWidget);
+    expect(find.text('Legal'), findsOneWidget);
     expect(find.text('Terms & Conditions'), findsOneWidget);
     expect(find.text('Privacy Policy'), findsOneWidget);
     expect(find.text(AppVersion.current), findsOneWidget);

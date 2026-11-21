@@ -197,15 +197,8 @@ class _SignupScreenState extends State<SignupScreen> {
                     hint: 'Enter your email',
                     icon: Icons.email_outlined,
                     errorText: _inputError,
-                    suffix: TextButton(
-                      onPressed: () => setState(() {
-                        _isPhoneMode = true;
-                        _inputController.clear();
-                        _inputError = null;
-                      }),
-                      child: Text('Use Phone',
-                          style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.primary)),
-                    ),
+                    // Email only: a new account needs an address that can
+                    // receive a Forgot Password code, and KAYA sends no SMS.
                   ),
                 ),
               const SizedBox(height: 20),

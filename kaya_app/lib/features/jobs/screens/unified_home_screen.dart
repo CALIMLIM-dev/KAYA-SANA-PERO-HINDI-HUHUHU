@@ -776,43 +776,37 @@ class _UnifiedHomeScreenState extends State<UnifiedHomeScreen>
                                 ],
                               ),
                             ),
-                            // Action Icons
-                            Row(
-                              children: [
-                                Container(
-                                  decoration: BoxDecoration(
-                                    color: Colors.white,
-                                    borderRadius: BorderRadius.circular(12),
-                                    boxShadow: [
-                                      BoxShadow(
-                                        color: Colors.black.withValues(alpha: 0.1),
-                                        blurRadius: 4,
-                                        offset: const Offset(0, 2),
-                                      ),
-                                    ],
+                            // FAQ, KAYA Support and notifications share one
+                            // white pill: no gaps between them, so three fit
+                            // beside the greeting on a narrow phone.
+                            Container(
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                borderRadius: BorderRadius.circular(12),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: Colors.black.withValues(alpha: 0.1),
+                                    blurRadius: 4,
+                                    offset: const Offset(0, 2),
                                   ),
-                                  child: IconButton(
+                                ],
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  IconButton(
                                     icon: const Icon(Icons.help_outline, size: 20),
                                     onPressed: _showFAQPopup,
                                     tooltip: 'FAQ',
                                   ),
-                                ),
-                                const SizedBox(width: 8),
-                                Container(
-                                  decoration: BoxDecoration(
-                                    color: Colors.white,
-                                    borderRadius: BorderRadius.circular(12),
-                                    boxShadow: [
-                                      BoxShadow(
-                                        color: Colors.black.withValues(alpha: 0.1),
-                                        blurRadius: 4,
-                                        offset: const Offset(0, 2),
-                                      ),
-                                    ],
+                                  IconButton(
+                                    icon: const Icon(Icons.support_agent_outlined, size: 21),
+                                    onPressed: () => AppRouter.push(context, AppRouter.support),
+                                    tooltip: 'KAYA Support',
                                   ),
-                                  child: const NotificationBell(),
-                                ),
-                              ],
+                                  const NotificationBell(),
+                                ],
+                              ),
                             ),
                           ],
                         ),

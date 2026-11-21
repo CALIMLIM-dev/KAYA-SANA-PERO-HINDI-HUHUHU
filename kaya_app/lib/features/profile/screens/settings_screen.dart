@@ -6,6 +6,7 @@ import '../../../providers/auth_provider.dart';
 import '../../../providers/employer_profile_provider.dart';
 import '../../../providers/worker_profile_provider.dart';
 import '../../help/screens/faq_screen.dart';
+import '../../legal/data/legal_documents.dart';
 import '../../legal/screens/legal_screen.dart';
 import '../widgets/change_password_sheet.dart';
 import '../widgets/delete_account_sheet.dart';
@@ -119,64 +120,47 @@ class _SettingsScreenState extends State<SettingsScreen> {
       body: ListView(
         padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
         children: [
+          /*
+              One rule for every row: the title says what it is, and a second
+              line appears only when it carries a value (the email address and
+              whether it is confirmed). Explanations live on the screen each row
+              opens, not under its name.
+          */
           _group('Account', [
+            _emailRow(auth),
             _SettingsRow(
               icon: Icons.lock_reset_outlined,
               title: 'Change Password',
-              subtitle: 'Signs out your other devices',
               onTap: () => showChangePasswordSheet(context),
-            ),
-            _SettingsRow(
-              icon: Icons.shield_outlined,
-              title: 'Account Status',
-              subtitle: 'Violations, limits and review requests',
-              onTap: () => AppRouter.push(context, AppRouter.accountStatus),
             ),
             _SettingsRow(
               icon: Icons.block,
               title: 'Blocked Accounts',
-              subtitle: 'People you have blocked, and unblocking them',
               onTap: () => showBlockedAccounts(context),
             ),
-          ]),
-
-          // Email and phone are for getting back in: a confirmed one can
-          // receive a Forgot Password code. The ID check is on the profile.
-          _group('Recovery Contacts', [
-            _recoveryRow(
-              auth,
-              channel: 'phone',
-              icon: Icons.phone_android_outlined,
-              title: 'Phone Number',
-              value: auth.user?['phone'] as String?,
-              confirmed: auth.user?['phone_verified'] == true,
-            ),
-            _recoveryRow(
-              auth,
-              channel: 'email',
-              icon: Icons.email_outlined,
-              title: 'Email',
-              value: auth.user?['email'] as String?,
-              confirmed: auth.user?['email_verified'] == true,
+            _SettingsRow(
+              icon: Icons.shield_outlined,
+              title: 'Account Status',
+              onTap: () => AppRouter.push(context, AppRouter.accountStatus),
             ),
           ]),
 
           _group('Notifications', _notificationRows()),
 
-          _group('Help & Support', [
-            _SettingsRow(
-              icon: Icons.help_outline,
-              title: 'FAQs',
-              onTap: () => showKayaPopup(context, tall: true, builder: (_) => const FAQScreen()),
-            ),
+          _group('Help', [
             _SettingsRow(
               icon: Icons.support_agent_outlined,
               title: 'Message KAYA Support',
               onTap: () => AppRouter.push(context, AppRouter.support),
             ),
+            _SettingsRow(
+              icon: Icons.help_outline,
+              title: 'FAQs',
+              onTap: () => showKayaPopup(context, tall: true, builder: (_) => const FAQScreen()),
+            ),
           ]),
 
-          _group('About & Legal', [
+          _group('Legal', [
             _SettingsRow(
               icon: Icons.description_outlined,
               title: 'Terms & Conditions',
@@ -190,7 +174,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
             _SettingsRow(
               icon: Icons.currency_exchange_outlined,
               title: 'Refund Policy',
-              onTap: () => _openLegal(2),
+              // A section of the Terms now, opened where it starts.
+              onTap: () => showKayaPopup(
+                context,
+                tall: true,
+                builder: (_) => const LegalScreen(openSection: LegalDocuments.refundsSection),
+              ),
             ),
             // Information, not a control: no chevron, nothing to tap.
             _SettingsRow(
@@ -224,97 +213,97 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   /// Opens the reader in a pop-up rather than a new screen. 0 is Terms,
-  /// 1 is Privacy, 2 is Refunds.
+  /// 1 is Privacy.
   void _openLegal(int tab) => showKayaPopup(
         context,
         tall: true,
         builder: (_) => LegalScreen(initialTab: tab),
       );
 
+  /// The six switches. They are drawn even before the server answers, so the
+  /// section never looks empty: a spinner sits in each while loading, and a
+  /// failure says so above them with a way to try again.
   List<Widget> _notificationRows() {
-    if (_prefsError != null && _prefs == null) {
-      return [
+    final failed = _prefsError != null && _prefs == null;
+
+    return [
+      if (failed)
         Padding(
-          padding: const EdgeInsets.fromLTRB(16, 8, 8, 8),
+          padding: const EdgeInsets.fromLTRB(16, 6, 6, 6),
           child: Row(
             children: [
-              Expanded(
+              const Expanded(
                 child: Text(
-                  _prefsError!,
-                  style: const TextStyle(fontSize: 13.5, color: AppColors.neutral600),
+                  'Could not load your notification settings.',
+                  style: TextStyle(fontSize: 13, color: AppColors.neutral600),
                 ),
               ),
-              TextButton(onPressed: _loadPrefs, child: const Text('Retry')),
+              TextButton(
+                onPressed: () {
+                  setState(() => _prefsError = null);
+                  _loadPrefs();
+                },
+                style: TextButton.styleFrom(foregroundColor: AppColors.primary),
+                child: const Text('Try Again'),
+              ),
             ],
           ),
         ),
-      ];
-    }
+      for (final entry in _categories.entries)
+        _notificationRow(entry.key, entry.value.$1, entry.value.$2, failed),
+    ];
+  }
 
+  Widget _notificationRow(String key, String title, IconData icon, bool failed) {
     if (_prefs == null) {
-      return [
-        const Padding(
-          padding: EdgeInsets.symmetric(vertical: 24),
-          child: Loading(),
-        ),
-      ];
-    }
-
-    return _categories.entries.map((entry) {
-      final (title, icon) = entry.value;
-      final value = _prefs![entry.key] ?? true;
-      final onChanged = _savingPrefs ? null : (bool v) => _setPref(entry.key, v);
-
       return _SettingsRow(
         icon: icon,
         title: title,
-        onTap: onChanged == null ? null : () => onChanged(!value),
-        trailing: Switch(
-          value: value,
-          onChanged: onChanged,
-          activeThumbColor: AppColors.primary,
-        ),
+        trailing: failed
+            ? const Switch(value: false, onChanged: null)
+            : const SizedBox(width: 48, child: Center(child: SmallSpinner())),
       );
-    }).toList();
-  }
+    }
 
-  /// A heading and one white card holding [rows], divided by hairlines.
-  /// One recovery contact: what it is, whether it is confirmed, and the
-  /// confirm screen behind it. A phone can be changed there too; a new
-  /// number only replaces the old one once its code comes back.
-  Widget _recoveryRow(
-    AuthProvider auth, {
-    required String channel,
-    required IconData icon,
-    required String title,
-    required String? value,
-    required bool confirmed,
-  }) {
-    final has = (value ?? '').trim().isNotEmpty;
-    final phone = channel == 'phone';
+    final value = _prefs![key] ?? true;
+    final onChanged = _savingPrefs ? null : (bool v) => _setPref(key, v);
 
     return _SettingsRow(
       icon: icon,
       title: title,
-      subtitle: !has
-          ? (phone ? 'Not added' : 'No email on this account')
-          : confirmed
-              ? '$value · Confirmed'
-              : '$value · Not confirmed',
-      trailing: confirmed && !phone
+      onTap: onChanged == null ? null : () => onChanged(!value),
+      trailing: Switch(
+        value: value,
+        onChanged: onChanged,
+        activeThumbColor: AppColors.primary,
+      ),
+    );
+  }
+
+  /// The account's email: the address, and whether it is confirmed. A
+  /// confirmed email can receive a Forgot Password code; one that is not
+  /// opens the confirm screen. This is the one place it is shown in Settings.
+  Widget _emailRow(AuthProvider auth) {
+    final value = (auth.user?['email'] as String?)?.trim() ?? '';
+    final confirmed = auth.user?['email_verified'] == true;
+
+    return _SettingsRow(
+      icon: Icons.email_outlined,
+      title: 'Email',
+      subtitle: value.isEmpty ? 'No email on this account' : value,
+      trailing: confirmed
           ? const Icon(Icons.check_circle, size: 20, color: AppColors.success)
-          : null,
-      // A confirmed email has nothing left to do; everything else opens
-      // the confirm screen.
-      onTap: (!phone && (confirmed || !has))
+          : value.isEmpty
+              ? null
+              : const Text('Confirm',
+                  style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.w600, color: AppColors.primary)),
+      onTap: confirmed || value.isEmpty
           ? null
           : () async {
               await AppRouter.push(context, '/verification', arguments: {
-                'type': channel,
-                'title': phone ? (confirmed ? 'Change Phone Number' : 'Confirm Phone Number') : 'Confirm Email',
-                'subtitle': phone
-                    ? 'A confirmed number can receive a code if you forget your password.'
-                    : 'A confirmed email can receive a code if you forget your password.',
+                'type': 'email',
+                'title': 'Confirm Email',
+                'subtitle': 'A confirmed email can receive a code if you forget your password.',
               });
               if (!mounted) return;
               await auth.fetchMe();
@@ -322,6 +311,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
+  /// A heading and one white card holding [rows], divided by hairlines.
   Widget _group(String title, List<Widget> rows) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 20),

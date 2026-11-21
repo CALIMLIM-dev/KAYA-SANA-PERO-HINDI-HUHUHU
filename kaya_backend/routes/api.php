@@ -166,14 +166,14 @@ Route::prefix('v1')->group(function () {
         
         // Worker Certifications
         Route::get('/worker/certifications',        [WorkerProfileController::class, 'getCertifications']);
-        Route::post('/worker/certifications',       [WorkerProfileController::class, 'addCertification'])->middleware('not.company');
-        Route::put('/worker/certifications/{id}',   [WorkerProfileController::class, 'updateCertification']);
+        Route::post('/worker/certifications',       [WorkerProfileController::class, 'addCertification'])->middleware(['not.company', 'consent:certification']);
+        Route::put('/worker/certifications/{id}',   [WorkerProfileController::class, 'updateCertification'])->middleware('consent:certification');
         Route::delete('/worker/certifications/{id}', [WorkerProfileController::class, 'deleteCertification']);
         
         // Worker Licenses
         Route::get('/worker/licenses',          [WorkerProfileController::class, 'getLicenses']);
-        Route::post('/worker/licenses',         [WorkerProfileController::class, 'addLicense'])->middleware('not.company');
-        Route::put('/worker/licenses/{id}',     [WorkerProfileController::class, 'updateLicense']);
+        Route::post('/worker/licenses',         [WorkerProfileController::class, 'addLicense'])->middleware(['not.company', 'consent:license']);
+        Route::put('/worker/licenses/{id}',     [WorkerProfileController::class, 'updateLicense'])->middleware('consent:license');
         Route::delete('/worker/licenses/{id}',  [WorkerProfileController::class, 'deleteLicense']);
         
         // Worker License Examinations
@@ -474,6 +474,6 @@ Route::prefix('v1')->group(function () {
 
         // Verifications
         Route::get('/verifications',  [VerificationController::class, 'index']);
-        Route::post('/verifications', [VerificationController::class, 'store']);
+        Route::post('/verifications', [VerificationController::class, 'store'])->middleware('consent:verification');
     });
 });

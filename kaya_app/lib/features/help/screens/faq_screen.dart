@@ -29,7 +29,7 @@ class _FAQ {
 const _groups = <(String, List<_FAQ>)>[
   ('Accounts', [
     _FAQ('How do I create an account?',
-        'Sign up with your email or phone number and a password, or with Google. '
+        'Sign up with your email and a password, or with Google. '
             'Then set up a worker profile, an employer profile, or both.'),
     _FAQ('Can one account both look for work and hire?',
         'Yes. Set up both profiles, then switch with the Worker and Employer buttons '
@@ -65,6 +65,9 @@ const _groups = <(String, List<_FAQ>)>[
         'A chat opens with the employer. Agree on the day there: either of you can propose a '
             'schedule and the other accepts it. During the job you can share your live location '
             'with the employer, and stop whenever you like.'),
+    _FAQ('Why does a job show an area and not the exact place?',
+        'Until you are hired, a job shows a circle over its barangay, not a pin, so an employer\'s '
+            'home is not on a public listing. Once you are hired, the job shows you the exact place.'),
     _FAQ('What puts my profile higher on an employer\'s list?',
         'Employers see first the workers who have the skills a job asks for, or who work in its '
             'trade. Within that, a fuller profile ranks higher: reviews, jobs done, experience, '
@@ -73,16 +76,19 @@ const _groups = <(String, List<_FAQ>)>[
   ]),
   ('Hiring', [
     _FAQ('How do I post a job?',
-        'Tap Post a Job on the home screen. The post stays up from its start date to its end '
-            'date. The first week is free; keeping it up longer costs Barya and needs an account '
-            'that has topped up. The price shows under the dates as you pick them.'),
+        'Tap Post a Job on the home screen and add at least one photo of the work. Open Until is '
+            'the last day the post takes applicants. The first week is free; keeping it up longer '
+            'costs Barya and needs an account that has topped up. The price shows as you pick the '
+            'date. Estimated Start Date is optional: it tells workers which day the work should '
+            'start, so someone busy that day can skip it.'),
     _FAQ('How do I find workers?',
         'Post a job and workers apply, or search for workers by trade and distance and invite '
             'one to a job. Inviting costs Barya, and inviting someone you have hired before costs '
             'less. An account that has topped up also sees the list of matching workers for each job.'),
     _FAQ('Where do I see who applied?',
         'Home, then My Jobs, then Applicants on the job. Each applicant shows their skills, '
-            'rating and whether you have hired them before. Accept or reject from there.'),
+            'rating, jobs done, completion rate and whether you have hired them before. Sort them '
+            'by Best Match, Nearest, Highest Rated or Most Jobs Done. Accept or reject from there.'),
     _FAQ('Can I hire more than one person for a job?',
         'Yes. Set how many workers the job needs, from one to twenty. The post takes applicants '
             'until every spot is filled, and the Hired Workers list shows everyone hired.'),
@@ -118,12 +124,17 @@ const _groups = <(String, List<_FAQ>)>[
         'Profile, My Wallet, then choose a package. Scan the GCash QR, pay the exact price, then '
             'send the GCash reference number and a screenshot of the receipt. The Barya is added at '
             'once. You need a verified account.'),
+    _FAQ('What happens after I send my GCash receipt?',
+        'Your Barya is added at once and the receipt is in My Wallet, Receipts. The KAYA team then '
+            'checks the payment arrived. If it did not, the Barya is taken back and the account gets '
+            'a violation, so only send a reference number for a payment you made. One top-up waits '
+            'for its check at a time.'),
     _FAQ('What does topping up unlock?',
         'A top-up of any size unlocks boosting, keeping job posts up past the free week, the '
             'list of matching workers for your jobs, up to three community posts at a time '
             'instead of one, and your card on an employer\'s Applicants list opening as a resume.'),
     _FAQ('Do I get Barya back?',
-        'In set cases, automatically. The Refund Policy in Settings, About & Legal lists them, '
+        'In set cases, automatically. The Refund Policy in Settings, Legal lists them, '
             'and it is linked at the bottom of My Wallet.'),
   ]),
   ('Community Board', [
@@ -143,12 +154,17 @@ const _groups = <(String, List<_FAQ>)>[
         'Use the flag on their profile or job post, Report User in a chat\'s menu, or the report '
             'option on a community post or comment. You can add up to three photos as evidence. '
             'An admin reviews it and you are told the outcome.'),
+    _FAQ('I got a violation. Can I appeal?',
+        'Yes. Settings, Account Status, then Appeal on the violation. Say why it is wrong and add '
+            'up to three photos if they help. An admin reviews it and you are told the outcome. '
+            'Support can still be reached while an account is suspended.'),
     _FAQ('Why is part of my message hidden?',
         'Chats and comments are read by a filter. A phone number, an email address, asking to '
             'move to another app and offensive words are hidden with asterisks, to keep people from '
             'being taken off KAYA and scammed. The message still sends.'),
     _FAQ('How do I reach KAYA?',
-        'Settings, Help & Support, Message KAYA support, or the button below. KAYA Assistant '
+        'Tap the Support button at the top of the home screen, or Settings, Help, Message KAYA '
+            'Support, or the button below. KAYA Assistant '
             'answers first, right away; tap Talk to a Person to reach the team in that same chat. '
             'The chat clears when you leave it, unless you are still waiting for the team.'),
   ]),

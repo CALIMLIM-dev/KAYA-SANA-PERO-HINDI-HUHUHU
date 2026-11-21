@@ -366,19 +366,7 @@ class _JobDetailsScreenState extends State<JobDetailsScreen>
           if (job.area != null)
             _section(
               title: 'Area',
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  JobAreaMap(area: job.area!),
-                  const SizedBox(height: 10),
-                  Text(
-                    job.isOwnJob
-                        ? 'Workers see this area, not your exact place.'
-                        : 'The exact place is shared once you are hired.',
-                    style: const TextStyle(fontSize: 13, color: AppColors.neutral600),
-                  ),
-                ],
-              ),
+              child: JobAreaMap(area: job.area!),
             ),
 
           // ── Required skills ──

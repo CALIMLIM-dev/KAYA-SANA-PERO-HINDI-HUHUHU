@@ -53,6 +53,7 @@ class VerificationProvider with ChangeNotifier {
     try {
       final formData = FormData.fromMap({
         'type': 'government_id',
+        'consent': '1',
         'id_type': idType,
         'id_photo': await MultipartFile.fromFile(
           idPhotoPath, 
@@ -107,6 +108,7 @@ class VerificationProvider with ChangeNotifier {
       final formData = FormData.fromMap({
         'type': type,
         'document': multipart,
+        'consent': '1',
         if (tin != null && tin.trim().isNotEmpty) 'tin': tin.trim(),
       });
       await _api.postMultipart('/verifications', formData);

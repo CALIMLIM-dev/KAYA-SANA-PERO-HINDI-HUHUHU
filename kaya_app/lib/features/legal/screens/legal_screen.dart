@@ -16,11 +16,15 @@ import '../data/legal_documents.dart';
 /// headings you can skim in one flick instead of a wall of text you scroll
 /// through hunting for a word.
 class LegalScreen extends StatefulWidget {
-  const LegalScreen({super.key, this.initialTab = 0});
+  const LegalScreen({super.key, this.initialTab = 0, this.openSection});
 
-  /// 0 = Terms, 1 = Privacy, 2 = Refunds. Lets each Settings row open on the
-  /// right document.
+  /// 0 = Terms, 1 = Privacy. Lets each Settings row open on the right
+  /// document.
   final int initialTab;
+
+  /// A section of that document to open and scroll to, by title: the Refund
+  /// Policy rows open the Terms on [LegalDocuments.refundsSection].
+  final String? openSection;
 
   @override
   State<LegalScreen> createState() => _LegalScreenState();
@@ -34,9 +38,9 @@ class _LegalScreenState extends State<LegalScreen>
   void initState() {
     super.initState();
     _tabController = TabController(
-      length: 3,
+      length: 2,
       vsync: this,
-      initialIndex: widget.initialTab.clamp(0, 2),
+      initialIndex: widget.initialTab.clamp(0, 1),
     );
   }
 
@@ -76,7 +80,7 @@ class _LegalScreenState extends State<LegalScreen>
                   const TextStyle(fontWeight: FontWeight.w600, fontSize: 13.5),
               unselectedLabelStyle:
                   const TextStyle(fontWeight: FontWeight.w500, fontSize: 13.5),
-              tabs: const [Tab(text: 'Terms'), Tab(text: 'Privacy'), Tab(text: 'Refunds')],
+              tabs: const [Tab(text: 'Terms'), Tab(text: 'Privacy')],
             ),
           ),
         ),
@@ -84,9 +88,8 @@ class _LegalScreenState extends State<LegalScreen>
       body: TabBarView(
         controller: _tabController,
         children: [
-          _DocumentView(document: LegalDocuments.terms),
-          _DocumentView(document: LegalDocuments.privacy),
-          _DocumentView(document: LegalDocuments.refunds),
+          _DocumentView(document: LegalDocuments.terms, openSection: widget.initialTab == 0 ? widget.openSection : null),
+          _DocumentView(document: LegalDocuments.privacy, openSection: widget.initialTab == 1 ? widget.openSection : null),
         ],
       ),
     );
@@ -94,9 +97,10 @@ class _LegalScreenState extends State<LegalScreen>
 }
 
 class _DocumentView extends StatefulWidget {
-  const _DocumentView({required this.document});
+  const _DocumentView({required this.document, this.openSection});
 
   final LegalDocument document;
+  final String? openSection;
 
   @override
   State<_DocumentView> createState() => _DocumentViewState();
@@ -113,6 +117,22 @@ class _DocumentViewState extends State<_DocumentView>
   @override
   bool get wantKeepAlive => true;
 
+  /// On the section asked for, so it can be scrolled into view.
+  final _target = GlobalKey();
+
+  @override
+  void initState() {
+    super.initState();
+    final i = widget.document.sections.indexWhere((s) => s.title == widget.openSection);
+    if (i >= 0) {
+      _open.add(i);
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        final target = _target.currentContext;
+        if (target != null) Scrollable.ensureVisible(target, alignment: 0.05);
+      });
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     super.build(context);
@@ -120,11 +140,9 @@ class _DocumentViewState extends State<_DocumentView>
     final sections = widget.document.sections;
     final allOpen = _open.length == sections.length;
 
-    return ListView.separated(
-      padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
-      itemCount: sections.length + 2,
-      separatorBuilder: (_, index) => SizedBox(height: index == 0 ? 12 : 8),
-      itemBuilder: (context, index) {
+    // Every section is built up front (a document is a couple of dozen
+    // tiles), so a section opened from a link can be scrolled to.
+    Widget item(int index) {
         if (index == 0) {
           return _Header(
             title: widget.document.title,
@@ -152,6 +170,7 @@ class _DocumentViewState extends State<_DocumentView>
 
         final i = index - 1;
         return _SectionTile(
+          key: widget.document.sections[i].title == widget.openSection ? _target : null,
           number: i + 1,
           section: sections[i],
           expanded: _open.contains(i),
@@ -159,7 +178,19 @@ class _DocumentViewState extends State<_DocumentView>
             if (!_open.remove(i)) _open.add(i);
           }),
         );
-      },
+    }
+
+    return SingleChildScrollView(
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          for (var index = 0; index < sections.length + 2; index++) ...[
+            if (index > 0) SizedBox(height: index == 1 ? 12 : 8),
+            item(index),
+          ],
+        ],
+      ),
     );
   }
 }
@@ -210,6 +241,7 @@ class _Header extends StatelessWidget {
 
 class _SectionTile extends StatelessWidget {
   const _SectionTile({
+    super.key,
     required this.number,
     required this.section,
     required this.expanded,

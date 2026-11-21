@@ -2,6 +2,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import '../../../core/constants/app_colors.dart';
+import '../../../core/widgets/consent_check.dart';
 
 /// ONBOARDING ONLY - No API calls, returns a `Map<String, dynamic>` with verification data
 class OnboardingVerificationScreen extends StatefulWidget {
@@ -265,33 +266,7 @@ class _OnboardingVerificationScreenState extends State<OnboardingVerificationScr
 
               if (_idPhotoPath != null && _selfiePhotoPath != null) ...[
                 const SizedBox(height: 20),
-                GestureDetector(
-                  onTap: () => setState(() => _confirmed = !_confirmed),
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Container(
-                        width: 22, height: 22,
-                        margin: const EdgeInsets.only(top: 1),
-                        decoration: BoxDecoration(
-                          color: _confirmed ? AppColors.primary : Colors.white,
-                          borderRadius: BorderRadius.circular(5),
-                          border: Border.all(color: _confirmed ? AppColors.primary : AppColors.neutral400),
-                        ),
-                        child: _confirmed
-                            ? const Icon(Icons.check, size: 14, color: Colors.white)
-                            : null,
-                      ),
-                      const SizedBox(width: 12),
-                      const Expanded(
-                        child: Text(
-                          'I confirm these documents are genuine. Submitting fake documents will result in permanent account ban.',
-                          style: TextStyle(fontSize: 13.5, color: AppColors.neutral700, height: 1.5),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
+                ConsentCheck(value: _confirmed, onChanged: (v) => setState(() => _confirmed = v)),
                 const SizedBox(height: 20),
                 SizedBox(
                   width: double.infinity,

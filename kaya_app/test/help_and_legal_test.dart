@@ -33,16 +33,32 @@ void main() {
     expect(find.textContaining('Nothing matches that'), findsOneWidget);
   });
 
-  testWidgets('the refund policy opens on its own tab', (tester) async {
-    await tester.pumpWidget(const MaterialApp(home: LegalScreen(initialTab: 2)));
+  testWidgets('the refund policy opens the Terms on its Refunds section, already open', (tester) async {
+    await tester.pumpWidget(const MaterialApp(home: LegalScreen(openSection: LegalDocuments.refundsSection)));
     await tester.pumpAndSettle();
 
-    expect(find.text('Refunds'), findsOneWidget);
-    expect(find.text(LegalDocuments.refunds.sections.first.title), findsOneWidget);
+    // Two documents now: the refund rules are part of the Terms.
+    expect(find.text('Terms'), findsOneWidget);
+    expect(find.text('Privacy'), findsOneWidget);
+    final refunds = LegalDocuments.terms.sections.firstWhere((s) => s.title == LegalDocuments.refundsSection);
+    expect(find.text(refunds.body), findsOneWidget, reason: 'the Refunds section is open and on screen');
+  });
+
+  test('the policies name no AI model or provider, and keep what the law asks for', () {
+    final all = [LegalDocuments.terms, LegalDocuments.privacy].expand((d) => d.sections).map((s) => '${s.title} ${s.body}').join(' ');
+
+    for (final name in ['Gemini', 'Claude', 'Anthropic', 'Jina', 'Voyage', 'OmniRoute', 'Semaphore']) {
+      expect(all.contains(name), isFalse, reason: name);
+    }
+    expect(all.contains('Data Protection Officer'), isTrue);
+    expect(all.contains('72 hours'), isTrue);
+    expect(all.contains('outside the Philippines'), isTrue);
+    expect(all.contains('last ten messages'), isTrue);
+    expect(all.contains('appeal'), isTrue);
   });
 
   test('no document still promises the refund the app stopped giving', () {
-    final all = [LegalDocuments.terms, LegalDocuments.privacy, LegalDocuments.refunds]
+    final all = [LegalDocuments.terms, LegalDocuments.privacy]
         .expand((d) => d.sections)
         .map((s) => s.body)
         .join(' ');

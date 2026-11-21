@@ -25,11 +25,11 @@ void main() {
       expect(find.text(section.body), findsNothing);
     }
 
-    // The list is lazy, so the last heading needs a scroll — but it is a short
+    // The last heading needs a scroll — but it is a short
     // one, because only headings occupy the space. Dragging the list itself
     // rather than scrollUntilVisible, which cannot tell the ListView apart from
     // the TabBarView's own scrollable.
-    await tester.drag(find.byType(ListView).first, const Offset(0, -1200));
+    await tester.drag(find.byType(SingleChildScrollView).first, const Offset(0, -1200));
     await tester.pumpAndSettle();
     expect(find.text(sections.last.title), findsOneWidget);
   });

@@ -913,6 +913,8 @@ class WorkerProfileProvider with ChangeNotifier {
         formDataMap['document'] = await _upload(filePath);
       }
       
+      // The form was gated on ConsentCheck.
+      formDataMap['consent'] = '1';
       final formData = FormData.fromMap(formDataMap);
       
       final response = await _apiClient.postMultipart('/worker/certifications', formData);
@@ -940,11 +942,12 @@ class WorkerProfileProvider with ChangeNotifier {
         final form = FormData.fromMap({
           ...certification.toJson(),
           '_method': 'PUT',
+          'consent': '1',
           'document': await _upload(filePath),
         });
         response = await _apiClient.postMultipart('/worker/certifications/$id', form);
       } else {
-        response = await _apiClient.put('/worker/certifications/$id', data: certification.toJson());
+        response = await _apiClient.put('/worker/certifications/$id', data: {...certification.toJson(), 'consent': '1'});
       }
 
       final data = response.data as Map<String, dynamic>;
@@ -1033,6 +1036,8 @@ class WorkerProfileProvider with ChangeNotifier {
         formDataMap['document'] = await _upload(filePath);
       }
       
+      // The form was gated on ConsentCheck.
+      formDataMap['consent'] = '1';
       final formData = FormData.fromMap(formDataMap);
       
       final response = await _apiClient.postMultipart('/worker/licenses', formData);
@@ -1070,11 +1075,12 @@ class WorkerProfileProvider with ChangeNotifier {
         final form = FormData.fromMap({
           ...license.toJson(),
           '_method': 'PUT',
+          'consent': '1',
           'document': await _upload(filePath),
         });
         response = await _apiClient.postMultipart('/worker/licenses/$id', form);
       } else {
-        response = await _apiClient.put('/worker/licenses/$id', data: license.toJson());
+        response = await _apiClient.put('/worker/licenses/$id', data: {...license.toJson(), 'consent': '1'});
       }
 
       final data = response.data as Map<String, dynamic>;

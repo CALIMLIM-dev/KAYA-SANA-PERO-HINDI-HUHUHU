@@ -343,7 +343,6 @@ class _MyWorkerProfileScreenState extends State<MyWorkerProfileScreen> with Sing
     }
 
     final contactLines = [
-      (profile.phone ?? '').isNotEmpty,
       (profile.email ?? '').isNotEmpty,
     ].where((present) => present).length;
 
@@ -584,10 +583,9 @@ class _MyWorkerProfileScreenState extends State<MyWorkerProfileScreen> with Sing
                                     // Contact info
                                     Builder(builder: (context) {
                                       final p = context.watch<WorkerProfileProvider>();
-                                      final hasPhone = p.phone != null && p.phone!.isNotEmpty;
                                       final hasEmail = p.email != null && p.email!.isNotEmpty;
                                       
-                                      if (!hasPhone && !hasEmail) {
+                                      if (!hasEmail) {
                                         return const Text('Add contact details',
                                             style: TextStyle(fontSize: 12, color: Colors.white24));
                                       }
@@ -599,20 +597,6 @@ class _MyWorkerProfileScreenState extends State<MyWorkerProfileScreen> with Sing
                                           // the address above: an email
                                           // address is long and a Row will
                                           // gladly run off the screen for it.
-                                          if (hasPhone)
-                                            Row(
-                                              children: [
-                                                const Icon(Icons.phone, size: 12, color: Colors.white60),
-                                                const SizedBox(width: 4),
-                                                Expanded(
-                                                  child: Text(p.phone!,
-                                                      maxLines: 1,
-                                                      overflow: TextOverflow.ellipsis,
-                                                      style: const TextStyle(
-                                                          fontSize: 12, color: Colors.white60)),
-                                                ),
-                                              ],
-                                            ),
                                           if (hasEmail)
                                             Row(
                                               children: [

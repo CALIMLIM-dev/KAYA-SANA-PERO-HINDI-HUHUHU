@@ -13,6 +13,7 @@ import '../../../providers/verification_provider.dart';
 import '../../../core/widgets/app_toast.dart';
 import '../../../data/services/api_client.dart';
 import '../../../core/widgets/loading.dart';
+import '../../../core/widgets/consent_check.dart';
 
 /// Verification Screen
 /// Arguments: { type: 'government_id' | 'phone' | 'email' | 'business_reg', title, subtitle }
@@ -602,33 +603,7 @@ class _VerificationScreenState extends State<VerificationScreen> {
 
           if ((isGovID && _docPath != null && _selfiePath != null) || (!isGovID && _docName != null)) ...[
             const SizedBox(height: 20),
-            GestureDetector(
-              onTap: () => setState(() => _confirmed = !_confirmed),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Container(
-                    width: 22, height: 22,
-                    margin: const EdgeInsets.only(top: 1),
-                    decoration: BoxDecoration(
-                      color: _confirmed ? AppColors.primary : Colors.white,
-                      borderRadius: BorderRadius.circular(5),
-                      border: Border.all(color: _confirmed ? AppColors.primary : AppColors.neutral400),
-                    ),
-                    child: _confirmed
-                        ? const Icon(Icons.check, size: 14, color: Colors.white)
-                        : null,
-                  ),
-                  const SizedBox(width: 12),
-                  const Expanded(
-                    child: Text(
-                      'I confirm these documents are genuine. Submitting fake documents will result in permanent account ban.',
-                      style: TextStyle(fontSize: 13.5, color: AppColors.neutral700, height: 1.5),
-                    ),
-                  ),
-                ],
-              ),
-            ),
+            ConsentCheck(value: _confirmed, onChanged: (v) => setState(() => _confirmed = v)),
           ],
 
           const SizedBox(height: 28),

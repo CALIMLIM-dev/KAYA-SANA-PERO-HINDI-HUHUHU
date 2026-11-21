@@ -25,7 +25,7 @@ void main() {
     await tester.pump(const Duration(minutes: 1));
   }
 
-  testWidgets('Settings lists the recovery contacts and whether each is confirmed', (tester) async {
+  testWidgets('Settings shows the email and whether it is confirmed, and no phone', (tester) async {
     RenderHarness.stubPlatformChannels(tester);
     tester.view.physicalSize = const Size(1080, 2400);
     tester.view.devicePixelRatio = 3.0;
@@ -53,9 +53,11 @@ void main() {
     ));
     await tester.pump();
 
-    expect(find.text('Recovery Contacts'), findsOneWidget);
-    expect(find.text('09171234567 · Not confirmed'), findsOneWidget);
-    expect(find.text('ana@example.com · Confirmed'), findsOneWidget);
+    expect(find.text('ana@example.com'), findsOneWidget);
+    expect(find.byIcon(Icons.check_circle), findsOneWidget);
+    // KAYA sends no SMS, so a phone number is not a way back in.
+    expect(find.text('Phone Number'), findsNothing);
+    expect(find.textContaining('09171234567'), findsNothing);
     await settle(tester);
   });
 

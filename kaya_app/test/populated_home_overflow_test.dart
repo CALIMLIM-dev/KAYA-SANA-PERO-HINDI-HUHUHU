@@ -199,6 +199,10 @@ void main() {
       );
       await tester.pump(const Duration(milliseconds: 300));
 
+      // FAQ, KAYA Support and notifications all in the top row, at every width.
+      expect(find.byTooltip('FAQ'), findsOneWidget);
+      expect(find.byTooltip('KAYA Support'), findsOneWidget);
+
       /*
           Proof the screen actually drew the thing under test.
 

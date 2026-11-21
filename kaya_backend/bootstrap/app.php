@@ -34,6 +34,8 @@ return Application::configure(basePath: dirname(__DIR__))
             'not.restricted' => \App\Http\Middleware\EnsureNotRestricted::class,
             'verified'       => \App\Http\Middleware\EnsureVerified::class,
             'not.company'    => \App\Http\Middleware\EnsureNotCompanyEmployer::class,
+            // Records the consent box ticked before a sensitive upload.
+            'consent'        => \App\Http\Middleware\RecordConsent::class,
         ]);
 
         /*
