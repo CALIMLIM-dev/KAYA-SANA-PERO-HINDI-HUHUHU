@@ -91,6 +91,12 @@ android {
             signingConfig = signingConfigs.getByName(if (hasUploadKey) "upload" else "debug")
         }
     }
+
+    // The Play bundle drops the in-app installer permission (Play rejects
+    // apps that install their own updates). Merged over main, release only.
+    if (System.getenv("KAYA_PLAY_BUILD") == "1") {
+        sourceSets.getByName("release").manifest.srcFile("src/play/AndroidManifest.xml")
+    }
 }
 
 kotlin {

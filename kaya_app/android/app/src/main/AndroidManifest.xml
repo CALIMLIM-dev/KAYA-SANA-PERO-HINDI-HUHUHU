@@ -3,6 +3,13 @@
     <!-- Internet permission for API calls and Google Sign-In -->
     <uses-permission android:name="android.permission.INTERNET"/>
 
+    <!-- Lets the app hand a downloaded update to Android's installer, so
+         Update Now installs in one step instead of a trip through the
+         browser. Not a silent install: the person still taps Install. The
+         Play bundle (KAYA_PLAY_BUILD=1) removes this line again through
+         src/play/AndroidManifest.xml, because Play rejects it. -->
+    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES"/>
+
     <!-- Push notifications.
 
          Only Android 13 (API 33) and above require this at runtime: from 13

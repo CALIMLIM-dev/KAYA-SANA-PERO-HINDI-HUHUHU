@@ -22,6 +22,8 @@ void main() {
     adapter = _VersionAdapter();
     ApiClient.testAdapter = adapter;
     VersionGate.reset();
+    // A test is not an Android phone: installing inside the app cannot run.
+    VersionGate.install = (url, onProgress) async => 'Updating in place is only supported on Android.';
   });
 
   tearDown(() {
@@ -92,11 +94,37 @@ void main() {
     expect(find.text('Update Needed'), findsOneWidget);
   });
 
-  /*
-      Update Now opens the store or download page outside the app. The app
-      never downloads and installs an APK itself: Google Play rejects that.
-  */
-  testWidgets('Update Now opens the download page, it does not install',
+  testWidgets('Update Now downloads and installs inside the app', (tester) async {
+    final installed = <String>[];
+    final opened = <Uri>[];
+    VersionGate.install = (url, onProgress) async {
+      installed.add(url);
+      onProgress(0.5);
+      return null;
+    };
+    VersionGate.openUrl = (uri) async {
+      opened.add(uri);
+      return true;
+    };
+    addTearDown(() => VersionGate.openUrl = (uri) async => false);
+
+    adapter.latest = '9.9.9';
+    adapter.required = false;
+    final ctx = await pump(tester);
+
+    VersionGate.check(ctx);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Update Now'));
+    await tester.pumpAndSettle();
+
+    expect(installed, ['https://example.test/download']);
+    expect(opened, isEmpty, reason: 'no trip through the browser');
+    expect(find.text('Update Available'), findsNothing);
+  });
+
+  // A build without the installer permission (the Play bundle) or a failed
+  // install still gets the update: through the download page.
+  testWidgets('when installing inside the app cannot run, the download page opens',
       (tester) async {
     final opened = <Uri>[];
     VersionGate.openUrl = (uri) async {
@@ -145,7 +173,8 @@ void main() {
     await tester.tap(find.text('Update Now'));
     await tester.pumpAndSettle();
 
-    expect(find.text('Could not open the update page.'), findsOneWidget);
+    // Both ways failed, so it says why the install did not happen.
+    expect(find.text('Updating in place is only supported on Android.'), findsOneWidget);
     expect(find.text('Try Again'), findsOneWidget);
   });
 

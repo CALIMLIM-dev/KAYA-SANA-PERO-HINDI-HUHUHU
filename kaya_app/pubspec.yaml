@@ -45,6 +45,10 @@ dependencies:
   
   # HTTP Client
   dio: ^5.4.0
+  # In-app update: the APK is fetched into the app's cache and handed to
+  # Android's installer (core/services/app_updater.dart).
+  path_provider: ^2.1.0
+  open_filex: ^4.4.0
 
   
   # Secure Storage

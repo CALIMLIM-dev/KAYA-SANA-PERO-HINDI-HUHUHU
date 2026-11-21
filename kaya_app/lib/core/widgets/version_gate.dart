@@ -4,6 +4,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../constants/app_colors.dart';
 import '../constants/app_version.dart';
 import '../../data/services/api_client.dart';
+import '../services/app_updater.dart';
 
 /*
     Asks the server whether this build is still allowed to run.
@@ -35,7 +36,14 @@ class VersionGate {
   /// once; a required update is never remembered here.
   static String? _declined;
 
-  /// Opens the update page outside the app. Swapped in tests.
+  /// Downloads and installs the update inside the app; null when the
+  /// installer opened, otherwise why not. Swapped in tests.
+  @visibleForTesting
+  static Future<String?> Function(String url, void Function(double) onProgress) install =
+      (url, onProgress) => AppUpdater.downloadAndInstall(url, onProgress: onProgress);
+
+  /// Opens the update page outside the app, when installing inside it
+  /// cannot run. Swapped in tests.
   @visibleForTesting
   static Future<bool> Function(Uri uri) openUrl =
       (uri) => launchUrl(uri, mode: LaunchMode.externalApplication);
@@ -130,34 +138,59 @@ class _UpdateDialog extends StatefulWidget {
 }
 
 class _UpdateDialogState extends State<_UpdateDialog> {
+  bool _busy = false;
+  double _progress = 0;
   String? _error;
 
-  Future<void> _open() async {
-    final uri = Uri.tryParse(widget.url);
-    var opened = false;
-    if (uri != null) {
-      try {
-        opened = await VersionGate.openUrl(uri);
-      } catch (_) {
-        opened = false;
-      }
-    }
+  /// Downloads the update inside the app and opens Android's installer. If
+  /// that cannot run (a build without the installer permission, or not
+  /// Android), the download page opens in the browser instead.
+  Future<void> _update() async {
+    setState(() {
+      _busy = true;
+      _error = null;
+      _progress = 0;
+    });
+
+    final failure = await VersionGate.install(
+      widget.url,
+      (p) {
+        if (mounted) setState(() => _progress = p);
+      },
+    );
     if (!mounted) return;
 
-    if (!opened) {
-      setState(() => _error = 'Could not open the update page.');
-      return;
+    if (failure != null) {
+      var opened = false;
+      final uri = Uri.tryParse(widget.url);
+      if (uri != null) {
+        try {
+          opened = await VersionGate.openUrl(uri);
+        } catch (_) {
+          opened = false;
+        }
+      }
+      if (!mounted) return;
+      if (!opened) {
+        setState(() {
+          _busy = false;
+          _error = failure;
+        });
+        return;
+      }
     }
 
-    // A required update stays up: coming back without installing must not
-    // let somebody carry on with a build the server no longer supports.
+    setState(() => _busy = false);
+
+    // A required update stays up: coming back from the installer without
+    // installing must not let somebody carry on with an unsupported build.
     if (!widget.required) Navigator.pop(context);
   }
 
   @override
   Widget build(BuildContext context) {
     return PopScope(
-      canPop: !widget.required,
+      canPop: !widget.required && !_busy,
       child: AlertDialog(
         title: Text(widget.required ? 'Update Needed' : 'Update Available'),
         content: Column(
@@ -169,6 +202,21 @@ class _UpdateDialogState extends State<_UpdateDialog> {
                   ? 'This version is too old to keep working.'
                   : 'Version ${widget.latest} is out.',
             ),
+            if (_busy) ...[
+              const SizedBox(height: 16),
+              // Indeterminate until the size is known, so it never sits
+              // stuck at zero looking like a hang.
+              LinearProgressIndicator(
+                value: _progress > 0 ? _progress : null,
+                color: AppColors.primary,
+                backgroundColor: AppColors.neutral200,
+              ),
+              const SizedBox(height: 6),
+              Text(
+                _progress > 0 ? 'Downloading ${(_progress * 100).round()}%' : 'Downloading...',
+                style: const TextStyle(fontSize: 12, color: AppColors.neutral600),
+              ),
+            ],
             if (_error != null) ...[
               const SizedBox(height: 12),
               Text(
@@ -179,7 +227,7 @@ class _UpdateDialogState extends State<_UpdateDialog> {
           ],
         ),
         actions: [
-          if (!widget.required)
+          if (!widget.required && !_busy)
             TextButton(
               onPressed: () => Navigator.pop(context),
               child: const Text('Later'),
@@ -189,7 +237,7 @@ class _UpdateDialogState extends State<_UpdateDialog> {
               backgroundColor: AppColors.primary,
               foregroundColor: Colors.white,
             ),
-            onPressed: widget.url.isEmpty ? null : _open,
+            onPressed: (_busy || widget.url.isEmpty) ? null : _update,
             child: Text(_error != null ? 'Try Again' : 'Update Now'),
           ),
         ],
