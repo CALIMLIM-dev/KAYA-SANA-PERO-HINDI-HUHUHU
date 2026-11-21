@@ -18,5 +18,5 @@ class AppVersion {
   /// The server compares against this, so bumping pubspec without bumping
   /// this makes the app lie about itself â€” which is worse than not checking
   /// at all, because it would report a fixed build as an old one.
-  static const String current = '1.30.0';
+  static const String current = '1.31.0';
 }
