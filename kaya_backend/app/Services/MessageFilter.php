@@ -289,7 +289,7 @@ class MessageFilter
         foreach ($tokens as $i => [$word, $offset]) {
             $normal = $this->word($word);
 
-            if ($normal !== '' && in_array($normal, $words, true)) {
+            if ($normal !== '' && (in_array($normal, $words, true) || $this->disguised($word, $normal, $words))) {
                 $hits[] = [$offset, strlen($word)];
 
                 continue;
@@ -316,6 +316,56 @@ class MessageFilter
         }
 
         return $text;
+    }
+
+    /*
+        A listed word written to get past the list.
+
+        Exact matching after normalising catches "g@g0" but not "gag000034"
+        (which normalises to "gagoea") or "tanglnina" (a letter slipped into
+        "tangina"). Two narrow rules, so ordinary words are left alone:
+
+        - Disguised: the word as typed holds a digit, a symbol or a letter
+          three times running, and what it normalises to starts with a listed
+          word of four or more letters, with at most three left over. A plain
+          "gagawa" or "putahe" has no disguise, so it never reaches this.
+        - Padded: a listed word of six or more letters appears in order
+          inside a word one or two letters longer. "tanging" is the same
+          length as "tangina", so it is never padded; "tanglnina" is.
+    */
+    private function disguised(string $raw, string $normal, array $words): bool
+    {
+        $hasDisguise = preg_match('/[\d@$!*#._-]|(\p{L})\1\1/u', $raw) === 1;
+
+        foreach ($words as $listed) {
+            $len = mb_strlen($listed);
+
+            if ($hasDisguise && $len >= 4 && str_starts_with($normal, $listed)
+                && mb_strlen($normal) - $len <= 3) {
+                return true;
+            }
+
+            $extra = mb_strlen($normal) - $len;
+            if ($len >= 6 && $extra >= 1 && $extra <= 2 && $this->inOrder($listed, $normal)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /** Whether every letter of $needle appears in $haystack, in order. */
+    private function inOrder(string $needle, string $haystack): bool
+    {
+        $at = 0;
+        $hay = mb_str_split($haystack);
+        foreach (mb_str_split($needle) as $ch) {
+            while ($at < count($hay) && $hay[$at] !== $ch) $at++;
+            if ($at >= count($hay)) return false;
+            $at++;
+        }
+
+        return true;
     }
 
     // ── The two normalised copies ───────────────────────────────────────────

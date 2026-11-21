@@ -41,6 +41,7 @@ class SafetyCheck
         'harassment'   => 'Hidden: this message broke KAYA\'s rules and was sent to the KAYA team.',
         'scam'         => 'Hidden: this message broke KAYA\'s rules and was sent to the KAYA team.',
         'hate'         => 'Hidden: this message broke KAYA\'s rules and was sent to the KAYA team.',
+        'profanity'    => 'Hidden: offensive words are not allowed on KAYA.',
     ];
 
     /** Reported at once. Contact sharing is reported only when it keeps happening. */
@@ -54,6 +55,7 @@ class SafetyCheck
         'hate'         => 'inappropriate',
         'contact'      => 'spam',
         'off_platform' => 'spam',
+        'profanity'    => 'inappropriate',
     ];
 
     private const SETTING = 'moderation.ai';
@@ -140,7 +142,8 @@ ok - normal talk about work, pay, schedule, place, or anything harmless.
 contact - shares or asks for a phone number, email, social media account, username or link to reach someone outside KAYA, in any form: written out in words, split across messages, spaced, or hinted ("IG ko", "add mo ako sa FB", "the blue app").
 off_platform - asks to move the conversation or the deal to another app or to meet/deal outside KAYA to avoid it. Paying the agreed job fee by GCash, Maya, bank or cash is fine and is ok.
 sexual - sexual content or advances.
-harassment - insults, threats, bullying or intimidation.
+harassment - insults, threats, bullying or intimidation aimed at someone.
+profanity - swearing or curse words in any language, even when not aimed at anyone and even when disguised: letters swapped or added ("tanglnina"), numbers or symbols for letters ("g@g0", "gag000034"), spaced out, shortened or misspelled on purpose.
 scam - asks for a deposit, fee, advance payment or personal or bank details before work, fake job offers, suspicious links.
 hate - attacks a group (race, religion, gender, region, disability).
 

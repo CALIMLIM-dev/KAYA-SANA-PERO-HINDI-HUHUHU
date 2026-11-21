@@ -107,4 +107,35 @@ class SmartSearchTest extends TestCase
         $this->assertCount(1, $rows('plumbng'));
         $this->assertCount(1, $rows('ricardo'));
     }
+
+    #[Test]
+    public function a_typed_name_puts_that_person_first_even_with_a_typo(): void
+    {
+        $category = Category::create(['name' => 'Plumbing', 'is_active' => true]);
+        $skill = Skill::firstOrCreate(['name' => 'Pipe fitting'], ['category_id' => $category->id]);
+        $make = function (string $name, string $bio, float $lat) use ($category, $skill) {
+            $u = User::factory()->create(['is_verified' => true, 'name' => $name]);
+            WorkerProfile::create(['user_id' => $u->id, 'location' => 'Urdaneta City', 'category_id' => $category->id,
+                'latitude' => $lat, 'longitude' => 120.5711, 'bio' => $bio,
+                'profile_photo_path' => 'worker_photos/seeded.jpg', 'rate_by_agreement' => true,
+                'available_days' => [1, 2, 3, 4, 5, 6, 7], 'travel_km' => 100]);
+            WorkerSkill::create(['user_id' => $u->id, 'skill_id' => $skill->id, 'skill_name' => 'Pipe fitting', 'years_of_experience' => 2]);
+            return $u;
+        };
+        // A stranger whose bio shares a word, and who is newer and nearer.
+        $make('Eddison Joed Calimlim', 'Tubero sa Urdaneta.', 15.9761);
+        $make('Joed Ramos', 'Kaibigan ni Eddison, tubero din.', 15.9762);
+
+        $employer = User::factory()->create(['is_verified' => true]);
+        EmployerProfile::create(['user_id' => $employer->id, 'employer_type' => 'individual', 'location' => 'x', 'setup_completed' => true]);
+        $first = fn (string $q) => $this->actingAs($employer, 'sanctum')
+            ->getJson('/api/v1/workers?q=' . urlencode($q))
+            ->assertOk()
+            ->json('data.data.0.name') ?? $this->actingAs($employer, 'sanctum')
+            ->getJson('/api/v1/workers?q=' . urlencode($q))->json('data.data.0.user.name');
+
+        $this->assertSame('Eddison Joed Calimlim', $first('Eddison Joed Calimlim'));
+        $this->assertSame('Eddison Joed Calimlim', $first('Edison Calimlim'));
+        $this->assertSame('Eddison Joed Calimlim', $first('eddison calimlem'));
+    }
 }

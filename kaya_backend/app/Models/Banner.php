@@ -16,7 +16,6 @@ class Banner extends Model
         'post_job'       => 'Post a job',
         'search_workers' => 'Find workers',
         'search_jobs'    => 'Find jobs',
-        'verify'         => 'Verify ID',
         'top_up'         => 'Top up',
         'community'      => 'Community board',
     ];

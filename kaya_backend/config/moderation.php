@@ -226,6 +226,9 @@ return [
             'harassment'   => 'report',
             'sexual'       => 'report',
             'hate'         => 'report',
+            // Hidden only: the word filter masks the plain words, this
+            // catches the disguised ones it cannot. Not a report by itself.
+            'profanity'    => 'hide',
         ],
     ],
 ];

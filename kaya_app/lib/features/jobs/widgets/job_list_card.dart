@@ -1,9 +1,8 @@
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'fit_line.dart';
+import 'job_photo.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/utils/format.dart';
-import '../../../core/widgets/loading.dart';
 import '../../../core/widgets/verification_badge_widget.dart';
 import '../../../data/models/job_model.dart';
 
@@ -51,7 +50,7 @@ class JobListCard extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisSize: MainAxisSize.min,
             children: [
-              _photo(context),
+              AspectRatio(aspectRatio: 16 / 10, child: JobPhoto(job: job, onToggleSave: onToggleSave)),
               Padding(
                 padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
                 child: _details(),
@@ -59,123 +58,6 @@ class JobListCard extends StatelessWidget {
             ],
           ),
         ),
-      ),
-    );
-  }
-
-  // ─── photo ────────────────────────────────────────────────────────────────
-
-  Widget _photo(BuildContext context) {
-    final photos = job.photoUrls;
-    // Decoded at the width it is drawn, not the 1200 it went up at: a list
-    // of full-size bitmaps is what makes a feed stutter.
-    final decodeWidth = (MediaQuery.sizeOf(context).width * MediaQuery.devicePixelRatioOf(context)).round();
-
-    return AspectRatio(
-      aspectRatio: 16 / 10,
-      child: Stack(
-        fit: StackFit.expand,
-        children: [
-          if (photos.isEmpty)
-            _noPhoto()
-          else
-            CachedNetworkImage(
-              imageUrl: photos.first,
-              fit: BoxFit.cover,
-              memCacheWidth: decodeWidth,
-              fadeInDuration: const Duration(milliseconds: 150),
-              placeholder: (_, _) => const ImageLoading(),
-              errorWidget: (_, _, _) => _noPhoto(),
-            ),
-
-          if (job.isBoosted)
-            Positioned(
-              top: 10,
-              left: 10,
-              child: _pill('URGENT', const Color(0xFF8A6D00), Color.alphaBlend(AppColors.accent.withValues(alpha: 0.25), Colors.white)),
-            ),
-
-          if (photos.length > 1)
-            Positioned(
-              left: 10,
-              bottom: 10,
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                decoration: BoxDecoration(
-                  color: Colors.black.withValues(alpha: 0.55),
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const Icon(Icons.photo_library_outlined, size: 13, color: Colors.white),
-                    const SizedBox(width: 4),
-                    Text(
-                      '${photos.length}',
-                      style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.w600, color: Colors.white),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-
-          if (onToggleSave != null)
-            Positioned(
-              top: 4,
-              right: 4,
-              // 48dp to tap, a 34dp white disc to see, so it reads on any photo.
-              child: IconButton(
-                onPressed: onToggleSave,
-                tooltip: job.isSaved ? 'Unsave' : 'Save',
-                icon: Container(
-                  width: 34,
-                  height: 34,
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    shape: BoxShape.circle,
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.12),
-                        blurRadius: 4,
-                        offset: const Offset(0, 1),
-                      ),
-                    ],
-                  ),
-                  child: Icon(
-                    job.isSaved ? Icons.bookmark : Icons.bookmark_border,
-                    size: 20,
-                    color: job.isSaved ? AppColors.primary : AppColors.neutral700,
-                  ),
-                ),
-              ),
-            ),
-        ],
-      ),
-    );
-  }
-
-  /// A post from before photos were required: its trade, not a stand-in photo.
-  Widget _noPhoto() {
-    return ColoredBox(
-      color: AppColors.primary.withValues(alpha: 0.06),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(_categoryIcon(), size: 40, color: AppColors.primary.withValues(alpha: 0.45)),
-          if ((job.category ?? '').isNotEmpty) ...[
-            const SizedBox(height: 6),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 24),
-              child: Text(
-                job.category!,
-                textAlign: TextAlign.center,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600, color: AppColors.neutral600),
-              ),
-            ),
-          ],
-        ],
       ),
     );
   }
@@ -337,38 +219,6 @@ class JobListCard extends StatelessWidget {
         ),
       ],
     );
-  }
-
-  Widget _pill(String text, Color fg, Color bg) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-      decoration: BoxDecoration(
-        color: bg,
-        borderRadius: BorderRadius.circular(10),
-      ),
-      child: Text(
-        text,
-        style: TextStyle(
-          fontSize: 10.5,
-          fontWeight: FontWeight.w700,
-          color: fg,
-          height: 1.2,
-        ),
-      ),
-    );
-  }
-
-  IconData _categoryIcon() {
-    final c = (job.category ?? '').toLowerCase();
-    if (c.contains('plumb')) return Icons.plumbing;
-    if (c.contains('electric')) return Icons.electrical_services;
-    if (c.contains('paint')) return Icons.format_paint;
-    if (c.contains('carpent') || c.contains('construct') || c.contains('mason')) return Icons.construction;
-    if (c.contains('clean')) return Icons.cleaning_services;
-    if (c.contains('garden') || c.contains('landscap')) return Icons.grass;
-    if (c.contains('aircon') || c.contains('hvac')) return Icons.ac_unit;
-    if (c.contains('auto') || c.contains('mechanic')) return Icons.car_repair;
-    return Icons.work_outline;
   }
 
   /// 4000 -> "4,000".

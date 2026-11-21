@@ -66,6 +66,19 @@ void main() {
         lessThan(tester.getTopLeft(find.text('Ayos ng gripo sa kusina')).dy));
   });
 
+  test('saving a job keeps its photos and everything else', () {
+    final job = Job.fromApi({
+      'id': 7, 'title': 'Ayos ng gripo', 'status': 'open',
+      'photo_urls': ['https://example.test/a.jpg'],
+      'is_boosted': true, 'employer_id': 42,
+    });
+    final saved = job.copyWith(isSaved: true);
+    expect(saved.isSaved, isTrue);
+    expect(saved.photoUrls, ['https://example.test/a.jpg']);
+    expect(saved.isBoosted, isTrue);
+    expect(saved.employerId, 42);
+  });
+
   testWidgets('a post with no photo shows its trade, not a stand-in picture', (tester) async {
     await tester.pumpWidget(card(job()));
     expect(find.byType(CachedNetworkImage), findsNothing);

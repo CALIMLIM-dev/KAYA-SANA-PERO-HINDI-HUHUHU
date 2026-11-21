@@ -49,7 +49,9 @@ class RecommendationRow extends StatelessWidget {
 
     // Scales with the text, or the cards clip their own last line on a phone
     // set to large type - the same rule the other two carousels follow.
-    final rowHeight = 190 * MediaQuery.textScalerOf(context).scale(1.0);
+    // Job cards carry a fixed photo band on top; worker cards do not.
+    final rowHeight = (workers.isNotEmpty ? 0 : CompactJobCard.photoHeight) +
+        190 * MediaQuery.textScalerOf(context).scale(1.0);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,

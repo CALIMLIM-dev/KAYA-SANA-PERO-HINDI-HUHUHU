@@ -90,6 +90,50 @@ class TextSearch
         });
     }
 
+    /**
+     * How well a person's name answers what was typed, 0 to 100.
+     *
+     * The filter above lets a worker through on any word in the name, bio,
+     * trade or skills, which is right for "tubero" and wrong for a name: the
+     * person whose name was typed exactly could sit under a stranger whose
+     * bio shared one word. This puts the named person first, and forgives a
+     * letter or two ("Edison" for "Eddison").
+     */
+    public function nameRelevance(string $name, string $search): float
+    {
+        $norm = fn (string $s) => trim(preg_replace('/\s+/u', ' ', preg_replace('/[^\p{L}\p{N}]+/u', ' ', mb_strtolower($s))));
+        $name = $norm($name);
+        $q = $norm($search);
+        if ($q === '' || $name === '') return 0;
+        if ($name === $q) return 100;
+        if (str_contains($name, $q)) return 90;
+
+        $nameWords = explode(' ', $name);
+        $qWords = explode(' ', $q);
+        $exact = 0;
+        $close = 0;
+        foreach ($qWords as $w) {
+            if (in_array($w, $nameWords, true)) {
+                $exact++;
+                continue;
+            }
+            $allowed = mb_strlen($w) >= 7 ? 2 : (mb_strlen($w) >= 4 ? 1 : 0);
+            foreach ($nameWords as $nw) {
+                if (levenshtein($w, $nw) <= $allowed || (mb_strlen($w) >= 3 && str_starts_with($nw, $w))) {
+                    $close++;
+                    break;
+                }
+            }
+        }
+
+        similar_text($name, $q, $percent);
+        $n = count($qWords);
+        if ($exact === $n) return 80 + $percent / 10;
+        if ($exact + $close === $n) return 70 + $percent / 10;
+
+        return ($exact + $close) / $n * 50 + $percent / 10;
+    }
+
     /** @return list<string> */
     private function words(string $search): array
     {

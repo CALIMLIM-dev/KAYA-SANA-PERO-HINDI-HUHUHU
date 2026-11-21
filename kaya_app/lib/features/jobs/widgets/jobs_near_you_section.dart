@@ -185,7 +185,8 @@ class JobsNearYouSection extends StatelessWidget {
             strip sets one height for all of them and the cards fill it.
         */
         SizedBox(
-          height: 168 * MediaQuery.textScalerOf(context).scale(1.0),
+          // The photo band is a fixed height; the text part scales.
+          height: CompactJobCard.photoHeight + 168 * MediaQuery.textScalerOf(context).scale(1.0),
           child: NotificationListener<ScrollNotification>(
             onNotification: (scrollNotification) {
               // Prevent parent scroll view from handling horizontal scroll

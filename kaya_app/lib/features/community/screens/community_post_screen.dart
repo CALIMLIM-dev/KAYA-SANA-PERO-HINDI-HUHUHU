@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../../core/widgets/loading.dart';
+import '../../../core/widgets/photo_viewer.dart';
 
 import '../../../core/constants/app_colors.dart';
 import '../../../core/widgets/verification_badge_widget.dart';
@@ -177,7 +178,14 @@ class _CommunityPostScreenState extends State<CommunityPostScreen> {
     final waiting = status == 'pending';
     final refused = status == 'rejected';
     final reviewNote = (_post['review_note'] ?? '').toString();
-    final photo = _post['photo_url'] as String?;
+    // Every photo the post has. photo_url is the single legacy field and is
+    // empty on posts made with the photo picker, which fill photo_urls only;
+    // reading it alone showed the card's photo nowhere inside the post.
+    final photos = [
+      for (final p in (_post['photo_urls'] as List?) ?? const []) p.toString(),
+    ];
+    final legacy = (_post['photo_url'] ?? '').toString();
+    if (photos.isEmpty && legacy.isNotEmpty) photos.add(legacy);
     final where = (_post['location'] ?? '').toString();
     final category = (_post['category'] ?? '').toString();
 
@@ -292,9 +300,12 @@ class _CommunityPostScreenState extends State<CommunityPostScreen> {
             (_post['body'] ?? '').toString(),
             style: const TextStyle(fontSize: 14.5, height: 1.5, color: AppColors.neutral700),
           ),
-          if (photo != null && photo.isNotEmpty) ...[
+          for (final photo in photos) ...[
             const SizedBox(height: 14),
-            ClipRRect(
+            // Tap to see it full size.
+            GestureDetector(
+              onTap: () => showPhotoViewer(context, photo),
+              child: ClipRRect(
               borderRadius: BorderRadius.circular(12),
               child: Image.network(
                 photo,
@@ -303,6 +314,7 @@ class _CommunityPostScreenState extends State<CommunityPostScreen> {
                     progress == null ? child : const ImageLoading(height: 200),
                 errorBuilder: (_, _, _) => const SizedBox.shrink(),
               ),
+            ),
             ),
           ],
           // Only a state somebody has to know about. A live post says

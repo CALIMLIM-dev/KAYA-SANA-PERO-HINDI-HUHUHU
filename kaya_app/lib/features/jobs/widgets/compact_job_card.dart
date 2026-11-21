@@ -3,13 +3,14 @@ import '../../../core/constants/app_colors.dart';
 import '../../../core/utils/format.dart';
 import '../../../core/widgets/verification_badge_widget.dart';
 import '../../../data/models/job_model.dart';
+import 'job_photo.dart';
 
 /// The job card for the home carousels.
 ///
-/// Drawn at a fixed height in a row that scrolls sideways, so everything is
-/// one line and the bottom row is pushed to the floor. The full-width list
-/// version, for search and saved jobs, is JobListCard: same icons, colours
-/// and order of lines, sized for a list.
+/// The same order as the Search card (JobListCard): the employer's photo of
+/// the work on top, then the pay, then what the job is and where. Drawn at a
+/// fixed height in a row that scrolls sideways, so every line is one line and
+/// the bottom row sits on the floor.
 class CompactJobCard extends StatelessWidget {
   final Job job;
   final VoidCallback? onTap;
@@ -22,377 +23,227 @@ class CompactJobCard extends StatelessWidget {
     this.onContact,
   });
 
+  /// The photo band on top. Fixed, not scaled with text: the carousels add
+  /// it to their text-scaled height, so a card never clips its own lines.
+  static const double photoHeight = 104;
+
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.all(10),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(12),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.05),
-              blurRadius: 4,
-              offset: const Offset(0, 2),
-            ),
-          ],
-        ),
-        child: LayoutBuilder(builder: (context, constraints) {
-          return Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            // Job Header Row - Compact
-            //
-            // Minimum heights, not fixed ones. Two lines of text at the
-            // largest text size are 44px of a 45px box, and the applicants
-            // column below ran 1px past its 32 at that size, on every card,
-            // as a stripe of yellow and black along the bottom.
-            ConstrainedBox(
-              constraints: const BoxConstraints(minHeight: 45),
-              child: Row(
+    final small = Theme.of(context).textTheme.bodySmall;
+
+    // The shadow sits outside the clip, so the photo can have rounded top
+    // corners without the shadow being cut off.
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.05),
+            blurRadius: 4,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Material(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          onTap: onTap,
+          child: LayoutBuilder(builder: (context, constraints) {
+            final details = Padding(
+              padding: const EdgeInsets.fromLTRB(10, 8, 10, 10),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
                 children: [
-                  // Company/Category Avatar
-                  Container(
-                    width: 36,
-                    height: 36,
-                    decoration: BoxDecoration(
-                      color: AppColors.primary.withValues(alpha: 0.1),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Icon(
-                      _getCategoryIcon(),
-                      color: AppColors.primary,
-                      size: 20,
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  
-                  // Job Title and Company
-                  Expanded(
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          children: [
-                            Flexible(
-                              child: Text(
-                                job.title,
-                                style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 13.5,
-                                ),
-                                overflow: TextOverflow.ellipsis,
-                                maxLines: 1,
-                              ),
-                            ),
-                          ],
+                  // Pay first, as on the Search card: the number the decision turns on.
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          _formatSalary(),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w700,
+                            color: AppColors.success,
+                            height: 1.2,
+                          ),
                         ),
-                        // The hirer's verification, beside the hirer.
-                        Row(
-                          children: [
-                            Flexible(
-                              child: Text(
-                                job.company.isEmpty ? 'Private Employer' : job.company,
-                                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                  color: AppColors.neutral600,
-                                  fontSize: 11,
-                                ),
-                                overflow: TextOverflow.ellipsis,
-                                maxLines: 1,
-                              ),
+                      ),
+                      // The short form of the fit line: "1 of 2 skills".
+                      if (job.matchTier != null && job.requiredCount > 0)
+                        Text(
+                          '${job.matchedCount} of ${job.requiredCount} skills',
+                          style: TextStyle(
+                            fontSize: 10,
+                            fontWeight: FontWeight.w700,
+                            color: job.matchedCount > 0 ? AppColors.primary : AppColors.neutral500,
+                          ),
+                        ),
+                    ],
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    job.title,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 13.5,
+                        ),
+                  ),
+                  // The hirer's verification, beside the hirer.
+                  Row(
+                    children: [
+                      Flexible(
+                        child: Text(
+                          job.company.isEmpty ? 'Private Employer' : job.company,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: small?.copyWith(color: AppColors.neutral600, fontSize: 11),
+                        ),
+                      ),
+                      const SizedBox(width: 4),
+                      VerificationChip(state: job.employerVerification, size: 9.5),
+                    ],
+                  ),
+                  // The address truncates; the distance never does.
+                  if (job.location != null || job.distance != null) ...[
+                    const SizedBox(height: 3),
+                    Row(
+                      children: [
+                        const Icon(Icons.location_on, color: AppColors.neutral500, size: 11),
+                        const SizedBox(width: 3),
+                        Expanded(
+                          child: Text(
+                            job.location ?? '',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: small?.copyWith(color: AppColors.neutral500, fontSize: 10.5),
+                          ),
+                        ),
+                        if (distanceText(job.distanceLabel, job.distance) != null) ...[
+                          const SizedBox(width: 6),
+                          Text(
+                            distanceText(job.distanceLabel, job.distance)!,
+                            style: small?.copyWith(
+                              color: AppColors.neutral600,
+                              fontSize: 10.5,
+                              fontWeight: FontWeight.w600,
                             ),
-                            const SizedBox(width: 4),
-                            VerificationChip(state: job.employerVerification, size: 9.5),
-                          ],
+                          ),
+                        ],
+                      ],
+                    ),
+                  ],
+                  if (job.scheduleLabel != null || job.startsLabel != null) ...[
+                    const SizedBox(height: 2),
+                    Row(
+                      children: [
+                        const Icon(Icons.event, color: AppColors.neutral500, size: 11),
+                        const SizedBox(width: 3),
+                        Expanded(
+                          child: Text(
+                            [job.scheduleLabel, job.startsLabel].whereType<String>().join('  ·  '),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: small?.copyWith(
+                              color: AppColors.neutral600,
+                              fontSize: 10.5,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
                         ),
                       ],
                     ),
-                  ),
-                  
-                  // Urgent badge.
-                  //
-                  // This was a 6px dot stacked above the word URGENT in a
-                  // Column, which rendered as a loose dot floating beside the
-                  // job title with the label crushed underneath it — it read as
-                  // a rendering fault rather than a badge. A pill, matching the
-                  // match-percentage chip on the row below, says the same thing
-                  // in one line and sits in the space that is actually there.
-                  // isBoosted, not isUrgent: the badge has to expire with
-                  // the placement it advertises. See job_list_card.
-                  if (job.isBoosted) ...[
-                    const SizedBox(width: 6),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 6, vertical: 2),
-                      decoration: BoxDecoration(
-                        color: AppColors.accent.withValues(alpha: 0.16),
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      child: const Text(
-                        'URGENT',
-                        style: TextStyle(
-                          fontSize: 9,
-                          fontWeight: FontWeight.w700,
-                          color: Color(0xFF8A6D00),
-                          height: 1.2,
-                        ),
-                      ),
-                    ),
                   ],
-                ],
-              ),
-            ),
-            
-            const SizedBox(height: 8),
-            
-            // Salary Row + Match % - Compact
-            SizedBox(
-              height: 16,
-              child: Row(
-                children: [
-                  const Icon(Icons.payments, color: AppColors.success, size: 12),
-                  const SizedBox(width: 3),
-                  Text(
-                    _formatSalary(),
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      fontWeight: FontWeight.w600,
-                      fontSize: 11,
-                      color: AppColors.success,
-                    ),
-                  ),
-                  const Spacer(),
-                  // The short form of the fit line: "1 of 2 skills".
-                  if (job.matchTier != null && job.requiredCount > 0)
-                    Text(
-                      '${job.matchedCount} of ${job.requiredCount} skills',
-                      style: TextStyle(
-                        fontSize: 10,
-                        fontWeight: FontWeight.w700,
-                        color: job.matchedCount > 0
-                            ? AppColors.primary
-                            : AppColors.neutral500,
-                      ),
-                    ),
-                ],
-              ),
-            ),
-            
-            // Location and Distance - Compact
-            if (job.location != null || job.distance != null) ...[
-              const SizedBox(height: 2),
-              SizedBox(
-                height: 14,
-                child: Row(
-                  children: [
-                    const Icon(Icons.location_on, color: AppColors.neutral500, size: 10),
-                    const SizedBox(width: 3),
-                    /*
-                        Location and distance as two elements, not one string.
-
-                        They were joined into "Brgy. Nancayasan, Urdaneta City,
-                        Pangasinan • 3.4 km" and ellipsized as a whole, so on
-                        any job with a full barangay-level address the distance
-                        — the last thing in the string — was always the part
-                        that got cut. On a list whose entire premise is
-                        "nearest first", that is the one number worth keeping.
-
-                        The address truncates; the distance never does.
-                    */
-                    Expanded(
-                      child: Text(
-                        job.location ?? '',
-                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: AppColors.neutral500,
-                          fontSize: 10,
-                        ),
-                        overflow: TextOverflow.ellipsis,
-                        maxLines: 1,
-                      ),
-                    ),
-                    if (distanceText(job.distanceLabel, job.distance)
-                        != null) ...[
-                      const SizedBox(width: 6),
-                      Text(
-                        distanceText(job.distanceLabel, job.distance)!,
-                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: AppColors.neutral600,
-                          fontSize: 10,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ],
-                  ],
-                ),
-              ),
-            ],
-
-            /*
-                When the job actually happens.
-
-                Job.scheduleLabel has existed since scheduling landed, with a
-                comment saying the card, the details page and the applications
-                list should all read from it so they cannot describe the same
-                dates differently — and then no card ever rendered it. A worker
-                deciding whether to tap could not see whether the job was next
-                week or today without opening it.
-
-                It goes in the gap the Spacer was already holding open, so the
-                card does not grow.
-            */
-            if (job.scheduleLabel != null || job.startsLabel != null) ...[
-              const SizedBox(height: 2),
-              SizedBox(
-                height: 14,
-                child: Row(
-                  children: [
-                    const Icon(Icons.event,
-                        color: AppColors.neutral500, size: 10),
-                    const SizedBox(width: 3),
-                    Expanded(
-                      child: Text(
-                        [job.scheduleLabel, job.startsLabel].whereType<String>().join('  ·  '),
-                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: AppColors.neutral600,
-                          fontSize: 10,
-                          fontWeight: FontWeight.w600,
-                        ),
-                        overflow: TextOverflow.ellipsis,
-                        maxLines: 1,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-
-            // A carousel fixes the height, so the bottom row sits on the
-            // floor. A vertical list does not, and a Spacer there is an
-            // unbounded-height error, not a gap.
-            if (constraints.hasBoundedHeight)
-              const Spacer()
-            else
-              const SizedBox(height: 8),
-            
-            // Bottom Row: Applicants and Action Button
-            ConstrainedBox(
-              constraints: const BoxConstraints(minHeight: 32),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          '${job.applicantCount} applicant${job.applicantCount != 1 ? 's' : ''}',
-                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  // A carousel fixes the height, so the bottom row sits on the
+                  // floor. In an unbounded list a Spacer would be an error.
+                  if (constraints.hasBoundedHeight) const Spacer() else const SizedBox(height: 8),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          [
+                            '${job.applicantCount} applicant${job.applicantCount != 1 ? 's' : ''}',
+                            if (job.postedAt != null) _getTimeAgo(),
+                          ].join('  ·  '),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: small?.copyWith(
                             color: AppColors.neutral600,
                             fontSize: 10,
                             fontWeight: FontWeight.w500,
                           ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
                         ),
-                        if (job.postedAt != null)
-                          Text(
-                            _getTimeAgo(),
-                            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                              color: AppColors.neutral500,
-                              fontSize: 9,
-                            ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
+                      ),
+                      const SizedBox(width: 6),
+                      OutlinedButton(
+                        onPressed: onContact ?? onTap,
+                        style: OutlinedButton.styleFrom(
+                          side: BorderSide(color: _getApplicationButtonColor()),
+                          backgroundColor: _getApplicationStatus() != null
+                              ? _getApplicationButtonColor().withValues(alpha: 0.1)
+                              : null,
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                          minimumSize: Size.zero,
+                          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                        ),
+                        child: Text(
+                          _getApplicationButtonText(),
+                          style: TextStyle(
+                            color: _getApplicationButtonColor(),
+                            fontSize: 11,
+                            fontWeight: FontWeight.w600,
                           ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(width: 6),
-                  
-                  // Action Button
-                  OutlinedButton(
-                    onPressed: onContact,
-                    style: OutlinedButton.styleFrom(
-                      side: BorderSide(
-                        color: _getApplicationButtonColor(),
+                        ),
                       ),
-                      backgroundColor: _getApplicationStatus() != null 
-                          ? _getApplicationButtonColor().withValues(alpha: 0.1)
-                          : null,
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                      minimumSize: Size.zero,
-                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                    ),
-                    child: Text(
-                      _getApplicationButtonText(),
-                      style: TextStyle(
-                        color: _getApplicationButtonColor(),
-                        fontSize: 11,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
+                    ],
                   ),
                 ],
               ),
-            ),
-          ],
-          );
-        }),
+            );
+
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                SizedBox(height: photoHeight, child: JobPhoto(job: job, compact: true)),
+                if (constraints.hasBoundedHeight) Expanded(child: details) else details,
+              ],
+            );
+          }),
+        ),
       ),
     );
   }
 
-  IconData _getCategoryIcon() {
-    switch (job.category?.toLowerCase()) {
-      case 'plumbing':
-        return Icons.plumbing;
-      case 'electrical':
-        return Icons.electrical_services;
-      case 'painting':
-        return Icons.format_paint;
-      case 'carpentry':
-        return Icons.construction;
-      default:
-        return Icons.work;
-    }
-  }
+  /// 4000 -> "4,000".
+  static String _peso(double v) =>
+      v.toStringAsFixed(0).replaceAllMapped(RegExp(r'\B(?=(\d{3})+(?!\d))'), (_) => ',');
 
   String _formatSalary() {
-    if (job.salaryMin != null && job.salaryMax != null) {
-      return '₱${job.salaryMin!.toStringAsFixed(0)}-${job.salaryMax!.toStringAsFixed(0)}${job.payUnit}';
-    } else if (job.salaryMin != null) {
-      return '₱${job.salaryMin!.toStringAsFixed(0)}${job.payUnit}';
-    } else if (job.salaryMax != null) {
-      return '₱${job.salaryMax!.toStringAsFixed(0)}${job.payUnit}';
-    }
+    final min = job.salaryMin;
+    final max = job.salaryMax;
+    if (min != null && max != null && max != min) return '₱${_peso(min)}-${_peso(max)}${job.payUnit}';
+    final one = min ?? max;
+    if (one != null) return '₱${_peso(one)}${job.payUnit}';
     return 'To be discussed';
   }
 
   String _getTimeAgo() {
     if (job.postedAt == null) return '';
-    
-    final now = DateTime.now();
-    final difference = now.difference(job.postedAt!);
-    
-    if (difference.inDays > 0) {
-      return '${difference.inDays}d ago';
-    } else if (difference.inHours > 0) {
-      return '${difference.inHours}h ago';
-    } else if (difference.inMinutes > 0) {
-      return '${difference.inMinutes}m ago';
-    } else {
-      return 'Just now';
-    }
+    final difference = DateTime.now().difference(job.postedAt!);
+    if (difference.inDays > 0) return '${difference.inDays}d ago';
+    if (difference.inHours > 0) return '${difference.inHours}h ago';
+    if (difference.inMinutes > 0) return '${difference.inMinutes}m ago';
+    return 'Just now';
   }
 
-  ApplicationStatus? _getApplicationStatus() {
-    return job.applicationStatus;
-  }
+  ApplicationStatus? _getApplicationStatus() => job.applicationStatus;
 
   Color _getApplicationButtonColor() {
     switch (job.applicationStatus) {
@@ -407,14 +258,8 @@ class CompactJobCard extends StatelessWidget {
     }
   }
 
-  /// What the button does, not what we wish it did.
-  ///
-  /// This said "Contact", which promises a message to the employer. It opens
-  /// the job. Messaging is not possible before applying anyway — a conversation
-  /// only exists once an application is accepted, which is the rule that keeps
-  /// the inbox from becoming a cold-contact channel. So the label was offering
-  /// something the app deliberately does not do, on every job card on the home
-  /// screen.
+  /// What the button does: it opens the job. Messaging is only possible
+  /// once an application is accepted, so it never says "Contact".
   String _getApplicationButtonText() {
     switch (job.applicationStatus) {
       case ApplicationStatus.pending:
@@ -428,4 +273,3 @@ class CompactJobCard extends StatelessWidget {
     }
   }
 }
-

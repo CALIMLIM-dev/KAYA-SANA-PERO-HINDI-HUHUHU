@@ -6,9 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\AdminAction;
 use App\Models\Application;
 use App\Models\CreditPayment;
-use App\Models\EmployerProfile;
 use App\Models\JobPost;
-use App\Models\Report;
 use App\Models\User;
 use App\Models\Verification;
 use Illuminate\Support\Carbon;
@@ -67,14 +65,34 @@ class DashboardController extends Controller
         }
 
         // Jobs by category — for the pie/bar chart
-        $jobsByCategory = JobPost::selectRaw('category_id, COUNT(*) as total')
+        /*
+            By trade, not by every category row.
+
+            Custom categories are private to whoever made them, so the same
+            trade appeared once per employer ("Sewing and Alteration" twice,
+            "Catering Cook" twice) and test names like "rename" got slices of
+            their own. A custom category counts under the trade it is linked
+            to, or under Other; the top eight trades are shown and the rest
+            are folded into Other.
+        */
+        $byTrade = JobPost::selectRaw('category_id, COUNT(*) as total')
             ->groupBy('category_id')
-            ->with('category:id,name')
+            ->with('category:id,name,is_custom,maps_to_id', 'category.mapsTo:id,name')
             ->get()
-            ->map(fn ($row) => [
-                'label' => $row->category->name ?? 'Uncategorized',
-                'total' => $row->total,
-            ]);
+            ->groupBy(fn ($row) => match (true) {
+                $row->category === null => 'Other',
+                ! $row->category->is_custom => $row->category->name,
+                default => $row->category->mapsTo?->name ?? 'Other',
+            })
+            ->map(fn ($rows) => (int) $rows->sum('total'))
+            ->sortDesc();
+
+        $top = $byTrade->except('Other')->take(8);
+        $other = $byTrade->sum() - $top->sum();
+        $jobsByCategory = $top
+            ->map(fn ($total, $label) => ['label' => $label, 'total' => $total])
+            ->values()
+            ->when($other > 0, fn ($c) => $c->push(['label' => 'Other', 'total' => $other]));
 
         $activity = $this->activity();
 

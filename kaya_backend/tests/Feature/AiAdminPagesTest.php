@@ -138,7 +138,7 @@ class AiAdminPagesTest extends TestCase
         $admin = $this->admin();
         $this->actingAs($admin)->post('/admin/safety/settings', [
             'hold_seconds' => 10, 'report_after_hidden' => 3, 'model' => 'kaya-mod',
-            'actions' => ['contact' => 'hide', 'off_platform' => 'off', 'scam' => 'report', 'harassment' => 'report', 'sexual' => 'report', 'hate' => 'report'],
+            'actions' => ['contact' => 'hide', 'off_platform' => 'off', 'scam' => 'report', 'harassment' => 'report', 'sexual' => 'report', 'hate' => 'report', 'profanity' => 'hide'],
         ])->assertRedirect();
 
         $this->assertSame('off', config('moderation.ai.actions.off_platform'));

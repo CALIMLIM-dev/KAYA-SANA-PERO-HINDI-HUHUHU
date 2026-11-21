@@ -25,6 +25,7 @@ class AdminSettings
         'harassment'   => 'Harassment or threats',
         'sexual'       => 'Sexual content',
         'hate'         => 'Hate',
+        'profanity'    => 'Swearing',
     ];
 
     public const SAFETY_ACTIONS = ['off' => 'Off', 'hide' => 'Hide', 'report' => 'Hide and Report'];

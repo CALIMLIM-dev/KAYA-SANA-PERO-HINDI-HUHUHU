@@ -1552,6 +1552,27 @@ class WorkerProfileController extends Controller
             ),
         };
 
+        /*
+            A typed name leads.
+
+            Whatever order was chosen, someone searching a person's name wants
+            that person at the top, typo and all; everyone else follows in the
+            chosen order. Only a real name match (60+) is lifted, so a trade
+            word like "tubero" still lists by the chosen order.
+        */
+        if (! empty($data['q'])) {
+            $search = app(\App\Services\TextSearch::class);
+            $q = (string) $data['q'];
+            $withDistance = $withDistance->values()
+                ->map(fn (WorkerProfile $p, int $i) => [$p, $search->nameRelevance((string) $p->user?->name, $q), $i])
+                ->sort(function ($a, $b) {
+                    $ra = $a[1] >= 60 ? $a[1] : 0;
+                    $rb = $b[1] >= 60 ? $b[1] : 0;
+                    return [$rb, $a[2]] <=> [$ra, $b[2]];
+                })
+                ->map(fn ($row) => $row[0]);
+        }
+
         $profiles = $withDistance->values();
 
         $perPage = $data['per_page'] ?? 20;

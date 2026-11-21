@@ -537,6 +537,31 @@ class Job {
       workersFilled: workersFilled ?? this.workersFilled,
       workStartsOn: workStartsOn,
       area: area,
+      // Everything else is carried over as it is. These were left out, so
+      // saving a job (copyWith(isSaved:)) wiped its photos, match, boost,
+      // employer and dates from every card showing it.
+      status: status,
+      expiresAt: expiresAt,
+      isBoosted: isBoosted,
+      matchScore: matchScore,
+      matchedSkills: matchedSkills,
+      matchedPairs: matchedPairs,
+      matchTier: matchTier,
+      requiredCount: requiredCount,
+      matchedCount: matchedCount,
+      jobId: jobId,
+      categoryId: categoryId,
+      locationId: locationId,
+      employerId: employerId,
+      employerAvatar: employerAvatar,
+      hasApplied: hasApplied,
+      isInvited: isInvited,
+      isOwnJob: isOwnJob,
+      photoUrls: photoUrls,
+      startDate: startDate,
+      endDate: endDate,
+      startTime: startTime,
+      deadline: deadline,
     );
   }
 }

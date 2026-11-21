@@ -398,8 +398,6 @@ class _SlideView extends StatelessWidget {
             AppRouter.push(context, AppRouter.searchJobs, arguments: {'searchType': 'Workers'});
           case 'search_jobs':
             AppRouter.push(context, AppRouter.searchJobs, arguments: {'searchType': 'Jobs'});
-          case 'verify':
-            AppRouter.push(context, '/verification');
           case 'top_up':
             AppRouter.push(context, AppRouter.wallet);
           case 'community':
