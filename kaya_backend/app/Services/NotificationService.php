@@ -415,9 +415,13 @@ class NotificationService
     /** Job finished — the worker is the one who needs to know. */
     public function jobCompleted(JobPost $job): void
     {
+        // 'completed' as well: a job completes only once every hire on it is
+        // completed, so asking for 'accepted' found nobody and no worker was
+        // ever told the job was done or that they could review.
         $workerIds = $job->applications()
-            ->where('status', 'accepted')
-            ->pluck('worker_id');
+            ->whereIn('status', ['accepted', 'completed'])
+            ->pluck('worker_id')
+            ->unique();
 
         foreach ($workerIds as $workerId) {
             $this->push(

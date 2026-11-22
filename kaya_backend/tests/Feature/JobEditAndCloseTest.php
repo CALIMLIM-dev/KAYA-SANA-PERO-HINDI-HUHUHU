@@ -191,4 +191,23 @@ class JobEditAndCloseTest extends TestCase
         $this->assertSame($new, $deadline());
         $this->assertSame(1, ScheduleProposal::where('conversation_id', $thread->id)->where('status', 'accepted')->count());
     }
+
+    // ── E. Both confirm: the worker is told the job is done ───────────────────
+
+    #[Test]
+    public function the_worker_is_told_when_the_job_is_completed(): void
+    {
+        $employer = $this->employer();
+        $worker = $this->worker();
+        $job = $this->job($employer, ['status' => 'in_progress', 'workers_needed' => 1, 'end_date' => now()->subDay()->toDateString()]);
+        $app = Application::create(['job_id' => $job->id, 'worker_id' => $worker->id, 'status' => 'accepted']);
+        Conversation::create(['job_id' => $job->id, 'employer_id' => $employer->id, 'worker_id' => $worker->id, 'status' => 'unlocked',
+            'pair_low' => min($employer->id, $worker->id), 'pair_high' => max($employer->id, $worker->id)]);
+
+        $this->actingAs($worker, 'sanctum')->postJson("/api/v1/applications/{$app->id}/complete")->assertOk();
+        $this->actingAs($employer, 'sanctum')->postJson("/api/v1/applications/{$app->id}/complete")->assertOk();
+
+        $this->assertSame('completed', $job->fresh()->status);
+        $this->assertTrue(UserNotification::where('user_id', $worker->id)->where('type', UserNotification::JOB_COMPLETED)->exists());
+    }
 }
