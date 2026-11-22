@@ -10,6 +10,7 @@ import '../../jobs/home_warmup.dart';
 import '../../../data/services/api_client.dart';
 import '../../../providers/app_mode_provider.dart';
 import '../../../providers/auth_provider.dart';
+import '../../moderation/widgets/ban_lock.dart';
 
 /// Modern Onboarding/Welcome Screen with Professional Design
 class WelcomeScreen extends StatefulWidget {
@@ -134,10 +135,13 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
     final prefs = await SharedPreferences.getInstance();
     final hasSeenOnboarding = prefs.getBool('has_seen_onboarding') ?? false;
 
+    // A phone holding a ban goes straight to sign-in, which shows the lock.
+    final banned = await BanLock.kept() != null;
+
     await _letTheIconFinish();
     if (!mounted) return;
 
-    if (hasSeenOnboarding && mounted) {
+    if ((hasSeenOnboarding || banned) && mounted) {
       // User has seen onboarding, skip to login
       Navigator.pushReplacementNamed(context, '/login');
     } else {

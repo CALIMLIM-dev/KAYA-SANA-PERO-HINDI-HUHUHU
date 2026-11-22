@@ -274,9 +274,11 @@ class AuthProvider with ChangeNotifier {
         return {
           'is_suspended': true,
           'suspended_reason': data['suspended_reason'] ?? 'Your account has been suspended.',
+          // No end date: a ban, which locks (BanLock).
+          'is_ban': (data as Map).containsKey('suspended_until') && data['suspended_until'] == null,
         };
       }
-      
+
       return {'is_suspended': false};
     } catch (e) {
       // If error contains suspension info
@@ -423,7 +425,9 @@ class AuthProvider with ChangeNotifier {
   /// destroying the token on *this device*; revoking it server-side is a
   /// courtesy that can finish on its own, and if it never does the token is
   /// already unusable because it has been deleted locally.
-  Future<void> logout() async {
+  /// [revoke] false keeps the token alive on the server: a banned session
+  /// is kept for the locked pop-up (BanLock).
+  Future<void> logout({bool revoke = true}) async {
     // Cached messages are readable without the network, so they must not
     // outlive the session — on a shared handset the next person to sign in
     // would otherwise open the app to someone else's conversations.
@@ -449,7 +453,7 @@ class AuthProvider with ChangeNotifier {
     // channels even though this is not awaited.
     unawaited(RealtimeService.instance.disconnect());
 
-    unawaited(_revokeTokenServerSide());
+    if (revoke) unawaited(_revokeTokenServerSide());
     unawaited(_googleSignIn.signOut().catchError((_) => null));
 
     _user = null;

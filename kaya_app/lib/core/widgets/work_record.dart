@@ -15,7 +15,13 @@ import '../constants/app_colors.dart';
     happened to the activity cards twice.
 */
 
-/// "8 completed · 89%", or a plain line when nothing has finished yet.
+/// "Finished 8 of 9 jobs taken through KAYA (89%)", or a plain line when
+/// nothing has finished yet.
+///
+/// Said as a sentence, not drawn as a dashboard: a big coloured percentage
+/// over a progress bar is a template, and it made one good job out of one
+/// look as loud as a hundred out of a hundred. The numbers are bold; the
+/// sentence says what they count.
 ///
 /// success_rate arrives as null for an account with no finished work, and that
 /// is deliberate — see WorkRecord on the server. Rendering it as 0% would read
@@ -35,61 +41,38 @@ class CompletionRecord extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    const body = TextStyle(fontSize: 14, height: 1.5, color: AppColors.neutral700);
+    const strong = TextStyle(fontWeight: FontWeight.w700, color: AppColors.neutral900);
+
     if (successRate == null) {
-      return Row(
-        children: [
-          const Icon(Icons.history_toggle_off,
-              size: 16, color: AppColors.neutral400),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Text(
-              'No finished jobs yet',
-              style: const TextStyle(fontSize: 13, color: AppColors.neutral500),
-            ),
-          ),
-        ],
-      );
+      return const Text('No finished jobs yet.', style: TextStyle(fontSize: 14, color: AppColors.neutral500));
     }
 
-    // Green at 80 and above, amber in the middle, red below half. The bands
-    // are wide on purpose: one bad job out of five is not a warning.
-    final rate = successRate!;
-    final colour = rate >= 80
-        ? AppColors.success
-        : rate >= 50
-            ? AppColors.warning
-            : AppColors.error;
-
+    final taken = completed + unsuccessful;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Row(
-          children: [
-            Text('$rate%',
-                style: TextStyle(
-                    fontSize: 20, fontWeight: FontWeight.w700, color: colour)),
-            const SizedBox(width: 8),
-            const Text('Completion Rate',
-                style: TextStyle(fontSize: 13, color: AppColors.neutral600)),
-          ],
-        ),
-        const SizedBox(height: 8),
-        ClipRRect(
-          borderRadius: BorderRadius.circular(4),
-          child: LinearProgressIndicator(
-            value: rate / 100,
-            minHeight: 6,
-            backgroundColor: AppColors.neutral200,
-            valueColor: AlwaysStoppedAnimation(colour),
+        Text.rich(
+          TextSpan(
+            style: body,
+            children: [
+              const TextSpan(text: 'Finished '),
+              TextSpan(text: '$completed', style: strong),
+              const TextSpan(text: ' of '),
+              TextSpan(text: '$taken', style: strong),
+              TextSpan(text: ' job${taken == 1 ? '' : 's'} taken through KAYA ('),
+              TextSpan(text: '$successRate%', style: strong),
+              const TextSpan(text: ').'),
+            ],
           ),
         ),
-        const SizedBox(height: 8),
-        Text(
-          unsuccessful == 0
-              ? '$completed finished'
-              : '$completed finished · $unsuccessful did not complete',
-          style: const TextStyle(fontSize: 12.5, color: AppColors.neutral600),
-        ),
+        if (unsuccessful > 0) ...[
+          const SizedBox(height: 2),
+          Text(
+            '$unsuccessful did not complete.',
+            style: const TextStyle(fontSize: 13, color: AppColors.neutral500),
+          ),
+        ],
       ],
     );
   }
@@ -124,25 +107,18 @@ class WorkHistoryList extends StatelessWidget {
     );
   }
 
+  /// The job, its trade and town, and the month. No icon: every row would
+  /// carry the same one, which says nothing the heading has not.
   Widget _entry(Map<String, dynamic> row) {
     final title = (row['job_title'] ?? 'Job').toString();
     final category = row['category']?.toString();
     final city = row['city']?.toString();
     final date = _month(row['completed_at']?.toString());
+    final meta = [category, city].where((s) => s != null && s.isNotEmpty).join('  ·  ');
 
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Container(
-          width: 34,
-          height: 34,
-          decoration: BoxDecoration(
-            color: AppColors.success.withValues(alpha: 0.10),
-            borderRadius: BorderRadius.circular(9),
-          ),
-          child: const Icon(Icons.check, size: 18, color: AppColors.success),
-        ),
-        const SizedBox(width: 12),
         Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -150,27 +126,22 @@ class WorkHistoryList extends StatelessWidget {
               Text(title,
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w600,
-                      color: AppColors.neutral900)),
-              if (category != null || city != null) ...[
+                  style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: AppColors.neutral900)),
+              if (meta.isNotEmpty) ...[
                 const SizedBox(height: 3),
                 Text(
-                  [category, city].where((s) => s != null && s.isNotEmpty).join('  ·  '),
+                  meta,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                      fontSize: 12.5, color: AppColors.neutral600),
+                  style: const TextStyle(fontSize: 12.5, color: AppColors.neutral600),
                 ),
               ],
             ],
           ),
         ),
         if (date != null) ...[
-          const SizedBox(width: 8),
-          Text(date,
-              style: const TextStyle(fontSize: 12, color: AppColors.neutral400)),
+          const SizedBox(width: 12),
+          Text(date, style: const TextStyle(fontSize: 12, color: AppColors.neutral500)),
         ],
       ],
     );

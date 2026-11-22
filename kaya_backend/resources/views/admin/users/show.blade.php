@@ -12,6 +12,7 @@
             <div>
                 <h2 class="text-lg font-semibold text-slate-800">{{ $user->name }}</h2>
                 <p class="text-sm text-slate-400">{{ $user->email }} · {{ $user->roleLabel() }}</p>
+                @include('admin.partials.device-flag', ['user' => $user])
             </div>
             <div class="ml-auto flex items-center gap-3">
                 @if ($user->deleted_at)

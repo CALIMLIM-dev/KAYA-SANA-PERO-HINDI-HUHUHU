@@ -415,15 +415,7 @@ class _MenuItem extends StatelessWidget {
         borderRadius: BorderRadius.circular(12),
         clipBehavior: Clip.antiAlias,
         child: ListTile(
-          leading: Container(
-            width: 40,
-            height: 40,
-            decoration: BoxDecoration(
-              color: AppColors.primary.withValues(alpha: 0.08),
-              borderRadius: BorderRadius.circular(10),
-            ),
-            child: Icon(icon, color: AppColors.primary, size: 22),
-          ),
+          leading: Icon(icon, color: AppColors.neutral600, size: 22),
           title: Text(title,
               style: Theme.of(context)
                   .textTheme

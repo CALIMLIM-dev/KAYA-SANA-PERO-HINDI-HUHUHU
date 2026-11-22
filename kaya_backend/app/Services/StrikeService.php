@@ -222,6 +222,15 @@ class StrikeService
                 'created_at' => now(), 'updated_at' => now(),
             ]);
         }
+
+        // Every phone the account used. A new account on one is marked, not
+        // refused (a shared family phone), and cannot be verified.
+        foreach (\App\Support\DeviceIds::of($strike->user_id) as $hash) {
+            DB::table('banned_identities')->insertOrIgnore([
+                'kind' => 'device', 'hash' => $hash, 'user_id' => $strike->user_id, 'strike_id' => $strike->id,
+                'created_at' => now(), 'updated_at' => now(),
+            ]);
+        }
     }
 
     public static function isBanned(?string $email = null, ?string $phone = null, ?string $googleId = null): bool

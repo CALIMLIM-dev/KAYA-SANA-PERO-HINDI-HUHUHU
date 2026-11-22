@@ -122,6 +122,7 @@ class AuthController extends Controller
         }
 
         $user  = User::create($userData);
+        \App\Support\DeviceIds::record($user, $request);
         $token = $user->createToken('kaya_app')->plainTextToken;
 
         return $this->ok(['user' => $this->accountPayload($user), 'token' => $token], 'Registration successful', 201);
@@ -149,6 +150,8 @@ class AuthController extends Controller
         if (!$user || !Hash::check($request->password, $user->password)) {
             return $this->fail('Incorrect email or password', 401);
         }
+
+        \App\Support\DeviceIds::record($user, $request);
 
         if ($user->deleted_at !== null) {
             return response()->json([
@@ -229,6 +232,7 @@ class AuthController extends Controller
     public function me(Request $request)
     {
         $user = $request->user();
+        \App\Support\DeviceIds::record($user, $request);
 
         // Check if user is suspended
         if ($user->is_suspended) {
@@ -237,6 +241,8 @@ class AuthController extends Controller
                 'data' => [
                     'is_suspended' => true,
                     'suspended_reason' => $user->suspended_reason,
+                    // Null means a permanent ban, which the app locks.
+                    'suspended_until' => $user->suspended_until,
                 ],
                 'message' => 'Account suspended',
             ], 403);
@@ -451,7 +457,9 @@ class AuthController extends Controller
                 'is_suspended'     => true,
                 'suspended_reason' => $user->suspended_reason,
                 'suspended_until'  => $user->suspended_until,
-                'standing_token'   => $user->createToken('standing', ['*'], now()->addHours(2))->plainTextToken,
+                // A ban's session lasts so the locked pop-up survives reopening
+                // the app; it still reaches only Account Status and Support.
+                'standing_token'   => $user->createToken('standing', ['*'], $user->suspended_until ? now()->addHours(2) : now()->addDays(30))->plainTextToken,
             ],
             'message' => 'Account suspended',
         ], 403);
@@ -467,6 +475,7 @@ class AuthController extends Controller
         return $this->ok([
             'is_suspended' => $user->is_suspended,
             'suspended_reason' => $user->suspended_reason,
+            'suspended_until' => $user->suspended_until,
         ]);
     }
 
@@ -748,6 +757,8 @@ class AuthController extends Controller
         }
 
         if ($existingUser) {
+            \App\Support\DeviceIds::record($existingUser, $request);
+
             /*
                 A ban has to hold on every door.
 
@@ -839,6 +850,7 @@ class AuthController extends Controller
 
         // Google confirmed the address before handing it over.
         $user->forceFill(['email_verified_at' => now()])->save();
+        \App\Support\DeviceIds::record($user, $request);
 
         $token = $user->createToken('kaya_app')->plainTextToken;
 

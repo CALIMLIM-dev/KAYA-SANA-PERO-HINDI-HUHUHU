@@ -1,7 +1,8 @@
-import 'dart:io' show SocketException;
+import 'dart:io' show Platform, SocketException;
 import 'package:dio/dio.dart';
 import '../../core/network/connection_status.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart' show MethodChannel;
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 
@@ -130,6 +131,9 @@ class ApiClient {
         if (token != null) {
           options.headers['Authorization'] = 'Bearer $token';
         }
+        // This phone, so a ban reaches it too. See DeviceIds on the server.
+        final device = await _deviceId();
+        if (device != null) options.headers['X-Device-Id'] = device;
         return handler.next(options);
       },
       /*
@@ -199,6 +203,15 @@ class ApiClient {
           */
           onUnauthorized?.call();
         }
+
+        // A permanent ban on the session this phone holds: the lock, not a
+        // silent sign-out. A temporary suspension is left to the old check.
+        if (error.response?.statusCode == 403 &&
+            _isBanAnswer(error.response?.data) &&
+            await _isCurrentSession(error.requestOptions)) {
+          final token = await _storage.read(key: _tokenKey);
+          if (token != null) onBanned?.call(token);
+        }
         return handler.next(error);
       },
     ));
@@ -233,6 +246,35 @@ class ApiClient {
   /// A plain callback rather than a navigator key, so this file stays free of
   /// Flutter navigation and can be used from tests and providers alike.
   static void Function()? onUnauthorized;
+
+  /// Called with the session's token when the server says it is banned for
+  /// good. main.dart keeps it for the locked pop-up (BanLock).
+  static void Function(String token)? onBanned;
+
+  /// "Suspended, no end date". An older server sends no suspended_until at
+  /// all, which is not read as a ban.
+  static bool _isBanAnswer(dynamic body) {
+    final d = body is Map ? body['data'] : null;
+    return d is Map && d['is_suspended'] == true && d.containsKey('suspended_until') && d['suspended_until'] == null;
+  }
+
+  static const _device = MethodChannel('kaya/device');
+  static String? _deviceHash;
+  static bool _deviceAsked = false;
+
+  /// SHA-256 of Android's ANDROID_ID, from MainActivity. Asked once.
+  static Future<String?> _deviceId() async {
+    if (_deviceAsked) return _deviceHash;
+    _deviceAsked = true;
+    // Only on a phone. In tests the unanswered channel stalled every request.
+    if (!Platform.isAndroid) return null;
+    try {
+      _deviceHash = await _device.invokeMethod<String>('id');
+    } catch (_) {
+      // Tests and anything without the channel: no header.
+    }
+    return _deviceHash;
+  }
 
   /// Paths where a 401 is a legitimate answer rather than an expired session.
   static bool _isAuthPath(String path) {

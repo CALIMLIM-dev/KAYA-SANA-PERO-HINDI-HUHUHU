@@ -45,10 +45,13 @@ class SuspensionService
                 'suspension_note'       => $note,
             ])->save();
 
-            // A suspended account must not keep a live session on a phone
-            // somewhere. Without this the ban only takes effect when their
-            // current token happens to expire.
-            $user->tokens()->delete();
+            // A suspension ends the session. A permanent ban keeps it:
+            // EnsureNotSuspended already limits it to Account Status and
+            // Support, and the app needs it to show the locked ban pop-up
+            // instead of an unexplained sign-out.
+            if ($until !== null) {
+                $user->tokens()->delete();
+            }
         });
     }
 

@@ -28,7 +28,11 @@ class VerificationController extends Controller
     public function store(Request $request)
     {
         $user = $request->user();
-        
+
+        if (\App\Support\DeviceIds::sharesBannedDevice($user->id)) {
+            return $this->fail('This account cannot be verified. It was made on the same phone as a banned account. Message Support if this is a mistake.', 422);
+        }
+
         // Check document type
         $type = $request->input('type');
 

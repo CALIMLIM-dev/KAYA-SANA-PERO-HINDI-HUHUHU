@@ -310,11 +310,7 @@ class _MyEmployerProfileScreenState extends State<MyEmployerProfileScreen>
   Widget _buildHeader() {
     return Container(
       decoration: const BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [AppColors.primary, AppColors.primaryLight],
-        ),
+        color: AppColors.primary,
       ),
       child: SafeArea(
         child: Padding(

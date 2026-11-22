@@ -67,15 +67,7 @@ Future<void> openRoster(BuildContext context, int jobId) async {
 Widget _actionTile(IconData icon, String label, Color color, VoidCallback onTap) {
   return ListTile(
     contentPadding: EdgeInsets.zero,
-    leading: Container(
-      width: 40,
-      height: 40,
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.1),
-        borderRadius: BorderRadius.circular(10),
-      ),
-      child: Icon(icon, color: color, size: 20),
-    ),
+    leading: Icon(icon, color: color, size: 22),
     title: Text(label,
         style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: color)),
     onTap: onTap,

@@ -359,39 +359,39 @@ class _WorkerProfileScreenState extends State<WorkerProfileScreen> {
           SliverToBoxAdapter(
             child: Padding(
               padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: _statCard(
-                      icon: Icons.work_outline,
-                      value: switch (availability) {
-                        'unavailable' => 'Not Available',
-                        'busy' => 'Busy',
-                        _ => 'Available',
-                      },
-                      label: 'Status',
-                      color: isAvailable ? AppColors.success : AppColors.neutral400,
-                    ),
+              /*
+                  Three facts in one strip, label over value, split by
+                  hairlines. They were three cards each led by an icon in a
+                  tinted tile - the stat-card template - which gave a count
+                  of certificates the same weight as whether the person can
+                  work at all.
+              */
+              child: Container(
+                padding: const EdgeInsets.symmetric(vertical: 12),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: AppColors.neutral200),
+                ),
+                child: IntrinsicHeight(
+                  child: Row(
+                    children: [
+                      _fact(
+                        'Status',
+                        switch (availability) {
+                          'unavailable' => 'Not Available',
+                          'busy' => 'Busy',
+                          _ => 'Available',
+                        },
+                        dot: isAvailable ? AppColors.success : AppColors.neutral400,
+                      ),
+                      const VerticalDivider(width: 1, color: AppColors.neutral200),
+                      _fact('Credentials', '$credentialCount'),
+                      const VerticalDivider(width: 1, color: AppColors.neutral200),
+                      _fact('Account', verification.label, valueColor: verification.text),
+                    ],
                   ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: _statCard(
-                      icon: Icons.workspace_premium_outlined,
-                      value: '$credentialCount',
-                      label: 'Credentials',
-                      color: AppColors.primary,
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: _statCard(
-                      icon: Icons.verified_user,
-                      value: verification.label,
-                      label: 'Account',
-                      color: verification.text,
-                    ),
-                  ),
-                ],
+                ),
               ),
             ),
           ),
@@ -489,44 +489,21 @@ class _WorkerProfileScreenState extends State<WorkerProfileScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  // The category leads, in bold; the section title already
+                  // says what it is, so it needs no label above it.
                   if (category.isNotEmpty) ...[
-                    Row(
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.all(8),
-                          decoration: BoxDecoration(
-                            color: AppColors.primary.withValues(alpha: 0.1),
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                          child: const Icon(Icons.handyman_outlined,
-                              color: AppColors.primary, size: 20),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              const Text('Primary Trade',
-                                  style: TextStyle(
-                                      fontSize: 12,
-                                      color: AppColors.neutral500)),
-                              const SizedBox(height: 2),
-                              Text(category,
-                                  style: const TextStyle(
-                                      fontSize: 16,
-                                      fontWeight: FontWeight.w700,
-                                      color: AppColors.neutral900)),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                    if (skills.isNotEmpty) const Divider(height: 26),
+                    Text(category,
+                        style: const TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w700,
+                            color: AppColors.neutral900)),
+                    if (skills.isNotEmpty) const SizedBox(height: 12),
                   ],
                   if (skills.isNotEmpty)
-                    Column(
-                      children:
-                          skills.map((s) => _skillRow(s)).toList(),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: skills.map((s) => _skillRow(s)).toList(),
                     )
                   else
                     const Text('No skills listed yet.',
@@ -581,8 +558,6 @@ class _WorkerProfileScreenState extends State<WorkerProfileScreen> {
                 child: Column(
                   children: certifications
                       .map((c) => _credentialItem(
-                            icon: Icons.verified_outlined,
-                            color: AppColors.success,
                             title: (c['title'] ?? '').toString(),
                             subtitle: (c['issuer'] ?? '').toString(),
                             detail: _credentialDates(
@@ -610,8 +585,6 @@ class _WorkerProfileScreenState extends State<WorkerProfileScreen> {
                 child: Column(
                   children: licenses
                       .map((l) => _credentialItem(
-                            icon: Icons.badge_outlined,
-                            color: AppColors.primary,
                             title: (l['name'] ?? '').toString(),
                             subtitle: (l['authority'] ?? '').toString(),
                             detail: _credentialDates(
@@ -639,10 +612,8 @@ class _WorkerProfileScreenState extends State<WorkerProfileScreen> {
                     final status = (e['status'] ?? '').toString();
                     final score = asDoubleOrNull(e['actual_score']);
                     return _credentialItem(
-                      icon: status == 'passed'
-                          ? Icons.assignment_turned_in_outlined
-                          : Icons.assignment_outlined,
-                      color: status == 'passed'
+                      // Passed or failed is said in words; the colour is on those words.
+                      subtitleColor: status == 'passed'
                           ? AppColors.success
                           : status == 'failed'
                               ? AppColors.error
@@ -813,96 +784,74 @@ class _WorkerProfileScreenState extends State<WorkerProfileScreen> {
     );
   }
 
-  Widget _statCard({
-    required IconData icon,
-    required String value,
-    required String label,
-    required Color color,
-  }) {
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.neutral200),
-      ),
-      child: Column(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(8),
-            decoration: BoxDecoration(
-                color: color.withValues(alpha: 0.1),
-                borderRadius: BorderRadius.circular(8)),
-            child: Icon(icon, color: color, size: 20),
-          ),
-          const SizedBox(height: 8),
-          Text(value,
-              style: const TextStyle(
-                  fontSize: 13.5,
-                  fontWeight: FontWeight.bold,
-                  color: AppColors.neutral900),
-              textAlign: TextAlign.center,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis),
-          const SizedBox(height: 2),
-          Text(label,
-              style: const TextStyle(fontSize: 11, color: AppColors.neutral600),
-              textAlign: TextAlign.center),
-        ],
+  /// One fact in the strip under the header: its label, then its value.
+  /// A small dot only where the value is a state (available or not).
+  Widget _fact(String label, String value, {Color? dot, Color? valueColor}) {
+    return Expanded(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 8),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(label, style: const TextStyle(fontSize: 11.5, color: AppColors.neutral500)),
+            const SizedBox(height: 3),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                if (dot != null) ...[
+                  Container(width: 7, height: 7, decoration: BoxDecoration(color: dot, shape: BoxShape.circle)),
+                  const SizedBox(width: 5),
+                ],
+                Flexible(
+                  child: Text(
+                    value,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: 13.5,
+                      fontWeight: FontWeight.w600,
+                      color: valueColor ?? AppColors.neutral900,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
       ),
     );
   }
 
-  /// A skill with its proficiency and years — an employer picking between two
-  /// masons needs that detail, not just the label.
+  /// A skill as a plain chip: its name, and the level and years only when the
+  /// worker gave them ("Tile setting · Expert · 5 yrs"). No icon: every chip
+  /// carried the same wrench, which says nothing the heading has not.
   Widget _skillRow(Map<String, dynamic> skill) {
     final name = (skill['name'] ?? '').toString();
     final proficiency = (skill['proficiency_level'] ?? '').toString();
     final years = asIntOrNull(skill['years_of_experience']);
+    final detail = [
+      if (proficiency.isNotEmpty) proficiency[0].toUpperCase() + proficiency.substring(1),
+      if (years != null && years > 0) '$years yr${years == 1 ? '' : 's'}',
+    ].join(' · ');
 
-    final profColor = switch (proficiency.toLowerCase()) {
-      'expert' => AppColors.success,
-      'advanced' => AppColors.primary,
-      'intermediate' => AppColors.warning,
-      _ => AppColors.neutral500,
-    };
-
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 10),
-      child: Row(
-        children: [
-          const Icon(Icons.build_outlined, size: 16, color: AppColors.primary),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Text(name,
-                style: const TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w600,
-                    color: AppColors.neutral900)),
-          ),
-          if (years != null && years > 0) ...[
-            Text('$years yr${years == 1 ? '' : 's'}',
-                style: const TextStyle(
-                    fontSize: 12, color: AppColors.neutral500)),
-            const SizedBox(width: 8),
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: AppColors.neutral300),
+      ),
+      child: Text.rich(
+        TextSpan(
+          style: const TextStyle(fontSize: 13, color: AppColors.neutral900, fontWeight: FontWeight.w500),
+          children: [
+            TextSpan(text: name),
+            if (detail.isNotEmpty)
+              TextSpan(
+                text: '  ·  $detail',
+                style: const TextStyle(color: AppColors.neutral500, fontWeight: FontWeight.w400),
+              ),
           ],
-          if (proficiency.isNotEmpty)
-            Container(
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-              decoration: BoxDecoration(
-                color: profColor.withValues(alpha: 0.12),
-                borderRadius: BorderRadius.circular(20),
-              ),
-              child: Text(
-                proficiency[0].toUpperCase() + proficiency.substring(1),
-                style: TextStyle(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w700,
-                    color: profColor),
-              ),
-            ),
-        ],
+        ),
       ),
     );
   }
@@ -947,29 +896,20 @@ class _WorkerProfileScreenState extends State<WorkerProfileScreen> {
   /// A credential (certification / license / exam) with its supporting
   /// document. The document is the whole point — a claimed license with no
   /// viewable scan is just a text field an employer has to take on faith.
+  /// A certificate, license or exam: its name, who issued it, the dates and
+  /// the document. No icon tile: the section heading already says what it is.
   Widget _credentialItem({
-    required IconData icon,
-    required Color color,
     required String title,
     required String subtitle,
     String? detail,
     String? documentUrl,
+    Color? subtitleColor,
   }) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 14),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Container(
-            width: 40,
-            height: 40,
-            decoration: BoxDecoration(
-              color: color.withValues(alpha: 0.1),
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Icon(icon, color: color, size: 20),
-          ),
-          const SizedBox(width: 12),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -981,8 +921,10 @@ class _WorkerProfileScreenState extends State<WorkerProfileScreen> {
                         color: AppColors.neutral900)),
                 if (subtitle.isNotEmpty)
                   Text(subtitle,
-                      style: const TextStyle(
-                          fontSize: 13.5, color: AppColors.neutral600)),
+                      style: TextStyle(
+                          fontSize: 13.5,
+                          color: subtitleColor ?? AppColors.neutral600,
+                          fontWeight: subtitleColor == null ? FontWeight.w400 : FontWeight.w600)),
                 if (detail != null && detail.isNotEmpty)
                   Text(detail,
                       style: const TextStyle(

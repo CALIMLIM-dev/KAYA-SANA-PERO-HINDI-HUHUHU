@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../providers/auth_provider.dart';
+import 'api_client.dart';
 import '../../shared/widgets/suspension_dialog.dart';
 
 /// Suspension Check Service
@@ -42,6 +43,14 @@ class SuspensionCheckService {
 
       if (result == null) {
         _isChecking = false;
+        return;
+      }
+
+      if (result['is_ban'] == true) {
+        stopPeriodicCheck();
+        _isChecking = false;
+        final token = await ApiClient.getToken();
+        if (token != null) ApiClient.onBanned?.call(token);
         return;
       }
 

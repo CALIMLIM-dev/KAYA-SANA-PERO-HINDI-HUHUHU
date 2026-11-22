@@ -30,6 +30,8 @@ import 'data/services/api_client.dart';
 import 'data/services/background_controller.dart';
 import 'data/services/background_poll.dart';
 import 'data/services/local_alerts.dart';
+import 'data/services/suspension_check_service.dart';
+import 'features/moderation/widgets/ban_lock.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -280,6 +282,36 @@ class KayaApp extends StatelessWidget {
             }
           };
 
+          /*
+              Banned for good while using the app: out to the sign-in screen,
+              which opens on the locked pop-up. The session is kept on the
+              phone, not revoked, because the pop-up's Appeal and Message
+              Support run on it. Several polls are refused at once; the first
+              one handles it.
+          */
+          ApiClient.onBanned = (token) async {
+            if (_banHandling) return;
+            _banHandling = true;
+            try {
+              await BanLock.keep(token);
+              if (!context.mounted) return;
+              SuspensionCheckService.stopPeriodicCheck();
+              final clear = sessionClearer(context);
+              await context.read<AuthProvider>().logout(revoke: false);
+              clear();
+
+              // The sign-in screen shows the lock as it opens. Already on a
+              // signed-out screen (the app opening): it gets there itself.
+              final navigator = _navigatorKey.currentState;
+              if (navigator == null) return;
+              if (!AppRouter.isSignedOutRoute(AppRouter.observer.top?.settings.name)) {
+                navigator.pushNamedAndRemoveUntil(AppRouter.login, (_) => false);
+              }
+            } finally {
+              _banHandling = false;
+            }
+          };
+
           return MaterialApp(
             navigatorKey: _navigatorKey,
             navigatorObservers: [AppRouter.observer],
@@ -342,3 +374,6 @@ class KayaApp extends StatelessWidget {
 /// Lets the API client send an expired session back to the login screen without
 /// a BuildContext of its own.
 final GlobalKey<NavigatorState> _navigatorKey = GlobalKey<NavigatorState>();
+
+/// Set while a ban is being handled; see ApiClient.onBanned in main.
+bool _banHandling = false;

@@ -561,23 +561,6 @@ class _UnifiedHomeScreenState extends State<UnifiedHomeScreen>
       ),
       child: Column(
         children: [
-          // Illustration
-          Container(
-            width: 80,
-            height: 80,
-            decoration: BoxDecoration(
-              color: AppColors.primary.withValues(alpha: 0.1),
-              shape: BoxShape.circle,
-            ),
-            child: Icon(
-              Icons.person_add_alt_1,
-              size: 40,
-              color: AppColors.primary,
-            ),
-          ),
-          
-          const SizedBox(height: 16),
-          
           // Heading. This card is only ever shown to an account with NO profile
           // yet, so the copy is about choosing a side — not about missing
           // recommendations, which made no sense before the user had picked one.
@@ -708,14 +691,7 @@ class _UnifiedHomeScreenState extends State<UnifiedHomeScreen>
               automaticallyImplyLeading: false, // Remove back button
               flexibleSpace: Container(
                 decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topCenter,
-                    end: Alignment.bottomCenter,
-                    colors: [
-                      AppColors.primary.withValues(alpha: 0.1),
-                      AppColors.background,
-                    ],
-                  ),
+                  color: AppColors.background,
                 ),
                 child: FlexibleSpaceBar(
                   background: Padding(
@@ -1442,13 +1418,9 @@ class _UnifiedHomeScreenState extends State<UnifiedHomeScreen>
       return Container(
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          gradient: LinearGradient(
-            colors: [AppColors.primary.withValues(alpha: 0.1), Colors.transparent],
-            begin: Alignment.centerLeft,
-            end: Alignment.centerRight,
-          ),
+          color: Colors.white,
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: AppColors.primary.withValues(alpha: 0.2)),
+          border: Border.all(color: AppColors.neutral200),
         ),
         child: Row(
           children: [

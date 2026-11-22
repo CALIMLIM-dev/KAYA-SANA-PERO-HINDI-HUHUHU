@@ -168,12 +168,10 @@ class ModerationTest extends TestCase
     }
 
     #[Test]
-    public function suspending_signs_the_account_out_everywhere(): void
+    public function a_ban_keeps_the_session_but_it_reaches_nothing_but_status(): void
     {
         $user = User::factory()->create();
-        $user->createToken('phone');
-        $user->createToken('tablet');
-        $this->assertSame(2, $user->tokens()->count());
+        $phone = $user->createToken('phone')->plainTextToken;
 
         $this->actingAs($this->admin())->post("/admin/users/{$user->id}/suspend", [
             'reason_code' => 'harassment',
@@ -181,9 +179,11 @@ class ModerationTest extends TestCase
             'note'        => 'Threatening messages to two workers.',
         ]);
 
-        // A ban that leaves a live session on a phone is not a ban until that
-        // token happens to expire.
-        $this->assertSame(0, $user->tokens()->count());
+        // Kept so the app can show the locked ban pop-up (Phase 8), and held
+        // by EnsureNotSuspended to Account Status and Support.
+        $this->assertSame(1, $user->tokens()->count());
+        $this->app['auth']->forgetGuards();
+        $this->getJson('/api/v1/jobs', ['Authorization' => "Bearer {$phone}"])->assertStatus(403);
     }
 
     #[Test]

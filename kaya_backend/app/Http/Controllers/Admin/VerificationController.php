@@ -35,6 +35,10 @@ class VerificationController extends Controller
 
     public function approve(Request $request, Verification $verification)
     {
+        if (\App\Support\DeviceIds::sharesBannedDevice($verification->user_id)) {
+            return back()->with('error', 'Same device as a banned account. This account cannot be verified.');
+        }
+
         /*
             A company's TIN is checked on ORUS before its business document
             is approved, and the approval records that it was.

@@ -15,6 +15,7 @@
     <div class="col-span-1 bg-white rounded-xl border border-slate-200 p-6 text-center">
         @include('admin.partials.avatar', ['user' => $verification->user, 'class' => 'w-20 h-20 text-2xl mx-auto'])
         <h2 class="mt-3 font-semibold text-slate-800">{{ $verification->user->name }}</h2>
+        @include('admin.partials.device-flag', ['user' => $verification->user])
         <p class="text-xs text-slate-400">{{ $verification->user->roleLabel() }} · {{ $verification->user->city ?? 'No city set' }}</p>
 
         <div class="mt-4 text-xs px-3 py-1.5 rounded-full inline-block

@@ -50,6 +50,7 @@
                                     @endif
                                 </p>
                                 <p class="text-xs text-slate-400">{{ $user->email }}</p>
+                                @include('admin.partials.device-flag', ['user' => $user])
                             </div>
                         </div>
                     </td>

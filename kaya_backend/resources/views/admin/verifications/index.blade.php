@@ -25,7 +25,7 @@
         <tbody>
             @foreach ($verifications as $v)
                 <tr class="border-b border-slate-50 hover:bg-slate-50">
-                    <td class="py-3 px-5 font-medium text-slate-700">{{ $v->user->name }}</td>
+                    <td class="py-3 px-5 font-medium text-slate-700">{{ $v->user->name }} @include('admin.partials.device-flag', ['user' => $v->user])</td>
                     <td class="py-3 px-5 text-slate-500">{{ str_replace('_', ' ', ucfirst($v->document_type)) }}</td>
                     <td class="py-3 px-5 text-slate-500">{{ $v->created_at->format('M j, Y') }}</td>
                     <td class="py-3 px-5">

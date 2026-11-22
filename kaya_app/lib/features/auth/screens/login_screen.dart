@@ -5,7 +5,7 @@ import '../../../providers/auth_provider.dart';
 import '../../../shared/widgets/ph_phone_field.dart';
 import '../../../shared/widgets/suspension_dialog.dart';
 import '../../../core/navigation/app_router.dart';
-import '../../moderation/screens/account_status_screen.dart';
+import '../../moderation/widgets/ban_lock.dart';
 import '../../../core/widgets/loading.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -36,6 +36,15 @@ class _LoginScreenState extends State<LoginScreen> {
   /// doing the thing you asked for when only one of them is. Each button now
   /// reports on its own action.
   bool _emailBusy = false;
+
+  @override
+  void initState() {
+    super.initState();
+    // A phone holding a ban opens on the locked pop-up. See BanLock.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) BanLock.showIfKept(context);
+    });
+  }
 
   @override
   void dispose() {
@@ -71,11 +80,8 @@ class _LoginScreenState extends State<LoginScreen> {
     return inputErr == null && passErr == null;
   }
 
-  void _openStanding(String token) {
-    Navigator.of(context).push(MaterialPageRoute(
-      builder: (_) => AccountStatusScreen(standingToken: token),
-    ));
-  }
+  // A ban gets the locked pop-up; a temporary suspension, Account Status.
+  void _openStanding(String token) => BanLock.afterSuspendedSignIn(context, token);
 
   Future<void> _handleLogin(AuthProvider auth) async {
     if (!_validate()) return;

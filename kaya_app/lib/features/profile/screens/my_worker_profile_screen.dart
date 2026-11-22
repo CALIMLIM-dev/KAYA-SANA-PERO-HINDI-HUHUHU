@@ -452,11 +452,7 @@ class _MyWorkerProfileScreenState extends State<MyWorkerProfileScreen> with Sing
               flexibleSpace: FlexibleSpaceBar(
                 background: Container(
                   decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                      colors: [AppColors.primary, AppColors.primaryLight],
-                    ),
+                    color: AppColors.primary,
                   ),
                   child: SafeArea(
                     child: Padding(
