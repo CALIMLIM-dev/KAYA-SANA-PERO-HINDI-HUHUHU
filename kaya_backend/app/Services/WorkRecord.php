@@ -32,7 +32,7 @@ class WorkRecord
             Application::where('worker_id', $user->id),
             Application::where('worker_id', $user->id),
             'worker',
-        );
+        ) + ['reviews_total' => self::reviewsTotals([$user->id], 'worker')[$user->id] ?? 0];
     }
 
     /**
@@ -92,7 +92,34 @@ class WorkRecord
             fn ($q) => $q->where('employer_id', $user->id)
         );
 
-        return $this->summarise($scope(), $scope(), 'employer');
+        return $this->summarise($scope(), $scope(), 'employer')
+            + ['reviews_total' => self::reviewsTotals([$user->id], 'employer')[$user->id] ?? 0];
+    }
+
+    /**
+     * Every review each person got in that role, one query for any number.
+     *
+     * The number shown beside the word "reviews". rating_count on a profile
+     * counts people instead (one voice per reviewer, for the average), so a
+     * worker rehired and reviewed three times by one employer read "1
+     * review" on their profile and "3 Reviews" on their résumé.
+     *
+     * @param  list<int>  $ids
+     * @return array<int, int>
+     */
+    public static function reviewsTotals(array $ids, string $role): array
+    {
+        if ($ids === []) {
+            return [];
+        }
+
+        return \App\Models\Review::whereIn('reviewee_id', $ids)
+            ->where('reviewee_role', $role)
+            ->selectRaw('reviewee_id, COUNT(*) as total')
+            ->groupBy('reviewee_id')
+            ->pluck('total', 'reviewee_id')
+            ->map(fn ($n) => (int) $n)
+            ->all();
     }
 
     private function summarise($countQuery, $historyQuery, string $side): array

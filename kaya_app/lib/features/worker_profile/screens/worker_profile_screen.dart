@@ -125,7 +125,7 @@ class _WorkerProfileScreenState extends State<WorkerProfileScreen> {
     final location = (w['location'] as String?) ?? '';
     final avatar = (w['avatar'] as String?) ?? '';
     final rating = asDouble(w['rating_avg']);
-    final reviewCount = asInt(w['rating_count']);
+    final reviewCount = asInt(w['reviews_total'] ?? w['rating_count']);
     final verification = VerificationState.of(w);
     final isVerified = verification.isVerified;
     final availability = (w['availability_status'] as String?) ?? 'available';

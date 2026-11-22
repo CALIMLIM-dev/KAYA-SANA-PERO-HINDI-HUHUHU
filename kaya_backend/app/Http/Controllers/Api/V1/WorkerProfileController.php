@@ -1587,6 +1587,7 @@ class WorkerProfileController extends Controller
             profile column.
         */
         $onAJob = $this->workersOnAJob($paged->pluck('user_id')->all());
+        $reviewTotals = \App\Services\WorkRecord::reviewsTotals($paged->pluck('user_id')->all(), 'worker');
 
         return response()->json([
             'success' => true,
@@ -1635,6 +1636,8 @@ class WorkerProfileController extends Controller
                     // otherwise send the string "5.00" into a numeric field.
                     'rating_avg'   => (float) $p->rating_avg,
                     'rating_count' => (int) $p->rating_count,
+                    // Every review, for the word "reviews" (rating_count counts people).
+                    'reviews_total' => $reviewTotals[$p->user_id] ?? 0,
                     'skills'       => $p->skills->pluck('skill_name')->filter()->values(),
                     // See availabilityOf.
                     'availability_status' => ! $p->isTakingWork()

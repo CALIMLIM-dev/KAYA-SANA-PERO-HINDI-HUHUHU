@@ -359,7 +359,7 @@ class _RosterScreenState extends State<RosterScreen> with RealtimeRefresh {
     final mine = completion['you_confirmed'] == true;
     final theirs = completion['they_confirmed'] == true;
     final rating = asDoubleOrNull(hire['rating_avg']);
-    final ratingCount = asIntOrNull(hire['rating_count']) ?? 0;
+    final ratingCount = asIntOrNull(hire['reviews_total'] ?? hire['rating_count']) ?? 0;
 
     /*
         Each person, on their own row.

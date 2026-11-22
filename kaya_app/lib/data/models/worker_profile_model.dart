@@ -111,7 +111,7 @@ class WorkerProfile {
       categoryId: json['category_id'] as int?,
       // rating_avg is a Laravel decimal cast — arrives as the string "0.00".
       rating: asDouble(json['rating_avg']),
-      reviewCount: asInt(json['rating_count']),
+      reviewCount: asInt(json['reviews_total'] ?? json['rating_count']),
       // Straight-line km from whoever is browsing, computed server-side.
       distance: asDoubleOrNull(json['distance_km']),
       distanceLabel: json['distance_label'] as String?,

@@ -108,7 +108,7 @@ class _EmployerProfileScreenState extends State<EmployerProfileScreen> {
     final description = (e['description'] as String?) ?? '';
     final website = (e['website'] as String?) ?? '';
     final ratingAvg = asDoubleOrNull(e['rating_avg']);
-    final reviewCount = asIntOrNull(e['rating_count']) ?? 0;
+    final reviewCount = asIntOrNull(e['reviews_total'] ?? e['rating_count']) ?? 0;
     // Logo if the employer set one, otherwise their account picture. Both
     // have always been sent; neither was ever drawn.
     final employerImage = ((e['image_url'] ?? e['avatar']) ?? '').toString();

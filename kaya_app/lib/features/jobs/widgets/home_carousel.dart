@@ -556,7 +556,7 @@ class _SlideView extends StatelessWidget {
             if (rating != null) ...[
               const Icon(Icons.star_rounded, size: 15, color: AppColors.accent),
               const SizedBox(width: 3),
-              Text('${rating.toStringAsFixed(1)} (${d['rating_count']})',
+              Text('${rating.toStringAsFixed(1)} (${d['reviews_total'] ?? d['rating_count']})',
                   style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.white)),
               const SizedBox(width: 10),
             ],

@@ -82,6 +82,8 @@ class RosterController extends Controller
                     // Hired Workers screen could not read, and it would not open.
                     'rating_avg'      => (float) ($hire->worker?->workerProfile?->rating_avg ?? 0),
                     'rating_count'    => (int) ($hire->worker?->workerProfile?->rating_count ?? 0),
+                    // ponytail: one count per hire; a roster is at most 20 people.
+                    'reviews_total'   => \App\Services\WorkRecord::reviewsTotals([$hire->worker_id], 'worker')[$hire->worker_id] ?? 0,
                     'status'          => $hire->status,
                     'completion'      => $completion->state($hire, JobCompletionService::SIDE_EMPLOYER),
                     'hire_actions'    => app(\App\Services\HireCancellation::class)

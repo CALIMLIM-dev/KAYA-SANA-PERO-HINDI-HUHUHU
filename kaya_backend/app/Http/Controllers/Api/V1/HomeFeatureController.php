@@ -65,12 +65,15 @@ class HomeFeatureController extends Controller
     {
         $ids = $this->boosted(Boost::TYPE_WORKER);
 
-        return WorkerProfile::with(['user:id,name,avatar,is_verified', 'category:id,name', 'skills'])
+        $profiles = WorkerProfile::with(['user:id,name,avatar,is_verified', 'category:id,name', 'skills'])
             ->whereIn('user_id', $ids)
             ->where('user_id', '!=', $viewerId)
             ->get()
             ->filter(fn (WorkerProfile $p) => $p->isListable())
-            ->take(self::ADS)
+            ->take(self::ADS);
+        $reviewTotals = \App\Services\WorkRecord::reviewsTotals($profiles->pluck('user_id')->all(), 'worker');
+
+        return $profiles
             ->map(fn (WorkerProfile $p) => [
                 'kind'         => 'worker',
                 'user_id'      => $p->user_id,
@@ -80,6 +83,7 @@ class HomeFeatureController extends Controller
                 'location'     => $p->location,
                 'rating_avg'   => $p->rating_count > 0 ? (float) $p->rating_avg : null,
                 'rating_count' => (int) $p->rating_count,
+                'reviews_total' => $reviewTotals[$p->user_id] ?? 0,
                 'rate_label'   => $p->rateLabel(),
                 'verification_state' => $p->user?->verification_state ?? 'unverified',
             ]);
