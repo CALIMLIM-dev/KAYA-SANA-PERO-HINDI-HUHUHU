@@ -80,10 +80,16 @@ void main() {
     server.until = null;
     await openLock(tester);
 
+    // The whole Account Status, in the pop-up: the ban, the violation with
+    // its own Appeal, and Message Support. No second screen to get there.
     expect(find.text('Account Status'), findsOneWidget);
+    expect(find.text('Banned'), findsWidgets);
+    expect(find.text('Scam or fraud'), findsOneWidget);
     expect(find.text('Appeal'), findsOneWidget);
     expect(find.text('Message Support'), findsOneWidget);
+    expect(find.text('Sign Out'), findsNothing);
     expect(find.byIcon(Icons.close), findsNothing);
+    expect(find.byType(BackButton), findsNothing);
 
     // Outside tap and back both leave it where it is.
     await tester.tapAt(const Offset(5, 5));
@@ -115,6 +121,32 @@ class _FakeServer implements HttpClientAdapter {
   Future<ResponseBody> fetch(RequestOptions options, Stream<Uint8List>? requestStream, Future<void>? cancelFuture) async {
     if (options.path.endsWith('/check-status')) {
       return _json({'success': true, 'data': _state}, 200);
+    }
+    if (options.path.endsWith('/account/standing')) {
+      return _json({
+        'success': true,
+        'data': {
+          'standing': suspended ? 'banned' : 'good',
+          'strikes_counting': 1,
+          'strike_days': 180,
+          'strikes': [
+            {
+              'id': 9,
+              'rule': 'Scam or fraud',
+              'rule_description': 'Taking money or work under false pretences.',
+              'action': 'ban',
+              'action_label': 'Banned',
+              'finding': 'Asked workers for a deposit.',
+              'issued_at': '2026-11-20T02:00:00Z',
+              'expires_at': '2027-05-19T02:00:00Z',
+              'counting': true,
+              'can_appeal': true,
+              'appeal_by': '2026-12-20T02:00:00Z',
+              'appeal': null,
+            },
+          ],
+        },
+      }, 200);
     }
     return _json({'success': false, 'data': _state, 'message': 'Account suspended'}, 403);
   }

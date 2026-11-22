@@ -560,6 +560,7 @@ class _UnifiedHomeScreenState extends State<UnifiedHomeScreen>
         ],
       ),
       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           // Heading. This card is only ever shown to an account with NO profile
           // yet, so the copy is about choosing a side — not about missing
@@ -571,7 +572,6 @@ class _UnifiedHomeScreenState extends State<UnifiedHomeScreen>
               fontWeight: FontWeight.bold,
               color: AppColors.neutral900,
             ),
-            textAlign: TextAlign.center,
           ),
 
           const SizedBox(height: 8),
@@ -584,7 +584,6 @@ class _UnifiedHomeScreenState extends State<UnifiedHomeScreen>
               color: AppColors.neutral600,
               height: 1.5,
             ),
-            textAlign: TextAlign.center,
           ),
           
           const SizedBox(height: 20),
@@ -598,49 +597,25 @@ class _UnifiedHomeScreenState extends State<UnifiedHomeScreen>
               on the final save, which is the worst place to learn a rule.
               Individual employers are unaffected.
           */
+          // Each side as a photo of the work it leads to, the label on it.
+          // The photos are the app's own trade set (see home_carousel.dart).
           Row(
             children: [
               if (context.watch<AuthProvider>().canCreateWorkerProfile) ...[
-              Expanded(
-                child: OutlinedButton(
-                  onPressed: () => AppRouter.push(context, AppRouter.setupWorkerProfile),
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: AppColors.primary,
-                    side: BorderSide(color: AppColors.primary),
-                    padding: const EdgeInsets.symmetric(vertical: 12),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                  ),
-                  child: const Text(
-                    'Set up Worker Profile',
-                    style: TextStyle(
-                      fontSize: 13.5,
-                      fontWeight: FontWeight.w600,
-                    ),
+                Expanded(
+                  child: _sideChoice(
+                    photo: 'assets/images/trades/construction.jpg',
+                    label: 'Set up Worker Profile',
+                    onTap: () => AppRouter.push(context, AppRouter.setupWorkerProfile),
                   ),
                 ),
-              ),
-              const SizedBox(width: 12),
+                const SizedBox(width: 12),
               ],
               Expanded(
-                child: OutlinedButton(
-                  onPressed: () => AppRouter.push(context, AppRouter.setupEmployerProfile),
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: AppColors.primary,
-                    side: BorderSide(color: AppColors.primary),
-                    padding: const EdgeInsets.symmetric(vertical: 12),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                  ),
-                  child: const Text(
-                    'Set up as Employer',
-                    style: TextStyle(
-                      fontSize: 13.5,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
+                child: _sideChoice(
+                  photo: 'assets/images/trades/roofing.jpg',
+                  label: 'Set up as Employer',
+                  onTap: () => AppRouter.push(context, AppRouter.setupEmployerProfile),
                 ),
               ),
             ],
@@ -650,6 +625,58 @@ class _UnifiedHomeScreenState extends State<UnifiedHomeScreen>
     );
   }
 
+  /// A photo with the action written on it, dark at the foot so the words
+  /// read on any picture. The whole tile is the button.
+  Widget _sideChoice({required String photo, required String label, required VoidCallback onTap}) {
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(14),
+      child: AspectRatio(
+        aspectRatio: 1.1,
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            Image.asset(photo, fit: BoxFit.cover, cacheWidth: 480),
+            const DecoratedBox(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [Color(0x00101828), Color(0xD9101828)],
+                  stops: [0.35, 1],
+                ),
+              ),
+            ),
+            Positioned(
+              left: 12,
+              right: 12,
+              bottom: 12,
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  Expanded(
+                    child: Text(
+                      label,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 14,
+                        fontWeight: FontWeight.w700,
+                        height: 1.25,
+                      ),
+                    ),
+                  ),
+                  const Icon(Icons.arrow_forward, color: Colors.white, size: 18),
+                ],
+              ),
+            ),
+            Material(
+              type: MaterialType.transparency,
+              child: InkWell(onTap: onTap),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
   @override
   Widget build(BuildContext context) {
     return Consumer4<AuthProvider, AppModeProvider, JobProvider,

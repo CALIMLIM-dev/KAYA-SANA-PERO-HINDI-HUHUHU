@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../../core/constants/app_colors.dart';
+import '../../../core/widgets/skill_line.dart';
 import '../../../core/constants/credits.dart';
 import '../../../core/constants/job_boost.dart';
 import '../../../providers/auth_provider.dart';
@@ -622,87 +623,14 @@ class _MyWorkerProfileScreenState extends State<MyWorkerProfileScreen> with Sing
                             shouldRebuild: (prev, next) => prev.length != next.length,
                             builder: (context, skills, _) {
                               if (skills.isNotEmpty) {
-                                // Group skills by category
-                                final Map<String, List<WorkerSkillModel>> grouped = {};
-                                for (var skill in skills) {
-                                  final category = skill.categoryName ?? 'Other';
-                                  grouped.putIfAbsent(category, () => []).add(skill);
-                                }
-
-                                return Container(
-                                  constraints: const BoxConstraints(maxHeight: 80),
-                                  child: SingleChildScrollView(
-                                    child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                      children: grouped.entries.map((entry) {
-                                        return Padding(
-                                          padding: const EdgeInsets.only(bottom: 6),
-                                          child: Column(
-                                            crossAxisAlignment: CrossAxisAlignment.start,
-                                            children: [
-                                              // Category header
-                                              Text(
-                                                entry.key.toUpperCase(),
-                                                style: const TextStyle(
-                                                  fontSize: 9,
-                                                  fontWeight: FontWeight.w700,
-                                                  color: Colors.white70,
-                                                  letterSpacing: 0.5,
-                                                ),
-                                              ),
-                                              const SizedBox(height: 4),
-                                              // Skills
-                                              Wrap(
-                                                spacing: 6,
-                                                runSpacing: 4,
-                                                children: entry.value.map((skill) => Container(
-                                                  key: ValueKey(skill.id ?? skill.skillName),
-                                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                                                  decoration: BoxDecoration(
-                                                    color: Colors.white.withValues(alpha: 0.2),
-                                                    borderRadius: BorderRadius.circular(12),
-                                                  ),
-                                                  /*
-                                                      Capped, because a Wrap
-                                                      cannot break one child.
-
-                                                      Wrap moves a chip to the
-                                                      next line when it does
-                                                      not fit, which is the
-                                                      right behaviour and was
-                                                      never the problem. A
-                                                      single chip wider than
-                                                      the screen has no next
-                                                      line to move to -
-                                                      "Refrigeration and aircon
-                                                      servicing" is one skill
-                                                      and it does not fit on a
-                                                      320px phone at any font
-                                                      size.
-                                                  */
-                                                  child: ConstrainedBox(
-                                                    constraints: BoxConstraints(
-                                                      maxWidth: MediaQuery.sizeOf(context).width - 170,
-                                                    ),
-                                                    child: Text(
-                                                      skill.skillName,
-                                                      maxLines: 1,
-                                                      overflow: TextOverflow.ellipsis,
-                                                      style: const TextStyle(
-                                                        fontSize: 10,
-                                                        fontWeight: FontWeight.w600,
-                                                        color: Colors.white,
-                                                      ),
-                                                    ),
-                                                  ),
-                                                )).toList(),
-                                              ),
-                                            ],
-                                          ),
-                                        );
-                                      }).toList(),
-                                    ),
-                                  ),
+                                // One line: the trade, and how many skills. The skills
+                                // themselves are listed in full under Skills below.
+                                final trades = skills.map((s) => s.categoryName ?? 'Other').toSet().join('  ·  ');
+                                return Text(
+                                  '$trades  ·  ${skills.length} skill${skills.length == 1 ? '' : 's'}',
+                                  maxLines: 2,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.w500, color: Colors.white.withValues(alpha: 0.92)),
                                 );
                               } else {
                                 return Container(
@@ -1415,64 +1343,20 @@ class _MyWorkerProfileScreenState extends State<MyWorkerProfileScreen> with Sing
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              // Category header
-                              Text(
-                                entry.key.toUpperCase(),
-                                style: const TextStyle(
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.w700,
-                                  color: AppColors.neutral600,
-                                  letterSpacing: 0.5,
-                                ),
-                              ),
-                              const SizedBox(height: 6),
-                              // Skills in this category
-                              Wrap(
-                                spacing: 6,
-                                runSpacing: 6,
-                                children: entry.value.map((skill) => Container(
-                                  key: ValueKey(skill.id ?? skill.skillName),
-                                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                                  decoration: BoxDecoration(
-                                    color: AppColors.primary.withValues(alpha: 0.1),
-                                    borderRadius: BorderRadius.circular(12),
-                                    border: Border.all(color: AppColors.primary.withValues(alpha: 0.2)),
-                                  ),
-                                  child: Row(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      /*
-                                          Capped, because nothing above will
-                                          cap it.
-
-                                          The chip sits in a Wrap, which gives
-                                          each child unbounded width and moves
-                                          it to the next line if it does not
-                                          fit. A chip wider than the screen has
-                                          no next line to move to, and a real
-                                          skill name - "Refrigeration and
-                                          aircon servicing" - is exactly that
-                                          on a small phone.
-
-                                          Flexible cannot help here: it needs a
-                                          bounded parent and a Wrap child has
-                                          none. The width has to come from the
-                                          screen.
-                                      */
-                                      ConstrainedBox(
-                                        constraints: BoxConstraints(
-                                          maxWidth: MediaQuery.sizeOf(context).width - 170,
-                                        ),
-                                        child: Text(
-                                          skill.skillName,
-                                          maxLines: 1,
-                                          overflow: TextOverflow.ellipsis,
-                                          style: const TextStyle(fontSize: 12),
-                                        ),
-                                      ),
-                                      const SizedBox(width: 4),
-                                      GestureDetector(
-                                        onTap: () async {
+                              TradeTag(entry.key),
+                              const SizedBox(height: 4),
+                              SkillLines(children: [
+                                for (final skill in entry.value)
+                                  SkillLine(
+                                    key: ValueKey(skill.id ?? skill.skillName),
+                                    name: skill.skillName,
+                                    proficiency: skill.proficiencyLevel,
+                                    years: skill.yearsOfExperience,
+                                    trailing: IconButton(
+                                      tooltip: 'Remove Skill',
+                                      visualDensity: VisualDensity.compact,
+                                      icon: const Icon(Icons.close, size: 18, color: AppColors.neutral500),
+                                      onPressed: () async {
                                           // Show confirmation dialog
                                           final confirmed = await showDialog<bool>(
                                             context: context,
@@ -1503,13 +1387,10 @@ class _MyWorkerProfileScreenState extends State<MyWorkerProfileScreen> with Sing
                                               AppToast.error(context, provider.errorMessage ?? 'That skill could not be removed.');
                                             }
                                           }
-                                        },
-                                        child: Icon(Icons.close, size: 14, color: AppColors.primary.withValues(alpha: 0.7)),
-                                      ),
-                                    ],
+                                      },
+                                    ),
                                   ),
-                                )).toList(),
-                              ),
+                              ]),
                             ],
                           ),
                         );

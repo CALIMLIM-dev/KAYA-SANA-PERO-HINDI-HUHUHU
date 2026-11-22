@@ -1,5 +1,6 @@
 import 'package:dio/dio.dart';
 import '../../../core/widgets/loading.dart';
+import '../widgets/ban_lock.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
@@ -30,10 +31,15 @@ import '../../../core/utils/json_parse.dart';
     [standingToken] carries it, in memory only, and leaving signs out.
 */
 class AccountStatusScreen extends StatefulWidget {
-  const AccountStatusScreen({super.key, this.standingToken});
+  const AccountStatusScreen({super.key, this.standingToken, this.locked = false});
 
   /// Set when signing in to a suspended account. See ApiClient.sessionOverride.
   final String? standingToken;
+
+  /// A permanent ban: shown as the pop-up that cannot be closed (BanLock).
+  /// No back, no Sign Out; Message Support and each Appeal are right here,
+  /// and it closes itself once the account is no longer banned.
+  final bool locked;
 
   @override
   State<AccountStatusScreen> createState() => _AccountStatusScreenState();
@@ -57,6 +63,7 @@ class _AccountStatusScreenState extends State<AccountStatusScreen> {
   @override
   void dispose() {
     if (_suspendedMode) ApiClient.sessionOverride = null;
+    if (widget.locked) BanLock.closed();
     super.dispose();
   }
 
@@ -68,6 +75,10 @@ class _AccountStatusScreenState extends State<AccountStatusScreen> {
         _status = Map<String, dynamic>.from(res.data['data'] as Map);
         _error = null;
       });
+      if (widget.locked && _status!['standing'] != 'banned') {
+        await BanLock.release();
+        if (mounted) Navigator.of(context).pop();
+      }
     } catch (e) {
       if (!mounted) return;
       setState(() => _error = e.toString().replaceFirst('Exception: ', ''));
@@ -98,7 +109,7 @@ class _AccountStatusScreenState extends State<AccountStatusScreen> {
       // Leaving a suspended session is signing out, never a way past it.
       canPop: !_suspendedMode,
       onPopInvokedWithResult: (didPop, _) {
-        if (!didPop && _suspendedMode) _signOut();
+        if (!didPop && _suspendedMode && !widget.locked) _signOut();
       },
       child: Scaffold(
         backgroundColor: AppColors.background,
@@ -155,7 +166,19 @@ class _AccountStatusScreenState extends State<AccountStatusScreen> {
             style: const TextStyle(fontSize: 13, color: AppColors.neutral700),
           ),
         ],
-        if (_suspendedMode) ...[
+        if (widget.locked) ...[
+          const SizedBox(height: 16),
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton(
+              onPressed: () async {
+                await AppRouter.push(context, AppRouter.support);
+                if (mounted) await _load();
+              },
+              child: const Text('Message Support'),
+            ),
+          ),
+        ] else if (_suspendedMode) ...[
           const SizedBox(height: 16),
           Row(
             children: [

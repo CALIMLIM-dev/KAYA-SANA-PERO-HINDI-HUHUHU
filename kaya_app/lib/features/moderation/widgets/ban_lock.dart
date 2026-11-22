@@ -1,8 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
-import '../../../core/constants/app_colors.dart';
-import '../../../core/navigation/app_router.dart';
 import '../../../core/widgets/kaya_popup.dart';
 import '../../../core/widgets/loading.dart';
 import '../../../data/services/api_client.dart';
@@ -11,11 +9,12 @@ import '../screens/account_status_screen.dart';
 /*
     The lock a permanently banned account sees.
 
-    Over the sign-in screen, and it cannot be closed: no X, no tap outside,
-    back does nothing. Appeal and Message Support are the only ways on. The
-    ban's own session is kept on the phone, so reopening the app shows it
-    again; uninstalling clears it, and signing in brings it back. It lifts
-    itself when the ban is lifted or an appeal is accepted.
+    The Account Status screen itself, as a tall pop-up over the sign-in screen
+    that cannot be closed: no X, no tap outside, back does nothing. Message
+    Support and each violation's Appeal are on it, so nothing is a screen
+    away. The ban's own session is kept on the phone, so reopening the app
+    shows it again; uninstalling clears it, and signing in brings it back. It
+    closes itself when the ban is lifted or an appeal is accepted.
 
     Temporary suspensions are not locked: they open Account Status as before.
 */
@@ -23,6 +22,11 @@ class BanLock {
   static const _storage = FlutterSecureStorage();
   static const _key = 'ban_lock_token';
   static bool _showing = false;
+
+  /// Called by the locked Account Status as it leaves the screen. A pop-up
+  /// removed along with its screen never completes its future, and the lock
+  /// would not show again.
+  static void closed() => _showing = false;
 
   static Future<void> keep(String token) async {
     try {
@@ -38,7 +42,8 @@ class BanLock {
     }
   }
 
-  static Future<void> _release() async {
+  /// The ban is over: forget its session.
+  static Future<void> release() async {
     ApiClient.sessionOverride = null;
     try {
       await _storage.delete(key: _key);
@@ -83,7 +88,7 @@ class BanLock {
 
     final banned = await withPleaseWait(context, () => _stillBanned(token));
     if (banned == false) {
-      await _release();
+      await release();
       return;
     }
     // Offline (null): still locked, it was a ban the last time we knew.
@@ -93,95 +98,15 @@ class BanLock {
   static Future<void> _show(BuildContext context, String token) async {
     if (_showing) return;
     _showing = true;
-    ApiClient.sessionOverride = token;
-    await showKayaPopup<void>(
-      context,
-      dismissible: false,
-      builder: (_) => _BanLockCard(token: token),
-    );
-  }
-}
-
-class _BanLockCard extends StatefulWidget {
-  const _BanLockCard({required this.token});
-
-  final String token;
-
-  @override
-  State<_BanLockCard> createState() => _BanLockCardState();
-}
-
-class _BanLockCardState extends State<_BanLockCard> {
-  String get token => widget.token;
-
-  // Cleared here, not after the pop-up's future: a pop-up removed along with
-  // its screen never completes that future, and the lock would not show again.
-  @override
-  void dispose() {
-    BanLock._showing = false;
-    super.dispose();
-  }
-
-  // Account Status (the appeal) and Support each clear or replace the
-  // session on the way out; the lock puts its own back.
-  Future<void> _open(BuildContext context, Future<void> Function() go) async {
-    ApiClient.sessionOverride = token;
-    await go();
-    ApiClient.sessionOverride = token;
-    if (!context.mounted) return;
-
-    final banned = await withPleaseWait(context, () => BanLock._stillBanned(token));
-    if (banned == false && context.mounted) {
-      await BanLock._release();
-      if (context.mounted) Navigator.of(context).pop();
+    try {
+      await showKayaPopup<void>(
+        context,
+        tall: true,
+        dismissible: false,
+        builder: (_) => AccountStatusScreen(standingToken: token, locked: true),
+      );
+    } finally {
+      _showing = false;
     }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return PopScope(
-      canPop: false,
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(24, 24, 24, 20),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              'Account Status',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: AppColors.neutral900),
-            ),
-            const SizedBox(height: 8),
-            const Text(
-              'You can no longer use this account. You can still appeal or message Support.',
-              style: TextStyle(fontSize: 14, height: 1.45, color: AppColors.neutral700),
-            ),
-            const SizedBox(height: 20),
-            Row(
-              children: [
-                Expanded(
-                  child: OutlinedButton(
-                    onPressed: () => _open(
-                      context,
-                      () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const AccountStatusScreen())),
-                    ),
-                    child: const Text('Appeal'),
-                  ),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: ElevatedButton(
-                    onPressed: () => _open(context, () async {
-                      await AppRouter.push(context, AppRouter.support);
-                    }),
-                    child: const Text('Message Support'),
-                  ),
-                ),
-              ],
-            ),
-          ],
-        ),
-      ),
-    );
   }
 }
