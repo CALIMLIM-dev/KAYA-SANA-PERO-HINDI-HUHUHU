@@ -923,6 +923,7 @@ class _PostJobScreenState extends State<PostJobScreen> {
               _buildSection(
                 title: 'Basic Information',
                 anchor: _basicsKey,
+                icon: Icons.work_outline,
                 children: [
                   _buildLabel('Job Title'),
                   const SizedBox(height: 8),
@@ -1013,6 +1014,7 @@ class _PostJobScreenState extends State<PostJobScreen> {
                 subtitle: _isEditing
                     ? 'New photos replace the current ones (up to 4)'
                     : 'Add at least 1 photo (up to 4)',
+                icon: Icons.photo_camera_outlined,
                 children: [
                   _buildPhotoSelector(),
                   if (_showPhotoError) ...[
@@ -1030,6 +1032,7 @@ class _PostJobScreenState extends State<PostJobScreen> {
               _buildSection(
                 title: 'Salary & Location',
                 anchor: _locationKey,
+                icon: Icons.payments_outlined,
                 children: [
                   _buildLabel('Payment'),
                   const SizedBox(height: 8),
@@ -1170,6 +1173,7 @@ class _PostJobScreenState extends State<PostJobScreen> {
                 hint: 'Your post takes applicants from today until this day, then closes on its own. '
                     'You pay for these days.',
                 anchor: _scheduleKey,
+                icon: Icons.event_outlined,
                 children: [_buildScheduleFields()],
               ),
               const SizedBox(height: 16),
@@ -1180,6 +1184,7 @@ class _PostJobScreenState extends State<PostJobScreen> {
                 title: 'Start Date',
                 hint: 'Optional. When the work should start, so workers who are busy that day '
                     'can skip it. The exact day is agreed in the chat after hiring.',
+                icon: Icons.play_circle_outline,
                 children: [
                   _buildDateField(
                     label: 'Estimated Start Date',
@@ -1198,6 +1203,7 @@ class _PostJobScreenState extends State<PostJobScreen> {
               _buildSection(
                 title: 'Workers Needed',
                 hint: 'The post stays open until this many are hired. Up to twenty.',
+                icon: Icons.group_outlined,
                 children: [_buildWorkersNeeded()],
               ),
               const SizedBox(height: 16),
@@ -1217,6 +1223,7 @@ class _PostJobScreenState extends State<PostJobScreen> {
               // Job Priority
               _buildSection(
                 title: 'Urgent',
+                icon: Icons.flash_on_outlined,
                 hint: 'Job boost puts this post at the top of the job feed for '
                     '${context.watch<CreditsProvider>().boostDays ?? JobBoost.days} days, '
                     'so it is the first job workers near you see. '
@@ -1523,6 +1530,7 @@ class _PostJobScreenState extends State<PostJobScreen> {
   Widget _buildSection({
     required String title,
     String? subtitle,
+    IconData? icon,
     required List<Widget> children,
     // Set on the sections _submitJob can refuse, so it can scroll to them.
     Key? anchor,
@@ -1550,7 +1558,18 @@ class _PostJobScreenState extends State<PostJobScreen> {
         children: [
           Row(
             children: [
-              // No icon tile: the title says what the section is.
+              if (icon != null) ...[
+                Container(
+                  width: 34,
+                  height: 34,
+                  decoration: BoxDecoration(
+                    color: AppColors.primary.withValues(alpha: 0.08),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Icon(icon, color: AppColors.primary, size: 18),
+                ),
+                const SizedBox(width: 10),
+              ],
               Expanded(
                 child: Text(
                   title,
@@ -1569,11 +1588,14 @@ class _PostJobScreenState extends State<PostJobScreen> {
           ),
           if (subtitle != null) ...[
             const SizedBox(height: 4),
-            Text(
-              subtitle,
-              style: TextStyle(
-                fontSize: 13.5,
-                color: AppColors.neutral600,
+            Padding(
+              padding: EdgeInsets.only(left: icon != null ? 44 : 0),
+              child: Text(
+                subtitle,
+                style: TextStyle(
+                  fontSize: 13.5,
+                  color: AppColors.neutral600,
+                ),
               ),
             ),
           ],

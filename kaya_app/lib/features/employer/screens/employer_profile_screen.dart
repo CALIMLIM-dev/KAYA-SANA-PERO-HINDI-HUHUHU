@@ -158,7 +158,11 @@ class _EmployerProfileScreenState extends State<EmployerProfileScreen> {
 
               background: Container(
                 decoration: const BoxDecoration(
-                  color: AppColors.primary,
+                  gradient: LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [AppColors.primary, AppColors.primaryLight],
+                  ),
                 ),
                 child: SafeArea(
                   child: Padding(

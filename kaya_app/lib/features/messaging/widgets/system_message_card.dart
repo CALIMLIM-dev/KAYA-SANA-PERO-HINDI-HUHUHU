@@ -125,7 +125,15 @@ class SystemMessageCard extends StatelessWidget {
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Icon(icon, size: 20, color: color),
+                  Container(
+                    width: 32,
+                    height: 32,
+                    decoration: BoxDecoration(
+                      color: color.withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Icon(icon, size: 18, color: color),
+                  ),
                   const SizedBox(width: 10),
                   Flexible(
                     child: Column(

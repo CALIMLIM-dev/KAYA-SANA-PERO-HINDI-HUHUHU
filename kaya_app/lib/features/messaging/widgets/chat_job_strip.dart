@@ -1,4 +1,3 @@
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 
 import '../../../core/constants/app_colors.dart';
@@ -72,21 +71,16 @@ class _ChatJobStripState extends State<ChatJobStrip> {
           ),
           child: Row(
             children: [
-              // The job's own photo when it has one; no stand-in icon tile.
-              if (job != null && job.photoUrls.isNotEmpty) ...[
-                ClipRRect(
+              Container(
+                width: 36,
+                height: 36,
+                decoration: BoxDecoration(
+                  color: AppColors.primary.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(8),
-                  child: CachedNetworkImage(
-                    imageUrl: job.photoUrls.first,
-                    width: 40,
-                    height: 40,
-                    memCacheWidth: 120,
-                    fit: BoxFit.cover,
-                    errorWidget: (_, _, _) => const SizedBox(width: 40, height: 40),
-                  ),
                 ),
-                const SizedBox(width: 10),
-              ],
+                child: Icon(_icon(job?.category), color: AppColors.primary, size: 20),
+              ),
+              const SizedBox(width: 10),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -164,5 +158,20 @@ class _ChatJobStripState extends State<ChatJobStrip> {
         style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.w700, color: color, height: 1.2),
       ),
     );
+  }
+
+  IconData _icon(String? category) {
+    switch (category?.toLowerCase()) {
+      case 'plumbing':
+        return Icons.plumbing;
+      case 'electrical':
+        return Icons.electrical_services;
+      case 'painting':
+        return Icons.format_paint;
+      case 'carpentry':
+        return Icons.construction;
+      default:
+        return Icons.work;
+    }
   }
 }

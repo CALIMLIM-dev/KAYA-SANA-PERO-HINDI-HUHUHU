@@ -7,7 +7,6 @@ import '../../../core/widgets/profile_avatar.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/widgets/badge_strip.dart';
 import '../../../core/widgets/work_record.dart';
-import '../../../core/widgets/skill_line.dart';
 import '../../../core/utils/json_parse.dart';
 import '../../../providers/auth_provider.dart';
 import '../../../providers/worker_browse_provider.dart';
@@ -360,39 +359,39 @@ class _WorkerProfileScreenState extends State<WorkerProfileScreen> {
           SliverToBoxAdapter(
             child: Padding(
               padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
-              /*
-                  Three facts in one strip, label over value, split by
-                  hairlines. They were three cards each led by an icon in a
-                  tinted tile - the stat-card template - which gave a count
-                  of certificates the same weight as whether the person can
-                  work at all.
-              */
-              child: Container(
-                padding: const EdgeInsets.symmetric(vertical: 12),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: AppColors.neutral200),
-                ),
-                child: IntrinsicHeight(
-                  child: Row(
-                    children: [
-                      _fact(
-                        'Status',
-                        switch (availability) {
-                          'unavailable' => 'Not Available',
-                          'busy' => 'Busy',
-                          _ => 'Available',
-                        },
-                        dot: isAvailable ? AppColors.success : AppColors.neutral400,
-                      ),
-                      const VerticalDivider(width: 1, color: AppColors.neutral200),
-                      _fact('Credentials', '$credentialCount'),
-                      const VerticalDivider(width: 1, color: AppColors.neutral200),
-                      _fact('Account', verification.label, valueColor: verification.text),
-                    ],
+              child: Row(
+                children: [
+                  Expanded(
+                    child: _statCard(
+                      icon: Icons.work_outline,
+                      value: switch (availability) {
+                        'unavailable' => 'Not Available',
+                        'busy' => 'Busy',
+                        _ => 'Available',
+                      },
+                      label: 'Status',
+                      color: isAvailable ? AppColors.success : AppColors.neutral400,
+                    ),
                   ),
-                ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: _statCard(
+                      icon: Icons.workspace_premium_outlined,
+                      value: '$credentialCount',
+                      label: 'Credentials',
+                      color: AppColors.primary,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: _statCard(
+                      icon: Icons.verified_user,
+                      value: verification.label,
+                      label: 'Account',
+                      color: verification.text,
+                    ),
+                  ),
+                ],
               ),
             ),
           ),
@@ -490,21 +489,45 @@ class _WorkerProfileScreenState extends State<WorkerProfileScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // The category leads, in bold; the section title already
-                  // says what it is, so it needs no label above it.
                   if (category.isNotEmpty) ...[
-                    TradeTag(category),
-                    if (skills.isNotEmpty) const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: AppColors.primary.withValues(alpha: 0.1),
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: const Icon(Icons.handyman_outlined,
+                              color: AppColors.primary, size: 20),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Text('Primary Trade',
+                                  style: TextStyle(
+                                      fontSize: 12,
+                                      color: AppColors.neutral500)),
+                              const SizedBox(height: 2),
+                              Text(category,
+                                  style: const TextStyle(
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.w700,
+                                      color: AppColors.neutral900)),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                    if (skills.isNotEmpty) const Divider(height: 26),
                   ],
                   if (skills.isNotEmpty)
-                    SkillLines(children: [
-                      for (final s in skills)
-                        SkillLine(
-                          name: (s['name'] ?? '').toString(),
-                          proficiency: s['proficiency_level']?.toString(),
-                          years: asIntOrNull(s['years_of_experience']),
-                        ),
-                    ])
+                    Column(
+                      children:
+                          skills.map((s) => _skillRow(s)).toList(),
+                    )
                   else
                     const Text('No skills listed yet.',
                         style: TextStyle(
@@ -536,20 +559,15 @@ class _WorkerProfileScreenState extends State<WorkerProfileScreen> {
                 // Row also holds See all, and the combined string overflowed
                 // a 320dp card at text scale 1.3.
                 subtitle: experienceLabel,
-                child: RecordTimeline(
-                  entries: [
-                    for (final exp in experiences)
-                      TimelineEntry(
-                        title: (exp['title'] ?? '').toString(),
-                        when: WorkHistoryList.monthYear(exp['start_date']?.toString()),
-                        until: exp['is_current'] == true
-                            ? 'Present'
-                            : WorkHistoryList.monthYear(exp['end_date']?.toString()),
-                        meta: (exp['company'] ?? '').toString(),
-                        note: (exp['description'] ?? '').toString(),
-                        current: exp['is_current'] == true,
-                      ),
-                  ],
+                child: Column(
+                  children: experiences
+                      .map((exp) => _experienceItem(
+                            title: (exp['title'] ?? '').toString(),
+                            company: (exp['company'] ?? '').toString(),
+                            duration: _formatDuration(exp),
+                            description: (exp['description'] ?? '').toString(),
+                          ))
+                      .toList(),
                 ),
               ),
             ),
@@ -563,6 +581,8 @@ class _WorkerProfileScreenState extends State<WorkerProfileScreen> {
                 child: Column(
                   children: certifications
                       .map((c) => _credentialItem(
+                            icon: Icons.verified_outlined,
+                            color: AppColors.success,
                             title: (c['title'] ?? '').toString(),
                             subtitle: (c['issuer'] ?? '').toString(),
                             detail: _credentialDates(
@@ -590,6 +610,8 @@ class _WorkerProfileScreenState extends State<WorkerProfileScreen> {
                 child: Column(
                   children: licenses
                       .map((l) => _credentialItem(
+                            icon: Icons.badge_outlined,
+                            color: AppColors.primary,
                             title: (l['name'] ?? '').toString(),
                             subtitle: (l['authority'] ?? '').toString(),
                             detail: _credentialDates(
@@ -617,8 +639,10 @@ class _WorkerProfileScreenState extends State<WorkerProfileScreen> {
                     final status = (e['status'] ?? '').toString();
                     final score = asDoubleOrNull(e['actual_score']);
                     return _credentialItem(
-                      // Passed or failed is said in words; the colour is on those words.
-                      subtitleColor: status == 'passed'
+                      icon: status == 'passed'
+                          ? Icons.assignment_turned_in_outlined
+                          : Icons.assignment_outlined,
+                      color: status == 'passed'
                           ? AppColors.success
                           : status == 'failed'
                               ? AppColors.error
@@ -711,6 +735,15 @@ class _WorkerProfileScreenState extends State<WorkerProfileScreen> {
     );
   }
 
+  String _formatDuration(Map<String, dynamic> exp) {
+    final start = (exp['start_date'] as String?)?.split('-').take(2).join('/') ?? '';
+    final isCurrent = exp['is_current'] == true;
+    final end = isCurrent
+        ? 'Present'
+        : ((exp['end_date'] as String?)?.split('-').take(2).join('/') ?? '');
+    if (start.isEmpty && end.isEmpty) return '';
+    return '$start – $end';
+  }
 
   // ─── helpers ─────────────────────────────────────────────────────────────────
 
@@ -744,8 +777,8 @@ class _WorkerProfileScreenState extends State<WorkerProfileScreen> {
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: const TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w700,
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
                         color: AppColors.neutral900)),
               ),
               // Rendered only when it can act. A label that looks like a
@@ -780,47 +813,100 @@ class _WorkerProfileScreenState extends State<WorkerProfileScreen> {
     );
   }
 
-  /// One fact in the strip under the header: its label, then its value.
-  /// A small dot only where the value is a state (available or not).
-  Widget _fact(String label, String value, {Color? dot, Color? valueColor}) {
-    return Expanded(
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 8),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(label, style: const TextStyle(fontSize: 11.5, color: AppColors.neutral500)),
-            const SizedBox(height: 3),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                if (dot != null) ...[
-                  Container(width: 7, height: 7, decoration: BoxDecoration(color: dot, shape: BoxShape.circle)),
-                  const SizedBox(width: 5),
-                ],
-                Flexible(
-                  child: Text(
-                    value,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      fontSize: 13.5,
-                      fontWeight: FontWeight.w600,
-                      color: valueColor ?? AppColors.neutral900,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ],
-        ),
+  Widget _statCard({
+    required IconData icon,
+    required String value,
+    required String label,
+    required Color color,
+  }) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppColors.neutral200),
+      ),
+      child: Column(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+                color: color.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(8)),
+            child: Icon(icon, color: color, size: 20),
+          ),
+          const SizedBox(height: 8),
+          Text(value,
+              style: const TextStyle(
+                  fontSize: 13.5,
+                  fontWeight: FontWeight.bold,
+                  color: AppColors.neutral900),
+              textAlign: TextAlign.center,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis),
+          const SizedBox(height: 2),
+          Text(label,
+              style: const TextStyle(fontSize: 11, color: AppColors.neutral600),
+              textAlign: TextAlign.center),
+        ],
       ),
     );
   }
 
-  /// A skill as a plain chip: its name, and the level and years only when the
-  /// worker gave them ("Tile setting · Expert · 5 yrs"). No icon: every chip
-  /// carried the same wrench, which says nothing the heading has not.
+  /// A skill with its proficiency and years — an employer picking between two
+  /// masons needs that detail, not just the label.
+  Widget _skillRow(Map<String, dynamic> skill) {
+    final name = (skill['name'] ?? '').toString();
+    final proficiency = (skill['proficiency_level'] ?? '').toString();
+    final years = asIntOrNull(skill['years_of_experience']);
+
+    final profColor = switch (proficiency.toLowerCase()) {
+      'expert' => AppColors.success,
+      'advanced' => AppColors.primary,
+      'intermediate' => AppColors.warning,
+      _ => AppColors.neutral500,
+    };
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: Row(
+        children: [
+          const Icon(Icons.build_outlined, size: 16, color: AppColors.primary),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(name,
+                style: const TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.neutral900)),
+          ),
+          if (years != null && years > 0) ...[
+            Text('$years yr${years == 1 ? '' : 's'}',
+                style: const TextStyle(
+                    fontSize: 12, color: AppColors.neutral500)),
+            const SizedBox(width: 8),
+          ],
+          if (proficiency.isNotEmpty)
+            Container(
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+              decoration: BoxDecoration(
+                color: profColor.withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: Text(
+                proficiency[0].toUpperCase() + proficiency.substring(1),
+                style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                    color: profColor),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
   /// Builds the small grey line under a credential: issued/expiry dates plus
   /// an identifying number, skipping whatever the worker didn't fill in.
   String _credentialDates({
@@ -861,24 +947,29 @@ class _WorkerProfileScreenState extends State<WorkerProfileScreen> {
   /// A credential (certification / license / exam) with its supporting
   /// document. The document is the whole point — a claimed license with no
   /// viewable scan is just a text field an employer has to take on faith.
-  /// A certificate, license or exam: its name, who issued it, the dates and
-  /// the document. No icon tile: the section heading already says what it is.
   Widget _credentialItem({
+    required IconData icon,
+    required Color color,
     required String title,
     required String subtitle,
     String? detail,
     String? documentUrl,
-    Color? subtitleColor,
   }) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 14),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          if (documentUrl != null && documentUrl.isNotEmpty) ...[
-            _DocumentThumb(url: documentUrl, onTap: () => _openDocument(documentUrl)),
-            const SizedBox(width: 14),
-          ],
+          Container(
+            width: 40,
+            height: 40,
+            decoration: BoxDecoration(
+              color: color.withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Icon(icon, color: color, size: 20),
+          ),
+          const SizedBox(width: 12),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -890,10 +981,8 @@ class _WorkerProfileScreenState extends State<WorkerProfileScreen> {
                         color: AppColors.neutral900)),
                 if (subtitle.isNotEmpty)
                   Text(subtitle,
-                      style: TextStyle(
-                          fontSize: 13.5,
-                          color: subtitleColor ?? AppColors.neutral600,
-                          fontWeight: subtitleColor == null ? FontWeight.w400 : FontWeight.w600)),
+                      style: const TextStyle(
+                          fontSize: 13.5, color: AppColors.neutral600)),
                 if (detail != null && detail.isNotEmpty)
                   Text(detail,
                       style: const TextStyle(
@@ -996,6 +1085,58 @@ class _WorkerProfileScreenState extends State<WorkerProfileScreen> {
     if (!ok && mounted) {
       AppToast.error(context, 'Could not open the document');
     }
+  }
+
+  Widget _experienceItem({
+    required String title,
+    required String company,
+    required String duration,
+    required String description,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 16),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            width: 40,
+            height: 40,
+            decoration: BoxDecoration(
+              color: AppColors.primary.withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: const Icon(Icons.work_outline, color: AppColors.primary, size: 20),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(title,
+                    style: const TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w600,
+                        color: AppColors.neutral900)),
+                const SizedBox(height: 2),
+                Text(company,
+                    style: const TextStyle(fontSize: 14, color: AppColors.neutral700)),
+                if (duration.isNotEmpty) ...[
+                  const SizedBox(height: 2),
+                  Text(duration,
+                      style: const TextStyle(fontSize: 13.5, color: AppColors.neutral600)),
+                ],
+                if (description.isNotEmpty) ...[
+                  const SizedBox(height: 6),
+                  Text(description,
+                      style: const TextStyle(
+                          fontSize: 13.5, color: AppColors.neutral600, height: 1.4)),
+                ],
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   Widget _reviewItem({
@@ -1118,53 +1259,5 @@ class _WorkerProfileScreenState extends State<WorkerProfileScreen> {
 
     await showInviteToJobSheet(context,
         workerId: _workerId!, workerName: workerName);
-  }
-}
-
-/// The credential's own uploaded document, small: the scan for a photo, a
-/// page marked PDF for a PDF, an empty outlined page when nothing was sent.
-class _DocumentThumb extends StatelessWidget {
-  const _DocumentThumb({required this.url, this.onTap});
-
-  final String? url;
-  final VoidCallback? onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final has = url != null && url!.isNotEmpty;
-    final pdf = has && url!.toLowerCase().endsWith('.pdf');
-
-    Widget inner;
-    if (!has) {
-      inner = const SizedBox.shrink();
-    } else if (pdf) {
-      inner = const Center(
-        child: Text('PDF', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: AppColors.error)),
-      );
-    } else {
-      inner = Image.network(
-        url!,
-        fit: BoxFit.cover,
-        cacheWidth: 132,
-        errorBuilder: (_, _, _) => const Center(
-          child: Icon(Icons.image_outlined, size: 18, color: AppColors.neutral400),
-        ),
-      );
-    }
-
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        width: 44,
-        height: 56,
-        clipBehavior: Clip.antiAlias,
-        decoration: BoxDecoration(
-          color: has ? AppColors.neutral50 : Colors.white,
-          borderRadius: BorderRadius.circular(6),
-          border: Border.all(color: has ? AppColors.neutral300 : AppColors.neutral200),
-        ),
-        child: inner,
-      ),
-    );
   }
 }
