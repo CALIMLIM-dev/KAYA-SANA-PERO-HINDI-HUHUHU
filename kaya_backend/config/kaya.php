@@ -441,6 +441,19 @@ return [
         ),
 
         'dimensions' => (int) env('EMBEDDING_DIMENSIONS', 768),
+
+        /*
+            How Gemini is asked, measured on live 22 Nov 2026 on the twelve
+            KAYA pairs: plain, "tubero" and "Plumbing" scored 0.55 and only 5 of
+            12 same-meaning pairs cleared the different-trade pairs. Told the
+            vectors are for comparing meaning, with a line saying these are
+            Philippine job skills, all 12 did (0.961-0.987 against at most
+            0.911). Changing either makes new vectors that cannot be compared
+            with old ones, so they are stored under their own label (see
+            Embeddings::model) and kaya:embed-skills fills them.
+        */
+        'task_type' => env('EMBEDDING_TASK_TYPE', 'SEMANTIC_SIMILARITY'),
+        'context'   => env('EMBEDDING_CONTEXT', 'Job skill or trade in the Philippines: '),
         /*
             The backup model, through OmniRoute, stored beside Gemini's.
 
@@ -494,7 +507,10 @@ return [
             invents a false one, and a missed match costs less than a
             wrong one.
         */
-        'similarity_threshold' => (float) env('EMBEDDING_THRESHOLD', 0.80),
+        // 0.94 for the SEMANTIC_SIMILARITY + context vectors above: between
+        // the highest different-trade pair (0.911) and the lowest same-meaning
+        // one (0.961). The plain vectors needed 0.80.
+        'similarity_threshold' => (float) env('EMBEDDING_THRESHOLD', filled(env('EMBEDDING_TASK_TYPE', 'SEMANTIC_SIMILARITY')) ? 0.94 : 0.80),
 
         // A semantic match is real but inferred, so it scores below an id
         // or a shared stem. See SkillMatcher.

@@ -111,7 +111,21 @@ class Embeddings
         return $status === 429 ? (int) config('kaya.matching.rest_minutes_quota', 60) : (int) config('kaya.matching.rest_minutes_error', 5);
     }
 
+    /**
+     * The label Gemini's vectors are stored and compared under.
+     *
+     * The model name, plus "@sim" when they are asked for as similarity
+     * vectors with the job-skill context (config kaya.matching.task_type).
+     * Those cannot be compared with plain ones, so a different label keeps the
+     * two from ever meeting: the old rows are simply not read.
+     */
     public function model(): string
+    {
+        return $this->apiModel() . (filled(config('kaya.matching.task_type')) ? '@sim' : '');
+    }
+
+    /** The model name Google knows. */
+    public function apiModel(): string
     {
         return (string) config('kaya.matching.model');
     }
@@ -252,12 +266,13 @@ class Embeddings
                 ->asJson()
                 ->post(
                     rtrim((string) config('kaya.matching.endpoint'), '/')
-                        . '/' . $this->model() . ':embedContent'
+                        . '/' . $this->apiModel() . ':embedContent'
                         . '?key=' . urlencode($key),
-                    [
-                        'content' => ['parts' => [['text' => $term]]],
+                    array_filter([
+                        'content' => ['parts' => [['text' => (filled(config('kaya.matching.task_type')) ? (string) config('kaya.matching.context') : '') . $term]]],
                         'outputDimensionality' => $dimensions,
-                    ],
+                        'taskType' => config('kaya.matching.task_type') ?: null,
+                    ]),
                 ));
         } catch (\Throwable $e) {
             // A timeout is the expected failure, not an exceptional one: the
