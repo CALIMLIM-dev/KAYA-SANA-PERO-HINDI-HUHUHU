@@ -150,6 +150,27 @@ class SkillMatcher
         }
 
         /*
+            ── semantic ──────────────────────────────────────────────────────
+
+            Before the stop below, not after it. Nearly every word on live is
+            linked to some catalogue skill - often just to its own entry - so
+            "Knife sharpening" and "Hasa ng kutsilyo at karit", two entries
+            meaning one thing, were both "linked somewhere" and refused before
+            their 0.75 score was ever read. The AI layer never ran for them.
+            Different work still scores under the threshold, so the stop keeps
+            doing its job for the weak guesses it was written for.
+        */
+        // ── stem: the same root word, a surer match than a meaning score ───
+        $sa = self::stem($a);
+        $sb = self::stem($b);
+        $sameRoot = $sa !== '' && $sa === $sb;
+
+        $semantic = $sameRoot ? null : $this->semantic($a, $b);
+        if ($semantic !== null) {
+            return $semantic;
+        }
+
+        /*
             The System read a typed word and it means something else. The
             weaker guesses below do not overrule that: "Pintor ng bahay" and
             "Paglilinis ng bahay" share "bahay" and are still different work.
@@ -158,18 +179,8 @@ class SkillMatcher
             return $this->miss();
         }
 
-        // ── stem ──────────────────────────────────────────────────────────
-        $sa = self::stem($a);
-        $sb = self::stem($b);
-
-        if ($sa !== '' && $sa === $sb) {
+        if ($sameRoot) {
             return $this->hit(0.9, self::RULE_STEM);
-        }
-
-        // ── semantic ──────────────────────────────────────────────────────
-        $semantic = $this->semantic($a, $b);
-        if ($semantic !== null) {
-            return $semantic;
         }
 
         // ── tokens ────────────────────────────────────────────────────────

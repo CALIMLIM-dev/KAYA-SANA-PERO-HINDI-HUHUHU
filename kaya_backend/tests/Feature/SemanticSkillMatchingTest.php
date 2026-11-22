@@ -57,6 +57,11 @@ class SemanticSkillMatchingTest extends TestCase
         ]);
     }
 
+    private function category(): int
+    {
+        return \App\Models\Category::firstOrCreate(['name' => 'Household'], ['is_active' => true])->id;
+    }
+
     private function matcher(): SkillMatcher
     {
         // A fresh Embeddings each time: it memoises within a request, and a
@@ -79,6 +84,49 @@ class SemanticSkillMatchingTest extends TestCase
 
         $this->assertSame(SkillMatcher::RULE_SEMANTIC, $result['rule']);
         $this->assertSame(0.85, $result['confidence']);
+    }
+
+    /*
+        Two catalogue entries that mean one thing, each linked to itself.
+
+        On live nearly every word is linked somewhere, and the "linked to
+        something else" stop ran before the vectors were read - so these two
+        were refused at 0.75 without the AI ever being asked.
+    */
+    #[Test]
+    public function two_linked_entries_with_one_meaning_still_match_on_meaning(): void
+    {
+        $knife = \App\Models\Skill::create(['name' => 'Knife sharpening', 'category_id' => $this->category()]);
+        $hasa = \App\Models\Skill::create(['name' => 'Hasa ng kutsilyo', 'category_id' => $this->category()]);
+        \App\Models\SkillLink::record(SkillMatcher::normalise('Knife sharpening'), [$knife->id]);
+        \App\Models\SkillLink::record(SkillMatcher::normalise('Hasa ng kutsilyo'), [$hasa->id]);
+        $this->vector('Knife sharpening', [1.0, 0.0, 0.0, 0.0]);
+        $this->vector('Hasa ng kutsilyo', [0.97, 0.05, 0.0, 0.0]);
+
+        $result = $this->matcher()->compare(
+            ['id' => $knife->id, 'name' => 'Knife sharpening'],
+            ['id' => $hasa->id, 'name' => 'Hasa ng kutsilyo'],
+        );
+
+        $this->assertSame(SkillMatcher::RULE_SEMANTIC, $result['rule']);
+    }
+
+    #[Test]
+    public function different_work_sharing_a_word_is_still_refused_when_linked(): void
+    {
+        $paint = \App\Models\Skill::create(['name' => 'Pintor ng bahay', 'category_id' => $this->category()]);
+        $clean = \App\Models\Skill::create(['name' => 'Paglilinis ng bahay', 'category_id' => $this->category()]);
+        \App\Models\SkillLink::record(SkillMatcher::normalise('Pintor ng bahay'), [$paint->id]);
+        \App\Models\SkillLink::record(SkillMatcher::normalise('Paglilinis ng bahay'), [$clean->id]);
+        $this->vector('Pintor ng bahay', [1.0, 0.0, 0.0, 0.0]);
+        $this->vector('Paglilinis ng bahay', [0.5, 0.86, 0.0, 0.0]);
+
+        $result = $this->matcher()->compare(
+            ['id' => $paint->id, 'name' => 'Pintor ng bahay'],
+            ['id' => $clean->id, 'name' => 'Paglilinis ng bahay'],
+        );
+
+        $this->assertSame(SkillMatcher::RULE_NONE, $result['rule']);
     }
 
     #[Test]
