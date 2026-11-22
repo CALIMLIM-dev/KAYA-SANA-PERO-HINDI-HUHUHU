@@ -218,7 +218,9 @@ class ScheduleProposalTest extends TestCase
         $this->assertNotNull($body['pending']);
         $this->assertSame('7:00 AM', $body['pending']['scheduled_time']);
         $this->assertSame($body['pending']['id'], $body['current']['id']);
-        $this->assertSame('superseded', ScheduleProposal::find($agreed)->status);
+        // Still the agreed day underneath, and still the job's deadline,
+        // until the new one is accepted (see proposeSchedule).
+        $this->assertSame('accepted', ScheduleProposal::find($agreed)->status);
     }
 
     /*
@@ -250,9 +252,9 @@ class ScheduleProposalTest extends TestCase
         $this->assertSame($sunday, $body['current']['id']);
         $this->assertSame('declined', $body['current']['status']);
 
-        // And the worker is not marked busy on a day they never agreed to,
-        // nor on the one that was replaced.
-        $this->assertSame([], ScheduleProposal::commitmentsFor($this->worker->id));
+        // Busy only on the day they did agree to, which a declined offer did
+        // not replace - never on the day they said no to.
+        $this->assertSame([['date' => now()->addDays(3)->toDateString()]], ScheduleProposal::commitmentsFor($this->worker->id));
     }
 
     public function test_a_stranger_cannot_see_or_touch_the_schedule(): void

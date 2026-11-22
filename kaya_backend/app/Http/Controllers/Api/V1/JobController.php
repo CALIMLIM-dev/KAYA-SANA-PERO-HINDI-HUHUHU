@@ -1261,11 +1261,21 @@ class JobController extends Controller
             'end_date'           => ['nullable', 'date'],
             // Optional: when the work should start, so a worker busy that day can
             // skip it. Not the post's life (end_date) and not the agreed work day.
-            'work_starts_on'     => ['nullable', 'date', 'after_or_equal:today', 'before_or_equal:+180 days'],
+            // Not after_or_equal:today here: the app sends the post's own
+            // date back on every save, and once that day had passed no edit
+            // at all could be saved, not even a typo. A changed date still
+            // has to be today or later (below).
+            'work_starts_on'     => ['nullable', 'date', 'before_or_equal:+180 days'],
             'workers_needed'     => ['nullable', 'integer', 'min:1', 'max:20'],
         ], [
             'budget_max.gte' => 'The maximum budget must be greater than or equal to the minimum budget.',
         ]);
+
+        if (! empty($data['work_starts_on'])
+            && \Carbon\Carbon::parse($data['work_starts_on'])->toDateString() !== $job->work_starts_on?->toDateString()
+            && \Carbon\Carbon::parse($data['work_starts_on'])->lt(today())) {
+            return $this->fail('The Estimated Start Date cannot be in the past.', 422);
+        }
 
         $skillIds = $data['required_skill_ids'] ?? null;
         unset($data['required_skill_ids']);
@@ -1287,6 +1297,20 @@ class JobController extends Controller
 
             if ($changed('budget_min') || $changed('budget_max') || $changed('budget_period')) {
                 return $this->fail('Somebody is already hired at this pay, so it cannot change. Agree any change in the chat.', 422);
+            }
+
+            /*
+                Nor does the day the work is due.
+
+                Until the pair agree a day in the chat, a hire's deadline is
+                the post's Open Until date, so moving it moved the hired
+                worker's deadline without a word to them - and a week past
+                the deadline an unconfirmed hire is closed as Not Completed.
+                Neither side moves it alone: a new day is agreed in the chat.
+            */
+            if (! empty($data['end_date']) && $job->end_date
+                && \Carbon\Carbon::parse($data['end_date'])->toDateString() !== $job->end_date->toDateString()) {
+                return $this->fail('Somebody is already hired on this job, so Open Until cannot change. Agree a new day in the chat.', 422);
             }
         }
 
@@ -1345,7 +1369,10 @@ class JobController extends Controller
 
         try {
             $durations->charge($user, $owed, function ($line) use ($job, $data, $skillIds, $end) {
-                $job->update(array_merge($data, ['expires_at' => $end->endOfDay()]));
+                // A post that never had an end date keeps its own expiry: the
+                // posting day would be in the past and close it on save.
+                $expires = ($job->end_date || isset($data['end_date'])) ? ['expires_at' => $end->endOfDay()] : [];
+                $job->update(array_merge($data, $expires));
                 if ($skillIds !== null) $job->skills()->sync($skillIds);
                 $line?->update(['reference_id' => $job->id]);
 
@@ -1495,8 +1522,27 @@ class JobController extends Controller
             return $this->fail('Somebody is hired on this job. Cancel the hire first.', 422);
         }
 
-        \Illuminate\Support\Facades\DB::transaction(function () use ($job, $request) {
+        /*
+            Closing tells the people still waiting, and gives their Barya back.
+
+            Applicants paid to apply, and an employer closing the post takes
+            that chance away just as deleting it does - delete already
+            refunded them, close did not, and nobody was told: their
+            application read Pending until they happened to open it again.
+            The same as an admin close now: cancelled, refunded, notified.
+        */
+        $waiting = $request->status === 'closed'
+            ? Application::where('job_id', $job->id)->where('status', 'pending')->get(['id', 'worker_id'])
+            : collect();
+        if ($waiting->isNotEmpty()) {
+            $this->refundPendingApplicants($job);
+        }
+
+        \Illuminate\Support\Facades\DB::transaction(function () use ($job, $request, $waiting) {
             $job->update(['status' => $request->status]);
+            if ($waiting->isNotEmpty()) {
+                Application::whereIn('id', $waiting->pluck('id'))->update(['status' => 'cancelled']);
+            }
 
             // Starting the work: the tracking view needs a real timestamp to
             // show a timeline rather than just a badge.
@@ -1507,6 +1553,10 @@ class JobController extends Controller
                     ->update(['started_at' => now()]);
             }
         });
+
+        if ($waiting->isNotEmpty()) {
+            app(NotificationService::class)->jobClosedByEmployer($job, $waiting->pluck('worker_id'));
+        }
 
         return $this->ok($job, 'Status updated');
     }

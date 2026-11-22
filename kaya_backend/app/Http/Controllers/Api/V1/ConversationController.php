@@ -397,9 +397,18 @@ class ConversationController extends Controller
                 no, the two of them have not agreed, and the thread must not
                 quietly fall back to showing the old day as settled. Earlier
                 rows are superseded rather than deleted, so the history stays.
+
+                The agreed day itself is NOT superseded here, only when the
+                new one is accepted. It is the job's deadline (JobPost::
+                deadline), and dropping it on a mere proposal let one side
+                move the deadline alone: back to the post's Open Until date,
+                which can be weeks gone, where the nightly close writes an
+                unconfirmed hire off as Not Completed. The screen still shows
+                the new offer, not the old day, because it reads the newest
+                row only (see schedule()).
             */
             ScheduleProposal::where('conversation_id', $conversation->id)
-                ->whereIn('status', ['proposed', 'accepted'])
+                ->where('status', 'proposed')
                 ->update(['status' => 'superseded', 'responded_at' => now()]);
 
             return ScheduleProposal::create([
@@ -454,10 +463,22 @@ class ConversationController extends Controller
 
         $accepted = (bool) $data['accept'];
 
-        $proposal->update([
-            'status'       => $accepted ? 'accepted' : 'declined',
-            'responded_at' => now(),
-        ]);
+        DB::transaction(function () use ($proposal, $accepted) {
+            // The new day replaces the old one for this job only once both
+            // have agreed to it. A decline leaves the old agreed day standing.
+            if ($accepted) {
+                ScheduleProposal::where('conversation_id', $proposal->conversation_id)
+                    ->where('job_id', $proposal->job_id)
+                    ->where('status', 'accepted')
+                    ->whereKeyNot($proposal->id)
+                    ->update(['status' => 'superseded']);
+            }
+
+            $proposal->update([
+                'status'       => $accepted ? 'accepted' : 'declined',
+                'responded_at' => now(),
+            ]);
+        });
 
         return $this->ok(
             $this->presentProposal($proposal->fresh()),

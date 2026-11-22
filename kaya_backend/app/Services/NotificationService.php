@@ -766,6 +766,22 @@ class NotificationService
         }
     }
 
+    /** The employer closed a post people were still waiting on. */
+    public function jobClosedByEmployer(JobPost $job, \Illuminate\Support\Collection $applicantIds): void
+    {
+        foreach ($applicantIds->unique() as $workerId) {
+            $this->push(
+                userId: $workerId,
+                audience: UserNotification::AUDIENCE_WORKER,
+                type: 'job.closed',
+                title: 'A job you applied for was closed',
+                body: '"' . $job->title . '" was closed by the employer. Your Barya has been returned.',
+                referenceType: 'job',
+                referenceId: $job->id,
+            );
+        }
+    }
+
     /** The board read the post and let it up. */
     public function communityPostApproved(\App\Models\CommunityPost $post): void
     {
