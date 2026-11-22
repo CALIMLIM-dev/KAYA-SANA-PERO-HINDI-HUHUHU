@@ -299,7 +299,7 @@ class SkillLinker
         $started = microtime(true);
 
         try {
-            $response = Http::withHeaders(['x-goog-api-key' => (string) config('kaya.matching.api_key')])
+            $response = \App\Support\GeminiKeys::send(fn (string $key) => Http::withHeaders(['x-goog-api-key' => $key])
                 ->timeout((int) config('kaya.matching.link_timeout'))
                 ->post($endpoint, [
                     'contents' => [['parts' => [['text' => $prompt]]]],
@@ -316,7 +316,8 @@ class SkillLinker
                             'required' => ['is_skill', 'skill_ids', 'trade'],
                         ],
                     ],
-                ]);
+                ]));
+            $why = $response === null ? 'every Gemini key is resting' : null;
         } catch (\Throwable $e) {
             $response = null;
             $why = $e->getMessage();

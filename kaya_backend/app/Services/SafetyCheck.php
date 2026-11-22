@@ -206,20 +206,20 @@ TXT;
         $endpoint = rtrim((string) config('kaya.matching.endpoint'), '/') . '/' . config('moderation.ai.fallback_model') . ':generateContent';
 
         try {
-            $response = Http::withHeaders(['x-goog-api-key' => $key])
+            $response = \App\Support\GeminiKeys::send(fn (string $key) => Http::withHeaders(['x-goog-api-key' => $key])
                 ->timeout((int) config('moderation.ai.timeout'))
                 ->asJson()
                 ->post($endpoint, [
                     'contents'         => [['role' => 'user', 'parts' => [['text' => $prompt]]]],
                     'generationConfig' => ['temperature' => 0, 'maxOutputTokens' => self::MAX_TOKENS],
-                ]);
+                ]));
         } catch (\Throwable $e) {
             Log::info('[safety] Gemini unreachable: ' . $e->getMessage());
 
             return null;
         }
 
-        $content = $response->successful() ? (string) data_get($response->json(), 'candidates.0.content.parts.0.text', '') : '';
+        $content = $response?->successful() ? (string) data_get($response->json(), 'candidates.0.content.parts.0.text', '') : '';
 
         return trim($content) === '' ? null : $content;
     }

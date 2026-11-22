@@ -614,7 +614,7 @@ TXT;
         $endpoint = rtrim((string) config('kaya.matching.endpoint'), '/') . '/' . $model . ':generateContent';
 
         try {
-            $response = Http::withHeaders(['x-goog-api-key' => $key])
+            $response = \App\Support\GeminiKeys::send(fn (string $key) => Http::withHeaders(['x-goog-api-key' => $key])
                 ->timeout((int) config('kaya.assistant.timeout'))
                 ->asJson()
                 ->post($endpoint, [
@@ -627,15 +627,15 @@ TXT;
                         'temperature'      => 0.3,
                         'maxOutputTokens'  => 600,
                     ],
-                ]);
+                ]));
         } catch (\Throwable $e) {
             Log::info('[assistant] Gemini unreachable: ' . $e->getMessage());
 
             return null;
         }
 
-        if (! $response->successful()) {
-            Log::warning('[assistant] Gemini HTTP ' . $response->status());
+        if (! $response?->successful()) {
+            Log::warning('[assistant] Gemini HTTP ' . ($response?->status() ?? 'none: every key resting'));
 
             return null;
         }

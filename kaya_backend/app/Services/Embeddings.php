@@ -248,22 +248,27 @@ class Embeddings
         $dimensions = (int) config('kaya.matching.dimensions');
 
         try {
-            $response = Http::timeout((int) config('kaya.matching.timeout_seconds'))
+            $response = \App\Support\GeminiKeys::send(fn (string $key) => Http::timeout((int) config('kaya.matching.timeout_seconds'))
                 ->asJson()
                 ->post(
                     rtrim((string) config('kaya.matching.endpoint'), '/')
                         . '/' . $this->model() . ':embedContent'
-                        . '?key=' . urlencode((string) config('kaya.matching.api_key')),
+                        . '?key=' . urlencode($key),
                     [
                         'content' => ['parts' => [['text' => $term]]],
                         'outputDimensionality' => $dimensions,
                     ],
-                );
+                ));
         } catch (\Throwable $e) {
             // A timeout is the expected failure, not an exceptional one: the
             // point of the two second limit is that it fires sometimes.
             Log::info('[embeddings] unreachable for "'.$term.'": '.$e->getMessage());
 
+            return null;
+        }
+
+        // Every key is resting.
+        if ($response === null) {
             return null;
         }
 
