@@ -1818,18 +1818,21 @@ class WorkerProfileController extends Controller
         $profile = $user->workerProfile;
 
         /*
-            Hidden only while there is nothing to show: no trade or no skill.
+            Hidden only when there is no worker profile at all.
 
-            This used the full completeness rule, which is now the panel's
-            comprehensive one. Under it a worker who applied last month and has
-            no photo yet would vanish from the hirer reading their application.
+            It was also hidden while the profile had no trade or no skill, so
+            a real person an employer was reading - their application, their
+            résumé, a hire - opened on "Worker profile not found" the moment
+            their profile was incomplete, though everything else about them
+            was still there. Whether they show up in searches is a separate
+            rule (isListable); opening the person you are already looking at
+            always works.
         */
-        $missing = $profile?->missingForCompletion() ?? [];
-        if (!$profile || isset($missing['trade']) || isset($missing['skill'])) {
+        if (! $profile) {
             return response()->json([
                 'success' => false,
                 'data' => null,
-                'message' => 'Worker profile not found',
+                'message' => 'This person no longer has a worker profile.',
             ], 404);
         }
 
