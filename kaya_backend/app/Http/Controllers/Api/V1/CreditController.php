@@ -69,7 +69,6 @@ class CreditController extends Controller
         $grant = (int) config('kaya.credits.monthly_grant');
         $apply = (int) config('kaya.credits.apply');
         $invite = (int) config('kaya.credits.invite');
-        $unlock = (int) config('kaya.credits.unlock');
         $freeDays = (int) config('kaya.jobs.free_days');
         $perBarya = (int) config('kaya.credits.post_days_per_barya');
         $boost = (int) config('kaya.credits.boost');
@@ -86,7 +85,6 @@ class CreditController extends Controller
             $row('Receive applications', true),
             $row(sprintf('Apply to a job (%d Barya, about %d a month on free Barya)', $apply, intdiv($grant, max(1, $apply))), true),
             $row("Invite a worker ({$invite} Barya)", true),
-            $row("Unlock a contact ({$unlock} Barya)", true),
             $row('Chat, schedule, complete and review a hire', true),
             $row("Keep a job post up past {$freeDays} days (1 Barya per {$perBarya} days)", false),
             $row("Boost a job or profile to the top ({$boost} Barya, {$boostDays} days)", false),
