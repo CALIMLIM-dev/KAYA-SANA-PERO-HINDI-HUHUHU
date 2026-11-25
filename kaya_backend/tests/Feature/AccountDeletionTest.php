@@ -87,6 +87,34 @@ class AccountDeletionTest extends TestCase
             ->assertJsonPath('message', 'You are hired on 1 job that is not finished. Finish it or cancel the hire first.');
     }
 
+    /** Deleting and signing up again ended a suspension early, with the key sign-in gives a suspended account. */
+    #[Test]
+    public function a_suspension_is_not_ended_by_deleting_the_account(): void
+    {
+        $admin = User::factory()->create(['user_type' => 'admin']);
+        $suspended = User::factory()->create(['email' => 'held@example.com', 'password' => Hash::make('secret123')]);
+        app(\App\Services\SuspensionService::class)->suspend($suspended, 'spam', '7', null, $admin);
+        $key = $this->postJson('/api/v1/login', ['email' => 'held@example.com', 'password' => 'secret123'])
+            ->assertStatus(403)->json('data.standing_token');
+
+        $this->app['auth']->forgetGuards();
+        $until = \Illuminate\Support\Carbon::parse($suspended->fresh()->suspended_until)->timezone('Asia/Manila')->format('F j, Y');
+        $this->deleteJson('/api/v1/me', ['password' => 'secret123'], ['Authorization' => "Bearer {$key}"])
+            ->assertStatus(422)
+            ->assertJsonPath('message', "Your account is suspended until {$until}. You can delete it after that.");
+        $this->assertNull($suspended->fresh()->deleted_at);
+
+        // Over: theirs to delete like anybody's.
+        app(\App\Services\SuspensionService::class)->reinstate($suspended->fresh());
+        $this->app['auth']->forgetGuards();
+        $this->actingAs($suspended->fresh(), 'sanctum')->deleteJson('/api/v1/me', ['password' => 'secret123'])->assertOk();
+
+        // A ban has no end to wait for, and outlives the account anyway.
+        $banned = User::factory()->create(['password' => Hash::make('secret123')]);
+        app(\App\Services\StrikeService::class)->issue($banned, 'fraud', $admin);
+        $this->assertNull(app(\App\Services\AccountDeletionService::class)->blocker($banned->fresh()));
+    }
+
     #[Test]
     public function deleting_strips_the_account_closes_posts_and_pays_applicants_back(): void
     {

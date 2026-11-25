@@ -136,6 +136,13 @@ class SkillMatcher
             return $this->hit(1.0, self::RULE_ID);
         }
 
+        // "Installation" under Plumbing and under Roofing are two skills. The
+        // name says no trade, so the name agreeing says nothing.
+        if ($rid !== null && $hid !== null && $a === $b
+            && array_diff(explode(' ', self::stem($a)), self::genericStems()) === []) {
+            return $this->miss();
+        }
+
         if ($a === '' || $b === '') {
             return $this->miss();
         }

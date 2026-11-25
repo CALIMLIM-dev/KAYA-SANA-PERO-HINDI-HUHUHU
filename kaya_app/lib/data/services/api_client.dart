@@ -69,6 +69,9 @@ class ApiClient {
   static const FlutterSecureStorage _storage = FlutterSecureStorage();
   static const String _tokenKey = 'auth_token';
 
+  /// Marks a request that brings its own key. See [revoke].
+  static const String _ownToken = 'own_token';
+
   /*
       One Dio for the whole app, so one pool of connections.
 
@@ -127,7 +130,9 @@ class ApiClient {
     // Inject auth token on every request
     dio.interceptors.add(InterceptorsWrapper(
       onRequest: (options, handler) async {
-        final token = sessionOverride ?? await _storage.read(key: _tokenKey);
+        final token = options.extra[_ownToken] == true
+            ? null
+            : sessionOverride ?? await _storage.read(key: _tokenKey);
         if (token != null) {
           options.headers['Authorization'] = 'Bearer $token';
         }
@@ -289,9 +294,9 @@ class ApiClient {
           Logout belongs here even though it is an authenticated route.
 
           logout() deletes the token locally first — that part must not depend
-          on the network — and only then fires the server revoke. That request
-          therefore goes out with no token and comes back 401, which is the
-          expected outcome, not an expired session.
+          on the network — and only then cancels it on the server (revoke). A
+          key already dead there answers 401, which is the expected outcome,
+          not an expired session.
 
           Treated as a session expiry it fired the redirect below while the
           profile screen was already navigating to login, so two page
@@ -394,6 +399,16 @@ class ApiClient {
       throw _handleError(e);
     }
   }
+
+  /// Cancels [token] on the server. Sent as it is, never the key the phone
+  /// holds now: by then that can be the next account's.
+  Future<void> revoke(String token) => _dio.post(
+        '/logout',
+        options: Options(
+          headers: {'Authorization': 'Bearer $token'},
+          extra: {_ownToken: true},
+        ),
+      );
 
   Future<Response> put(String path, {dynamic data}) async {
     try {

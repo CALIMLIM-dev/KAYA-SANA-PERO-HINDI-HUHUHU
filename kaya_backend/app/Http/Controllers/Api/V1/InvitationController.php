@@ -283,7 +283,11 @@ class InvitationController extends Controller
 
             return [
                 'id'              => $inv->id,
-                'status'          => $inv->status,
+                // Still stored as unanswered: nobody declined it. But the job
+                // is over, so it is not counted or listed as waiting.
+                'status'          => $inv->status === 'pending' && in_array($job?->status, ['completed', 'closed', 'expired'], true)
+                    ? 'closed'
+                    : $inv->status,
                 'created_at'      => $inv->created_at,
                 'conversation_id' => $inv->status === 'accepted' ? ($threads[$inv->employer_id] ?? null) : null,
                 'employer'        => $employer ? [

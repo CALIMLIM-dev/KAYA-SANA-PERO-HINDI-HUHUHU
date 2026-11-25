@@ -14,6 +14,7 @@ use App\Models\WorkerExperience;
 use App\Models\WorkerLicense;
 use App\Models\WorkerLicenseExamination;
 use App\Models\WorkerSkill;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Storage;
@@ -43,6 +44,14 @@ class AccountDeletionService
     /** Why the account cannot be deleted right now, or null when it can. */
     public function blocker(User $user): ?string
     {
+        // Deleting it and signing up again ended a suspension early. A ban
+        // is not ended that way: what it blocks outlives the account.
+        if ($user->is_suspended && $user->suspended_until !== null) {
+            return 'Your account is suspended until '
+                . Carbon::parse($user->suspended_until)->timezone('Asia/Manila')->format('F j, Y')
+                . '. You can delete it after that.';
+        }
+
         /*
             Any live hire, not only jobs marked in progress.
 

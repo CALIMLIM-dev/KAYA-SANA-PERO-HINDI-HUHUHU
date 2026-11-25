@@ -433,6 +433,13 @@ class AuthProvider with ChangeNotifier {
     // would otherwise open the app to someone else's conversations.
     unawaited(MessageCache.instance.clear());
 
+    // Read first: once it is gone there is nothing to cancel it with. Signing
+    // out goes on without it when storage will not answer.
+    String? token;
+    try {
+      if (revoke) token = await ApiClient.getToken();
+    } catch (_) {}
+
     // Local, instant, and the only part that must not fail.
     await ApiClient.deleteToken();
 
@@ -453,7 +460,8 @@ class AuthProvider with ChangeNotifier {
     // channels even though this is not awaited.
     unawaited(RealtimeService.instance.disconnect());
 
-    if (revoke) unawaited(_revokeTokenServerSide());
+    final key = token;
+    if (key != null) unawaited(_revokeTokenServerSide(key));
     unawaited(_googleSignIn.signOut().catchError((_) => null));
 
     _user = null;
@@ -468,9 +476,9 @@ class AuthProvider with ChangeNotifier {
   /// Time-boxed and deliberately silent. The token is already gone locally, so
   /// a failure here leaves nothing usable behind — it only means the row
   /// lingers in personal_access_tokens until it is cleaned up.
-  Future<void> _revokeTokenServerSide() async {
+  Future<void> _revokeTokenServerSide(String token) async {
     try {
-      await _api.post('/logout').timeout(const Duration(seconds: 5));
+      await _api.revoke(token).timeout(const Duration(seconds: 5));
     } catch (_) {
       // Offline, unreachable, or already invalid. Nothing to tell the user.
     }

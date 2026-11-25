@@ -243,6 +243,25 @@ class SkillPairTest extends TestCase
         $this->assertSame(SkillMatcher::RULE_ALIAS, $this->rule('Upholstery', 'Banca Mending'));
     }
 
+    /** A plumber's "Installation" was the roofing job's "Installation". */
+    #[Test]
+    public function the_same_vague_name_in_two_trades_is_two_skills(): void
+    {
+        $compare = fn (?int $a, ?int $b, string $name) => app(SkillMatcher::class)
+            ->compare(['id' => $a, 'name' => $name], ['id' => $b, 'name' => $name])['rule'];
+
+        $this->assertSame(SkillMatcher::RULE_NONE, $compare(1, 2, 'Installation'));
+        $this->assertSame(SkillMatcher::RULE_NONE, $compare(1, 2, 'Maintenance'));
+        $this->assertSame(SkillMatcher::RULE_NONE, $compare(1, 2, 'General Repair Work'));
+
+        // One skill is still itself, a name that says the work still agrees,
+        // and words somebody typed have no trade to differ by.
+        $this->assertSame(SkillMatcher::RULE_ID, $compare(1, 1, 'Installation'));
+        $this->assertSame(SkillMatcher::RULE_EXACT, $compare(1, 2, 'Framing'));
+        $this->assertSame(SkillMatcher::RULE_EXACT, $compare(1, 2, 'Pipe Repair'));
+        $this->assertSame(SkillMatcher::RULE_EXACT, $compare(1, null, 'Installation'));
+    }
+
     /** "Repair" is a Pool Services skill. It was inside every other repair. */
     #[Test]
     public function a_word_that_names_no_trade_is_not_inside_another_skill(): void
