@@ -18,7 +18,7 @@ void main() {
       ),
     ));
 
-    expect(find.textContaining('A fake document gets the account banned', findRichText: true), findsOneWidget);
+    expect(find.textContaining('Submitting a fake document will result in a permanent ban', findRichText: true), findsOneWidget);
 
     await tester.tapAt(tester.getTopLeft(find.byType(ConsentCheck)) + const Offset(11, 18));
     await tester.pump();

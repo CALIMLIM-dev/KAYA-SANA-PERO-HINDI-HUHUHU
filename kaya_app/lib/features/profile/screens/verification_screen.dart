@@ -1149,9 +1149,10 @@ class _VerificationScreenState extends State<VerificationScreen> {
             style: const TextStyle(fontSize: 12, color: AppColors.error)),
       ],
       const SizedBox(height: 14),
-      Row(children: [
-        const Text("Didn't get it? ",
-            style: TextStyle(fontSize: 13.5, color: AppColors.neutral500)),
+      Wrap(children: [
+        // An email can land in Spam; a text cannot.
+        Text(identical(controller, _emailCodeCtrl) ? "Didn't receive the code? Check your spam folder. " : "Didn't receive the code? ",
+            style: const TextStyle(fontSize: 13.5, color: AppColors.neutral500)),
         if (_cooldown > 0)
           Text('Resend in ${_cooldown}s',
               style: const TextStyle(

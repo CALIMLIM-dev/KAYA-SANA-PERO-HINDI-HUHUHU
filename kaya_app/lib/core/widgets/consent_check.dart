@@ -64,11 +64,11 @@ class _ConsentCheckState extends State<ConsentCheck> {
                   TextSpan(
                     style: body,
                     children: [
-                      const TextSpan(text: 'This is mine and it is true. I agree to the '),
+                      const TextSpan(text: 'I confirm that the documents I submit are mine and that the information is true. I agree to the '),
                       TextSpan(text: 'Terms', style: link, recognizer: _terms),
                       const TextSpan(text: ' and the '),
                       TextSpan(text: 'Privacy Policy', style: link, recognizer: _privacy),
-                      const TextSpan(text: '. A fake document gets the account banned for good.'),
+                      const TextSpan(text: '. Submitting a fake document will result in a permanent ban.'),
                     ],
                   ),
                 ),

@@ -241,7 +241,8 @@ class _VerifyResetCodeScreenState extends State<VerifyResetCodeScreen> {
                   crossAxisAlignment: WrapCrossAlignment.center,
                   children: [
                     Text(
-                      'Not there? Check Spam. ',
+                      "Didn't receive the code? Check your spam folder. ",
+                      textAlign: TextAlign.center,
                       style: TextStyle(color: AppColors.neutral600, fontSize: 15),
                     ),
                     Consumer<AuthProvider>(
