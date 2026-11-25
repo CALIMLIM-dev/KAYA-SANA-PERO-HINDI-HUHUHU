@@ -373,6 +373,9 @@ class ApplicantCard extends StatelessWidget {
       );
     }
 
+    // Only where the order is: hired and rejected rows are not a ranking.
+    final fit = status == 'pending' ? employerFitLine(applicant) : null;
+
     return Container(
       margin: const EdgeInsets.only(bottom: 10),
       decoration: BoxDecoration(
@@ -419,6 +422,13 @@ class ApplicantCard extends StatelessWidget {
               ),
             ),
           ),
+          // Why they are where they are. The order is free, so its reason is
+          // too: a row numbered 1 that said nothing read as a mistake.
+          if (fit != null)
+            Padding(
+              padding: const EdgeInsets.only(top: 2, bottom: 2),
+              child: FitLine(text: fit, strong: meetsRequirements(applicant)),
+            ),
           ...actions,
         ],
       ),

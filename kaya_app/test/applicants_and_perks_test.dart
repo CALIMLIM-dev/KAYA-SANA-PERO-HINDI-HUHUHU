@@ -104,12 +104,13 @@ void main() {
     // No tabs any more.
     expect(find.byType(TabBar), findsNothing);
 
-    // The topped-up applicant is laid out in full; the free one is a name.
+    // The topped-up applicant is laid out in full; the free one is a name
+    // and why they are there.
     expect(find.text('Ramon Villanueva'), findsOneWidget);
     expect(find.text('90%'), findsOneWidget);
     expect(find.text('Completion Rate'), findsOneWidget);
     expect(find.text('Carlo Dela Cruz'), findsOneWidget);
-    expect(find.textContaining('Required skills'), findsOneWidget, reason: 'only on the full card');
+    expect(find.textContaining('Required skills'), findsNWidgets(2), reason: 'On both waiting, not on the hired.');
 
     // Who else fits: counted, with the way to see who.
     expect(find.text('Suggested Workers (7)'), findsOneWidget);

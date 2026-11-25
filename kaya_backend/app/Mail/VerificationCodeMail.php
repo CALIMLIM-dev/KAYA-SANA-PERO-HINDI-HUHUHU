@@ -33,7 +33,7 @@ class VerificationCodeMail extends Mailable
 
     public function content(): Content
     {
-        return new Content(view: 'emails.verification-code');
+        return new Content(view: 'emails.verification-code', text: 'emails.verification-code-text');
     }
 
     public function attachments(): array

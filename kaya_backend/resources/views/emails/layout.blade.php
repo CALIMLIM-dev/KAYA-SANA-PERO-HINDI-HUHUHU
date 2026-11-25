@@ -13,9 +13,8 @@
     <title>@yield('title')</title>
 </head>
 <body style="margin:0; padding:0; background:#F3F5F9; font-family:-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif; -webkit-text-size-adjust:100%;">
-    {{-- The line a mail app shows beside the subject. The blanks after it
-         keep the rest of the email, and the code, out of that line. --}}
-    <div style="display:none; max-height:0; overflow:hidden; opacity:0;">@yield('preheader'){!! str_repeat('&#847;&zwnj;&nbsp;', 120) !!}</div>
+    {{-- No hidden line here: spam filters distrust hidden text. The preview a
+         mail app shows is the first words below, which never hold the code. --}}
 
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#F3F5F9;">
         <tr>

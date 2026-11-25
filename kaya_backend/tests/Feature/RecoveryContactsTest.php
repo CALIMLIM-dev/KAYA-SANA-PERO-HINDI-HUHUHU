@@ -158,9 +158,12 @@ class RecoveryContactsTest extends TestCase
         $this->assertSame('KAYA - Confirm your email address', $mail->envelope()->subject);
         $html = $mail->render();
         $this->assertSame(1, substr_count($html, '482917'), 'in the box, and nowhere a mail app shows before opening');
-        // What a mail app puts beside the subject: the first text of the email.
-        $text = fn (string $h) => html_entity_decode(strip_tags(substr($h, strpos($h, '<body'))), ENT_QUOTES | ENT_HTML5);
-        $this->assertStringNotContainsString('482917', mb_substr($text($html), 0, 400));
+        // What a mail app puts beside the subject: the first words of the email.
+        $preview = fn (string $h) => mb_substr(trim(preg_replace('/\s+/', ' ', strip_tags(substr($h, strpos($h, '<body'))))), 0, 180);
+        $this->assertStringNotContainsString('482917', $preview($html));
+        // Spam filters: nothing hidden, and the words without the drawing.
+        $this->assertStringNotContainsString('display:none', $html);
+        $mail->assertSeeInText('482917');
         $this->assertStringContainsString('max-width:600px', $html);
         $this->assertStringContainsString('/images/kaya-mail.png', $html);
 
@@ -168,6 +171,8 @@ class RecoveryContactsTest extends TestCase
         $this->assertSame('KAYA - Reset your password', $reset->envelope()->subject);
         $this->assertStringContainsString('Reset your password', $reset->render());
         $this->assertSame(1, substr_count($reset->render(), '193746'));
-        $this->assertStringNotContainsString('193746', mb_substr($text($reset->render()), 0, 400));
+        $this->assertStringNotContainsString('193746', $preview($reset->render()));
+        $reset->assertSeeInText('193746');
+        (new AccountNoticeMail('Maria', 'Your password was changed', 'It was reset.', 'Nov 26'))->assertSeeInText('It was reset.');
     }
 }

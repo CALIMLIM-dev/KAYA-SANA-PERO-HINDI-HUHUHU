@@ -104,10 +104,16 @@ void main() {
         onChanged: () async {},
       );
 
-  testWidgets('a free applicant is their name and verification, nothing more', (tester) async {
+  /*
+      Reported: a newcomer numbered 1 above a worker with ten jobs, and the
+      row said nothing. It held the required skills; the line that says so was
+      only on the full card.
+  */
+  testWidgets('a free applicant is their name, verification and why they are there', (tester) async {
     await pump(tester, card(applicant(isNew: true, premium: false)));
 
-    expect(find.textContaining('Required skills'), findsNothing);
+    expect(find.textContaining('Required skills: 1 of 2'), findsOneWidget);
+    expect(find.text('Battery Replacement'), findsNothing, reason: 'The resume stays behind the top up.');
     expect(find.textContaining('New on KAYA'), findsNothing);
     expect(find.byType(VerificationChip), findsOneWidget);
   });

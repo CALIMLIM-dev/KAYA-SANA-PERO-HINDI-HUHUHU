@@ -32,6 +32,6 @@ class AccountNoticeMail extends Mailable
 
     public function content(): Content
     {
-        return new Content(view: 'emails.account-notice');
+        return new Content(view: 'emails.account-notice', text: 'emails.account-notice-text');
     }
 }

@@ -1,7 +1,6 @@
 @extends('emails.layout')
 
 @section('title', $heading)
-@section('preheader', $body)
 
 @section('content')
     <h1 style="margin:0 0 16px; font-size:22px; line-height:1.3; font-weight:700; color:#111827;">{{ $heading }}</h1>
