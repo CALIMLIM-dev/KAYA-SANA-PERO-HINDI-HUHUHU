@@ -28,7 +28,7 @@
             <label for="password" class="block text-xs font-semibold text-slate-700 mb-1.5">New Password</label>
             <input id="password" type="password" name="password" required autocomplete="new-password"
                    class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm">
-            <p class="text-xs text-slate-500 mt-1">At least 8 characters, with letters and numbers.</p>
+            <p class="text-xs text-slate-500 mt-1">At least 8 characters, with a letter, a number and a symbol.</p>
         </div>
         <div>
             <label for="password_confirmation" class="block text-xs font-semibold text-slate-700 mb-1.5">Confirm New Password</label>

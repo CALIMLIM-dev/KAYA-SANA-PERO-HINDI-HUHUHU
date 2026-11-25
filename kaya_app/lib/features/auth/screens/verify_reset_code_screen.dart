@@ -8,6 +8,8 @@ import '../../../providers/auth_provider.dart';
 import '../../../core/widgets/app_toast.dart';
 import '../../../core/widgets/otp_field.dart';
 
+/// The code from the email, for Forgot Password and for signing up (with
+/// `signup_password` in the arguments, the code makes the account).
 class VerifyResetCodeScreen extends StatefulWidget {
   const VerifyResetCodeScreen({super.key});
 
@@ -31,6 +33,23 @@ class _VerifyResetCodeScreenState extends State<VerifyResetCodeScreen> {
   void initState() {
     super.initState();
     _startCooldown(60);
+  }
+
+  Map<String, dynamic> get _args => ModalRoute.of(context)!.settings.arguments as Map<String, dynamic>;
+
+  /// Set when signing up.
+  String? get _signupPassword => _args['signup_password'] as String?;
+
+  bool _readWait = false;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_readWait) return;
+    _readWait = true;
+    // Coming back while a code is still out: what is left of its minute.
+    final wait = _args['wait'] as int?;
+    if (wait != null) _startCooldown(wait);
   }
 
   void _startCooldown(int seconds) {
@@ -63,11 +82,16 @@ class _VerifyResetCodeScreenState extends State<VerifyResetCodeScreen> {
     }
 
     _verifying = true;
-    final success = await auth.verifyResetCode(email: email, code: _code);
+    final password = _signupPassword;
+    final success = password != null
+        ? await auth.register(email: email, password: password, code: _code)
+        : await auth.verifyResetCode(email: email, code: _code);
     _verifying = false;
 
     if (!mounted) return;
-    if (success) {
+    if (success && password != null) {
+      Navigator.pushNamedAndRemoveUntil(context, '/home', (_) => false);
+    } else if (success) {
       Navigator.pushReplacementNamed(
         context,
         '/reset-password',
@@ -79,7 +103,10 @@ class _VerifyResetCodeScreenState extends State<VerifyResetCodeScreen> {
   }
 
   Future<void> _handleResendCode(String email, AuthProvider auth) async {
-    final success = await auth.sendResetCode(email: email);
+    final password = _signupPassword;
+    final success = password != null
+        ? await auth.sendSignupCode(email: email, password: password)
+        : await auth.sendResetCode(email: email);
 
     if (!mounted) return;
     if (success) {
@@ -96,8 +123,7 @@ class _VerifyResetCodeScreenState extends State<VerifyResetCodeScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final args = ModalRoute.of(context)!.settings.arguments as Map<String, dynamic>;
-    final email = args['email'] as String;
+    final email = _args['email'] as String;
 
     return Scaffold(
       backgroundColor: Colors.white,
@@ -208,10 +234,11 @@ class _VerifyResetCodeScreenState extends State<VerifyResetCodeScreen> {
               ),
               const SizedBox(height: 24),
 
-              // Resend code link
+              // Resend code link. Wrap for the reason given on the login screen.
               Center(
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
+                child: Wrap(
+                  alignment: WrapAlignment.center,
+                  crossAxisAlignment: WrapCrossAlignment.center,
                   children: [
                     Text(
                       "Didn't receive the code? ",

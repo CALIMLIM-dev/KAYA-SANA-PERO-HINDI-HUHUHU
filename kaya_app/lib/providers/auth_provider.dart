@@ -177,29 +177,44 @@ class AuthProvider with ChangeNotifier {
 
   // ── Register ─────────────────────────────────────────────────────────────────
 
-  Future<bool> register({
-    required String name,
-    required String email,
-    required String password,
-    required String passwordConfirmation,
-    required bool termsAccepted,
-    String? phone,
-    String? city,
-  }) async {
+  /// Sends the code that proves the email. No account is made yet: the
+  /// server checks the whole form here, and makes it in [register].
+  Future<bool> sendSignupCode({required String email, required String password}) async {
+    _isLoading = true;
+    _errorMessage = null;
+    _resetRetryAfter = null;
+    notifyListeners();
+
+    try {
+      await _api.post('/register/code', data: _signupForm(email, password));
+      _isLoading = false;
+      notifyListeners();
+      return true;
+    } catch (e) {
+      _resetRetryAfter = e is ApiException ? e.retryAfter : null;
+      _errorMessage = e.toString().replaceFirst('Exception: ', '');
+      _isLoading = false;
+      notifyListeners();
+      return false;
+    }
+  }
+
+  // The name comes later, in profile setup. Sign Up is not pressed without
+  // the terms accepted.
+  Map<String, dynamic> _signupForm(String email, String password) => {
+        'email': email,
+        'password': password,
+        'password_confirmation': password,
+        'terms_accepted': true,
+      };
+
+  Future<bool> register({required String email, required String password, required String code}) async {
     _isLoading = true;
     _errorMessage = null;
     notifyListeners();
 
     try {
-      final response = await _api.post('/register', data: {
-        'name': name,
-        'email': email,
-        'password': password,
-        'password_confirmation': passwordConfirmation,
-        'terms_accepted': termsAccepted,
-        'phone': ?phone,
-        'city': ?city,
-      });
+      final response = await _api.post('/register', data: {..._signupForm(email, password), 'code': code});
 
       final data = response.data['data'];
       await ApiClient.saveToken(data['token'] as String);
@@ -623,7 +638,7 @@ class AuthProvider with ChangeNotifier {
 
   // ── Forgot Password ──────────────────────────────────────────────────────────
 
-  /// Seconds the server asked to wait after a refused reset code, so the
+  /// Seconds the server asked to wait after a refused code, so the
   /// code screen can count it down.
   int? get resetRetryAfter => _resetRetryAfter;
   int? _resetRetryAfter;

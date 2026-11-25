@@ -6,10 +6,12 @@ use App\Http\Controllers\Controller;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\RateLimiter;
 use App\Mail\PasswordResetMail;
 use App\Services\AccountDeletionService;
 use App\Services\GoogleTokenVerifier;
@@ -26,7 +28,68 @@ class AuthController extends Controller
         return response()->json(['success' => false, 'data' => null, 'message' => $message], $status);
     }
 
-    public function register(Request $request)
+    /*
+        Signing up with an email takes a code sent to it.
+
+        Anybody could type somebody else's Gmail and get an account with it:
+        the real owner then met "already registered", and a ban or an offer
+        of work landed on an address nobody had proved was theirs. No account
+        is made until the code comes back.
+    */
+    private const SIGNUP_CODE_MINUTES = 10;
+
+    private const SIGNUP_MAX_ATTEMPTS = 5;
+
+    /** Step one: everything about the form is checked, then the code is sent. */
+    public function registerCode(Request $request)
+    {
+        $email = $this->signupEmail($request);
+        if (! is_string($email)) {
+            return $email;
+        }
+
+        $key = strtolower($email);
+        if ($wait = \App\Support\CodeLimiter::wait("signup:{$key}")) {
+            return \App\Support\CodeLimiter::refuse($wait);
+        }
+
+        $code = str_pad((string) random_int(0, 999999), 6, '0', STR_PAD_LEFT);
+
+        try {
+            Mail::to($email)->send(new \App\Mail\VerificationCodeMail('there', $code, 'email address'));
+        } catch (\Throwable $e) {
+            \Log::error('Failed to send sign up code', ['error' => $e->getMessage()]);
+
+            return $this->fail('We could not send the code. Please try again shortly, or sign up with Google.', 503);
+        }
+
+        Cache::put("signup-code:{$key}", Hash::make($code), now()->addMinutes(self::SIGNUP_CODE_MINUTES));
+        RateLimiter::clear("signup-try:{$key}");
+        \App\Support\CodeLimiter::hit("signup:{$key}");
+
+        return $this->ok(
+            ['expires_in_minutes' => self::SIGNUP_CODE_MINUTES, 'resend_in' => \App\Support\CodeLimiter::WAIT_SECONDS],
+            'We sent a code to your email.'
+        );
+    }
+
+    /** Why the code does not hold, or null when it does. Five tries a code. */
+    private function signupCodeProblem(string $email, string $code): ?string
+    {
+        $key = strtolower($email);
+        $hash = Cache::get("signup-code:{$key}");
+
+        if (! $hash || RateLimiter::hit("signup-try:{$key}", self::SIGNUP_CODE_MINUTES * 60) > self::SIGNUP_MAX_ATTEMPTS) {
+            Cache::forget("signup-code:{$key}");
+
+            return 'That code is no longer valid. Please request a new one.';
+        }
+
+        return Hash::check($code, $hash) ? null : 'That code is incorrect.';
+    }
+
+    /** The email a sign up may use, or the answer that refuses it. */
+    private function signupEmail(Request $request)
     {
         $request->validate([
             'name'     => ['nullable', 'string', 'max:255'],
@@ -53,75 +116,64 @@ class AuthController extends Controller
                     $request->input('first_name', '') . ' ' . $request->input('last_name', '')
                 ),
             ),
+            'code'     => ['nullable', 'string', 'max:10'],
             'phone'    => ['nullable', 'string', 'max:20'],
             'city'     => ['nullable', 'string', 'max:255'],
             'terms_accepted' => ['required', 'boolean', 'accepted'],
         ]);
 
-        $input = trim((string) $request->input('email'));
-        $isPhone = \App\Support\PhPhone::looksLikePhone($input);
+        $email = trim((string) $request->input('email'));
 
-        // A phone is checked here, not only in the app: any digits used to
-        // make an account. Stored as +639XXXXXXXXX, the form the app signs
-        // in with, so one number cannot become two accounts by its spacing.
-        if ($isPhone) {
-            $input = \App\Support\PhPhone::normalize($input);
-            if ($input === null) {
-                return $this->fail('Enter a valid Philippine mobile number (e.g. 09171234567).', 422);
-            }
+        // Email only. A phone cannot be proved without SMS, and Forgot
+        // Password goes by email.
+        if (! filter_var($email, FILTER_VALIDATE_EMAIL)) {
+            return $this->fail('Please enter a valid email address.', 422);
         }
 
         // A banned person cannot sign straight back up. See StrikeService.
-        if (\App\Services\StrikeService::isBanned(
-            email: $isPhone ? null : $input,
-            phone: $isPhone ? $input : $request->input('phone'),
-        )) {
+        if (\App\Services\StrikeService::isBanned(email: $email, phone: $request->input('phone'))) {
             return $this->fail('This email or phone number cannot be used to create an account.', 403);
         }
 
-        if ($isPhone) {
-            // Check phone not already taken
-            if (User::where('phone', $input)->exists()) {
-                return $this->fail('This phone number is already registered.', 422);
-            }
-            $userData = [
-                'name'     => $request->input('name') ?: null,
-                // The parts are the source of truth; User::booted rebuilds
-                // `name` from them, so a caller sending both cannot disagree.
-                'first_name'  => $request->input('first_name') ?: null,
-                'middle_name' => $request->input('middle_name') ?: null,
-                'last_name'   => $request->input('last_name') ?: null,
-                'suffix'      => $request->input('suffix') ?: null,
-                'email'    => null,
-                'phone'    => $input,
-                'password' => $request->input('password'),
-                'terms_accepted' => true,
-                'terms_accepted_at' => now(),
-            ];
-        } else {
-            // Validate as email
-            if (!filter_var($input, FILTER_VALIDATE_EMAIL)) {
-                return $this->fail('Please enter a valid email address.', 422);
-            }
-            if (User::where('email', $input)->exists()) {
-                return $this->fail('This email is already registered.', 422);
-            }
-            $userData = [
-                'name'     => $request->input('name') ?: null,
-                // The parts are the source of truth; User::booted rebuilds
-                // `name` from them, so a caller sending both cannot disagree.
-                'first_name'  => $request->input('first_name') ?: null,
-                'middle_name' => $request->input('middle_name') ?: null,
-                'last_name'   => $request->input('last_name') ?: null,
-                'suffix'      => $request->input('suffix') ?: null,
-                'email'    => $input,
-                'password' => $request->input('password'),
-                'terms_accepted' => true,
-                'terms_accepted_at' => now(),
-            ];
+        if (User::where('email', $email)->exists()) {
+            return $this->fail('This email is already registered.', 422);
         }
 
-        $user  = User::create($userData);
+        return $email;
+    }
+
+    public function register(Request $request)
+    {
+        $email = $this->signupEmail($request);
+        if (! is_string($email)) {
+            return $email;
+        }
+
+        // An app from before the code step sends none.
+        $code = trim((string) $request->input('code'));
+        if ($code === '') {
+            return $this->fail('Update KAYA to sign up with an email, or sign up with Google.', 422);
+        }
+
+        if ($problem = $this->signupCodeProblem($email, $code)) {
+            return $this->fail($problem, 422);
+        }
+
+        $user = User::create([
+            'name'     => $request->input('name') ?: null,
+            // The parts are the source of truth; User::booted rebuilds
+            // `name` from them, so a caller sending both cannot disagree.
+            'first_name'  => $request->input('first_name') ?: null,
+            'middle_name' => $request->input('middle_name') ?: null,
+            'last_name'   => $request->input('last_name') ?: null,
+            'suffix'      => $request->input('suffix') ?: null,
+            'email'    => $email,
+            'password' => $request->input('password'),
+            'terms_accepted' => true,
+            'terms_accepted_at' => now(),
+        ]);
+        $user->forceFill(['email_verified_at' => now()])->save();
+        Cache::forget('signup-code:' . strtolower($email));
         \App\Support\DeviceIds::record($user, $request);
         $token = $user->createToken('kaya_app')->plainTextToken;
 
@@ -782,7 +834,19 @@ class AuthController extends Controller
 
             // Existing user - just log them in (LOGIN flow)
             $existingUser->google_id = $googleId;
-            $existingUser->email_verified_at ??= now();
+
+            /*
+                Google says whose address this is. An account whose email was
+                never confirmed may have been made by somebody else with this
+                person's Gmail, who still knows its password and may be signed
+                in: both end here. Forgot Password sets a new one.
+            */
+            $unproven = $existingUser->email_verified_at === null;
+            if ($unproven) {
+                $existingUser->email_verified_at = now();
+                $existingUser->password = Str::random(40);
+                $existingUser->tokens()->delete();
+            }
 
             /*
                 Google's picture fills a gap, it does not overwrite a choice.
@@ -801,6 +865,11 @@ class AuthController extends Controller
             // never got to hear.
 
             $existingUser->save();
+
+            if ($unproven) {
+                app(\App\Services\NotificationService::class)->accountChanged($existingUser, 'Your email was confirmed with Google',
+                    'Your old password was removed and other devices were signed out. Use Forgot Password to set a new one.');
+            }
 
             $token = $existingUser->createToken('kaya_app')->plainTextToken;
             return $this->ok(['user' => $this->accountPayload($existingUser), 'token' => $token], 'Google login successful');
@@ -1037,6 +1106,8 @@ class AuthController extends Controller
         $user->password_reset_token = null;
         $user->password_reset_expires_at = null;
         $user->password_reset_attempts = 0;
+        // The code came from the inbox.
+        $user->email_verified_at ??= now();
         $user->save();
 
         // Revoke all existing tokens for security

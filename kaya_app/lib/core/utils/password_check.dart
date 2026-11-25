@@ -3,8 +3,8 @@
 
     Four screens each had their own check and every one of them was "at least
     eight characters" - the same rule the server had, and the server's has
-    since grown: a letter, a digit, and a refusal of the passwords people
-    actually choose. Without this the form would accept something and the
+    since grown: a letter, a number, a symbol, and a refusal of the passwords
+    people actually choose. Without this the form would accept something and the
     server would refuse it, which reads as the app being broken rather than
     the password being weak.
 
@@ -25,6 +25,11 @@ class PasswordCheck {
     'philippines', 'pilipinas',
   };
 
+  // The server's own three, in its words: Laravel's letters, numbers, symbols.
+  static bool hasLetter(String p) => p.contains(RegExp(r'\p{L}', unicode: true));
+  static bool hasNumber(String p) => p.contains(RegExp(r'\p{N}', unicode: true));
+  static bool hasSymbol(String p) => p.contains(RegExp(r'[\p{Z}\p{S}\p{P}]', unicode: true));
+
   /*
       What is wrong with this password, or null when nothing is.
 
@@ -36,16 +41,14 @@ class PasswordCheck {
     if (password.isEmpty) return 'Please enter a password';
     if (password.length < 8) return 'Password must be at least 8 characters';
 
-    final hasLetter = password.contains(RegExp(r'[A-Za-z]'));
-    final hasDigit = password.contains(RegExp(r'[0-9]'));
-
-    if (!hasLetter || !hasDigit) {
-      return 'Use at least one letter and one number';
+    if (!hasLetter(password) || !hasNumber(password) || !hasSymbol(password)) {
+      return 'Use at least one letter, one number and one symbol';
     }
 
     final lower = password.toLowerCase().trim();
 
-    if (_common.contains(lower)) {
+    // Without its symbols: "Password1!" is still "password1".
+    if (_common.contains(lower.replaceAll(RegExp('[^a-z0-9]'), ''))) {
       return 'That password is one of the most commonly used. Pick another.';
     }
 

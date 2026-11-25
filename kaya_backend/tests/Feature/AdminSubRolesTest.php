@@ -149,7 +149,7 @@ class AdminSubRolesTest extends TestCase
 
         $this->actingAs($ana)->post('/admin/password', [
             'current_password' => 'Generated123abc',
-            'password' => 'Kalabasa2026x', 'password_confirmation' => 'Kalabasa2026x',
+            'password' => 'Kalabasa2026x!', 'password_confirmation' => 'Kalabasa2026x!',
         ])->assertRedirect(route('admin.dashboard'));
 
         $this->assertFalse($ana->fresh()->must_change_password);

@@ -5,10 +5,10 @@ import '../../../core/widgets/kaya_popup.dart';
 import 'package:provider/provider.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../providers/auth_provider.dart';
-import '../../../shared/widgets/ph_phone_field.dart';
 import '../widgets/terms_modal.dart';
 import '../../../core/navigation/app_router.dart';
 import '../../../core/widgets/loading.dart';
+import '../../../core/widgets/password_checklist.dart';
 
 class SignupScreen extends StatefulWidget {
   const SignupScreen({super.key});
@@ -24,10 +24,13 @@ class _SignupScreenState extends State<SignupScreen> {
 
   bool _isPasswordVisible        = false;
   bool _isConfirmPasswordVisible = false;
-  bool _isPhoneMode              = false;
   bool _agreeToTerms             = false;
 
   String? _inputError;
+
+  /// The address the last code went to, for somebody who comes back here.
+  String? _codeSentTo;
+
   String? _passwordError;
   String? _confirmError;
   String? _googleError;
@@ -79,15 +82,9 @@ class _SignupScreenState extends State<SignupScreen> {
     String? inputErr, passErr, confirmErr;
 
     if (input.isEmpty) {
-      inputErr = _isPhoneMode ? 'Phone number is required' : 'Email is required';
-    } else if (_isPhoneMode) {
-      if (!isValidPHPhone(input)) {
-        inputErr = 'Enter a valid PH number (e.g. 9171234567)';
-      }
-    } else {
-      if (!RegExp(r'^[^@]+@[^@]+\.[^@]+').hasMatch(input)) {
-        inputErr = 'Enter a valid email address';
-      }
+      inputErr = 'Email is required';
+    } else if (!RegExp(r'^[^@]+@[^@]+\.[^@]+').hasMatch(input)) {
+      inputErr = 'Enter a valid email address';
     }
 
     /*
@@ -96,9 +93,6 @@ class _SignupScreenState extends State<SignupScreen> {
         a letter, a digit, and not one of the passwords everybody tries
         or the person's own name.
     */
-    // One field holds either an email or a phone number here. A phone
-    // contributes nothing to the personal-words check, which splits on
-    // digits, so it is safe to pass whichever was typed.
     passErr = PasswordCheck.problem(password, email: input);
 
     if (confirm.isEmpty) {
@@ -128,26 +122,25 @@ class _SignupScreenState extends State<SignupScreen> {
   Future<void> _handleSignup(AuthProvider auth) async {
     if (!_validate()) return;
 
-    final credential = _isPhoneMode
-        ? toPHE164(_inputController.text.trim())
-        : _inputController.text.trim();
-
     setState(() => _emailBusy = true);
 
-    final success = await auth.register(
-      name: '', // Name will be set later during profile setup
-      email: credential,
-      password: _passwordController.text,
-      passwordConfirmation: _confirmPasswordController.text,
-      termsAccepted: true, // User has accepted terms via modal
-    );
+    final email = _inputController.text.trim();
+    final password = _passwordController.text;
+    final sent = await auth.sendSignupCode(email: email, password: password);
 
     if (!mounted) return;
 
     setState(() => _emailBusy = false);
 
-    if (success) {
-      Navigator.pushReplacementNamed(context, '/home');
+    // A code asked for less than a minute ago still holds: the code screen,
+    // not a dead end, is where somebody who went back is going.
+    if (sent || ((auth.resetRetryAfter ?? 999) <= 60 && _codeSentTo == email)) {
+      _codeSentTo = email;
+      AppRouter.push(context, '/verify-reset-code', arguments: {
+        'email': email,
+        'signup_password': password,
+        'wait': auth.resetRetryAfter,
+      });
     } else {
       setState(() => _inputError = auth.errorMessage ?? 'Sign up failed');
     }
@@ -170,37 +163,21 @@ class _SignupScreenState extends State<SignupScreen> {
               const SizedBox(height: 8),
               const SizedBox(height: 40),
 
-              // ── Email or Phone ────────────────────────────────────────────
-              _label(_isPhoneMode ? 'Phone Number' : 'Email'),
+              // ── Email ─────────────────────────────────────────────────────
+              // Email only: a code goes to it before the account is made, and
+              // KAYA sends no SMS.
+              _label('Email'),
               const SizedBox(height: 8),
-              if (_isPhoneMode)
-                PhPhoneField(
-                  controller: _inputController,
+              TextField(
+                controller: _inputController,
+                keyboardType: TextInputType.emailAddress,
+                onChanged: (_) => setState(() => _inputError = null),
+                decoration: _deco(
+                  hint: 'Enter your email',
+                  icon: Icons.email_outlined,
                   errorText: _inputError,
-                  onChanged: (_) => setState(() => _inputError = null),
-                  suffix: TextButton(
-                    onPressed: () => setState(() {
-                      _isPhoneMode = false;
-                      _inputController.clear();
-                      _inputError = null;
-                    }),
-                    child: Text('Use Email',
-                        style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.primary)),
-                  ),
-                )
-              else
-                TextField(
-                  controller: _inputController,
-                  keyboardType: TextInputType.emailAddress,
-                  onChanged: (_) => setState(() => _inputError = null),
-                  decoration: _deco(
-                    hint: 'Enter your email',
-                    icon: Icons.email_outlined,
-                    errorText: _inputError,
-                    // Email only: a new account needs an address that can
-                    // receive a Forgot Password code, and KAYA sends no SMS.
-                  ),
                 ),
+              ),
               const SizedBox(height: 20),
 
               // ── Password ──────────────────────────────────────────────────
@@ -222,6 +199,11 @@ class _SignupScreenState extends State<SignupScreen> {
                     onPressed: () => setState(() => _isPasswordVisible = !_isPasswordVisible),
                   ),
                 ),
+              ),
+              PasswordChecklist(
+                controller: _passwordController,
+                email: _inputController,
+                fieldShowsError: _passwordError != null,
               ),
               const SizedBox(height: 20),
 

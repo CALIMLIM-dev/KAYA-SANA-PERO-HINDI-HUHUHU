@@ -5,6 +5,7 @@ import '../../../core/widgets/loading.dart';
 
 import '../../../core/constants/app_colors.dart';
 import '../../../core/widgets/app_toast.dart';
+import '../../../core/widgets/password_checklist.dart';
 import '../../../data/services/api_client.dart';
 
 /*
@@ -43,6 +44,9 @@ class ChangePasswordSheetState extends State<ChangePasswordSheet> {
   final ApiClient _api = ApiClient();
 
   bool _submitting = false;
+
+  /// Update was pressed, so the fields say their own errors now.
+  bool _tried = false;
   String? _error;
 
   @override
@@ -54,6 +58,7 @@ class ChangePasswordSheetState extends State<ChangePasswordSheet> {
   }
 
   Future<void> _submit() async {
+    setState(() => _tried = true);
     if (!_formKey.currentState!.validate()) return;
 
     setState(() {
@@ -120,6 +125,7 @@ class ChangePasswordSheetState extends State<ChangePasswordSheet> {
                 return PasswordCheck.problem(v);
               },
             ),
+            PasswordChecklist(controller: _next, fieldShowsError: _tried),
             const SizedBox(height: 12),
             _field(
               controller: _confirm,

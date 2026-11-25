@@ -286,6 +286,7 @@ class ApiClient {
     const authPaths = [
       '/login',
       '/register',
+      '/register/code',
       '/google-login',
       '/forgot-password',
       '/verify-reset-code',

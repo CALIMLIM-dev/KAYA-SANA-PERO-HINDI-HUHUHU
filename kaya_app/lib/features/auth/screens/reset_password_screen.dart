@@ -5,6 +5,7 @@ import '../../../core/constants/app_colors.dart';
 import '../../../providers/auth_provider.dart';
 import '../../../core/widgets/app_toast.dart';
 import '../../../core/widgets/loading.dart';
+import '../../../core/widgets/password_checklist.dart';
 
 class ResetPasswordScreen extends StatefulWidget {
   const ResetPasswordScreen({super.key});
@@ -170,6 +171,7 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
                   ),
                 ),
               ),
+              PasswordChecklist(controller: _passwordController, fieldShowsError: _passwordError != null),
               const SizedBox(height: 20),
 
               // Confirm Password
@@ -225,31 +227,6 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
                   ),
                 ),
               ),
-              const SizedBox(height: 8),
-
-              // Password requirements
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: AppColors.neutral50,
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Password must contain:',
-                      style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
-                        color: AppColors.neutral700,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    _buildRequirement('At least 8 characters'),
-                  ],
-                ),
-              ),
               const SizedBox(height: 32),
 
               // Reset Password button
@@ -284,22 +261,6 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
             ],
           ),
         ),
-      ),
-    );
-  }
-
-  Widget _buildRequirement(String text) {
-    return Padding(
-      padding: const EdgeInsets.only(top: 4),
-      child: Row(
-        children: [
-          Icon(Icons.check_circle, size: 16, color: AppColors.success),
-          const SizedBox(width: 8),
-          Text(
-            text,
-            style: TextStyle(fontSize: 12, color: AppColors.neutral600),
-          ),
-        ],
       ),
     );
   }

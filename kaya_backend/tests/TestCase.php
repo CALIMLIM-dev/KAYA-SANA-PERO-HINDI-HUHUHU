@@ -153,6 +153,14 @@ abstract class TestCase extends BaseTestCase
         );
     }
 
+    /** A sign up code on its way back from the inbox. */
+    protected function signUpCode(string $email, string $code = '123456'): string
+    {
+        Cache::put('signup-code:' . strtolower($email), \Illuminate\Support\Facades\Hash::make($code), 600);
+
+        return $code;
+    }
+
     /** A job post needs at least one required skill; which one is not the test's business. */
     protected function anySkill(): array
     {

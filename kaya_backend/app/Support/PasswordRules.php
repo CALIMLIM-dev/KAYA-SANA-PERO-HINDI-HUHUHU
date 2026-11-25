@@ -14,11 +14,11 @@ use Illuminate\Validation\Rules\Password;
     drift, and the reset endpoint is exactly where a weaker rule would go
     unnoticed.
 
-    Length plus a letter and a digit, and a refusal of the passwords that are
-    actually used: the handful everybody tries first, and anything built out of
-    the person's own name or email. That combination is what current guidance
-    asks for - length and a blocklist beat forcing symbols, which mostly
-    produces "Password1!" and a sticky note.
+    Length plus a letter, a number and a symbol - what the checklist under the
+    password box ticks - and a refusal of the passwords that are actually used:
+    the handful everybody tries first, and anything built out of the person's
+    own name or email. The common ones are compared without their symbols, so
+    "Password1!" is still "password1".
 
     Deliberately not uncompromised(). It calls Have I Been Pwned on every
     registration, and on a Philippine connection to a server that may be
@@ -49,11 +49,11 @@ class PasswordRules
             'required',
             'string',
             'confirmed',
-            Password::min(8)->letters()->numbers(),
+            Password::min(8)->letters()->numbers()->symbols(),
             static function (string $attribute, mixed $value, callable $fail) use ($email, $name) {
                 $password = mb_strtolower(trim((string) $value));
 
-                if (in_array($password, self::COMMON, true)) {
+                if (in_array(preg_replace('/[^a-z0-9]/', '', $password), self::COMMON, true)) {
                     $fail('That password is one of the most commonly used. Pick another.');
 
                     return;

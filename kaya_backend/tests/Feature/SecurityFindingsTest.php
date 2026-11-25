@@ -162,26 +162,18 @@ class SecurityFindingsTest extends TestCase
 
     /*
         Finding 4. Signing up with a phone accepted any digits - "1" made an
-        account - while only the app checked the Philippine mobile format.
-        A number typed any way is stored the way the app signs in with it.
+        account. A phone signs nobody up now: it cannot be proved.
     */
     #[Test]
-    public function finding_4_sign_up_checks_the_phone_number_on_the_server(): void
+    public function finding_4_a_phone_number_cannot_sign_up(): void
     {
-        foreach (['1', '12345', '0917123', '+1415555012345'] as $bad) {
-            $this->postJson('/api/v1/register', ['email' => $bad, 'password' => 'Str0ng!Passw0rd', 'password_confirmation' => 'Str0ng!Passw0rd', 'terms_accepted' => true])
-                ->assertStatus(422);
+        foreach (['1', '0917123', '+1415555012345', '09171234567', '+63 917 123 4567'] as $phone) {
+            foreach (['/api/v1/register/code', '/api/v1/register'] as $path) {
+                $this->postJson($path, ['email' => $phone, 'code' => $this->signUpCode($phone), 'password' => 'Str0ng!Passw0rd', 'password_confirmation' => 'Str0ng!Passw0rd', 'terms_accepted' => true])
+                    ->assertStatus(422);
+            }
         }
         $this->assertDatabaseCount('users', 0);
-
-        $this->postJson('/api/v1/register', ['email' => '09171234567', 'password' => 'Str0ng!Passw0rd', 'password_confirmation' => 'Str0ng!Passw0rd', 'terms_accepted' => true])
-            ->assertCreated();
-        $this->assertSame('+639171234567', User::sole()->phone);
-
-        // The same number typed the app's way is the same account.
-        $this->postJson('/api/v1/login', ['email' => '+639171234567', 'password' => 'Str0ng!Passw0rd'])->assertOk();
-        $this->postJson('/api/v1/register', ['email' => '+63 917 123 4567', 'password' => 'Str0ng!Passw0rd', 'password_confirmation' => 'Str0ng!Passw0rd', 'terms_accepted' => true])
-            ->assertStatus(422);
     }
 
     /*

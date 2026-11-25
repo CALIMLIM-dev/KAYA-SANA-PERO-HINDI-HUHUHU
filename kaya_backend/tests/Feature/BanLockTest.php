@@ -100,6 +100,7 @@ class BanLockTest extends TestCase
         $token = $this->postJson('/api/v1/register', [
             'email' => 'new.name@example.com', 'password' => 'Another-pass-456', 'password_confirmation' => 'Another-pass-456',
             'first_name' => 'Pedro', 'last_name' => 'Reyes', 'terms_accepted' => true,
+            'code' => $this->signUpCode('new.name@example.com'),
         ], ['X-Device-Id' => 'phone-one'])->assertStatus(201)->json('data.token');
 
         $new = User::where('email', 'new.name@example.com')->firstOrFail();

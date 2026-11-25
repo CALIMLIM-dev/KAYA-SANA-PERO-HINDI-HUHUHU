@@ -1,7 +1,7 @@
 KAYA is a job app for the Philippines. Workers (tradespeople such as plumbers, electricians, carpenters, cleaners, painters) find jobs; employers (people and registered businesses) post jobs and hire. Job payment is agreed and paid directly between the two people; KAYA never holds or moves job money.
 
 ACCOUNTS
-- Sign up with an email or phone number and a password, or with Google. Then set up a worker profile, an employer profile, or both.
+- Sign up with an email and a password, or with Google. With an email, KAYA sends a 6-digit code to it first; the account is made when the code is entered. Then set up a worker profile, an employer profile, or both.
 - One account can both look for work and hire: set up both profiles and switch with the Worker and Employer buttons in the search bar on the home screen. Exception: a registered business (company) account cannot also have a worker profile.
 - Remove a profile or delete the account: Profile, Settings, then the last row. With both profiles, one can be removed and the other kept. An employer profile with open job posts has to close them first. Deleting the account asks for the password and cannot be undone. It is refused while hired on a job in progress or while having a worker on one.
 

@@ -96,6 +96,11 @@ class AppServiceProvider extends ServiceProvider
             $account($r) !== '' ? Limit::perMinute(10)->by('account:' . $account($r)) : null,
         ])));
         RateLimiter::for('signup', fn (Request $r) => Limit::perMinute(10)->by('ip:' . $r->ip()));
+        // Each one is an email to an address nobody has proved yet.
+        RateLimiter::for('signup-code', fn (Request $r) => [
+            Limit::perMinute(10)->by('minute:' . $r->ip()),
+            Limit::perHour(60)->by('hour:' . $r->ip()),
+        ]);
         RateLimiter::for('reset', fn (Request $r) => array_values(array_filter([
             Limit::perMinute(20)->by('ip:' . $r->ip()),
             $account($r) !== '' ? Limit::perMinute(10)->by('account:' . $account($r)) : null,

@@ -48,6 +48,8 @@ Route::prefix('v1')->group(function () {
         Route::post('/google-login', [AuthController::class, 'googleLogin']);
     });
 
+    // The code goes to the email first; the account is made when it comes back.
+    Route::post('/register/code', [AuthController::class, 'registerCode'])->middleware('throttle:signup-code');
     Route::post('/register', [AuthController::class, 'register'])->middleware('throttle:signup');
 
     Route::middleware('throttle:reset')->group(function () {

@@ -33,13 +33,14 @@ class PasswordStrengthTest extends TestCase
             'password'       => $password,
             'password_confirmation' => $password,
             'terms_accepted' => true,
+            'code'           => $this->signUpCode($overrides['email'] ?? 'juan.delacruz@example.com'),
         ], $overrides));
     }
 
     #[Test]
     public function a_strong_password_is_accepted(): void
     {
-        $this->register('tambayan42rocks')->assertCreated();
+        $this->register('tambayan42rocks!')->assertCreated();
 
         $this->assertDatabaseHas('users', ['email' => 'juan.delacruz@example.com']);
     }
@@ -50,6 +51,10 @@ class PasswordStrengthTest extends TestCase
         // Letters and digits, both. "aaaaaaaa" met the old rule exactly.
         $this->register('aaaaaaaa')->assertStatus(422);
         $this->register('12345678')->assertStatus(422);
+        // Each one is missing something: the symbol, the number, the letter.
+        foreach (['tambayan42rocks', 'tambayan!rocks', '4242!4242'] as $short) {
+            $this->register($short)->assertStatus(422);
+        }
 
         $this->assertDatabaseCount('users', 0);
     }
@@ -57,13 +62,13 @@ class PasswordStrengthTest extends TestCase
     #[Test]
     public function a_short_password_is_refused(): void
     {
-        $this->register('abc123')->assertStatus(422);
+        $this->register('abc12!')->assertStatus(422);
     }
 
     #[Test]
     public function the_passwords_everybody_tries_first_are_refused(): void
     {
-        foreach (['password1', 'qwerty123', 'kaya1234', 'iloveyou'] as $common) {
+        foreach (['Password1!', 'qwerty123!', '@kaya1234', 'password.123', 'password1'] as $common) {
             $this->register($common)->assertStatus(422);
         }
 
@@ -77,14 +82,14 @@ class PasswordStrengthTest extends TestCase
             The most common real password on a small platform: your own name
             with a year after it. It is also the first thing anybody guesses.
         */
-        $this->register('delacruz2026')->assertStatus(422);
-        $this->register('juan12345')->assertStatus(422);
+        $this->register('delacruz2026!')->assertStatus(422);
+        $this->register('juan12345!')->assertStatus(422);
     }
 
     #[Test]
     public function a_password_built_from_the_email_is_refused(): void
     {
-        $this->register('delacruz99', [
+        $this->register('delacruz99!', [
             'email' => 'delacruz@example.com',
         ])->assertStatus(422);
     }
@@ -111,12 +116,12 @@ class PasswordStrengthTest extends TestCase
         $this->actingAs($user, 'sanctum')
             ->putJson('/api/v1/me/password', [
                 'current_password'      => 'oldpassword7',
-                'password'              => 'malakas4talaga',
-                'password_confirmation' => 'malakas4talaga',
+                'password'              => 'malakas4talaga!',
+                'password_confirmation' => 'malakas4talaga!',
             ])
             ->assertOk();
 
-        $this->assertTrue(Hash::check('malakas4talaga', $user->fresh()->password));
+        $this->assertTrue(Hash::check('malakas4talaga!', $user->fresh()->password));
     }
 
     #[Test]

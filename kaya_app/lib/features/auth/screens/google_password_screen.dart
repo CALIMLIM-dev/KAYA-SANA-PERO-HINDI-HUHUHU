@@ -6,6 +6,7 @@ import '../../../core/constants/app_colors.dart';
 import '../../../providers/auth_provider.dart';
 import '../widgets/terms_modal.dart';
 import '../../../core/widgets/loading.dart';
+import '../../../core/widgets/password_checklist.dart';
 
 class GooglePasswordScreen extends StatefulWidget {
   const GooglePasswordScreen({super.key});
@@ -208,6 +209,7 @@ class _GooglePasswordScreenState extends State<GooglePasswordScreen> {
                   ),
                 ),
               ),
+              PasswordChecklist(controller: _passwordController, fieldShowsError: _passwordError != null),
               const SizedBox(height: 20),
 
               // Confirm Password
@@ -266,7 +268,7 @@ class _GooglePasswordScreenState extends State<GooglePasswordScreen> {
               // No terms checkbox on this form. The terms and privacy come up
               // as a required popup the moment this screen opens, before the
               // password — see _promptTerms.
-              const SizedBox(height: 8),
+              const SizedBox(height: 32),
 
               // Complete button
               Consumer<AuthProvider>(

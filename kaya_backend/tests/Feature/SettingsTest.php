@@ -31,11 +31,11 @@ class SettingsTest extends TestCase
 
         $this->actingAs($user)->putJson('/api/v1/me/password', [
             'current_password'      => 'oldpassword123',
-            'password'              => 'brandnewpass456',
-            'password_confirmation' => 'brandnewpass456',
+            'password'              => 'brandnewpass456!',
+            'password_confirmation' => 'brandnewpass456!',
         ])->assertOk();
 
-        $this->assertTrue(Hash::check('brandnewpass456', $user->fresh()->password));
+        $this->assertTrue(Hash::check('brandnewpass456!', $user->fresh()->password));
     }
 
     #[Test]
@@ -47,8 +47,8 @@ class SettingsTest extends TestCase
         // owner out of their own account.
         $this->actingAs($user)->putJson('/api/v1/me/password', [
             'current_password'      => 'not-the-password',
-            'password'              => 'brandnewpass456',
-            'password_confirmation' => 'brandnewpass456',
+            'password'              => 'brandnewpass456!',
+            'password_confirmation' => 'brandnewpass456!',
         ])->assertStatus(422);
 
         $this->assertTrue(Hash::check('oldpassword123', $user->fresh()->password));
@@ -61,7 +61,7 @@ class SettingsTest extends TestCase
 
         $this->actingAs($user)->putJson('/api/v1/me/password', [
             'current_password'      => 'oldpassword123',
-            'password'              => 'brandnewpass456',
+            'password'              => 'brandnewpass456!',
             'password_confirmation' => 'something-else',
         ])->assertStatus(422);
 
@@ -95,8 +95,8 @@ class SettingsTest extends TestCase
 
         $response = $this->actingAs($user)->putJson('/api/v1/me/password', [
             'current_password'      => 'oldpassword123',
-            'password'              => 'brandnewpass456',
-            'password_confirmation' => 'brandnewpass456',
+            'password'              => 'brandnewpass456!',
+            'password_confirmation' => 'brandnewpass456!',
         ])->assertOk();
 
         // A password change usually means someone else may know it. Exactly one
