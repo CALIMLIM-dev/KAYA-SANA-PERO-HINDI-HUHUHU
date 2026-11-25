@@ -8,14 +8,28 @@ import '../../features/jobs/screens/search_screen.dart';
 import '../../features/community/screens/community_screen.dart';
 import '../../features/messaging/screens/messages_list_screen.dart';
 import '../../features/profile/screens/profile_screen.dart';
+import '../../providers/auth_provider.dart';
 import '../../providers/credits_provider.dart';
 import '../../providers/messaging_provider.dart';
 import '../../providers/notification_provider.dart';
+import '../../providers/verification_provider.dart';
 import '../../data/services/background_controller.dart';
 import '../../data/services/background_poll.dart';
 import '../../data/services/local_alerts.dart';
 import '../widgets/version_gate.dart';
 import '../widgets/bottom_nav_bar.dart';
+
+/*
+    The account and its documents, asked for again.
+
+    The badge on a profile is read off the account, and nothing asked for it
+    after sign-in: an administrator approved somebody and the app went on
+    showing them unverified until it was restarted.
+*/
+Future<void> refreshAccount(BuildContext context) => Future.wait([
+      context.read<AuthProvider>().fetchMe(),
+      context.read<VerificationProvider>().fetchVerifications(),
+    ]);
 
 /// Main Navigation with 4 Tabs
 ///
@@ -209,9 +223,11 @@ class _MainNavigationState extends State<MainNavigation>
 
   /// One balance read for a burst of notifications, not one each.
   void _onNotificationArrived() {
+    final type = _notifications?.arrived.value?.type;
     // A chat message never moves money; a busy thread would otherwise ask
     // for the balance on every line.
-    if (_notifications?.arrived.value?.type.startsWith('message.') ?? true) return;
+    if (type == null || type.startsWith('message.')) return;
+    if (type.startsWith('verification.')) refreshAccount(context);
     _balanceRefresh?.cancel();
     _balanceRefresh = Timer(const Duration(seconds: 2), () {
       if (mounted) context.read<CreditsProvider>().refresh();
@@ -241,6 +257,9 @@ class _MainNavigationState extends State<MainNavigation>
       // So is the balance, and Barya can arrive while the app is away.
       context.read<CreditsProvider>().refresh();
 
+      // And a verification can be decided while it is.
+      refreshAccount(context);
+
       /*
           And on every return to the foreground, not only on a cold start.
 
@@ -261,6 +280,7 @@ class _MainNavigationState extends State<MainNavigation>
     if (index == _messagesTab) {
       context.read<MessagingProvider>().fetchConversations(silent: true);
     }
+    if (index == MainNavigation.profileTab) refreshAccount(context);
   }
 
   @override

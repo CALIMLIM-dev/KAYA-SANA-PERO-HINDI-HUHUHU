@@ -692,7 +692,7 @@ class JobController extends Controller
             ->with([
                 'user:id,name,avatar,is_verified,city',
                 'skills',
-                'category:id,name',
+                'category:id,name,maps_to_id',
                 'psgcLocation.parent',
                 'licenses:id,user_id,license_name',
                 'certifications:id,user_id,certification_name',
@@ -1169,7 +1169,7 @@ class JobController extends Controller
         // they saved it, and how well does it match their profile.
         if ($user->workerProfile) {
             $profile = $user->workerProfile;
-            $profile->load(['skills', 'psgcLocation.parent']);
+            $profile->load(['skills', 'psgcLocation.parent', 'category']);
             $match = \App\Services\JobMatchService::score($job, $profile);
             $job->match_score = $match['score'];
             // For "You have 1 of 2 required skills", and the feed's order.

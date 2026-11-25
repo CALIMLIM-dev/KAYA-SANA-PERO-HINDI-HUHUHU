@@ -54,7 +54,9 @@ final class ResumeBlock
     /** The relations fields() reads, for an eager load. */
     public const RELATIONS = [
         'skills',
-        'category:id,name',
+        // maps_to_id: what a typed category really is. Without it a worker in
+        // one ranked below everybody.
+        'category:id,name,maps_to_id',
         'psgcLocation.parent',
         'licenses:id,user_id,license_name',
         'certifications:id,user_id,certification_name',

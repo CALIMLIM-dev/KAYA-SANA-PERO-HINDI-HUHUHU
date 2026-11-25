@@ -3,14 +3,15 @@ import '../../../core/widgets/loading.dart';
 
 import '../../../core/constants/app_colors.dart';
 import '../../../core/navigation/app_router.dart';
+import '../../../core/widgets/top_up_strip.dart';
 import '../../../data/services/api_client.dart';
 import '../../applications/widgets/applicant_card.dart';
 
 /*
     The worker's own card, as an employer's Applicants list shows it, in a
     pop-up: the card the list draws, from the same fields the server sends
-    (ResumeBlock). Without a top-up it shows the card now and the resume a
-    top-up opens it as.
+    (ResumeBlock). Without a top-up the open resume is locked: it was drawn in
+    full above a Top Up button, which sold what was already on the screen.
 */
 class ResumePreviewPopup extends StatefulWidget {
   const ResumePreviewPopup({super.key});
@@ -110,39 +111,18 @@ class _ResumePreviewPopupState extends State<ResumePreviewPopup> {
       shrinkWrap: true,
       padding: const EdgeInsets.fromLTRB(16, 4, 16, 16),
       children: [
-        if (premium)
-          _cardAs(premium: true)
-        else ...[
-          _label('Now'),
-          _cardAs(premium: false),
-          const SizedBox(height: 8),
-          _label('With Top Up'),
-          _cardAs(premium: true),
-          const SizedBox(height: 4),
-          ElevatedButton(
-            onPressed: () {
+        _cardAs(premium: premium),
+        if (!premium)
+          TopUpStrip(
+            reason: 'Your card opens as a full resume after a top up',
+            onTopUp: () {
               // The navigator first: this pop-up's context is gone once it closes.
               final navigator = Navigator.of(context);
               navigator.pop();
               navigator.pushNamed(AppRouter.wallet);
             },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.primary,
-              foregroundColor: Colors.white,
-              elevation: 0,
-              padding: const EdgeInsets.symmetric(vertical: 13),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-            ),
-            child: const Text('Top Up', style: TextStyle(fontWeight: FontWeight.w700)),
           ),
-        ],
       ],
     );
   }
-
-  Widget _label(String text) => Padding(
-        padding: const EdgeInsets.only(bottom: 6),
-        child: Text(text,
-            style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700, color: AppColors.neutral600)),
-      );
 }
