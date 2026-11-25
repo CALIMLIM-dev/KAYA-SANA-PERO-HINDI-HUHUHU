@@ -1344,8 +1344,10 @@ class WorkerProfileController extends Controller
         if (!empty($data['category_id'])) {
             // Their main category, or the one any of their skills is under:
             // a welder who is also a carpenter is found as both.
-            $query->where(fn ($q) => $q->where('category_id', $data['category_id'])
-                ->orWhereHas('skills', fn ($s) => $s->where('category_id', $data['category_id'])));
+            // And a category somebody typed that means this trade.
+            $trade = \App\Models\Category::sameTrade((int) $data['category_id']);
+            $query->where(fn ($q) => $q->whereIn('category_id', $trade)
+                ->orWhereHas('skills', fn ($s) => $s->whereIn('category_id', $trade)));
         }
 
         if (!empty($data['location_id'])) {

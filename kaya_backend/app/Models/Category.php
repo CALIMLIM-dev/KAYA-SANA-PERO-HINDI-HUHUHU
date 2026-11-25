@@ -26,6 +26,45 @@ class Category extends Model
                 ->when($user, fn ($q2) => $q2->orWhere('created_by', $user->id)));
     }
 
+    private const TRADES = 'category.trades';
+
+    protected static function booted(): void
+    {
+        static::saved(fn () => app()->forgetInstance(self::TRADES));
+        static::deleted(fn () => app()->forgetInstance(self::TRADES));
+    }
+
+    /** Typed category id => the catalogue trade it means, once per request. */
+    private static function trades(): array
+    {
+        if (app()->bound(self::TRADES)) {
+            return app(self::TRADES);
+        }
+
+        try {
+            $map = static::whereNotNull('maps_to_id')->pluck('maps_to_id', 'id')->map(fn ($id) => (int) $id)->all();
+        } catch (\Throwable) {
+            // No table to read (a unit test with no database): nothing is mapped.
+            return [];
+        }
+
+        return app()->instance(self::TRADES, $map);
+    }
+
+    /** The trade a category counts as: what it means when typed, else itself. */
+    public static function tradeId(?int $id): ?int
+    {
+        return $id === null ? null : (self::trades()[$id] ?? $id);
+    }
+
+    /** Every category that is this one's trade, for a filter. */
+    public static function sameTrade(int $id): array
+    {
+        $trade = self::tradeId($id);
+
+        return array_values(array_unique([$id, $trade, ...array_keys(self::trades(), $trade, true)]));
+    }
+
     /** The catalogue trade a custom category means, when it is known. */
     public function mapsTo()
     {

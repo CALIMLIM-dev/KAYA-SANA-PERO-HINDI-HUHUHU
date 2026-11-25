@@ -12,7 +12,7 @@ use Tests\TestCase;
 /*
     A company's TIN, given with its business document.
 
-    Required for a company, refused for an individual, stored as digits, and
+    Required for a company, stored as digits, and
     never sent to anyone but the owner - and to them only masked.
 */
 class CompanyTinTest extends TestCase
@@ -79,16 +79,25 @@ class CompanyTinTest extends TestCase
             ->assertStatus(422);
     }
 
-    public function test_an_individual_has_no_tin_to_give(): void
+    public function test_a_business_document_is_for_a_company(): void
     {
-        $this->submit($this->employer('individual'), ['tin' => '123-456-789-000'])
-            ->assertStatus(422)
-            ->assertJsonPath('message', 'Only a company account has a TIN to give.');
+        foreach ([[], ['tin' => '123-456-789-000']] as $extra) {
+            $this->submit($this->employer('individual'), $extra)
+                ->assertStatus(422)
+                ->assertJsonPath('message', 'Business documents are for company accounts. Verify with a government ID.');
+        }
     }
 
-    public function test_an_individual_submits_without_one(): void
+    /*
+        The setup screen gave it with the profile and not with the upload, so
+        every company's document was refused there.
+    */
+    public function test_the_tin_given_at_setup_is_enough(): void
     {
-        $this->submit($this->employer('individual'))->assertStatus(201);
+        $user = $this->employer('company');
+        $user->employerProfile->update(['tin' => '123456789']);
+
+        $this->submit($user->fresh())->assertStatus(201);
     }
 
     public function test_the_owner_sees_it_masked_and_nobody_else_sees_it(): void

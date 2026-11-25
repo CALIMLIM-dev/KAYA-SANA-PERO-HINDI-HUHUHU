@@ -552,6 +552,22 @@ class User extends Authenticatable
         };
     }
 
+    /*
+        No longer a company. Its papers go with it, and what is left is the
+        person: verified only with an approved ID of their own.
+    */
+    public function leaveCompany(): void
+    {
+        foreach ($this->verifications()->where('document_type', '!=', 'government_id')->get() as $paper) {
+            rescue(fn () => \Illuminate\Support\Facades\Storage::disk(config('filesystems.documents'))->delete((string) $paper->document_front_url));
+            $paper->delete();
+        }
+
+        if (! $this->verifications()->where('document_type', 'government_id')->where('status', 'verified')->exists()) {
+            $this->forceFill(['is_verified' => false])->save();
+        }
+    }
+
     /** Bought barya at least once. See CreditTransaction::toppedUpAmong. */
     public function hasToppedUp(): bool
     {

@@ -231,6 +231,7 @@ class _AddSkillsScreenState extends State<AddSkillsScreen> {
       } else {
         AppToast.info(context, provider.errorMessage ?? 'Failed to create category');
       }
+      if (!mounted) return;
       setState(() => _isLoadingCategories = false);
     }
   }

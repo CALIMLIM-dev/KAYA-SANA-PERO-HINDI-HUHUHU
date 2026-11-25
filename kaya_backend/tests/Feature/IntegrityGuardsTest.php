@@ -97,7 +97,7 @@ class IntegrityGuardsTest extends TestCase
             ->assertOk();
 
         $this->assertNull($user->fresh()->phone_verified_at);
-        $this->assertSame('09170000003', $user->fresh()->phone);
+        $this->assertSame('+639170000003', $user->fresh()->phone);
     }
 
     #[Test]

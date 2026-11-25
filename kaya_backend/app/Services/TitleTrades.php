@@ -98,7 +98,10 @@ class TitleTrades
             return false;
         }
 
-        if ($profile->category_id && in_array((int) $profile->category_id, $trade['category_ids'], true)) {
+        $in = fn (?int $id) => $id && (in_array($id, $trade['category_ids'], true)
+            || in_array(\App\Models\Category::tradeId($id), $trade['category_ids'], true));
+
+        if ($in($profile->category_id === null ? null : (int) $profile->category_id)) {
             return true;
         }
 
@@ -110,7 +113,7 @@ class TitleTrades
                 return true;
             }
 
-            if ($row->category_id && in_array((int) $row->category_id, $trade['category_ids'], true)) {
+            if ($in($row->category_id === null ? null : (int) $row->category_id)) {
                 return true;
             }
 

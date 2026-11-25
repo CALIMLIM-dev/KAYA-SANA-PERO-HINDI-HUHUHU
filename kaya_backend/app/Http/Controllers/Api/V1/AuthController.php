@@ -705,9 +705,17 @@ class AuthController extends Controller
             }
         }
 
-        if (array_key_exists('phone', $data) && !empty($data['phone']) && $data['phone'] !== $user->phone) {
-            // A phone number signs an account in, so it belongs to one.
-            if (\App\Models\User::where('phone', $data['phone'])->whereKeyNot($user->id)->exists()) {
+        if (! empty($data['phone']) && $data['phone'] !== $user->phone) {
+            // Kept the one way signing in reads it; "abc123" used to be saved.
+            $typed = $data['phone'];
+            $data['phone'] = \App\Support\PhPhone::normalize($typed);
+            if ($data['phone'] === null) {
+                return $this->fail('Enter a valid Philippine mobile number (e.g. 09171234567).', 422);
+            }
+
+            // A phone number signs an account in, so it belongs to one. Older
+            // rows hold it as typed.
+            if (\App\Models\User::whereIn('phone', [$data['phone'], $typed, '0' . substr($data['phone'], 3)])->whereKeyNot($user->id)->exists()) {
                 return $this->fail('This phone number is already used by another account.', 422);
             }
 
@@ -717,13 +725,16 @@ class AuthController extends Controller
                 Contacts). With no SMS sender there is no code to send, so
                 it changes here as before.
             */
-            if ($user->phone_verified_at && app(\App\Services\SmsSender::class)->isConfigured()) {
+            if ($user->phone_verified_at && app(\App\Services\SmsSender::class)->isConfigured()
+                && \App\Support\PhPhone::normalize((string) $user->phone) !== $data['phone']) {
                 return $this->fail('Change a confirmed number in Settings, Recovery Contacts. We text a code to the new number.', 422);
             }
 
-            // The check was for the old number.
+            // The check was for the old number, not for a new way to write it.
+            if (\App\Support\PhPhone::normalize((string) $user->phone) !== $data['phone']) {
+                $user->phone_verified_at = null;
+            }
             $user->phone = $data['phone'];
-            $user->phone_verified_at = null;
         }
 
         $user->save();

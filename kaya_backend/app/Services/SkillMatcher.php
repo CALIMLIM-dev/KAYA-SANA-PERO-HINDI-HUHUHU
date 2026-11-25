@@ -158,7 +158,9 @@ class SkillMatcher
         }
 
         // ── linked by the System: both words mean the same catalogue skill
-        if (array_intersect(self::meaning($rid, $a), self::meaning($hid, $b)) !== []) {
+        $rids = self::named($rid, $a);
+        $hids = self::named($hid, $b);
+        if (array_intersect(self::meaning($rids, $a), self::meaning($hids, $b)) !== []) {
             return $this->hit(1.0, self::RULE_LINKED);
         }
 
@@ -348,13 +350,36 @@ class SkillMatcher
         migration not yet run) it says no rather than breaking every match.
     */
     /**
-     * The catalogue skills a name stands for: its own row, and what the
-     * System linked the words to. "tubero" and "ayos ng tagas" meet at
-     * Pipe Leak Repair. Fails closed with no table, like aliased().
+     * The catalogue rows a skill is: the one picked, and every one of the
+     * same name, so typing a skill and picking it from the list come out the
+     * same. Not for "Installation" on its own, which is a different skill in
+     * each trade.
      *
      * @return list<int>
      */
-    private static function meaning(?int $id, string $normalised): array
+    private static function named(?int $id, string $normalised): array
+    {
+        $ids = $id === null ? [] : [(int) $id];
+        if ($normalised === '' || array_diff(explode(' ', self::stem($normalised)), self::genericStems()) === []) {
+            return $ids;
+        }
+
+        try {
+            return array_values(array_unique([...$ids, ...(\App\Models\Skill::idsByName()[$normalised] ?? [])]));
+        } catch (\Throwable) {
+            return $ids;
+        }
+    }
+
+    /**
+     * The catalogue skills a name stands for: its own rows, and what the
+     * System linked the words to. "tubero" and "ayos ng tagas" meet at
+     * Pipe Leak Repair. Fails closed with no table, like aliased().
+     *
+     * @param  list<int>  $own
+     * @return list<int>
+     */
+    private static function meaning(array $own, string $normalised): array
     {
         try {
             $ids = \App\Models\SkillLink::meaningOf($normalised);
@@ -362,7 +387,7 @@ class SkillMatcher
             $ids = [];
         }
 
-        return $id !== null ? [...$ids, (int) $id] : $ids;
+        return [...$ids, ...$own];
     }
 
     /** What the System said of the pair, or null. Fails closed, like meaning(). */

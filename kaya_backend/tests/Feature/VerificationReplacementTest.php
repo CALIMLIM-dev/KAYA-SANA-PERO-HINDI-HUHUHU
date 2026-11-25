@@ -60,6 +60,7 @@ class VerificationReplacementTest extends TestCase
         $user = User::factory()->create();
 
         $this->submitId($user)->assertStatus(201);
+        \App\Models\EmployerProfile::create(['user_id' => $user->id, 'employer_type' => 'company', 'company_name' => 'Acme', 'tin' => '123456789', 'location' => 'Urdaneta City']);
 
         // The employer side of the same account, verifying something else.
         $this->actingAs($user, 'sanctum')->postJson('/api/v1/verifications', [

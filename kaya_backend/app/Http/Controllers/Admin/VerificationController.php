@@ -51,9 +51,13 @@ class VerificationController extends Controller
             badge on the user's page mean something.
         */
         $profile = $verification->user?->employerProfile;
-        $needsTinCheck = $verification->document_type !== 'government_id'
-            && $profile?->employer_type?->requiresBusinessVerification()
-            && filled($profile->tin);
+        $isCompany = $profile?->employer_type?->requiresBusinessVerification() ?? false;
+
+        if ($verification->document_type !== 'government_id' && ! $isCompany) {
+            return back()->with('error', 'This is not a company account, so a business document cannot verify it. Reject it and ask for a government ID.');
+        }
+
+        $needsTinCheck = $verification->document_type !== 'government_id' && filled($profile->tin);
 
         if ($needsTinCheck && ! $request->boolean('tin_checked')) {
             return back()->with('error', 'Check the TIN on ORUS first, then tick the box to approve.');
@@ -101,6 +105,8 @@ class VerificationController extends Controller
     {
         $request->validate(['reason' => ['required', 'string', 'max:255']]);
 
+        $wasApproved = $verification->status === 'verified';
+
         $verification->update([
             'status' => 'rejected',
             'reviewed_by' => Auth::id(),
@@ -108,9 +114,25 @@ class VerificationController extends Controller
             'rejection_reason' => $request->get('reason'),
         ]);
 
+        /*
+            An approval taken back. The badge used to stay: the decision was
+            only ever offered while a document was pending, so one approved by
+            mistake could not be undone.
+        */
+        if ($wasApproved) {
+            $user = $verification->user;
+            $profile = $user->employerProfile;
+            if ($verification->document_type !== 'government_id') {
+                $profile?->forceFill(['tin_verified_at' => null, 'tin_verified_by' => null])->save();
+            }
+            $user->forceFill([
+                'is_verified' => app(\App\Services\EmployerVerificationService::class)->getEmployerVerification($user, $profile)['fully_verified'],
+            ])->save();
+        }
+
         AdminAction::record(
-            'verification.rejected', 'verification', $verification->id,
-            "Rejected {$verification->user->name}'s " . str_replace('_', ' ', $verification->document_type)
+            $wasApproved ? 'verification.taken_back' : 'verification.rejected', 'verification', $verification->id,
+            ($wasApproved ? 'Took back ' : 'Rejected ') . "{$verification->user->name}'s " . str_replace('_', ' ', $verification->document_type)
                 . ': ' . $request->get('reason'),
             ['user_id' => $verification->user_id, 'reason' => $request->get('reason')],
         );
@@ -122,10 +144,11 @@ class VerificationController extends Controller
             userId: $verification->user_id,
             audience: $this->audienceFor($verification),
             reason: $request->get('reason'),
+            takenBack: $wasApproved,
         );
 
         return redirect()->route('admin.verifications.index')
-            ->with('success', "{$verification->user->name}'s verification was rejected.");
+            ->with('success', "{$verification->user->name}'s verification was " . ($wasApproved ? 'taken back.' : 'rejected.'));
     }
 
     /**

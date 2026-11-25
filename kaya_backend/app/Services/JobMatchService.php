@@ -174,11 +174,15 @@ class JobMatchService
         $titleDisagrees = false;
 
         if ($titleTrade['terms'] !== []) {
-            $titleDisagrees = $titleTrade['category_ids'] !== []
-                && ! in_array((int) $job->category_id, $titleTrade['category_ids'], true);
+            // Its own category, or the trade a typed one means.
+            $agreed = array_values(array_intersect(
+                array_filter([(int) $job->category_id, \App\Models\Category::tradeId((int) $job->category_id)]),
+                $titleTrade['category_ids'],
+            ));
+            $titleDisagrees = $titleTrade['category_ids'] !== [] && $agreed === [];
 
-            if ($job->category_id && in_array((int) $job->category_id, $titleTrade['category_ids'], true)) {
-                $titleTrade = $titles->narrow($titleTrade, (int) $job->category_id);
+            if ($agreed !== []) {
+                $titleTrade = $titles->narrow($titleTrade, $agreed[0]);
             }
 
             $titleFit = $titles->fits($titleTrade, $profile, $heldSkills);
@@ -347,14 +351,10 @@ class JobMatchService
 
         // ── the same row, or the same trade under a custom name ──────
         // A private custom category counts as the catalogue trade it maps
-        // to ("Aircon Cleaning" as Aircon Repair). Only when loaded, so a
-        // feed never queries per row.
-        $tradeOf = fn ($model) => $model->relationLoaded('category') && $model->category?->maps_to_id
-            ? (int) $model->category->maps_to_id
-            : (int) $model->category_id;
+        // to ("Aircon Cleaning" as Aircon Repair).
+        $jobTrade = \App\Models\Category::tradeId((int) $job->category_id);
 
-        if ($profile->category_id === $job->category_id
-            || ($profile->category_id && $tradeOf($job) === $tradeOf($profile))) {
+        if ($profile->category_id && \App\Models\Category::tradeId((int) $profile->category_id) === $jobTrade) {
             return [(float) self::WEIGHT_CATEGORY, 'Same work category', true];
         }
 
@@ -368,7 +368,7 @@ class JobMatchService
             no matching skill at all kept them. The skills say what a
             person does as plainly as the setup choice does.
         */
-        if (in_array((int) $job->category_id, $skillCategoryIds, true)) {
+        if (in_array($jobTrade, array_map(\App\Models\Category::tradeId(...), $skillCategoryIds), true)) {
             return [(float) self::WEIGHT_CATEGORY, 'Has skills in this work category', true];
         }
 

@@ -25,8 +25,28 @@ class Skill extends Model
         A miss is not a problem: kaya:embed-skills picks it up, and
         matching falls back to SkillMatcher's string layers meanwhile.
     */
+    private const BY_NAME = 'skills.by_name';
+
+    /** Normalised name => the ids that have it, once per request. */
+    public static function idsByName(): array
+    {
+        if (app()->bound(self::BY_NAME)) {
+            return app(self::BY_NAME);
+        }
+
+        $map = [];
+        foreach (static::query()->get(['id', 'name']) as $row) {
+            $map[\App\Services\SkillMatcher::normalise((string) $row->name)][] = (int) $row->id;
+        }
+
+        return app()->instance(self::BY_NAME, $map);
+    }
+
     protected static function booted(): void
     {
+        static::saved(fn () => app()->forgetInstance(self::BY_NAME));
+        static::deleted(fn () => app()->forgetInstance(self::BY_NAME));
+
         static::created(function (self $row) {
             $term = (string) $row->name;
 

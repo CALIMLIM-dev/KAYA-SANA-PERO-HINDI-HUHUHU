@@ -128,6 +128,23 @@
                     <button class="mt-2 px-4 py-2 bg-red-600 text-white rounded-lg text-sm font-medium">Confirm Reject</button>
                 </form>
             </div>
+        @elseif ($verification->status === 'verified')
+            <div class="bg-white rounded-xl border border-slate-200 p-5">
+                <h3 class="text-sm font-semibold text-slate-700 mb-3">Decision</h3>
+                <button type="button" onclick="document.getElementById('takeBackForm').classList.toggle('hidden')"
+                        class="px-5 py-2.5 bg-red-50 text-red-600 border border-red-200 rounded-lg text-sm font-medium hover:bg-red-100">
+                    Remove Verification
+                </button>
+
+                <form id="takeBackForm" method="POST" action="{{ route('admin.verifications.reject', $verification) }}" class="hidden mt-4">
+                    @csrf
+                    <label class="text-xs text-slate-500">Reason</label>
+                    <div class="mt-1">
+                        @include('admin.partials.reason-picker', ['reasons' => ['Approved by mistake', 'Name does not match the profile', 'Selfie does not match the ID', 'Looks altered or not genuine', 'Document is no longer valid'], 'placeholder' => 'Reason the person will see'])
+                    </div>
+                    <button class="mt-2 px-4 py-2 bg-red-600 text-white rounded-lg text-sm font-medium">Confirm Remove</button>
+                </form>
+            </div>
         @elseif ($verification->rejection_reason)
             <div class="bg-white rounded-xl border border-slate-200 p-5">
                 <h3 class="text-sm font-semibold text-slate-700 mb-1">Rejection Reason</h3>

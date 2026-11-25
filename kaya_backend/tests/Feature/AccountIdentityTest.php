@@ -64,7 +64,7 @@ class AccountIdentityTest extends TestCase
             ->patchJson('/api/v1/me', ['phone' => '09171234567'])
             ->assertOk();
 
-        $this->assertSame('09171234567', $user->fresh()->phone);
+        $this->assertSame('+639171234567', $user->fresh()->phone);
         $this->assertSame('Juan Dela Cruz', $user->fresh()->name);
     }
 

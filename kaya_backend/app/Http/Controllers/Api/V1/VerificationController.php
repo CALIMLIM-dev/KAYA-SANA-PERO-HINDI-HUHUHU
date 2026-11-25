@@ -109,20 +109,23 @@ class VerificationController extends Controller
 
                 Both a DTI certificate and a BIR 2303 carry it, so the admin
                 checks the number against the paper in front of them rather
-                than asking for one more upload. Required for a company and
-                meaningless for an individual, who is refused it: a tax number
-                on a personal account has nowhere to be checked.
+                than asking for one more upload.
             */
             $profile = $user->employerProfile;
             $isCompany = $profile?->employer_type?->requiresBusinessVerification() ?? false;
-            $tin = \App\Models\EmployerProfile::normaliseTin($request->input('tin'));
 
-            if ($isCompany && $tin === null) {
-                return $this->fail('Please enter your business TIN.', 422);
+            // A person is verified by their ID. An approved DTI used to put
+            // the badge on an account nobody had seen the ID of.
+            if (! $isCompany) {
+                return $this->fail('Business documents are for company accounts. Verify with a government ID.', 422);
             }
 
-            if (! $isCompany && $tin !== null) {
-                return $this->fail('Only a company account has a TIN to give.', 422);
+            // The one given at setup, when the upload does not repeat it.
+            $tin = \App\Models\EmployerProfile::normaliseTin($request->input('tin'))
+                ?? \App\Models\EmployerProfile::normaliseTin($profile->tin);
+
+            if ($tin === null) {
+                return $this->fail('Please enter your business TIN.', 422);
             }
 
             // Stored before the old one is dropped - see the branch above.
@@ -133,9 +136,7 @@ class VerificationController extends Controller
                     ->where('document_type', $type)
                     ->delete();
 
-                if ($tin !== null) {
-                    $profile->forceFill(['tin' => $tin])->save();
-                }
+                $profile->forceFill(['tin' => $tin])->save();
 
                 return Verification::create([
                     'user_id'             => $user->id,

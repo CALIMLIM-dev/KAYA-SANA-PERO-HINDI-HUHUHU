@@ -459,6 +459,8 @@ class _SetupEmployerProfileScreenState extends State<SetupEmployerProfileScreen>
             filePath: (_businessDocument!['documentPath'] ??
                 _businessDocument!['path']) as String?,
             fileBytes: bytes is List<int> ? bytes : (bytes as List?)?.cast<int>(),
+            // The server asks for it with the document.
+            tin: _tinController.text.trim(),
           );
           if (!sent) _verificationUploadFailed = true;
         } catch (e) {

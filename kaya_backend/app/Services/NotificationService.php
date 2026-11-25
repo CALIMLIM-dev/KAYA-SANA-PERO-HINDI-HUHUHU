@@ -730,15 +730,15 @@ class NotificationService
         );
     }
 
-    public function verificationRejected(int $userId, string $audience, ?string $reason): void
+    public function verificationRejected(int $userId, string $audience, ?string $reason, bool $takenBack = false): void
     {
         $this->push(
             userId: $userId,
             audience: $audience,
             type: UserNotification::VERIFICATION_REJECTED,
-            title: 'Verification was not approved',
+            title: $takenBack ? 'Your verification was removed' : 'Verification was not approved',
             body: $reason === null || $reason === ''
-                ? 'Your identity check was not approved. You can submit again from your profile.'
+                ? ($takenBack ? 'Your verification was removed.' : 'Your identity check was not approved.') . ' You can submit again from your profile.'
                 : $reason.' You can submit again from your profile.',
             referenceType: 'verification',
             referenceId: null,

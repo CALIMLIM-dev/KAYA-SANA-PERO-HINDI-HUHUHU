@@ -10,6 +10,27 @@ class EmployerProfile extends Model
 {
     use HasFactory;
 
+    /*
+        A company's badge is its papers. Removing the employer side, or making
+        it Individual, left the badge on an account that had never shown an
+        ID - and it could then look for work as a verified person.
+    */
+    protected static function booted(): void
+    {
+        $wasCompany = fn (self $p) => $p->getOriginal('employer_type') === EmployerType::COMPANY;
+
+        static::updated(function (self $p) use ($wasCompany) {
+            if ($p->wasChanged('employer_type') && $wasCompany($p)) {
+                $p->user?->leaveCompany();
+            }
+        });
+        static::deleted(function (self $p) use ($wasCompany) {
+            if ($wasCompany($p)) {
+                $p->user?->leaveCompany();
+            }
+        });
+    }
+
     protected $fillable = [
         'user_id',
         'employer_type',

@@ -60,7 +60,7 @@ class JobController extends Controller
         }
 
         if ($categoryId = $request->get('category_id')) {
-            $query->where('category_id', $categoryId);
+            $query->whereIn('category_id', \App\Models\Category::sameTrade((int) $categoryId));
         }
 
         if ($location = $request->get('location')) {
