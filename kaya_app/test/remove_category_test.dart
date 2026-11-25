@@ -7,6 +7,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:provider/provider.dart';
 
 import 'package:kaya_app/data/models/category_model.dart';
+import 'package:kaya_app/data/models/worker_skill_model.dart';
 import 'package:kaya_app/data/services/api_client.dart';
 import 'package:kaya_app/features/profile/screens/add_skills_screen.dart';
 import 'package:kaya_app/providers/worker_profile_provider.dart';
@@ -37,6 +38,10 @@ void main() {
       ..seedCategories([
         CategoryModel(id: 1, name: 'Carpentry'),
         CategoryModel(id: 9, name: 'Paggawa at Pagkukumpuni ng Bangka', isCustom: true),
+      ])
+      ..seedSkills([
+        WorkerSkillModel(id: 1, userId: 1, skillName: 'Cabinet Making', categoryId: 1),
+        WorkerSkillModel(id: 2, userId: 1, skillName: 'Pagtatagpi ng Bangka', categoryId: 9),
       ]);
     await tester.pumpWidget(ChangeNotifierProvider.value(
       value: provider,
@@ -63,6 +68,8 @@ void main() {
     await tester.tap(find.byTooltip('Remove This Category'));
     await tester.pump(const Duration(milliseconds: 400));
     expect(adapter.deleted, isEmpty, reason: 'Asked first.');
+    // Which skills go with it, and no others.
+    expect(find.textContaining('your skills under it will be removed: Pagtatagpi ng Bangka.'), findsOneWidget);
 
     await tester.tap(find.text('Remove'));
     for (var i = 0; i < 8; i++) {

@@ -77,42 +77,89 @@ void main() {
       .evaluate()
       .isNotEmpty;
 
+  bool says(int n, String text) => find
+      .descendant(of: day(n), matching: find.text(text, skipOffstage: false), skipOffstage: false)
+      .evaluate()
+      .isNotEmpty;
+
+  testWidgets('one calendar, and no premade one', (tester) async {
+    await open(tester, credits(toppedUp: true));
+    expect(find.byType(CalendarDatePicker), findsNothing);
+    expect(find.byTooltip('Pick a later day'), findsNothing);
+    await tester.tap(day(3));
+    await tester.pump(const Duration(milliseconds: 400));
+    expect(find.byType(CalendarDatePicker), findsNothing);
+    expect(find.byType(Dialog), findsNothing);
+    // The price is on the day, not said a second time under it.
+    expect(find.textContaining('days free'), findsNothing);
+  });
+
   testWidgets('never topped up: seven days are free and the rest are locked', (tester) async {
     await open(tester, credits(toppedUp: false));
 
-    expect(find.text('Free', skipOffstage: false), findsNWidgets(7));
-    expect(locked(6), isFalse);
-    expect(locked(7), isTrue);
-    expect(find.byIcon(Icons.lock_outline, skipOffstage: false), findsNWidgets(14));
-    // Nothing past the row for them, so no calendar to run into it on.
-    expect(find.byTooltip('Pick a later day'), findsNothing);
+    for (var i = 0; i < 7; i++) {
+      expect(says(i, 'Free'), isTrue, reason: 'day $i');
+      expect(locked(i), isFalse, reason: 'day $i');
+    }
+    // On the same page as the free ones, whatever day it is today.
+    for (var i = 7; i < 21; i++) {
+      expect(locked(i), isTrue, reason: 'day $i');
+    }
   });
 
-  testWidgets('a free day is picked on a tap, and a locked one never is', (tester) async {
+  testWidgets('a locked day offers the top up inside the calendar, and is not picked', (tester) async {
     await open(tester, credits(toppedUp: false));
+    expect(find.text('Top Up'), findsNothing);
 
-    await tester.tap(day(2));
-    await tester.pump();
-    expect(find.text('3 days free'), findsOneWidget);
-
-    await tester.ensureVisible(day(9));
-    await tester.pump();
     await tester.tap(day(9));
+    await tester.pump(const Duration(milliseconds: 300));
+    expect(find.textContaining('needs a top up'), findsOneWidget);
+    expect(find.byType(Dialog), findsNothing);
+    expect(find.text('The wallet'), findsNothing, reason: 'Nothing opens until Top Up is pressed.');
+
+    // A day they have puts it away.
+    await tester.tap(day(2));
+    await tester.pump(const Duration(milliseconds: 300));
+    expect(find.textContaining('needs a top up'), findsNothing);
+
+    await tester.tap(day(9));
+    await tester.pump(const Duration(milliseconds: 300));
+    await tester.tap(find.text('Top Up'));
     for (var i = 0; i < 6; i++) {
       await tester.pump(const Duration(milliseconds: 100));
     }
-    expect(find.text('The wallet'), findsOneWidget, reason: 'A locked day opens Top Up.');
-    expect(find.text('3 days free', skipOffstage: false), findsOneWidget, reason: 'And is not picked.');
+    expect(find.text('The wallet'), findsOneWidget);
   });
 
-  testWidgets('topped up: no locks, and each day says its price', (tester) async {
+  testWidgets('topping up takes the locks off', (tester) async {
+    final wallet = credits(toppedUp: false);
+    await open(tester, wallet);
+    await tester.tap(day(9));
+    await tester.pump(const Duration(milliseconds: 300));
+
+    wallet.seedComparison(const [], hasToppedUp: true);
+    await tester.pump(const Duration(milliseconds: 300));
+
+    expect(find.textContaining('needs a top up'), findsNothing);
+    expect(locked(9), isFalse);
+    expect(says(9, '1 Barya'), isTrue);
+  });
+
+  testWidgets('topped up: each day says its price, and later days are further on', (tester) async {
     await open(tester, credits(toppedUp: true));
 
     expect(find.byIcon(Icons.lock_outline, skipOffstage: false), findsNothing);
-    expect(find.text('Free', skipOffstage: false), findsNWidgets(7));
-    expect(find.descendant(of: day(7), matching: find.text('1 Barya', skipOffstage: false), skipOffstage: false), findsOneWidget);
-    expect(find.descendant(of: day(11), matching: find.text('2 Barya', skipOffstage: false), skipOffstage: false), findsOneWidget);
-    expect(find.byTooltip('Pick a later day'), findsOneWidget);
+    expect(says(6, 'Free'), isTrue);
+    expect(says(7, '1 Barya'), isTrue);
+    expect(says(11, '2 Barya'), isTrue);
+
+    expect(day(60), findsNothing);
+    await tester.tap(find.byTooltip('Later days'));
+    await tester.pump(const Duration(milliseconds: 300));
+    await tester.tap(day(40));
+    await tester.pump(const Duration(milliseconds: 300));
+    expect(says(40, '9 Barya'), isTrue);
+    expect(find.text('Post for 9 Barya'), findsOneWidget, reason: 'It was picked.');
   });
 
   testWidgets('with the rule not loaded nothing is guessed', (tester) async {
@@ -169,7 +216,9 @@ void main() {
           try {
             await open(tester, credits(toppedUp: toppedUp), width: width, textScale: scale);
             expect(day(0), findsOneWidget, reason: 'The days never rendered.');
-            expect(find.text('Free', skipOffstage: false), findsNWidgets(7));
+            expect(says(6, 'Free'), isTrue);
+            await tester.tap(day(9));
+            await tester.pump(const Duration(milliseconds: 300));
           } finally {
             FlutterError.onError = previous;
           }

@@ -15,12 +15,21 @@ import 'loading.dart';
     way to remove a category they had added.
 */
 Future<bool> removeCustomCategory(BuildContext context, CategoryModel category) async {
+  // Named before they go: removing a category removes the skills under it.
+  final skills = context
+      .read<WorkerProfileProvider>()
+      .skills
+      .where((s) => s.categoryId == category.id)
+      .map((s) => s.skillName)
+      .toList();
+
   final ok = await showDialog<bool>(
     context: context,
     builder: (dialogContext) => AlertDialog(
       title: const Text('Remove This Category?'),
-      content: Text('"${category.name}" will no longer be on your list. '
-          'Your skills under it stay, and closed job posts keep the name.'),
+      content: Text(skills.isEmpty
+          ? '"${category.name}" and any skills you have under it will be removed. Closed job posts keep the name.'
+          : '"${category.name}" and your skills under it will be removed: ${skills.join(', ')}.'),
       actions: [
         TextButton(
           onPressed: () => Navigator.pop(dialogContext, false),

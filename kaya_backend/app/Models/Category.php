@@ -38,8 +38,9 @@ class Category extends Model
         Not while an open post files work under it. Closed posts do not
         count; they keep showing the name. Their own profile does not hold it
         either - nothing in the app changes a main category, so that was a
-        refusal with no way round it. Their skills under it stay as the words
-        they typed, and the profile takes the category of the rest.
+        refusal with no way round it. Their skills under it go with it, or
+        they sat under "Other" with nothing to say why, and the profile takes
+        the category of the rest.
     */
     public function removeForOwner(User $owner): ?string
     {
@@ -55,6 +56,14 @@ class Category extends Model
             \Illuminate\Support\Facades\DB::transaction(function () use ($owner) {
                 $this->forceFill(['removed_at' => now()])->save();
 
+                $gone = WorkerSkill::where('user_id', $owner->id)->where('category_id', $this->id)->delete();
+                WorkerSkill::where('user_id', $owner->id)->whereIn('skill_id', $this->skills()->pluck('id'))->update(['skill_id' => null]);
+
+                // A worker keeps at least one skill, as when removing one.
+                if ($gone > 0 && ! WorkerSkill::where('user_id', $owner->id)->exists()) {
+                    throw new \DomainException('All your skills are under this category. Add one under another first, then remove this.');
+                }
+
                 $mine = WorkerProfile::where('user_id', $owner->id)->where('category_id', $this->id);
                 if ($mine->exists()) {
                     $mine->update(['category_id' => null]);
@@ -64,9 +73,6 @@ class Category extends Model
                         throw new \DomainException('This is your only category. Add a skill under another one first, then remove this.');
                     }
                 }
-
-                WorkerSkill::where('user_id', $owner->id)->where('category_id', $this->id)->update(['category_id' => null]);
-                WorkerSkill::where('user_id', $owner->id)->whereIn('skill_id', $this->skills()->pluck('id'))->update(['skill_id' => null]);
             });
         } catch (\DomainException $only) {
             // Undone with the transaction: the category is still theirs.

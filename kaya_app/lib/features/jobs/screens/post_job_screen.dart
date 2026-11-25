@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../../core/widgets/category_picker.dart';
 import '../../../core/widgets/kaya_popup.dart';
-import '../widgets/open_until_days.dart';
+import '../widgets/open_until_calendar.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:latlong2/latlong.dart';
@@ -1331,7 +1331,8 @@ class _PostJobScreenState extends State<PostJobScreen> {
             and closes itself on the end date, and that span is what is
             paid for - see _postCostLine.
         */
-        const SizedBox(height: 12),
+        _buildLabel('Open Until'),
+        const SizedBox(height: 8),
         _openUntil(),
         if (_showScheduleError && _endDate == null) ...[
           const SizedBox(height: 6),
@@ -1341,64 +1342,27 @@ class _PostJobScreenState extends State<PostJobScreen> {
           ),
         ],
 
-        /*
-            What the worker will actually see.
-
-            Three separate controls produce one line of text on the job card,
-            and until you posted the job there was no way to know what that line
-            would say. Showing it here closes the loop — and it is built by the
-            same rules as Job.scheduleLabel, so the form and the card cannot
-            describe the same dates differently.
-        */
-        if (_endDate != null) ...[
-          const SizedBox(height: 10),
-          _postCostLine(),
-        ],
       ],
     );
   }
 
-  /// The day the post closes, picked from the days themselves.
+  /// The day the post closes. What it costs and what is locked are on the
+  /// calendar's own days, and nowhere else.
   Widget _openUntil() {
     final credits = context.watch<CreditsProvider>();
     final now = DateTime.now();
-    final last = _lastDayAllowed(credits);
-    final end = _endDate;
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          children: [
-            Expanded(
-              child: Text(
-                end == null ? 'Open Until' : 'Open Until ${_formatDate(end)}',
-                style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w600, color: AppColors.neutral900),
-              ),
-            ),
-            // Every day it can have is in the row until it has topped up.
-            if (last == null)
-              IconButton(
-                tooltip: 'Pick a later day',
-                icon: const Icon(Icons.calendar_month_outlined, color: AppColors.primary),
-                onPressed: _pickEndDate,
-              ),
-          ],
-        ),
-        const SizedBox(height: 8),
-        OpenUntilDays(
-          today: DateTime(now.year, now.month, now.day),
-          selected: end,
-          lastDay: last,
-          priceFor: (day) => _priceUntil(credits, day),
-          onSelected: (day) => setState(() => _endDate = day),
-          onLocked: () async {
-            await AppRouter.push(context, AppRouter.wallet);
-            // Topped up there: the locks come off.
-            if (mounted) await context.read<CreditsProvider>().refresh();
-          },
-        ),
-      ],
+    return OpenUntilCalendar(
+      today: DateTime(now.year, now.month, now.day),
+      selected: _endDate,
+      lastDay: _lastDayAllowed(credits),
+      priceFor: (day) => _priceUntil(credits, day),
+      onSelected: (day) => setState(() => _endDate = day),
+      onTopUp: () async {
+        await AppRouter.push(context, AppRouter.wallet);
+        // Topped up there: the locks come off.
+        if (mounted) await context.read<CreditsProvider>().refresh();
+      },
     );
   }
 
@@ -1440,48 +1404,6 @@ class _PostJobScreenState extends State<PostJobScreen> {
             .difference(DateTime(start.year, start.month, start.day))
             .inDays +
         1;
-  }
-
-  /*
-      The price, next to the dates that set it.
-
-      The span is what a post costs, so the number has to sit where the
-      span is chosen and move as it does - not appear on the button after
-      the choice is made. Silent until the wallet has loaded the rule; a
-      guess here would be a price the server might not honour.
-  */
-  Widget _postCostLine() {
-    final days = _postDays;
-    if (days == null) return const SizedBox.shrink();
-
-    final credits = context.watch<CreditsProvider>();
-    final cost = credits.postCostFor(days);
-    if (cost == null) return const SizedBox.shrink();
-
-    final length = '$days day${days == 1 ? '' : 's'}';
-    final added = _isEditing && _daysBefore != null
-        ? cost - (credits.postCostFor(_daysBefore!) ?? 0)
-        : null;
-    final price = added != null
-        ? (added > 0 ? 'adds $added ${Credits.plural}' : 'already paid')
-        : cost == 0
-            ? 'free'
-            : 'for $cost ${Credits.plural}';
-
-    return Row(
-      children: [
-        const Icon(Icons.schedule, size: 15, color: AppColors.neutral500),
-        const SizedBox(width: 8),
-        Text(
-          '$length $price',
-          style: const TextStyle(
-            fontSize: 12.5,
-            fontWeight: FontWeight.w600,
-            color: AppColors.neutral700,
-          ),
-        ),
-      ],
-    );
   }
 
   /// One tappable row, used for all three fields so they read as a set.
@@ -1572,34 +1494,6 @@ class _PostJobScreenState extends State<PostJobScreen> {
       'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
     ];
     return '${months[d.month - 1]} ${d.day}, ${d.year}';
-  }
-
-  Future<void> _pickEndDate() async {
-    final now = DateTime.now();
-    final today = DateTime(now.year, now.month, now.day);
-
-    // Days that would be refused cannot be picked.
-    final allowed = _lastDayAllowed(context.read<CreditsProvider>());
-    final last = allowed == null
-        ? today.add(const Duration(days: 365))
-        : allowed.isBefore(today)
-            ? today
-            : allowed;
-    final end = _endDate;
-
-    final picked = await showDatePicker(
-      context: context,
-      initialDate: end == null || end.isBefore(today)
-          ? today
-          : end.isAfter(last)
-              ? last
-              : end,
-      // From today: the post is up from the moment it is posted.
-      firstDate: today,
-      lastDate: last,
-    );
-
-    if (picked != null) setState(() => _endDate = picked);
   }
 
   Future<void> _pickWorkStartsOn() async {

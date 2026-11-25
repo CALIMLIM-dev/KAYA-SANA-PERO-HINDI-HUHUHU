@@ -101,7 +101,8 @@ class PrivateCustomCategoryTest extends TestCase
 
         // The only one they have: kept whole, and they are told what to do.
         $this->actingAs($grace, 'sanctum')->deleteJson("/api/v1/categories/{$id}")->assertStatus(422)
-            ->assertJsonPath('message', 'This is your only category. Add a skill under another one first, then remove this.');
+            ->assertJsonPath('message', 'All your skills are under this category. Add one under another first, then remove this.');
+        $this->assertDatabaseHas('worker_skills_new', ['user_id' => $grace->id, 'skill_name' => 'Linis aircon', 'category_id' => $id]);
         $this->assertNull(Category::find($id)->removed_at);
         $this->assertSame($id, WorkerProfile::where('user_id', $grace->id)->value('category_id'));
 
@@ -110,10 +111,41 @@ class PrivateCustomCategoryTest extends TestCase
 
         $this->assertNotNull(Category::find($id)->removed_at);
         $this->assertSame($carpentry->id, WorkerProfile::where('user_id', $grace->id)->value('category_id'));
-        // The words stay, under no category.
-        $this->assertDatabaseHas('worker_skills_new', ['user_id' => $grace->id, 'skill_name' => 'Linis aircon', 'category_id' => null, 'skill_id' => null]);
+        // Its skills go with it: kept, they sat under "Other".
         $shown = collect($this->actingAs($grace, 'sanctum')->getJson('/api/v1/worker/skills')->assertOk()->json('data'));
-        $this->assertNull($shown->firstWhere('skill_name', 'Linis aircon')['category_name']);
+        $this->assertSame(['Cabinet'], $shown->pluck('skill_name')->all());
+        $this->assertSame('Carpentry', $shown->first()['category_name']);
+    }
+
+    #[Test]
+    public function a_main_category_with_no_other_to_move_to_is_kept(): void
+    {
+        $grace = User::factory()->create();
+        $id = $this->add($grace, 'Aircon Cleaning')->json('data.id');
+        WorkerProfile::create(['user_id' => $grace->id, 'category_id' => $id, 'location' => 'x']);
+
+        $this->actingAs($grace, 'sanctum')->deleteJson("/api/v1/categories/{$id}")->assertStatus(422)
+            ->assertJsonPath('message', 'This is your only category. Add a skill under another one first, then remove this.');
+        $this->assertNull(Category::find($id)->removed_at);
+    }
+
+    /** Somebody else's skills and categories are not touched. */
+    #[Test]
+    public function only_the_skills_under_it_go(): void
+    {
+        $grace = User::factory()->create();
+        $carpentry = Category::create(['name' => 'Carpentry', 'is_active' => true]);
+        $id = $this->add($grace, 'Aircon Cleaning')->json('data.id');
+        $other = $this->add($grace, 'Bangka')->json('data.id');
+        WorkerProfile::create(['user_id' => $grace->id, 'category_id' => $carpentry->id, 'location' => 'x']);
+        foreach (['Linis' => $id, 'Cabinet' => $carpentry->id, 'Tagpi' => $other] as $name => $category) {
+            \App\Models\WorkerSkill::create(['user_id' => $grace->id, 'skill_name' => $name, 'category_id' => $category]);
+        }
+
+        $this->actingAs($grace, 'sanctum')->deleteJson("/api/v1/categories/{$id}")->assertOk();
+
+        $this->assertSame(['Cabinet', 'Tagpi'], \App\Models\WorkerSkill::where('user_id', $grace->id)->orderBy('id')->pluck('skill_name')->all());
+        $this->assertSame($carpentry->id, WorkerProfile::where('user_id', $grace->id)->value('category_id'));
     }
 
     /** It is what the job is matched to workers by, and it says required. */
