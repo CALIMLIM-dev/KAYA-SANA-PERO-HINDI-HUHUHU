@@ -15,7 +15,7 @@ use Illuminate\Console\Command;
     save could not do (Gemini down, the day's limit reached), and once by hand
     after deploying, for everything typed before linking existed.
 
-    Then it reads the skill names that are close in meaning, 40 pairs at a time,
+    Then it reads the skill names that are close in meaning, 20 pairs at a time,
     and keeps which are the same work (SkillPair). Matching goes by that answer.
 
     --seed also links a list of common Tagalog and Taglish trade words, so the
@@ -103,7 +103,7 @@ class LinkSkills extends Command
         foreach (array_chunk($linker->pendingPairs(), SkillLinker::PAIRS_AT_ONCE) as $pairs) {
             if ($budget <= 0) break;
             $tally($linker->judgePairs($pairs), count($pairs) . ' pairs');
-            // Nobody is answering: the next forty would only wait as long.
+            // Nobody is answering: the next ones would only wait as long.
             if ($failed > 0) break;
         }
 

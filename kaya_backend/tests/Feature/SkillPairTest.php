@@ -48,9 +48,11 @@ class SkillPairTest extends TestCase
         }]);
     }
 
+    /** One answer: pair number => the same work or not. */
     private function says(array $same): void
     {
-        $this->queue[] = Http::response(['candidates' => [['content' => ['parts' => [['text' => json_encode(['same' => $same])]]]]]]);
+        $rows = array_map(fn ($n, $yes) => ['n' => $n, 'a' => 'x', 'b' => 'y', 'same' => $yes], array_keys($same), $same);
+        $this->queue[] = Http::response(['candidates' => [['content' => ['parts' => [['text' => json_encode(['pairs' => $rows])]]]]]]);
     }
 
     /** A catalogue skill at this angle: the score of two is the cosine between them. */
@@ -133,7 +135,9 @@ class SkillPairTest extends TestCase
         $this->skill('Banca Mending', 5);
         $this->skill('Boat Patching', 9);
         // Closest first: Mending/Patching, Repair/Mending, Repair/Patching. 9 is on no list.
-        $this->says([1, 9]);
+        $this->says([1 => true, 2 => false, 3 => false, 9 => true]);
+        // The one yes again, the other way round.
+        $this->says([1 => true]);
 
         $this->artisan('kaya:link-skills', ['--pause' => 0])
             ->expectsOutputToContain('3 pairs')
@@ -143,10 +147,61 @@ class SkillPairTest extends TestCase
         $this->assertTrue(SkillPair::verdict('Boat Patching', 'Banca Mending'));
         $this->assertFalse(SkillPair::verdict('Repair', 'Banca Mending'));
         $this->assertStringContainsString('"Repair" (Pool Services)', $this->asked[0]);
-        $this->assertDatabaseHas('skill_link_logs', ['term' => '3 pairs', 'outcome' => 'pairs']);
+        $this->assertStringContainsString('1. "Banca Mending" (Carpentry) | "Boat Patching" (Carpentry)', $this->asked[0]);
+        $this->assertStringContainsString('1. "Boat Patching" (Carpentry) | "Banca Mending" (Carpentry)', $this->asked[1]);
+        $this->assertDatabaseHas('skill_link_logs', ['term' => '3 pairs', 'outcome' => 'pairs', 'error' => '1 the same work']);
 
         $this->artisan('kaya:link-skills', ['--pause' => 0])->assertSuccessful();
-        $this->assertCount(1, $this->asked, 'read once');
+        $this->assertCount(2, $this->asked, 'never read again');
+    }
+
+    /** "Hinang" read once as fixing leaks: the second reading does not say it. */
+    #[Test]
+    public function a_yes_the_second_reading_does_not_give_is_a_no(): void
+    {
+        $this->skill('Hinang', 0);
+        $this->skill('Ayos ng tagas', 5);
+        $this->says([1 => true]);
+        $this->says([1 => false]);
+
+        $this->assertTrue(app(SkillLinker::class)->judgePairs([['Hinang', 'Ayos ng tagas']]));
+
+        $this->assertFalse(SkillPair::verdict('Hinang', 'Ayos ng tagas'));
+    }
+
+    #[Test]
+    public function a_pair_left_out_of_either_answer_is_asked_again(): void
+    {
+        $this->skill('Upholstery', 0);
+        $this->skill('Banca Mending', 2);
+        $this->skill('Net Weaving', 5);
+        $pairs = app(SkillLinker::class)->pendingPairs();
+        // The first answer leaves out the third; the second leaves out the second.
+        $this->says([1 => true, 2 => true]);
+        $this->says([1 => true]);
+
+        $this->assertTrue(app(SkillLinker::class)->judgePairs($pairs));
+
+        $this->assertTrue(SkillPair::verdict(...$pairs[0]));
+        $this->assertSame(array_slice($pairs, 1), app(SkillLinker::class)->pendingPairs());
+    }
+
+    /** The first reading got many wrong. It is read again, but not what an administrator unlinked. */
+    #[Test]
+    public function the_migration_clears_the_careless_answers(): void
+    {
+        SkillPair::record('Refrigerator', 'Washing Machine', true);
+        SkillPair::record('Laminate', 'Vinyl', false);
+        $kept = SkillPair::where('term_a', 'laminate')->firstOrFail();
+        AdminAction::record('skill_pair.unlinked', 'skill_pair', $kept->id, 'x', by: User::factory()->create(['user_type' => 'admin'])->id);
+        $this->assertTrue(SkillPair::verdict('Refrigerator', 'Washing Machine'));
+
+        (require database_path('migrations/2026_11_25_000005_read_skill_pairs_again.php'))->up();
+        // The next request, with nothing held from this one.
+        app()->forgetInstance('skill_pairs.memo');
+
+        $this->assertNull(SkillPair::verdict('Refrigerator', 'Washing Machine'));
+        $this->assertFalse(SkillPair::verdict('Laminate', 'Vinyl'));
     }
 
     #[Test]
