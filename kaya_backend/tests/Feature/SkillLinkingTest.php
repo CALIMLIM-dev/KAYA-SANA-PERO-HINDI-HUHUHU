@@ -172,6 +172,18 @@ class SkillLinkingTest extends TestCase
         $this->assertSame(0, Skill::where('source', 'system')->count());
     }
 
+    /** Longer than the table holds: on MySQL it stopped the nightly run for everybody after it. */
+    #[Test]
+    public function a_sentence_typed_as_a_skill_is_left_alone(): void
+    {
+        $worker = $this->worker(trim(str_repeat('pag aayos ng bahay ', 8)));
+
+        $this->artisan('kaya:link-skills', ['--pause' => 0])->assertSuccessful();
+
+        $this->assertSame(0, SkillLink::count());
+        $this->assertCount(1, $worker->skills);
+    }
+
     #[Test]
     public function the_model_cannot_hand_out_skills_off_the_list_or_too_many(): void
     {

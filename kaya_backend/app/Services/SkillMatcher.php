@@ -304,21 +304,27 @@ class SkillMatcher
     /**
      * The semantic layer, or null when it has no opinion.
      *
+     * The score only suggests a pair; the System read it and said (SkillPair).
+     * On live 25 Nov no score told them apart: "Maintenance" and "Repair" at
+     * 0.973 are not the same work, "Pagtatagpi ng Bangka" and "Banca repair"
+     * at 0.942 are. A pair nobody has read needs a score above all of those.
+     *
      * @return array{confidence:float, rule:string}|null
      */
     private function semantic(string $a, string $b): ?array
     {
-        if ($this->embeddings === null || ! $this->embeddings->enabled()) {
+        if ($this->embeddings === null) {
             return null;
         }
 
-        $similarity = $this->embeddings->similarity($a, $b);
+        $same = self::verdict($a, $b);
 
-        if ($similarity === null) {
-            return null;
+        if ($same === null) {
+            $similarity = $this->embeddings->enabled() ? $this->embeddings->similarity($a, $b) : null;
+            $same = $similarity !== null && $similarity >= (float) config('kaya.matching.similarity_threshold');
         }
 
-        if ($similarity < (float) config('kaya.matching.similarity_threshold')) {
+        if (! $same) {
             return null;
         }
 
@@ -350,6 +356,16 @@ class SkillMatcher
         }
 
         return $id !== null ? [...$ids, (int) $id] : $ids;
+    }
+
+    /** What the System said of the pair, or null. Fails closed, like meaning(). */
+    private static function verdict(string $a, string $b): ?bool
+    {
+        try {
+            return \App\Models\SkillPair::verdict($a, $b);
+        } catch (\Throwable) {
+            return null;
+        }
     }
 
     /** A word the System or an administrator said is not work. Fails closed, like meaning(). */
@@ -480,17 +496,33 @@ class SkillMatcher
         /*
             At least one of the shared words has to be substantial.
 
-            Otherwise "Cleaning" matches "Teeth Cleaning" and "Pool
-            Cleaning" and "Gun Cleaning" through a word that says nothing
-            about the trade on its own.
+            Otherwise "Repair" - a skill of its own in the catalogue - is
+            in "Banca repair" and "Engine Repair" and every other repair,
+            through a word that says nothing about the trade. Length alone
+            let it through. "Cleaning" stays: it is a trade.
         */
         foreach ($shorter as $word) {
+            if (in_array($word, self::genericStems(), true)) {
+                continue;
+            }
+
             if (mb_strlen($word) >= self::CONTAINMENT_MIN_TOKEN || self::isAbbreviation($word)) {
                 return true;
             }
         }
 
         return false;
+    }
+
+    /** @return list<string> GENERIC_WORDS as contains() sees words, less the one that is a trade */
+    private static function genericStems(): array
+    {
+        static $stems = null;
+
+        return $stems ??= array_values(array_unique(array_map(
+            self::stem(...),
+            array_diff(self::GENERIC_WORDS, ['cleaning']),
+        )));
     }
 
     /*

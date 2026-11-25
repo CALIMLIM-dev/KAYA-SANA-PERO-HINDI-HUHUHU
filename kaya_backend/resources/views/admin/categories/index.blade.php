@@ -32,7 +32,7 @@
     $canDestroy = auth()->user()->adminCan('catalogue.destroy');
     $tabs = ['categories' => 'Categories', 'synonyms' => 'Synonyms', 'log' => 'System Log', 'words' => 'Linked Words'];
     $tab = array_key_exists(request('tab'), $tabs) ? request('tab') : 'categories';
-    $tabCount = ['categories' => $categories->count(), 'synonyms' => $aliases->count(), 'log' => $linkLog->count(), 'words' => $links->count()];
+    $tabCount = ['categories' => $categories->count(), 'synonyms' => $aliases->count() + $pairs->count(), 'log' => $linkLog->count(), 'words' => $links->count()];
 @endphp
 
 @if ($errors->any())
@@ -369,6 +369,23 @@
             @endforeach
         </ul>
     @endif
+
+    @if ($pairs->isNotEmpty())
+        <ul class="divide-y divide-slate-100 border-t border-slate-200">
+            @foreach ($pairs as $pair)
+                <li class="px-5 py-2.5 flex items-center justify-between gap-3 text-sm">
+                    <span class="text-slate-700">
+                        {{ $pair->term_a }} <span class="text-slate-400">=</span> {{ $pair->term_b }}
+                        <span class="ml-2 text-xs text-slate-400">linked by System</span>
+                    </span>
+                    <form method="POST" action="{{ route('admin.skill-pairs.unlink', $pair) }}">
+                        @csrf
+                        <button class="text-xs text-slate-500 hover:text-red-600">Unlink</button>
+                    </form>
+                </li>
+            @endforeach
+        </ul>
+    @endif
 </section>
 @endif
 
@@ -408,7 +425,7 @@
                             <td class="py-2 px-5 text-slate-500 whitespace-nowrap">{{ $entry->created_at->timezone('Asia/Manila')->format('M j, g:i A') }}</td>
                             <td class="py-2 px-5 text-slate-800">{{ $entry->term }}</td>
                             <td class="py-2 px-5 whitespace-nowrap {{ $entry->outcome === 'failed' ? 'text-red-700' : 'text-slate-700' }}">
-                                {{ ['linked' => 'Linked', 'created' => 'New Skill', 'none' => 'No Link', 'not_skill' => 'Not a Skill', 'failed' => 'Failed'][$entry->outcome] ?? ucfirst($entry->outcome) }}
+                                {{ ['linked' => 'Linked', 'created' => 'New Skill', 'none' => 'No Link', 'not_skill' => 'Not a Skill', 'pairs' => 'Pairs Checked', 'failed' => 'Failed'][$entry->outcome] ?? ucfirst($entry->outcome) }}
                             </td>
                             <td class="py-2 px-5 text-slate-600">{{ $entry->skills ?? $entry->error ?? '' }}</td>
                             <td class="py-2 px-5 text-right text-slate-500 tabular-nums">{{ number_format($entry->ms / 1000, 1) }}s</td>

@@ -9,6 +9,7 @@ use App\Models\Skill;
 use App\Models\SkillAlias;
 use App\Models\SkillLink;
 use App\Models\SkillLinkLog;
+use App\Models\SkillPair;
 use App\Models\WorkerSkill;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -67,6 +68,10 @@ class CategoryController extends Controller
             $aliases = $aliases->filter(fn ($a) => $has($a->term_a) || $has($a->term_b))->values();
         }
 
+        // Skills the System read as the same work.
+        $pairs = SkillPair::where('same', true)->orderBy('term_a')->orderBy('term_b')->get()
+            ->filter(fn ($p) => $q === '' || $has($p->term_a) || $has($p->term_b));
+
         // Words the System linked, newest first, one line per word.
         $links = SkillLink::with('skill:id,name')->latest('id')->take(500)->get()
             ->groupBy('term')
@@ -96,7 +101,7 @@ class CategoryController extends Controller
 
         return view('admin.categories.index', compact(
             'categories', 'listed', 'selected', 'selectedInUse', 'impact', 'q',
-            'workersByCategory', 'workersBySkill', 'jobsBySkill', 'aliases', 'links',
+            'workersByCategory', 'workersBySkill', 'jobsBySkill', 'aliases', 'pairs', 'links',
             'usedBy', 'linkUsage', 'linkLog',
         ));
     }
@@ -327,6 +332,16 @@ class CategoryController extends Controller
             "Marked the word \"{$data['term']}\" as " . ($notSkill ? 'not a skill' : 'a skill'));
 
         return back()->with('success', "\"{$data['term']}\" is " . ($notSkill ? 'not a skill. Matching ignores it.' : 'a skill again.'));
+    }
+
+    /** Not the same work after all. Kept, so the System does not ask again. */
+    public function unlinkPair(SkillPair $pair)
+    {
+        $pair->update(['same' => false]);
+
+        AdminAction::record('skill_pair.unlinked', 'skill_pair', $pair->id, "Unlinked {$pair->term_a} and {$pair->term_b}");
+
+        return back()->with('success', "{$pair->term_a} and {$pair->term_b} no longer match each other.");
     }
 
     public function destroyAlias(SkillAlias $alias)

@@ -507,10 +507,15 @@ return [
             invents a false one, and a missed match costs less than a
             wrong one.
         */
-        // 0.94 for the SEMANTIC_SIMILARITY + context vectors above: between
-        // the highest different-trade pair (0.911) and the lowest same-meaning
-        // one (0.961). The plain vectors needed 0.80.
-        'similarity_threshold' => (float) env('EMBEDDING_THRESHOLD', filled(env('EMBEDDING_TASK_TYPE', 'SEMANTIC_SIMILARITY')) ? 0.94 : 0.80),
+        // Only for a pair the System has not read yet (SkillPair). 0.94 was
+        // measured on trades far apart; on live 25 Nov it connected 107 pairs,
+        // many of them wrong, up to "Maintenance / Repair" at 0.9727. The four
+        // above that were right. The plain vectors needed 0.80.
+        'similarity_threshold' => (float) env('EMBEDDING_THRESHOLD', filled(env('EMBEDDING_TASK_TYPE', 'SEMANTIC_SIMILARITY')) ? 0.973 : 0.80),
+
+        // Close enough to be worth reading. Right pairs were found down to
+        // 0.938 ("Laba at Plantsa / Weekly laundry").
+        'pair_floor' => (float) env('EMBEDDING_PAIR_FLOOR', 0.92),
 
         // A semantic match is real but inferred, so it scores below an id
         // or a shared stem. See SkillMatcher.

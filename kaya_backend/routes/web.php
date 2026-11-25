@@ -213,6 +213,7 @@ Route::prefix('admin')->name('admin.')->group(function () {
         Route::post('/skill-aliases', [AdminCategoryController::class, 'storeAlias'])->name('skill-aliases.store');
         Route::post('/skill-aliases/{alias}/delete', [AdminCategoryController::class, 'destroyAlias'])->name('skill-aliases.destroy');
         Route::post('/skill-links/unlink', [AdminCategoryController::class, 'unlinkWord'])->name('skill-links.unlink');
+        Route::post('/skill-pairs/{pair}/unlink', [AdminCategoryController::class, 'unlinkPair'])->name('skill-pairs.unlink');
         Route::post('/skill-links/mark', [AdminCategoryController::class, 'markWord'])->name('skill-links.mark');
         });
 
