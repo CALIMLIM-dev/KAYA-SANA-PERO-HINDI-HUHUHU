@@ -2,7 +2,7 @@
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:8px 0 20px;">
     <tr>
         <td align="center" style="background:#EEF1FF; border-radius:12px; padding:22px 12px;">
-            <span style="font-size:38px; font-weight:800; letter-spacing:12px; color:#3D5CFF; font-family:'SFMono-Regular',Consolas,'Courier New',monospace;">{{ $code }}</span>
+            <span style="font-size:38px; font-weight:800; letter-spacing:8px; padding-left:8px; color:#3D5CFF; font-family:'SFMono-Regular',Consolas,'Courier New',monospace;">{{ $code }}</span>
         </td>
     </tr>
 </table>

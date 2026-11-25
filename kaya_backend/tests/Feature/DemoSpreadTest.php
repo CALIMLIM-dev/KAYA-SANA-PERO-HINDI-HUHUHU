@@ -25,6 +25,8 @@ class DemoSpreadTest extends TestCase
     #[Test]
     public function sample_history_is_spread_back_in_order_and_live_work_stays_recent(): void
     {
+        // The clock is read twice below; a second between them is not the subject.
+        $this->freezeSecond();
         $today = now()->subHours(3)->toDateTimeString();
         $real = User::factory()->create(['email' => 'real@gmail.com', 'created_at' => $today]);
         $sample = collect(range(1, 20))->map(fn ($i) => User::factory()->create(['email' => "s{$i}@sample.kaya.test", 'created_at' => $today]));

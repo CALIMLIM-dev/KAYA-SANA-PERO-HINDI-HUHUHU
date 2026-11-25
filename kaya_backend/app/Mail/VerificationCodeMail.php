@@ -27,7 +27,8 @@ class VerificationCodeMail extends Mailable
 
     public function envelope(): Envelope
     {
-        return new Envelope(subject: "Your KAYA code is {$this->code}");
+        // Never the code: a subject shows on a locked phone.
+        return new Envelope(subject: "KAYA - Confirm your {$this->subjectOfVerification}");
     }
 
     public function content(): Content

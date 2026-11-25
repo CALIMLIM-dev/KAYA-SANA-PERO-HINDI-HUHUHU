@@ -1,7 +1,7 @@
 @extends('emails.layout')
 
-@section('title', 'Your KAYA code')
-@section('preheader', "Your KAYA code is {$code}. It expires in 10 minutes.")
+@section('title', 'Confirm your ' . $subjectOfVerification)
+@section('preheader', 'Open this email for your code. It expires in 10 minutes.')
 
 @section('content')
     <h1 style="margin:0 0 16px; font-size:22px; line-height:1.3; font-weight:700; color:#111827;">Confirm your {{ $subjectOfVerification }}</h1>

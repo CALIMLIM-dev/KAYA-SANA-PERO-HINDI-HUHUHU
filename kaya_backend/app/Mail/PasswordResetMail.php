@@ -24,7 +24,8 @@ class PasswordResetMail extends Mailable
     public function envelope(): Envelope
     {
         return new Envelope(
-            subject: "Your KAYA password reset code is {$this->resetCode}",
+            // Never the code: a subject shows on a locked phone.
+            subject: 'KAYA - Reset your password',
         );
     }
 

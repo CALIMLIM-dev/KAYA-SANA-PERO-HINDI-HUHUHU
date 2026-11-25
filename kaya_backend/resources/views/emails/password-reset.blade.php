@@ -1,7 +1,7 @@
 @extends('emails.layout')
 
 @section('title', 'Reset your KAYA password')
-@section('preheader', "Your KAYA password reset code is {$resetCode}. It expires in 15 minutes.")
+@section('preheader', 'Open this email for your code. It expires in 15 minutes.')
 
 @section('content')
     <h1 style="margin:0 0 16px; font-size:22px; line-height:1.3; font-weight:700; color:#111827;">Reset your password</h1>
