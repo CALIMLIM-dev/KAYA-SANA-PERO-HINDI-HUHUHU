@@ -27,7 +27,8 @@
                             <table role="presentation" cellpadding="0" cellspacing="0">
                                 <tr>
                                     <td style="vertical-align:middle;">
-                                        <img src="{{ rtrim(config('app.url'), '/') }}/images/kaya-mail.png" width="44" height="44" alt="KAYA"
+                                        {{-- Inside the email: a link to another site reads as spam. --}}
+                                        <img src="{{ $message->embed(public_path('images/kaya-mail.png')) }}" width="44" height="44" alt="KAYA"
                                              style="display:block; border:0; width:44px; height:44px;">
                                     </td>
                                     <td style="vertical-align:middle; padding-left:10px; font-size:24px; font-weight:800; color:#3D5CFF; letter-spacing:1px;">KAYA</td>

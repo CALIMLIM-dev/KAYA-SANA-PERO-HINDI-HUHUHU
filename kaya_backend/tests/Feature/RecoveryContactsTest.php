@@ -165,7 +165,8 @@ class RecoveryContactsTest extends TestCase
         $this->assertStringNotContainsString('display:none', $html);
         $mail->assertSeeInText('482917');
         $this->assertStringContainsString('max-width:600px', $html);
-        $this->assertStringContainsString('/images/kaya-mail.png', $html);
+        $this->assertStringContainsString('alt="KAYA"', $html);
+        $this->assertStringNotContainsString('http', $html, 'nothing loaded from another site');
 
         $reset = new PasswordResetMail('Maria', '193746');
         $this->assertSame('KAYA - Reset your password', $reset->envelope()->subject);

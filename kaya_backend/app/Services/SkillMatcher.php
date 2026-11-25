@@ -555,6 +555,15 @@ class SkillMatcher
      */
     private static function sharedCore(string $required, string $held): float
     {
+        // Cleaning a thing is not installing or repairing it: "Window
+        // Cleaning" counted a computer technician's "Windows Installation".
+        // Aircon is the one trade where the same person does both.
+        $cleans = static fn (string $term): bool => preg_match('/clean|linis/', $term) === 1;
+        $aircon = static fn (string $term): bool => preg_match('/aircon|\bac\b|air ?condition/', $term) === 1;
+        if ($cleans($required) !== $cleans($held) && ! ($aircon($required) && $aircon($held))) {
+            return 0.0;
+        }
+
         $core = static function (string $term): array {
             $words = array_filter(
                 explode(' ', $term),
