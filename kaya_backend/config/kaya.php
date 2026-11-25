@@ -206,6 +206,9 @@ return [
         */
         'boost'      => (int) env('CREDIT_COST_BOOST', 8),
         'boost_days' => (int) env('CREDIT_BOOST_DAYS', 3),
+        // A worker profile's, priced apart from a job's.
+        'profile_boost'      => (int) env('CREDIT_COST_PROFILE_BOOST', env('CREDIT_COST_BOOST', 8)),
+        'profile_boost_days' => (int) env('CREDIT_PROFILE_BOOST_DAYS', env('CREDIT_BOOST_DAYS', 3)),
 
         /*
             A post's days past the free week, per barya.

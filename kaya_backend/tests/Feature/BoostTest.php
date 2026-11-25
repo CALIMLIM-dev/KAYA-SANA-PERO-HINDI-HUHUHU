@@ -450,4 +450,50 @@ class BoostTest extends TestCase
             'the badge follows the boost, so an unboosted post must not claim it',
         );
     }
+
+    /** A profile boost and a job boost are priced apart, each from the admin panel. */
+    public function test_a_profile_boost_has_its_own_price_and_length(): void
+    {
+        $admin = User::factory()->create(['user_type' => 'admin']);
+        $form = [];
+        foreach (\App\Support\Pricing::current() as $key => $field) {
+            $form[\App\Support\Pricing::formName($key)] = $field['value'];
+        }
+        $form[\App\Support\Pricing::formName('kaya.credits.profile_boost')] = 5;
+        $form[\App\Support\Pricing::formName('kaya.credits.profile_boost_days')] = 9;
+        $this->actingAs($admin)->post(route('admin.settings.update'), $form)->assertSessionHasNoErrors();
+        $this->app['auth']->forgetGuards();
+
+        $worker = $this->topUp(User::factory()->create(['is_verified' => true]));
+        CreditWallet::updateOrCreate(['user_id' => $worker->id], ['balance' => 50]);
+        $profile = app(\App\Services\BoostService::class)->purchase($worker, Boost::TYPE_WORKER, $worker->id);
+        $this->assertSame(45, (int) CreditWallet::where('user_id', $worker->id)->value('balance'));
+        $this->assertSame(9, (int) round($profile->starts_at->diffInDays($profile->ends_at)));
+
+        // The job's is untouched.
+        $cost = (int) config('kaya.credits.boost');
+        $this->assertNotSame(5, $cost);
+        $job = app(\App\Services\BoostService::class)->purchase($worker, Boost::TYPE_JOB, 999);
+        $this->assertSame(45 - $cost, (int) CreditWallet::where('user_id', $worker->id)->value('balance'));
+        $this->assertSame((int) config('kaya.credits.boost_days'), (int) round($job->starts_at->diffInDays($job->ends_at)));
+
+        $this->actingAs($worker, 'sanctum')->getJson('/api/v1/credits/wallet')->assertOk()
+            ->assertJsonPath('data.costs.profile_boost', 5)->assertJsonPath('data.costs.profile_boost_days', 9)
+            ->assertJsonPath('data.costs.boost', $cost);
+    }
+
+    /** What they shared is where the new one starts. */
+    public function test_the_shared_price_is_carried_over_once(): void
+    {
+        \App\Support\Pricing::set('kaya.credits.boost', 12);
+        $migration = require database_path('migrations/2026_11_25_000006_give_profile_boosts_their_own_price.php');
+        $saved = fn () => \App\Models\SystemSetting::get('kaya.credits.profile_boost');
+
+        $migration->up();
+        $this->assertSame('12', $saved());
+
+        \App\Support\Pricing::set('kaya.credits.profile_boost', 4);
+        $migration->up();
+        $this->assertSame('4', $saved(), 'never over one an administrator has set');
+    }
 }

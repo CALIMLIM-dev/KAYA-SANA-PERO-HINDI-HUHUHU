@@ -69,8 +69,9 @@ class BoostService
             );
         }
 
-        $cost = (int) config('kaya.credits.boost');
-        $days = (int) config('kaya.credits.boost_days');
+        $what = $type === Boost::TYPE_WORKER ? 'profile_boost' : 'boost';
+        $cost = (int) config("kaya.credits.{$what}");
+        $days = (int) config("kaya.credits.{$what}_days");
 
         return app(CreditLedger::class)->charge(
             user: $user,

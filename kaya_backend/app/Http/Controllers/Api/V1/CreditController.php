@@ -73,6 +73,8 @@ class CreditController extends Controller
         $perBarya = (int) config('kaya.credits.post_days_per_barya');
         $boost = (int) config('kaya.credits.boost');
         $boostDays = (int) config('kaya.credits.boost_days');
+        $profile = (int) config('kaya.credits.profile_boost');
+        $profileDays = (int) config('kaya.credits.profile_boost_days');
 
         $row = fn (string $label, bool $free) => [
             'label' => $label, 'free' => $free, 'topped_up' => true,
@@ -87,7 +89,8 @@ class CreditController extends Controller
             $row("Invite a worker ({$invite} Barya)", true),
             $row('Chat, schedule, complete and review a hire', true),
             $row("Keep a job post up past {$freeDays} days (1 Barya per {$perBarya} days)", false),
-            $row("Boost a job or profile to the top ({$boost} Barya, {$boostDays} days)", false),
+            $row("Boost a job to the top ({$boost} Barya, {$boostDays} days)", false),
+            $row("Boost your profile to the top ({$profile} Barya, {$profileDays} days)", false),
             $row('More than 1 community board post at once (up to 3)', false),
             // Employer: the panel's "receives a list of job seekers whose
             // profiles match". It was top-up only and missing from this list.
@@ -117,6 +120,8 @@ class CreditController extends Controller
                 // arithmetic on the server side.
                 'boost'      => (int) config('kaya.credits.boost'),
                 'boost_days' => (int) config('kaya.credits.boost_days'),
+                'profile_boost'      => (int) config('kaya.credits.profile_boost'),
+                'profile_boost_days' => (int) config('kaya.credits.profile_boost_days'),
                 'post_free_days'      => (int) config('kaya.jobs.free_days'),
                 'post_days_per_barya' => (int) config('kaya.credits.post_days_per_barya'),
             ],

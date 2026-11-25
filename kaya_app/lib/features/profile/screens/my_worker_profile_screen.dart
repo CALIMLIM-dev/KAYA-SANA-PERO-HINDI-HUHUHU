@@ -1017,9 +1017,10 @@ class _MyWorkerProfileScreenState extends State<MyWorkerProfileScreen> with Sing
   Widget _buildBoostCard() {
     final p = context.watch<WorkerProfileProvider>();
     final credits = context.watch<CreditsProvider>();
-    final cost = credits.boostCost ?? JobBoost.cost;
-    final days = credits.boostDays ?? JobBoost.days;
+    final cost = credits.profileBoostCost ?? JobBoost.cost;
+    final days = credits.profileBoostDays ?? JobBoost.days;
     final boosted = p.isBoosted;
+    final blocked = _boostBlocked(credits);
 
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
@@ -1031,7 +1032,11 @@ class _MyWorkerProfileScreenState extends State<MyWorkerProfileScreen> with Sing
       ),
       child: Row(
         children: [
-          const Icon(Icons.trending_up, size: 22, color: AppColors.primary),
+          Icon(
+            blocked == null ? Icons.trending_up : Icons.lock_outline,
+            size: 22,
+            color: blocked == null ? AppColors.primary : AppColors.neutral500,
+          ),
           const SizedBox(width: 12),
           Expanded(
             child: Column(
@@ -1059,12 +1064,32 @@ class _MyWorkerProfileScreenState extends State<MyWorkerProfileScreen> with Sing
                     color: AppColors.neutral600,
                   ),
                 ),
+                if (blocked != null) ...[
+                  const SizedBox(height: 2),
+                  Text(
+                    blocked,
+                    style: const TextStyle(
+                      fontSize: 12.5,
+                      height: 1.35,
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.neutral700,
+                    ),
+                  ),
+                ],
               ],
             ),
           ),
           TextButton(
-            onPressed: _boosting ? null : _confirmBoost,
-            child: Text(boosted ? 'Extend' : 'Boost'),
+            onPressed: blocked != null
+                ? _openTopUp
+                : _boosting
+                    ? null
+                    : _confirmBoost,
+            child: Text(blocked != null
+                ? 'Top Up'
+                : boosted
+                    ? 'Extend'
+                    : 'Boost'),
           ),
         ],
       ),
@@ -1088,12 +1113,26 @@ class _MyWorkerProfileScreenState extends State<MyWorkerProfileScreen> with Sing
   /// dialog and, confirmed, charge twice.
   bool _boosting = false;
 
+  /// Why it cannot be bought, or null when it can. Said on the card, before
+  /// it is touched - the same rule as BoostService::purchase.
+  String? _boostBlocked(CreditsProvider credits) {
+    final cost = credits.profileBoostCost;
+    if (cost == null || !credits.hasLoadedOnce) return null;
+    if (!credits.hasToppedUp) return 'Needs a top up';
+    return credits.balance < cost ? 'You have ${Credits.amount(credits.balance)}' : null;
+  }
+
+  Future<void> _openTopUp() async {
+    await AppRouter.push(context, AppRouter.wallet);
+    if (mounted) await context.read<CreditsProvider>().refresh();
+  }
+
   Future<void> _confirmBoost() async {
     if (_boosting) return;
     final p = context.read<WorkerProfileProvider>();
     final credits = context.read<CreditsProvider>();
-    final cost = credits.boostCost ?? JobBoost.cost;
-    final days = credits.boostDays ?? JobBoost.days;
+    final cost = credits.profileBoostCost ?? JobBoost.cost;
+    final days = credits.profileBoostDays ?? JobBoost.days;
 
     if (!await ensureVerified(context, action: 'boost your profile')) return;
     if (!mounted) return;
@@ -1107,12 +1146,11 @@ class _MyWorkerProfileScreenState extends State<MyWorkerProfileScreen> with Sing
       return;
     }
 
-    if (credits.hasLoadedOnce && !credits.canAfford('boost')) {
-      AppToast.info(context,
-          'A boost costs ${credits.costOf('boost')} Barya and you have ${credits.balance}. Top up to boost.');
-      await AppRouter.push(context, AppRouter.wallet);
-      if (!mounted) return;
-      await credits.refresh();
+    // The wallet had not loaded when the card was drawn.
+    await credits.load();
+    if (!mounted) return;
+    if (_boostBlocked(credits) case final why?) {
+      AppToast.info(context, why);
       return;
     }
 

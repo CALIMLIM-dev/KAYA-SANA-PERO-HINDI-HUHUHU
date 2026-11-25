@@ -105,7 +105,7 @@ class TopUpPerksTest extends TestCase
             ->assertOk()->json('data.comparison'))->where('free', false)->pluck('label')->implode('|');
 
         foreach (['See suggested workers for your job', 'See who viewed your profile',
-                  'Know when an employer viewed your profile', 'Your profile views each week', 'Boost a job or profile'] as $perk) {
+                  'Know when an employer viewed your profile', 'Your profile views each week', 'Boost a job', 'Boost your profile'] as $perk) {
             $this->assertStringContainsString($perk, $labels);
         }
     }

@@ -50,7 +50,17 @@ class Pricing
         ],
         'kaya.credits.boost_days' => [
             'label' => 'Boost length',
-            'hint'  => 'How many days a boost lasts.',
+            'hint'  => 'How many days a job boost lasts.',
+            'min' => 1, 'max' => 30, 'unit' => 'days',
+        ],
+        'kaya.credits.profile_boost' => [
+            'label' => 'Boost a profile',
+            'hint'  => 'Top of the worker list for the days below.',
+            'min' => 0, 'max' => 500, 'unit' => 'Barya',
+        ],
+        'kaya.credits.profile_boost_days' => [
+            'label' => 'Profile boost length',
+            'hint'  => 'How many days a profile boost lasts.',
             'min' => 1, 'max' => 30, 'unit' => 'days',
         ],
         'kaya.jobs.free_days' => [

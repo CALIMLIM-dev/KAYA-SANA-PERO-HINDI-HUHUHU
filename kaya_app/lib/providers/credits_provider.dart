@@ -176,6 +176,11 @@ class CreditsProvider with ChangeNotifier {
   int? get boostCost => _costs['boost'];
   int? get boostDays => _costs['boost_days'];
 
+  /// A worker profile's boost, priced apart from a job's. An older server
+  /// sends the one price for both.
+  int? get profileBoostCost => _costs['profile_boost'] ?? boostCost;
+  int? get profileBoostDays => _costs['profile_boost_days'] ?? boostDays;
+
   /// Days a post is listed for before it costs anything. Editable from the
   /// admin panel, so it is read rather than compiled in.
   int? get freePostDays => _costs['post_free_days'];

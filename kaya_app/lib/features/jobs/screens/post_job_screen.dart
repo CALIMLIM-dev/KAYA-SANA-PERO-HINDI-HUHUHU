@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../../core/widgets/category_picker.dart';
 import '../../../core/widgets/kaya_popup.dart';
+import '../widgets/job_boost_toggle.dart';
 import '../widgets/open_until_calendar.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:image_picker/image_picker.dart';
@@ -660,49 +661,17 @@ class _PostJobScreenState extends State<PostJobScreen> {
     setState(() => _isLoadingSkills = false);
   }
 
-  void _handleUrgentToggle() {
-    if (!_isUrgent) {
-      // Show popup when enabling urgent
-      showDialog(
-        context: context,
-        /*
-            The same plain dialog as every other confirmation in this file.
+  /// Why Job Boost cannot be turned on, or null when it can. The same rule as
+  /// BoostService::purchase, and the wallet it is taken from.
+  String? _boostBlocked(CreditsProvider credits) {
+    final cost = credits.boostCost;
+    if (cost == null || !credits.hasLoadedOnce || _wasUrgent) return null;
+    if (!credits.hasToppedUp) return 'Job Boost needs a top up';
 
-            This had an icon crammed into the title row and three clauses of
-            body text, and read as a different kind of thing from the Discard
-            dialog beside it. The price was also in two places. One sentence,
-            and the cost on the button where it is decided.
-
-            The sentence used to be false: the flag it set appeared in no
-            ordering anywhere. Placement is a real, paid thing now.
-        */
-        builder: (context) => AlertDialog(
-          title: const Text('Boost This Job to the Top?'),
-          content: Text(
-            'Job boost puts your post at the top of the job feed for '
-            '${context.read<CreditsProvider>().boostDays ?? JobBoost.days} days, above posts that are '
-            'not boosted, so it is the first thing workers near you see. '
-            'The Barya is taken when you post the job.',
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('Cancel'),
-            ),
-            TextButton(
-              onPressed: () {
-                Navigator.pop(context);
-                setState(() => _isUrgent = true);
-              },
-              child: Text('Boost for ${context.read<CreditsProvider>().boostCost ?? JobBoost.cost} Barya'),
-            ),
-          ],
-        ),
-      );
-    } else {
-      // Just toggle off without popup
-      setState(() => _isUrgent = false);
-    }
+    final post = _endDate == null ? 0 : (_priceUntil(credits, _endDate!) ?? 0);
+    return credits.balance < post + cost
+        ? 'You have ${Credits.amount(credits.balance)}${post > 0 ? ', and the post takes ${Credits.amount(post)}' : ''}'
+        : null;
   }
 
   /// What the server accepts — mirrored here so a photo is refused while the
@@ -1251,21 +1220,16 @@ class _PostJobScreenState extends State<PostJobScreen> {
                 icon: Icons.flash_on_outlined,
                 hint: 'Job boost puts this post at the top of the job feed for '
                     '${context.watch<CreditsProvider>().boostDays ?? JobBoost.days} days, '
-                    'so it is the first job workers near you see. '
-                    '${context.watch<CreditsProvider>().boostCost ?? JobBoost.cost} Barya.',
+                    'so it is the first job workers near you see.',
                 children: [
-                  Row(
-                    children: [
-                      Expanded(
-                        child: _buildToggleButton(
-                          label: 'Job Boost',
-                          icon: Icons.flash_on,
-                          isActive: _isUrgent,
-                          onTap: _handleUrgentToggle,
-                          color: AppColors.primary,
-                        ),
-                      ),
-                    ],
+                  JobBoostToggle(
+                    on: _isUrgent,
+                    paid: _wasUrgent,
+                    cost: context.watch<CreditsProvider>().boostCost ?? JobBoost.cost,
+                    days: context.watch<CreditsProvider>().boostDays ?? JobBoost.days,
+                    blocked: _boostBlocked(context.watch<CreditsProvider>()),
+                    onChanged: (on) => setState(() => _isUrgent = on),
+                    onTopUp: _openTopUp,
                   ),
                 ],
               ),
@@ -1331,9 +1295,14 @@ class _PostJobScreenState extends State<PostJobScreen> {
             and closes itself on the end date, and that span is what is
             paid for - see _postCostLine.
         */
-        _buildLabel('Open Until'),
-        const SizedBox(height: 8),
-        _openUntil(),
+        const SizedBox(height: 12),
+        _buildDateField(
+          label: 'Open Until *',
+          value: _endDate,
+          hint: 'Pick a day',
+          onTap: _pickEndDate,
+          onClear: _endDate == null ? null : () => setState(() => _endDate = null),
+        ),
         if (_showScheduleError && _endDate == null) ...[
           const SizedBox(height: 6),
           const Text(
@@ -1346,24 +1315,23 @@ class _PostJobScreenState extends State<PostJobScreen> {
     );
   }
 
-  /// The day the post closes. What it costs and what is locked are on the
-  /// calendar's own days, and nowhere else.
-  Widget _openUntil() {
-    final credits = context.watch<CreditsProvider>();
+  Future<void> _pickEndDate() async {
     final now = DateTime.now();
-
-    return OpenUntilCalendar(
+    final picked = await pickOpenUntil(
+      context,
       today: DateTime(now.year, now.month, now.day),
       selected: _endDate,
-      lastDay: _lastDayAllowed(credits),
-      priceFor: (day) => _priceUntil(credits, day),
-      onSelected: (day) => setState(() => _endDate = day),
-      onTopUp: () async {
-        await AppRouter.push(context, AppRouter.wallet);
-        // Topped up there: the locks come off.
-        if (mounted) await context.read<CreditsProvider>().refresh();
-      },
+      lastDay: _lastDayAllowed,
+      priceFor: _priceUntil,
+      onTopUp: _openTopUp,
     );
+    if (picked != null && mounted) setState(() => _endDate = picked);
+  }
+
+  Future<void> _openTopUp() async {
+    await AppRouter.push(context, AppRouter.wallet);
+    // Topped up there: the locks come off.
+    if (mounted) await context.read<CreditsProvider>().refresh();
   }
 
   /// What closing on [day] costs, or null when it is not known, or already paid.
@@ -2346,66 +2314,6 @@ class _PostJobScreenState extends State<PostJobScreen> {
     );
   }
 
-  Widget _buildToggleButton({
-    required String label,
-    required IconData icon,
-    required bool isActive,
-    required VoidCallback onTap,
-    required Color color,
-  }) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 12),
-        decoration: BoxDecoration(
-          color: isActive ? color : Colors.white,
-          borderRadius: BorderRadius.circular(10),
-          border: Border.all(
-            color: isActive ? color : AppColors.neutral300,
-            width: isActive ? 2 : 1,
-          ),
-        ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              icon,
-              color: isActive ? Colors.white : AppColors.neutral600,
-              size: 18,
-            ),
-            const SizedBox(width: 8),
-            /*
-                Wrapped, not truncated.
-
-                Two of these share a row, so each gets half the width, and on
-                a narrow phone at a large font size "Negotiable" was about a
-                pixel wider than its half. It was ellipsised to fit, which
-                turned the label into "Negoti…" — a control that no longer
-                says what it does.
-
-                Losing the end of a two-word label is worse than the button
-                being a line taller, so it wraps now. Ellipsis stays as the
-                last resort for a second line that still does not fit.
-            */
-            Flexible(
-              child: Text(
-                label,
-                maxLines: 2,
-                textAlign: TextAlign.center,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w600,
-                  color: isActive ? Colors.white : AppColors.neutral600,
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
   Widget _buildBottomBar() {
     return Container(
       padding: const EdgeInsets.all(16),
@@ -2678,8 +2586,7 @@ class _PostJobScreenState extends State<PostJobScreen> {
         } else {
           AppToast.info(
             context,
-            'Job posted, but there was not enough Barya to put it at the '
-            'top of the feed.',
+            'Job posted without the boost. Boosting needs a top up and enough Barya.',
           );
         }
         Navigator.pop(context);
