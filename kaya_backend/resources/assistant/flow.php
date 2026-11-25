@@ -52,7 +52,7 @@ return [
             'refund' => [
                 'label'   => 'I did not get my Barya back',
                 'read'    => 'wallet',
-                'answer'  => 'Barya comes back on its own when you withdraw within an hour of applying, or when a job is deleted or its post ends while you are still waiting. The Refund Policy at the bottom of My Wallet lists every case.',
+                'answer'  => 'Barya comes back on its own when you withdraw within an hour of applying, or when a job is deleted, closed or completed by somebody else, or its post ends, while you are still waiting. The Refund Policy at the bottom of My Wallet lists every case.',
                 'actions' => ['wallet_history'],
             ],
             'free' => [

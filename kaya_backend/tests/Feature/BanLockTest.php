@@ -61,6 +61,34 @@ class BanLockTest extends TestCase
         $this->getJson('/api/v1/account/standing', $auth)->assertOk()->assertJsonPath('data.standing', 'banned');
     }
 
+    /** The scrambled code of the phone goes with the account, unless it is banned. */
+    #[Test]
+    public function deleting_an_account_deletes_its_phone_code_but_not_a_banned_ones(): void
+    {
+        $sign = function (string $phone): User {
+            $user = User::factory()->create(['password' => 'Secret-pass-123']);
+            $this->postJson('/api/v1/login', ['email' => $user->email, 'password' => 'Secret-pass-123'], ['X-Device-Id' => $phone])->assertOk();
+            $this->app['auth']->forgetGuards();
+
+            return $user->fresh();
+        };
+        $codes = fn (User $user) => \DB::table('user_devices')->where('user_id', $user->id)->count();
+
+        $ordinary = $sign('phone-a');
+        $this->assertSame(1, $codes($ordinary));
+        $this->actingAs($ordinary, 'sanctum')->deleteJson('/api/v1/me', ['password' => 'Secret-pass-123'])->assertOk();
+        $this->assertSame(0, $codes($ordinary));
+
+        $banned = $sign('phone-b');
+        $this->ban($banned);
+        app(\App\Services\AccountDeletionService::class)->delete($banned->fresh());
+        $this->assertSame(1, $codes($banned));
+
+        // And the phone is still known: a new account on it is marked.
+        $this->assertTrue(\App\Support\DeviceIds::sharesBannedDevice($sign('phone-b')->id));
+        $this->assertFalse(\App\Support\DeviceIds::sharesBannedDevice($sign('phone-a')->id));
+    }
+
     #[Test]
     public function an_account_made_on_a_banned_phone_is_marked_and_cannot_be_verified(): void
     {

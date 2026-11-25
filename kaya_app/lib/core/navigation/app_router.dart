@@ -326,6 +326,15 @@ class AppRouter {
           settings: settings,
         );
 
+      // The same form, filled in from an ended post and posted as a new one.
+      case '/post-again':
+        return MaterialPageRoute(
+          builder: (_) => PostJobScreen(
+            again: (settings.arguments as Map?)?.cast<String, dynamic>(),
+          ),
+          settings: settings,
+        );
+
       case '/edit-employer-profile':
         return MaterialPageRoute(
           builder: (_) => const EditEmployerProfileScreen(),

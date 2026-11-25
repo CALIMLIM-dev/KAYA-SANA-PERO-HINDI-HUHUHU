@@ -56,8 +56,8 @@ const _groups = <(String, List<_FAQ>)>[
   ('Looking for Work', [
     _FAQ('How do I apply for a job?',
         'Open the job and tap Apply Now. The price in Barya is on the button. You get it back '
-            'if you withdraw within an hour of applying, or if the job is deleted or its post '
-            'ends while you are still waiting.'),
+            'if you withdraw within an hour of applying, or if the job is deleted, closed or '
+            'completed by somebody else, or its post ends, while you are still waiting.'),
     _FAQ('Where are my applications and invitations?',
         'Home, then My Applications: the jobs you applied to, the ones employers invited you '
             'to, and your history.'),

@@ -443,8 +443,11 @@ class JobController extends Controller
             'latitude'           => ['nullable', 'numeric', 'between:-90,90'],
             'longitude'          => ['nullable', 'numeric', 'between:-180,180'],
             'is_urgent'          => ['nullable', 'boolean'],
+            // One of their own ended posts, posted again. Its photos are used
+            // unless new ones come with it.
+            'repost_of'          => ['nullable', 'integer', \Illuminate\Validation\Rule::exists('jobs_posts', 'id')->where('employer_id', $user->id)],
             // At least one job photo, up to 4 — matches the picker's own cap.
-            'photos'             => ['required', 'array', 'min:1', 'max:4'],
+            'photos'             => ['required_without:repost_of', 'array', 'min:1', 'max:4'],
             'photos.*'           => ['image', 'mimes:jpg,jpeg,png', 'max:5120'],
             /*
                 The day the work starts and the day it ends. Both of them.
@@ -482,7 +485,7 @@ class JobController extends Controller
             'workers_needed'     => ['nullable', 'integer', 'min:1', 'max:20'],
         ], [
             'budget_max.gte' => 'The maximum budget must be greater than or equal to the minimum budget.',
-            'photos.required' => 'Please add at least one photo of the job.',
+            'photos.required_without' => 'Please add at least one photo of the job.',
             'location_id.required' => 'Please pick the job location from the suggestions.',
             'end_date.after_or_equal' => 'The Open Until date cannot be in the past.',
             'end_date.required' => 'Please choose the day the post closes.',
@@ -523,13 +526,25 @@ class JobController extends Controller
             return $this->ok($duplicate->load(['category', 'skills']), 'Job created', 201);
         }
 
+        $source = empty($data['repost_of']) ? null : JobPost::find($data['repost_of']);
+        unset($data['repost_of']);
+        if ($source && $why = $source->postAgainRefusal()) {
+            return $this->fail($why, 422);
+        }
+
         $skillIds = $data['required_skill_ids'] ?? [];
         unset($data['required_skill_ids']);
 
         $photoPaths = array_map(
             fn ($photo) => $photo->store('job_photos', config('filesystems.media')),
-            $request->file('photos')
+            $request->file('photos') ?? []
         );
+        if ($photoPaths === [] && $source) {
+            $photoPaths = $this->copyPhotos($source);
+        }
+        if ($photoPaths === []) {
+            return $this->fail('Please add at least one photo of the job.', 422);
+        }
         $data['photos'] = $photoPaths;
 
         /*
@@ -942,6 +957,11 @@ class JobController extends Controller
 
                 return $job;
             });
+
+        // Whether the card offers Post Again: the same rule the post is held to.
+        foreach ($jobs as $job) {
+            $job->can_post_again = $job->postAgainRefusal() === null;
+        }
 
         /*
             The hire attached to each job, so the card itself can act.
@@ -1549,6 +1569,32 @@ class JobController extends Controller
         });
 
         return $this->ok($job, 'Status updated');
+    }
+
+    /**
+     * An ended post's photos, as files of the new one's own: deleting either
+     * post takes its files with it.
+     *
+     * @return list<string>
+     */
+    private function copyPhotos(JobPost $source): array
+    {
+        $disk = \Illuminate\Support\Facades\Storage::disk(config('filesystems.media'));
+        $copied = [];
+
+        foreach ((array) $source->photos as $path) {
+            $to = 'job_photos/' . \Illuminate\Support\Str::random(40) . '.' . (pathinfo((string) $path, PATHINFO_EXTENSION) ?: 'jpg');
+
+            try {
+                if ($disk->exists($path) && $disk->copy($path, $to)) {
+                    $copied[] = $to;
+                }
+            } catch (\Throwable) {
+                // A photo that cannot be read is left out, not the post.
+            }
+        }
+
+        return $copied;
     }
 
     public function destroy(Request $request, JobPost $job)

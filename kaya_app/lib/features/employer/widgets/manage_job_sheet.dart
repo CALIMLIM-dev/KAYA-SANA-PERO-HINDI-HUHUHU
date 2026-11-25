@@ -64,6 +64,13 @@ Future<void> openRoster(BuildContext context, int jobId) async {
   if (context.mounted) await context.read<JobProvider>().fetchMyJobs();
 }
 
+/// An ended post put up again, and the job list asked again on the way back:
+/// the new post is on it.
+Future<void> postJobAgain(BuildContext context, Map<String, dynamic> job) async {
+  await AppRouter.push(context, '/post-again', arguments: job);
+  if (context.mounted) await context.read<JobProvider>().fetchMyJobs();
+}
+
 Widget _actionTile(IconData icon, String label, Color color, VoidCallback onTap) {
   return ListTile(
     contentPadding: EdgeInsets.zero,

@@ -690,6 +690,28 @@ class _ManageJobsScreenState extends State<ManageJobsScreen>
                   ),
                 ],
               ],
+
+              // The server says when: its date came. Not completed or closed.
+              if (job['can_post_again'] == true) ...[
+                const SizedBox(height: 10),
+                SizedBox(
+                  width: double.infinity,
+                  child: OutlinedButton.icon(
+                    onPressed: () => postJobAgain(context, job),
+                    icon: const Icon(Icons.replay, size: 18),
+                    label: const Text('Post Again'),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: AppColors.primary,
+                      side: const BorderSide(color: AppColors.primary),
+                      padding: const EdgeInsets.symmetric(vertical: 11),
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10)),
+                      textStyle: const TextStyle(
+                          fontSize: 14, fontWeight: FontWeight.w600),
+                    ),
+                  ),
+                ),
+              ],
             ],
           ),
         ),

@@ -334,6 +334,30 @@ class JobPost extends Model
     {
         return $this->filledCount() >= max(1, (int) $this->workers_needed);
     }
+
+    /*
+        Why this cannot be posted again as a new post, or null when it can.
+
+        Only when its date came, with nobody hired or with spots still empty.
+        Not one that was completed, or that the employer or KAYA closed. A
+        new post rather than a longer one: the people already hired are held
+        to this post's own date until they agree another.
+    */
+    public function postAgainRefusal(): ?string
+    {
+        if ($this->isOpenForApplications()) {
+            return 'This job is still taking applicants.';
+        }
+
+        if ($this->status === 'in_progress') {
+            $filled = $this->workers_filled ?? $this->filledCount();
+
+            return $filled < max(1, (int) $this->workers_needed) ? null : 'Everyone this job needed is hired.';
+        }
+
+        // Open with its date passed is ended too: the sweep runs at night.
+        return in_array($this->status, ['open', 'expired'], true) ? null : 'Only a post that has ended can be posted again.';
+    }
     /**
      * The pivot column is `job_id`, but Laravel infers `job_post_id` from this
      * model's name — so the foreign key must be given explicitly. Without it

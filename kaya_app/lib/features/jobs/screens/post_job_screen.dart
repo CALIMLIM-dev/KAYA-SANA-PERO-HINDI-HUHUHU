@@ -28,7 +28,7 @@ import '../../../core/widgets/loading.dart';
 
 /// Post Job Screen - Clean, professional design following industry best practices
 class PostJobScreen extends StatefulWidget {
-  const PostJobScreen({super.key, this.editing});
+  const PostJobScreen({super.key, this.editing, this.again});
 
   /*
       A post to edit, the way My Jobs holds it. Null for a new post.
@@ -39,6 +39,10 @@ class PostJobScreen extends StatefulWidget {
       checks, saved instead of posted.
   */
   final Map<String, dynamic>? editing;
+
+  /// An ended post to post again: filled in from it, posted as a new one at
+  /// the normal price. Null otherwise.
+  final Map<String, dynamic>? again;
 
   @override
   State<PostJobScreen> createState() => _PostJobScreenState();
@@ -70,7 +74,7 @@ class _PostJobScreenState extends State<PostJobScreen> {
       if (!mounted) return;
       // Load the real category list before the picker can be opened.
       context.read<WorkerProfileProvider>().fetchCategories();
-      if (_isEditing) {
+      if (_source != null) {
         await _prefillFromJob();
       } else {
         _prefillLocationFromProfile();
@@ -131,6 +135,9 @@ class _PostJobScreenState extends State<PostJobScreen> {
 
   bool get _isEditing => widget.editing != null;
 
+  /// The post the form is filled in from, to edit it or to post it again.
+  Map<String, dynamic>? get _source => widget.editing ?? widget.again;
+
   /// The post's photos as they are. Shown until new ones are picked, which
   /// replace them all on save: the server keeps no partial set.
   List<String> _existingPhotoUrls = [];
@@ -163,7 +170,7 @@ class _PostJobScreenState extends State<PostJobScreen> {
       ].join('|');
 
   Future<void> _prefillFromJob() async {
-    final job = widget.editing!;
+    final job = _source!;
     double? number(Object? v) => double.tryParse('${v ?? ''}');
 
     final budget = number(job['budget_min']);
@@ -185,13 +192,20 @@ class _PostJobScreenState extends State<PostJobScreen> {
           .firstWhere((e) => e.value == job['budget_period'],
               orElse: () => const MapEntry('Daily', 'daily'))
           .key;
-      _isUrgent = job['is_urgent'] == true;
       _workersNeeded = asIntOrNull(job['workers_needed']) ?? 1;
-      // The day it was posted: its days are counted from there.
-      final posted = DateTime.tryParse('${job['created_at'] ?? ''}')?.toLocal();
-      _startDate = posted == null ? null : DateTime(posted.year, posted.month, posted.day);
-      _endDate = DateTime.tryParse('${job['end_date'] ?? ''}');
-      _workStartsOn = DateTime.tryParse('${job['work_starts_on'] ?? ''}');
+      if (_isEditing) {
+        _isUrgent = job['is_urgent'] == true;
+        // The day it was posted: its days are counted from there.
+        final posted = DateTime.tryParse('${job['created_at'] ?? ''}')?.toLocal();
+        _startDate = posted == null ? null : DateTime(posted.year, posted.month, posted.day);
+        _endDate = DateTime.tryParse('${job['end_date'] ?? ''}');
+        _workStartsOn = DateTime.tryParse('${job['work_starts_on'] ?? ''}');
+      } else {
+        // A new post: its days run from today, and its dates are theirs to
+        // choose again. For the spots nobody filled, when there are any.
+        final left = _workersNeeded - (asIntOrNull(job['workers_filled']) ?? 0);
+        if (left > 0) _workersNeeded = left;
+      }
       _existingPhotoUrls = ((job['photo_urls'] as List?) ?? const [])
           .map((p) => '$p')
           .where((p) => p.isNotEmpty)
@@ -220,8 +234,10 @@ class _PostJobScreenState extends State<PostJobScreen> {
           .where((n) => n.isNotEmpty)));
     }
 
-    _daysBefore = _postDays;
-    _wasUrgent = _isUrgent;
+    if (_isEditing) {
+      _daysBefore = _postDays;
+      _wasUrgent = _isUrgent;
+    }
     _savedSnapshot = _snapshot();
   }
 
@@ -833,7 +849,7 @@ class _PostJobScreenState extends State<PostJobScreen> {
 
   /// True once the user has typed or picked anything — an empty form can be
   /// left without a warning.
-  bool get _hasUnsavedInput => _isEditing
+  bool get _hasUnsavedInput => _source != null
       ? _savedSnapshot != null && _snapshot() != _savedSnapshot
       : _titleController.text.trim().isNotEmpty ||
           _descriptionController.text.trim().isNotEmpty ||
@@ -884,7 +900,11 @@ class _PostJobScreenState extends State<PostJobScreen> {
       backgroundColor: AppColors.neutral50,
       appBar: AppBar(
         title: Text(
-          _isEditing ? 'Edit Job' : 'Post a Job',
+          _isEditing
+              ? 'Edit Job'
+              : widget.again != null
+                  ? 'Post Again'
+                  : 'Post a Job',
           style: const TextStyle(
             fontWeight: FontWeight.w600,
             color: Colors.white,
@@ -2639,6 +2659,8 @@ class _PostJobScreenState extends State<PostJobScreen> {
         // stored it and job details hardcoded "/ project".
         budgetPeriod: _periodValue,
         photos:      _selectedImages,
+        // Its old photos are used unless new ones were picked.
+        repostOf:    asIntOrNull(widget.again?['id']),
         startDate:   _startDate!,
         // Only sent when the employer said the job runs over several days, so
         // turning the toggle off cannot leave a stale end date on the record.

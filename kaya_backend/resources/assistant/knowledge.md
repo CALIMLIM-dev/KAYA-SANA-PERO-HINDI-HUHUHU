@@ -11,13 +11,14 @@ VERIFICATION
 - Before verification you can browse jobs, profiles and the community board. Posting a job, applying, inviting, accepting an invitation, posting or commenting on the community board, claiming free Barya and topping up all need a verified account.
 
 LOOKING FOR WORK
-- Apply: open the job and tap Apply Now. The price in Barya is on the button. The Barya comes back if you withdraw within an hour of applying, or if the job is deleted or its post ends while you are still waiting.
+- Apply: open the job and tap Apply Now. The price in Barya is on the button. The Barya comes back if you withdraw within an hour of applying, or if the job is deleted, closed or completed by somebody else, or its post ends, while you are still waiting.
 - Applications and invitations: Home, then My Applications.
 - When hired, a chat opens with the employer. Agree on the day there: either side can propose a schedule and the other accepts it. During the job the worker can share live location with the employer and stop any time.
 - Ranking: employers see first the workers who have the skills a job asks for, or who work in its trade. Within that, a fuller profile ranks higher: reviews, jobs done, experience, certificates and being verified. Topping up does not move anyone up the list. A boost puts a profile at the top of the feed for a few days.
 
 HIRING
 - Post a job: tap Post a Job on the home screen. There is no start date: the post goes up when it is posted and stays open until the Open Until day you pick, under Job Duration. The first days are free; keeping it up longer costs Barya and needs an account that has topped up. The price shows under the Open Until day while picking it. The day of the work is agreed in the chat after hiring.
+- Post a job again: when a post's Open Until day has passed, My Jobs shows Post Again on it. It opens the same form filled in (photos too); pick a new Open Until day and post. It is a new post at the normal price. A post that ended with some spots still empty shows Post Again on its Active card, for the spots left; the workers already hired are not affected. A completed or closed job has no Post Again.
 - Find workers: post a job and workers apply, or search workers by trade and distance and invite one. Inviting costs Barya; inviting someone hired before costs less. An account that has topped up also sees the list of matching workers for each job.
 - See applicants: Home, My Jobs, then Applicants on the job. Accept or reject from there.
 - A job can need from one to twenty workers; the post takes applicants until every spot is filled.

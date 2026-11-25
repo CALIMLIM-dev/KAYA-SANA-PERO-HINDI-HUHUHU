@@ -85,6 +85,11 @@ class AccountDeletionService
             DB::table('saved_jobs')->where('worker_id', $user->id)->delete();
             // The Privacy Policy lists consent records among what goes.
             DB::table('consents')->where('user_id', $user->id)->delete();
+            // And the scrambled code of the phone. Not a banned account's: it
+            // is what keeps them from starting over on the same phone.
+            if (! ($user->is_suspended && $user->suspended_until === null)) {
+                DB::table('user_devices')->where('user_id', $user->id)->delete();
+            }
             $user->tokens()->delete();
 
             $user->forceFill([

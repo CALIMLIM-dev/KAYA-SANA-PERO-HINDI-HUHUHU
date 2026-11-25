@@ -1948,6 +1948,11 @@ class _EmployerTools extends StatelessWidget {
             () => openRoster(context, jobId),
           ),
         ],
+        // Its date came with spots still empty.
+        if (job['can_post_again'] == true) ...[
+          const SizedBox(height: 8),
+          _tool('Post Again', () => postJobAgain(context, job)),
+        ],
       ],
     );
   }

@@ -225,7 +225,8 @@ class NotificationService
             title: $hired ? 'Your job post stopped taking applicants' : 'Your job post has ended',
             body: $hired
                 ? '"' . $job->title . '" reached its end date and is off the feed. '
-                    . 'The workers you hired carry on as before.'
+                    . 'The workers you hired carry on as before. '
+                    . 'Post it again if you need more people.'
                 : '"' . $job->title . '" reached its end date and is off '
                     . 'the feed. Post it again if you are still hiring.',
             referenceType: 'job',
