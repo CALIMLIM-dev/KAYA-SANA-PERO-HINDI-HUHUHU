@@ -73,7 +73,7 @@ class PaymentPeriodWordingTest extends TestCase
             ],
             'budget_min'    => 500,
             'budget_max'    => 800,
-            'budget_period' => 'project',
+            'required_skill_ids' => $this->anySkill(), 'budget_period' => 'project',
             'start_date'    => now()->addDay()->toDateString(),
             'end_date'      => now()->addDays(2)->toDateString(),
         ], $overrides);

@@ -5,6 +5,7 @@ import '../../../providers/worker_profile_provider.dart';
 import '../../../data/models/category_model.dart';
 import '../../../data/models/skill_model.dart';
 import '../../../core/widgets/app_toast.dart';
+import '../../../core/widgets/category_picker.dart';
 import '../../../core/widgets/loading.dart';
 
 /*
@@ -168,6 +169,23 @@ class _AddSkillsScreenState extends State<AddSkillsScreen> {
       AppToast.info(context, provider.errorMessage ?? 'Failed to add custom skill');
     }
     setState(() => _isLoadingSkills = false);
+  }
+
+  /// The category list. Your own can be removed from it.
+  Future<void> _pickCategory() async {
+    final picked = await pickCategory(
+      context,
+      selectedId: _selectedCategory?.id,
+      onRemoved: (category) {
+        if (!mounted) return;
+        setState(() {
+          if (_selectedCategory?.id == category.id) _selectedCategory = null;
+          // Not saved yet, and nowhere to file them now.
+          _selectedSkills.removeWhere((s) => s.categoryId == category.id);
+        });
+      },
+    );
+    if (picked != null && mounted) await _loadSkillsForCategory(picked);
   }
 
   Future<void> _showAddCustomCategoryDialog() async {
@@ -370,41 +388,26 @@ class _AddSkillsScreenState extends State<AddSkillsScreen> {
                   else if (provider.categories.isEmpty)
                     const Text('No categories available', style: TextStyle(color: AppColors.neutral400))
                   else
-                    DropdownButtonFormField<CategoryModel>(
-                      initialValue: _selectedCategory,
-                      decoration: InputDecoration(
-                        hintText: 'Choose a job category',
-                        filled: true,
-                        fillColor: Colors.white,
-                        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                          borderSide: BorderSide.none,
-                        ),
-                        focusedBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                          borderSide: const BorderSide(color: AppColors.primary, width: 2),
-                        ),
-                      ),
-                      items: provider.categories.map((category) {
-                        return DropdownMenuItem(
-                          value: category,
-                          child: Row(
-                            children: [
-                              if (category.isCustom) ...[
-                                const Icon(Icons.star, size: 16, color: AppColors.accent),
-                                const SizedBox(width: 8),
-                              ],
-                              Text(category.name),
-                            ],
+                    InkWell(
+                      onTap: _pickCategory,
+                      borderRadius: BorderRadius.circular(12),
+                      child: InputDecorator(
+                        isEmpty: _selectedCategory == null,
+                        decoration: InputDecoration(
+                          hintText: 'Choose a job category',
+                          filled: true,
+                          fillColor: Colors.white,
+                          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                          suffixIcon: const Icon(Icons.arrow_drop_down, color: AppColors.neutral600),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: BorderSide.none,
                           ),
-                        );
-                      }).toList(),
-                      onChanged: (category) {
-                        if (category != null) {
-                          _loadSkillsForCategory(category);
-                        }
-                      },
+                        ),
+                        child: _selectedCategory == null
+                            ? null
+                            : Text(_selectedCategory!.name, overflow: TextOverflow.ellipsis),
+                      ),
                     ),
 
                   const SizedBox(height: 24),

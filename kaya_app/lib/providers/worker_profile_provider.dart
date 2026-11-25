@@ -629,6 +629,8 @@ class WorkerProfileProvider with ChangeNotifier {
       if (data['success'] == true) {
         _categories.removeWhere((c) => c.id == category.id);
         notifyListeners();
+        // Their skills under it moved out of it.
+        if (_skills.isNotEmpty) await fetchSkills();
         return null;
       }
       return _extractErrorMessage(data['message']);

@@ -64,7 +64,7 @@ class JobScheduleTest extends TestCase
             'description'   => 'Two days of electrical work.',
             'category_id'   => $category->id,
             'budget_min'    => 1500,
-            'budget_period' => 'daily',
+            'required_skill_ids' => $this->anySkill(), 'budget_period' => 'daily',
             'location'      => 'Urdaneta City',
             'location_id'   => $location->id,
             'photos'        => [UploadedFile::fake()->create('job.jpg', 32, 'image/jpeg')],

@@ -600,6 +600,8 @@ class WorkerProfileController extends Controller
                 elseif ($skill->skill_name) {
                     $masterSkill = \App\Models\Skill::with('category')
                         ->whereRaw('LOWER(name) = ?', [strtolower($skill->skill_name)])
+                        // Not back under a category they removed.
+                        ->whereHas('category', fn ($q) => $q->whereNull('removed_at'))
                         ->first();
                     if ($masterSkill && $masterSkill->category) {
                         $categoryName = $masterSkill->category->name;

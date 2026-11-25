@@ -99,8 +99,9 @@ class CategoryController extends Controller
     /*
         The creator takes their own custom category off their list.
 
-        Not while an open post or a profile still uses it - those are
-        changed first. Closed posts keep showing the name, so the row stays.
+        Not while an open post uses it; their own profile moves to the
+        category of their other skills. Closed posts keep showing the name, so
+        the row stays.
     */
     public function destroy(Request $request, Category $category)
     {
@@ -108,15 +109,9 @@ class CategoryController extends Controller
             return response()->json(['success' => false, 'data' => null, 'message' => 'You can only remove a category you added.'], 403);
         }
 
-        if (! $category->removableByOwner()) {
-            return response()->json([
-                'success' => false,
-                'data'    => null,
-                'message' => 'This category is still used by an open job post or a profile. Change those first.',
-            ], 422);
+        if ($why = $category->removeForOwner($request->user())) {
+            return response()->json(['success' => false, 'data' => null, 'message' => $why], 422);
         }
-
-        $category->forceFill(['removed_at' => now()])->save();
 
         return response()->json(['success' => true, 'data' => null, 'message' => 'Category removed']);
     }

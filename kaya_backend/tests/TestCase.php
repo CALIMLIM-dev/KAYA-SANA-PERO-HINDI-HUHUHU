@@ -152,4 +152,10 @@ abstract class TestCase extends BaseTestCase
             "Fix phpunit.xml, or run: php artisan config:clear"
         );
     }
+
+    /** A job post needs at least one required skill; which one is not the test's business. */
+    protected function anySkill(): array
+    {
+        return [\App\Models\Skill::firstOrCreate(['name' => 'Any Skill'], ['category_id' => \App\Models\Category::value('id')])->id];
+    }
 }

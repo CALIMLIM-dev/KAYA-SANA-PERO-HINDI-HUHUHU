@@ -425,7 +425,8 @@ class JobController extends Controller
             'title'              => ['required', 'string', 'max:255'],
             'description'        => ['required', 'string'],
             'category_id'        => ['required', 'exists:categories,id'],
-            'required_skill_ids' => ['nullable', 'array'],
+            // What the job is matched to workers by.
+            'required_skill_ids' => ['required', 'array', 'min:1'],
             'required_skill_ids.*' => ['exists:skills,id'],
             'budget_min'         => ['nullable', 'numeric', 'min:0'],
             // gte:budget_min rejects an inverted range, which would otherwise be
@@ -486,6 +487,8 @@ class JobController extends Controller
         ], [
             'budget_max.gte' => 'The maximum budget must be greater than or equal to the minimum budget.',
             'photos.required_without' => 'Please add at least one photo of the job.',
+            'required_skill_ids.required' => 'Please add at least one required skill.',
+            'required_skill_ids.min'      => 'Please add at least one required skill.',
             'location_id.required' => 'Please pick the job location from the suggestions.',
             'end_date.after_or_equal' => 'The Open Until date cannot be in the past.',
             'end_date.required' => 'Please choose the day the post closes.',
@@ -1248,7 +1251,7 @@ class JobController extends Controller
             'title'              => ['required', 'string', 'max:255'],
             'description'        => ['required', 'string'],
             'category_id'        => ['required', 'exists:categories,id'],
-            'required_skill_ids' => ['nullable', 'array'],
+            'required_skill_ids' => ['sometimes', 'required', 'array', 'min:1'],
             'required_skill_ids.*' => ['exists:skills,id'],
             'budget_min'         => ['nullable', 'numeric', 'min:0'],
             // gte:budget_min rejects an inverted range, which would otherwise be
@@ -1289,6 +1292,8 @@ class JobController extends Controller
             'workers_needed'     => ['nullable', 'integer', 'min:1', 'max:20'],
         ], [
             'budget_max.gte' => 'The maximum budget must be greater than or equal to the minimum budget.',
+            'required_skill_ids.required' => 'Please add at least one required skill.',
+            'required_skill_ids.min'      => 'Please add at least one required skill.',
         ]);
 
         if (! empty($data['work_starts_on'])

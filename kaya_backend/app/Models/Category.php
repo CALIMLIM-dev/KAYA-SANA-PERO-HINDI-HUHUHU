@@ -33,14 +33,49 @@ class Category extends Model
     }
 
     /*
-        Whether its creator can take it off their list: not while an open
-        post or anybody's profile still files work under it. Closed posts do
-        not count; they keep showing the name.
+        Why its creator cannot take it off their list, or null when they can.
+
+        Not while an open post files work under it. Closed posts do not
+        count; they keep showing the name. Their own profile does not hold it
+        either - nothing in the app changes a main category, so that was a
+        refusal with no way round it. Their skills under it stay as the words
+        they typed, and the profile takes the category of the rest.
     */
-    public function removableByOwner(): bool
+    public function removeForOwner(User $owner): ?string
     {
-        return ! $this->jobs()->whereIn('status', ['open', 'in_progress'])->exists()
-            && ! WorkerProfile::where('category_id', $this->id)->exists();
+        if ($this->jobs()->whereIn('status', ['open', 'in_progress'])->exists()) {
+            return 'An open job post still uses this category. Close it first.';
+        }
+
+        if (WorkerProfile::where('category_id', $this->id)->where('user_id', '!=', $owner->id)->exists()) {
+            return 'Another profile still uses this category.';
+        }
+
+        try {
+            \Illuminate\Support\Facades\DB::transaction(function () use ($owner) {
+                $this->forceFill(['removed_at' => now()])->save();
+
+                $mine = WorkerProfile::where('user_id', $owner->id)->where('category_id', $this->id);
+                if ($mine->exists()) {
+                    $mine->update(['category_id' => null]);
+                    WorkerProfile::fillCategories([$owner->id]);
+
+                    if (WorkerProfile::where('user_id', $owner->id)->whereNull('category_id')->exists()) {
+                        throw new \DomainException('This is your only category. Add a skill under another one first, then remove this.');
+                    }
+                }
+
+                WorkerSkill::where('user_id', $owner->id)->where('category_id', $this->id)->update(['category_id' => null]);
+                WorkerSkill::where('user_id', $owner->id)->whereIn('skill_id', $this->skills()->pluck('id'))->update(['skill_id' => null]);
+            });
+        } catch (\DomainException $only) {
+            // Undone with the transaction: the category is still theirs.
+            $this->refresh();
+
+            return $only->getMessage();
+        }
+
+        return null;
     }
 
     public function jobs()

@@ -76,8 +76,8 @@ const _groups = <(String, List<_FAQ>)>[
   ]),
   ('Hiring', [
     _FAQ('How do I post a job?',
-        'Tap Post a Job on the home screen and add at least one photo of the work. Open Until is '
-            'the last day the post takes applicants. The first week is free; keeping it up longer '
+        'Tap Post a Job on the home screen and add at least one required skill and one photo of '
+            'the work. Open Until is the last day the post takes applicants. The first week is free; keeping it up longer '
             'costs Barya and needs an account that has topped up. The price shows as you pick the '
             'date. Estimated Start Date is optional: it tells workers which day the work should '
             'start, so someone busy that day can skip it.'),

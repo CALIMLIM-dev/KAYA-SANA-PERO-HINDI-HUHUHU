@@ -385,7 +385,7 @@ class BoostTest extends TestCase
             'description'   => 'Full house rewiring, two days of work.',
             'category_id'   => $this->category->id,
             'budget_min'    => 1500,
-            'budget_period' => 'daily',
+            'required_skill_ids' => $this->anySkill(), 'budget_period' => 'daily',
             'location'      => 'Urdaneta City',
             'location_id'   => $location->id,
             'photos'        => [\Illuminate\Http\UploadedFile::fake()->create('job.jpg', 32, 'image/jpeg')],

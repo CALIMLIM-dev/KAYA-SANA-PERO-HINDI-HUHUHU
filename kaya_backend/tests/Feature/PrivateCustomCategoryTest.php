@@ -65,7 +65,7 @@ class PrivateCustomCategoryTest extends TestCase
     }
 
     #[Test]
-    public function the_creator_removes_it_unless_an_open_post_or_a_profile_uses_it(): void
+    public function the_creator_removes_it_unless_an_open_post_uses_it(): void
     {
         $grace = User::factory()->create();
         $maria = User::factory()->create();
@@ -88,14 +88,51 @@ class PrivateCustomCategoryTest extends TestCase
         $this->assertNotNull($custom->fresh()->removed_at);
     }
 
+    /** Nothing in the app changes a main category, so holding it there was a refusal with no way round it. */
     #[Test]
-    public function a_profile_using_it_stops_the_removal(): void
+    public function their_own_profile_moves_to_the_category_of_their_other_skills(): void
     {
         $grace = User::factory()->create();
         $id = $this->add($grace, 'Aircon Cleaning')->json('data.id');
-        WorkerProfile::create(['user_id' => $grace->id, 'category_id' => $id]);
+        $carpentry = Category::create(['name' => 'Carpentry', 'is_active' => true]);
+        $skill = \App\Models\Skill::create(['name' => 'Linis aircon', 'category_id' => $id, 'source' => 'user']);
+        WorkerProfile::create(['user_id' => $grace->id, 'category_id' => $id, 'location' => 'x']);
+        \App\Models\WorkerSkill::create(['user_id' => $grace->id, 'skill_name' => 'Linis aircon', 'category_id' => $id, 'skill_id' => $skill->id]);
 
-        $this->actingAs($grace, 'sanctum')->deleteJson("/api/v1/categories/{$id}")->assertStatus(422);
+        // The only one they have: kept whole, and they are told what to do.
+        $this->actingAs($grace, 'sanctum')->deleteJson("/api/v1/categories/{$id}")->assertStatus(422)
+            ->assertJsonPath('message', 'This is your only category. Add a skill under another one first, then remove this.');
+        $this->assertNull(Category::find($id)->removed_at);
+        $this->assertSame($id, WorkerProfile::where('user_id', $grace->id)->value('category_id'));
+
+        \App\Models\WorkerSkill::create(['user_id' => $grace->id, 'skill_name' => 'Cabinet', 'category_id' => $carpentry->id]);
+        $this->actingAs($grace, 'sanctum')->deleteJson("/api/v1/categories/{$id}")->assertOk();
+
+        $this->assertNotNull(Category::find($id)->removed_at);
+        $this->assertSame($carpentry->id, WorkerProfile::where('user_id', $grace->id)->value('category_id'));
+        // The words stay, under no category.
+        $this->assertDatabaseHas('worker_skills_new', ['user_id' => $grace->id, 'skill_name' => 'Linis aircon', 'category_id' => null, 'skill_id' => null]);
+        $shown = collect($this->actingAs($grace, 'sanctum')->getJson('/api/v1/worker/skills')->assertOk()->json('data'));
+        $this->assertNull($shown->firstWhere('skill_name', 'Linis aircon')['category_name']);
+    }
+
+    /** It is what the job is matched to workers by, and it says required. */
+    #[Test]
+    public function a_job_post_needs_a_required_skill(): void
+    {
+        $employer = User::factory()->create(['is_verified' => true]);
+        \App\Models\EmployerProfile::create(['user_id' => $employer->id, 'employer_type' => 'individual', 'location' => 'x', 'setup_completed' => true]);
+        $message = 'Please add at least one required skill.';
+
+        foreach ([[], ['required_skill_ids' => []]] as $without) {
+            $this->assertContains($message, $this->actingAs($employer, 'sanctum')->postJson('/api/v1/jobs', $without)
+                ->assertStatus(422)->json('errors.required_skill_ids'));
+        }
+
+        $category = Category::create(['name' => 'Painting', 'is_active' => true]);
+        $job = JobPost::create(['employer_id' => $employer->id, 'category_id' => $category->id, 'title' => 't', 'description' => 'x', 'location' => 'x', 'status' => 'open', 'expires_at' => now()->addDays(2)]);
+        $this->actingAs($employer, 'sanctum')->putJson("/api/v1/jobs/{$job->id}", ['required_skill_ids' => []])
+            ->assertStatus(422)->assertJsonPath('errors.required_skill_ids.0', $message);
     }
 
     #[Test]

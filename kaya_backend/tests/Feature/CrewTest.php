@@ -112,7 +112,7 @@ class CrewTest extends TestCase
         ]);
         $payload = fn (int $n) => [
             'title' => 'Paint', 'description' => 'x', 'category_id' => $category->id, 'budget_min' => 500,
-            'budget_period' => 'daily', 'location' => 'Urdaneta City', 'location_id' => $location->id,
+            'required_skill_ids' => $this->anySkill(), 'budget_period' => 'daily', 'location' => 'Urdaneta City', 'location_id' => $location->id,
             'photos' => [\Illuminate\Http\UploadedFile::fake()->create('job.jpg', 32, 'image/jpeg')],
             'start_date' => now()->addDays(3)->toDateString(), 'end_date' => now()->addDays(3)->toDateString(),
             'workers_needed' => $n,

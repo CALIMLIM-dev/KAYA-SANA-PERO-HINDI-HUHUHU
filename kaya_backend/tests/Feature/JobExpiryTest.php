@@ -99,7 +99,7 @@ class JobExpiryTest extends TestCase
                 'category_id' => $this->categoryId,
                 'location'    => 'Urdaneta City',
                 'location_id' => $this->cityId(),
-                'budget_period' => 'project',
+                'required_skill_ids' => $this->anySkill(), 'budget_period' => 'project',
                 'start_date'  => $start,
                 'end_date'    => $end,
                 'photos'      => [

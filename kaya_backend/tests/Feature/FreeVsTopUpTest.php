@@ -66,7 +66,7 @@ class FreeVsTopUpTest extends TestCase
             'category_id'   => Category::firstOrCreate(['name' => 'Plumbing'], ['is_active' => true])->id,
             'location'      => 'Urdaneta City',
             'location_id'   => $city->id,
-            'budget_period' => 'project',
+            'required_skill_ids' => $this->anySkill(), 'budget_period' => 'project',
             'start_date'    => now()->addDay()->toDateString(),
             'end_date'      => now()->addDays($days)->toDateString(),
             'photos'        => [

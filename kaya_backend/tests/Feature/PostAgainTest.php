@@ -67,7 +67,7 @@ class PostAgainTest extends TestCase
     {
         return $this->actingAs($as ?? $this->employer, 'sanctum')->postJson('/api/v1/jobs', array_merge([
             'repost_of' => $old->id, 'title' => $old->title, 'description' => 'x', 'category_id' => $this->category->id,
-            'budget_min' => 500, 'budget_period' => 'daily', 'location' => 'Urdaneta City', 'location_id' => $this->place->id,
+            'budget_min' => 500, 'required_skill_ids' => $this->anySkill(), 'budget_period' => 'daily', 'location' => 'Urdaneta City', 'location_id' => $this->place->id,
             'end_date' => now()->addDays(3)->toDateString(), 'workers_needed' => 3,
         ], $with));
     }
@@ -116,7 +116,7 @@ class PostAgainTest extends TestCase
         $other = $this->employer();
         $topUp($other);
         $this->actingAs($other, 'sanctum')->postJson('/api/v1/jobs', [
-            'title' => 'Paint a wall', 'description' => 'x', 'category_id' => $this->category->id, 'budget_min' => 500, 'budget_period' => 'daily',
+            'title' => 'Paint a wall', 'description' => 'x', 'category_id' => $this->category->id, 'budget_min' => 500, 'required_skill_ids' => $this->anySkill(), 'budget_period' => 'daily',
             'location' => 'Urdaneta City', 'location_id' => $this->place->id, 'end_date' => $end,
             'photos' => [UploadedFile::fake()->create('job.jpg', 32, 'image/jpeg')],
         ])->assertCreated();

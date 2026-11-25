@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import '../../../core/widgets/category_picker.dart';
 import '../../../core/widgets/kaya_popup.dart';
+import '../widgets/open_until_days.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:latlong2/latlong.dart';
@@ -74,6 +76,8 @@ class _PostJobScreenState extends State<PostJobScreen> {
       if (!mounted) return;
       // Load the real category list before the picker can be opened.
       context.read<WorkerProfileProvider>().fetchCategories();
+      // How long a post can stay up is said before a date is picked.
+      context.read<CreditsProvider>().load();
       if (_source != null) {
         await _prefillFromJob();
       } else {
@@ -269,6 +273,7 @@ class _PostJobScreenState extends State<PostJobScreen> {
   */
   final _basicsKey = GlobalKey();
   final _photosKey = GlobalKey();
+  final _skillsKey = GlobalKey();
   final _locationKey = GlobalKey();
   final _scheduleKey = GlobalKey();
 
@@ -444,6 +449,7 @@ class _PostJobScreenState extends State<PostJobScreen> {
   /// The most a single post may hire. Matches the server's own cap.
   static const int _maxWorkers = 20;
   bool _showPhotoError = false;
+  bool _showSkillError = false;
 
   // Schedule. _endDate stays null for a single-day job rather than being set
   // equal to _startDate, so the two states remain distinguishable server-side.
@@ -995,7 +1001,7 @@ class _PostJobScreenState extends State<PostJobScreen> {
                   // section is never just silently missing.
                   if (_isLoadingSkills) ...[
                     const SizedBox(height: 16),
-                    _buildLabel('Required Skills'),
+                    _skillsLabel(),
                     const SizedBox(height: 12),
                     const Row(
                       children: [
@@ -1009,7 +1015,7 @@ class _PostJobScreenState extends State<PostJobScreen> {
                   ] else if (_selectedCategory != null &&
                       _availableSkills.isNotEmpty) ...[
                     const SizedBox(height: 16),
-                    _buildLabel('Required Skills'),
+                    _skillsLabel(),
                     const SizedBox(height: 8),
                     _buildSkillChips(),
                     const SizedBox(height: 10),
@@ -1019,7 +1025,7 @@ class _PostJobScreenState extends State<PostJobScreen> {
                     // or a category with no seeded skills) — let them type
                     // their own rather than leaving a dead end.
                     const SizedBox(height: 16),
-                    _buildLabel('Required Skills'),
+                    _skillsLabel(),
                     const SizedBox(height: 8),
                     _buildCustomSkillInput(),
                   ],
@@ -1190,8 +1196,7 @@ class _PostJobScreenState extends State<PostJobScreen> {
                 title: 'Job Duration',
                 // Asked for: what the deadline does, in plain words. The
                 // price is shown under them, so it is not repeated here.
-                hint: 'Your post takes applicants from today until this day, then closes on its own. '
-                    'You pay for these days.',
+                hint: 'Your post takes applicants from today until this day, then closes on its own.',
                 anchor: _scheduleKey,
                 icon: Icons.event_outlined,
                 children: [_buildScheduleFields()],
@@ -1327,15 +1332,7 @@ class _PostJobScreenState extends State<PostJobScreen> {
             paid for - see _postCostLine.
         */
         const SizedBox(height: 12),
-        _buildDateField(
-          label: 'Open Until *',
-          value: _endDate,
-          hint: 'Pick a day',
-          onTap: _pickEndDate,
-          onClear: _endDate == null
-              ? null
-              : () => setState(() => _endDate = null),
-        ),
+        _openUntil(),
         if (_showScheduleError && _endDate == null) ...[
           const SizedBox(height: 6),
           const Text(
@@ -1361,16 +1358,77 @@ class _PostJobScreenState extends State<PostJobScreen> {
     );
   }
 
-  /*
-      The Duration section carries no description.
+  /// The day the post closes, picked from the days themselves.
+  Widget _openUntil() {
+    final credits = context.watch<CreditsProvider>();
+    final now = DateTime.now();
+    final last = _lastDayAllowed(credits);
+    final end = _endDate;
 
-      It had one, and it was twice wrong: it said the post goes up on the
-      start date, which it does not - a post is live the moment it is made -
-      and it hardcoded a free week while the free period is a setting an
-      administrator can change. Rather than keep a sentence correct, the
-      section does without one: the dates are labelled, and the price is on
-      the Post button where it is decided.
-  */
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Expanded(
+              child: Text(
+                end == null ? 'Open Until' : 'Open Until ${_formatDate(end)}',
+                style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w600, color: AppColors.neutral900),
+              ),
+            ),
+            // Every day it can have is in the row until it has topped up.
+            if (last == null)
+              IconButton(
+                tooltip: 'Pick a later day',
+                icon: const Icon(Icons.calendar_month_outlined, color: AppColors.primary),
+                onPressed: _pickEndDate,
+              ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        OpenUntilDays(
+          today: DateTime(now.year, now.month, now.day),
+          selected: end,
+          lastDay: last,
+          priceFor: (day) => _priceUntil(credits, day),
+          onSelected: (day) => setState(() => _endDate = day),
+          onLocked: () async {
+            await AppRouter.push(context, AppRouter.wallet);
+            // Topped up there: the locks come off.
+            if (mounted) await context.read<CreditsProvider>().refresh();
+          },
+        ),
+      ],
+    );
+  }
+
+  /// What closing on [day] costs, or null when it is not known, or already paid.
+  int? _priceUntil(CreditsProvider credits, DateTime day) {
+    final start = _startDate;
+    if (start == null) return null;
+    // Counted in UTC: a clock change must not lose a day.
+    final days = DateTime.utc(day.year, day.month, day.day)
+            .difference(DateTime.utc(start.year, start.month, start.day))
+            .inDays +
+        1;
+    final cost = credits.postCostFor(days);
+    final before = _daysBefore == null ? 0 : credits.postCostFor(_daysBefore!) ?? 0;
+    if (cost == null) return null;
+    if (before > 0 && cost <= before) return null;
+    return cost - before;
+  }
+
+  /// The last day this account can keep the post up, or null when it can be
+  /// as long as it is paid for. The same rule as JobDurationService::charge:
+  /// past the free days, or the days already paid, is for a topped-up account.
+  DateTime? _lastDayAllowed(CreditsProvider credits) {
+    final free = credits.freePostDays;
+    final start = _startDate;
+    if (free == null || start == null || credits.hasToppedUp) return null;
+
+    final days = (_daysBefore ?? 0) > free ? _daysBefore! : free;
+    return DateTime(start.year, start.month, start.day + days - 1);
+  }
 
   /// Days the post is up: start to end, both inclusive. One when they are
   /// the same day. Mirrors JobDurationService::spanDays on the server.
@@ -1520,12 +1578,25 @@ class _PostJobScreenState extends State<PostJobScreen> {
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
 
+    // Days that would be refused cannot be picked.
+    final allowed = _lastDayAllowed(context.read<CreditsProvider>());
+    final last = allowed == null
+        ? today.add(const Duration(days: 365))
+        : allowed.isBefore(today)
+            ? today
+            : allowed;
+    final end = _endDate;
+
     final picked = await showDatePicker(
       context: context,
-      initialDate: _endDate == null || _endDate!.isBefore(today) ? today : _endDate!,
+      initialDate: end == null || end.isBefore(today)
+          ? today
+          : end.isAfter(last)
+              ? last
+              : end,
       // From today: the post is up from the moment it is posted.
       firstDate: today,
-      lastDate: today.add(const Duration(days: 365)),
+      lastDate: last,
     );
 
     if (picked != null) setState(() => _endDate = picked);
@@ -1879,6 +1950,33 @@ class _PostJobScreenState extends State<PostJobScreen> {
     );
   }
 
+  /// The skills' label, and what is missing when Post was pressed without any.
+  Widget _skillsLabel() => Column(
+        key: _skillsKey,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _buildLabel('Required Skills'),
+          if (_showSkillError && _selectedSkills.isEmpty) ...[
+            const SizedBox(height: 6),
+            const Text(
+              'Please add at least one skill.',
+              style: TextStyle(fontSize: 12, color: AppColors.error),
+            ),
+          ],
+        ],
+      );
+
+  /// Adds what is typed in the custom skill box, if anything is.
+  void _addTypedSkill() {
+    final skill = _customSkillController.text.trim();
+    if (skill.isEmpty) return;
+
+    setState(() {
+      if (!_selectedSkills.contains(skill)) _selectedSkills.add(skill);
+      _customSkillController.clear();
+    });
+  }
+
   Widget _buildLabel(String text) {
     return Padding(
       padding: const EdgeInsets.only(top: 16),
@@ -2031,40 +2129,13 @@ class _PostJobScreenState extends State<PostJobScreen> {
 
   /// Your own custom category, off your list, after asking.
   Future<void> _removeCustomCategory(CategoryModel category) async {
-    final ok = await showDialog<bool>(
-      context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: const Text('Remove This Category?'),
-        content: Text('"${category.name}" will no longer be on your list. Closed job posts keep the name.'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(dialogContext, false),
-            child: const Text('Cancel'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(dialogContext, true),
-            child: const Text('Remove'),
-          ),
-        ],
-      ),
-    );
-    if (ok != true || !mounted) return;
-
-    final provider = context.read<WorkerProfileProvider>();
-    final error = await withPleaseWait(context, () => provider.removeCustomCategory(category));
-    if (!mounted) return;
-
-    if (error != null) {
-      AppToast.error(context, error);
-      return;
-    }
+    if (!await removeCustomCategory(context, category) || !mounted) return;
     if (_selectedCategoryId == category.id) {
       setState(() {
         _selectedCategoryId = null;
         _selectedCategory = null;
       });
     }
-    AppToast.success(context, 'Category removed');
   }
 
   void _showCategoryPicker() {
@@ -2257,15 +2328,7 @@ class _PostJobScreenState extends State<PostJobScreen> {
             ),
             const SizedBox(width: 10),
             ElevatedButton(
-              onPressed: () {
-                final skill = _customSkillController.text.trim();
-                if (skill.isNotEmpty && !_selectedSkills.contains(skill)) {
-                  setState(() {
-                    _selectedSkills.add(skill);
-                    _customSkillController.clear();
-                  });
-                }
-              },
+              onPressed: _addTypedSkill,
               style: ElevatedButton.styleFrom(
                 backgroundColor: AppColors.primary,
                 foregroundColor: Colors.white,
@@ -2551,6 +2614,18 @@ class _PostJobScreenState extends State<PostJobScreen> {
       return;
     }
 
+    /*
+        At least one skill: it is what the job is matched to workers by.
+        One typed and not yet added counts. The server holds every post to
+        the same.
+    */
+    _addTypedSkill();
+    if (_selectedSkills.isEmpty) {
+      setState(() => _showSkillError = true);
+      await _pointAt(_skillsKey, 'Please add at least one required skill');
+      return;
+    }
+
     if (_selectedImages.isEmpty && _existingPhotoUrls.isEmpty) {
       setState(() => _showPhotoError = true);
       await _pointAt(_photosKey, 'Please add at least one photo of the job');
@@ -2583,6 +2658,13 @@ class _PostJobScreenState extends State<PostJobScreen> {
     if (_endDate == null) {
       setState(() => _showScheduleError = true);
       await _pointAt(_scheduleKey, 'Please choose the day the post closes');
+      return;
+    }
+
+    // Picked before the wallet had loaded the rule.
+    final allowed = _lastDayAllowed(context.read<CreditsProvider>());
+    if (allowed != null && _endDate!.isAfter(allowed)) {
+      await _pointAt(_scheduleKey, 'Choose a day up to ${_formatDate(allowed)}, or top up to keep the post open longer');
       return;
     }
 
