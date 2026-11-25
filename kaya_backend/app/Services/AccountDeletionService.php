@@ -4,7 +4,6 @@ namespace App\Services;
 
 use App\Models\Application;
 use App\Models\CommunityPost;
-use App\Models\CreditTransaction;
 use App\Models\Invitation;
 use App\Models\JobPost;
 use App\Models\User;
@@ -39,7 +38,7 @@ use Illuminate\Support\Str;
 */
 class AccountDeletionService
 {
-    public function __construct(private CreditLedger $ledger) {}
+    public function __construct(private WaitingApplicants $waiting) {}
 
     /** Why the account cannot be deleted right now, or null when it can. */
     public function blocker(User $user): ?string
@@ -112,21 +111,12 @@ class AccountDeletionService
         $jobs = $user->postedJobs()->where('status', JobPost::STATUS_OPEN)->get();
 
         foreach ($jobs as $job) {
-            $charges = CreditTransaction::whereIn(
-                'id',
-                Application::where('job_id', $job->id)
-                    ->where('status', 'pending')
-                    ->pluck('credit_transaction_id')
-                    ->filter()
-                    ->all(),
-            )->get();
+            $this->waiting->letGo(
+                $job,
+                'the employer deleted their account',
+                'was closed because the employer deleted their account',
+            );
 
-            foreach ($charges as $charge) {
-                $this->ledger->refund($charge, 'the employer deleted their account');
-            }
-
-            Application::where('job_id', $job->id)->where('status', 'pending')
-                ->update(['status' => 'rejected']);
             Invitation::where('job_id', $job->id)->where('status', 'pending')
                 ->update(['status' => 'declined']);
 

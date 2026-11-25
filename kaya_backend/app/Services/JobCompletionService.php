@@ -164,6 +164,9 @@ class JobCompletionService
 
         $job->forceFill(['status' => 'closed'])->save();
 
+        // They could wait as long as a spot could reopen. It cannot now.
+        app(WaitingApplicants::class)->letGo($job, 'the job was closed', 'was closed');
+
         app(ConversationArchivist::class)->settleJob($job);
     }
 
@@ -272,6 +275,13 @@ class JobCompletionService
         }
 
         $job->update(['status' => 'completed']);
+
+        /*
+            Whoever is still Pending was never going to be answered. They
+            stay while the job is only full, because a cancelled hire frees
+            the spot again, and nothing let them go once it was finished.
+        */
+        app(WaitingApplicants::class)->letGo($job, 'the job was completed', 'was completed by somebody else');
 
         /*
             And the thread goes quiet.

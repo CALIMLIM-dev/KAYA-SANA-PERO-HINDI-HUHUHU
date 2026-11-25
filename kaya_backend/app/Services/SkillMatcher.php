@@ -119,6 +119,15 @@ class SkillMatcher
      */
     public function compare(array $required, array $held): array
     {
+        $a = self::normalise($required['name'] ?? '');
+        $b = self::normalise($held['name'] ?? '');
+
+        // ── not work at all ───────────────────────────────────────────────
+        // Before the id: two people who both typed "etc" have nothing in common.
+        if (self::isNotSkill($a) || self::isNotSkill($b)) {
+            return $this->miss();
+        }
+
         // ── id ────────────────────────────────────────────────────────────
         $rid = $required['id'] ?? null;
         $hid = $held['id'] ?? null;
@@ -126,9 +135,6 @@ class SkillMatcher
         if ($rid !== null && $hid !== null && (int) $rid === (int) $hid) {
             return $this->hit(1.0, self::RULE_ID);
         }
-
-        $a = self::normalise($required['name'] ?? '');
-        $b = self::normalise($held['name'] ?? '');
 
         if ($a === '' || $b === '') {
             return $this->miss();
@@ -344,6 +350,16 @@ class SkillMatcher
         }
 
         return $id !== null ? [...$ids, (int) $id] : $ids;
+    }
+
+    /** A word the System or an administrator said is not work. Fails closed, like meaning(). */
+    public static function isNotSkill(string $normalised): bool
+    {
+        try {
+            return \App\Models\SkillLink::isNotSkill($normalised);
+        } catch (\Throwable) {
+            return false;
+        }
     }
 
     private static function linkedSomewhere(string $normalised): bool

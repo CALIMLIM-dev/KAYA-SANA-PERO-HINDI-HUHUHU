@@ -17,7 +17,13 @@ class SkillLink extends Model
     /** The map, held in the container for the rest of the request. */
     private const MEMO = 'skill_links.memo';
 
-    protected $fillable = ['term', 'skill_id'];
+    private const NOT_SKILLS_KEY = 'skill_links.not_skills';
+
+    private const NOT_SKILLS_MEMO = 'skill_links.not_skills.memo';
+
+    protected $fillable = ['term', 'skill_id', 'not_skill'];
+
+    protected $casts = ['not_skill' => 'boolean'];
 
     protected static function booted(): void
     {
@@ -29,7 +35,9 @@ class SkillLink extends Model
     private static function forget(): void
     {
         Cache::forget(self::CACHE_KEY);
+        Cache::forget(self::NOT_SKILLS_KEY);
         app()->forgetInstance(self::MEMO);
+        app()->forgetInstance(self::NOT_SKILLS_MEMO);
     }
 
     public function skill(): BelongsTo
@@ -81,15 +89,37 @@ class SkillLink extends Model
         return array_key_exists($normalisedTerm, self::map());
     }
 
-    /** Replaces what a word means. An empty list records "checked, means none". */
-    public static function record(string $normalisedTerm, array $skillIds): void
+    /**
+     * Whether a word is not work at all ("etc", "hello"), so matching leaves
+     * it out. Not the same as work nothing in the catalogue is like, which
+     * still matches somebody who typed the same thing.
+     */
+    public static function isNotSkill(string $normalisedTerm): bool
     {
-        DB::transaction(function () use ($normalisedTerm, $skillIds) {
+        // Once per request and from the cache, as map().
+        $words = app()->bound(self::NOT_SKILLS_MEMO)
+            ? app(self::NOT_SKILLS_MEMO)
+            : app()->instance(self::NOT_SKILLS_MEMO, Cache::rememberForever(
+                self::NOT_SKILLS_KEY,
+                fn () => array_fill_keys(static::where('not_skill', true)->pluck('term')->all(), true),
+            ));
+
+        return isset($words[$normalisedTerm]);
+    }
+
+    /**
+     * Replaces what a word means. An empty list records "checked, means none".
+     *
+     * @param  bool|null  $notSkill  see the migration; null is "nobody said"
+     */
+    public static function record(string $normalisedTerm, array $skillIds, ?bool $notSkill = false): void
+    {
+        DB::transaction(function () use ($normalisedTerm, $skillIds, $notSkill) {
             static::where('term', $normalisedTerm)->delete();
 
             $ids = array_values(array_unique(array_map('intval', $skillIds)));
             foreach ($ids ?: [null] as $id) {
-                static::create(['term' => $normalisedTerm, 'skill_id' => $id]);
+                static::create(['term' => $normalisedTerm, 'skill_id' => $id, 'not_skill' => $notSkill]);
             }
         });
 

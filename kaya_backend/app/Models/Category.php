@@ -75,4 +75,34 @@ class Category extends Model
             || WorkerSkill::where('category_id', $this->id)->orWhereIn('skill_id', $skillIds)->exists()
             || \Illuminate\Support\Facades\DB::table('job_skills')->whereIn('skill_id', $skillIds)->exists();
     }
+
+    /**
+     * Who deleting it would touch, for the administrator to read first.
+     *
+     * @return array{jobs: int, workers: int, left: int}  left: workers whose only category this is
+     */
+    public function deletionImpact(): array
+    {
+        $workers = WorkerSkill::where('category_id', $this->id)
+            ->orWhereIn('skill_id', $this->skills()->pluck('id'))
+            ->pluck('user_id')
+            ->merge(WorkerProfile::where('category_id', $this->id)->pluck('user_id'))
+            ->unique();
+
+        $others = WorkerProfile::whereIn('user_id', $workers)
+            ->whereNotNull('category_id')->where('category_id', '!=', $this->id)
+            ->pluck('user_id')
+            ->merge(WorkerSkill::with('skill:id,category_id')->whereIn('user_id', $workers)->get()
+                ->filter(fn (WorkerSkill $s) => array_diff(
+                    array_filter([$s->category_id, $s->skill?->category_id]),
+                    [$this->id],
+                ) !== [])
+                ->pluck('user_id'));
+
+        return [
+            'jobs'    => $this->jobs()->count(),
+            'workers' => $workers->count(),
+            'left'    => $workers->diff($others)->count(),
+        ];
+    }
 }

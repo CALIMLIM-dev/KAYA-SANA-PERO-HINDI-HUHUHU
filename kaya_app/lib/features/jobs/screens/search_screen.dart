@@ -276,7 +276,7 @@ class _SearchScreenState extends State<SearchScreen> {
 
   /// Which side this account searches: the one it has, or for a hybrid the
   /// mode it is in. An explicit ask wins, as long as the account has that
-  /// side at all.
+  /// side at all, or has neither and is looking around.
   String _typeFor(AppModeProvider appMode) {
     var type = appMode.hasEmployerProfile && !appMode.hasWorkerProfile
         ? 'Workers'
@@ -286,7 +286,7 @@ class _SearchScreenState extends State<SearchScreen> {
                 ? 'Workers'
                 : 'Jobs';
 
-    if (widget.initialType == 'Workers' && appMode.hasEmployerProfile) {
+    if (widget.initialType == 'Workers' && (appMode.hasEmployerProfile || appMode.isNeutral)) {
       type = 'Workers';
     } else if (widget.initialType == 'Jobs' && appMode.hasWorkerProfile) {
       type = 'Jobs';
@@ -405,8 +405,10 @@ class _SearchScreenState extends State<SearchScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      // Only a hybrid has a side to choose.
-                      if (context.watch<AppModeProvider>().isHybrid)
+                      // A hybrid has a side to choose. An account with no
+                      // profile yet looks at both before making one.
+                      if (context.watch<AppModeProvider>().isHybrid ||
+                          context.watch<AppModeProvider>().isNeutral)
                         Padding(
                           padding: const EdgeInsets.fromLTRB(16, 0, 16, 10),
                           child: Container(

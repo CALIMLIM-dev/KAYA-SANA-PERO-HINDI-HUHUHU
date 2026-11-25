@@ -94,11 +94,21 @@ class JobMatchService
                 'label' => trim((string) $skill->name),
             ])
             ->filter(fn ($r) => $r['name'] !== '')
+            /*
+                "etc" is not a skill the job asks for.
+
+                Counted, a job that listed only that asked for something
+                nobody has instead of for its trade, and a worker who typed
+                it under Carpentry was in the trade of every carpentry job.
+            */
+            ->reject(fn ($r) => SkillMatcher::isNotSkill(SkillMatcher::normalise($r['name'])))
             ->values();
 
-        $heldSkills = $profile->relationLoaded('skills')
+        $heldSkills = ($profile->relationLoaded('skills')
             ? $profile->skills
-            : $profile->skills()->get();
+            : $profile->skills()->get())
+            ->reject(fn ($row) => SkillMatcher::isNotSkill(SkillMatcher::normalise((string) $row->skill_name)))
+            ->values();
 
         $held = $heldSkills
             ->map(fn ($row) => [

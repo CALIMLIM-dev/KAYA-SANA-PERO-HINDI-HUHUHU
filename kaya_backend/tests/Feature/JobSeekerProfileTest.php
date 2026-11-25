@@ -50,6 +50,6 @@ class JobSeekerProfileTest extends TestCase
         $this->actingAs($user, 'sanctum')->getJson('/api/v1/me')
             ->assertOk()
             ->assertJsonPath('data.worker_setup_completed', false)
-            ->assertJsonPath('data.worker_profile_missing', ['your trade', 'at least one skill']);
+            ->assertJsonPath('data.worker_profile_missing', ['a job category', 'at least one skill']);
     }
 }

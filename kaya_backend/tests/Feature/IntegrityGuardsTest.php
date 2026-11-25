@@ -186,7 +186,7 @@ class IntegrityGuardsTest extends TestCase
         $this->actingAs($user, 'sanctum')
             ->postJson('/api/v1/worker/profile/complete-setup')
             ->assertStatus(422)
-            ->assertJsonPath('message', 'Finish your worker profile to apply for work. Still needed: your trade and at least one skill.');
+            ->assertJsonPath('message', 'Finish your worker profile to apply for work. Still needed: a job category and at least one skill.');
     }
 
     #[Test]

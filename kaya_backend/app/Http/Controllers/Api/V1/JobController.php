@@ -1531,17 +1531,11 @@ class JobController extends Controller
             application read Pending until they happened to open it again.
             The same as an admin close now: cancelled, refunded, notified.
         */
-        $waiting = $request->status === 'closed'
-            ? Application::where('job_id', $job->id)->where('status', 'pending')->get(['id', 'worker_id'])
-            : collect();
-        if ($waiting->isNotEmpty()) {
-            $this->refundPendingApplicants($job);
-        }
-
-        \Illuminate\Support\Facades\DB::transaction(function () use ($job, $request, $waiting) {
+        \Illuminate\Support\Facades\DB::transaction(function () use ($job, $request) {
             $job->update(['status' => $request->status]);
-            if ($waiting->isNotEmpty()) {
-                Application::whereIn('id', $waiting->pluck('id'))->update(['status' => 'cancelled']);
+            if ($request->status === 'closed') {
+                app(\App\Services\WaitingApplicants::class)
+                    ->letGo($job, 'the job was closed', 'was closed by the employer');
             }
 
             // Starting the work: the tracking view needs a real timestamp to
@@ -1553,10 +1547,6 @@ class JobController extends Controller
                     ->update(['started_at' => now()]);
             }
         });
-
-        if ($waiting->isNotEmpty()) {
-            app(NotificationService::class)->jobClosedByEmployer($job, $waiting->pluck('worker_id'));
-        }
 
         return $this->ok($job, 'Status updated');
     }
@@ -1590,9 +1580,13 @@ class JobController extends Controller
             Only pending ones. An accepted application has already produced
             what it was bought for.
         */
-        $refunded = $this->refundPendingApplicants($job);
+        $refunded = \Illuminate\Support\Facades\DB::transaction(function () use ($job) {
+            $count = app(\App\Services\WaitingApplicants::class)
+                ->letGo($job, 'the job was removed', 'was deleted by the employer');
+            $job->delete();
 
-        $job->delete();
+            return $count;
+        });
 
         return $this->ok(
             ['refunded_applications' => $refunded],
@@ -1601,37 +1595,6 @@ class JobController extends Controller
                     . ($refunded === 1 ? '' : 's') . ' refunded'
                 : 'Job deleted',
         );
-    }
-
-    /**
-     * Returns the credits of everyone still waiting on this job.
-     *
-     * Returns how many were actually refunded, so the employer's screen can
-     * say what happened rather than quietly moving other people's balances.
-     */
-    private function refundPendingApplicants(JobPost $job): int
-    {
-        $charges = \App\Models\CreditTransaction::whereIn(
-            'id',
-            Application::where('job_id', $job->id)
-                ->where('status', 'pending')
-                ->pluck('credit_transaction_id')
-                ->filter()
-                ->all(),
-        )->get();
-
-        $ledger = app(\App\Services\CreditLedger::class);
-        $refunded = 0;
-
-        foreach ($charges as $charge) {
-            // Null means it was already refunded, which is a normal outcome
-            // rather than a failure worth reporting.
-            if ($ledger->refund($charge, 'the job was removed') !== null) {
-                $refunded++;
-            }
-        }
-
-        return $refunded;
     }
 
     /*

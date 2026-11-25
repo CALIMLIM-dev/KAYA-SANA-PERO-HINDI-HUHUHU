@@ -115,7 +115,8 @@ class AccountDeletionTest extends TestCase
         $this->assertSame(0, $gone->tokens()->count());
 
         $this->assertSame('closed', $job->fresh()->status);
-        $this->assertSame('rejected', Application::where('job_id', $job->id)->value('status'));
+        // Nobody turned them down: the post went away.
+        $this->assertSame('cancelled', Application::where('job_id', $job->id)->value('status'));
         $this->assertSame(20, CreditWallet::where('user_id', $worker->id)->value('balance'));
 
         // The old sign-in is refused, the password is gone, and the email is

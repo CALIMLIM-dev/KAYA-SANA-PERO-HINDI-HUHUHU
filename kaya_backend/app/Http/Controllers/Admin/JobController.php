@@ -138,7 +138,14 @@ class JobController extends Controller
         }
 
         $title = $job->title;
-        $job->delete();
+
+        // Its applicants paid to apply, and the delete takes their
+        // applications with it.
+        DB::transaction(function () use ($job) {
+            app(\App\Services\WaitingApplicants::class)
+                ->letGo($job, 'the post was deleted by KAYA', 'was taken down by KAYA');
+            $job->delete();
+        });
 
         AdminAction::record('job.delete', 'job', $job->id, "Deleted \"{$title}\" for good");
 

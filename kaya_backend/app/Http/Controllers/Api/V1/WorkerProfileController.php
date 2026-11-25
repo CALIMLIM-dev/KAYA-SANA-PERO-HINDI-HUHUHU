@@ -703,10 +703,8 @@ class WorkerProfileController extends Controller
             ]
         );
 
-        if ($request->filled('category_id') && $profile->category_id === null) {
-            $profile->category_id = $request->category_id;
-            $profile->save();
-        }
+        // The skill was saved before the profile existed.
+        WorkerProfile::fillCategories([$request->user()->id]);
 
         // A new skill can make this worker the fit for a job already open.
         app(\App\Services\NotificationService::class)->workerMatched($profile->fresh());
@@ -1342,7 +1340,10 @@ class WorkerProfileController extends Controller
             ->when($request->user(), fn ($q, $me) => $q->where('user_id', '!=', $me->id));
 
         if (!empty($data['category_id'])) {
-            $query->where('category_id', $data['category_id']);
+            // Their main category, or the one any of their skills is under:
+            // a welder who is also a carpenter is found as both.
+            $query->where(fn ($q) => $q->where('category_id', $data['category_id'])
+                ->orWhereHas('skills', fn ($s) => $s->where('category_id', $data['category_id'])));
         }
 
         if (!empty($data['location_id'])) {

@@ -77,6 +77,12 @@ class LinkSkills extends Command
             $tally($linker->linkSkill($skill));
         }
 
+        // Checked before "not a skill" had a mark of its own.
+        foreach (SkillLink::whereNull('skill_id')->whereNull('not_skill')->orderBy('id')->pluck('term') as $term) {
+            if ($budget <= 0) break;
+            $tally($linker->judge($term));
+        }
+
         if ($this->option('seed')) {
             foreach (self::SEED as $word) {
                 if ($budget <= 0) break;

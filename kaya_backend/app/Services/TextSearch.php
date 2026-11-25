@@ -83,7 +83,8 @@ class TextSearch
                         $q->orWhereHas('user', fn ($u) => $u->where('name', 'like', $pattern))
                           ->orWhere('bio', 'like', $pattern)
                           ->orWhereHas('category', fn ($c) => $c->where('name', 'like', $pattern))
-                          ->orWhereHas('skills', fn ($s) => $s->where('skill_name', 'like', $pattern));
+                          ->orWhereHas('skills', fn ($s) => $s->where('skill_name', 'like', $pattern)
+                              ->orWhereHas('category', fn ($c) => $c->where('name', 'like', $pattern)));
                     }
                 });
             }

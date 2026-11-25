@@ -92,9 +92,10 @@ class CategoryController extends Controller
         $kind = $request->query('kind') === 'private' || (! $request->has('kind') && $selected?->is_custom) ? 'private' : 'kaya';
         $selected ??= $listed->where('is_custom', $kind === 'private')->first();
         $selectedInUse = $selected?->isInUse() ?? false;
+        $impact = $selectedInUse ? $selected->deletionImpact() : null;
 
         return view('admin.categories.index', compact(
-            'categories', 'listed', 'selected', 'selectedInUse', 'q',
+            'categories', 'listed', 'selected', 'selectedInUse', 'impact', 'q',
             'workersByCategory', 'workersBySkill', 'jobsBySkill', 'aliases', 'links',
             'usedBy', 'linkUsage', 'linkLog',
         ));
@@ -187,8 +188,9 @@ class CategoryController extends Controller
     /*
         Deletes a category outright, in use or not.
 
-        Jobs and worker profiles keep everything but the category (the
-        database sets it to none). A worker's skills would go with the
+        Jobs keep everything but the category (the database sets it to
+        none). So do worker profiles, and a worker with other skills takes
+        the category those are under. A worker's skills would go with the
         category's own skills, so they are unhooked first and stay on the
         profile as the words the worker typed. Custom categories that
         pointed at this one stop pointing. To keep the people under a
@@ -197,24 +199,25 @@ class CategoryController extends Controller
     public function destroy(Category $category)
     {
         $name = $category->name;
-        $jobs = $category->jobs()->count();
-        $workers = WorkerSkill::where('category_id', $category->id)->distinct()->count('user_id');
+        ['jobs' => $jobs, 'workers' => $workers, 'left' => $left] = $category->deletionImpact();
 
         DB::transaction(function () use ($category) {
             $skillIds = $category->skills()->pluck('id');
+            $theirs = \App\Models\WorkerProfile::where('category_id', $category->id)->pluck('user_id');
             WorkerSkill::where('category_id', $category->id)->update(['category_id' => null]);
             WorkerSkill::whereIn('skill_id', $skillIds)->update(['skill_id' => null]);
             Category::where('maps_to_id', $category->id)->update(['maps_to_id' => null]);
             $category->delete();
+            \App\Models\WorkerProfile::fillCategories($theirs);
         });
 
         AdminAction::record('category.deleted', 'category', null, "Deleted category {$name} ({$jobs} jobs, {$workers} workers)");
 
-        $left = $jobs + $workers > 0
-            ? " {$jobs} " . ($jobs === 1 ? 'job' : 'jobs') . " and {$workers} " . ($workers === 1 ? 'worker' : 'workers') . ' no longer have a category.'
+        $none = $jobs + $left > 0
+            ? " {$jobs} " . ($jobs === 1 ? 'job' : 'jobs') . " and {$left} " . ($left === 1 ? 'worker' : 'workers') . ' no longer have a category.'
             : '';
 
-        return redirect()->route('admin.categories.index')->with('success', "{$name} deleted.{$left}");
+        return redirect()->route('admin.categories.index')->with('success', "{$name} deleted.{$none}");
     }
 
     public function storeSkill(Request $request, Category $category)
@@ -308,6 +311,22 @@ class CategoryController extends Controller
         AdminAction::record('skill_link.removed', 'skill_link', null, "Unlinked the word \"{$term}\"");
 
         return back()->with('success', "\"{$term}\" is no longer linked.");
+    }
+
+    /** The System's answer put right: a word is work, or it is not. */
+    public function markWord(Request $request)
+    {
+        $data = $request->validate([
+            'term'      => ['required', 'string', 'max:120'],
+            'not_skill' => ['required', 'boolean'],
+        ]);
+        $notSkill = (bool) $data['not_skill'];
+
+        SkillLink::record($data['term'], [], $notSkill);
+        AdminAction::record('skill_link.marked', 'skill_link', null,
+            "Marked the word \"{$data['term']}\" as " . ($notSkill ? 'not a skill' : 'a skill'));
+
+        return back()->with('success', "\"{$data['term']}\" is " . ($notSkill ? 'not a skill. Matching ignores it.' : 'a skill again.'));
     }
 
     public function destroyAlias(SkillAlias $alias)

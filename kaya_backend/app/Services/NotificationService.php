@@ -770,18 +770,23 @@ class NotificationService
         }
     }
 
-    /** The employer closed a post people were still waiting on. */
-    public function jobClosedByEmployer(JobPost $job, \Illuminate\Support\Collection $applicantIds): void
+    /**
+     * A post ended with people still waiting on it. See WaitingApplicants.
+     *
+     * @param  \Illuminate\Support\Collection<int, bool>  $waiting  worker id => Barya returned
+     */
+    public function applicantsLetGo(JobPost $job, \Illuminate\Support\Collection $waiting, string $ended): void
     {
-        foreach ($applicantIds->unique() as $workerId) {
+        foreach ($waiting as $workerId => $refunded) {
             $this->push(
                 userId: $workerId,
                 audience: UserNotification::AUDIENCE_WORKER,
                 type: 'job.closed',
                 title: 'A job you applied for was closed',
-                body: '"' . $job->title . '" was closed by the employer. Your Barya has been returned.',
-                referenceType: 'job',
-                referenceId: $job->id,
+                body: '"' . $job->title . '" ' . $ended . '.' . ($refunded ? ' Your Barya has been returned.' : ''),
+                // A deleted post has nothing to point at.
+                referenceType: $job->exists ? 'job' : null,
+                referenceId: $job->exists ? $job->id : null,
             );
         }
     }

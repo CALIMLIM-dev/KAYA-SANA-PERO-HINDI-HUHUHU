@@ -63,7 +63,12 @@ void main() {
         'Aircon Cleaning and Repair', 'Carpentry', 'Electrical', 'Masonry', 'Plumbing',
       ].asMap().entries.map((e) => CategoryModel(id: e.key + 1, name: e.value)).toList();
 
-  Widget app({required bool employer, required double textScale, required WidgetTester tester}) {
+  Widget app({
+    required bool employer,
+    required double textScale,
+    required WidgetTester tester,
+    AppModeProvider? mode,
+  }) {
     return MediaQuery(
       data: MediaQueryData.fromView(tester.view).copyWith(textScaler: TextScaler.linear(textScale)),
       child: MultiProvider(
@@ -77,7 +82,7 @@ void main() {
           ChangeNotifierProvider(create: (_) => LocationProvider()),
           ChangeNotifierProvider(create: (_) => CreditsProvider()),
           ChangeNotifierProvider<AppModeProvider>.value(
-            value: AppModeProvider()..reconcile(hasWorker: !employer, hasEmployer: employer),
+            value: mode ?? (AppModeProvider()..reconcile(hasWorker: !employer, hasEmployer: employer)),
           ),
           ChangeNotifierProvider(create: (_) => ApplicationProvider()),
           ChangeNotifierProvider(create: (_) => InvitationProvider()),
@@ -172,6 +177,45 @@ void main() {
       });
     }
   }
+
+  // Nobody is on a side yet, so both are theirs to look at.
+  testWidgets('an account with no profile can look at jobs and at workers', (tester) async {
+    SharedPreferences.setMockInitialValues({});
+    await RenderHarness.loadFonts(tester);
+    RenderHarness.stubPlatformChannels(tester);
+    tester.view.physicalSize = const Size(640, 1400);
+    tester.view.devicePixelRatio = 2.0;
+    addTearDown(tester.view.reset);
+
+    await tester.pumpWidget(app(employer: false, textScale: 1.3, tester: tester, mode: AppModeProvider()));
+    await tester.pump(const Duration(milliseconds: 300));
+    await tester.pump(const Duration(milliseconds: 300));
+    expect(find.text('Tile setter for a bathroom'), findsOneWidget);
+
+    await tester.tap(find.text('Workers'));
+    await tester.pump(const Duration(milliseconds: 300));
+    await tester.pump(const Duration(milliseconds: 300));
+    expect(find.text('Antonio Mangubat Dela Cruz Jr.'), findsOneWidget);
+    expect(find.text('Tile setter for a bathroom'), findsNothing);
+
+    await tester.tap(find.text('Jobs'));
+    await tester.pump(const Duration(milliseconds: 300));
+    await tester.pump(const Duration(milliseconds: 300));
+    expect(find.text('Tile setter for a bathroom'), findsOneWidget);
+  });
+
+  testWidgets('an account on one side still has nothing to switch', (tester) async {
+    SharedPreferences.setMockInitialValues({});
+    RenderHarness.stubPlatformChannels(tester);
+    tester.view.physicalSize = const Size(1080, 2400);
+    tester.view.devicePixelRatio = 3.0;
+    addTearDown(tester.view.reset);
+
+    await tester.pumpWidget(app(employer: false, textScale: 1.0, tester: tester));
+    await tester.pump(const Duration(milliseconds: 300));
+    expect(find.text('Tile setter for a bathroom'), findsOneWidget);
+    expect(find.text('Workers'), findsNothing);
+  });
 
   testWidgets('recent searches come back, and can be cleared', (tester) async {
     SharedPreferences.setMockInitialValues({

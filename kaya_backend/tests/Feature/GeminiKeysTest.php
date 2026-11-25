@@ -60,6 +60,49 @@ class GeminiKeysTest extends TestCase
         $this->assertSame(['key-one', 'key-two', 'key-two'], $used);
     }
 
+    /*
+        A wrong or deleted key is answered 400, not 401. It used to count as
+        an answer, so one dead key in front stopped every key behind it.
+    */
+    #[Test]
+    public function a_key_that_does_not_exist_is_skipped_too(): void
+    {
+        $used = [];
+        Http::fake(function (Request $r) use (&$used) {
+            parse_str((string) parse_url($r->url(), PHP_URL_QUERY), $q);
+            $used[] = $q['key'];
+
+            return $q['key'] === 'key-one'
+                ? Http::response(['error' => [
+                    'code' => 400, 'message' => 'API key not valid. Please pass a valid API key.', 'status' => 'INVALID_ARGUMENT',
+                    'details' => [['reason' => 'API_KEY_INVALID']],
+                ]], 400)
+                : Http::response(['embedding' => ['values' => [0.1, 0.2, 0.3, 0.4]]]);
+        });
+
+        $this->assertSame([0.1, 0.2, 0.3, 0.4], (new Embeddings())->fetchAndStore('tubero'));
+        $this->assertSame(['key-one', 'key-two'], $used);
+
+        (new Embeddings())->fetchAndStore('karpintero');
+        $this->assertSame(['key-one', 'key-two', 'key-two'], $used);
+    }
+
+    /** A badly written request is nobody's key's fault. */
+    #[Test]
+    public function any_other_400_rests_nothing(): void
+    {
+        $sent = 0;
+        Http::fake(function () use (&$sent) {
+            $sent++;
+
+            return Http::response(['error' => ['code' => 400, 'message' => 'Invalid JSON payload received.']], 400);
+        });
+
+        $this->assertSame(400, GeminiKeys::send(fn () => Http::get('https://example.test'))->status());
+        $this->assertSame(400, GeminiKeys::send(fn () => Http::get('https://example.test'))->status());
+        $this->assertSame(2, $sent);
+    }
+
     #[Test]
     public function every_key_refused_is_no_answer_and_never_an_error(): void
     {

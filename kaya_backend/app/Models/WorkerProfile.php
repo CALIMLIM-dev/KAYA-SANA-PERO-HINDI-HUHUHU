@@ -144,17 +144,48 @@ class WorkerProfile extends Model
     }
 
     /*
-        What a worker profile needs before it can apply for work: a trade,
-        a skill and a town. Nothing more - KAYA is a community app, and a
+        What a worker profile needs before it can apply for work: a job
+        category, a skill and a town. Nothing more - KAYA is a community app, and a
         longer checklist kept people out rather than helping anyone hire.
 
         Keyed by field; the values are what the refusals say.
     */
     public const REQUIREMENTS = [
-        'trade' => 'your trade',
+        'trade' => 'a job category',
         'skill' => 'at least one skill',
         'town'  => 'your town',
     ];
+
+    /*
+        A profile with no category takes the one most of its skills are
+        filed under.
+
+        The category is chosen once at setup and an administrator can delete
+        it later. A worker whose other skills still said Carpentry was then
+        refused a boost, an application and a place in the directory, all of
+        which read the one column - so the column is filled here instead of
+        each of them learning to look at the skills.
+    */
+    public static function fillCategories(iterable $userIds): void
+    {
+        foreach (self::whereIn('user_id', $userIds)->whereNull('category_id')->get() as $profile) {
+            $categoryId = WorkerSkill::with('skill:id,category_id')
+                ->where('user_id', $profile->user_id)
+                ->orderBy('id')
+                ->get()
+                ->map(fn (WorkerSkill $skill) => $skill->category_id ?? $skill->skill?->category_id)
+                ->filter()
+                ->countBy()
+                ->sortDesc()
+                ->keys()
+                // Not a private one they took off their list.
+                ->first(fn ($id) => Category::whereKey($id)->whereNull('removed_at')->exists());
+
+            if ($categoryId !== null) {
+                $profile->forceFill(['category_id' => $categoryId])->save();
+            }
+        }
+    }
 
     /** @return array<string,string> the unmet requirements, keyed as REQUIREMENTS. */
     public function missingForCompletion(): array

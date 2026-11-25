@@ -282,11 +282,18 @@
                             </button>
                         </div>
                     </form>
-                    @php $affectedWorkers = $workersByCategory[$selected->id] ?? 0; @endphp
+                    @php
+                        $stay = $impact['workers'] - $impact['left'];
+                        $warning = 'Delete ' . $selected->name . ' without moving anything? '
+                            . $impact['jobs'] . ' ' . ($impact['jobs'] === 1 ? 'job' : 'jobs') . ' will have no category. '
+                            . $impact['workers'] . ' ' . ($impact['workers'] === 1 ? 'worker uses' : 'workers use') . ' it: '
+                            . $stay . ' ' . ($stay === 1 ? 'keeps' : 'keep') . ' another category, '
+                            . $impact['left'] . ' will have none. Workers keep their skill words. This cannot be undone.';
+                    @endphp
                     <form method="POST" action="{{ route('admin.categories.destroy', $selected) }}" class="mt-3"
-                          onsubmit="return confirm('Delete {{ addslashes($selected->name) }} without moving anything? {{ $selected->jobs_count }} {{ $selected->jobs_count === 1 ? 'job' : 'jobs' }} and {{ $affectedWorkers }} {{ $affectedWorkers === 1 ? 'worker' : 'workers' }} will have no category. Workers keep their skill words. This cannot be undone.')">
+                          onsubmit="return confirm('{{ addslashes($warning) }}')">
                         @csrf
-                        <p class="text-xs text-slate-500">Or delete it straight. Its jobs and workers stay, without a category.</p>
+                        <p class="text-xs text-slate-500">Or delete it straight. {{ $impact['jobs'] }} {{ $impact['jobs'] === 1 ? 'job' : 'jobs' }} and {{ $impact['left'] }} {{ $impact['left'] === 1 ? 'worker' : 'workers' }} will have no category. {{ $stay }} {{ $stay === 1 ? 'worker keeps' : 'workers keep' }} another one.</p>
                         <button class="mt-2 px-3 py-2 border border-red-300 text-red-600 rounded-lg text-sm font-medium hover:bg-red-50">
                             Delete Without Moving
                         </button>
@@ -401,7 +408,7 @@
                             <td class="py-2 px-5 text-slate-500 whitespace-nowrap">{{ $entry->created_at->timezone('Asia/Manila')->format('M j, g:i A') }}</td>
                             <td class="py-2 px-5 text-slate-800">{{ $entry->term }}</td>
                             <td class="py-2 px-5 whitespace-nowrap {{ $entry->outcome === 'failed' ? 'text-red-700' : 'text-slate-700' }}">
-                                {{ ['linked' => 'Linked', 'created' => 'New Skill', 'none' => 'Not a Skill', 'failed' => 'Failed'][$entry->outcome] ?? ucfirst($entry->outcome) }}
+                                {{ ['linked' => 'Linked', 'created' => 'New Skill', 'none' => 'No Link', 'not_skill' => 'Not a Skill', 'failed' => 'Failed'][$entry->outcome] ?? ucfirst($entry->outcome) }}
                             </td>
                             <td class="py-2 px-5 text-slate-600">{{ $entry->skills ?? $entry->error ?? '' }}</td>
                             <td class="py-2 px-5 text-right text-slate-500 tabular-nums">{{ number_format($entry->ms / 1000, 1) }}s</td>
@@ -425,20 +432,31 @@
     @else
         <ul class="divide-y divide-slate-200">
             @foreach ($links as $term => $rows)
-                @php $skills = $rows->pluck('skill.name')->filter(); @endphp
+                @php
+                    $skills = $rows->pluck('skill.name')->filter();
+                    $notSkill = (bool) $rows->first()->not_skill;
+                @endphp
                 <li class="px-5 py-2.5 flex items-center justify-between gap-3 text-sm">
                     <span class="text-slate-700">
                         {{ $term }} <span class="text-slate-400">→</span>
-                        {{ $skills->isEmpty() ? 'Not a Skill' : $skills->join(', ') }}
+                        {{ $notSkill ? 'Not a Skill' : ($skills->isEmpty() ? 'No Link' : $skills->join(', ')) }}
                         <span class="ml-2 text-xs text-slate-500">Used by {{ $usedBy[$term] ?? 0 }}</span>
                     </span>
-                    @if ($skills->isNotEmpty())
-                        <form method="POST" action="{{ route('admin.skill-links.unlink') }}">
+                    <span class="flex items-center gap-4 shrink-0">
+                        @if ($skills->isNotEmpty())
+                            <form method="POST" action="{{ route('admin.skill-links.unlink') }}">
+                                @csrf
+                                <input type="hidden" name="term" value="{{ $term }}">
+                                <button class="text-xs text-slate-500 hover:text-red-600">Unlink</button>
+                            </form>
+                        @endif
+                        <form method="POST" action="{{ route('admin.skill-links.mark') }}">
                             @csrf
                             <input type="hidden" name="term" value="{{ $term }}">
-                            <button class="text-xs text-slate-500 hover:text-red-600">Unlink</button>
+                            <input type="hidden" name="not_skill" value="{{ $notSkill ? 0 : 1 }}">
+                            <button class="text-xs text-slate-500 hover:text-red-600">{{ $notSkill ? 'It Is a Skill' : 'Not a Skill' }}</button>
                         </form>
-                    @endif
+                    </span>
                 </li>
             @endforeach
         </ul>

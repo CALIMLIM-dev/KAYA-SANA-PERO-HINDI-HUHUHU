@@ -39,6 +39,10 @@ class WorkerSkill extends Model
     */
     protected static function booted(): void
     {
+        // Added, or linked to the catalogue later: either can be the first
+        // thing that says what work this person does.
+        static::saved(fn (self $row) => WorkerProfile::fillCategories([$row->user_id]));
+
         static::created(function (self $row) {
             $term = (string) $row->skill_name;
 
